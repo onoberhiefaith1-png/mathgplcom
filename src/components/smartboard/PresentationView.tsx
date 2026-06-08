@@ -916,7 +916,7 @@ const PresentationView = ({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [beats.length]);
+  }, [beats.length, canEdit]);
 
   const palette = SURFACES[surface];
   const isDark = surface === "blackboard";
