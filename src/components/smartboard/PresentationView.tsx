@@ -893,6 +893,7 @@ const PresentationView = ({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!canEdit) return; // view-only mirror: ignore all keyboard control
       if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
         if (e.shiftKey) doRedo(); else doUndo();
