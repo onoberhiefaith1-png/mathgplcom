@@ -63,8 +63,8 @@ const ActiveStudentControl = ({
     <div data-sb-chrome className="fixed z-40" style={{ left: 12, top: "calc(50% - 92px)" }}>
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Active Student"
-        title="Active Student — grant one student editing rights"
+        aria-label="Student Can Edit"
+        title="Student Can Edit — grant one student editing rights"
         className="grid place-items-center rounded-full border transition-all"
         style={{
           width: 44,
