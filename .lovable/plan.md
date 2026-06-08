@@ -1,65 +1,61 @@
-# Join Class Hardening Plan
+## Post-Join-Class Refinement Phase
 
-The rebuild already landed Phases 3, 4, and 6 (RLS firewall, `/join` route, participant `/student/class/:classId` dashboard). This plan closes the gaps between what exists today and the strict participant-portal spec, then runs the two-account isolation test.
+Six corrections to the existing classroom system. No homework/assessments. No redesign — only the fixes below.
 
-## What is already correct
-- `/join` route exists and is participant-only (Join Code, Invite Link, MathGPL ID display, Previous Classes).
-- Pending requests auto-redirect on approval via realtime on `class_members`.
-- `/student/class/:classId` enforces an identity firewall (must be in `class_members`), shows only SmartBoard link + released Class Notes, no owner UI.
-- All helper RPCs revoked from `anon`; class data cannot be probed without login.
-- RLS audit confirms `classes`, `class_members`, `class_lesson_notes`, notebook tables, etc. are scoped to owner OR member only.
+---
 
-## Gaps to fix
+### 1. Move Join Class inside Classes
 
-### 1. Owner approval inbox (Create Class side)
-The old `InvitationsInboxPage` was deleted with the Join Class teardown, so right now there is no UI for an owner to approve/reject pending `class_join_requests`. Without it the participant is stuck on "Waiting for approval" forever.
+- **`TeachingHub.tsx`** — remove the standalone "Join a Class" tile. Tiles become: Lesson Notes, SmartBoard, Classes, Settings.
+- **`TeachingHubClasses.tsx`** — render two side-by-side panels:
+  - **Left:** "Create Class" (existing link/card to `/teaching-hub/classes/create`).
+  - **Right:** "Join Class" — embed the join UI (join-code + invite-link entry, pending-request banner, invitations, MathGPL ID) directly here.
+- Extract the join logic/UI from `JoinClassPage.tsx` into a reusable `JoinClassPanel` component used by both the Classes page (right panel) and the existing `/join/:code` route (kept for invite links). "Your Classes" list stays below the two panels.
 
-Build a new owner-only surface inside the existing Create Class ownership UI (not on `/join`):
-- New section on `ClassDashboardPage` (owner-gated by `ensureClassOwner`) listing pending rows from `class_join_requests` for that class.
-- Approve action: insert into `class_members`, mark request `approved`. Reject action: mark request `rejected`. Both via existing RLS — owner-only.
-- Realtime refresh of the pending list so the owner sees new requests live.
+### 2. Classes works without Lesson Notes
 
-### 2. MathGPL ID invitation path
-Spec lists three entry methods: Join Code, Invite Link, **MathGPL ID invitation**. Today only the first two work.
-- Owner side: on `ClassDashboardPage`, add "Invite by MathGPL ID" — owner pastes a participant's `MGP-XXXXXX`, server looks it up via existing `lookup_profile_by_student_id`, and writes a row to `class_invitations` targeted at that user.
-- Participant side: `/join` shows an "Invitations for you" list pulled from `class_invitations` where the target matches the current user. Accepting it creates the pending request (or directly the membership, depending on owner policy — default: direct membership, since the owner already opted in by sending the invite).
-- All gated by RLS already in place on `class_invitations`.
+- Audit and remove any redirect that pushes a user toward Lesson Notes when opening Classes. Classes/Create Class must open with zero notebooks and zero smartboards.
+- Copy fix: where the app currently says "Add notes… first" / implies a note must be created, show **"No lesson note selected."** instead. Files: `ClassSmartBoardLauncher.tsx` empty state, `StudentClassPage.tsx` notes empty state.
 
-### 3. SmartBoard view-only for participants
-`SmartBoardPage` currently treats the `?viewer=…` flag as informational. Participants arriving from `/student/class/:classId` must get a strictly read-only view:
-- Detect participant mode (route param or `viewer=class:<id>` query) and short-circuit `PresentationView` to a read-only renderer: no toolbars, no edit handlers, no notebook mutation, no "generate" buttons.
-- Teacher's active notebook is followed via realtime subscription to `class_smartboard_state` for that class (subscribe on participant side, swap the rendered notebook id when it changes).
+### 3. Real-time access changes (no refresh)
 
-### 4. Class Notes empty state
-Already implemented ("Your teacher hasn't released any notes…"). Spec wording is "Class Notes not yet available." — minor copy tweak only.
+- **`StudentClassPage.tsx`** — subscribe to `class_lesson_notes` (filter `class_id`) so note grant/removal and visibility toggles update the student's notes list live.
+- **`StudentSmartBoardPage.tsx`** — in addition to the existing `class_smartboard_state` subscription, subscribe to `classes` row (smartboard_visibility) so SmartBoard access grant/removal applies instantly. When access is removed, drop back to the "no access" state immediately.
+- Migration: ensure `class_lesson_notes`, `classes`, and `class_smartboard_state` are in the `supabase_realtime` publication.
 
-### 5. "Previous Classes" semantics
-Today `/join` lists every class the user is still a member of. That already matches the spec (auto-appears if not removed and class still exists). No code change; just confirm by test.
+### 4 & 5. Student SmartBoard mirrors the real board (view-only)
 
-## Security test (must pass before shipping)
-Run with two real accounts in preview:
+- **Do not** keep the text-only `ReadOnlyNotebookView`. Render the actual `PresentationView` for students.
+- Add a `mode` prop to `PresentationView`: `"teacher"` (default, current behaviour) | `"mirror"` (student).
+- **Sync layer** (reuse existing `class_smartboard_state.state_json jsonb`):
+  - Teacher board (launched with `?classId=`) serializes its presentation state — `beatCursor`, `bandExtra`, `freeLines`, `lineOffsets`, `smartLines`, `boxes`, `sensor`, `zoom`, `surface` — and upserts it (debounced) into `state_json` on change.
+  - Student mirror reads `state_json` via realtime and applies it to the same state instead of localStorage; it does not persist locally.
+- **Mirror mode = view-only:** disable the writing surface, keyboard input, eraser, assistants, navigation arrows, settings — all editing/control chrome hidden. Student only watches; scrolling allowed.
 
-1. Account A: create class `Alpha`, add a lesson note, release it to students, generate join code.
-2. Account B: open `/join`, submit the code → "Waiting for approval".
-3. Account A: open class dashboard → see B's request → Approve.
-4. Account B: auto-redirects to `/student/class/<id>` with no manual reload.
-5. From Account B, attempt and confirm all of these FAIL (UI absent + direct API call blocked by RLS):
-   - Create / edit / delete any lesson note
-   - Read Account A's private notebooks
-   - List Account A's other classes
-   - Mutate `class_members`, `class_invitations`, `class_join_codes`, `class_smartboard_state`
-   - Hit `/teaching-hub/classes/<id>` (owner dashboard) for Alpha → bounced by `ensureClassOwner`
-6. Account A removes Account B → Account B's `/student/class/<id>` bounces to `/join` and class disappears from Previous Classes.
+### 6 & 7. Active Student control
 
-If any step fails, stop and fix RLS before adding features.
+- Migration: add `active_student_id uuid` (nullable) to `class_smartboard_state`.
+- **Teacher PresentationView** gains an "Active Student" control:
+  - Opens a list of approved students (`class_members` joined to `profiles`).
+  - Selecting Student A sets `active_student_id = A`. Selecting Student B replaces it (A loses rights instantly). Deselect / "Take back control" clears it.
+  - Teacher always retains edit rights regardless.
+- **Student mirror** subscribes to `active_student_id`. When it equals the current user, the mirror switches from view-only to **editable**: that student may move through the presentation, reveal lines, work solutions, and use board tools — and their changes broadcast back into `state_json` (same upsert path as teacher).
+- The moment `active_student_id` changes away from them, editing rights disappear instantly (back to view-only), no refresh.
+- Write model: only teacher + the single active student can write `state_json`; last-write-wins is acceptable since at most two editors exist.
 
-## Technical notes
-- No new tables; reuse `class_join_requests`, `class_invitations`, `class_members`, `class_smartboard_state`.
-- One migration only if SmartBoard state needs realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE public.class_smartboard_state;` (check first — may already be added).
-- All owner mutations stay behind `ensureClassOwner` + existing `is_class_owner()` RLS. No new privileges granted to participants.
-- No code copied from the old Join Class implementation.
+### 8. Out of scope
 
-## Out of scope
-- Renaming/redesigning Create Class screens.
-- Any change to lesson-note generation or pedagogy pipeline.
-- Email notifications for invites/approvals.
+No homework, assessments, quizzes, or per-student answer collection.
+
+---
+
+### Technical notes
+
+- `class_smartboard_state` already has `state_json jsonb`; only `active_student_id` is added.
+- RLS: teacher (class owner) can write state + active_student_id; approved members can read; the current active student can write state. Add/adjust policies in the migration and keep GRANTs intact.
+- Realtime publication additions are idempotent in the migration.
+- `PresentationView` is large and localStorage-driven; the cleanest approach is a small `useSmartboardSync(classId, role)` hook that (a) for teacher/active-student pushes a serialized snapshot on state change, (b) for viewers applies incoming snapshots, gating the local persistence effects when `classId` is present.
+
+### Validation
+
+Teacher creates class → approves 3 students → launches SmartBoard → all students see the identical board. Grant/remove note access reflects instantly on students. Select Student A → A can edit, B cannot. Select Student B → A loses rights, B gains them. Teacher always retains control.
