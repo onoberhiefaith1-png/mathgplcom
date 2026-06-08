@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, PlusCircle, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import JoinClassPanel from "@/components/class/JoinClassPanel";
 
 type OwnedClass = { id: string; name: string; join_code: string };
 
@@ -60,16 +61,26 @@ const TeachingHubClasses = () => {
         <h1 className="text-lg font-semibold tracking-wide">Classes</h1>
         <div className="w-32" />
       </header>
-      <main className="mx-auto max-w-5xl space-y-10 px-6 py-10">
-        <div className="grid grid-cols-1 gap-6">
-          <Link
-            to="/teaching-hub/classes/create"
-            className="group flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/20 to-primary/5 p-8 text-center backdrop-blur transition hover:scale-[1.02] hover:shadow-2xl"
-          >
-            <PlusCircle className="h-10 w-10 text-primary" />
-            <div className="text-xl font-semibold">Create Class</div>
-            <p className="max-w-xs text-sm text-muted-foreground">Start a new classroom.</p>
-          </Link>
+      <main className="mx-auto max-w-6xl space-y-10 px-6 py-10">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* LEFT — Create Class */}
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Create Class</h2>
+            <Link
+              to="/teaching-hub/classes/create"
+              className="group flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/20 to-primary/5 p-8 text-center backdrop-blur transition hover:scale-[1.02] hover:shadow-2xl"
+            >
+              <PlusCircle className="h-10 w-10 text-primary" />
+              <div className="text-xl font-semibold">Create Class</div>
+              <p className="max-w-xs text-sm text-muted-foreground">Start a new classroom. No lesson notes needed.</p>
+            </Link>
+          </section>
+
+          {/* RIGHT — Join Class */}
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Join Class</h2>
+            <JoinClassPanel />
+          </section>
         </div>
 
         {loading ? (
