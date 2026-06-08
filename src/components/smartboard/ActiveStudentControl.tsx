@@ -87,16 +87,18 @@ const ActiveStudentControl = ({
           style={{ background: chromeBg, color: chromeFg, borderColor: chromeBorder, backdropFilter: "blur(12px)" }}
         >
           <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider opacity-70">
-            Active Student
+            Student Can Edit
           </div>
           <div className="px-2 pb-2 text-[11px] opacity-60">
-            {activeStudentId ? `${activeName ?? "A student"} can edit` : "You have full control"}
+            {activeStudentId
+              ? `${activeName ?? "A student"} can edit`
+              : "Select one student to grant editing"}
           </div>
           <button
             onClick={() => onSelect(null)}
             className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-black/10"
           >
-            <span>Teacher only (take back control)</span>
+            <span>Teacher only — take back control</span>
             {!activeStudentId && <Check className="h-4 w-4" style={{ color: accent }} />}
           </button>
           <div className="my-1 border-t" style={{ borderColor: chromeBorder }} />
