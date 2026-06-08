@@ -1251,6 +1251,7 @@ const PresentationView = ({
           Pull-tab at top-center reveals it. */}
       <header
         data-sb-chrome
+        data-sb-teacher-only
         className="absolute z-20 flex items-center gap-3 px-4 py-2 border rounded-b-2xl transition-transform duration-500"
         style={{
           ...chromeStyle,
@@ -1355,6 +1356,7 @@ const PresentationView = ({
       {/* Soft-glow pull-tab — TOP. Drag the header down/up. */}
       <button
         data-sb-chrome
+        data-sb-teacher-only
         onClick={() => setTopOpen((v) => !v)}
         aria-label={topOpen ? "Hide top bar" : "Show top bar"}
         className="absolute z-30 top-0 left-1/2 -translate-x-1/2 grid place-items-center rounded-b-full transition-all"
@@ -1376,6 +1378,7 @@ const PresentationView = ({
           stay unsolved for human interaction. Independent of the top Next. */}
       <button
         data-sb-chrome
+        data-sb-teacher-only
         onClick={() => canAdvanceBeat && setBeatCursor((c) => Math.min(beats.length - 1, c + 1))}
         disabled={!canAdvanceBeat}
         aria-label="Next section"
