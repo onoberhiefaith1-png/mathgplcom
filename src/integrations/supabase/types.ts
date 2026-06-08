@@ -174,18 +174,21 @@ export type Database = {
       }
       class_smartboard_state: {
         Row: {
+          active_student_id: string | null
           class_id: string
           notebook_id: string | null
           state_json: Json
           updated_at: string
         }
         Insert: {
+          active_student_id?: string | null
           class_id: string
           notebook_id?: string | null
           state_json?: Json
           updated_at?: string
         }
         Update: {
+          active_student_id?: string | null
           class_id?: string
           notebook_id?: string | null
           state_json?: Json
