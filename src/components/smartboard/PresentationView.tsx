@@ -2392,9 +2392,30 @@ const PresentationView = ({
         />
       )}
 
+      {/* Student status indicator — always visible to students (exempt from
+          the chrome-hiding rules). Reflects the teacher's grant in realtime. */}
+      {role === "student" && (
+        <div
+          className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 select-none rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur"
+          style={
+            isActiveStudent
+              ? { background: "rgba(34,197,94,0.15)", color: "#16a34a", borderColor: "rgba(34,197,94,0.45)" }
+              : { background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }
+          }
+        >
+          {isActiveStudent ? "Editing Enabled by Teacher" : "View Only Mode"}
+        </div>
+      )}
+
       {/* View-only mirror: hide every editing/control affordance. */}
       {!canEdit && (
         <style>{`[data-sb-chrome]{display:none !important;}`}</style>
+      )}
+
+      {/* Active student editor: enable board/writing/math tools but keep all
+          teacher-exclusive controls hidden. */}
+      {role === "student" && canEdit && (
+        <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
     </div>
   );
