@@ -2319,7 +2319,7 @@ const PresentationView = ({
 
 
       {/* Permanent activation buttons for the three workspace assistants. */}
-      {carrierVisible && (
+      {canEdit && carrierVisible && (
         <AssistantButtons
           active={activeAssistant}
           onToggle={toggleAssistant}
@@ -2334,7 +2334,7 @@ const PresentationView = ({
       {/* AI line-status verification toggle. Off by default; when on, the
           left-edge bulbs render (yellow → in progress, green → correct,
           red → mismatch, blue → whole problem solved). */}
-      {carrierVisible && (
+      {canEdit && carrierVisible && (
         <button
           data-sb-chrome
           onClick={(e) => { e.stopPropagation(); setVerifyOn((v) => !v); }}
