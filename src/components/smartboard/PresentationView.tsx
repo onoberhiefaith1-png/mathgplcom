@@ -567,6 +567,42 @@ const PresentationView = ({
     try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch { /* noop */ }
   }, [zoom, ZOOM_KEY]);
 
+  // ── Live mirroring: apply remote board snapshots authored by someone else. ──
+  useEffect(() => {
+    if (!syncEnabled || !incoming) return;
+    if (incoming.author && selfId && incoming.author === selfId) return; // own echo
+    applyingRemoteRef.current = true;
+    if (typeof incoming.beatCursor === "number") setBeatCursor(incoming.beatCursor);
+    if (incoming.bandExtra) setBandExtra(incoming.bandExtra);
+    if (incoming.freeLines) setFreeLines(incoming.freeLines as FreeLineMap);
+    if (incoming.lineOffsets) setLineOffsets(incoming.lineOffsets);
+    if (incoming.smartLines) setSmartLines(incoming.smartLines as SmartLine[]);
+    if (incoming.boxes) setBoxes(incoming.boxes as MagnetBox[]);
+    if (incoming.sensor) setSensor(incoming.sensor);
+    if (typeof incoming.zoom === "number") setZoom(incoming.zoom);
+    if (incoming.surface) setSurface(incoming.surface as Surface);
+    if (incoming.profileId) setProfileId(incoming.profileId as WritingProfileId);
+    if (incoming.inkColorId) setInkColorId(incoming.inkColorId as InkColorId);
+    const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
+    return () => window.clearTimeout(t);
+  }, [incoming, syncEnabled, selfId]);
+
+  // ── Live mirroring: broadcast local board state while we hold edit rights. ──
+  useEffect(() => {
+    if (!syncEnabled || !canEdit) return;
+    if (applyingRemoteRef.current) return;
+    pushSnapshot({
+      beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+      sensor, zoom, surface, profileId, inkColorId,
+    });
+  }, [
+    syncEnabled, canEdit, pushSnapshot,
+    beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+    sensor, zoom, surface, profileId, inkColorId,
+  ]);
+
+
+
   // Keep the hidden textarea focused so keystrokes flow into the board.
   useEffect(() => {
     const t = window.setTimeout(() => hiddenInputRef.current?.focus({ preventScroll: true }), 0);
