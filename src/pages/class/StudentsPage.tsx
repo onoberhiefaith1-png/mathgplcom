@@ -38,13 +38,14 @@ const StudentsPage = () => {
       .eq("class_id", classId)
       .order("joined_at", { ascending: true });
 
-    const allIds = [
-      ...(reqRows ?? []).map((r) => r.requester_id),
-      ...(memRows ?? []).map((m) => m.user_id),
+    const [{ data: memberProfiles }, { data: requestProfiles }] = await Promise.all([
+      supabase.rpc("get_class_member_names", { _class_id: classId }),
+      supabase.rpc("get_class_join_request_profiles", { _class_id: classId }),
+    ]);
+    const profiles = [
+      ...(memberProfiles ?? []).map((p) => ({ user_id: p.user_id, display_name: p.display_name })),
+      ...(requestProfiles ?? []).map((p) => ({ user_id: p.user_id, display_name: p.display_name })),
     ];
-    const profiles = allIds.length
-      ? (await supabase.from("profiles").select("user_id, display_name").in("user_id", allIds)).data ?? []
-      : [];
     const nameOf = (uid: string) => profiles.find((p) => p.user_id === uid)?.display_name ?? null;
 
     setPending((reqRows ?? []).map((r) => ({ id: r.id, requester_id: r.requester_id, created_at: r.created_at, display_name: nameOf(r.requester_id) })));
