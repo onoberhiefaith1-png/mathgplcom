@@ -29,17 +29,11 @@ const JoinRequestsPanel = ({ classId }: { classId: string }) => {
       .eq("class_id", classId)
       .eq("status", "pending")
       .order("created_at", { ascending: true });
-    const ids = (reqs ?? []).map((r) => r.requester_id);
-    let profiles: Record<string, { display_name: string | null; mathgpl_student_id: string | null }> = {};
-    if (ids.length > 0) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, mathgpl_student_id")
-        .in("user_id", ids);
-      profiles = Object.fromEntries(
+    const { data: profs } = await supabase.rpc("get_class_join_request_profiles", { _class_id: classId });
+    const profiles: Record<string, { display_name: string | null; mathgpl_student_id: string | null }> =
+      Object.fromEntries(
         (profs ?? []).map((p) => [p.user_id, { display_name: p.display_name, mathgpl_student_id: p.mathgpl_student_id }]),
       );
-    }
     setRows(
       (reqs ?? []).map((r) => ({
         id: r.id,

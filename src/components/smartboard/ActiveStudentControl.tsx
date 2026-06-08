@@ -37,10 +37,7 @@ const ActiveStudentControl = ({
     const ids = (memRows ?? []).map((m) => m.user_id);
     let names: Record<string, string | null> = {};
     if (ids.length > 0) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("user_id, display_name")
-        .in("user_id", ids);
+      const { data: profs } = await supabase.rpc("get_class_member_names", { _class_id: classId });
       names = Object.fromEntries((profs ?? []).map((p) => [p.user_id, p.display_name]));
     }
     setMembers(ids.map((id) => ({ user_id: id, display_name: names[id] ?? null })));

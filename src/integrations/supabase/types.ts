@@ -477,6 +477,21 @@ export type Database = {
       }
       generate_mathgpl_id: { Args: never; Returns: string }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
+      get_class_join_request_profiles: {
+        Args: { _class_id: string }
+        Returns: {
+          display_name: string
+          mathgpl_student_id: string
+          user_id: string
+        }[]
+      }
+      get_class_member_names: {
+        Args: { _class_id: string }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
       get_owned_class_codes: {
         Args: never
         Returns: {
