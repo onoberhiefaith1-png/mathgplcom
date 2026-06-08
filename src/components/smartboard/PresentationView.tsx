@@ -2362,19 +2362,40 @@ const PresentationView = ({
 
 
 
-      <BottomPanel
-        open={panelOpen}
-        onToggle={() => setPanelOpen((v) => !v)}
-        onInsertChar={insertCharAtSensor}
-        onInsertNode={insertNodeAtSensor}
-        chromeBg={palette.chromeBg}
-        chromeFg={palette.chromeFg}
-        chromeBorder={palette.chromeBorder}
-        isDark={isDark}
-      />
+      {canEdit && (
+        <BottomPanel
+          open={panelOpen}
+          onToggle={() => setPanelOpen((v) => !v)}
+          onInsertChar={insertCharAtSensor}
+          onInsertNode={insertNodeAtSensor}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          isDark={isDark}
+        />
+      )}
+
+      {/* Teacher-only: hand live editing rights to one approved student. */}
+      {isTeacher && syncEnabled && classIdProp && (
+        <ActiveStudentControl
+          classId={classIdProp}
+          activeStudentId={activeStudentId}
+          onSelect={setActiveStudent}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          accent={palette.accent}
+        />
+      )}
+
+      {/* View-only mirror: hide every editing/control affordance. */}
+      {!canEdit && (
+        <style>{`[data-sb-chrome]{display:none !important;}`}</style>
+      )}
     </div>
   );
 };
+
 
 /* ─────────────── Beat renderer ─────────────── */
 
