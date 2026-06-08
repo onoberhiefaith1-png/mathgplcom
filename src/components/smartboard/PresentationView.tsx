@@ -128,10 +128,28 @@ const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
 
 /* ─────────────── Page ─────────────── */
 
-const PresentationView = () => {
-  const { notebookId } = useParams<{ notebookId: string }>();
+const PresentationView = ({
+  notebookId: notebookIdProp,
+  classId: classIdProp = null,
+  role = "teacher",
+}: {
+  notebookId?: string | null;
+  classId?: string | null;
+  role?: "teacher" | "student";
+} = {}) => {
+  const params = useParams<{ notebookId: string }>();
+  const notebookId = notebookIdProp ?? params.notebookId;
   const navigate = useNavigate();
-  const { notebook, sections, loading } = useNotebook(notebookId);
+  const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
+
+  // Live classroom mirroring.
+  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent } =
+    useSmartboardSync({ classId: classIdProp, role });
+  const syncEnabled = !!classIdProp;
+  const isTeacher = role === "teacher";
+  const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
+  const canEdit = isTeacher || isActiveStudent;
+  const applyingRemoteRef = useRef(false);
   const beats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
   const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
 
