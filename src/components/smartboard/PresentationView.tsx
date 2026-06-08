@@ -2047,7 +2047,9 @@ const PresentationView = ({
           zIndex: -1,
         }}
       />
+      )}
 
+      {canEdit && (
       <StylesRail
         profileId={profileId}
         setProfileId={setProfileId}
@@ -2059,6 +2061,7 @@ const PresentationView = ({
         chromeFg={palette.chromeFg}
         chromeBorder={palette.chromeBorder}
       />
+      )}
 
 
 
