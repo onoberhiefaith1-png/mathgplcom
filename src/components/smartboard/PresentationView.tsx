@@ -1251,6 +1251,7 @@ const PresentationView = ({
           Pull-tab at top-center reveals it. */}
       <header
         data-sb-chrome
+        data-sb-teacher-only
         className="absolute z-20 flex items-center gap-3 px-4 py-2 border rounded-b-2xl transition-transform duration-500"
         style={{
           ...chromeStyle,
@@ -1355,6 +1356,7 @@ const PresentationView = ({
       {/* Soft-glow pull-tab — TOP. Drag the header down/up. */}
       <button
         data-sb-chrome
+        data-sb-teacher-only
         onClick={() => setTopOpen((v) => !v)}
         aria-label={topOpen ? "Hide top bar" : "Show top bar"}
         className="absolute z-30 top-0 left-1/2 -translate-x-1/2 grid place-items-center rounded-b-full transition-all"
@@ -1376,6 +1378,7 @@ const PresentationView = ({
           stay unsolved for human interaction. Independent of the top Next. */}
       <button
         data-sb-chrome
+        data-sb-teacher-only
         onClick={() => canAdvanceBeat && setBeatCursor((c) => Math.min(beats.length - 1, c + 1))}
         disabled={!canAdvanceBeat}
         aria-label="Next section"
@@ -2337,6 +2340,7 @@ const PresentationView = ({
       {canEdit && carrierVisible && (
         <button
           data-sb-chrome
+          data-sb-teacher-only
           onClick={(e) => { e.stopPropagation(); setVerifyOn((v) => !v); }}
           aria-label="Toggle AI line verification"
           title={verifyOn ? "AI verification on — tap to turn off" : "AI verification off — tap to turn on"}
@@ -2388,9 +2392,30 @@ const PresentationView = ({
         />
       )}
 
+      {/* Student status indicator — always visible to students (exempt from
+          the chrome-hiding rules). Reflects the teacher's grant in realtime. */}
+      {role === "student" && (
+        <div
+          className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 select-none rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur"
+          style={
+            isActiveStudent
+              ? { background: "rgba(34,197,94,0.15)", color: "#16a34a", borderColor: "rgba(34,197,94,0.45)" }
+              : { background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }
+          }
+        >
+          {isActiveStudent ? "Editing Enabled by Teacher" : "View Only Mode"}
+        </div>
+      )}
+
       {/* View-only mirror: hide every editing/control affordance. */}
       {!canEdit && (
         <style>{`[data-sb-chrome]{display:none !important;}`}</style>
+      )}
+
+      {/* Active student editor: enable board/writing/math tools but keep all
+          teacher-exclusive controls hidden. */}
+      {role === "student" && canEdit && (
+        <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
     </div>
   );
