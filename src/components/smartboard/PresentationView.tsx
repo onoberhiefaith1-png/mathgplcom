@@ -1922,7 +1922,8 @@ const PresentationView = ({
 
 
 
-      {/* Invisible keyboard capture. */}
+      {/* Invisible keyboard capture. Omitted in view-only mirror mode. */}
+      {canEdit && (
       <textarea
         ref={hiddenInputRef}
         aria-hidden
