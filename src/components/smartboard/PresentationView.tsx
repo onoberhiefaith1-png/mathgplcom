@@ -2340,6 +2340,7 @@ const PresentationView = ({
       {canEdit && carrierVisible && (
         <button
           data-sb-chrome
+          data-sb-teacher-only
           onClick={(e) => { e.stopPropagation(); setVerifyOn((v) => !v); }}
           aria-label="Toggle AI line verification"
           title={verifyOn ? "AI verification on — tap to turn off" : "AI verification off — tap to turn on"}
