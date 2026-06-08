@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,21 @@ const StudentClassPage = () => {
   const [loading, setLoading] = useState(true);
   const [cls, setCls] = useState<ClassRow | null>(null);
   const [notes, setNotes] = useState<{ id: string; title: string }[]>([]);
+
+  const loadNotes = useCallback(async () => {
+    if (!classId) return;
+    const { data: noteRows } = await supabase
+      .from("class_lesson_notes")
+      .select("notebook_id, notebooks:notebook_id(title)")
+      .eq("class_id", classId)
+      .eq("visibility", "student_access_enabled");
+    setNotes(
+      ((noteRows ?? []) as LessonNote[]).map((r) => ({
+        id: r.notebook_id,
+        title: r.notebooks?.title ?? "Untitled",
+      })),
+    );
+  }, [classId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,24 +58,28 @@ const StudentClassPage = () => {
         .maybeSingle();
       if (!classRow) { navigate("/join"); return; }
 
-      const { data: noteRows } = await supabase
-        .from("class_lesson_notes")
-        .select("notebook_id, notebooks:notebook_id(title)")
-        .eq("class_id", classId)
-        .eq("visibility", "student_access_enabled");
-
       if (cancelled) return;
       setCls(classRow as ClassRow);
-      setNotes(
-        ((noteRows ?? []) as LessonNote[]).map((r) => ({
-          id: r.notebook_id,
-          title: r.notebooks?.title ?? "Untitled",
-        })),
-      );
+      await loadNotes();
+      if (cancelled) return;
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [classId, navigate]);
+  }, [classId, navigate, loadNotes]);
+
+  // Live: note grant / removal / visibility toggle reflects instantly.
+  useEffect(() => {
+    if (!classId) return;
+    const ch = supabase
+      .channel(`class-notes-${classId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "class_lesson_notes", filter: `class_id=eq.${classId}` },
+        () => { loadNotes(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [classId, loadNotes]);
 
   if (loading) {
     return (
@@ -100,7 +119,7 @@ const StudentClassPage = () => {
           </div>
           {notes.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              Class Notes not yet available.
+              No lesson note selected.
             </div>
           ) : (
             <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -56,6 +56,8 @@ import { LineStatusRail, type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
+import { useSmartboardSync } from "@/hooks/useSmartboardSync";
+import ActiveStudentControl from "./ActiveStudentControl";
 
 
 
@@ -128,10 +130,28 @@ const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
 
 /* ─────────────── Page ─────────────── */
 
-const PresentationView = () => {
-  const { notebookId } = useParams<{ notebookId: string }>();
+const PresentationView = ({
+  notebookId: notebookIdProp,
+  classId: classIdProp = null,
+  role = "teacher",
+}: {
+  notebookId?: string | null;
+  classId?: string | null;
+  role?: "teacher" | "student";
+} = {}) => {
+  const params = useParams<{ notebookId: string }>();
+  const notebookId = notebookIdProp ?? params.notebookId;
   const navigate = useNavigate();
-  const { notebook, sections, loading } = useNotebook(notebookId);
+  const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
+
+  // Live classroom mirroring.
+  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent } =
+    useSmartboardSync({ classId: classIdProp, role });
+  const syncEnabled = !!classIdProp;
+  const isTeacher = role === "teacher";
+  const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
+  const canEdit = isTeacher || isActiveStudent;
+  const applyingRemoteRef = useRef(false);
   const beats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
   const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
 
@@ -547,6 +567,42 @@ const PresentationView = () => {
     try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch { /* noop */ }
   }, [zoom, ZOOM_KEY]);
 
+  // ── Live mirroring: apply remote board snapshots authored by someone else. ──
+  useEffect(() => {
+    if (!syncEnabled || !incoming) return;
+    if (incoming.author && selfId && incoming.author === selfId) return; // own echo
+    applyingRemoteRef.current = true;
+    if (typeof incoming.beatCursor === "number") setBeatCursor(incoming.beatCursor);
+    if (incoming.bandExtra) setBandExtra(incoming.bandExtra);
+    if (incoming.freeLines) setFreeLines(incoming.freeLines as FreeLineMap);
+    if (incoming.lineOffsets) setLineOffsets(incoming.lineOffsets);
+    if (incoming.smartLines) setSmartLines(incoming.smartLines as SmartLine[]);
+    if (incoming.boxes) setBoxes(incoming.boxes as MagnetBox[]);
+    if (incoming.sensor) setSensor(incoming.sensor);
+    if (typeof incoming.zoom === "number") setZoom(incoming.zoom);
+    if (incoming.surface) setSurface(incoming.surface as Surface);
+    if (incoming.profileId) setProfileId(incoming.profileId as WritingProfileId);
+    if (incoming.inkColorId) setInkColorId(incoming.inkColorId as InkColorId);
+    const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
+    return () => window.clearTimeout(t);
+  }, [incoming, syncEnabled, selfId]);
+
+  // ── Live mirroring: broadcast local board state while we hold edit rights. ──
+  useEffect(() => {
+    if (!syncEnabled || !canEdit) return;
+    if (applyingRemoteRef.current) return;
+    pushSnapshot({
+      beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+      sensor, zoom, surface, profileId, inkColorId,
+    });
+  }, [
+    syncEnabled, canEdit, pushSnapshot,
+    beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+    sensor, zoom, surface, profileId, inkColorId,
+  ]);
+
+
+
   // Keep the hidden textarea focused so keystrokes flow into the board.
   useEffect(() => {
     const t = window.setTimeout(() => hiddenInputRef.current?.focus({ preventScroll: true }), 0);
@@ -837,6 +893,7 @@ const PresentationView = () => {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!canEdit) return; // view-only mirror: ignore all keyboard control
       if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
         if (e.shiftKey) doRedo(); else doUndo();
@@ -859,7 +916,7 @@ const PresentationView = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [beats.length]);
+  }, [beats.length, canEdit]);
 
   const palette = SURFACES[surface];
   const isDark = surface === "blackboard";
@@ -1388,6 +1445,7 @@ const PresentationView = () => {
           cursor: eraseMode ? "cell" : undefined,
         }}
         onPointerDown={(e) => {
+          if (!canEdit) return; // view-only mirror: no board interaction
           if ((e.target as HTMLElement).closest("[data-sb-chrome]")) return;
           if ((e.target as HTMLElement).closest("[data-slot-idx]")) return;
           if (!(e.target as HTMLElement).closest("[data-erase-box-id]")) setActiveBoxId(null);
@@ -1864,7 +1922,8 @@ const PresentationView = () => {
 
 
 
-      {/* Invisible keyboard capture. */}
+      {/* Invisible keyboard capture. Omitted in view-only mirror mode. */}
+      {canEdit && (
       <textarea
         ref={hiddenInputRef}
         aria-hidden
@@ -1988,7 +2047,9 @@ const PresentationView = () => {
           zIndex: -1,
         }}
       />
+      )}
 
+      {canEdit && (
       <StylesRail
         profileId={profileId}
         setProfileId={setProfileId}
@@ -2000,6 +2061,7 @@ const PresentationView = () => {
         chromeFg={palette.chromeFg}
         chromeBorder={palette.chromeBorder}
       />
+      )}
 
 
 
@@ -2257,7 +2319,7 @@ const PresentationView = () => {
 
 
       {/* Permanent activation buttons for the three workspace assistants. */}
-      {carrierVisible && (
+      {canEdit && carrierVisible && (
         <AssistantButtons
           active={activeAssistant}
           onToggle={toggleAssistant}
@@ -2272,7 +2334,7 @@ const PresentationView = () => {
       {/* AI line-status verification toggle. Off by default; when on, the
           left-edge bulbs render (yellow → in progress, green → correct,
           red → mismatch, blue → whole problem solved). */}
-      {carrierVisible && (
+      {canEdit && carrierVisible && (
         <button
           data-sb-chrome
           onClick={(e) => { e.stopPropagation(); setVerifyOn((v) => !v); }}
@@ -2300,19 +2362,40 @@ const PresentationView = () => {
 
 
 
-      <BottomPanel
-        open={panelOpen}
-        onToggle={() => setPanelOpen((v) => !v)}
-        onInsertChar={insertCharAtSensor}
-        onInsertNode={insertNodeAtSensor}
-        chromeBg={palette.chromeBg}
-        chromeFg={palette.chromeFg}
-        chromeBorder={palette.chromeBorder}
-        isDark={isDark}
-      />
+      {canEdit && (
+        <BottomPanel
+          open={panelOpen}
+          onToggle={() => setPanelOpen((v) => !v)}
+          onInsertChar={insertCharAtSensor}
+          onInsertNode={insertNodeAtSensor}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          isDark={isDark}
+        />
+      )}
+
+      {/* Teacher-only: hand live editing rights to one approved student. */}
+      {isTeacher && syncEnabled && classIdProp && (
+        <ActiveStudentControl
+          classId={classIdProp}
+          activeStudentId={activeStudentId}
+          onSelect={setActiveStudent}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          accent={palette.accent}
+        />
+      )}
+
+      {/* View-only mirror: hide every editing/control affordance. */}
+      {!canEdit && (
+        <style>{`[data-sb-chrome]{display:none !important;}`}</style>
+      )}
     </div>
   );
 };
+
 
 /* ─────────────── Beat renderer ─────────────── */
 

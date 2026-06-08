@@ -34,7 +34,7 @@ const SmartBoardPage = () => {
   // viewer flag is currently informational; PresentationView already renders
   // content; preventing student input/control will be tightened in a later phase.
   void viewer;
-  return <PresentationView />;
+  return <PresentationView classId={classId} role="teacher" />;
 };
 
 export default SmartBoardPage;

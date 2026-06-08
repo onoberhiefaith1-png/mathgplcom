@@ -92,7 +92,7 @@ const ClassSmartBoardLauncher = () => {
       <main className="mx-auto max-w-7xl px-6 py-8">
         {notes.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-            No lesson notes attached to this class. Add notes from the Lesson Notes tile first.
+            No lesson note selected.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
