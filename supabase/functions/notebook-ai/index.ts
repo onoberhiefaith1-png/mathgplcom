@@ -298,14 +298,22 @@ const isMathLine = (l: string): boolean =>
 const mathLinesJoined = (s: string): string =>
   nonEmptyLines(s).filter(isMathLine).join("\n");
 
+// Pull out equation-like substrings embedded in prose, e.g.
+// "If 8^{x} = 2, then determine the value of x." → "8^{x} = 2".
+const embeddedEquations = (s: string): string[] => {
+  const re = /[\w^{}()+\-*/.√]+(?:\s*[=<>≤≥]\s*[\w^{}()+\-*/.√]+)+/g;
+  return (String(s ?? "").match(re) ?? []).map((m) => m.trim());
+};
+
 // Build the canonical lock target: prefer the last non-empty line (equation),
-// inline instruction tails, and a full-string match for back-compat.
+// inline instruction tails, embedded equations, and a full-string match.
 const lockTargets = (s: string): string[] => {
   const full = normaliseForLock(s);
   const tail = normaliseForLock(lastNonEmptyLine(s));
   const inlineTail = normaliseForLock(instructionTail(lastNonEmptyLine(s)) || instructionTail(s));
   const mathOnly = normaliseForLock(mathLinesJoined(s));
-  return Array.from(new Set([full, tail, inlineTail, mathOnly].filter(Boolean)));
+  const embedded = embeddedEquations(s).map(normaliseForLock);
+  return Array.from(new Set([full, tail, inlineTail, mathOnly, ...embedded].filter(Boolean)));
 };
 const matchesLock = (candidate: string, source: string): boolean => {
   const c = normaliseForLock(candidate);
