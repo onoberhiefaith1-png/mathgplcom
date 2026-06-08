@@ -1445,6 +1445,7 @@ const PresentationView = ({
           cursor: eraseMode ? "cell" : undefined,
         }}
         onPointerDown={(e) => {
+          if (!canEdit) return; // view-only mirror: no board interaction
           if ((e.target as HTMLElement).closest("[data-sb-chrome]")) return;
           if ((e.target as HTMLElement).closest("[data-slot-idx]")) return;
           if (!(e.target as HTMLElement).closest("[data-erase-box-id]")) setActiveBoxId(null);
