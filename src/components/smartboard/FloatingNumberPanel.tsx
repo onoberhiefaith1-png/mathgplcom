@@ -1,0 +1,499 @@
+// FloatingNumberPanel — no background, lives INSIDE the scrolling board
+// surface so it scrolls with the active example. Vertical drag only.
+// Clamped between the final written line of the band and the band bottom.
+// Visibility is controlled by the parent (mutual-exclusion with the other
+// two assistants). Position is remembered per beat via parent storage.
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { extractTermsFromAscii, renderTermLabel } from "@/lib/smartboard/floatingExtractor";
+import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
+
+const WINDOW_SIZE = 5;
+
+const SUP_DIG: Record<string, string> = {
+  "⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9",
+};
+const SUB_DIG: Record<string, string> = {
+  "₀":"0","₁":"1","₂":"2","₃":"3","₄":"4","₅":"5","₆":"6","₇":"7","₈":"8","₉":"9",
+};
+const isSup = (c: string) => c in SUP_DIG;
+const isSub = (c: string) => c in SUB_DIG;
+const fromSup = (s: string) => [...s].map((c) => SUP_DIG[c] ?? c).join("");
+const fromSub = (s: string) => [...s].map((c) => SUB_DIG[c] ?? c).join("");
+
+export interface FractionParts {
+  /** Leading sign char ("", "+", "−"). */
+  sign: string;
+  /** Numerator string with attached variable letters, normalised to plain digits. */
+  num: string;
+  /** Denominator string, normalised to plain digits. */
+  den: string;
+}
+
+/** Detect a "stacked fraction" chip body. Supports BOTH the unicode form
+ *  ¹⁰⁄₃x and the plain-ASCII form 10x/3. Returns null when the chip is
+ *  something more complex (e.g. contains brackets, multiple slashes, √…). */
+export const parseFractionChip = (label: string): FractionParts | null => {
+  if (!label) return null;
+  const m = label.match(/^([+\-−])?(.*)$/);
+  const sign = m?.[1] ?? "";
+  const body = (m?.[2] ?? label).trim();
+  if (!body || /[()√∫|]/.test(body)) return null;
+
+  // Unicode form: sup-digits + ⁄ (or /) + sub-digits + optional trailing letters.
+  const uni = body.match(/^([⁰¹²³⁴⁵⁶⁷⁸⁹]+)[⁄/]([₀₁₂₃₄₅₆₇₈₉]+)([a-zA-Z]*)$/);
+  if (uni) {
+    const num = fromSup(uni[1]) + uni[3];
+    const den = fromSub(uni[2]);
+    return { sign, num, den };
+  }
+  // Plain ASCII: "10x/3", "5/3" (single top-level slash).
+  if (body.includes("/")) {
+    const parts = body.split("/");
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      // Only treat as fraction when neither side contains another operator.
+      if (!/[+\-−×÷*]/.test(parts[0]) && !/[+\-−×÷*]/.test(parts[1])) {
+        return { sign, num: parts[0], den: parts[1] };
+      }
+    }
+  }
+  return null;
+};
+
+/** Render a chip's label as JSX. When the chip is a recognised fraction,
+ *  draw a real stacked fraction with the variable riding on the numerator
+ *  (so `¹⁰⁄₃x` reads as "10x over 3", never as "10 over 3 x"). */
+const ChipLabel = ({ label, color }: { label: string; color: string }) => {
+  const frac = parseFractionChip(label);
+  if (!frac) {
+    // Best-effort: render sup/sub digits as plain glyphs if any leaked in.
+    return <span>{label}</span>;
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+      {frac.sign && <span style={{ marginRight: 2 }}>{frac.sign}</span>}
+      <span
+        style={{
+          display: "inline-flex",
+          flexDirection: "column",
+          alignItems: "center",
+          lineHeight: 1,
+          fontSize: "0.95em",
+          verticalAlign: "middle",
+        }}
+      >
+        <span style={{ padding: "0 4px", whiteSpace: "nowrap" }}>{frac.num}</span>
+        <span
+          style={{
+            display: "block",
+            height: 1.4,
+            alignSelf: "stretch",
+            background: color,
+            margin: "1px 0",
+          }}
+        />
+        <span style={{ padding: "0 4px", whiteSpace: "nowrap" }}>{frac.den}</span>
+      </span>
+    </span>
+  );
+};
+
+
+interface Props {
+  chromeFg: string;
+  reservoirs: Reservoir[];
+  viewIdx: number;
+  activeIdx: number;
+  visible: boolean;
+  onInsert?: (token: string) => void;
+  /** Called when the tapped chip is a recognised stacked fraction; the parent
+   *  inserts a real frac node so the board shows a proper bar (no slash). */
+  onInsertFrac?: (parts: FractionParts) => void;
+  activeLineIdx?: number;
+  consumedAbsIdx?: Set<number>;
+  /** Board-space x in pixels (left edge of band). */
+  leftPx: number;
+  /** Default board-space y (panel centre). */
+  defaultYPx: number;
+  /** Allowed vertical range (board pixels). */
+  topYPx: number;
+  bottomYPx: number;
+  /** Last-written line bottom in board pixels — panel may not move above. */
+  finalLineBottomPx: number;
+  /** Remembered Y from parent (per beat); null = use default. */
+  rememberedY: number | null;
+  onCommitY: (y: number) => void;
+  onPing: () => void;
+  beatId?: string;
+  /** 1-based current floating-line for the per-beat line navigator. */
+  lineNumber?: number;
+  lineCount?: number;
+  onPrevLine?: () => void;
+  onNextLine?: () => void;
+  /** When set, the page-icon will write this notebook prose onto the board
+   *  (as the next line under the last solved equation) instead of showing
+   *  a side-note tooltip. Empty/undefined → page icon falls back to the
+   *  current line's `explanation` text. */
+  notebookText?: string;
+  /** Writes a prose line onto the smartboard surface itself. Provided by
+   *  the parent (PresentationView) so the FloatingNumberPanel never has to
+   *  touch the writing-tree directly. */
+  onWriteNotebookToBoard?: (text: string) => void;
+}
+
+export const FloatingNumberPanel = ({
+  chromeFg,
+  reservoirs, viewIdx, activeIdx, visible,
+  onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx,
+  leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx,
+  rememberedY, onCommitY, onPing, beatId,
+  lineNumber, lineCount, onPrevLine, onNextLine,
+  notebookText,
+  onWriteNotebookToBoard,
+}: Props) => {
+  const initialY = rememberedY ?? defaultYPx;
+  const [y, setY] = useState<number>(initialY);
+  const dragRef = useRef<{ dy: number } | null>(null);
+  const [offset, setOffset] = useState<number>(0);
+
+
+
+
+  // Re-anchor when active beat changes.
+  useEffect(() => { setY(rememberedY ?? defaultYPx); }, [beatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clamp whenever bounds shift (writing barrier / band size).
+  useEffect(() => {
+    setY((prev) => {
+      const upper = Math.max(finalLineBottomPx + 8, topYPx);
+      return Math.min(bottomYPx, Math.max(upper, prev));
+    });
+  }, [topYPx, bottomYPx, finalLineBottomPx]);
+
+  const reservoir = reservoirs[viewIdx];
+  const fragments = reservoir?.fragments ?? [];
+  const lines: ReservoirLine[] = reservoir?.lines ?? [];
+  const viewingActive = viewIdx === activeIdx;
+  const useLineMode =
+    viewingActive && lines.length > 0 && activeLineIdx != null && activeLineIdx < lines.length;
+
+  const unconsumedOfLine = (k: number): number[] => {
+    const line = lines[k];
+    if (!line) return [];
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    const out: number[] = [];
+    for (let i = line.fragmentStart; i < line.fragmentEnd; i++) if (!consumed.has(i)) out.push(i);
+    return out;
+  };
+
+  type Slot = { token: string; absIdx: number };
+
+  /** Full ordered slot list for the active line — taken in the exact order
+   *  the Lesson Note saved them (the per-line `arrangement` already applied
+   *  the 2-4-1-3 pattern during compilation, so no extra shuffle here).
+   *  The visible 5-chip viewport is a slice of this driven by `offset`. */
+  const allSlots = useMemo<Slot[]>(() => {
+    if (fragments.length === 0) return [];
+    if (useLineMode) {
+      const k = activeLineIdx as number;
+      return unconsumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
+    }
+    return fragments.map((token, idx) => ({ token, absIdx: idx }));
+  }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset offset whenever beat or active line changes — the panel always
+  // opens on the first chip of the new line.
+  useEffect(() => { setOffset(0); }, [beatId, activeLineIdx]);
+
+  // Snap back to 0 whenever the unconsumed pool shrinks (a chip was just
+  // consumed) — keeps the next required chip in the viewport even if the
+  // teacher had manually scrolled away.
+  const prevLenRef = useRef<number>(allSlots.length);
+  useEffect(() => {
+    if (allSlots.length < prevLenRef.current) setOffset(0);
+    prevLenRef.current = allSlots.length;
+  }, [allSlots.length]);
+
+  // Clamp offset whenever the slot list changes size.
+  useEffect(() => {
+    setOffset((o) => Math.max(0, Math.min(o, Math.max(0, allSlots.length - WINDOW_SIZE))));
+  }, [allSlots.length]);
+
+  const windowed = useMemo<Slot[]>(
+    () => allSlots.slice(offset, offset + WINDOW_SIZE),
+    [allSlots, offset],
+  );
+  const canPrev = offset > 0;
+  const canNext = offset + WINDOW_SIZE < allSlots.length;
+
+  const handleTokenTap = (label: string) => {
+    if (!label) return;
+    const frac = parseFractionChip(label);
+    if (frac && onInsertFrac) {
+      onInsertFrac(frac);
+      onPing();
+      return;
+    }
+    const op = /^[+\-−×÷=]/.test(label);
+    onInsert?.(op ? ` ${label} ` : label);
+    onPing();
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { dy: e.clientY - y };
+    onPing();
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const next = e.clientY - dragRef.current.dy;
+    const upper = Math.max(finalLineBottomPx + 8, topYPx);
+    setY(Math.min(bottomYPx, Math.max(upper, next)));
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (dragRef.current) onCommitY(y);
+    dragRef.current = null;
+    try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+  };
+
+  if (!visible || reservoirs.length === 0) return null;
+
+  return (
+    <div
+      data-sb-chrome
+      onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
+      style={{
+        position: "absolute",
+        left: leftPx,
+        top: y,
+        transform: "translate(0, -50%)",
+        zIndex: 25,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 8px",
+        // No background — blends into the board.
+      }}
+    >
+      {/* Leading column: ▲ line-up · drag grip · line badge · ▼ line-down */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 2,
+          flexShrink: 0,
+          color: chromeFg,
+        }}
+      >
+        <button
+          onClick={(e) => { e.stopPropagation(); if (lineNumber && lineNumber > 1) { onPrevLine?.(); onPing(); } }}
+          disabled={!lineNumber || lineNumber <= 1}
+          title="Previous line"
+          aria-label="Previous line"
+          style={{
+            background: "transparent", border: 0, color: chromeFg,
+            padding: 0, opacity: lineNumber && lineNumber > 1 ? 1 : 0.25,
+            cursor: lineNumber && lineNumber > 1 ? "pointer" : "default",
+            display: "inline-flex", alignItems: "center",
+          }}
+        >
+          <ChevronUp size={16} />
+        </button>
+        <div
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          title="Drag vertically"
+          style={{
+            width: 14, height: 28, borderRadius: 4,
+            background: `color-mix(in oklab, ${chromeFg} 35%, transparent)`,
+            cursor: "grab", touchAction: "none",
+          }}
+        />
+        {lineNumber != null && lineCount != null && lineCount > 0 && (
+          <div
+            style={{
+              minWidth: 18,
+              padding: "0 4px",
+              fontSize: 11,
+              lineHeight: 1.4,
+              fontWeight: 700,
+              fontVariantNumeric: "tabular-nums",
+              textAlign: "center",
+              opacity: 0.8,
+            }}
+            title={`Line ${lineNumber} of ${lineCount}`}
+          >
+            {lineNumber}
+          </div>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); if (lineNumber && lineCount && lineNumber < lineCount) { onNextLine?.(); onPing(); } }}
+          disabled={!lineNumber || !lineCount || lineNumber >= lineCount}
+          title="Next line"
+          aria-label="Next line"
+          style={{
+            background: "transparent", border: 0, color: chromeFg,
+            padding: 0,
+            opacity: lineNumber && lineCount && lineNumber < lineCount ? 1 : 0.25,
+            cursor: lineNumber && lineCount && lineNumber < lineCount ? "pointer" : "default",
+            display: "inline-flex", alignItems: "center",
+          }}
+        >
+          <ChevronDown size={16} />
+        </button>
+        {(() => {
+          // Page icon writes the prose (notebookText if present, else the
+          // current line's explanation) onto the board itself, below the
+          // last solved equation. No more side-note tooltip.
+          const prose =
+            (notebookText && notebookText.trim().length > 0)
+              ? notebookText
+              : (useLineMode && activeLineIdx != null
+                  ? lines[activeLineIdx]?.explanation
+                  : undefined);
+          if (!prose || !prose.trim()) return null;
+          return (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onWriteNotebookToBoard?.(prose);
+                onPing();
+              }}
+              title="Place this note on the board"
+              aria-label="Place this note on the board"
+              style={{
+                background: "transparent",
+                border: 0,
+                padding: 0,
+                marginTop: 2,
+                fontSize: 16,
+                lineHeight: 1,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              📝
+            </button>
+          );
+        })()}
+      </div>
+      {/* Side-note tooltip removed — prose is now written onto the board
+          via onWriteNotebookToBoard. */}
+      {(
+
+      <div
+        className="flex items-center select-none"
+        style={{
+          color: chromeFg,
+          fontSize: 22,
+          gap: 10,
+          fontFamily: "ui-serif, Georgia, serif",
+        }}
+      >
+        <button
+          onClick={(e) => { e.stopPropagation(); if (canPrev) { setOffset((o) => o - 1); onPing(); } }}
+          disabled={!canPrev}
+          title="Scroll backward"
+          style={{
+            background: "transparent", border: 0, color: chromeFg,
+            padding: 0, opacity: canPrev ? 1 : 0.25,
+            cursor: canPrev ? "pointer" : "default",
+            display: "inline-flex", alignItems: "center",
+          }}
+        >
+          <ChevronLeft size={22} />
+        </button>
+        {windowed.length === 0 ? (
+          <span style={{ opacity: 0.5, fontSize: 13 }}>no floating numbers</span>
+        ) : windowed.map(({ token, absIdx }, i) => {
+          const cleaned = toUnicodeMath(token);
+          if (!cleaned || isStillDirty(cleaned)) return null;
+          const term = extractTermsFromAscii(cleaned)[0];
+          // After shuffling we no longer know the "first" position — keep
+          // each chip's leading sign so the math reads correctly.
+          const label = term
+            ? renderTermLabel(term, { isFirst: false, prevWasEquals: false })
+            : cleaned;
+          const isConsumed = !!consumedAbsIdx?.has(absIdx);
+          // Derive the line number (1-based) that owns this fragment.
+          let lineNo: number | null = null;
+          if (lines.length > 0) {
+            for (let li = 0; li < lines.length; li++) {
+              const ln = lines[li];
+              if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) {
+                lineNo = li + 1;
+                break;
+              }
+            }
+          }
+          return (
+            <button
+              key={`fn-${viewIdx}-${absIdx}-${i}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTokenTap(label);
+              }}
+              className="transition-transform hover:scale-110 active:scale-95 relative"
+              style={{
+                background: "transparent",
+                border: 0,
+                color: chromeFg,
+                padding: "0 2px",
+                opacity: 1,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              <ChipLabel label={label} color={chromeFg} />
+              {lineNo != null && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    right: -2,
+                    bottom: -6,
+                    fontSize: 10,
+                    lineHeight: 1,
+                    opacity: 0.35,
+                    color: chromeFg,
+                    fontWeight: 700,
+                    pointerEvents: "none",
+                    fontFamily: "ui-sans-serif, system-ui",
+                  }}
+                >
+                  {lineNo}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        <button
+          onClick={(e) => { e.stopPropagation(); if (canNext) { setOffset((o) => o + 1); onPing(); } }}
+          disabled={!canNext}
+          title="Scroll forward"
+          style={{
+            background: "transparent", border: 0, color: chromeFg,
+            padding: 0, opacity: canNext ? 1 : 0.25,
+            cursor: canNext ? "pointer" : "default",
+            display: "inline-flex", alignItems: "center",
+          }}
+        >
+          <ChevronRight size={22} />
+        </button>
+      </div>
+      )}
+
+    </div>
+  );
+};
+
+export default FloatingNumberPanel;

@@ -1,0 +1,2438 @@
+// Smartboard Presentation View — an immersive, fullscreen classroom board.
+// The screen itself is the frame. Surface fills edge-to-edge. Default is a
+// whiteboard; a blackboard mode is available from Settings. UI chrome hides
+// after a moment of inactivity so only mathematics remains present.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
+  Eraser, Undo2, Redo2, ScanEye,
+} from "lucide-react";
+
+import { useNotebook } from "@/hooks/useNotebook";
+import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat } from "@/lib/smartboard/presentation";
+import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
+import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
+
+import { getPhase, phaseCapabilities } from "@/lib/smartboard/lessonPhase";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+
+import {
+  DEFAULT_PROFILE_ID, PROFILE_STORAGE_KEY, WRITING_PROFILES, WritingProfileId,
+} from "@/lib/smartboard/writingProfiles";
+import {
+  DEFAULT_INK_COLOR, INK_COLOR_STORAGE_KEY, InkColorId, resolveInk,
+} from "@/lib/smartboard/inkColors";
+import { WritingSurface, WritingFilterDefs } from "./WritingSurface";
+import { Inked } from "./Inked";
+import { SettingsSheet } from "./SettingsSheet";
+import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
+import { StylesRail } from "./StylesRail";
+import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
+import { FloatingNumberPanel } from "./FloatingNumberPanel";
+import { StructurePanel } from "./StructurePanel";
+import { SymbolPanel } from "./SymbolPanel";
+import { AssistantButtons, type Assistant } from "./AssistantButtons";
+import { getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
+import {
+  type Cursor, type Node, type Row,
+  mkChar, mkSub, mkSup,
+  mkFrac, mkSqrt, mkPower, mkBracket, mkAbs, mkBigOp, mkMatrix, mkAccent, mkBox,
+  insertChar as treeInsertChar,
+  insertNode as treeInsertNode,
+  insertNodeWrapping as treeInsertNodeWrapping,
+  extractRunLeftOf,
+  getRowAt,
+  setRowAt,
+  backspace as treeBackspace,
+  moveLeft as treeMoveLeft,
+  moveRight as treeMoveRight,
+  nextEmptyRow as treeNextEmpty,
+} from "@/lib/smartboard/mathTree";
+import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
+import { rowToAscii, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
+import { LineStatusRail, type LineBulb } from "./LineStatusRail";
+import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
+import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
+import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
+
+
+
+type Surface = "whiteboard" | "blackboard";
+
+const today = () => {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+/* ─────────────── Surface palettes ─────────────── */
+
+const SURFACES: Record<Surface, {
+  background: string;
+  ink: string;
+  accent: string;
+  inset: string;
+  chromeBg: string;
+  chromeFg: string;
+  chromeBorder: string;
+  hoverBg: string;
+}> = {
+  whiteboard: {
+    background:
+      "radial-gradient(120% 80% at 20% 0%, rgba(255,255,255,0.9) 0%, rgba(245,243,238,0.0) 55%)," +
+      "radial-gradient(140% 100% at 80% 100%, rgba(225,228,232,0.55) 0%, rgba(245,243,238,0) 60%)," +
+      "linear-gradient(160deg,#f6f4ef 0%,#eeece6 55%,#e8e6df 100%)",
+    ink: "#1a2230",
+    accent: "#8a6a1f",
+    inset: "inset 0 0 120px rgba(40,45,55,0.18), inset 0 0 0 1px rgba(0,0,0,0.04)",
+    chromeBg: "rgba(255,255,255,0.55)",
+    chromeFg: "#2b3344",
+    chromeBorder: "rgba(0,0,0,0.08)",
+    hoverBg: "rgba(0,0,0,0.06)",
+  },
+  blackboard: {
+    background:
+      "radial-gradient(130% 90% at 30% 10%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 55%)," +
+      "radial-gradient(140% 100% at 70% 100%, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0) 60%)," +
+      "linear-gradient(170deg,#1d2522 0%,#161c1a 55%,#111614 100%)",
+    ink: "#eef1ec",
+    accent: "#e8c98a",
+    inset: "inset 0 0 160px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.03)",
+    chromeBg: "rgba(0,0,0,0.35)",
+    chromeFg: "rgba(255,255,255,0.85)",
+    chromeBorder: "rgba(255,255,255,0.08)",
+    hoverBg: "rgba(255,255,255,0.08)",
+  },
+};
+
+/** SVG noise turned into a tileable data URL for surface micro-texture. */
+const noiseUrl = (opacity: number) => {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'>
+    <filter id='n'>
+      <feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/>
+      <feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 ${opacity} 0'/>
+    </filter>
+    <rect width='100%' height='100%' filter='url(#n)'/>
+  </svg>`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+};
+
+const SURFACE_KEY = "smartboard:surface";
+
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 3.5;
+const ZOOM_STEP = 0.12;
+const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+
+/* ─────────────── Page ─────────────── */
+
+const PresentationView = () => {
+  const { notebookId } = useParams<{ notebookId: string }>();
+  const navigate = useNavigate();
+  const { notebook, sections, loading } = useNotebook(notebookId);
+  const beats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
+  const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
+
+
+  const [beatCursor, setBeatCursor] = useState<number>(0);
+  const [bandExtra, setBandExtra] = useState<Record<string, number>>({});
+  const [surface, setSurface] = useState<Surface>(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem(SURFACE_KEY) : null;
+    return saved === "blackboard" ? "blackboard" : "whiteboard";
+  });
+  const [profileId, setProfileId] = useState<WritingProfileId>(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem(PROFILE_STORAGE_KEY) : null;
+    return (saved as WritingProfileId) && WRITING_PROFILES[saved as WritingProfileId]
+      ? (saved as WritingProfileId)
+      : DEFAULT_PROFILE_ID;
+  });
+  const [inkColorId, setInkColorId] = useState<InkColorId>(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem(INK_COLOR_STORAGE_KEY) : null;
+    return (saved as InkColorId) || DEFAULT_INK_COLOR;
+  });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [topOpen, setTopOpen] = useState(false);
+  const [railOpen, setRailOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [eraseMode, setEraseMode] = useState(false);
+  const isErasingRef = useRef(false);
+  // Left-rail (undo/redo) auto-hide: invisible by default, revealed on
+  // pointer activity in the hit-zone, fades out after 5s of inactivity.
+  const [leftToolsVisible, setLeftToolsVisible] = useState(false);
+  const leftToolsTimer = useRef<number | null>(null);
+  const revealLeftTools = useCallback(() => {
+    setLeftToolsVisible(true);
+    if (leftToolsTimer.current) window.clearTimeout(leftToolsTimer.current);
+    leftToolsTimer.current = window.setTimeout(() => setLeftToolsVisible(false), 5000);
+  }, []);
+  // Draggable eraser: lives at a home position; while dragging it follows the
+  // pointer and wipes any line it crosses. On release it animates home.
+  const [eraserDrag, setEraserDrag] = useState<{ x: number; y: number } | null>(null);
+  // AI line-status verification — off by default. When off, no bulbs render.
+  const [verifyOn, setVerifyOn] = useState(false);
+
+  // Invisible-grid free-writing state.
+  const FREEWRITE_KEY = `smartboard:freewrite:${notebookId ?? "_"}`;
+  const SENSOR_KEY = `smartboard:sensor:${notebookId ?? "_"}`;
+  const ZOOM_KEY = `smartboard:zoom:${notebookId ?? "_"}`;
+
+  const [zoom, setZoom] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem(ZOOM_KEY);
+      if (raw) {
+        const z = parseFloat(raw);
+        if (Number.isFinite(z) && z > 0) return clampZoom(z);
+      }
+    } catch { /* noop */ }
+    return 1;
+  });
+  const grid = useMemo(() => getGrid(zoom), [zoom]);
+
+  const [sensor, setSensor] = useState<GridPoint>(() => {
+    try {
+      const raw = localStorage.getItem(SENSOR_KEY);
+      if (raw) return JSON.parse(raw) as GridPoint;
+    } catch { /* noop */ }
+    return { line: 0, x: 0 };
+  });
+  // Cursor lives inside the active line's math tree.
+  const [cursor, setCursor] = useState<Cursor>({ path: [], index: 0 });
+  const [freeLines, setFreeLines] = useState<FreeLineMap>(() => {
+    try {
+      const raw = localStorage.getItem(FREEWRITE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const out: FreeLineMap = {};
+          for (const k of Object.keys(parsed)) {
+            const v = (parsed as Record<string, unknown>)[k];
+            if (Array.isArray(v) && v.every((n) => n && typeof n === "object" && "kind" in (n as object))) {
+              const row = v as Row;
+              // Drop any persisted row whose flattened signature still
+              // contains forbidden LaTeX residue (\frac, ^{, _{ …).
+              const sig = rowSignature(row);
+              if (containsForbiddenResidue(sig)) continue;
+              out[Number(k)] = row;
+            }
+          }
+          return out;
+        }
+      }
+    } catch { /* noop */ }
+    return {};
+  });
+  const OFFSETS_KEY = `smartboard:offsets:${notebookId ?? "_"}`;
+  const [lineOffsets, setLineOffsets] = useState<Record<number, number>>(() => {
+    try {
+      const raw = localStorage.getItem(OFFSETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const out: Record<number, number> = {};
+          for (const k of Object.keys(parsed)) {
+            const v = Number((parsed as Record<string, unknown>)[k]);
+            if (Number.isFinite(v)) out[Number(k)] = v;
+          }
+          return out;
+        }
+      }
+    } catch { /* noop */ }
+    return {};
+  });
+  useEffect(() => {
+    try { localStorage.setItem(OFFSETS_KEY, JSON.stringify(lineOffsets)); } catch { /* noop */ }
+  }, [lineOffsets, OFFSETS_KEY]);
+  const lineWidthsRef = useRef<Record<number, number>>({});
+  const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
+  const boardScrollRef = useRef<HTMLElement>(null);
+
+  // Smart Line overlay objects — free-floating draggable/extendable/rotatable
+  // strokes that live above the writing surface (not in the math tree).
+  // Used as wide fraction bars, division strokes, or cancel/strike-through.
+  const SMARTLINES_KEY = `smartboard:smartlines:${notebookId ?? "_"}`;
+  const [smartLines, setSmartLines] = useState<SmartLine[]>(() => {
+    try {
+      const raw = localStorage.getItem(SMARTLINES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as SmartLine[];
+      }
+    } catch { /* noop */ }
+    return [];
+  });
+  useEffect(() => {
+    try { localStorage.setItem(SMARTLINES_KEY, JSON.stringify(smartLines)); } catch { /* noop */ }
+  }, [smartLines, SMARTLINES_KEY]);
+
+  // Magnet boxes — drop-in labelled cells that snap to a SmartLine when
+  // released near it (numerator above, denominator below).
+  const BOXES_KEY = `smartboard:boxes:${notebookId ?? "_"}`;
+  const [boxes, setBoxes] = useState<MagnetBox[]>(() => {
+    try {
+      const raw = localStorage.getItem(BOXES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          // Drop legacy boxes that lack the new line-anchored fields.
+          return (parsed as MagnetBox[]).filter(
+            (b) => b && typeof b.attachedLineId === "string" && (b.side === "top" || b.side === "bottom"),
+          );
+        }
+      }
+    } catch { /* noop */ }
+    return [];
+  });
+  useEffect(() => {
+    try { localStorage.setItem(BOXES_KEY, JSON.stringify(boxes)); } catch { /* noop */ }
+  }, [boxes, BOXES_KEY]);
+
+  // "Dot" polyline tool — arm to start a chain. Each board tap adds a
+  // point; from the 2nd tap onwards a locked SmartLine is drawn from the
+  // previous point to the new one. Chip toggles arm/disarm; chain never
+  // auto-disarms. The anchor dot shows where the next segment will start.
+  const [dotArmed, setDotArmed] = useState(false);
+  const [dotFirst, setDotFirst] = useState<{ x: number; y: number } | null>(null);
+  const armDot = () => { setDotArmed(true); };
+  const disarmDot = () => { setDotArmed(false); setDotFirst(null); };
+
+  // Box tool — armed for 5s; placement happens automatically on the next
+  // tap of the chip itself, anchored to the SmartLine nearest the sensor.
+  const [boxArmed, setBoxArmed] = useState(false);
+  const [boxFlashError, setBoxFlashError] = useState(false);
+  const boxTimerRef = useRef<number | null>(null);
+  const armBox = () => {
+    setBoxArmed(true);
+    if (boxTimerRef.current) window.clearTimeout(boxTimerRef.current);
+  };
+  const disarmBox = () => {
+    setBoxArmed(false);
+    if (boxTimerRef.current) window.clearTimeout(boxTimerRef.current);
+  };
+  const flashBoxError = () => {
+    setBoxFlashError(true);
+    window.setTimeout(() => setBoxFlashError(false), 600);
+  };
+
+
+  // Active magnet box — when set, all keystrokes / chip taps that would
+  // normally go to the writing sensor route into this box instead. The
+  // box's own contentEditable raises this on focus / clears on blur.
+  const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
+
+
+
+  // Bumped whenever board ink changes; SmartLineLayer reads it to refresh
+  // occupancy hit-tests so drag/rotate chips hide once content lands above
+  // or below a line.
+  const [occupancyTick, setOccupancyTick] = useState(0);
+
+  // Wake signal for the floating shell — kept for back-compat but no longer
+  // driven by the writing sensor.
+  const [floatingWakeSignal, setFloatingWakeSignal] = useState(0);
+
+  // Mutually-exclusive workspace assistant (Floating Numbers / Structures /
+  // Symbols). Triggered by the three permanent activation buttons. Auto-
+  // hides after 5 s of inactivity.
+  const [activeAssistant, setActiveAssistant] = useState<Assistant | null>(null);
+  const lastAssistantActivityRef = useRef<number>(0);
+  const pingAssistant = useCallback(() => { lastAssistantActivityRef.current = Date.now(); }, []);
+  const toggleAssistant = useCallback((k: Assistant) => {
+    setActiveAssistant((prev) => (prev === k ? null : k));
+    lastAssistantActivityRef.current = Date.now();
+  }, []);
+  useEffect(() => {
+    if (!activeAssistant) return;
+    lastAssistantActivityRef.current = Date.now();
+    const id = window.setInterval(() => {
+      if (Date.now() - lastAssistantActivityRef.current > 5000) {
+        setActiveAssistant(null);
+      }
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [activeAssistant]);
+
+  // Per-beat position memory for the three assistant panels.
+  // Key shape: `${kind}:${beatId}` → board-pixel coordinate.
+  const [assistantYByBeat, setAssistantYByBeat] = useState<Record<string, number>>({});
+  const [assistantRightByBeat, setAssistantRightByBeat] = useState<Record<string, number>>({});
+  const commitAssistantY = (kind: Assistant, beatId: string | undefined, yPx: number) => {
+    if (!beatId) return;
+    setAssistantYByBeat((m) => ({ ...m, [`${kind}:${beatId}`]: yPx }));
+  };
+  const commitAssistantRight = (beatId: string | undefined, r: number) => {
+    if (!beatId) return;
+    setAssistantRightByBeat((m) => ({ ...m, [`symbols:${beatId}`]: r }));
+  };
+
+
+  const spawnSmartLine = () => {
+    const host = boardScrollRef.current;
+    const cx = host ? host.clientWidth / 2 : 400;
+    // Spawn within the active band if possible, otherwise at current sensor.
+    const lineY = grid.MARGIN_TOP + sensor.line * grid.LINE_HEIGHT + grid.LINE_HEIGHT * 0.5;
+    setSmartLines((prev) => [...prev, newSmartLine(cx, lineY, grid.LINE_HEIGHT * 2)]);
+  };
+
+  /** Per-node eraser. Hit-tests at viewport (cx, cy) and removes only the
+   *  individual character / structure piece under the pointer — never the
+   *  whole line. Works on stray digits dropped anywhere on the canvas. */
+  const eraseAtPoint = useCallback((cx: number, cy: number) => {
+    if (typeof document === "undefined") return;
+    const stack = document.elementsFromPoint(cx, cy);
+    let targetEl: Element | null = null;
+    let lineEl: Element | null = null;
+    let smartLineEl: Element | null = null;
+    let boxEl: Element | null = null;
+    for (const el of stack) {
+      if (!boxEl && (el as HTMLElement).closest("[data-erase-box-id]")) {
+        boxEl = (el as HTMLElement).closest("[data-erase-box-id]");
+      }
+      if (!smartLineEl && (el as HTMLElement).closest("[data-erase-line-id]")) {
+        smartLineEl = (el as HTMLElement).closest("[data-erase-line-id]");
+      }
+      if (!targetEl && (el as HTMLElement).closest("[data-erase-path]")) {
+        targetEl = (el as HTMLElement).closest("[data-erase-path]");
+      }
+      if (!lineEl && (el as HTMLElement).closest("[data-erase-line]")) {
+        lineEl = (el as HTMLElement).closest("[data-erase-line]");
+      }
+      if (targetEl && lineEl && smartLineEl && boxEl) break;
+    }
+    // Magnet boxes: removed wholesale when touched.
+    if (boxEl) {
+      const id = boxEl.getAttribute("data-erase-box-id");
+      if (id) {
+        setBoxes((prev) => prev.filter((b) => b.id !== id));
+        return;
+      }
+    }
+    // Smart Lines: removed wholesale when touched.
+    if (smartLineEl) {
+      const id = smartLineEl.getAttribute("data-erase-line-id");
+      if (id) {
+        setSmartLines((prev) => prev.filter((l) => l.id !== id));
+        return;
+      }
+    }
+
+    if (!targetEl || !lineEl) return;
+    const rawPath = targetEl.getAttribute("data-erase-path");
+    const rawLine = lineEl.getAttribute("data-erase-line");
+    if (!rawPath || !rawLine) return;
+    let path: number[];
+    try { path = JSON.parse(rawPath); } catch { return; }
+    if (!Array.isArray(path) || path.length === 0) return;
+    const line = Number(rawLine);
+    if (!Number.isFinite(line)) return;
+    const idx = path[path.length - 1];
+    const prefix = path.slice(0, -1);
+    setFreeLines((m) => {
+      const row = m[line];
+      if (!row) return m;
+      const target = getRowAt(row, prefix);
+      if (!target || idx < 0 || idx >= target.length) return m;
+      const newTarget = [...target.slice(0, idx), ...target.slice(idx + 1)];
+      const newRow = setRowAt(row, prefix, newTarget);
+      const next = { ...m };
+      if (newRow.length === 0) {
+        delete next[line];
+      } else {
+        next[line] = newRow;
+      }
+      return next;
+    });
+  }, []);
+
+  /** Hit-test occupancy of a SmartLine: returns true when any math glyph
+   *  sits within ~cellPx above or below the stroke. Used by SmartLineLayer
+   *  to hide drag/rotate chips once the teacher has written into it. */
+  const isLineOccupied = useCallback((line: SmartLine): boolean => {
+    if (typeof document === "undefined") return false;
+    const el = document.querySelector(`[data-erase-line-id="${line.id}"]`);
+    if (!el) return false;
+    const lr = (el as HTMLElement).getBoundingClientRect();
+    const band = grid.LINE_HEIGHT;
+    const topZone = { top: lr.top - band, bottom: lr.top, left: lr.left, right: lr.right };
+    const botZone = { top: lr.bottom, bottom: lr.bottom + band, left: lr.left, right: lr.right };
+    const glyphs = document.querySelectorAll("[data-erase-path]");
+    for (const g of Array.from(glyphs)) {
+      const gr = (g as HTMLElement).getBoundingClientRect();
+      const cy = (gr.top + gr.bottom) / 2;
+      const cx = (gr.left + gr.right) / 2;
+      const inX = cx >= lr.left && cx <= lr.right;
+      if (!inX) continue;
+      if (cy >= topZone.top && cy <= topZone.bottom) return true;
+      if (cy >= botZone.top && cy <= botZone.bottom) return true;
+    }
+    return false;
+  }, [grid.LINE_HEIGHT]);
+
+
+
+
+  /* ── Undo / redo over board writing ──
+     Snapshots are { freeLines, lineOffsets }. We push the PREVIOUS state
+     onto `past` every time those change (unless the change was triggered by
+     undo/redo itself, in which case we skip via the `skip` flag). */
+  type Snap = { freeLines: FreeLineMap; lineOffsets: Record<number, number>; smartLines: SmartLine[]; boxes: MagnetBox[] };
+  const histRef = useRef<{ past: Snap[]; future: Snap[]; skip: boolean; prev: Snap }>({
+    past: [],
+    future: [],
+    skip: false,
+    prev: { freeLines, lineOffsets, smartLines, boxes },
+  });
+  const [, setHistTick] = useState(0);
+  const bumpHist = () => setHistTick((n) => n + 1);
+  useEffect(() => {
+    const h = histRef.current;
+    const next: Snap = { freeLines, lineOffsets, smartLines, boxes };
+    if (h.skip) { h.skip = false; h.prev = next; return; }
+    if (JSON.stringify(h.prev) === JSON.stringify(next)) return;
+    h.past.push(h.prev);
+    if (h.past.length > 200) h.past.shift();
+    h.future = [];
+    h.prev = next;
+    bumpHist();
+  }, [freeLines, lineOffsets, smartLines, boxes]);
+
+  const doUndo = () => {
+    const h = histRef.current;
+    if (h.past.length === 0) return;
+    const snap = h.past.pop()!;
+    h.future.push(h.prev);
+    h.skip = true;
+    setFreeLines(snap.freeLines);
+    setLineOffsets(snap.lineOffsets);
+    setSmartLines(snap.smartLines);
+    setBoxes(snap.boxes);
+    h.prev = snap;
+    bumpHist();
+  };
+  const doRedo = () => {
+    const h = histRef.current;
+    if (h.future.length === 0) return;
+    const snap = h.future.pop()!;
+    h.past.push(h.prev);
+    h.skip = true;
+    setFreeLines(snap.freeLines);
+    setLineOffsets(snap.lineOffsets);
+    setSmartLines(snap.smartLines);
+    setBoxes(snap.boxes);
+    h.prev = snap;
+    bumpHist();
+  };
+  const canUndo = histRef.current.past.length > 0;
+  const canRedo = histRef.current.future.length > 0;
+
+  /** Scroll the board one viewport down — the "nest" gesture. The board is
+   *  already an infinite scroll surface (minHeight grows past the lowest used
+   *  line), so this just smooth-scrolls the existing surface. */
+  const scrollDownOneView = () => {
+    const host = boardScrollRef.current;
+    if (!host) return;
+    host.scrollBy({ top: host.clientHeight * 0.85, behavior: "smooth" });
+  };
+
+
+  useEffect(() => {
+    try { localStorage.setItem(SENSOR_KEY, JSON.stringify(sensor)); } catch { /* noop */ }
+  }, [sensor, SENSOR_KEY]);
+  useEffect(() => {
+    try { localStorage.setItem(FREEWRITE_KEY, JSON.stringify(freeLines)); } catch { /* noop */ }
+  }, [freeLines, FREEWRITE_KEY]);
+  useEffect(() => { setOccupancyTick((n) => n + 1); }, [freeLines, smartLines]);
+  useEffect(() => {
+    try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch { /* noop */ }
+  }, [zoom, ZOOM_KEY]);
+
+  // Keep the hidden textarea focused so keystrokes flow into the board.
+  useEffect(() => {
+    const t = window.setTimeout(() => hiddenInputRef.current?.focus({ preventScroll: true }), 0);
+    return () => window.clearTimeout(t);
+  }, [sensor.line]);
+
+  const handleLineMeasure = (line: number, width: number) => {
+    lineWidthsRef.current[line] = width;
+  };
+
+  /** Edit the active line's tree via a fn that returns next root + cursor. */
+  const editActive = (
+    fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
+  ) => {
+    const line = sensor.line;
+    setFreeLines((prev) => {
+      const row = prev[line] ?? [];
+      const res = fn(row, cursor);
+      setCursor(res.cursor);
+      const next = { ...prev };
+      if (res.root.length === 0) delete next[line];
+      else next[line] = res.root;
+      return next;
+    });
+    hiddenInputRef.current?.focus({ preventScroll: true });
+  };
+
+  /** Append input into the active magnet box (if any) instead of the board.
+   *  Returns true when handled. */
+  const insertIntoActiveBox = (text: string, replace = false): boolean => {
+    if (!activeBoxId) return false;
+    setBoxes((prev) => prev.map((b) => b.id === activeBoxId ? { ...b, text: replace ? text : b.text + text } : b));
+    return true;
+  };
+
+  const insertCharAtSensor = (ch: string, mode: "mid" | "top" | "bot" = "mid") => {
+    if (mode === "mid" && insertIntoActiveBox(ch)) return;
+    editActive((row, c) => {
+      if (mode === "mid") return treeInsertChar(row, c, ch);
+      const wrap = (mode === "top" ? mkSup() : mkSub()) as Extract<Node, { kind: "sup" | "sub" }>;
+      wrap.rows[0] = [mkChar(ch)];
+      const res = treeInsertNode(row, c, wrap, false);
+      return res;
+    });
+  };
+
+  const insertNodeAtSensor = (node: Node) => {
+    if (node.kind === "char" && insertIntoActiveBox(node.ch)) return;
+    editActive((row, c) => treeInsertNode(row, c, node, true));
+  };
+
+  /** Back-compat: FloatingMath calls this with a plain LaTeX-ish string.
+   *  We insert it character-by-character as raw chars. */
+  const insertTextAtSensor = (text: string) => {
+    if (insertIntoActiveBox(text)) return;
+    editActive((row, c) => {
+      let r = row;
+      let cur = c;
+      for (const ch of text) {
+        const res = treeInsertChar(r, cur, ch);
+        r = res.root; cur = res.cursor;
+      }
+      return { root: r, cursor: cur };
+    });
+  };
+
+  /** Write a Lesson Note prose block onto the board as its own line, placed
+   *  below the last currently-written line.
+   *
+   *  This is the Smartboard's MIRROR entry point. The Smartboard does not
+   *  render, interpret, or validate mathematics: it just mirrors what
+   *  Lesson Notes produces. The raw Lesson Note source is fed through the
+   *  shared mirror pipeline (`mirrorLessonNoteText`) which:
+   *    1. converts LaTeX scaffolding (\frac, \sqrt, ^{}, _{}) to the
+   *       friendly form the Lesson Note editor itself shows,
+   *    2. runs a parity gate that refuses display when forbidden LaTeX
+   *       residue remains.
+   *
+   *  Idempotent — if the same text is already on a line, we do not
+   *  duplicate it. */
+  const writeProseLineOnBoard = useCallback((rawFromLessonNote: string) => {
+    const src = (rawFromLessonNote ?? "").trim();
+    if (!src) return;
+    // Stage through the Lesson Note mirror — this is the ONLY entry point
+    // for placing Lesson Note content on the Smartboard. It returns
+    // Smartboard math-tree nodes (real stacked fractions, radicals, etc.)
+    // identical to how Lesson Notes itself renders the same source, and
+    // refuses if any forbidden LaTeX residue survives.
+    const mirror = mirrorLessonNoteRow(src);
+    if (!mirror.ok || mirror.row.length === 0) return;
+    const sig = mirror.signature;
+    setFreeLines((prev) => {
+      let maxLine = -1;
+      for (const k of Object.keys(prev)) {
+        const n = Number(k);
+        const row = prev[n];
+        if (row && row.length > 0) {
+          maxLine = Math.max(maxLine, Math.floor(n));
+          // Idempotency: same prose already on a line → bail.
+          if (rowSignature(row) === sig) return prev;
+        }
+      }
+      const target = Math.max(maxLine + 1, sensor.line);
+      const next = { ...prev, [target]: mirror.row };
+      setSensor((s) => ({ ...s, line: target + 1, x: 0 }));
+      return next;
+    });
+  }, [sensor.line]);
+
+  /** Insert a real stacked fraction at the sensor (no slash). Optional sign
+   *  is typed first; the frac node is created with numerator/denominator
+   *  rows pre-filled so the bar shows immediately. */
+  const insertFractionAtSensor = (parts: { sign: string; num: string; den: string }) => {
+    if (insertIntoActiveBox(`${parts.sign}${parts.num}/${parts.den}`)) return;
+    editActive((row, c) => {
+      let r = row, cur = c;
+      if (parts.sign) {
+        const sg = parts.sign === "-" ? "−" : parts.sign;
+        const res = treeInsertChar(r, cur, sg);
+        r = res.root; cur = res.cursor;
+      }
+      const numRow: Row = [...parts.num].map((ch) => mkChar(ch));
+      const denRow: Row = [...parts.den].map((ch) => mkChar(ch));
+      const fracNode: Node = { kind: "frac", rows: [numRow, denRow] };
+      const res = treeInsertNode(r, cur, fracNode, false);
+      return res;
+    });
+  };
+
+  const makeStructureNode = (kind: ContainerKind): Node | null => {
+    switch (kind) {
+      case "fraction":     return mkFrac();
+      case "radical":      return mkSqrt(false);
+      case "bracket":      return mkBracket("(", ")");
+      case "power":        return mkPower();
+      case "abs":          return mkAbs();
+      case "log":          return mkSub();
+      case "integral":     return mkBigOp("int");
+      case "matrix":       return mkMatrix(2, 2);
+      case "differential": return mkFrac();
+      case "vector":       return mkAccent("→");
+      case "box":          return mkBox();
+      default:             return null;
+    }
+  };
+
+
+  /** Translate a FloatingShell structure (□/□, √□, …) into a real math-tree
+   *  Node and insert it at the active sensor. Fractions are always inserted
+   *  empty — they never absorb surrounding terms (the "group ×/÷ neighbours
+   *  under the bar" rule was cancelled by the teacher). Radical and power
+   *  still wrap the contiguous char run immediately left of the cursor as
+   *  their first slot, so typing "3" then √ lifts the 3 into the radicand. */
+  const handleStructureInsert = (kind: ContainerKind) => {
+    const node = makeStructureNode(kind);
+    if (!node) return;
+
+    const canWrap = kind === "radical" || kind === "power";
+    if (canWrap) {
+      editActive((row, c) => {
+        const localRow = getRowAt(row, c.path);
+        const { start, end } = extractRunLeftOf(localRow, c.index);
+        if (end > start) {
+          return treeInsertNodeWrapping(row, c, node, start, end, 0);
+        }
+        return treeInsertNode(row, c, node, true);
+      });
+      return;
+    }
+    insertNodeAtSensor(node);
+  };
+
+
+
+
+
+
+  /* ── Carrier position/size/zoom (lifted from FloatingShell) ──
+     Lifted so the parent can auto-dodge the writing sensor and so the
+     toolbar zoom buttons can target the carrier when the pointer is over
+     it. */
+  const [carrierPos, setCarrierPos] = useState<{ x: number; y: number }>(() => ({
+    x: typeof window !== "undefined" ? window.innerWidth / 2 : 600,
+    y: typeof window !== "undefined" ? window.innerHeight * 0.7 : 500,
+  }));
+  const [carrierWidth, setCarrierWidth] = useState<number | null>(null);
+  const [carrierZoom, setCarrierZoom] = useState<number>(1);
+  const [zoomTarget, setZoomTarget] = useState<"board" | "carrier">("board");
+
+  // Auto-dodge: nudge the carrier vertically away from the writing sensor
+  // so it never sits on top of ink. Targets only Y; teacher can still drag
+  // horizontally.
+  useEffect(() => {
+    const host = boardScrollRef.current;
+    if (!host) return;
+    const rect = host.getBoundingClientRect();
+    const sensorScreenY =
+      rect.top + 24 + lineToY(sensor.line, grid) - host.scrollTop + grid.CARET_HEIGHT * 0.5;
+    const halfH = Math.round(28 * carrierZoom);
+    const band = grid.CARET_HEIGHT * 1.6 + halfH;
+    const dy = carrierPos.y - sensorScreenY;
+    if (Math.abs(dy) < band) {
+      const push = band - Math.abs(dy);
+      const targetY = sensorScreenY + (dy >= 0 ? band : -band);
+      // Prefer pushing DOWN unless that would clip the viewport bottom.
+      const maxY = window.innerHeight - halfH - 24;
+      const next = Math.min(maxY, dy >= 0 ? carrierPos.y + push : targetY);
+      if (Math.abs(next - carrierPos.y) > 1) {
+        setCarrierPos((p) => ({ x: p.x, y: next }));
+      }
+    }
+  }, [sensor.line, grid, carrierZoom, carrierPos.y, carrierPos.x]);
+
+
+
+
+
+
+  useEffect(() => { try { localStorage.setItem(SURFACE_KEY, surface); } catch { /* noop */ } }, [surface]);
+  useEffect(() => { try { localStorage.setItem(PROFILE_STORAGE_KEY, profileId); } catch { /* noop */ } }, [profileId]);
+  useEffect(() => { try { localStorage.setItem(INK_COLOR_STORAGE_KEY, inkColorId); } catch { /* noop */ } }, [inkColorId]);
+
+  // Chrome is manual now — pull-tabs open/close the header and styles rail.
+  // No auto-hide on activity; the board stays plain while typing.
+
+  // Focal-point zoom: when the pointer is over the carrier the toolbar
+  // buttons scale the carrier's chip font; otherwise scale the board.
+  const applyZoom = (next: number) => {
+    if (zoomTarget === "carrier") {
+      // Interpret `next` relative to board `zoom`: equal → reset, > → in, < → out.
+      if (next === 1 && zoom === 1) { setCarrierZoom(1); return; }
+      const step = next - zoom;
+      setCarrierZoom((z) => Math.max(0.5, Math.min(2.5, z + step)));
+      return;
+    }
+    const z = clampZoom(next);
+    setZoom((prev) => {
+      const host = boardScrollRef.current;
+      if (host) {
+        const oldY = lineToY(sensor.line, getGrid(prev));
+        const newY = lineToY(sensor.line, getGrid(z));
+        const delta = newY - oldY;
+        requestAnimationFrame(() => {
+          host.scrollTop = Math.max(0, host.scrollTop + delta);
+        });
+      }
+      return z;
+    });
+  };
+
+
+
+  useEffect(() => {
+    if (beatCursor > beats.length - 1) setBeatCursor(Math.max(0, beats.length - 1));
+  }, [beats.length, beatCursor]);
+
+  // When Next advances the beat, smoothly scroll the active beat into
+  // view AND drop the writing sensor onto the first writable line of its
+  // band. Older beats stay above for the teacher to scroll back to.
+  useEffect(() => {
+    if (beatCursor < 0) return;
+    const host = boardScrollRef.current;
+    if (!host) return;
+    requestAnimationFrame(() => {
+      const blocks = host.querySelectorAll<HTMLElement>("[data-sb-beat]");
+      const last = blocks[blocks.length - 1];
+      if (last) {
+        last.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        host.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+    // Land the sensor inside the new beat's band (if it has one).
+    const L = layouts[layouts.length - 1];
+    if (L && L.bandLines > 0) {
+      setSensor({ line: L.startLine + L.captionLines, x: 0 });
+      setCursor({ path: [], index: 0 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beatCursor]);
+
+
+
+
+  // Mirror of `guidedIncomplete` (declared further down) so the keydown
+  // listener can read the latest value without re-binding every render.
+  const guidedIncompleteRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        if (e.shiftKey) doRedo(); else doUndo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) {
+        e.preventDefault(); doRedo(); return;
+      }
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        // Block Next while the active example still has unfinished lines.
+        if (guidedIncompleteRef.current) return;
+        setBeatCursor((c) => Math.min(beats.length - 1, c + 1));
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setBeatCursor((c) => Math.max(0, c - 1));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [beats.length]);
+
+  const palette = SURFACES[surface];
+  const isDark = surface === "blackboard";
+  const profile = WRITING_PROFILES[profileId];
+  const ink = resolveInk(inkColorId, surface);
+  const current = beatCursor >= 0 ? beats[beatCursor] : undefined;
+  const revealed = beatCursor >= 0 ? beats.slice(0, beatCursor + 1) : [];
+  const phase = getPhase(current);
+  const caps = phaseCapabilities(phase);
+  const floatingVisible = !!current && beatNeedsFloatingMath(current) && caps.showFloatingMath;
+
+  /* ── Continuous-canvas layout ──
+     The whole lesson lives on one vertical scroll canvas. Each beat gets
+     its own band on the invisible line grid: `captionLines` for the
+     header / problem text, plus `bandLines` of writable space below it
+     (auto-grown when the teacher writes past the bottom). All beats are
+     positioned absolutely on the canvas at `lineToY(startLine, grid)`. */
+  const beatShape = (b: Beat): { caption: number; band: number } => {
+    if (b.id === "__cover__") return { caption: 8, band: 0 };
+    if (b.kind === "text") {
+      const lines = Math.max(4, Math.ceil((b.content?.length ?? 0) / 60) + 1);
+      return { caption: lines, band: 0 };
+    }
+    if (b.kind === "problem" || b.kind === "exercise-prompt") {
+      return { caption: 3, band: 12 };
+    }
+    return { caption: 2, band: 0 };
+  };
+  interface BeatLayout {
+    id: string;
+    beat: Beat;
+    startLine: number;
+    captionLines: number;
+    bandLines: number;
+    totalLines: number;
+  }
+  const layouts = useMemo<BeatLayout[]>(() => {
+    let cursor = 0;
+    const arr: BeatLayout[] = [];
+    for (const b of revealed) {
+      const shape = beatShape(b);
+      const band = shape.band + (shape.band > 0 ? (bandExtra[b.id] ?? 0) : 0);
+      const total = shape.caption + band + 1; // 1 line breathing gap
+      arr.push({
+        id: b.id, beat: b,
+        startLine: cursor,
+        captionLines: shape.caption,
+        bandLines: band,
+        totalLines: total,
+      });
+      cursor += total;
+    }
+    return arr;
+  }, [revealed, bandExtra]);
+  const activeLayout = layouts[layouts.length - 1];
+  const bandStart = (L?: BeatLayout) => L ? L.startLine + L.captionLines : 0;
+  const bandEnd = (L?: BeatLayout) => L ? L.startLine + L.captionLines + Math.max(0, L.bandLines) - 1 : 0;
+  /** Lines the teacher is allowed to write on across the whole lesson. */
+  const allowedLineSet = useMemo(() => {
+    const s = new Set<number>();
+    for (const L of layouts) {
+      if (L.bandLines <= 0) continue;
+      const a = bandStart(L), b = bandEnd(L);
+      for (let i = a; i <= b; i++) s.add(i);
+    }
+    return s;
+  }, [layouts]);
+  /** Filter the global freeLines map down to lines that fall within
+   *  some beat's writable band. Ink outside (e.g. left over from when
+   *  the previous beat had a larger band) is hidden. */
+  const visibleFreeLines = useMemo(() => {
+    const out: FreeLineMap = {};
+    for (const k of Object.keys(freeLines)) {
+      const ln = Number(k);
+      // Allow half-line positions (e.g. 4.5) when either neighbouring full
+      // line is inside an active band — these carry centred mid-line ink.
+      const ok = allowedLineSet.has(ln) ||
+        allowedLineSet.has(Math.floor(ln)) ||
+        allowedLineSet.has(Math.ceil(ln));
+      if (ok) out[ln] = freeLines[ln];
+    }
+    return out;
+  }, [freeLines, allowedLineSet]);
+  /** Clamp a candidate line to the active beat's writable band. */
+  const clampToActiveBand = (ln: number): number => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return ln;
+    const a = bandStart(activeLayout), b = bandEnd(activeLayout);
+    return Math.max(a, Math.min(b, ln));
+  };
+  /** Grow the active band by one when the teacher needs more room. */
+  const growActiveBand = () => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+    setBandExtra((m) => ({ ...m, [activeLayout.id]: (m[activeLayout.id] ?? 0) + 1 }));
+  };
+
+
+  // Carrier appears only for numbered-content beats (Example / Exercise /
+  // Classwork / Homework). Stays hidden during cover, topic, intro,
+  // explanation and summary.
+  const carrierVisible = !!current && (
+    current.sectionKind === "example" ||
+    current.sectionKind === "exercise" ||
+    current.sectionKind === "classwork" ||
+    current.sectionKind === "homework"
+  );
+  // Which reservoir does the active beat belong to? (-1 = none)
+  const activeReservoirIdx = useMemo(
+    () => (current ? reservoirs.findIndex((r) => r.beatId === current.id) : -1),
+    [current, reservoirs],
+  );
+  // What the carrier is currently SHOWING. Snaps to active on beat change;
+  // teacher can peek up/down without losing lesson position.
+  const [viewReservoirIdx, setViewReservoirIdx] = useState<number>(-1);
+  useEffect(() => {
+    if (activeReservoirIdx >= 0) setViewReservoirIdx(activeReservoirIdx);
+  }, [activeReservoirIdx]);
+
+  /* ── Line-by-line composer state ──
+     For each active example reservoir, the teacher must reproduce every
+     `reservoir.lines[k].equation` on the board IN ORDER before the Next
+     button is allowed to advance. Detection compares the canonical ASCII
+     of each written line against the target. Tokens belonging to a
+     completed line get dimmed in the carrier; structures it required get
+     dimmed in the structures strip. */
+  const [activeLineIdx, setActiveLineIdx] = useState<number>(0);
+  const [floatingLineIdx, setFloatingLineIdx] = useState<number>(0);
+  // Teacher-controlled override of which floating-number line shows in the
+  // FloatingNumberPanel (via the left-side line navigator). null = auto-follow.
+  const [manualFloatingLineIdx, setManualFloatingLineIdx] = useState<number | null>(null);
+  // Notebook-reveal gate: when non-null, the FloatingNumberPanel is showing
+  // the prose "Notebook N" instead of Line N's fillers. A second Prev/Next
+  // tap commits the reveal — marks N as shown and advances to Line N.
+  const [notebookRevealIdx, setNotebookRevealIdx] = useState<number | null>(null);
+  const [shownNotebookIdx, setShownNotebookIdx] = useState<Set<number>>(() => new Set());
+  const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
+  const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
+
+  // Reset composer state every time the active example changes.
+  useEffect(() => {
+    setActiveLineIdx(0);
+    setFloatingLineIdx(0);
+    setManualFloatingLineIdx(null);
+    setNotebookRevealIdx(null);
+    setShownNotebookIdx(new Set());
+    setConsumedAbsIdx(new Set());
+    setConsumedStructures(new Set());
+  }, [activeReservoirIdx]);
+
+
+  const activeReservoir = activeReservoirIdx >= 0 ? reservoirs[activeReservoirIdx] : undefined;
+  const guidedLines = activeReservoir?.lines ?? [];
+  const hasGuidedLines = guidedLines.length > 0;
+
+  // Strict sequential advance: ONLY check the physical board line that belongs
+  // to the current queue step. No scan-ahead, no "best later line", no line 9.
+  // If the expected line turns green, the sensor and floating queue move down
+  // together by exactly one step for fast classroom flow.
+  useEffect(() => {
+    if (!hasGuidedLines) return;
+    if (activeLineIdx >= guidedLines.length) return;
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+    const target = guidedLines[activeLineIdx];
+    if (!target) return;
+    const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
+    const row = freeLines[expectedLineNum];
+    if (!row || row.length === 0) return;
+    const ascii = rowToAscii(row);
+    const eqIdx = ascii.indexOf("=");
+    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
+    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
+    const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
+    if (eqIdx < 0 || !lhs || !rhs || dangling) return;
+    if (!equationsMatch(ascii, target.equation) && !equationsEquivalent(ascii, target.equation)) return;
+    setConsumedAbsIdx((prev) => {
+      const next = new Set(prev);
+      for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.add(i);
+      return next;
+    });
+    setConsumedStructures((prev) => {
+      const next = new Set(prev);
+      for (const c of target.containers) next.add(c);
+      return next;
+    });
+    const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
+    setActiveLineIdx(nextIdx);
+    setFloatingLineIdx(nextIdx);
+    setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
+    setCursor({ path: [], index: 0 });
+  }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout]);
+
+  // Per-line bulb status for the right-edge traffic-light rail.
+  // Computed after auto-advance so consumed lines correctly read as green.
+  const lineStatusMap = useMemo<Record<number, LineBulb>>(() => {
+    if (!hasGuidedLines) return {};
+    const out: Record<number, LineBulb> = {};
+    // Optional band clamp — when an active band exists we still constrain
+    // bulbs to that band so other examples don't leak status dots. But we
+    // do NOT require a band: as soon as the teacher writes the first
+    // character anywhere in this band the bulb must appear (yellow).
+    const a = activeLayout ? bandStart(activeLayout) : -Infinity;
+    const b = activeLayout ? bandEnd(activeLayout) : Infinity;
+    const ordered = Object.keys(freeLines)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n >= a && n <= b)
+      .sort((x, y) => x - y);
+    for (const ln of ordered) {
+      const row = freeLines[ln];
+      if (!row || row.length === 0) continue;
+      const ascii = rowToAscii(row);
+      const eqIdx = ascii.indexOf("=");
+      const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
+      const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
+      const lastCh = ascii.slice(-1);
+      const dangling = /[+\-−*×/÷=^]/.test(lastCh);
+      const completeShape = eqIdx >= 0 && lhs.length > 0 && rhs.length > 0 && !dangling;
+      if (!completeShape) {
+        // ANY ink on the line → yellow ("solution in progress"). This is
+        // the signal the teacher sees the instant they press the first key.
+        out[ln] = "yellow";
+        continue;
+      }
+      const expectedIdx = ln - a;
+      const target = Number.isInteger(expectedIdx) ? guidedLines[expectedIdx] : undefined;
+      const green = !!target && equationsEquivalent(ascii, target.equation);
+      out[ln] = green ? "green" : "red";
+    }
+    return out;
+  }, [freeLines, hasGuidedLines, guidedLines, activeLayout, activeLineIdx]);
+
+
+  // Structures the carrier should expose — current line first, then anything
+  // still needed in upcoming lines. Used structures stay visible (just dim)
+  // because the same fraction bar / radical may recur many times.
+  const requiredStructures = useMemo<ContainerKind[]>(() => {
+    const seen = new Set<ContainerKind>();
+    const out: ContainerKind[] = [];
+    // Box is always available — it's the manual numerator-cell that magnets
+    // to a Smart Line to read as a fraction.
+    out.push("box"); seen.add("box");
+    if (hasGuidedLines) {
+      const startFrom = Math.min(activeLineIdx, guidedLines.length - 1);
+      for (let i = startFrom; i < guidedLines.length; i++) {
+        for (const c of guidedLines[i].containers) {
+          if (!seen.has(c)) { seen.add(c); out.push(c); }
+        }
+      }
+      for (const c of consumedStructures) {
+        if (!seen.has(c)) { seen.add(c); out.push(c); }
+      }
+    }
+    return out;
+  }, [hasGuidedLines, activeLineIdx, guidedLines, consumedStructures]);
+
+
+  // Next is NEVER blocked. The teacher decides when to move on, whether or
+  // not they have finished solving the current example. Guided line-by-line
+  // verification still runs in the background so consumed tokens dim, but it
+  // does not lock navigation.
+  const guidedIncomplete = false;
+  const canAdvanceBeat = beatCursor < beats.length - 1;
+  useEffect(() => { guidedIncompleteRef.current = guidedIncomplete; }, [guidedIncomplete]);
+
+
+
+  if (loading) {
+    return (
+      <div
+        className="h-screen w-screen grid place-items-center text-sm"
+        style={{ background: palette.background, color: palette.ink }}
+      >
+        Loading notebook…
+      </div>
+    );
+  }
+  if (!notebook) {
+    return (
+      <div
+        className="h-screen w-screen grid place-items-center text-sm flex-col gap-3"
+        style={{ background: palette.background, color: palette.ink }}
+      >
+        <p>Notebook not found.</p>
+        <button
+          onClick={() => navigate("/smartboard")}
+          className="px-3 py-1.5 rounded-md"
+          style={{ background: palette.hoverBg, color: palette.ink }}
+        >
+          Back to shelf
+        </button>
+      </div>
+    );
+  }
+
+  const chromeStyle: React.CSSProperties = {
+    background: palette.chromeBg,
+    color: palette.chromeFg,
+    borderColor: palette.chromeBorder,
+    backdropFilter: "blur(10px)",
+  };
+
+  // Surface bg as a single solid colour for sub-previews inside settings.
+  const surfaceFlatBg = surface === "whiteboard" ? "#f1efe9" : "#181d1b";
+
+  return (
+    <div
+      className="relative h-screen w-screen overflow-hidden"
+      style={{
+        background: palette.background,
+        color: palette.ink,
+      }}
+    >
+      <WritingFilterDefs />
+
+      {/* Micro-surface texture */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: noiseUrl(isDark ? 0.06 : 0.04),
+          backgroundSize: "220px 220px",
+          mixBlendMode: isDark ? "screen" : "multiply",
+          opacity: isDark ? 0.55 : 0.5,
+        }}
+      />
+      {/* Recessed inner shadow — screen edge becomes the frame */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ boxShadow: palette.inset }}
+      />
+
+      {/* Top chrome — narrow centered pill, slides out of view by default.
+          Pull-tab at top-center reveals it. */}
+      <header
+        data-sb-chrome
+        className="absolute z-20 flex items-center gap-3 px-4 py-2 border rounded-b-2xl transition-transform duration-500"
+        style={{
+          ...chromeStyle,
+          top: 0,
+          left: "50%",
+          transform: `translate(-50%, ${topOpen ? "0" : "-110%"})`,
+          maxWidth: "min(880px, 92vw)",
+          width: "max-content",
+        }}
+      >
+        <button
+          onClick={() => navigate("/smartboard")}
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
+          style={{ color: palette.chromeFg }}
+          aria-label="Back to shelf"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Shelf
+        </button>
+
+        <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
+          <span className="font-medium truncate">{notebook.title ?? "Untitled"}</span>
+          {notebook.subtopic && (
+            <span className="opacity-60 truncate">· {notebook.subtopic}</span>
+          )}
+          <span className="opacity-40 tabular-nums whitespace-nowrap">· {today()}</span>
+        </div>
+
+        <div className="flex items-center gap-1 text-[11px]">
+          <button
+            onClick={() => {
+              setBeatCursor(0);
+              setFreeLines({});
+              lineWidthsRef.current = {};
+              setSensor({ line: 0, x: 0 });
+              setCursor({ path: [], index: 0 });
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-black/5"
+            title="Clear board"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Live zoom controls — focal point is the writing sensor. */}
+          <div className="inline-flex items-center gap-0.5 ml-1 rounded-md" style={{ background: palette.hoverBg }}>
+            <button
+              onClick={() => applyZoom(zoom - ZOOM_STEP)}
+              className="px-2 py-1 text-base leading-none"
+              aria-label="Zoom out writing"
+              title="Zoom out (around sensor)"
+            >−</button>
+            <button
+              onClick={() => applyZoom(1)}
+              className="px-2 py-1 tabular-nums text-[10px]"
+              aria-label="Reset zoom"
+              title="Reset zoom"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              onClick={() => applyZoom(zoom + ZOOM_STEP)}
+              className="px-2 py-1 text-base leading-none"
+              aria-label="Zoom in writing"
+              title="Zoom in (writing gets larger)"
+            >+</button>
+          </div>
+
+          <span className="px-2 opacity-50 tabular-nums">
+            {beats.length === 0
+              ? "0 / 0"
+              : beatCursor < 0
+                ? `– / ${beats.length}`
+                : `${beatCursor + 1} / ${beats.length}`}
+          </span>
+          <button
+            onClick={() => setBeatCursor((c) => Math.max(0, c - 1))}
+            disabled={beatCursor <= 0}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md disabled:opacity-30"
+            style={{ color: palette.chromeFg }}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+          </button>
+          <button
+            onClick={() => canAdvanceBeat && setBeatCursor((c) => Math.min(beats.length - 1, c + 1))}
+            disabled={!canAdvanceBeat}
+            title={guidedIncomplete ? "Finish the current example first" : "Next"}
+            className="inline-flex items-center gap-1 px-3 py-1 rounded-md disabled:opacity-30"
+            style={{ background: palette.hoverBg, color: palette.chromeFg }}
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setSettingsOpen((v) => !v)}
+            className="ml-1 inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-black/5"
+            aria-label="Settings"
+            title="Settings"
+          >
+            <SettingsIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </header>
+
+      {/* Soft-glow pull-tab — TOP. Drag the header down/up. */}
+      <button
+        data-sb-chrome
+        onClick={() => setTopOpen((v) => !v)}
+        aria-label={topOpen ? "Hide top bar" : "Show top bar"}
+        className="absolute z-30 top-0 left-1/2 -translate-x-1/2 grid place-items-center rounded-b-full transition-all"
+        style={{
+          width: 44,
+          height: 18,
+          marginTop: topOpen ? 44 : 0,
+          color: palette.chromeFg,
+          background: "transparent",
+          boxShadow: `0 0 14px 2px ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+          opacity: 0.55,
+        }}
+      >
+        {topOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+
+      {/* RIGHT edge — Next-section button. Advances the lesson beat cursor.
+          Does NOT solve, write, or fill anything on the board; equations
+          stay unsolved for human interaction. Independent of the top Next. */}
+      <button
+        data-sb-chrome
+        onClick={() => canAdvanceBeat && setBeatCursor((c) => Math.min(beats.length - 1, c + 1))}
+        disabled={!canAdvanceBeat}
+        aria-label="Next section"
+        title={guidedIncomplete ? "Finish the current example first" : "Next section (does not solve)"}
+        className="absolute z-30 top-1/2 -translate-y-1/2 grid place-items-center rounded-l-full border transition-all disabled:opacity-25"
+        style={{
+          right: 0,
+          width: 36,
+          height: 64,
+          color: palette.chromeFg,
+          background: palette.chromeBg,
+          borderColor: palette.chromeBorder,
+          boxShadow: `0 2px 14px rgba(0,0,0,0.18)`,
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <ChevronRight className="h-5 w-5" />
+      </button>
+
+      {/* Tiny styles-rail toggle, moved out of the way so the right edge
+          belongs entirely to the Next-section button. */}
+      <button
+        data-sb-chrome
+        onClick={() => setRailOpen((v) => !v)}
+        aria-label={railOpen ? "Hide styles" : "Show styles"}
+        className="absolute z-30 grid place-items-center rounded-l-full transition-all"
+        style={{
+          right: railOpen ? 168 : 0,
+          top: "calc(50% + 70px)",
+          width: 16,
+          height: 28,
+          color: palette.chromeFg,
+          background: "transparent",
+          boxShadow: `0 0 10px 1px ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+          opacity: 0.4,
+        }}
+      >
+        {railOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+      </button>
+
+
+
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        surface={surface}
+        setSurface={setSurface}
+        profile={profile}
+        setProfileId={setProfileId}
+        inkColorId={inkColorId}
+        setInkColorId={setInkColorId}
+        chromeBg={palette.chromeBg}
+        chromeFg={palette.chromeFg}
+        chromeBorder={palette.chromeBorder}
+        surfaceBg={surfaceFlatBg}
+      />
+
+      {/* Board body — pure surface, fills edge-to-edge. Tapping anywhere
+          places the writing sensor on the nearest invisible baseline. */}
+      <main
+        ref={boardScrollRef}
+        className="relative z-10 h-full w-full overflow-y-auto transition-[padding] duration-500 ease-out"
+        style={{
+          paddingTop: 24,
+          paddingBottom: 24 + (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT),
+          paddingRight: 0,
+          cursor: eraseMode ? "cell" : undefined,
+        }}
+        onPointerDown={(e) => {
+          if ((e.target as HTMLElement).closest("[data-sb-chrome]")) return;
+          if ((e.target as HTMLElement).closest("[data-slot-idx]")) return;
+          if (!(e.target as HTMLElement).closest("[data-erase-box-id]")) setActiveBoxId(null);
+          const host = boardScrollRef.current;
+          if (!host) return;
+          const rect = host.getBoundingClientRect();
+          const y = e.clientY - rect.top + host.scrollTop - 24;
+          const x = e.clientX - rect.left;
+          const snapped = snapToBaseline({ x, y }, grid);
+          // Half-line snap: if the tap lands close to the gap between two
+          // baselines, park the sensor at line+0.5 so operators land at the
+          // mid-Y (used to centre × between two stacked fractions).
+          const rawLine = (y - grid.MARGIN_TOP) / grid.LINE_HEIGHT - grid.BASELINE_OFFSET + 1;
+          const frac = rawLine - Math.floor(rawLine);
+          let halfLine = snapped.line;
+          if (frac > 0.30 && frac < 0.70) halfLine = Math.floor(rawLine) + 0.5;
+
+          if (eraseMode) {
+            isErasingRef.current = true;
+            (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+            eraseAtPoint(e.clientX, e.clientY);
+            return;
+          }
+
+          // Box tool — tap near a SmartLine to drop a magnet box on the
+          // side of the line where the tap landed. No nearby line → flash.
+          if (boxArmed) {
+            e.preventDefault();
+            const MAGNET = grid.LINE_HEIGHT * 1.2;
+            let best: { line: SmartLine; dist: number; cx: number; cy: number; side: "top" | "bottom" } | null = null;
+            for (const l of smartLines) {
+              const rad = (l.angle * Math.PI) / 180;
+              const ux = Math.cos(rad), uy = Math.sin(rad);
+              const half = l.length / 2;
+              const ax = l.x - ux * half, ay = l.y - uy * half;
+              const bx = l.x + ux * half, by = l.y + uy * half;
+              const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / (l.length * l.length)));
+              const cx = ax + t * (bx - ax);
+              const cy = ay + t * (by - ay);
+              const ddx = x - cx, ddy = y - cy;
+              const dist = Math.hypot(ddx, ddy);
+              const cross = ux * ddy - uy * ddx;
+              if (dist <= MAGNET && (!best || dist < best.dist)) {
+                best = { line: l, dist, cx, cy, side: cross >= 0 ? "bottom" : "top" };
+              }
+            }
+            if (!best) { flashBoxError(); return; }
+            // Anchor is the closest point ON the line; BoxLayer offsets the
+            // slot above/below by a fixed gap so digits sit clean off the rule.
+            const nb = newMagnetBox(best.cx, best.cy, best.side, best.line.id);
+            setBoxes((prev) => [...prev, nb]);
+            setActiveBoxId(nb.id);
+            disarmBox();
+            return;
+          }
+
+          // Dot polyline tool — each tap drops a point and connects it
+          // to the previous one with a locked SmartLine. Chip toggles
+          // arm/disarm; chain continues until the teacher disarms.
+          if (dotArmed) {
+            e.preventDefault();
+            if (!dotFirst) {
+              setDotFirst({ x, y });
+            } else {
+              const dx = x - dotFirst.x, dy = y - dotFirst.y;
+              const length = Math.hypot(dx, dy);
+              if (length > 4) {
+                const cx = (dotFirst.x + x) / 2;
+                const cy = (dotFirst.y + y) / 2;
+                const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                setSmartLines((prev) => [
+                  ...prev,
+                  newSmartLine(cx, cy, length, angle, true),
+                ]);
+                setDotFirst({ x, y }); // anchor moves to the new point
+              }
+            }
+            return;
+          }
+
+
+
+
+
+          // Clamp the tap to the active beat's writable band so the
+          // teacher can't drop the sensor onto the cover / a past
+          // session's caption.
+          const targetLine = clampToActiveBand(halfLine);
+          const row = freeLines[targetLine] ?? [];
+          if (row.length === 0) {
+            setLineOffsets((m) => ({ ...m, [targetLine]: snapped.x }));
+          }
+          setSensor({ line: targetLine, x: snapped.x });
+          // (Sensor taps no longer activate the floating panels; activation
+          // is button-driven now.)
+          setCursor({ path: [], index: row.length });
+          hiddenInputRef.current?.focus({ preventScroll: true });
+
+
+        }}
+        onPointerMove={(e) => {
+          if (!eraseMode || !isErasingRef.current) return;
+          eraseAtPoint(e.clientX, e.clientY);
+        }}
+        onPointerUp={() => { isErasingRef.current = false; }}
+        onPointerCancel={() => { isErasingRef.current = false; }}
+        onWheel={(e) => {
+          if (!(e.ctrlKey || e.metaKey)) return;
+          e.preventDefault();
+          applyZoom(zoom - Math.sign(e.deltaY) * ZOOM_STEP);
+        }}
+      >
+        <WritingSurface
+          profile={profile}
+          inkColor={ink}
+          surface={surface}
+          zoom={zoom}
+          className="relative mx-auto"
+          style={{
+            // Continuous-canvas height: enough for every revealed beat
+            // plus a few empty baselines below the last band.
+            minHeight: `${grid.MARGIN_TOP + grid.LINE_HEIGHT * (
+              (layouts.length > 0
+                ? layouts[layouts.length - 1].startLine + layouts[layouts.length - 1].totalLines
+                : 10) + 10
+            )}px`,
+            width: "100%",
+          }}
+        >
+          {/* All revealed beats — cover, intro, problems, summary — render
+              inline on the continuous canvas, each anchored to its own
+              startLine. Scrolling up reveals the previous sessions. */}
+          {layouts.map((L, i) => (
+            <div
+              key={L.id}
+              data-sb-beat
+              style={{
+                position: "absolute",
+                top: grid.MARGIN_TOP + L.startLine * grid.LINE_HEIGHT,
+                left: 0,
+                right: 0,
+                paddingLeft: grid.MARGIN_LEFT,
+                paddingRight: 32,
+                pointerEvents: "none",
+              }}
+            >
+              <div style={{ pointerEvents: "auto", maxWidth: "64rem" }}>
+                <BeatBlock
+                  beat={L.beat}
+                  isCurrent={i === layouts.length - 1}
+                  ink={ink}
+                  accent={palette.accent}
+                  jitter={profile.strokeJitter}
+                  notebookTitle={notebook.title ?? "Untitled"}
+                  topic={notebook.subject ?? ""}
+                  subtopic={notebook.subtopic ?? ""}
+                  dateLabel={today()}
+                />
+              </div>
+            </div>
+          ))}
+
+          {/* Invisible-grid free-writing overlay. Filtered to lines that
+              fall inside some beat's writable band, so solution ink can
+              never bleed above the section line into the cover / previous
+              sessions. */}
+          <FreeWriteLayer
+            lines={visibleFreeLines}
+            offsets={lineOffsets}
+            grid={grid}
+            activeLine={activeBoxId ? null : sensor.line}
+            cursor={cursor}
+            caretColor={ink}
+            onMeasure={handleLineMeasure}
+            onCursorChange={(line, c) => {
+              const clamped = clampToActiveBand(line);
+              if (clamped !== sensor.line) setSensor((s) => ({ ...s, line: clamped }));
+              setCursor(c);
+              hiddenInputRef.current?.focus({ preventScroll: true });
+            }}
+          />
+
+
+
+
+
+          {/* Smart Line overlay — sits above the writing layer so teachers
+              can drop wide fraction bars / division strokes / strikes
+              anywhere on the canvas. */}
+          <SmartLineLayer
+            lines={smartLines}
+            onChange={setSmartLines}
+            ink={ink}
+            cellPx={grid.LINE_HEIGHT}
+            isLineOccupied={isLineOccupied}
+            occupancyTick={occupancyTick}
+          />
+
+          <BoxLayer
+            boxes={boxes}
+            onChange={setBoxes}
+            ink={ink}
+            smartLines={smartLines}
+            activeBoxId={activeBoxId}
+            onActivate={setActiveBoxId}
+            fontPx={grid.FONT_PX}
+          />
+
+          {/* Dot-tool first-point marker — shown after tap 1 until tap 2. */}
+          {dotFirst && (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: dotFirst.x - 4,
+                top: dotFirst.y - 4,
+                width: 8, height: 8,
+                borderRadius: "50%",
+                background: ink,
+                boxShadow: `0 0 8px ${ink}`,
+                pointerEvents: "none",
+                zIndex: 27,
+              }}
+            />
+          )}
+
+
+
+          {/* Workspace assistants — mounted INSIDE the scrolling surface so
+              they translate with the lesson content. Each lives in board
+              pixels, scoped to the active example's writable band. */}
+          {(() => {
+            if (!activeLayout || activeLayout.bandLines <= 0 || !current) return null;
+            if (!carrierVisible) return null;
+            const bandTopPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
+            const bandBotPx = grid.MARGIN_TOP + (bandEnd(activeLayout) + 1) * grid.LINE_HEIGHT;
+            // Final written line within this band — drives the upper drag clamp.
+            let lastLine = bandStart(activeLayout) - 1;
+            for (const k of Object.keys(freeLines)) {
+              const ln = Number(k);
+              if (!freeLines[ln] || freeLines[ln].length === 0) continue;
+              const flr = Math.floor(ln);
+              if (flr >= bandStart(activeLayout) && flr <= bandEnd(activeLayout) && flr > lastLine) {
+                lastLine = flr;
+              }
+            }
+            const finalLineBottomPx = grid.MARGIN_TOP + (lastLine + 1) * grid.LINE_HEIGHT;
+            const defaultY = bandBotPx - grid.LINE_HEIGHT * 0.6;
+            const beatKey = current.id;
+            const fnY = assistantYByBeat[`numbers:${beatKey}`] ?? null;
+            const stY = assistantYByBeat[`structures:${beatKey}`] ?? null;
+            const syY = assistantYByBeat[`symbols:${beatKey}`] ?? null;
+            const syR = assistantRightByBeat[`symbols:${beatKey}`] ?? null;
+            const curLineIdx = hasGuidedLines
+              ? Math.min(manualFloatingLineIdx ?? floatingLineIdx, guidedLines.length - 1)
+              : 0;
+            const lineCount = guidedLines.length;
+            const notebookFor = (k: number): string => {
+              const nb = (guidedLines[k] as { notebook?: string } | undefined)?.notebook;
+              return (nb ?? "").trim();
+            };
+            const stepTo = (target: number) => {
+              if (!hasGuidedLines) return;
+              if (target < 0 || target >= lineCount) return;
+              const nb = notebookFor(target);
+              if (nb && !shownNotebookIdx.has(target)) {
+                // Reveal Notebook N first; do NOT advance activeLineIdx yet.
+                setNotebookRevealIdx(target);
+              } else {
+                setManualFloatingLineIdx(target);
+              }
+            };
+            const goPrev = () => {
+              if (!hasGuidedLines) return;
+              if (notebookRevealIdx != null) {
+                // Cancel notebook reveal — stay on current line, no advance.
+                setNotebookRevealIdx(null);
+                return;
+              }
+              stepTo(Math.max(0, curLineIdx - 1));
+            };
+            const goNext = () => {
+              if (!hasGuidedLines) return;
+              if (notebookRevealIdx != null) {
+                // Commit reveal: mark notebook shown and advance to its line.
+                const k = notebookRevealIdx;
+                setShownNotebookIdx((prev) => {
+                  const next = new Set(prev);
+                  next.add(k);
+                  return next;
+                });
+                setNotebookRevealIdx(null);
+                setManualFloatingLineIdx(k);
+                return;
+              }
+              stepTo(Math.min(lineCount - 1, curLineIdx + 1));
+            };
+            const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
+            const revealNotebookText =
+              notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : undefined;
+            return (
+              <>
+                <FloatingNumberPanel
+                  chromeFg={palette.chromeFg}
+                  reservoirs={reservoirs}
+                  viewIdx={viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx)}
+                  activeIdx={activeReservoirIdx}
+                  visible={activeAssistant === "numbers" && reservoirs.length > 0}
+                  onInsert={(t) => insertTextAtSensor(t)}
+                  onInsertFrac={(p) => insertFractionAtSensor(p)}
+                  activeLineIdx={hasGuidedLines ? curLineIdx : undefined}
+                  consumedAbsIdx={consumedAbsIdx}
+                  leftPx={grid.MARGIN_LEFT + 8}
+                  defaultYPx={defaultY}
+                  topYPx={bandTopPx + 8}
+                  bottomYPx={bandBotPx - 8}
+                  finalLineBottomPx={finalLineBottomPx}
+                  rememberedY={fnY}
+                  onCommitY={(y) => commitAssistantY("numbers", beatKey, y)}
+                  onPing={pingAssistant}
+                  beatId={beatKey}
+                  lineNumber={hasGuidedLines ? curLineIdx + 1 : undefined}
+                  lineCount={hasGuidedLines ? lineCount : undefined}
+                  onPrevLine={goPrev}
+                  onNextLine={goNext}
+                  notebookText={revealNotebookText}
+                  onWriteNotebookToBoard={writeProseLineOnBoard}
+                />
+
+
+                <StructurePanel
+                  chromeFg={palette.chromeFg}
+                  visible={activeAssistant === "structures"}
+                  requiredStructures={lineContainers}
+                  consumedStructures={consumedStructures}
+                  onStructureInsert={(k) => { handleStructureInsert(k); pingAssistant(); }}
+                  rightPx={32}
+                  defaultYPx={defaultY}
+                  topYPx={bandTopPx + 8}
+                  bottomYPx={bandBotPx - 8}
+                  finalLineBottomPx={finalLineBottomPx}
+                  rememberedY={stY}
+                  onCommitY={(y) => commitAssistantY("structures", beatKey, y)}
+                  onPing={pingAssistant}
+                  beatId={beatKey}
+                  lineNumber={hasGuidedLines ? curLineIdx + 1 : undefined}
+                  lineCount={hasGuidedLines ? lineCount : undefined}
+                  onPrevLine={goPrev}
+                  onNextLine={goNext}
+                />
+                <SymbolPanel
+                  chromeFg={palette.chromeFg}
+                  visible={activeAssistant === "symbols"}
+                  onInsert={(ch) => insertCharAtSensor(ch, "mid")}
+                  rightPx={16}
+                  minRightPx={16}
+                  maxRightPx={400}
+                  defaultYPx={(bandTopPx + bandBotPx) / 2}
+                  topYPx={bandTopPx + 8}
+                  bottomYPx={bandBotPx - 8}
+                  finalLineBottomPx={finalLineBottomPx}
+                  rememberedY={syY}
+                  rememberedRight={syR}
+                  onCommitY={(y) => commitAssistantY("symbols", beatKey, y)}
+                  onCommitRight={(r) => commitAssistantRight(beatKey, r)}
+                  onPing={pingAssistant}
+                  beatId={beatKey}
+                />
+              </>
+            );
+          })()}
+
+          {/* Right-edge traffic-light bulbs — only when AI verification is on. */}
+          {verifyOn && activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (
+            <LineStatusRail
+              grid={grid}
+              statusByLine={lineStatusMap}
+              bandTopPx={grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT}
+              allDone={activeLineIdx >= guidedLines.length}
+              leftPx={6}
+            />
+          )}
+
+          {/* Left-side LINE NAVIGATOR — selects which line's floating numbers
+              show in the panel. Visible only while the left tools (undo/redo)
+              hit-zone is hovered, then fades after 5 s. */}
+          {activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (() => {
+            const bandTopPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
+            const bandBotPx = grid.MARGIN_TOP + (bandEnd(activeLayout) + 1) * grid.LINE_HEIGHT;
+            const cur = (manualFloatingLineIdx ?? Math.min(floatingLineIdx, guidedLines.length - 1)) + 1;
+            const total = guidedLines.length;
+            const setLine = (n: number) => {
+              const clamped = Math.max(1, Math.min(total, n));
+              setManualFloatingLineIdx(clamped - 1);
+              revealLeftTools();
+            };
+            return (
+              <div
+                data-sb-chrome
+                onPointerDown={(e) => { e.stopPropagation(); revealLeftTools(); }}
+                style={{
+                  position: "absolute",
+                  left: 28,
+                  top: (bandTopPx + bandBotPx) / 2 - 60,
+                  zIndex: 26,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  opacity: leftToolsVisible ? 1 : 0,
+                  transition: "opacity 220ms ease",
+                  pointerEvents: leftToolsVisible ? "auto" : "none",
+                  color: palette.chromeFg,
+                  userSelect: "none",
+                }}
+                aria-label="Floating-number line navigator"
+              >
+                <button
+                  onClick={(e) => { e.stopPropagation(); setLine(cur - 1); }}
+                  disabled={cur <= 1}
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    color: palette.chromeFg,
+                    opacity: cur > 1 ? 1 : 0.3,
+                    cursor: cur > 1 ? "pointer" : "default",
+                    padding: 2,
+                    display: "inline-flex",
+                  }}
+                  aria-label="Previous line"
+                >
+                  <ChevronUp size={20} />
+                </button>
+                <div
+                  style={{
+                    minWidth: 32,
+                    padding: "2px 8px",
+                    border: `1px solid ${palette.chromeBorder}`,
+                    borderRadius: 8,
+                    background: palette.chromeBg,
+                    color: palette.chromeFg,
+                    fontVariantNumeric: "tabular-nums",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    textAlign: "center",
+                  }}
+                  title={`Floating-number line ${cur} of ${total}`}
+                >
+                  {cur}
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setLine(cur + 1); }}
+                  disabled={cur >= total}
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    color: palette.chromeFg,
+                    opacity: cur < total ? 1 : 0.3,
+                    cursor: cur < total ? "pointer" : "default",
+                    padding: 2,
+                    display: "inline-flex",
+                  }}
+                  aria-label="Next line"
+                >
+                  <ChevronDown size={20} />
+                </button>
+              </div>
+            );
+          })()}
+
+
+        </WritingSurface>
+      </main>
+
+
+
+      {/* Invisible keyboard capture. */}
+      <textarea
+        ref={hiddenInputRef}
+        aria-hidden
+        inputMode="text"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        value=""
+        onChange={(e) => {
+          const txt = e.target.value;
+          if (!txt) return;
+          // Insert each character — most input events are single chars.
+          for (const ch of txt) insertCharAtSensor(ch, "mid");
+          e.currentTarget.value = "";
+        }}
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "=")) {
+            e.preventDefault(); applyZoom(zoom + ZOOM_STEP); return;
+          }
+          if ((e.ctrlKey || e.metaKey) && (e.key === "-" || e.key === "_")) {
+            e.preventDefault(); applyZoom(zoom - ZOOM_STEP); return;
+          }
+          if ((e.ctrlKey || e.metaKey) && e.key === "0") {
+            e.preventDefault(); applyZoom(1); return;
+          }
+
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const row = freeLines[sensor.line] ?? [];
+            const next = treeNextEmpty(row, cursor, e.shiftKey ? -1 : 1);
+            if (next) setCursor(next);
+            return;
+          }
+
+          if (e.key === "Enter") {
+            e.preventDefault();
+            // From a half-line, commit to the next *full* line below.
+            const base = Number.isInteger(sensor.line) ? sensor.line : Math.floor(sensor.line);
+            const nextLine = base + 1;
+            // Gate: don't allow advancing past the current expected guided
+            // line until that line has turned green.
+            if (hasGuidedLines && activeLayout) {
+              const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
+              if (nextLine > expectedLineNum && lineStatusMap[expectedLineNum] !== "green") {
+                return;
+              }
+            }
+            if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
+            setSensor({ line: clampToActiveBand(nextLine), x: 0 });
+            setCursor({ path: [], index: 0 });
+            return;
+          }
+
+          if (e.key === "Backspace") {
+            e.preventDefault();
+            if (activeBoxId) {
+              const activeText = boxes.find((b) => b.id === activeBoxId)?.text ?? "";
+              insertIntoActiveBox(activeText.slice(0, -1), true);
+              return;
+            }
+            const row = freeLines[sensor.line] ?? [];
+            const minLine = activeLayout ? bandStart(activeLayout) : 0;
+            if (row.length === 0 && cursor.path.length === 0 && sensor.line > minLine) {
+              const prevLine = sensor.line - 0.5;
+              const prevRow = freeLines[prevLine] ?? [];
+              setSensor({ line: prevLine, x: 0 });
+              setCursor({ path: [], index: prevRow.length });
+              return;
+            }
+            editActive((r, c) => treeBackspace(r, c));
+            return;
+          }
+
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            const row = freeLines[sensor.line] ?? [];
+            setCursor((c) => treeMoveLeft(row, c));
+            return;
+          }
+          if (e.key === "ArrowRight") {
+            e.preventDefault();
+            const row = freeLines[sensor.line] ?? [];
+            setCursor((c) => treeMoveRight(row, c));
+            return;
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setSensor((s) => ({ line: clampToActiveBand(s.line - 0.5), x: 0 }));
+            setCursor({ path: [], index: 0 });
+            return;
+          }
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            const nextLine = sensor.line + 0.5;
+            if (hasGuidedLines && activeLayout) {
+              const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
+              if (nextLine > expectedLineNum && lineStatusMap[expectedLineNum] !== "green") {
+                return;
+              }
+            }
+            if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
+            setSensor({ line: clampToActiveBand(nextLine), x: 0 });
+            setCursor({ path: [], index: 0 });
+            return;
+          }
+
+        }}
+        style={{
+          position: "fixed",
+          opacity: 0.01,
+          width: 2,
+          height: 2,
+          bottom: 0,
+          left: 0,
+          border: 0,
+          padding: 0,
+          background: "transparent",
+          color: "transparent",
+          caretColor: "transparent",
+          resize: "none",
+          zIndex: -1,
+        }}
+      />
+
+      <StylesRail
+        profileId={profileId}
+        setProfileId={setProfileId}
+        inkColorId={inkColorId}
+        setInkColorId={setInkColorId}
+        surface={surface}
+        visible={railOpen}
+        chromeBg={palette.chromeBg}
+        chromeFg={palette.chromeFg}
+        chromeBorder={palette.chromeBorder}
+      />
+
+
+
+      {/* Draggable eraser. Press the icon to lift it; while held it follows
+          the pointer and wipes any line it crosses. Releasing it sends it
+          back to its home position. No toggle, no mode. */}
+      {(() => {
+        const HOME_LEFT = 12;
+        // Stack above the bottom-left Floating Numbers AssistantButton so the
+        // eraser never sits under (or near) any right-edge control.
+        const HOME_BOTTOM = (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT) + 12 + 52;
+        const wiping = !!eraserDrag;
+        const startEraserDrag = (e: React.PointerEvent) => {
+          e.stopPropagation();
+          (e.target as HTMLElement).setPointerCapture(e.pointerId);
+          setEraserDrag({ x: e.clientX, y: e.clientY });
+          const wipeAt = (cx: number, cy: number) => {
+            const host = boardScrollRef.current;
+            if (!host) return;
+            const rect = host.getBoundingClientRect();
+            if (cx < rect.left || cx > rect.right || cy < rect.top || cy > rect.bottom) return;
+            eraseAtPoint(cx, cy);
+          };
+          wipeAt(e.clientX, e.clientY);
+          const onMove = (ev: PointerEvent) => {
+            setEraserDrag({ x: ev.clientX, y: ev.clientY });
+            wipeAt(ev.clientX, ev.clientY);
+          };
+          const onUp = () => {
+            setEraserDrag(null);
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            window.removeEventListener("pointercancel", onUp);
+          };
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onUp);
+          window.addEventListener("pointercancel", onUp);
+        };
+        const style: React.CSSProperties = wiping
+          ? {
+              position: "fixed",
+              left: eraserDrag!.x - 22,
+              top: eraserDrag!.y - 22,
+              width: 44, height: 44,
+              background: palette.accent,
+              color: "#fff",
+              borderColor: palette.chromeBorder,
+              boxShadow: `0 0 22px 4px ${palette.accent}aa`,
+              transition: "none",
+            }
+          : {
+              left: HOME_LEFT,
+              bottom: HOME_BOTTOM,
+              position: "absolute",
+              width: 44, height: 44,
+              background: palette.chromeBg,
+              color: palette.chromeFg,
+              borderColor: palette.chromeBorder,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.18)",
+              backdropFilter: "blur(10px)",
+              transition: "left 280ms ease, top 280ms ease, right 280ms ease, bottom 280ms ease",
+            };
+        return (
+          <button
+            data-sb-chrome
+            onPointerDown={startEraserDrag}
+            aria-label="Eraser — drag across the board to wipe"
+            title="Drag me across the board to erase"
+            className="z-40 grid place-items-center rounded-full border touch-none"
+            style={style}
+          >
+            <Eraser className="h-5 w-5" />
+          </button>
+        );
+      })()}
+
+      {/* LEFT-edge — invisible hit zone reveals Undo / Redo for 5 s, then
+          they fade out so the board stays plain. Nest button removed (the
+          board is already infinite; advancing a section appears below). */}
+      <div
+        data-sb-chrome
+        onPointerEnter={revealLeftTools}
+        onPointerDown={revealLeftTools}
+        className="absolute z-30"
+        style={{
+          left: 0,
+          top: "30%",
+          width: 56,
+          height: "40%",
+        }}
+      />
+      <div
+        data-sb-chrome
+        className="absolute z-30 flex flex-col items-center gap-2 transition-opacity duration-300"
+        style={{
+          left: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          opacity: leftToolsVisible ? 1 : 0,
+          pointerEvents: leftToolsVisible ? "auto" : "none",
+        }}
+        onPointerMove={revealLeftTools}
+      >
+        <button
+          onClick={() => { doUndo(); revealLeftTools(); }}
+          disabled={!canUndo}
+          aria-label="Undo"
+          title="Undo (Ctrl/Cmd+Z)"
+          className="grid place-items-center rounded-full border transition-all"
+          style={{
+            width: 40, height: 40,
+            background: palette.chromeBg,
+            color: palette.chromeFg,
+            borderColor: palette.chromeBorder,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+            backdropFilter: "blur(10px)",
+            opacity: canUndo ? 0.95 : 0.3,
+            cursor: canUndo ? "pointer" : "not-allowed",
+          }}
+        >
+          <Undo2 className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => { doRedo(); revealLeftTools(); }}
+          disabled={!canRedo}
+          aria-label="Redo"
+          title="Redo (Ctrl/Cmd+Shift+Z)"
+          className="grid place-items-center rounded-full border transition-all"
+          style={{
+            width: 40, height: 40,
+            background: palette.chromeBg,
+            color: palette.chromeFg,
+            borderColor: palette.chromeBorder,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+            backdropFilter: "blur(10px)",
+            opacity: canRedo ? 0.95 : 0.3,
+            cursor: canRedo ? "pointer" : "not-allowed",
+          }}
+        >
+          <Redo2 className="h-5 w-5" />
+        </button>
+        {/* Prev / Next section — mirror the top-bar Prev/Next. */}
+        <button
+          onClick={() => { setBeatCursor((c) => Math.max(0, c - 1)); revealLeftTools(); }}
+          disabled={beatCursor <= 0}
+          aria-label="Previous section"
+          title="Previous section"
+          className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
+          style={{
+            width: 40, height: 40,
+            background: palette.chromeBg,
+            color: palette.chromeFg,
+            borderColor: palette.chromeBorder,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+            backdropFilter: "blur(10px)",
+            opacity: beatCursor <= 0 ? 0.3 : 0.95,
+          }}
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => { canAdvanceBeat && setBeatCursor((c) => Math.min(beats.length - 1, c + 1)); revealLeftTools(); }}
+          disabled={!canAdvanceBeat}
+          aria-label="Next section"
+          title="Next section"
+          className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
+          style={{
+            width: 40, height: 40,
+            background: palette.chromeBg,
+            color: palette.chromeFg,
+            borderColor: palette.chromeBorder,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+            backdropFilter: "blur(10px)",
+            opacity: !canAdvanceBeat ? 0.3 : 0.95,
+          }}
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+
+        {/* Smart Line — drops a new draggable horizontal stroke onto the
+            canvas. Use it as a wide fraction bar, division stroke, or
+            strike-through for cancellation. */}
+        <button
+          onClick={() => { spawnSmartLine(); revealLeftTools(); }}
+          aria-label="Drop line"
+          title="Drop a line (fraction bar / strike-through)"
+          className="grid place-items-center rounded-full border transition-all"
+          style={{
+            width: 40, height: 40,
+            background: palette.chromeBg,
+            color: palette.chromeFg,
+            borderColor: palette.chromeBorder,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+            backdropFilter: "blur(10px)",
+            opacity: 0.95,
+          }}
+        >
+          <MinusIcon className="h-5 w-5" />
+        </button>
+
+        {/* Dot — two-tap line drawing. Tap to arm, then tap two points on
+            the board and a straight Smart Line is drawn between them. */}
+        <button
+          onClick={() => { if (dotArmed) disarmDot(); else armDot(); revealLeftTools(); }}
+          aria-label="Two-point line"
+          title="Tap to arm, then tap two points to draw a line"
+          className="grid place-items-center rounded-full border transition-all"
+          style={{
+            width: 40, height: 40,
+            background: palette.chromeBg,
+            color: dotArmed ? ink : palette.chromeFg,
+            borderColor: dotArmed ? ink : palette.chromeBorder,
+            boxShadow: dotArmed
+              ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
+              : "0 2px 10px rgba(0,0,0,0.14)",
+            backdropFilter: "blur(10px)",
+            opacity: 0.95,
+          }}
+        >
+          <CircleIcon className="h-3 w-3" fill="currentColor" />
+        </button>
+
+        {/* Box — drops a draggable labelled cell. Drag onto a Smart Line
+            to magnet it as numerator (above) or denominator (below). */}
+        <button
+          onClick={() => {
+            revealLeftTools();
+            if (boxArmed) disarmBox(); else armBox();
+          }}
+          aria-label="Arm box tool — tap near a line to drop a magnet box"
+          title="Arm box tool, then tap near a SmartLine to drop a box above or below it"
+          className="grid place-items-center rounded-full border transition-all"
+          style={{
+            width: 40, height: 40,
+            background: palette.chromeBg,
+            color: boxFlashError ? "#e11d48" : (boxArmed ? ink : palette.chromeFg),
+            borderColor: boxFlashError ? "#e11d48" : (boxArmed ? ink : palette.chromeBorder),
+            boxShadow: boxFlashError
+              ? "0 0 14px #e11d48, 0 2px 10px rgba(0,0,0,0.14)"
+              : (boxArmed
+                ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
+                : "0 2px 10px rgba(0,0,0,0.14)"),
+            backdropFilter: "blur(10px)",
+            opacity: 0.95,
+          }}
+        >
+          <SquareIcon className="h-4 w-4" />
+        </button>
+
+
+      </div>
+
+
+
+
+
+      {/* Permanent activation buttons for the three workspace assistants. */}
+      {carrierVisible && (
+        <AssistantButtons
+          active={activeAssistant}
+          onToggle={toggleAssistant}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          ink={ink}
+          bottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
+        />
+      )}
+
+      {/* AI line-status verification toggle. Off by default; when on, the
+          left-edge bulbs render (yellow → in progress, green → correct,
+          red → mismatch, blue → whole problem solved). */}
+      {carrierVisible && (
+        <button
+          data-sb-chrome
+          onClick={(e) => { e.stopPropagation(); setVerifyOn((v) => !v); }}
+          aria-label="Toggle AI line verification"
+          title={verifyOn ? "AI verification on — tap to turn off" : "AI verification off — tap to turn on"}
+          className="fixed z-40 grid place-items-center rounded-full border transition-all"
+          style={{
+            right: 12,
+            top: `calc(50% + 56px)`,
+            width: 44,
+            height: 44,
+            background: palette.chromeBg,
+            color: verifyOn ? palette.accent : palette.chromeFg,
+            borderColor: verifyOn ? palette.accent : palette.chromeBorder,
+            boxShadow: verifyOn
+              ? `0 0 14px ${palette.accent}, 0 2px 10px rgba(0,0,0,0.18)`
+              : "0 2px 10px rgba(0,0,0,0.18)",
+            backdropFilter: "blur(10px)",
+            opacity: 0.95,
+          }}
+        >
+          <ScanEye className="h-5 w-5" />
+        </button>
+      )}
+
+
+
+      <BottomPanel
+        open={panelOpen}
+        onToggle={() => setPanelOpen((v) => !v)}
+        onInsertChar={insertCharAtSensor}
+        onInsertNode={insertNodeAtSensor}
+        chromeBg={palette.chromeBg}
+        chromeFg={palette.chromeFg}
+        chromeBorder={palette.chromeBorder}
+        isDark={isDark}
+      />
+    </div>
+  );
+};
+
+/* ─────────────── Beat renderer ─────────────── */
+
+const BeatBlock = ({
+  beat, isCurrent, ink, accent, jitter,
+  notebookTitle, topic, subtopic, dateLabel,
+}: {
+  beat: Beat;
+  isCurrent: boolean;
+  ink: string;
+  accent: string;
+  jitter: number;
+  notebookTitle?: string;
+  topic?: string;
+  subtopic?: string;
+  dateLabel?: string;
+}) => {
+  const opacityClass = isCurrent ? "opacity-100" : "opacity-75";
+  const revealClass = isCurrent ? "sb-writing-in" : "";
+
+  // Synthetic cover beat — title / topic / subtopic / date.
+  if (beat.id === "__cover__") {
+    return (
+      <div data-sb-beat className={`transition-opacity duration-300 ${opacityClass} ${revealClass}`}>
+        <div className="text-center" style={{ color: ink }}>
+          <div className="text-xs uppercase tracking-[0.4em] mb-4" style={{ color: accent }}>
+            {dateLabel}
+          </div>
+          <div className="text-4xl md:text-5xl font-light leading-tight mb-3">
+            <Inked jitter={jitter * 0.6} seed={1}>{notebookTitle ?? beat.content}</Inked>
+          </div>
+          {topic && (
+            <div className="text-lg md:text-xl opacity-80 mb-1">
+              <Inked jitter={jitter * 0.5} seed={2}>{topic}</Inked>
+            </div>
+          )}
+          {subtopic && (
+            <div className="text-sm md:text-base opacity-55">
+              <Inked jitter={jitter * 0.5} seed={3}>{subtopic}</Inked>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (beat.kind === "text") {
+    return (
+      <div data-sb-beat className={`transition-opacity duration-300 ${opacityClass} ${revealClass}`}>
+        <div style={{ color: ink, fontSize: "1em" }}>
+          <SmartboardLessonText jitter={jitter} seed={beat.id.length}>
+            {beat.content}
+          </SmartboardLessonText>
+        </div>
+      </div>
+    );
+  }
+
+
+  if (beat.kind === "problem" || beat.kind === "exercise-prompt") {
+    return (
+      <div data-sb-beat className={`transition-opacity duration-300 ${opacityClass} ${revealClass}`}>
+        {beat.caption && (
+          <div
+            className="uppercase tracking-[0.25em] mb-2"
+            style={{ color: accent, fontSize: "0.4em" }}
+          >
+            {beat.caption}
+          </div>
+        )}
+        <div style={{ color: ink, fontSize: "1em" }}>
+          <SmartboardLessonText jitter={jitter * 0.6} seed={beat.id.length + 11}>
+            {beat.content}
+          </SmartboardLessonText>
+        </div>
+        {/* Auto-write the "Solution" header beneath the question, then stop.
+            The teacher solves the rest by hand using the carrier. */}
+        <div
+          className="mt-3"
+          style={{ color: ink, fontSize: "0.55em", fontStyle: "italic", opacity: 0.85 }}
+        >
+          <Inked jitter={jitter * 0.8} seed={beat.id.length + 7}>Solution</Inked>
+        </div>
+      </div>
+    );
+  }
+
+
+  // solution-step
+  return (
+    <div data-sb-beat className={`transition-opacity duration-300 ${opacityClass} ${revealClass} flex items-end gap-6`}>
+
+      <div
+        className="flex-1 relative"
+        style={{ color: ink, fontSize: "1em" }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "baseline",
+            flexWrap: "wrap",
+          }}
+        >
+          <SmartboardLessonText jitter={jitter * 0.6} seed={beat.id.length + 23}>
+            {beat.content}
+          </SmartboardLessonText>
+        </span>
+      </div>
+      {beat.reasoning && (
+        <div
+          className="flex-none max-w-[40%] pt-2"
+          style={{ color: accent, fontStyle: "italic", fontSize: "0.55em" }}
+        >
+          → <SmartboardLessonText jitter={jitter * 0.7} seed={beat.id.length + 1}>
+            {beat.reasoning}
+          </SmartboardLessonText>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PresentationView;

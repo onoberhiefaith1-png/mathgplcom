@@ -1,0 +1,126 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, BookOpen, Sparkles, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+type ClassRow = { id: string; name: string };
+type LessonNote = { notebook_id: string; notebooks: { title: string | null } | null };
+
+const StudentClassPage = () => {
+  const { classId } = useParams<{ classId: string }>();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [cls, setCls] = useState<ClassRow | null>(null);
+  const [notes, setNotes] = useState<{ id: string; title: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!classId) return;
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        navigate(`/auth?redirect=/student/class/${classId}`);
+        return;
+      }
+      const uid = userData.user.id;
+
+      // Identity firewall: must be an approved member
+      const { data: membership } = await supabase
+        .from("class_members")
+        .select("class_id")
+        .eq("class_id", classId)
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (!membership) {
+        navigate("/join");
+        return;
+      }
+
+      const { data: classRow } = await supabase
+        .from("classes")
+        .select("id, name")
+        .eq("id", classId)
+        .maybeSingle();
+      if (!classRow) { navigate("/join"); return; }
+
+      const { data: noteRows } = await supabase
+        .from("class_lesson_notes")
+        .select("notebook_id, notebooks:notebook_id(title)")
+        .eq("class_id", classId)
+        .eq("visibility", "student_access_enabled");
+
+      if (cancelled) return;
+      setCls(classRow as ClassRow);
+      setNotes(
+        ((noteRows ?? []) as LessonNote[]).map((r) => ({
+          id: r.notebook_id,
+          title: r.notebooks?.title ?? "Untitled",
+        })),
+      );
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [classId, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Opening classroom…
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
+      <header className="flex items-center justify-between px-6 py-5">
+        <Link to="/join" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> My Classes
+        </Link>
+        <h1 className="truncate text-lg font-semibold tracking-wide">{cls?.name}</h1>
+        <div className="w-24" />
+      </header>
+
+      <main className="mx-auto w-full max-w-3xl space-y-8 px-6 py-8">
+        <section>
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5" /> SmartBoard
+          </div>
+          <Link
+            to={`/student/class/${classId}/smartboard`}
+            className="block rounded-2xl border border-violet-300/40 bg-gradient-to-br from-violet-400/20 to-violet-600/5 p-6 backdrop-blur transition hover:scale-[1.01] hover:shadow-2xl"
+          >
+            <div className="text-lg font-semibold">Open SmartBoard</div>
+            <p className="mt-1 text-sm text-muted-foreground">View what your teacher is showing in real time.</p>
+          </Link>
+        </section>
+
+        <section>
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <BookOpen className="h-3.5 w-3.5" /> Class Notes
+          </div>
+          {notes.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              Class Notes not yet available.
+            </div>
+          ) : (
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {notes.map((n) => (
+                <li key={n.id}>
+                  <Link
+                    to={`/lesson-notes/${n.id}`}
+                    className="block rounded-xl border border-border bg-card/40 p-4 backdrop-blur transition hover:border-primary/40"
+                  >
+                    <div className="truncate text-base font-semibold">{n.title}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">Read-only</div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+};
+
+export default StudentClassPage;

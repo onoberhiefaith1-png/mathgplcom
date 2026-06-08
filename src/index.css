@@ -1,0 +1,334 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 244 46% 9%;
+    --foreground: 39 100% 94%;
+
+    --card: 250 34% 14%;
+    --card-foreground: 39 100% 94%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 39 94% 64%;
+    --primary-foreground: 247 48% 10%;
+
+    --secondary: 262 38% 28%;
+    --secondary-foreground: 39 100% 94%;
+
+    --muted: 239 28% 18%;
+    --muted-foreground: 37 44% 76%;
+
+    --accent: 203 92% 61%;
+    --accent-foreground: 247 48% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 39 93% 68%;
+    --input: 239 28% 18%;
+    --ring: 39 94% 64%;
+
+    --sky-top: 226 58% 20%;
+    --sky-mid: 268 42% 29%;
+    --sky-warm: 24 92% 67%;
+    --academy-glow: 39 100% 70%;
+    --academy-blue-glow: 199 100% 62%;
+    --floor: 248 42% 8%;
+    --gradient-cinematic: radial-gradient(circle at 50% 78%, hsl(var(--academy-glow) / 0.28), transparent 24%), linear-gradient(180deg, hsl(var(--sky-top)) 0%, hsl(var(--sky-mid)) 45%, hsl(var(--sky-warm)) 78%, hsl(var(--floor)) 100%);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
+@layer utilities {
+  .cinematic-sky {
+    background: var(--gradient-cinematic);
+  }
+
+  .academy-background-blend {
+    background:
+      radial-gradient(circle at 50% 54%, hsl(var(--academy-glow) / 0.2), transparent 28%),
+      radial-gradient(circle at 50% 62%, transparent 18%, hsl(var(--background) / 0.18) 58%, hsl(var(--background) / 0.38) 100%),
+      linear-gradient(180deg, hsl(var(--background) / 0.12) 0%, transparent 34%, hsl(var(--floor) / 0.26) 100%);
+    backdrop-filter: saturate(1.08) contrast(1.03);
+  }
+
+  .academy-vignette {
+    background: radial-gradient(circle at 50% 50%, transparent 36%, hsl(var(--background) / 0.38) 78%, hsl(var(--background) / 0.72) 100%);
+  }
+}
+
+/* ─── Notebook print stylesheet ─── */
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff !important; }
+  header, aside, .no-print, [data-radix-popper-content-wrapper] { display: none !important; }
+  .notebook-print-area { padding: 0 !important; }
+  /* Strip the dark page background and shadows */
+  main { background: #fff !important; }
+  .notebook-print-area * { color: #111 !important; }
+  /* Hide all hover-only UI */
+  .group\/block button, .group button[title^="Move"], .group button[title="Delete section"] { display: none !important; }
+}
+
+/* ─── Smartboard writing engine ─── */
+@keyframes sb-writing-in {
+  0%   { clip-path: inset(0 100% 0 0); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { clip-path: inset(0 0 0 0);   opacity: 1; }
+}
+.sb-writing-in {
+  animation: sb-writing-in var(--ink-reveal-ms, 480ms) cubic-bezier(.22,.6,.2,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-writing-in { animation: none; }
+}
+
+/* Smartboard writing sensor — soft pulse, never a harsh blink. */
+@keyframes sb-sensor-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.sb-sensor {
+  animation: sb-sensor-pulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-sensor { animation: none; opacity: 0.85; }
+}
+
+/* ─── Floating Number Highlight Mode ─── */
+.fn-highlight {
+  background: hsl(48 95% 70% / 0.55);
+  box-shadow: inset 0 -2px 0 hsl(38 90% 50% / 0.65);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.fn-highlight-mode .lesson-doc,
+.fn-highlight-mode .lesson-doc * {
+  cursor: text;
+}
+.fn-highlight-mode .lesson-doc {
+  user-select: text;
+}
+
+/* ─── Lesson Notes — Word-style document editor ─── */
+.lesson-doc {
+  position: relative;
+  font-family: "Source Serif Pro", "Cambria", "Georgia", "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 28px;
+  color: hsl(220 35% 18%);
+  caret-color: hsl(220 60% 40%);
+}
+.lesson-doc p {
+  margin: 0;
+  min-height: 28px;
+}
+.lesson-doc p + p {
+  text-indent: 1.25em;
+}
+.lesson-doc h1, .lesson-doc h2, .lesson-doc h3 {
+  color: hsl(220 35% 12%);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.lesson-doc h1 { font-size: 1.75rem; margin: 1.2em 0 0.15em; }
+.lesson-doc h2 { font-size: 1.4rem;  margin: 1em   0 0.1em;  }
+.lesson-doc h3 { font-size: 1.15rem; margin: 0.9em 0 0.1em;  }
+.lesson-doc h1 + p, .lesson-doc h2 + p, .lesson-doc h3 + p,
+.lesson-doc h1 + ul, .lesson-doc h2 + ul, .lesson-doc h3 + ul,
+.lesson-doc h1 + ol, .lesson-doc h2 + ol, .lesson-doc h3 + ol,
+.lesson-doc h1 + [data-math-block],
+.lesson-doc h2 + [data-math-block],
+.lesson-doc h3 + [data-math-block],
+.lesson-doc .section-heading-wrapper + p,
+.lesson-doc .section-heading-wrapper + ul,
+.lesson-doc .section-heading-wrapper + ol,
+.lesson-doc .section-heading-wrapper + [data-math-block] {
+  text-indent: 0;
+  margin-top: 0.15em;
+}
+.lesson-doc .section-heading-wrapper { margin: 1em 0 0.1em; }
+.lesson-doc .section-heading-wrapper > h1,
+.lesson-doc .section-heading-wrapper > h2,
+.lesson-doc .section-heading-wrapper > h3 {
+  margin: 0 !important;
+}
+
+.lesson-doc ul, .lesson-doc ol { padding-left: 1.5em; margin: 0.25em 0; }
+.lesson-doc ul li { list-style: disc; }
+.lesson-doc ol li { list-style: decimal; }
+.lesson-doc ::selection { background: hsl(48 90% 75% / 0.55); }
+.lesson-doc [data-math-inline],
+.lesson-doc [data-math-block] { vertical-align: baseline; }
+.lesson-doc [data-math-block] { display: block; min-height: 28px; }
+
+/* Section heading: title + AI chip on the same baseline */
+.lesson-doc .section-heading-wrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.lesson-doc .section-heading-wrapper > h1,
+.lesson-doc .section-heading-wrapper > h2,
+.lesson-doc .section-heading-wrapper > h3 {
+  flex: 0 0 auto;
+  margin-right: auto;
+}
+.lesson-doc .lesson-section-side-actions {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.lesson-doc .lesson-section-ai-trigger {
+  color: hsl(220 35% 18% / 0.45);
+  opacity: 1;
+}
+.lesson-doc .lesson-section-ai-trigger:hover,
+.lesson-doc .lesson-section-ai-trigger:focus-visible {
+  color: hsl(220 35% 18% / 0.85);
+}
+
+/* "+" widget shown at the end of a repeatable section. */
+.lesson-doc .lesson-add-another-wrap {
+  display: flex;
+  justify-content: flex-start;
+  padding-left: 0.25rem;
+  margin: 0.5rem 0 0.75rem;
+  user-select: none;
+}
+.lesson-doc .lesson-add-another-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 9999px;
+  font-size: 18px;
+  line-height: 1;
+  color: hsl(220 35% 18% / 0.55);
+  background: hsl(220 35% 18% / 0.04);
+  border: 1px dashed hsl(220 35% 18% / 0.3);
+  cursor: pointer;
+  transition: color 120ms, background 120ms, border-color 120ms, transform 120ms;
+}
+.lesson-doc .lesson-add-another-btn:hover,
+.lesson-doc .lesson-add-another-btn:focus-visible {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  border-color: hsl(var(--primary) / 0.5);
+  border-style: solid;
+  transform: scale(1.06);
+}
+
+/* Two-column Solution | Explanation layout removed — solution + explanation
+   now flow inline in a single column as the teacher requested. */
+
+
+
+/* Collapsible ribbon toggle handle */
+.lesson-ribbon-shell {
+  position: fixed;
+  top: 54px;
+  left: 0;
+  right: 0;
+  z-index: 25;
+}
+.lesson-ribbon-handle {
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  transform: translateX(-50%);
+  z-index: 30;
+  height: 22px;
+  width: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 0 12px 12px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-top: none;
+  color: hsl(var(--foreground) / 0.65);
+  box-shadow: 0 4px 10px -4px hsl(220 30% 10% / 0.18);
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease;
+}
+.lesson-ribbon-handle:hover { color: hsl(var(--foreground)); }
+
