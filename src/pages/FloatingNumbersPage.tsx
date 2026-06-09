@@ -443,7 +443,7 @@ const FloatingNumbersPage = () => {
               </span>
             )}
             <button
-              onClick={() => navigate(`/lesson-notes/${notebookId}/floating-prep/${subsectionId}`)}
+              onClick={() => flushThenNavigate(`/lesson-notes/${notebookId}/floating-prep/${subsectionId}`)}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-foreground/20 hover:bg-foreground/5"
               style={{ color: "hsl(220 35% 18%)" }}
               title="Back to highlight selection"
