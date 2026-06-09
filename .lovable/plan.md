@@ -1,60 +1,53 @@
-## What is happening
+# Floating Number Highlight Persistence Fix
 
-The screenshot is not a random UI crash. The Generate Solution request is reaching the `notebook-ai` backend and returning a non-2xx response. The recent backend logs show repeated `POST /notebook-ai` responses with status `422`, which matches the app error dialog.
+## What's actually happening
 
-The most likely root cause is the strict `QUESTION_LOCK` check: for Solution blocks, the backend requires the AI's first solution line to match the inherited question. For questions written as prose plus math, like:
+Highlights are *already* stored as lesson data (on the subsection row, in `floating_highlights` + `floating_lines` + `floating_bucket`). The bug is not that they aren't saved — it's that **other code paths destroy and rebuild that row and fail to carry the highlight forward**, so the selection silently vanishes on navigation/refresh.
 
-```text
-Rationalize the denominator of \frac{\sqrt{3}}{\sqrt{10} - \sqrt{5}}.
-```
+Two weak links cause the loss:
 
-the AI often restates only the math expression or rewrites the instruction slightly. The backend correctly rejects that as a mismatch, but the frontend currently rethrows many non-2xx errors, so users see the full app error overlay.
+### 1. The lesson-note sync wipes and recreates every subsection
 
-## Step-by-step fix plan
+`src/lib/lessonnotes/syncDocumentToNotebook.ts` runs **every time the lesson note opens** (via `useNotebook`) and **every time the document is saved**. It:
+- deletes ALL sections (cascading to subsections + blocks), then
+- rebuilds them from the document, and
+- re-attaches floating data **only when the new subsection's problem text matches the old one exactly** (normalized).
 
-1. **Confirm the failing path precisely**
-   - Use the live notebook data and backend function logs to isolate the `generate` request for the Solution section.
-   - Confirm whether the 422 body is `question_lock_mismatch` or another validation/inheritance rejection.
+When that match fails — empty problem text, slightly edited problem, math/LaTeX normalization differences, or two subsections sharing a problem — the highlight data is dropped. This is why "open SmartBoard → return to Lesson Notes" and "refresh" lose highlights: returning re-runs the sync, which can't re-pair the row.
 
-2. **Make Solution matching robust for prose + math questions**
-   - Keep the security/integrity rule: the AI must not solve a different problem.
-   - Improve the backend matching so it accepts a valid restatement of the mathematical target when the parent question contains teacher instruction text plus a math expression.
-   - For this example, both of these should be accepted as the same locked problem:
+### 2. The Floating Numbers reload can't re-pair a selection
 
-```text
-Rationalize the denominator of \frac{\sqrt{3}}{\sqrt{10} - \sqrt{5}}.
-\frac{\sqrt{3}}{\sqrt{10} - \sqrt{5}}
-```
+`src/pages/FloatingNumbersPage.tsx` reload reconciles persisted lines to highlights by `equation === payload` string equality only. Any drift drops the line (and its `fillersSelected` selection) and reseeds an empty one.
 
-3. **Make the backend return a usable fallback instead of breaking the app**
-   - If the AI still fails to restate the question after retry, return a controlled JSON error with clear details.
-   - Avoid unhandled exceptions so the app does not show the Lovable error overlay to teachers or clients.
+A secondary timing issue: chip toggles only autosave after a 500 ms debounce with no flush on unmount, so navigating away immediately after a click loses that click.
 
-4. **Harden the frontend Generate Solution handler**
-   - Update the Lesson Notes editor so all non-2xx Generate Solution failures are caught locally.
-   - Show a normal toast/message such as “I couldn’t safely match this solution to the question. Please try again or simplify the question text.”
-   - Do not rethrow the error into React, because that is what causes the app-level crash overlay.
+## The fix
 
-5. **Test the exact failing notebook case**
-   - Use the stored notebook question from the screenshot: rationalizing `sqrt(3)/(sqrt(10)-sqrt(5))`.
-   - Verify Generate Solution either inserts the worked solution or fails gracefully without the app error dialog.
-   - Re-check that the strict protection still rejects genuinely different questions.
+Treat highlight state as permanent and make every rebuild/reload path carry it forward robustly. No database schema change is needed (columns already exist).
 
-6. **Deploy the backend function after the fix**
-   - Deploy the updated `notebook-ai` function so the live preview and published app use the corrected behavior.
+### A. Harden `syncDocumentToNotebook.ts`
+- Build the floating-data preservation map keyed by normalized problem text **and** keep an ordered positional fallback list (Nth question subsection in document order).
+- When rebuilding each subsection, resolve preserved floating data in priority order: (1) exact problem match, (2) positional fallback for the same question index, so edited/empty problem text no longer drops highlights.
+- Never overwrite an existing subsection's floating fields with empty/null when preserved data is available — only an explicit teacher action may clear them.
+- Skip rewriting a subsection's floating data entirely when nothing changed.
 
-## Files I expect to change
+### B. Harden `FloatingNumbersPage.tsx` reload + saving
+- In the highlight-mode reconciliation, when `equation === payload` fails, fall back to positional pairing (same index) so the line and its `fillersSelected`/`containersSelected` selection are preserved.
+- Add a flush-on-unmount/navigation save (mirroring `FloatingPreparationPage`'s `flushHighlightState`) and flush before the "Back"/"Lesson Note"/Generate navigations, so a chip toggle made right before leaving is always persisted.
 
-- `supabase/functions/notebook-ai/index.ts`
-  - Improve `QUESTION_LOCK` matching and controlled error behavior.
-- `src/components/lessonnotes/DocumentEditor.tsx`
-  - Catch Generate Solution backend failures and prevent the app overlay.
-- Possibly `supabase/functions/notebook-ai/validator.ts`
-  - Only if the final issue is the sanitizer/matcher normalizing math incorrectly.
+### C. Confirm toggle semantics (already correct, keep intact)
+- Clicking a chip toggles `fillersSelected[i]` / `containersSelected[i]`; clicking the same chip again removes it. This is the only removal path and stays the only removal path. The compiled `floating_bucket.selected` (which the SmartBoard reads) is derived from this saved state, so SmartBoard and Lesson Notes share one source of truth.
 
-## Success criteria
+## Validation
+1. Open a floating-number workspace, highlight lines 1, 4, 7.
+2. Navigate to SmartBoard, then back to the lesson note → 1, 4, 7 still highlighted.
+3. Refresh the page → 1, 4, 7 still highlighted.
+4. Click line 4 again → line 4 unhighlighted; 1 and 7 remain.
+5. Refresh → 1 and 7 highlighted, 4 not.
+6. Edit unrelated lesson-note text and re-open → highlights survive (positional fallback covers any problem-text drift).
 
-- Clicking AI Generate under a Solution section never causes the app-level “Error / Try to fix” overlay.
-- The specific surd/conjugate question from the screenshot can generate a solution reliably.
-- If the model tries to solve a different question, it is rejected safely with a teacher-friendly message.
-- Existing `QUESTION_LOCK` and question inheritance protections remain intact.
+## Technical notes / files touched
+- `src/lib/lessonnotes/syncDocumentToNotebook.ts` — robust floating-data preservation (problem-match + positional fallback; never clobber with empty).
+- `src/pages/FloatingNumbersPage.tsx` — positional fallback in reload reconciliation; flush-on-navigation/unmount save.
+- No migration: `floating_highlights`, `floating_lines`, `floating_bucket` columns already exist on `notebook_subsections`.
+- Scope is persistence/reattachment only — no change to highlight UI behavior, scoring, or grading logic.
