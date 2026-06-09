@@ -535,94 +535,117 @@ export const FloatingNumberPanel = ({
           <span style={{ width: 1, height: 22, background: `color-mix(in oklab, ${chromeFg} 25%, transparent)` }} />
         )}
 
-        {/* ── ACTIVE zone (middle, working chips) ── */}
-        <button
-          onClick={(e) => { e.stopPropagation(); if (canPrev) { setOffset((o) => o - 1); onPing(); } }}
-          disabled={!canPrev}
-          title="Scroll backward"
+        {/* ── ACTIVE zone (middle, white container, working chips) ── */}
+        <div
+          className="flex items-center"
           style={{
-            background: "transparent", border: 0, color: chromeFg,
-            padding: 0, opacity: canPrev ? 1 : 0.25,
-            cursor: canPrev ? "pointer" : "default",
-            display: "inline-flex", alignItems: "center",
+            gap: 6,
+            padding: "2px 6px",
+            borderRadius: 10,
+            background: "#ffffff",
+            border: "1px solid #d1d5db",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
           }}
+          title="Active numbers — tap to use"
         >
-          <ChevronLeft size={22} />
-        </button>
-        {activeWindow.length === 0 ? (
-          <span style={{ opacity: 0.5, fontSize: 13 }}>
-            {usedSlots.length > 0 ? "all used" : "no floating numbers"}
-          </span>
-        ) : activeWindow.map(({ token, absIdx }, i) => {
-          const label = slotLabel(token);
-          if (label == null) return null;
-          const lineNo = lineNoOf(absIdx);
-          return (
-            <button
-              key={`fn-${viewIdx}-${absIdx}-${i}`}
-              onClick={(e) => { e.stopPropagation(); handleActiveTap(label, absIdx); }}
-              className="transition-transform hover:scale-110 active:scale-95 relative"
-              style={{
-                background: "transparent",
-                border: 0,
-                color: chromeFg,
-                padding: "0 2px",
-                opacity: 1,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              <ChipLabel label={label} color={chromeFg} />
-              {lineNo != null && (
-                <span
-                  aria-hidden
-                  style={{
-                    position: "absolute", right: -2, bottom: -6,
-                    fontSize: 10, lineHeight: 1, opacity: 0.35,
-                    color: chromeFg, fontWeight: 700,
-                    pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
-                  }}
-                >
-                  {lineNo}
-                </span>
-              )}
-            </button>
-          );
-        })}
-        <button
-          onClick={(e) => { e.stopPropagation(); if (canNext) { setOffset((o) => o + 1); onPing(); } }}
-          disabled={!canNext}
-          title="Scroll forward"
-          style={{
-            background: "transparent", border: 0, color: chromeFg,
-            padding: 0, opacity: canNext ? 1 : 0.25,
-            cursor: canNext ? "pointer" : "default",
-            display: "inline-flex", alignItems: "center",
-          }}
-        >
-          <ChevronRight size={22} />
-        </button>
-
-        {/* ── UPCOMING zone (right, dimmed, waiting to flow into ACTIVE) ── */}
-        {upcomingWindow.length > 0 && (
-          <>
-            <span style={{ width: 1, height: 22, background: `color-mix(in oklab, ${chromeFg} 25%, transparent)` }} />
-            <div className="flex items-center" style={{ gap: 6, opacity: 0.4 }} title="Coming up next">
-              {upcomingWindow.map(({ token, absIdx }, i) => {
-                const label = slotLabel(token);
-                if (label == null) return null;
-                return (
+          <button
+            onClick={(e) => { e.stopPropagation(); if (canPrev) { setOffset((o) => o - 1); onPing(); } }}
+            disabled={!canPrev}
+            title="Scroll backward"
+            style={{
+              background: "transparent", border: 0, color: "#374151",
+              padding: 0, opacity: canPrev ? 1 : 0.25,
+              cursor: canPrev ? "pointer" : "default",
+              display: "inline-flex", alignItems: "center",
+            }}
+          >
+            <ChevronLeft size={22} />
+          </button>
+          {activeWindow.length === 0 ? (
+            <span style={{ opacity: 0.5, fontSize: 13, color: "#374151" }}>
+              {usedSlots.length > 0 ? "all used" : "no floating numbers"}
+            </span>
+          ) : activeWindow.map(({ token, absIdx }, i) => {
+            const label = slotLabel(token);
+            if (label == null) return null;
+            const lineNo = lineNoOf(absIdx);
+            return (
+              <button
+                key={`fn-${viewIdx}-${absIdx}-${i}`}
+                onClick={(e) => { e.stopPropagation(); handleActiveTap(label, absIdx); }}
+                className="transition-transform hover:scale-110 active:scale-95 relative"
+                style={{
+                  background: "transparent",
+                  border: 0,
+                  color: "#111827",
+                  padding: "0 2px",
+                  opacity: 1,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                <ChipLabel label={label} color="#111827" />
+                {lineNo != null && (
                   <span
-                    key={`up-${viewIdx}-${absIdx}-${i}`}
-                    style={{ color: chromeFg, padding: "0 1px", display: "inline-flex", alignItems: "center" }}
+                    aria-hidden
+                    style={{
+                      position: "absolute", right: -2, bottom: -6,
+                      fontSize: 10, lineHeight: 1, opacity: 0.4,
+                      color: "#111827", fontWeight: 700,
+                      pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
+                    }}
                   >
-                    <ChipLabel label={label} color={chromeFg} />
+                    {lineNo}
                   </span>
-                );
-              })}
-            </div>
-          </>
+                )}
+              </button>
+            );
+          })}
+          <button
+            onClick={(e) => { e.stopPropagation(); if (canNext) { setOffset((o) => o + 1); onPing(); } }}
+            disabled={!canNext}
+            title="Scroll forward"
+            style={{
+              background: "transparent", border: 0, color: "#374151",
+              padding: 0, opacity: canNext ? 1 : 0.25,
+              cursor: canNext ? "pointer" : "default",
+              display: "inline-flex", alignItems: "center",
+            }}
+          >
+            <ChevronRight size={22} />
+          </button>
+        </div>
+
+        {/* ── UPCOMING zone (right, light grey container, waiting to flow in) ── */}
+        {upcomingWindow.length > 0 && (
+          <div
+            className="flex items-center"
+            style={{
+              gap: 6,
+              padding: "2px 8px",
+              borderRadius: 10,
+              background: "#f3f4f6",
+              border: "1px solid #e5e7eb",
+              maxWidth: 220,
+              overflowX: "auto",
+              opacity: 0.75,
+            }}
+            title="Coming up next"
+          >
+            {upcomingWindow.map(({ token, absIdx }, i) => {
+              const label = slotLabel(token);
+              if (label == null) return null;
+              return (
+                <span
+                  key={`up-${viewIdx}-${absIdx}-${i}`}
+                  style={{ color: "#6b7280", padding: "0 1px", display: "inline-flex", alignItems: "center" }}
+                >
+                  <ChipLabel label={label} color="#6b7280" />
+                </span>
+              );
+            })}
+          </div>
         )}
       </div>
       )}
