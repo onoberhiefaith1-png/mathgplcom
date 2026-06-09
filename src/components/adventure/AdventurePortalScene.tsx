@@ -292,7 +292,7 @@ const WorldSegment = ({
       </group>
 
       {/* Thunderbolt strikes that blast across the door during the pause. */}
-      <group ref={thunderGroupRef} position={[0, 0.08, WORLD_RADIUS + 0.34]} visible={false}>
+      <group ref={thunderGroupRef} position={[0, 0.2, WORLD_RADIUS + 0.34]} visible={false}>
         <pointLight ref={thunderLightRef} color="#bcd6ff" distance={8} intensity={0} />
         {bolts.map((bolt, i) => (
           <primitive key={i} object={bolt} position={[(i - 1) * 0.34, 0, 0]} />
