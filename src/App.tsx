@@ -95,6 +95,7 @@ const App = () => (
           <Route path="/join/:code" element={<JoinClassPage />} />
           <Route path="/student/class/:classId" element={<StudentClassPage />} />
           <Route path="/student/class/:classId/smartboard" element={<StudentSmartBoardPage />} />
+          <Route path="/student/class/:classId/assessment/:assessmentId" element={<AssessmentBoardPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/backgrounds" element={<Backgrounds />} />
           <Route path="/games/tally" element={<TallyGame />} />
