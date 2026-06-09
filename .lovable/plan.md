@@ -1,38 +1,67 @@
-## Student Edit Permission — completion plan
+# Restore Smartboard Content Synchronization
 
-Good news: the core of this feature already exists and works. The remaining work is finishing the rules the spec adds. This is a **frontend-only** change — no database or sync-engine changes are needed.
+## Root cause (confirmed)
 
-### What already works today
-- One student at a time can be granted edit rights from the teacher's board (the floating "people" control).
-- Selecting a new student instantly revokes the previous one (Student A → view-only, Student B → editor).
-- Teacher always retains edit rights; teacher + 1 student = max 2 editors.
-- A view-only student currently sees the board but cannot type, draw, or touch any control (all controls are hidden).
-- Edits by the active student sync live to the teacher and all viewers via the existing realtime system.
+This is a regression from the **most recent security fix**, not a content-saving bug.
 
-### Gaps to close (the actual work)
+What I verified directly against the database and code:
 
-1. **On-screen status indicator (new)**
-   On a student's board, show a small fixed banner at the top:
-   - Green "Editing Enabled by Teacher" when that student is the active editor.
-   - Neutral "View Only Mode" otherwise.
-   This banner is always visible to students (it is intentionally exempt from the control-hiding logic).
+- The teacher's board content **is** being written. `class_smartboard_state.state_json` contains live snapshots (e.g. 305 and 1649 bytes) — equations, free-write lines, boxes, etc. are persisting correctly.
+- `class_smartboard_state` is in the realtime publication and has `REPLICA IDENTITY FULL`. Table RLS lets members read the row when smartboard access is enabled. So the data layer is healthy.
+- The last security migration made every class channel **private** (`{ config: { private: true } }`) and added Row-Level Security on `realtime.messages` gated by `can_access_realtime_topic()`.
 
-2. **Restrict teacher-only controls from the active student (new)**
-   Right now, when a student is granted edit rights, every control appears (because they can edit). The spec requires the student editor to get only board/writing/drawing/math tools, while teacher-exclusive controls stay hidden.
+The problem: when a channel is `private: true`, Realtime runs an **authorization check at subscribe (join) time** against `realtime.messages` RLS. That policy calls `auth.uid()` on the realtime socket. The realtime socket is not reliably carrying the user's auth token before these channels subscribe (the `.channel(...).subscribe()` calls fire in `useEffect` on page load, before the session token is attached to the socket). With no `auth.uid()`, `can_access_realtime_topic()` returns `false`, the join is rejected, and **the entire subscription dies** — no postgres_changes events arrive.
 
-   - Keep ENABLED for the active student: bottom math-input panel, the three assistant buttons (numbers / structures / symbols), left rail undo-redo + drop-line / dot / box, the draggable eraser, ink-style rail, and the writing surface itself.
-   - Keep HIDDEN for the active student: the top toolbar (Back to Shelf, Clear Board, Settings, zoom, lesson prev/next) and its pull-tab, the right-edge "Next section" lesson control, the AI verification toggle, and (already hidden) the student-permission control.
+This is exactly why only the topic/heading appears: the topic is loaded once via a direct DB query on mount (`loadBoardState`), so it shows up. Everything that depends on the **live** subscription (notes, equations, drawings, AI solutions, floating numbers, worked solutions, beat advancement) never updates because the realtime channel was never authorized.
 
-   Mechanism: tag teacher-exclusive chrome with a `data-sb-teacher-only` marker and inject a style rule that hides those elements whenever `role === "student"`, even when the student can edit. View-only students keep the existing "hide everything" rule.
+Channels affected (all switched to private in the last fix):
+`sb-sync-*`, `smartboard-state-*`, `class-visibility-*`, `class-notes-*`, `active-student-members-*`, `join-requests-*`, `member-of-*`.
 
-3. **Relabel the control to match the spec (polish)**
-   Rename the teacher's student-selection control from "Active Student" to "Student Can Edit", and update its helper copy ("Select one student to grant editing", "Teacher only — take back control"). It stays on the live board (the natural place for the teacher to hand off mid-lesson), grouped with the board-accessibility affordances.
+## Fix
 
-### Files touched
-- `src/components/smartboard/PresentationView.tsx` — add the student status banner; add `data-sb-teacher-only` markers to the top header, top pull-tab, right-edge next-section button, and AI verify toggle; add a `role === "student"` style block hiding teacher-only chrome.
-- `src/components/smartboard/ActiveStudentControl.tsx` — relabel to "Student Can Edit" and refresh helper text.
+Authenticate the realtime socket before subscribing to any private channel, and keep it authenticated across token refreshes. This keeps the new security model (private channels + `realtime.messages` RLS) intact while restoring delivery.
 
-### Technical notes
-- No migration required: `class_smartboard_state.active_student_id`, the active-student write RLS policy, and realtime publication are already in place from the previous phase.
-- `canEdit = isTeacher || isActiveStudent` stays the source of truth for input gating; we only add a second, narrower visibility layer (`data-sb-teacher-only`) so an editing student can use tools without seeing teacher controls.
-- The status banner renders for `role === "student"` only and carries no `data-sb-chrome` marker so it survives the view-only hide rule.
+1. **Add a small realtime-auth helper** that fetches the current session and calls `supabase.realtime.setAuth(token)`, so the socket presents the user's JWT. It will be awaited right before each private-channel `subscribe()`.
+
+2. **Register a global auth listener** (in `App.tsx`) that re-runs `setAuth` on `onAuthStateChange` (sign-in, token refresh) so long-lived classroom sessions stay authorized.
+
+3. **Update every private-channel subscription site** to await the helper before creating/subscribing the channel, using a cancel-safe async pattern so the `useEffect` cleanup still removes the channel correctly:
+   - `src/hooks/useSmartboardSync.ts` (`sb-sync-*`) — the main board-content channel
+   - `src/pages/student/StudentSmartBoardPage.tsx` (`smartboard-state-*`, `class-visibility-*`)
+   - `src/pages/student/StudentClassPage.tsx` (`class-notes-*`)
+   - `src/components/smartboard/ActiveStudentControl.tsx` (`active-student-members-*`)
+   - `src/components/class/JoinRequestsPanel.tsx` (`join-requests-*`)
+   - `src/components/class/JoinClassPanel.tsx` (`member-of-*`)
+
+4. **Add subscribe-status handling** on the board channels: log/track `CHANNEL_ERROR` / `TIMED_OUT` from `.subscribe((status) => …)` and re-run `setAuth` + resubscribe once, so a transient unauthorized join self-heals instead of silently going dead.
+
+No database/schema changes are needed — the RLS policies and `can_access_realtime_topic()` are correct; they just need an authenticated socket.
+
+This only touches the realtime wiring. The Student Edit Permission feature already built on top of this layer will start working reliably once delivery is restored, with no changes to its logic.
+
+## Verification
+
+1. Open the teacher SmartBoard for a class and a student SmartBoard for the same class in a second session.
+2. Teacher writes `x + 5 = 12` → confirm it appears on the student board with no refresh.
+3. Teacher advances a beat / adds a worked solution / floating numbers → confirm each appears live on the student.
+4. Teacher edits an existing line → confirm the edit mirrors live.
+5. Confirm settings/admin controls (teacher-only chrome, AI settings, permissions) do **not** appear for students — sync scope stays content-only, matching current `data-sb-teacher-only` rules and the snapshot payload (which excludes admin/settings UI).
+6. Check the browser console for channel `SUBSCRIBED` status (no `CHANNEL_ERROR`).
+
+## Technical details
+
+- `supabase.realtime.setAuth(accessToken)` attaches the JWT to the realtime socket; private-channel joins then pass `realtime.messages` RLS because `auth.uid()` resolves.
+- The async subscribe pattern:
+  ```text
+  let ch = null; let cancelled = false;
+  (async () => {
+    await ensureRealtimeAuth();
+    if (cancelled) return;
+    ch = supabase.channel(topic, { config: { private: true } })
+           .on('postgres_changes', {...}, handler)
+           .subscribe((status) => { /* retry on CHANNEL_ERROR */ });
+  })();
+  return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  ```
+- `src/integrations/supabase/client.ts` is auto-generated and will not be edited; the helper and listener live in separate files.
+- The `notebook-scan-*` broadcast channel stays public/unchanged (intentional, secret-code paired).
