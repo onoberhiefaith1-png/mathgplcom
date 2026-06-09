@@ -354,6 +354,20 @@ const PresentationView = ({
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
   const boardScrollRef = useRef<HTMLElement>(null);
 
+  // Track the scroll host's visible height so assistant panels can default
+  // to a position INSIDE the viewport (not the off-screen band bottom).
+  const [viewportH, setViewportH] = useState(0);
+  useEffect(() => {
+    const host = boardScrollRef.current;
+    if (!host) return;
+    const update = () => setViewportH(host.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, []);
+
+
   // Smart Line overlay objects — free-floating draggable/extendable/rotatable
   // strokes that live above the writing surface (not in the math tree).
   // Used as wide fraction bars, division strokes, or cancel/strike-through.
@@ -1873,7 +1887,23 @@ const PresentationView = ({
               }
             }
             const finalLineBottomPx = grid.MARGIN_TOP + (lastLine + 1) * grid.LINE_HEIGHT;
-            const defaultY = bandBotPx - grid.LINE_HEIGHT * 0.6;
+            // Band-bottom anchor (original behaviour) — may sit below the fold.
+            const bandDefaultY = bandBotPx - grid.LINE_HEIGHT * 0.6;
+            // Viewport-aware default: drop the panel near the bottom of the
+            // currently VISIBLE writable space so it's always on-screen when
+            // first activated. Clamped inside the band / above the last line.
+            const host = boardScrollRef.current;
+            const visH = viewportH || host?.clientHeight || 0;
+            const padBot = 24 + (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT);
+            const upperBound = Math.max(finalLineBottomPx + 8, bandTopPx + 8);
+            let defaultY = bandDefaultY;
+            if (host && visH > 0) {
+              const visibleBottom = host.scrollTop + visH - padBot;
+              const onScreenDefault = visibleBottom - grid.LINE_HEIGHT * 1.1;
+              defaultY = Math.min(bandDefaultY, onScreenDefault);
+              defaultY = Math.max(upperBound, Math.min(defaultY, bandDefaultY));
+            }
+
             const beatKey = current.id;
             const fnY = assistantYByBeat[`numbers:${beatKey}`] ?? null;
             const stY = assistantYByBeat[`structures:${beatKey}`] ?? null;
