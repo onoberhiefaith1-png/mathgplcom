@@ -16,6 +16,9 @@ interface Props {
   ink: string;
   /** Bottom inset (px) so the buttons clear the BottomPanel tab. */
   bottomInset: number;
+  /** Extra lift (px) for the bottom-right Structures button so it clears a
+   *  fixed bottom-right element (e.g. the per-line "Check line" button). */
+  liftRightBottom?: number;
 }
 
 const btnStyle = (
@@ -36,6 +39,7 @@ const btnStyle = (
 
 export const AssistantButtons = ({
   active, onToggle, chromeBg, chromeFg, chromeBorder, ink, bottomInset,
+  liftRightBottom = 0,
 }: Props) => {
   const palette = { chromeBg, chromeFg, chromeBorder, ink };
   return (
@@ -59,7 +63,7 @@ export const AssistantButtons = ({
         aria-label="Toggle structures"
         title="Structures (□/□, √□, …)"
         className="fixed z-40 grid place-items-center rounded-full border transition-all"
-        style={{ right: 12, bottom: bottomInset + 12, ...btnStyle(active === "structures", palette) }}
+        style={{ right: 12, bottom: bottomInset + 12 + liftRightBottom, ...btnStyle(active === "structures", palette) }}
       >
         <FunctionSquare className="h-5 w-5" />
       </button>
