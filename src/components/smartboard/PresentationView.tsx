@@ -1449,8 +1449,8 @@ const PresentationView = ({
         </button>
 
         <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
-          <span className="font-medium truncate">{notebook.title ?? "Untitled"}</span>
-          {notebook.subtopic && (
+          <span className="font-medium truncate">{notebook?.title ?? "Untitled"}</span>
+          {notebook?.subtopic && (
             <span className="opacity-60 truncate">· {notebook.subtopic}</span>
           )}
           <span className="opacity-40 tabular-nums whitespace-nowrap">· {today()}</span>
