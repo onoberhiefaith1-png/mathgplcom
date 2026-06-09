@@ -530,10 +530,7 @@ export const FloatingNumberPanel = ({
           </div>
         )}
 
-        {/* divider between USED and ACTIVE */}
-        {usedSlots.length > 0 && (
-          <span style={{ width: 1, height: 22, background: `color-mix(in oklab, ${chromeFg} 25%, transparent)` }} />
-        )}
+
 
         {/* ── ACTIVE zone (middle, white container, working chips) ── */}
         <div
