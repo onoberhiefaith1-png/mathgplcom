@@ -63,7 +63,7 @@ export const AssistantButtons = ({
         aria-label="Toggle structures"
         title="Structures (□/□, √□, …)"
         className="fixed z-40 grid place-items-center rounded-full border transition-all"
-        style={{ right: 12, bottom: bottomInset + 12, ...btnStyle(active === "structures", palette) }}
+        style={{ right: 12, bottom: bottomInset + 12 + liftRightBottom, ...btnStyle(active === "structures", palette) }}
       >
         <FunctionSquare className="h-5 w-5" />
       </button>
