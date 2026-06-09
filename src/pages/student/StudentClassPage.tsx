@@ -22,6 +22,7 @@ const StudentClassPage = () => {
   const [loading, setLoading] = useState(true);
   const [cls, setCls] = useState<ClassRow | null>(null);
   const [notes, setNotes] = useState<{ id: string; title: string }[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
 
   const loadNotes = useCallback(async () => {
     if (!classId) return;
@@ -37,6 +38,44 @@ const StudentClassPage = () => {
       })),
     );
   }, [classId]);
+
+  const loadAssignments = useCallback(async () => {
+    if (!classId) return;
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    const { data: rows } = await supabase
+      .from("assessments")
+      .select("id, title, kind, score_label, total_marks")
+      .eq("class_id", classId)
+      .order("created_at", { ascending: false });
+    const ids = (rows ?? []).map((r: any) => r.id);
+    const progByAssessment = new Map<string, { score: number; status: string }>();
+    if (uid && ids.length) {
+      const { data: progs } = await supabase
+        .from("assessment_progress")
+        .select("assessment_id, score, status")
+        .eq("student_id", uid)
+        .in("assessment_id", ids);
+      for (const p of progs ?? []) {
+        progByAssessment.set((p as any).assessment_id, { score: Number((p as any).score ?? 0), status: (p as any).status });
+      }
+    }
+    setAssignments(
+      (rows ?? []).map((r: any) => {
+        const p = progByAssessment.get(r.id);
+        return {
+          id: r.id,
+          title: r.title ?? "Assignment",
+          kind: r.kind ?? "classwork",
+          score_label: r.score_label ?? "Marks",
+          total_marks: Number(r.total_marks ?? 0),
+          score: p?.score ?? 0,
+          completed: p?.status === "completed",
+        };
+      }),
+    );
+  }, [classId]);
+
 
   useEffect(() => {
     let cancelled = false;
