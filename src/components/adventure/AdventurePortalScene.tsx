@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
@@ -8,6 +8,7 @@ import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
 import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
 import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
+import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
 import staircaseEntry from "@/assets/adventure/staircase-entry.jpg";
 
 const academies = [
@@ -26,6 +27,13 @@ const SEG_ANGLE = (Math.PI * 2) / SEGMENTS;
 const WORLD_RADIUS = 5.1;
 const WORLD_HEIGHT = 4.4;
 const ringSpeed = (Math.PI * 2) / 60;
+
+// ── INNER CENTRAL CORE (the middle royal palace building) ──────────────────
+const CORE_SEGMENTS = 12;
+const CORE_SEG_ANGLE = (Math.PI * 2) / CORE_SEGMENTS;
+const CORE_RADIUS = 2.55;
+const CORE_HEIGHT = 5.4;
+const CORE_Y_OFFSET = 0.95;
 
 const smoothstep = (edge0: number, edge1: number, x: number) => {
   const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
@@ -64,6 +72,51 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
       </bufferGeometry>
       <pointsMaterial size={size} color={color} transparent opacity={0.75} depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>
+  );
+};
+
+// The inner royal palace core, built from many overlapping dome copies wrapped
+// onto a smaller cylinder so their roofs/walls fuse into one continuous middle
+// building that rotates locked to the outer ring city.
+const CoreSegment = ({
+  texture,
+  index,
+  getCoreOpacity,
+}: {
+  texture: THREE.Texture;
+  index: number;
+  getCoreOpacity: () => number;
+}) => {
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const overlap = CORE_SEG_ANGLE * 3;
+  const thetaStart = index * CORE_SEG_ANGLE - overlap / 2;
+  const thetaLength = CORE_SEG_ANGLE + overlap;
+  const radius = CORE_RADIUS + (index % 2 === 0 ? 0.06 : 0);
+
+  useFrame((_, delta) => {
+    if (materialRef.current) {
+      materialRef.current.opacity = THREE.MathUtils.damp(materialRef.current.opacity, getCoreOpacity(), 6, delta);
+    }
+  });
+
+  return (
+    <mesh renderOrder={index % 2 === 0 ? -1 : -2}>
+      <cylinderGeometry args={[radius, radius, CORE_HEIGHT, 64, 1, true, thetaStart, thetaLength]} />
+      <meshBasicMaterial ref={materialRef} map={texture} transparent alphaTest={0.04} opacity={1} side={THREE.DoubleSide} toneMapped={false} />
+    </mesh>
+  );
+};
+
+const CentralCore = ({ getCoreOpacity }: { getCoreOpacity: () => number }) => {
+  const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return (
+    <group position={[0, CORE_Y_OFFSET, 0]}>
+      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
+        <CoreSegment key={i} index={i} texture={texture} getCoreOpacity={getCoreOpacity} />
+      ))}
+    </group>
   );
 };
 
@@ -158,10 +211,14 @@ const WorldSegment = ({
     const opacity = getOpacity(index);
 
     if (groupRef.current) {
-      const targetScale = 1 + selectionProgress * 2.35;
-      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1 + selectionProgress * 0.2), 1 - Math.pow(0.001, delta));
-      groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, selectionProgress * 4.9, 4.8, delta);
-      groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, selectionProgress * 0.18, 4.2, delta);
+      // Gentle grow only — the "coming closer" feel comes mostly from the door
+      // texture crop. We keep the panel's front face well in front of the camera
+      // (camera z=10.5) so it NEVER clashes/passes through the lens: front face
+      // ≈ WORLD_RADIUS*scale + z ≈ 5.1*1.32 + 0.45 ≈ 7.2 (a safe ~3.3 gap).
+      const targetScale = 1 + selectionProgress * 0.32;
+      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1 + selectionProgress * 0.12), 1 - Math.pow(0.001, delta));
+      groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, selectionProgress * 0.45, 4.8, delta);
+      groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, selectionProgress * 0.12, 4.2, delta);
     }
 
     if (materialRef.current) {
@@ -198,8 +255,11 @@ const WorldSegment = ({
     }
     if (portalDoorGlowRef.current) {
       const glowMaterial = portalDoorGlowRef.current.material as THREE.MeshBasicMaterial;
-      glowMaterial.opacity = portalProgress * 0.88 * pulse;
-      portalDoorGlowRef.current.scale.set(1 + portalProgress * 0.16, 1 + portalProgress * 0.16, 1);
+      // Sustained glow that intensifies while paused in front of the door.
+      const glow = portalProgress * 0.88 + thunderProgress * 0.5;
+      glowMaterial.opacity = glow * pulse;
+      const glowScale = 1 + portalProgress * 0.16 + thunderProgress * 0.18;
+      portalDoorGlowRef.current.scale.set(glowScale, glowScale, 1);
     }
     if (portalRingARef.current) {
       const ringMaterial = portalRingARef.current.material as THREE.MeshBasicMaterial;
@@ -359,6 +419,14 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
     return 1 - fade * 0.97;
   };
 
+  // The middle core fades out as we zoom into a selected door (like the other
+  // non-selected buildings) so it never pokes in front of the door framing.
+  const getCoreOpacity = () => {
+    if (selectedIndexRef.current === null) return 1;
+    const fade = smoothstep(0.18, 0.7, approachProgressRef.current);
+    return 1 - fade * 0.98;
+  };
+
   useFrame((state, delta) => {
     camera.position.set(0, -0.2, 10.5);
     camera.lookAt(0, 0, 0);
@@ -386,8 +454,8 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
     if (sequenceRef.current === "approach") {
       worldRef.current.rotation.y = THREE.MathUtils.damp(worldRef.current.rotation.y, targetRotationRef.current, 8, delta);
       worldRef.current.position.y = THREE.MathUtils.damp(worldRef.current.position.y, 0, 5.5, delta);
-      // Slowed zoom: ~5.5s to reach the door (≈3s slower than before).
-      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 5.5);
+      // Slow, cinematic zoom toward the door — ~8s, no rushing.
+      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 8);
       if (approachProgressRef.current >= 1) {
         approachProgressRef.current = 1;
         sequenceRef.current = "pause";
@@ -395,11 +463,12 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
     }
 
     if (sequenceRef.current === "pause") {
-      // Hold at the door (door stays fully framed) while the thunderbolt blasts.
+      // Hold in front of the door (door fills the screen, statues at the sides)
+      // while the glow + thunderbolt effect plays — slow, ~2.8s.
       worldRef.current.rotation.y = targetRotationRef.current;
       worldRef.current.position.y = 0;
       approachProgressRef.current = 1;
-      pauseProgressRef.current = Math.min(1, pauseProgressRef.current + delta / 1.7);
+      pauseProgressRef.current = Math.min(1, pauseProgressRef.current + delta / 2.8);
       if (pauseProgressRef.current >= 1) sequenceRef.current = "flash";
     }
 
@@ -442,6 +511,8 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
       <FloatingParticles color="#c79bff" size={0.06} count={110} spread={13} />
 
       <group ref={worldRef}>
+        {/* Middle royal palace core — locked to the same group so it rotates with the city. */}
+        <CentralCore getCoreOpacity={getCoreOpacity} />
         {academies.map((academy, i) => (
           <WorldSegment
             key={`${academy.slug}-${i}`}
@@ -472,11 +543,21 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
 
 export const AdventurePortalScene = () => {
   const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  // Seamless hand-off: the new scene mounts UNDER a white veil that picks up
+  // exactly where the in-canvas flash ended, then fades away — so there is never
+  // an empty gap between the leaving image and the entering image.
+  useEffect(() => {
+    if (!enteredAcademy) return;
+    const id = requestAnimationFrame(() => setRevealed(true));
+    return () => cancelAnimationFrame(id);
+  }, [enteredAcademy]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       {enteredAcademy ? (
-        <div className="absolute inset-0 animate-fade-in">
+        <div className="absolute inset-0">
           <img
             src={staircaseEntry}
             alt={`${enteredAcademy.label} adventure staircase hall`}
@@ -486,6 +567,11 @@ export const AdventurePortalScene = () => {
             height={1080}
           />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.08),transparent_28%,transparent_72%,hsl(var(--background)/0.24))]" />
+          {/* White veil that fades out, continuing the flash with no visible gap. */}
+          <div
+            className="pointer-events-none absolute inset-0 bg-[#fff7ea] transition-opacity duration-700 ease-out"
+            style={{ opacity: revealed ? 0 : 1 }}
+          />
         </div>
       ) : (
         <>
