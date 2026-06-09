@@ -511,6 +511,8 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
       <FloatingParticles color="#c79bff" size={0.06} count={110} spread={13} />
 
       <group ref={worldRef}>
+        {/* Middle royal palace core — locked to the same group so it rotates with the city. */}
+        <CentralCore getCoreOpacity={getCoreOpacity} />
         {academies.map((academy, i) => (
           <WorldSegment
             key={`${academy.slug}-${i}`}
