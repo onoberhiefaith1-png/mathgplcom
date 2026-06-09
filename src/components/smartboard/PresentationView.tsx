@@ -2571,9 +2571,86 @@ const PresentationView = ({
         />
       )}
 
-      {/* Student status indicator — always visible to students (exempt from
-          the chrome-hiding rules). Reflects the teacher's grant in realtime. */}
-      {role === "student" && (
+      {/* ── Assessment mode: top progress strip + per-line Check button ── */}
+      {assessmentMode && (
+        <>
+          <div
+            className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
+            style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
+          >
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-black/5"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back
+            </button>
+            <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
+
+            {beats.length > 1 && (
+              <div className="flex items-center gap-1">
+                {beats.map((b, i) => (
+                  <button
+                    key={b.id}
+                    onClick={() => setBeatCursor(i)}
+                    className="grid h-6 min-w-6 place-items-center rounded-full border px-2 text-[11px] font-medium transition"
+                    style={i === beatCursor
+                      ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
+                      : { borderColor: palette.chromeBorder }}
+                    title={`Question ${i + 1}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Per-line ticks for the current question */}
+            {hasGuidedLines && (
+              <div className="flex items-center gap-1">
+                {guidedLines.map((ln, k) => {
+                  const slot = slotFor(k);
+                  const solved = !!slot && slot in solvedSlots;
+                  return (
+                    <span
+                      key={k}
+                      className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
+                      style={solved
+                        ? { background: "rgba(34,197,94,0.18)", color: "#16a34a", borderColor: "rgba(34,197,94,0.5)" }
+                        : { borderColor: palette.chromeBorder, opacity: 0.55 }}
+                      title={`Line ${k + 1}${solved ? " · solved" : ""}`}
+                    >
+                      {solved ? <CheckIcon className="h-3 w-3" /> : k + 1}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="ml-1 rounded-lg px-2 py-1 text-sm font-bold tabular-nums" style={{ background: palette.hoverBg }}>
+              {assessScore} <span className="opacity-60">/ {assessTotal}</span>
+            </div>
+          </div>
+
+          {/* Per-line Check button — grades the current line server-side. */}
+          {hasGuidedLines && (
+            <button
+              onClick={checkActiveLine}
+              disabled={assessChecking || activeLineIdx >= guidedLines.length}
+              className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
+              style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
+            >
+              {assessChecking
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <CheckIcon className="h-4 w-4" />}
+              {activeLineIdx >= guidedLines.length ? "All lines solved" : `Check line ${activeLineIdx + 1}`}
+            </button>
+          )}
+        </>
+      )}
+
+      {/* Student status indicator — visible to live-mirror students only. */}
+      {role === "student" && !assessmentMode && (
         <div
           className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 select-none rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur"
           style={
@@ -2591,9 +2668,9 @@ const PresentationView = ({
         <style>{`[data-sb-chrome]{display:none !important;}`}</style>
       )}
 
-      {/* Active student editor: enable board/writing/math tools but keep all
+      {/* Active student / assessment editor: enable board tools but keep all
           teacher-exclusive controls hidden. */}
-      {role === "student" && canEdit && (
+      {((role === "student" && canEdit) || assessmentMode) && (
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
     </div>
