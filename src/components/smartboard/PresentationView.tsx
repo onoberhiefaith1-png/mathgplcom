@@ -1912,10 +1912,15 @@ const PresentationView = ({
               defaultY = Math.max(upperBound, Math.min(defaultY, bandDefaultY));
             }
 
-            // Structure panel sits ~1.6 lines higher than the floating-number
-            // strip so it never collides with the fixed bottom-right Check
-            // button in assessment mode. Still draggable afterwards.
-            const structureDefaultY = Math.max(upperBound, defaultY - grid.LINE_HEIGHT * 1.6);
+            // Structure panel anchors to the same viewport-aware spot as the
+            // floating-number strip, lifted ~1.6 lines so it never collides
+            // with the fixed bottom-right Check button. It is clamped inside
+            // the VISIBLE band (not below the last written line) so tapping the
+            // structure (F) icon always drops it on-screen, inside the work area.
+            const structureDefaultY = Math.max(
+              bandTopPx + 8,
+              Math.min(bandBotPx - 8, defaultY - grid.LINE_HEIGHT * 1.6),
+            );
 
             const beatKey = current.id;
             const fnY = assistantYByBeat[`numbers:${beatKey}`] ?? null;
