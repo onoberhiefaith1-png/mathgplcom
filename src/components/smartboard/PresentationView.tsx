@@ -1998,7 +1998,7 @@ const PresentationView = ({
                   consumedStructures={consumedStructures}
                   onStructureInsert={(k) => { handleStructureInsert(k); pingAssistant(); }}
                   rightPx={32}
-                  defaultYPx={defaultY}
+                  defaultYPx={structureDefaultY}
                   topYPx={bandTopPx + 8}
                   bottomYPx={bandBotPx - 8}
                   finalLineBottomPx={finalLineBottomPx}
