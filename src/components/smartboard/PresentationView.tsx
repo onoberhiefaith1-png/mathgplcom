@@ -1233,6 +1233,96 @@ const PresentationView = ({
     return out;
   }, [freeLines, hasGuidedLines, guidedLines, activeLayout, activeLineIdx]);
 
+  // ── Assessment line status + per-line server grading ─────────────────────
+  const slotFor = (k: number): string | null => {
+    const ln = guidedLines[k];
+    if (!current || !ln?.lineId) return null;
+    return `${current.id}:${ln.lineId}`;
+  };
+
+  // Bulb status for the rail in assessment mode: green = graded correct,
+  // red = last check wrong, yellow = ink present and not yet correct.
+  const assessLineStatusMap = useMemo<Record<number, LineBulb>>(() => {
+    if (!assessmentMode || !hasGuidedLines || !current) return {};
+    const out: Record<number, LineBulb> = {};
+    const a = activeLayout ? bandStart(activeLayout) : 0;
+    for (let k = 0; k < guidedLines.length; k++) {
+      const ln = a + k;
+      const slot = slotFor(k);
+      const solved = slot ? slot in solvedSlots : false;
+      if (solved) { out[ln] = "green"; continue; }
+      if (wrongLine === ln) { out[ln] = "red"; continue; }
+      const row = freeLines[ln];
+      if (row && row.length > 0) out[ln] = "yellow";
+    }
+    return out;
+  }, [assessmentMode, hasGuidedLines, current, activeLayout, guidedLines, solvedSlots, wrongLine, freeLines]);
+
+  // How many lines of the CURRENT question are solved (for the progress strip).
+  const currentSolvedCount = useMemo(() => {
+    if (!assessmentMode || !current) return 0;
+    let n = 0;
+    for (let k = 0; k < guidedLines.length; k++) {
+      const slot = slotFor(k);
+      if (slot && slot in solvedSlots) n++;
+    }
+    return n;
+  }, [assessmentMode, current, guidedLines, solvedSlots]);
+
+  const checkActiveLine = async () => {
+    if (!assessmentMode || !assessmentId || !current || !activeLayout) return;
+    if (activeLineIdx >= guidedLines.length) {
+      toast({ title: "All lines done", description: "You've solved every line in this question." });
+      return;
+    }
+    const target = guidedLines[activeLineIdx];
+    if (!target?.lineId) return;
+    const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
+    const row = freeLines[expectedLineNum];
+    if (!row || row.length === 0) {
+      toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
+      return;
+    }
+    const ascii = rowToAscii(row);
+    const eqIdx = ascii.indexOf("=");
+    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
+    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
+    const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
+    if (eqIdx < 0 || !lhs || !rhs || dangling) {
+      toast({ title: "Finish the line", description: "Make sure it's a complete equation (both sides of =).", variant: "destructive" });
+      return;
+    }
+    const arrangement = extractTermsFromAscii(ascii).map((t) => t.ascii).filter(Boolean);
+    if (arrangement.length === 0) return;
+    setAssessChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("grade-assessment", {
+        body: { assessmentId, questionId: current.id, lineId: target.lineId, arrangement },
+      });
+      if (error) throw error;
+      const res = data as { correct: boolean; score: number; solvedLines: Record<string, number> };
+      if (res.correct) {
+        setSolvedSlots(res.solvedLines ?? {});
+        setAssessScore(Number(res.score ?? 0));
+        setWrongLine((w) => (w === expectedLineNum ? null : w));
+        const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
+        setActiveLineIdx(nextIdx);
+        setFloatingLineIdx(nextIdx);
+        setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
+        setCursor({ path: [], index: 0 });
+        toast({ title: "Correct!", description: `+${target.marks ?? 0} marks` });
+      } else {
+        setWrongLine(expectedLineNum);
+        toast({ title: "Not quite", description: "Check this line and try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
+    } finally {
+      setAssessChecking(false);
+    }
+  };
+
+
 
   // Structures the carrier should expose — current line first, then anything
   // still needed in upcoming lines. Used structures stay visible (just dim)
