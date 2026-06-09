@@ -67,12 +67,35 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   );
 };
 
+// One jagged vertical lightning bolt as a glowing polyline.
+const makeBolt = () => {
+  const segs = 10;
+  const points: THREE.Vector3[] = [];
+  for (let i = 0; i <= segs; i += 1) {
+    const t = i / segs;
+    const y = 1.15 - t * 2.3; // top → bottom across the door
+    const wobble = Math.sin(t * Math.PI); // narrow at ends, wide in middle
+    const x = (Math.random() - 0.5) * 0.42 * wobble;
+    points.push(new THREE.Vector3(x, y, (Math.random() - 0.5) * 0.06));
+  }
+  const geom = new THREE.BufferGeometry().setFromPoints(points);
+  const mat = new THREE.LineBasicMaterial({
+    color: "#d8e8ff",
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  return new THREE.Line(geom, mat);
+};
+
 const WorldSegment = ({
   texture,
   index,
   interactive,
   getSelectionProgress,
   getPortalProgress,
+  getThunderProgress,
   getOpacity,
   onActivate,
   onHoverChange,
@@ -82,6 +105,7 @@ const WorldSegment = ({
   interactive: boolean;
   getSelectionProgress: (index: number) => number;
   getPortalProgress: (index: number) => number;
+  getThunderProgress: (index: number) => number;
   getOpacity: (index: number) => number;
   onActivate: (index: number) => void;
   onHoverChange: (hovered: boolean) => void;
@@ -94,6 +118,9 @@ const WorldSegment = ({
   const portalRingARef = useRef<THREE.Mesh>(null);
   const portalRingBRef = useRef<THREE.Mesh>(null);
   const portalLightRef = useRef<THREE.PointLight>(null);
+  const thunderGroupRef = useRef<THREE.Group>(null);
+  const thunderFlashRef = useRef<THREE.Mesh>(null);
+  const thunderLightRef = useRef<THREE.PointLight>(null);
   const overlap = SEG_ANGLE * 0.5;
   const thetaStart = index * SEG_ANGLE - overlap / 2;
   const thetaLength = SEG_ANGLE + overlap;
@@ -121,9 +148,13 @@ const WorldSegment = ({
     return positions;
   }, []);
 
+  // Three static lightning bolts reused with flickering opacity for the strike.
+  const bolts = useMemo(() => [makeBolt(), makeBolt(), makeBolt()], []);
+
   useFrame((state, delta) => {
     const selectionProgress = getSelectionProgress(index);
     const portalProgress = getPortalProgress(index);
+    const thunderProgress = getThunderProgress(index);
     const opacity = getOpacity(index);
 
     if (groupRef.current) {
@@ -137,13 +168,16 @@ const WorldSegment = ({
       materialRef.current.opacity = THREE.MathUtils.damp(materialRef.current.opacity, opacity, 6, delta);
     }
 
+    // DOOR-LOCKED FRAMING: zoom toward a window that stays horizontally centred
+    // (door never drifts to the side) and biased to the bottom of the building
+    // (offset.y → 0) so the door at the base is ALWAYS visible during the zoom.
     localTexture.repeat.set(
-      THREE.MathUtils.lerp(1, 0.34, selectionProgress),
-      THREE.MathUtils.lerp(1, 0.58, selectionProgress),
+      THREE.MathUtils.lerp(1, 0.48, selectionProgress),
+      THREE.MathUtils.lerp(1, 0.6, selectionProgress),
     );
     localTexture.offset.set(
-      THREE.MathUtils.lerp(0, 0.33, selectionProgress),
-      THREE.MathUtils.lerp(0, 0.16, selectionProgress),
+      THREE.MathUtils.lerp(0, 0.26, selectionProgress),
+      THREE.MathUtils.lerp(0, 0.0, selectionProgress),
     );
 
     if (portalRef.current) {
@@ -175,6 +209,33 @@ const WorldSegment = ({
     }
     if (portalLightRef.current) {
       portalLightRef.current.intensity = THREE.MathUtils.damp(portalLightRef.current.intensity, portalProgress * 18, 6, delta);
+    }
+
+    // ── THUNDERBOLT BLAST on the door while the camera pauses ──────────────
+    if (thunderGroupRef.current) {
+      thunderGroupRef.current.visible = thunderProgress > 0.001;
+    }
+    if (thunderProgress > 0.001) {
+      // Crackling envelope: rises quickly, holds, then a few stabbing strikes.
+      const env = smoothstep(0, 0.18, thunderProgress);
+      const crackle = Math.random();
+      bolts.forEach((bolt, i) => {
+        const mat = bolt.material as THREE.LineBasicMaterial;
+        const strike = Math.random() > (0.42 + i * 0.12);
+        mat.opacity = env * (strike ? 0.7 + Math.random() * 0.3 : 0.05);
+      });
+      if (thunderFlashRef.current) {
+        const flashMat = thunderFlashRef.current.material as THREE.MeshBasicMaterial;
+        flashMat.opacity = env * (0.15 + crackle * 0.65) * 0.7;
+      }
+      if (thunderLightRef.current) {
+        thunderLightRef.current.intensity = env * (8 + crackle * 34);
+      }
+    } else {
+      bolts.forEach((bolt) => {
+        (bolt.material as THREE.LineBasicMaterial).opacity = 0;
+      });
+      if (thunderLightRef.current) thunderLightRef.current.intensity = 0;
     }
   });
 
@@ -227,6 +288,18 @@ const WorldSegment = ({
           <pointsMaterial size={0.045} color="#ffd36f" transparent opacity={0.9} depthWrite={false} blending={THREE.AdditiveBlending} />
         </points>
       </group>
+
+      {/* Thunderbolt strikes that blast across the door during the pause. */}
+      <group ref={thunderGroupRef} position={[0, 0.08, WORLD_RADIUS + 0.34]} visible={false}>
+        <pointLight ref={thunderLightRef} color="#bcd6ff" distance={8} intensity={0} />
+        {bolts.map((bolt, i) => (
+          <primitive key={i} object={bolt} position={[(i - 1) * 0.34, 0, 0]} />
+        ))}
+        <mesh ref={thunderFlashRef}>
+          <planeGeometry args={[1.3, 2.2]} />
+          <meshBasicMaterial color="#e2eeff" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+      </group>
     </group>
   );
 };
@@ -237,9 +310,11 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
   const hoveredRef = useRef(false);
   const interactionLockedRef = useRef(false);
   const selectedIndexRef = useRef<number | null>(null);
-  const sequenceRef = useRef<"rotate" | "centering" | "approach" | "flash">("rotate");
+  const sequenceRef = useRef<"rotate" | "centering" | "approach" | "pause" | "flash">("rotate");
   const targetRotationRef = useRef(0);
   const approachProgressRef = useRef(0);
+  const pauseProgressRef = useRef(0);
+  const flashProgressRef = useRef(0);
   const flashOpacityRef = useRef(0);
   const enteredRef = useRef(false);
   const flashPlaneRef = useRef<THREE.Mesh>(null);
@@ -265,7 +340,14 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
 
   const getPortalProgress = (index: number) => {
     if (selectedIndexRef.current !== index) return 0;
-    return smoothstep(0.56, 0.96, approachProgressRef.current);
+    return smoothstep(0.5, 0.95, approachProgressRef.current);
+  };
+
+  const getThunderProgress = (index: number) => {
+    if (selectedIndexRef.current !== index) return 0;
+    if (sequenceRef.current === "pause") return pauseProgressRef.current;
+    if (sequenceRef.current === "flash") return 1;
+    return 0;
   };
 
   const getOpacity = (index: number) => {
@@ -302,16 +384,30 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
     if (sequenceRef.current === "approach") {
       worldRef.current.rotation.y = THREE.MathUtils.damp(worldRef.current.rotation.y, targetRotationRef.current, 8, delta);
       worldRef.current.position.y = THREE.MathUtils.damp(worldRef.current.position.y, 0, 5.5, delta);
-      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 2.5);
-      if (approachProgressRef.current > 0.84) sequenceRef.current = "flash";
+      // Slowed zoom: ~5.5s to reach the door (≈3s slower than before).
+      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 5.5);
+      if (approachProgressRef.current >= 1) {
+        approachProgressRef.current = 1;
+        sequenceRef.current = "pause";
+      }
+    }
+
+    if (sequenceRef.current === "pause") {
+      // Hold at the door (door stays fully framed) while the thunderbolt blasts.
+      worldRef.current.rotation.y = targetRotationRef.current;
+      worldRef.current.position.y = 0;
+      approachProgressRef.current = 1;
+      pauseProgressRef.current = Math.min(1, pauseProgressRef.current + delta / 1.7);
+      if (pauseProgressRef.current >= 1) sequenceRef.current = "flash";
     }
 
     if (sequenceRef.current === "flash") {
       worldRef.current.rotation.y = targetRotationRef.current;
       worldRef.current.position.y = 0;
-      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 1.1);
-      flashOpacityRef.current = smoothstep(0.86, 1, approachProgressRef.current);
-      if (!enteredRef.current && approachProgressRef.current >= 1 && selectedIndexRef.current !== null) {
+      approachProgressRef.current = 1;
+      flashProgressRef.current = Math.min(1, flashProgressRef.current + delta / 0.7);
+      flashOpacityRef.current = smoothstep(0, 1, flashProgressRef.current);
+      if (!enteredRef.current && flashProgressRef.current >= 1 && selectedIndexRef.current !== null) {
         enteredRef.current = true;
         document.body.style.cursor = "default";
         onEnterAdventure(academies[selectedIndexRef.current]);
@@ -352,6 +448,7 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
             interactive={!interactionLockedRef.current}
             getSelectionProgress={getSelectionProgress}
             getPortalProgress={getPortalProgress}
+            getThunderProgress={getThunderProgress}
             getOpacity={getOpacity}
             onActivate={handleActivate}
             onHoverChange={(hovered) => {
@@ -371,7 +468,7 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
   );
 };
 
-export const HomeRotatingBuilding = () => {
+export const AdventurePortalScene = () => {
   const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
 
   return (

@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom";
 import { GraduationCap, Image, Package } from "lucide-react";
 import AcademyTopBar from "@/components/academy/AcademyTopBar";
-import { HomeRotatingBuilding } from "@/components/academy/HomeRotatingBuilding";
+import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import LevelNavPanel from "@/components/academy/LevelNavPanel";
 
 const Index = () => (
   <>
     <AcademyTopBar />
-    <HomeRotatingBuilding />
+    <RotatingAdventureScene />
     <LevelNavPanel />
     <Link
       to="/backgrounds"
