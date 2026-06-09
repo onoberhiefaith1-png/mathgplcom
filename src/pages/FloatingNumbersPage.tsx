@@ -11,8 +11,12 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type FloatingLine,
   type ContainerKind,
+  type FloatingScoring,
   rearrangeIndices,
   compileBucket,
+  totalMarks as computeTotalMarks,
+  DEFAULT_SCORING,
+  SCORE_LABELS,
 } from "@/lib/lessonnotes/floatingCompile";
 import { sanitizeFillers, detectStructures, extractTermsFromAscii, renderTermLabel, STRUCTURE_MARKUP, expandTransitionLine, dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
 import FloatingWorkspace from "@/components/lessonnotes/FloatingWorkspace";
