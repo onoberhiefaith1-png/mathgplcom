@@ -57,11 +57,24 @@ export const StructurePanel = ({
   const dragRef = useRef<{ dy: number } | null>(null);
 
   useEffect(() => { setY(rememberedY ?? defaultYPx); }, [beatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-anchor to the (viewport-aware) default whenever the panel is freshly
+  // shown and the user hasn't dragged it for this beat. Guarantees that tapping
+  // the structure (F) icon drops the panel inside the visible writing area —
+  // not buried below the last written line / off the bottom of the screen.
+  const wasVisibleRef = useRef(false);
   useEffect(() => {
-    setY((prev) => {
-      const upper = Math.max(finalLineBottomPx + 8, topYPx);
-      return Math.min(bottomYPx, Math.max(upper, prev));
-    });
+    if (visible && !wasVisibleRef.current && rememberedY == null) {
+      setY(defaultYPx);
+    }
+    wasVisibleRef.current = visible;
+  }, [visible, rememberedY, defaultYPx]);
+
+  // Clamp inside the full visible band. We intentionally do NOT force the panel
+  // below the last written line — the structures float (transparent) and must
+  // stay reachable on-screen even while you're writing the current line.
+  useEffect(() => {
+    setY((prev) => Math.min(bottomYPx, Math.max(topYPx, prev)));
   }, [topYPx, bottomYPx, finalLineBottomPx]);
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -73,8 +86,7 @@ export const StructurePanel = ({
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
     const next = e.clientY - dragRef.current.dy;
-    const upper = Math.max(finalLineBottomPx + 8, topYPx);
-    setY(Math.min(bottomYPx, Math.max(upper, next)));
+    setY(Math.min(bottomYPx, Math.max(topYPx, next)));
   };
   const onPointerUp = (e: React.PointerEvent) => {
     if (dragRef.current) onCommitY(y);
