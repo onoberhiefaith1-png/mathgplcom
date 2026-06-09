@@ -130,6 +130,11 @@ const FloatingNumbersPage = () => {
         | { groupId: number; payload: string }[] | null;
       const persisted = (ss as any).floating_lines as FloatingLine[] | null;
 
+      const savedScoring = (ss as any).floating_scoring as FloatingScoring | null;
+      if (savedScoring && typeof savedScoring === "object") {
+        setScoring({ ...DEFAULT_SCORING, ...savedScoring });
+      }
+
       const hasHighlights = !!(highlights && Array.isArray(highlights) && highlights.length > 0);
       setFromHighlights(hasHighlights);
       setHighlightsData(hasHighlights ? highlights! : []);
