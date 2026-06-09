@@ -85,6 +85,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/teaching-hub" element={<TeachingHub />} />
+          <Route path="/adventure" element={<Adventure />} />
           <Route path="/teaching-hub/classes" element={<TeachingHubClasses />} />
           <Route path="/teaching-hub/classes/create" element={<CreateClassPage />} />
           <Route path="/teaching-hub/classes/:classId" element={<ClassDashboardPage />} />
