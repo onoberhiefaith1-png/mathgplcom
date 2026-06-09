@@ -44,7 +44,7 @@ const CORE_SEGMENTS = 4;
 const CORE_SEG_ANGLE = (Math.PI * 2) / CORE_SEGMENTS; // 90° per dome copy
 const CORE_RADIUS = 2.55; // well inside the outer ring (5.1) → hidden behind towers
 const CORE_HEIGHT = 5.4; // taller than the city so the roof dominates the skyline
-const CORE_Y_OFFSET = 0.55; // lift so the roof crowns above the outer towers, base hidden
+const CORE_Y_OFFSET = 0.95; // lift so the roof crowns above the outer towers, base hidden
 
 // Each academy is a curved slice of the giant cylinder (a convex panel that
 // bends backward at both edges and projects forward at its centre). Segments
@@ -106,12 +106,14 @@ const WorldSegment = ({
 // 90° slices of one smaller cylinder. Overlap merges their walls + roofs so the
 // viewer reads a single continuous cylindrical core, not four buildings.
 const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number }) => {
-  // Generous overlap so each copy's edges push into its neighbour — no gaps.
-  const overlap = CORE_SEG_ANGLE * 0.34;
+  // Heavy overlap so each copy's edges wrap deep into its neighbour — the four
+  // copies together close into one continuous, gapless circular cylinder (a full
+  // ring) that reads as a single spherical dome, not four separate buildings.
+  const overlap = CORE_SEG_ANGLE * 0.6; // each copy spans 90° + 54° = 144°
   const thetaStart = index * CORE_SEG_ANGLE - overlap / 2;
   const thetaLength = CORE_SEG_ANGLE + overlap;
   // Alternate radius so neighbouring copies cover (not z-fight) each other.
-  const radius = CORE_RADIUS + (index % 2 === 0 ? 0.1 : 0);
+  const radius = CORE_RADIUS + (index % 2 === 0 ? 0.06 : 0);
 
   return (
     <mesh renderOrder={index % 2 === 0 ? -1 : -2}>
