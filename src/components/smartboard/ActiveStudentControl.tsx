@@ -47,7 +47,7 @@ const ActiveStudentControl = ({
     if (!open) return;
     load();
     const ch = supabase
-      .channel(`active-student-members-${classId}`)
+      .channel(`active-student-members-${classId}`, { config: { private: true } })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "class_members", filter: `class_id=eq.${classId}` },

@@ -475,6 +475,7 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: string
       }
+      can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
       generate_mathgpl_id: { Args: never; Returns: string }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {

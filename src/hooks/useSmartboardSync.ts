@@ -67,7 +67,7 @@ export function useSmartboardSync(opts: {
       .then(({ data }) => { if (!cancelled) apply(data as never); });
 
     const ch = supabase
-      .channel(`sb-sync-${classId}`)
+      .channel(`sb-sync-${classId}`, { config: { private: true } })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
