@@ -7,7 +7,7 @@ import LevelNavPanel from "@/components/academy/LevelNavPanel";
 const Index = () => (
   <>
     <AcademyTopBar />
-    <HomeRotatingBuilding />
+    <RotatingAdventureScene />
     <LevelNavPanel />
     <Link
       to="/backgrounds"
