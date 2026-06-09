@@ -162,6 +162,13 @@ export const FloatingNumberPanel = ({
   const [y, setY] = useState<number>(initialY);
   const dragRef = useRef<{ dy: number } | null>(null);
   const [offset, setOffset] = useState<number>(0);
+  // How many already-USED numbers are currently revealed (green) on the left of
+  // the single strip. 0 = pure forward view of unused numbers. Backward grows
+  // this (revealing used numbers), Forward shrinks it back to 0.
+  const [reveal, setReveal] = useState<number>(0);
+  // Order in which numbers were tapped/used — drives which used number reappears
+  // first when scrolling Backward (most-recently-relevant per the spec).
+  const [usedOrder, setUsedOrder] = useState<number[]>([]);
 
 
 
