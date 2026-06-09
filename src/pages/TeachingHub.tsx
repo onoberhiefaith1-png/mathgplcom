@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, BookOpen, Sparkles, Users, Settings as SettingsIcon } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Users, Settings as SettingsIcon, Compass } from "lucide-react";
+import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 
 const tiles = [
   { to: "/lesson-notes", label: "Lesson Notes", icon: BookOpen, accent: "from-amber-400/30 to-amber-600/10 border-amber-300/40 text-amber-200" },
@@ -29,6 +30,19 @@ const TeachingHub = () => (
             <div className="text-2xl font-semibold">{label}</div>
           </Link>
         ))}
+        <div
+          className="group relative flex h-40 flex-col justify-between overflow-hidden rounded-2xl border border-orange-300/40 p-6 transition hover:scale-[1.02] hover:shadow-2xl sm:col-span-2"
+        >
+          <img
+            src={adventureClouds.url}
+            alt="Sunset clouds over mountains with sacred geometry"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          <Compass className="relative h-8 w-8 text-white drop-shadow" />
+          <div className="relative text-2xl font-semibold text-white drop-shadow">Adventure</div>
+        </div>
       </div>
     </main>
   </div>
