@@ -67,16 +67,31 @@ export function useSmartboardSync(opts: {
       .maybeSingle()
       .then(({ data }) => { if (!cancelled) apply(data as never); });
 
-    const ch = supabase
-      .channel(`sb-sync-${classId}`, { config: { private: true } })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
-        (payload: { new?: unknown }) => apply((payload.new ?? null) as never),
-      )
-      .subscribe();
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    let retried = false;
 
-    return () => { cancelled = true; supabase.removeChannel(ch); };
+    const subscribe = () => {
+      ch = supabase
+        .channel(`sb-sync-${classId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
+          (payload: { new?: unknown }) => apply((payload.new ?? null) as never),
+        )
+        .subscribe((status) => {
+          // A private channel join can fail if the socket token wasn't ready.
+          // Re-auth and resubscribe once so live sync self-heals.
+          if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !retried && !cancelled) {
+            retried = true;
+            if (ch) supabase.removeChannel(ch);
+            void ensureRealtimeAuth().then(() => { if (!cancelled) subscribe(); });
+          }
+        });
+    };
+
+    void ensureRealtimeAuth().then(() => { if (!cancelled) subscribe(); });
+
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId]);
 
   const pushSnapshot = useCallback((state: BoardState) => {
