@@ -454,8 +454,8 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
     if (sequenceRef.current === "approach") {
       worldRef.current.rotation.y = THREE.MathUtils.damp(worldRef.current.rotation.y, targetRotationRef.current, 8, delta);
       worldRef.current.position.y = THREE.MathUtils.damp(worldRef.current.position.y, 0, 5.5, delta);
-      // Slowed zoom: ~5.5s to reach the door (≈3s slower than before).
-      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 5.5);
+      // Slow, cinematic zoom toward the door — ~8s, no rushing.
+      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 8);
       if (approachProgressRef.current >= 1) {
         approachProgressRef.current = 1;
         sequenceRef.current = "pause";
@@ -463,11 +463,12 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
     }
 
     if (sequenceRef.current === "pause") {
-      // Hold at the door (door stays fully framed) while the thunderbolt blasts.
+      // Hold in front of the door (door fills the screen, statues at the sides)
+      // while the glow + thunderbolt effect plays — slow, ~2.8s.
       worldRef.current.rotation.y = targetRotationRef.current;
       worldRef.current.position.y = 0;
       approachProgressRef.current = 1;
-      pauseProgressRef.current = Math.min(1, pauseProgressRef.current + delta / 1.7);
+      pauseProgressRef.current = Math.min(1, pauseProgressRef.current + delta / 2.8);
       if (pauseProgressRef.current >= 1) sequenceRef.current = "flash";
     }
 
