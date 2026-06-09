@@ -516,8 +516,8 @@ export const FloatingNumberPanel = ({
                       aria-hidden
                       style={{
                         position: "absolute", right: -2, bottom: -6,
-                        fontSize: 10, lineHeight: 1, opacity: 0.45,
-                        color: "#374151", fontWeight: 700,
+                        fontSize: 10, lineHeight: 1, opacity: 0.5,
+                        color: "#065f46", fontWeight: 700,
                         pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
                       }}
                     >
