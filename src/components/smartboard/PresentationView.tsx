@@ -1395,12 +1395,7 @@ const PresentationView = ({
         }
       }
       if (unused.length > 0) {
-        setWrongLine(expectedLineNum);
-        toast({
-          title: "⚠ Line incomplete",
-          description: `Unused floating numbers: ${unused.join("  ")}`,
-          variant: "destructive",
-        });
+        showIncomplete(unused, expectedLineNum);
         return;
       }
     }
