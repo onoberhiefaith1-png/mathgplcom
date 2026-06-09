@@ -102,7 +102,39 @@ const WorldSegment = ({
   );
 };
 
-const FloatingParticles = ({ color, size, count, spread }: { color: string; size: number; count: number; spread: number }) => {
+// The inner royal palace: four identical dome copies wrapped onto overlapping
+// 90° slices of one smaller cylinder. Overlap merges their walls + roofs so the
+// viewer reads a single continuous cylindrical core, not four buildings.
+const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number }) => {
+  // Generous overlap so each copy's edges push into its neighbour — no gaps.
+  const overlap = CORE_SEG_ANGLE * 0.34;
+  const thetaStart = index * CORE_SEG_ANGLE - overlap / 2;
+  const thetaLength = CORE_SEG_ANGLE + overlap;
+  // Alternate radius so neighbouring copies cover (not z-fight) each other.
+  const radius = CORE_RADIUS + (index % 2 === 0 ? 0.1 : 0);
+
+  return (
+    <mesh renderOrder={index % 2 === 0 ? -1 : -2}>
+      <cylinderGeometry args={[radius, radius, CORE_HEIGHT, 64, 1, true, thetaStart, thetaLength]} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.04} side={THREE.DoubleSide} toneMapped={false} />
+    </mesh>
+  );
+};
+
+const CentralCore = () => {
+  const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return (
+    <group position={[0, CORE_Y_OFFSET, 0]}>
+      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
+        <CoreSegment key={i} index={i} texture={texture} />
+      ))}
+    </group>
+  );
+};
+
+
   const pointsRef = useRef<THREE.Points>(null);
   const vertices = useMemo(() => {
     const positions = new Float32Array(count * 3);
