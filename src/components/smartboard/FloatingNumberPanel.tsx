@@ -252,9 +252,9 @@ export const FloatingNumberPanel = ({
       .filter((s) => consumed.has(s.absIdx));
   }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset offset whenever beat or active line changes — the panel always
-  // opens on the first chip of the new line.
-  useEffect(() => { setOffset(0); }, [beatId, activeLineIdx]);
+  // Reset window position whenever beat or active line changes — the panel
+  // always opens on the first chip of the new line, showing no used numbers.
+  useEffect(() => { setOffset(0); setReveal(0); }, [beatId, activeLineIdx]);
 
   // Snap back to 0 whenever the unconsumed pool shrinks (a chip was just
   // consumed) — keeps the next required chip in the viewport even if the
@@ -270,25 +270,73 @@ export const FloatingNumberPanel = ({
     setOffset((o) => Math.max(0, Math.min(o, Math.max(0, allSlots.length - WINDOW_SIZE))));
   }, [allSlots.length]);
 
-  // ACTIVE zone — up to 5 working chips (a slice of the unconsumed pool).
-  // The conveyor refills automatically: using a chip removes it from
-  // `allSlots`, so the next UPCOMING chip slides into ACTIVE on its own.
-  const activeWindow = useMemo<Slot[]>(
-    () => allSlots.slice(offset, offset + WINDOW_SIZE),
-    [allSlots, offset],
-  );
-  // UPCOMING zone — everything still waiting after the ACTIVE window.
-  const upcomingWindow = useMemo<Slot[]>(
-    () => allSlots.slice(offset + WINDOW_SIZE),
-    [allSlots, offset],
-  );
-  const canPrev = offset > 0;
-  const canNext = offset + WINDOW_SIZE < allSlots.length;
+  // Keep `usedOrder` reconciled with the parent's consumed set: drop numbers no
+  // longer used, append any newly-consumed ones (the tap handler already appends
+  // in tap order; this effect covers resets/undo/external changes).
+  useEffect(() => {
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    setUsedOrder((prev) => {
+      const kept = prev.filter((i) => consumed.has(i));
+      const present = new Set(kept);
+      const added: number[] = [];
+      consumed.forEach((i) => { if (!present.has(i)) added.push(i); });
+      added.sort((a, b) => a - b);
+      return added.length === 0 && kept.length === prev.length ? prev : [...kept, ...added];
+    });
+  }, [consumedAbsIdx]);
 
-  /** Tap a chip in the ACTIVE zone: insert it on the board AND mark it used so
-   *  it travels to the grey USED zone (the tap itself is the proof of usage). */
+  // Used numbers belonging to the active line, in usage order.
+  const revealedUsed = useMemo<Slot[]>(() => {
+    const inScope = new Set(usedSlots.map((s) => s.absIdx));
+    return usedOrder
+      .filter((i) => inScope.has(i))
+      .map((i) => ({ token: fragments[i], absIdx: i }));
+  }, [usedOrder, usedSlots, fragments]);
+
+  // Clamp reveal to the number of used numbers available.
+  const clampedReveal = Math.min(reveal, revealedUsed.length);
+  useEffect(() => {
+    if (reveal > revealedUsed.length) setReveal(revealedUsed.length);
+  }, [reveal, revealedUsed.length]);
+
+  // ── The single visible strip ──────────────────────────────────────────────
+  // Left part: the first `clampedReveal` used numbers (reversed so the most
+  // recently revealed sits nearest the unused block — matches the spec). Right
+  // part: the next unused numbers from `offset`. Whole thing is capped at 5.
+  type StripSlot = Slot & { used: boolean };
+  const windowSlots = useMemo<StripSlot[]>(() => {
+    const leftUsed: StripSlot[] = revealedUsed
+      .slice(0, clampedReveal)
+      .reverse()
+      .map((s) => ({ ...s, used: true }));
+    const rightUnused: StripSlot[] = allSlots
+      .slice(offset)
+      .map((s) => ({ ...s, used: false }));
+    return [...leftUsed, ...rightUnused].slice(0, WINDOW_SIZE);
+  }, [revealedUsed, clampedReveal, allSlots, offset]);
+
+  const canPrev = offset > 0 || clampedReveal < revealedUsed.length;
+  const canNext = clampedReveal > 0 || offset + WINDOW_SIZE < allSlots.length;
+
+  /** Backward ◀ — first scroll back through unused numbers, then start revealing
+   *  already-used numbers (green) one at a time on the left. */
+  const goBackward = () => {
+    if (offset > 0) { setOffset((o) => o - 1); return; }
+    if (clampedReveal < revealedUsed.length) setReveal((r) => r + 1);
+  };
+  /** Forward ▶ — first hide any revealed used numbers, then advance the window
+   *  through the upcoming unused numbers. */
+  const goForward = () => {
+    if (clampedReveal > 0) { setReveal((r) => Math.max(0, r - 1)); return; }
+    if (offset + WINDOW_SIZE < allSlots.length) setOffset((o) => o + 1);
+  };
+
+  /** Tap an UNUSED chip: insert it on the board AND mark it used so it slides
+   *  out of the strip (the next unused number flows in from the right). */
   const handleActiveTap = (label: string, absIdx: number) => {
     if (!label) return;
+    setReveal(0); // collapse any revealed used numbers so the strip compacts
+    setUsedOrder((prev) => (prev.includes(absIdx) ? prev : [...prev, absIdx]));
     const frac = parseFractionChip(label);
     if (frac && onInsertFrac) {
       onInsertFrac(frac);
@@ -302,8 +350,9 @@ export const FloatingNumberPanel = ({
     onPing();
   };
 
-  /** Tap a chip in the USED zone: un-mark it so it returns to ACTIVE. */
+  /** Tap a USED (green) chip: un-mark it so it returns to the unused flow. */
   const handleUsedTap = (absIdx: number) => {
+    setUsedOrder((prev) => prev.filter((i) => i !== absIdx));
     onUnuse?.(absIdx);
     onPing();
   };
