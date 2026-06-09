@@ -205,6 +205,15 @@ export const FloatingNumberPanel = ({
     return out;
   };
 
+  const consumedOfLine = (k: number): number[] => {
+    const line = lines[k];
+    if (!line) return [];
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    const out: number[] = [];
+    for (let i = line.fragmentStart; i < line.fragmentEnd; i++) if (consumed.has(i)) out.push(i);
+    return out;
+  };
+
   type Slot = { token: string; absIdx: number };
 
   /** Full ordered slot list for the active line — taken in the exact order
@@ -217,7 +226,23 @@ export const FloatingNumberPanel = ({
       const k = activeLineIdx as number;
       return unconsumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
     }
-    return fragments.map((token, idx) => ({ token, absIdx: idx }));
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    return fragments
+      .map((token, idx) => ({ token, absIdx: idx }))
+      .filter((s) => !consumed.has(s.absIdx));
+  }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** USED zone (left) — the active line's fragments already tapped/used. */
+  const usedSlots = useMemo<Slot[]>(() => {
+    if (fragments.length === 0) return [];
+    if (useLineMode) {
+      const k = activeLineIdx as number;
+      return consumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
+    }
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    return fragments
+      .map((token, idx) => ({ token, absIdx: idx }))
+      .filter((s) => consumed.has(s.absIdx));
   }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset offset whenever beat or active line changes — the panel always
