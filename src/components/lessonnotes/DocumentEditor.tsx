@@ -163,7 +163,22 @@ async function aiGenerate(opts: {
       inheritedContext: opts.inheritedContext ?? false,
     },
   });
-  if (error) throw error;
+  if (error) {
+    // supabase.functions.invoke surfaces a generic "non-2xx status code"
+    // message and hides the JSON body inside error.context (a Response). Read
+    // it so callers can detect controlled errors like question_lock_mismatch
+    // instead of treating every failure as an unhandled crash.
+    let code = "";
+    try {
+      const ctx = (error as any)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        const body = await ctx.clone().json();
+        code = String(body?.error ?? "");
+      }
+    } catch { /* body not JSON — ignore */ }
+    if (code) throw new Error(code);
+    throw error;
+  }
   return ((data as any)?.content ?? "").toString();
 }
 
