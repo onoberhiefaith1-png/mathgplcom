@@ -58,6 +58,13 @@ import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import ActiveStudentControl from "./ActiveStudentControl";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
+import { Check as CheckIcon, Loader2 } from "lucide-react";
+
+
 
 
 
