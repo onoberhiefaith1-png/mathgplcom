@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { useNotebook } from "@/hooks/useNotebook";
-import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat } from "@/lib/smartboard/presentation";
+import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
 import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
 
