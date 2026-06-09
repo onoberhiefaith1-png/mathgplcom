@@ -120,7 +120,7 @@ const CentralCore = ({ getCoreOpacity }: { getCoreOpacity: () => number }) => {
   );
 };
 
-
+// One jagged vertical lightning bolt as a glowing polyline.
 const makeBolt = () => {
   const segs = 10;
   const points: THREE.Vector3[] = [];
