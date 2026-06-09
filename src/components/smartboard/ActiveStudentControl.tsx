@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Users, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 type Member = { user_id: string; display_name: string | null };
 
