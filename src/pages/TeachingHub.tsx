@@ -30,8 +30,7 @@ const TeachingHub = () => (
             <div className="text-2xl font-semibold">{label}</div>
           </Link>
         ))}
-        <Link
-          to="/adventure"
+        <div
           className="group relative flex h-40 flex-col justify-between overflow-hidden rounded-2xl border border-orange-300/40 p-6 transition hover:scale-[1.02] hover:shadow-2xl sm:col-span-2"
         >
           <img
@@ -43,7 +42,7 @@ const TeachingHub = () => (
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
           <Compass className="relative h-8 w-8 text-white drop-shadow" />
           <div className="relative text-2xl font-semibold text-white drop-shadow">Adventure</div>
-        </Link>
+        </div>
       </div>
     </main>
   </div>
