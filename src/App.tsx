@@ -89,6 +89,7 @@ const App = () => (
           <Route path="/teaching-hub/classes/:classId" element={<ClassDashboardPage />} />
           <Route path="/teaching-hub/classes/:classId/students" element={<StudentsPage />} />
           <Route path="/teaching-hub/classes/:classId/lesson-notes" element={<ClassLessonNotesPage />} />
+          <Route path="/teaching-hub/classes/:classId/assignments" element={<ClassAssignmentsPage />} />
           <Route path="/teaching-hub/classes/:classId/smartboard" element={<ClassSmartBoardLauncher />} />
           <Route path="/teaching-hub/settings" element={<TeachingHubSettings />} />
           <Route path="/teaching-hub/settings/archive" element={<TeachingHubArchive />} />
