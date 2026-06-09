@@ -1376,29 +1376,25 @@ const PresentationView = ({
     const ascii = rowToAscii(row);
     const arrangement = extractTermsFromAscii(ascii).map((t) => t.ascii).filter(Boolean);
 
-    // ── Phase 1: floating-number usage check ──────────────────────────────
-    // Before any maths, every floating number assigned to this line MUST be
-    // present on the located row. Report the unused ones and stop — no grading,
-    // no green mark — so the student knows the line is incomplete (not wrong).
-    if (expectedSet.size > 0) {
-      const usedSet = chipMultiset(arrangement);
+    // ── Phase 1: floating-number usage check (state-driven) ───────────────
+    // The conveyor records each token as USED the moment it is tapped onto the
+    // board (consumedAbsIdx). Check Line simply trusts that record: any of this
+    // line's fragments not yet marked used means the line is incomplete. No ink
+    // re-parsing — the tap itself is the proof the token was used.
+    {
       const unused: string[] = [];
       for (let i = target.fragmentStart; i < target.fragmentEnd; i++) {
+        if (consumedAbsIdx.has(i)) continue;
         const frag = (activeReservoir?.fragments ?? [])[i];
-        const key = normUsageChip(frag ?? "");
-        if (!key) continue;
-        const have = usedSet.get(key) ?? 0;
-        if (have > 0) {
-          usedSet.set(key, have - 1); // consume one match
-        } else {
-          unused.push(String(frag).trim()); // keep display glyph
-        }
+        const glyph = String(frag ?? "").trim();
+        if (glyph) unused.push(glyph); // keep display glyph
       }
       if (unused.length > 0) {
         showIncomplete(unused, expectedLineNum);
         return;
       }
     }
+
 
     // ── Phase 2: mathematical validation (server-authoritative) ───────────
     const eqIdx = ascii.indexOf("=");
@@ -2080,6 +2076,20 @@ const PresentationView = ({
                   onInsertFrac={(p) => insertFractionAtSensor(p)}
                   activeLineIdx={hasGuidedLines ? curLineIdx : undefined}
                   consumedAbsIdx={consumedAbsIdx}
+                  onUse={(absIdx) =>
+                    setConsumedAbsIdx((prev) => {
+                      const next = new Set(prev);
+                      next.add(absIdx);
+                      return next;
+                    })
+                  }
+                  onUnuse={(absIdx) =>
+                    setConsumedAbsIdx((prev) => {
+                      const next = new Set(prev);
+                      next.delete(absIdx);
+                      return next;
+                    })
+                  }
                   leftPx={grid.MARGIN_LEFT + 8}
                   defaultYPx={defaultY}
                   topYPx={bandTopPx + 8}

@@ -113,6 +113,11 @@ interface Props {
   onInsertFrac?: (parts: FractionParts) => void;
   activeLineIdx?: number;
   consumedAbsIdx?: Set<number>;
+  /** Mark a fragment (by absolute index) as USED — the conveyor moves it to the
+   *  grey "used" zone and Check Line trusts this state instead of re-parsing ink. */
+  onUse?: (absIdx: number, label: string) => void;
+  /** Un-mark a fragment — returns it from the USED zone back to ACTIVE. */
+  onUnuse?: (absIdx: number) => void;
   /** Board-space x in pixels (left edge of band). */
   leftPx: number;
   /** Default board-space y (panel centre). */
@@ -146,7 +151,7 @@ interface Props {
 export const FloatingNumberPanel = ({
   chromeFg,
   reservoirs, viewIdx, activeIdx, visible,
-  onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx,
+  onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
   leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx,
   rememberedY, onCommitY, onPing, beatId,
   lineNumber, lineCount, onPrevLine, onNextLine,
@@ -200,6 +205,15 @@ export const FloatingNumberPanel = ({
     return out;
   };
 
+  const consumedOfLine = (k: number): number[] => {
+    const line = lines[k];
+    if (!line) return [];
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    const out: number[] = [];
+    for (let i = line.fragmentStart; i < line.fragmentEnd; i++) if (consumed.has(i)) out.push(i);
+    return out;
+  };
+
   type Slot = { token: string; absIdx: number };
 
   /** Full ordered slot list for the active line — taken in the exact order
@@ -212,7 +226,23 @@ export const FloatingNumberPanel = ({
       const k = activeLineIdx as number;
       return unconsumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
     }
-    return fragments.map((token, idx) => ({ token, absIdx: idx }));
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    return fragments
+      .map((token, idx) => ({ token, absIdx: idx }))
+      .filter((s) => !consumed.has(s.absIdx));
+  }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** USED zone (left) — the active line's fragments already tapped/used. */
+  const usedSlots = useMemo<Slot[]>(() => {
+    if (fragments.length === 0) return [];
+    if (useLineMode) {
+      const k = activeLineIdx as number;
+      return consumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
+    }
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    return fragments
+      .map((token, idx) => ({ token, absIdx: idx }))
+      .filter((s) => consumed.has(s.absIdx));
   }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset offset whenever beat or active line changes — the panel always
@@ -233,24 +263,59 @@ export const FloatingNumberPanel = ({
     setOffset((o) => Math.max(0, Math.min(o, Math.max(0, allSlots.length - WINDOW_SIZE))));
   }, [allSlots.length]);
 
-  const windowed = useMemo<Slot[]>(
+  // ACTIVE zone — up to 5 working chips (a slice of the unconsumed pool).
+  // The conveyor refills automatically: using a chip removes it from
+  // `allSlots`, so the next UPCOMING chip slides into ACTIVE on its own.
+  const activeWindow = useMemo<Slot[]>(
     () => allSlots.slice(offset, offset + WINDOW_SIZE),
+    [allSlots, offset],
+  );
+  // UPCOMING zone — everything still waiting after the ACTIVE window.
+  const upcomingWindow = useMemo<Slot[]>(
+    () => allSlots.slice(offset + WINDOW_SIZE),
     [allSlots, offset],
   );
   const canPrev = offset > 0;
   const canNext = offset + WINDOW_SIZE < allSlots.length;
 
-  const handleTokenTap = (label: string) => {
+  /** Tap a chip in the ACTIVE zone: insert it on the board AND mark it used so
+   *  it travels to the grey USED zone (the tap itself is the proof of usage). */
+  const handleActiveTap = (label: string, absIdx: number) => {
     if (!label) return;
     const frac = parseFractionChip(label);
     if (frac && onInsertFrac) {
       onInsertFrac(frac);
+      onUse?.(absIdx, label);
       onPing();
       return;
     }
     const op = /^[+\-−×÷=]/.test(label);
     onInsert?.(op ? ` ${label} ` : label);
+    onUse?.(absIdx, label);
     onPing();
+  };
+
+  /** Tap a chip in the USED zone: un-mark it so it returns to ACTIVE. */
+  const handleUsedTap = (absIdx: number) => {
+    onUnuse?.(absIdx);
+    onPing();
+  };
+
+  /** Resolve a slot token to its display label (null = skip dirty chips). */
+  const slotLabel = (token: string): string | null => {
+    const cleaned = toUnicodeMath(token);
+    if (!cleaned || isStillDirty(cleaned)) return null;
+    const term = extractTermsFromAscii(cleaned)[0];
+    return term ? renderTermLabel(term, { isFirst: false, prevWasEquals: false }) : cleaned;
+  };
+
+  /** 1-based line number that owns a fragment (for the tiny corner badge). */
+  const lineNoOf = (absIdx: number): number | null => {
+    for (let li = 0; li < lines.length; li++) {
+      const ln = lines[li];
+      if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) return li + 1;
+    }
+    return null;
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -400,16 +465,74 @@ export const FloatingNumberPanel = ({
       {/* Side-note tooltip removed — prose is now written onto the board
           via onWriteNotebookToBoard. */}
       {(
-
       <div
         className="flex items-center select-none"
         style={{
           color: chromeFg,
           fontSize: 22,
-          gap: 10,
+          gap: 8,
           fontFamily: "ui-serif, Georgia, serif",
         }}
       >
+        {/* ── USED zone (left, muted grey, still clickable to undo) ── */}
+        {usedSlots.length > 0 && (
+          <div
+            className="flex items-center"
+            style={{
+              gap: 6,
+              padding: "2px 8px",
+              borderRadius: 10,
+              background: "#e5e7eb",
+              border: "1px solid #9ca3af",
+            }}
+            title="Used numbers — tap to return one"
+          >
+            {usedSlots.map(({ token, absIdx }, i) => {
+              const label = slotLabel(token);
+              if (label == null) return null;
+              const lineNo = lineNoOf(absIdx);
+              return (
+                <button
+                  key={`used-${viewIdx}-${absIdx}-${i}`}
+                  onClick={(e) => { e.stopPropagation(); handleUsedTap(absIdx); }}
+                  className="transition-transform hover:scale-110 active:scale-95 relative"
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    color: "#374151",
+                    padding: "0 2px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                  title="Return this number"
+                >
+                  <ChipLabel label={label} color="#374151" />
+                  {lineNo != null && (
+                    <span
+                      aria-hidden
+                      style={{
+                        position: "absolute", right: -2, bottom: -6,
+                        fontSize: 10, lineHeight: 1, opacity: 0.45,
+                        color: "#374151", fontWeight: 700,
+                        pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
+                      }}
+                    >
+                      {lineNo}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* divider between USED and ACTIVE */}
+        {usedSlots.length > 0 && (
+          <span style={{ width: 1, height: 22, background: `color-mix(in oklab, ${chromeFg} 25%, transparent)` }} />
+        )}
+
+        {/* ── ACTIVE zone (middle, working chips) ── */}
         <button
           onClick={(e) => { e.stopPropagation(); if (canPrev) { setOffset((o) => o - 1); onPing(); } }}
           disabled={!canPrev}
@@ -423,36 +546,18 @@ export const FloatingNumberPanel = ({
         >
           <ChevronLeft size={22} />
         </button>
-        {windowed.length === 0 ? (
-          <span style={{ opacity: 0.5, fontSize: 13 }}>no floating numbers</span>
-        ) : windowed.map(({ token, absIdx }, i) => {
-          const cleaned = toUnicodeMath(token);
-          if (!cleaned || isStillDirty(cleaned)) return null;
-          const term = extractTermsFromAscii(cleaned)[0];
-          // After shuffling we no longer know the "first" position — keep
-          // each chip's leading sign so the math reads correctly.
-          const label = term
-            ? renderTermLabel(term, { isFirst: false, prevWasEquals: false })
-            : cleaned;
-          const isConsumed = !!consumedAbsIdx?.has(absIdx);
-          // Derive the line number (1-based) that owns this fragment.
-          let lineNo: number | null = null;
-          if (lines.length > 0) {
-            for (let li = 0; li < lines.length; li++) {
-              const ln = lines[li];
-              if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) {
-                lineNo = li + 1;
-                break;
-              }
-            }
-          }
+        {activeWindow.length === 0 ? (
+          <span style={{ opacity: 0.5, fontSize: 13 }}>
+            {usedSlots.length > 0 ? "all used" : "no floating numbers"}
+          </span>
+        ) : activeWindow.map(({ token, absIdx }, i) => {
+          const label = slotLabel(token);
+          if (label == null) return null;
+          const lineNo = lineNoOf(absIdx);
           return (
             <button
               key={`fn-${viewIdx}-${absIdx}-${i}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTokenTap(label);
-              }}
+              onClick={(e) => { e.stopPropagation(); handleActiveTap(label, absIdx); }}
               className="transition-transform hover:scale-110 active:scale-95 relative"
               style={{
                 background: "transparent",
@@ -470,16 +575,10 @@ export const FloatingNumberPanel = ({
                 <span
                   aria-hidden
                   style={{
-                    position: "absolute",
-                    right: -2,
-                    bottom: -6,
-                    fontSize: 10,
-                    lineHeight: 1,
-                    opacity: 0.35,
-                    color: chromeFg,
-                    fontWeight: 700,
-                    pointerEvents: "none",
-                    fontFamily: "ui-sans-serif, system-ui",
+                    position: "absolute", right: -2, bottom: -6,
+                    fontSize: 10, lineHeight: 1, opacity: 0.35,
+                    color: chromeFg, fontWeight: 700,
+                    pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
                   }}
                 >
                   {lineNo}
@@ -501,6 +600,27 @@ export const FloatingNumberPanel = ({
         >
           <ChevronRight size={22} />
         </button>
+
+        {/* ── UPCOMING zone (right, dimmed, waiting to flow into ACTIVE) ── */}
+        {upcomingWindow.length > 0 && (
+          <>
+            <span style={{ width: 1, height: 22, background: `color-mix(in oklab, ${chromeFg} 25%, transparent)` }} />
+            <div className="flex items-center" style={{ gap: 6, opacity: 0.4 }} title="Coming up next">
+              {upcomingWindow.map(({ token, absIdx }, i) => {
+                const label = slotLabel(token);
+                if (label == null) return null;
+                return (
+                  <span
+                    key={`up-${viewIdx}-${absIdx}-${i}`}
+                    style={{ color: chromeFg, padding: "0 1px", display: "inline-flex", alignItems: "center" }}
+                  >
+                    <ChipLabel label={label} color={chromeFg} />
+                  </span>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
       )}
 
