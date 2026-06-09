@@ -16,6 +16,9 @@ interface Props {
   ink: string;
   /** Bottom inset (px) so the buttons clear the BottomPanel tab. */
   bottomInset: number;
+  /** Extra lift (px) for the bottom-right Structures button so it clears a
+   *  fixed bottom-right element (e.g. the per-line "Check line" button). */
+  liftRightBottom?: number;
 }
 
 const btnStyle = (
