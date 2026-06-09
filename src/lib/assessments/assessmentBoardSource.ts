@@ -9,6 +9,7 @@
 
 import type { Beat } from "@/lib/smartboard/presentation";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
+import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 
 export interface AssessmentQuestion {
   id: string;
