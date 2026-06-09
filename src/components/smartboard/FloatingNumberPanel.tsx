@@ -263,23 +263,41 @@ export const FloatingNumberPanel = ({
     setOffset((o) => Math.max(0, Math.min(o, Math.max(0, allSlots.length - WINDOW_SIZE))));
   }, [allSlots.length]);
 
-  const windowed = useMemo<Slot[]>(
+  // ACTIVE zone — up to 5 working chips (a slice of the unconsumed pool).
+  // The conveyor refills automatically: using a chip removes it from
+  // `allSlots`, so the next UPCOMING chip slides into ACTIVE on its own.
+  const activeWindow = useMemo<Slot[]>(
     () => allSlots.slice(offset, offset + WINDOW_SIZE),
+    [allSlots, offset],
+  );
+  // UPCOMING zone — everything still waiting after the ACTIVE window.
+  const upcomingWindow = useMemo<Slot[]>(
+    () => allSlots.slice(offset + WINDOW_SIZE),
     [allSlots, offset],
   );
   const canPrev = offset > 0;
   const canNext = offset + WINDOW_SIZE < allSlots.length;
 
-  const handleTokenTap = (label: string) => {
+  /** Tap a chip in the ACTIVE zone: insert it on the board AND mark it used so
+   *  it travels to the grey USED zone (the tap itself is the proof of usage). */
+  const handleActiveTap = (label: string, absIdx: number) => {
     if (!label) return;
     const frac = parseFractionChip(label);
     if (frac && onInsertFrac) {
       onInsertFrac(frac);
+      onUse?.(absIdx, label);
       onPing();
       return;
     }
     const op = /^[+\-−×÷=]/.test(label);
     onInsert?.(op ? ` ${label} ` : label);
+    onUse?.(absIdx, label);
+    onPing();
+  };
+
+  /** Tap a chip in the USED zone: un-mark it so it returns to ACTIVE. */
+  const handleUsedTap = (absIdx: number) => {
+    onUnuse?.(absIdx);
     onPing();
   };
 
