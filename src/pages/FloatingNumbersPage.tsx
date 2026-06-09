@@ -421,7 +421,7 @@ const FloatingNumbersPage = () => {
       >
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center gap-3">
           <button
-            onClick={() => navigate(`/lesson-notes/${notebookId}`)}
+            onClick={() => flushThenNavigate(`/lesson-notes/${notebookId}`)}
             className="inline-flex items-center gap-1.5 text-sm text-foreground/70 hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" /> Lesson Note
