@@ -539,11 +539,14 @@ const FloatingNumbersPage = () => {
                   key={l.lineId}
                   line={l}
                   index={i}
+                  scoreLabel={scoring.label}
+                  scoringMode={scoring.mode}
                   onChange={(next) => {
                     dirtyRef.current = true;
                     setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
                   }}
                 />
+
               ))}
             </div>
           )}
