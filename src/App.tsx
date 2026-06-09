@@ -63,6 +63,7 @@ import CreateClassPage from "./pages/CreateClassPage.tsx";
 import ClassDashboardPage from "./pages/ClassDashboardPage.tsx";
 import StudentsPage from "./pages/class/StudentsPage.tsx";
 import ClassLessonNotesPage from "./pages/class/ClassLessonNotesPage.tsx";
+import ClassAssignmentsPage from "./pages/class/ClassAssignmentsPage.tsx";
 import ClassSmartBoardLauncher from "./pages/class/ClassSmartBoardLauncher.tsx";
 import JoinClassPage from "./pages/JoinClassPage.tsx";
 import StudentClassPage from "./pages/student/StudentClassPage.tsx";
