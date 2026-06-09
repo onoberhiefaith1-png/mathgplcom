@@ -1,5 +1,6 @@
 // Notebook AI: generate section content OR extract math from an image.
 // Uses Lovable AI Gateway.
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { PEDAGOGY_REFERENCE } from "./pedagogyReference.ts";
 import { toUnicodeMath, isStillDirty } from "./unicodeMath.ts";
