@@ -543,11 +543,21 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
 
 export const AdventurePortalScene = () => {
   const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  // Seamless hand-off: the new scene mounts UNDER a white veil that picks up
+  // exactly where the in-canvas flash ended, then fades away — so there is never
+  // an empty gap between the leaving image and the entering image.
+  useEffect(() => {
+    if (!enteredAcademy) return;
+    const id = requestAnimationFrame(() => setRevealed(true));
+    return () => cancelAnimationFrame(id);
+  }, [enteredAcademy]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       {enteredAcademy ? (
-        <div className="absolute inset-0 animate-fade-in">
+        <div className="absolute inset-0">
           <img
             src={staircaseEntry}
             alt={`${enteredAcademy.label} adventure staircase hall`}
@@ -557,6 +567,11 @@ export const AdventurePortalScene = () => {
             height={1080}
           />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.08),transparent_28%,transparent_72%,hsl(var(--background)/0.24))]" />
+          {/* White veil that fades out, continuing the flash with no visible gap. */}
+          <div
+            className="pointer-events-none absolute inset-0 bg-[#fff7ea] transition-opacity duration-700 ease-out"
+            style={{ opacity: revealed ? 0 : 1 }}
+          />
         </div>
       ) : (
         <>
