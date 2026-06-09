@@ -30,7 +30,7 @@ export interface CreateAssessmentInput {
 interface QuestionPayload {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number }[];
+  lines: { lineId: string; chips: string[]; marks: number; containers: ContainerKind[] }[];
 }
 
 interface AnswerKeyLine {
