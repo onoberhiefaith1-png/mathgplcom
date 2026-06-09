@@ -510,7 +510,7 @@ export const FloatingNumberPanel = ({
                   }}
                   title="Return this number"
                 >
-                  <ChipLabel label={label} color="#374151" />
+                  <ChipLabel label={label} color="#065f46" />
                   {lineNo != null && (
                     <span
                       aria-hidden
