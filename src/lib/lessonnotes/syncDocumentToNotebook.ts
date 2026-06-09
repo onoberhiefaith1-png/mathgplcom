@@ -162,24 +162,47 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
  *  Sync/rebuild paths must never drop it; only explicit teacher actions may
  *  remove it.
  */
+interface FloatingSnapshot { highlights: any; lines: any; bucket: any }
+
+/** True when a snapshot carries real teacher state worth preserving. */
+const hasFloatingState = (f: FloatingSnapshot | undefined | null): boolean => {
+  if (!f) return false;
+  const hl = f.highlights;
+  const ln = f.lines;
+  const bk = f.bucket;
+  const hlHas = Array.isArray(hl) && hl.length > 0;
+  const lnHas = Array.isArray(ln) && ln.length > 0;
+  const bkHas = !!bk && typeof bk === "object";
+  return hlHas || lnHas || bkHas;
+};
+
 export async function syncDocumentToNotebook(notebookId: string, doc: any): Promise<void> {
   if (!notebookId || !doc) return;
   const parsed = parseDocumentToSections(doc);
   if (!parsed.length) return; // never wipe legacy data for an empty/unknown doc
 
-  // 1. Snapshot existing floating data, keyed by normalized problem text.
+  // 1. Snapshot existing floating data. Highlights are PERMANENT teacher
+  //    intent, so we keep two ways to re-pair them after the rebuild:
+  //      (a) by normalized problem text (survives reordering), and
+  //      (b) by position — the Nth question subsection in document order
+  //          (survives problem-text edits, empty problems, and math/LaTeX
+  //          normalization drift).
   const { data: oldSecs } = await supabase
     .from("notebook_sections")
-    .select("id")
+    .select("id, order_index")
     .eq("notebook_id", notebookId);
-  const oldSecIds = (oldSecs ?? []).map((s: any) => s.id);
+  const oldSecList = (oldSecs ?? []) as { id: string; order_index: number }[];
+  const oldSecIds = oldSecList.map((s) => s.id);
+  const secOrder = new Map<string, number>();
+  for (const s of oldSecList) secOrder.set(s.id, Number(s.order_index) || 0);
 
-  const floatingByProblem = new Map<string, { highlights: any; lines: any; bucket: any }>();
+  const floatingByProblem = new Map<string, FloatingSnapshot>();
+  const floatingOrdered: FloatingSnapshot[] = [];
   if (oldSecIds.length) {
     const [{ data: subs }, { data: blks }] = await Promise.all([
       supabase
         .from("notebook_subsections")
-        .select("id, section_id, floating_highlights, floating_lines, floating_bucket")
+        .select("id, section_id, order_index, floating_highlights, floating_lines, floating_bucket")
         .in("section_id", oldSecIds),
       supabase
         .from("notebook_blocks")
@@ -192,15 +215,29 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         problemBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
       }
     }
-    for (const s of subs ?? []) {
-      const problem = problemBySub.get((s as any).id) ?? "";
-      const key = normalizeProblem(problem);
-      if (!key) continue;
-      floatingByProblem.set(key, {
+    // Order subsections globally: section order, then subsection order. This
+    // mirrors the rebuild order so positional fallback lines up 1:1 when the
+    // structure is unchanged.
+    const orderedSubs = [...(subs ?? [])].sort((a: any, b: any) => {
+      const sa = secOrder.get(a.section_id) ?? 0;
+      const sb = secOrder.get(b.section_id) ?? 0;
+      if (sa !== sb) return sa - sb;
+      return (Number(a.order_index) || 0) - (Number(b.order_index) || 0);
+    });
+    for (const s of orderedSubs) {
+      const snap: FloatingSnapshot = {
         highlights: (s as any).floating_highlights,
         lines: (s as any).floating_lines,
         bucket: (s as any).floating_bucket,
-      });
+      };
+      floatingOrdered.push(snap);
+      const problem = problemBySub.get((s as any).id) ?? "";
+      const key = normalizeProblem(problem);
+      // Only index by problem when there is real state AND no meaningful entry
+      // already exists for that key (don't let an empty dup clobber a good one).
+      if (key && hasFloatingState(snap) && !floatingByProblem.has(key)) {
+        floatingByProblem.set(key, snap);
+      }
     }
   }
 
@@ -210,6 +247,10 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
   }
 
   // 3. Rebuild from parsed structure.
+  //    `globalSubIndex` walks question subsections in the same global order as
+  //    the snapshot so positional fallback re-pairs preserved floating state.
+  let globalSubIndex = 0;
+  const usedPositions = new Set<number>();
   for (let i = 0; i < parsed.length; i++) {
     const sec = parsed[i];
     const { data: secRow, error: secErr } = await supabase
@@ -223,12 +264,23 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
     if (sec.subsections.length) {
       for (let j = 0; j < sec.subsections.length; j++) {
         const { problem, solution } = sec.subsections[j];
-        const preserved = floatingByProblem.get(normalizeProblem(problem));
+        const positionIdx = globalSubIndex++;
+        // (a) exact problem match → (b) positional fallback.
+        let preserved = floatingByProblem.get(normalizeProblem(problem));
+        if (!hasFloatingState(preserved)) {
+          const byPos = floatingOrdered[positionIdx];
+          if (hasFloatingState(byPos) && !usedPositions.has(positionIdx)) {
+            preserved = byPos;
+            usedPositions.add(positionIdx);
+          }
+        }
         const { data: subRow } = await supabase
           .from("notebook_subsections")
           .insert({
             section_id: sectionId,
             order_index: j,
+            // Never clobber real teacher state with empty. When nothing is
+            // preserved, seed neutral defaults.
             floating_highlights: (preserved?.highlights as any) ?? null,
             floating_lines: (preserved?.lines as any) ?? [],
             floating_bucket: (preserved?.bucket as any) ?? null,

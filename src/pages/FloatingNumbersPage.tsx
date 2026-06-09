@@ -140,22 +140,31 @@ const FloatingNumbersPage = () => {
       setHighlightsData(hasHighlights ? highlights! : []);
 
       if (hasHighlights) {
-        // Highlights drive the list. Reuse persisted lines whose equation still
-        // matches a current highlight (preserves AI-generated fillers); drop
-        // any persisted entry whose highlight was removed; seed empty blocks
-        // for newly added highlights.
+        // Highlights drive the list. Re-pair each highlight to its persisted
+        // line so AI-generated fillers AND the teacher's chip selections
+        // (fillersSelected / containersSelected) survive every reload.
+        // Pairing priority: (a) exact equation==payload match, then
+        // (b) positional fallback (same index) so a selection is never lost
+        // to math/LaTeX normalization drift. Only a removed highlight drops a row.
         const persistedList: FloatingLine[] = Array.isArray(persisted)
           ? persisted.map(normalizeFloatingLine)
           : [];
         const used = new Set<number>();
-        const reconciled: FloatingLine[] = highlights!.map((h) => {
+        const reconciled: FloatingLine[] = highlights!.map((h, hi) => {
           const payload = String(h.payload ?? "");
-          const idx = persistedList.findIndex(
+          let idx = persistedList.findIndex(
             (p, i) => !used.has(i) && (p.equation ?? "") === payload,
           );
+          // (b) positional fallback — reuse the persisted row at the same index
+          // when it hasn't already been claimed by an exact match.
+          if (idx < 0 && hi < persistedList.length && !used.has(hi)) {
+            idx = hi;
+          }
           if (idx >= 0) {
             used.add(idx);
-            return persistedList[idx];
+            // Lock the equation to the permanent highlight payload while keeping
+            // the persisted fillers + selection state.
+            return { ...persistedList[idx], equation: payload };
           }
           return {
             lineId: newId(),
@@ -346,6 +355,31 @@ const FloatingNumbersPage = () => {
     return () => window.clearTimeout(t);
   }, [lines, info, persist]);
 
+  /* Flush-on-leave: a chip toggle made right before navigating away (or a tab
+     close / refresh) must never be lost to the 500 ms debounce. Keep the latest
+     persist in a ref so the unmount cleanup saves the freshest state. */
+  const persistRef = useRef(persist);
+  useEffect(() => { persistRef.current = persist; }, [persist]);
+  useEffect(() => {
+    return () => { if (dirtyRef.current) void persistRef.current(true); };
+  }, []);
+  useEffect(() => {
+    const onHide = () => { if (dirtyRef.current) void persistRef.current(true); };
+    window.addEventListener("pagehide", onHide);
+    window.addEventListener("beforeunload", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("beforeunload", onHide);
+    };
+  }, []);
+
+  /* Save pending edits before an in-app navigation, then route. */
+  const flushThenNavigate = useCallback(async (to: string) => {
+    if (dirtyRef.current) await persist(true);
+    navigate(to);
+  }, [persist, navigate]);
+
+
   const headerLabel = useMemo(() => {
     if (!info) return "";
     const k = info.sectionKind.charAt(0).toUpperCase() + info.sectionKind.slice(1);
@@ -387,7 +421,7 @@ const FloatingNumbersPage = () => {
       >
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center gap-3">
           <button
-            onClick={() => navigate(`/lesson-notes/${notebookId}`)}
+            onClick={() => flushThenNavigate(`/lesson-notes/${notebookId}`)}
             className="inline-flex items-center gap-1.5 text-sm text-foreground/70 hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" /> Lesson Note
@@ -409,7 +443,7 @@ const FloatingNumbersPage = () => {
               </span>
             )}
             <button
-              onClick={() => navigate(`/lesson-notes/${notebookId}/floating-prep/${subsectionId}`)}
+              onClick={() => flushThenNavigate(`/lesson-notes/${notebookId}/floating-prep/${subsectionId}`)}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-foreground/20 hover:bg-foreground/5"
               style={{ color: "hsl(220 35% 18%)" }}
               title="Back to highlight selection"
