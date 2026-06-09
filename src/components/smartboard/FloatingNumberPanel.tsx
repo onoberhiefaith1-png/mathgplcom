@@ -164,6 +164,18 @@ export const FloatingNumberPanel = ({
   // Re-anchor when active beat changes.
   useEffect(() => { setY(rememberedY ?? defaultYPx); }, [beatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Re-anchor to the (viewport-aware) default whenever the panel is freshly
+  // shown and the user hasn't dragged it for this beat yet. Guarantees the
+  // first hash-click drops the strip inside the visible screen.
+  const wasVisibleRef = useRef(false);
+  useEffect(() => {
+    if (visible && !wasVisibleRef.current && rememberedY == null) {
+      setY(defaultYPx);
+    }
+    wasVisibleRef.current = visible;
+  }, [visible, rememberedY, defaultYPx]);
+
+
   // Clamp whenever bounds shift (writing barrier / band size).
   useEffect(() => {
     setY((prev) => {
