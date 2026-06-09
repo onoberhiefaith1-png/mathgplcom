@@ -1779,9 +1779,9 @@ const PresentationView = ({
                   ink={ink}
                   accent={palette.accent}
                   jitter={profile.strokeJitter}
-                  notebookTitle={notebook.title ?? "Untitled"}
-                  topic={notebook.subject ?? ""}
-                  subtopic={notebook.subtopic ?? ""}
+                  notebookTitle={notebook?.title ?? "Untitled"}
+                  topic={notebook?.subject ?? ""}
+                  subtopic={notebook?.subtopic ?? ""}
                   dateLabel={today()}
                 />
               </div>
