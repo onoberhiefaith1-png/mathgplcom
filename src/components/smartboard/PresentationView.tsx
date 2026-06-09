@@ -2135,17 +2135,8 @@ const PresentationView = ({
             );
           })()}
 
-          {/* Right-edge traffic-light bulbs — teacher: when AI verification is
-              on; assessment: always (driven by server grading). */}
-          {((assessmentMode) || verifyOn) && activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (
-            <LineStatusRail
-              grid={grid}
-              statusByLine={assessmentMode ? assessLineStatusMap : lineStatusMap}
-              bandTopPx={grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT}
-              allDone={assessmentMode ? currentSolvedCount >= guidedLines.length : activeLineIdx >= guidedLines.length}
-              leftPx={6}
-            />
-          )}
+          {/* Per-line status bulbs removed — the top progress tracker is the
+              single source of line status (no duplicate left-edge indicators). */}
 
 
           {/* Left-side LINE NAVIGATOR — selects which line's floating numbers
