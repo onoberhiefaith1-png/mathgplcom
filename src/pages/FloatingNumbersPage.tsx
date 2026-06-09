@@ -352,6 +352,29 @@ const FloatingNumbersPage = () => {
     return `${k} · Floating Numbers`;
   }, [info]);
 
+  const total = useMemo(() => computeTotalMarks(lines), [lines]);
+
+  /* Equal mode: keep every line's marks in lockstep with marksPerLine. */
+  useEffect(() => {
+    if (scoring.mode !== "equal") return;
+    setLines((prev) => {
+      let changed = false;
+      const next = prev.map((l) => {
+        if ((Number(l.marks) || 0) === scoring.marksPerLine) return l;
+        changed = true;
+        return { ...l, marks: scoring.marksPerLine };
+      });
+      if (changed) dirtyRef.current = true;
+      return changed ? next : prev;
+    });
+  }, [scoring.mode, scoring.marksPerLine, lines.length]);
+
+  const updateScoring = useCallback((patch: Partial<FloatingScoring>) => {
+    dirtyRef.current = true;
+    setScoring((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+
   return (
     <div className="min-h-screen" style={{ background: "hsl(38 35% 92%)" }}>
       {/* Top bar */}
