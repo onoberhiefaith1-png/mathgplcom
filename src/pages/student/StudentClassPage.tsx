@@ -191,7 +191,41 @@ const StudentClassPage = () => {
             </ul>
           )}
         </section>
+
+        <section>
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <ClipboardList className="h-3.5 w-3.5" /> Assessment Workspace
+          </div>
+          {assignments.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              No assignments yet.
+            </div>
+          ) : (
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {assignments.map((a) => (
+                <li key={a.id}>
+                  <Link
+                    to={`/student/class/${classId}/assessment/${a.id}`}
+                    className="block rounded-xl border border-border bg-card/40 p-4 backdrop-blur transition hover:border-primary/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{a.kind}</div>
+                        <div className="truncate text-base font-semibold">{a.title}</div>
+                      </div>
+                      {a.completed && <Check className="h-4 w-4 shrink-0" style={{ color: "hsl(142 70% 45%)" }} />}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground tabular-nums">
+                      {a.score} / {a.total_marks} {a.score_label}
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </main>
+
     </div>
   );
 };
