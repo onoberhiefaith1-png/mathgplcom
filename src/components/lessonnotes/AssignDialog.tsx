@@ -83,7 +83,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       }
       setLoading(false);
     })();
-  }, [open, defaultTitle, subsectionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, defaultTitle, subsectionId, notebookId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const assign = async () => {
     if (!subsectionId) {
