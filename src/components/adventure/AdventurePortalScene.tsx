@@ -75,7 +75,52 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   );
 };
 
-// One jagged vertical lightning bolt as a glowing polyline.
+// The inner royal palace core, built from many overlapping dome copies wrapped
+// onto a smaller cylinder so their roofs/walls fuse into one continuous middle
+// building that rotates locked to the outer ring city.
+const CoreSegment = ({
+  texture,
+  index,
+  getCoreOpacity,
+}: {
+  texture: THREE.Texture;
+  index: number;
+  getCoreOpacity: () => number;
+}) => {
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const overlap = CORE_SEG_ANGLE * 3;
+  const thetaStart = index * CORE_SEG_ANGLE - overlap / 2;
+  const thetaLength = CORE_SEG_ANGLE + overlap;
+  const radius = CORE_RADIUS + (index % 2 === 0 ? 0.06 : 0);
+
+  useFrame((_, delta) => {
+    if (materialRef.current) {
+      materialRef.current.opacity = THREE.MathUtils.damp(materialRef.current.opacity, getCoreOpacity(), 6, delta);
+    }
+  });
+
+  return (
+    <mesh renderOrder={index % 2 === 0 ? -1 : -2}>
+      <cylinderGeometry args={[radius, radius, CORE_HEIGHT, 64, 1, true, thetaStart, thetaLength]} />
+      <meshBasicMaterial ref={materialRef} map={texture} transparent alphaTest={0.04} opacity={1} side={THREE.DoubleSide} toneMapped={false} />
+    </mesh>
+  );
+};
+
+const CentralCore = ({ getCoreOpacity }: { getCoreOpacity: () => number }) => {
+  const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return (
+    <group position={[0, CORE_Y_OFFSET, 0]}>
+      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
+        <CoreSegment key={i} index={i} texture={texture} getCoreOpacity={getCoreOpacity} />
+      ))}
+    </group>
+  );
+};
+
+
 const makeBolt = () => {
   const segs = 10;
   const points: THREE.Vector3[] = [];
