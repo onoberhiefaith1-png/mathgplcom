@@ -46,7 +46,6 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
   useEffect(() => {
     if (!open) return;
-    setTitle(defaultTitle);
     setLoading(true);
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
@@ -59,6 +58,19 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       const list = (rows ?? []).map((r: any) => ({ id: r.id, name: r.name ?? "Class" }));
       setClasses(list);
       if (list.length && !classId) setClassId(list[0].id);
+
+      // Default the title from the notebook subtopic/title when none provided.
+      let nbTitle = defaultTitle;
+      if (!nbTitle && notebookId) {
+        const { data: nb } = await supabase
+          .from("notebooks")
+          .select("subtopic, title")
+          .eq("id", notebookId)
+          .maybeSingle();
+        nbTitle = (nb as any)?.subtopic || (nb as any)?.title || "Assignment";
+      }
+      setTitle(nbTitle || "Assignment");
+
 
       if (subsectionId) {
         const { data: ss } = await supabase
