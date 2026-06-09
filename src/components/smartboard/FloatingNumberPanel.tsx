@@ -162,6 +162,13 @@ export const FloatingNumberPanel = ({
   const [y, setY] = useState<number>(initialY);
   const dragRef = useRef<{ dy: number } | null>(null);
   const [offset, setOffset] = useState<number>(0);
+  // How many already-USED numbers are currently revealed (green) on the left of
+  // the single strip. 0 = pure forward view of unused numbers. Backward grows
+  // this (revealing used numbers), Forward shrinks it back to 0.
+  const [reveal, setReveal] = useState<number>(0);
+  // Order in which numbers were tapped/used — drives which used number reappears
+  // first when scrolling Backward (most-recently-relevant per the spec).
+  const [usedOrder, setUsedOrder] = useState<number[]>([]);
 
 
 
@@ -245,9 +252,9 @@ export const FloatingNumberPanel = ({
       .filter((s) => consumed.has(s.absIdx));
   }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset offset whenever beat or active line changes — the panel always
-  // opens on the first chip of the new line.
-  useEffect(() => { setOffset(0); }, [beatId, activeLineIdx]);
+  // Reset window position whenever beat or active line changes — the panel
+  // always opens on the first chip of the new line, showing no used numbers.
+  useEffect(() => { setOffset(0); setReveal(0); }, [beatId, activeLineIdx]);
 
   // Snap back to 0 whenever the unconsumed pool shrinks (a chip was just
   // consumed) — keeps the next required chip in the viewport even if the
@@ -263,25 +270,73 @@ export const FloatingNumberPanel = ({
     setOffset((o) => Math.max(0, Math.min(o, Math.max(0, allSlots.length - WINDOW_SIZE))));
   }, [allSlots.length]);
 
-  // ACTIVE zone — up to 5 working chips (a slice of the unconsumed pool).
-  // The conveyor refills automatically: using a chip removes it from
-  // `allSlots`, so the next UPCOMING chip slides into ACTIVE on its own.
-  const activeWindow = useMemo<Slot[]>(
-    () => allSlots.slice(offset, offset + WINDOW_SIZE),
-    [allSlots, offset],
-  );
-  // UPCOMING zone — everything still waiting after the ACTIVE window.
-  const upcomingWindow = useMemo<Slot[]>(
-    () => allSlots.slice(offset + WINDOW_SIZE),
-    [allSlots, offset],
-  );
-  const canPrev = offset > 0;
-  const canNext = offset + WINDOW_SIZE < allSlots.length;
+  // Keep `usedOrder` reconciled with the parent's consumed set: drop numbers no
+  // longer used, append any newly-consumed ones (the tap handler already appends
+  // in tap order; this effect covers resets/undo/external changes).
+  useEffect(() => {
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    setUsedOrder((prev) => {
+      const kept = prev.filter((i) => consumed.has(i));
+      const present = new Set(kept);
+      const added: number[] = [];
+      consumed.forEach((i) => { if (!present.has(i)) added.push(i); });
+      added.sort((a, b) => a - b);
+      return added.length === 0 && kept.length === prev.length ? prev : [...kept, ...added];
+    });
+  }, [consumedAbsIdx]);
 
-  /** Tap a chip in the ACTIVE zone: insert it on the board AND mark it used so
-   *  it travels to the grey USED zone (the tap itself is the proof of usage). */
+  // Used numbers belonging to the active line, in usage order.
+  const revealedUsed = useMemo<Slot[]>(() => {
+    const inScope = new Set(usedSlots.map((s) => s.absIdx));
+    return usedOrder
+      .filter((i) => inScope.has(i))
+      .map((i) => ({ token: fragments[i], absIdx: i }));
+  }, [usedOrder, usedSlots, fragments]);
+
+  // Clamp reveal to the number of used numbers available.
+  const clampedReveal = Math.min(reveal, revealedUsed.length);
+  useEffect(() => {
+    if (reveal > revealedUsed.length) setReveal(revealedUsed.length);
+  }, [reveal, revealedUsed.length]);
+
+  // ── The single visible strip ──────────────────────────────────────────────
+  // Left part: the first `clampedReveal` used numbers (reversed so the most
+  // recently revealed sits nearest the unused block — matches the spec). Right
+  // part: the next unused numbers from `offset`. Whole thing is capped at 5.
+  type StripSlot = Slot & { used: boolean };
+  const windowSlots = useMemo<StripSlot[]>(() => {
+    const leftUsed: StripSlot[] = revealedUsed
+      .slice(0, clampedReveal)
+      .reverse()
+      .map((s) => ({ ...s, used: true }));
+    const rightUnused: StripSlot[] = allSlots
+      .slice(offset)
+      .map((s) => ({ ...s, used: false }));
+    return [...leftUsed, ...rightUnused].slice(0, WINDOW_SIZE);
+  }, [revealedUsed, clampedReveal, allSlots, offset]);
+
+  const canPrev = offset > 0 || clampedReveal < revealedUsed.length;
+  const canNext = clampedReveal > 0 || offset + WINDOW_SIZE < allSlots.length;
+
+  /** Backward ◀ — first scroll back through unused numbers, then start revealing
+   *  already-used numbers (green) one at a time on the left. */
+  const goBackward = () => {
+    if (offset > 0) { setOffset((o) => o - 1); return; }
+    if (clampedReveal < revealedUsed.length) setReveal((r) => r + 1);
+  };
+  /** Forward ▶ — first hide any revealed used numbers, then advance the window
+   *  through the upcoming unused numbers. */
+  const goForward = () => {
+    if (clampedReveal > 0) { setReveal((r) => Math.max(0, r - 1)); return; }
+    if (offset + WINDOW_SIZE < allSlots.length) setOffset((o) => o + 1);
+  };
+
+  /** Tap an UNUSED chip: insert it on the board AND mark it used so it slides
+   *  out of the strip (the next unused number flows in from the right). */
   const handleActiveTap = (label: string, absIdx: number) => {
     if (!label) return;
+    setReveal(0); // collapse any revealed used numbers so the strip compacts
+    setUsedOrder((prev) => (prev.includes(absIdx) ? prev : [...prev, absIdx]));
     const frac = parseFractionChip(label);
     if (frac && onInsertFrac) {
       onInsertFrac(frac);
@@ -295,8 +350,9 @@ export const FloatingNumberPanel = ({
     onPing();
   };
 
-  /** Tap a chip in the USED zone: un-mark it so it returns to ACTIVE. */
+  /** Tap a USED (green) chip: un-mark it so it returns to the unused flow. */
   const handleUsedTap = (absIdx: number) => {
+    setUsedOrder((prev) => prev.filter((i) => i !== absIdx));
     onUnuse?.(absIdx);
     onPing();
   };
@@ -474,65 +530,9 @@ export const FloatingNumberPanel = ({
           fontFamily: "ui-serif, Georgia, serif",
         }}
       >
-        {/* ── USED zone (left, mint green, still clickable to undo) ── */}
-        {usedSlots.length > 0 && (
-          <div
-            className="flex items-center"
-            style={{
-              gap: 6,
-              padding: "2px 8px",
-              borderRadius: 10,
-              background: "#d1fae5",
-              border: "1px solid #6ee7b7",
-              maxWidth: 200,
-              overflowX: "auto",
-            }}
-            title="Used numbers — tap to return one"
-          >
-            {usedSlots.map(({ token, absIdx }, i) => {
-              const label = slotLabel(token);
-              if (label == null) return null;
-              const lineNo = lineNoOf(absIdx);
-              return (
-                <button
-                  key={`used-${viewIdx}-${absIdx}-${i}`}
-                  onClick={(e) => { e.stopPropagation(); handleUsedTap(absIdx); }}
-                  className="transition-transform hover:scale-110 active:scale-95 relative"
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: "#065f46",
-                    opacity: 0.8,
-                    padding: "0 2px",
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                  }}
-                  title="Return this number"
-                >
-                  <ChipLabel label={label} color="#065f46" />
-                  {lineNo != null && (
-                    <span
-                      aria-hidden
-                      style={{
-                        position: "absolute", right: -2, bottom: -6,
-                        fontSize: 10, lineHeight: 1, opacity: 0.5,
-                        color: "#065f46", fontWeight: 700,
-                        pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
-                      }}
-                    >
-                      {lineNo}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-
-
-        {/* ── ACTIVE zone (middle, white container, working chips) ── */}
+        {/* ── ONE strip: ◀ Backward · 5 numbers · Forward ▶ ──
+            Numbers outside this window are hidden. Used numbers only appear
+            (green) when revealed via Backward; tapping one returns it. */}
         <div
           className="flex items-center"
           style={{
@@ -543,12 +543,13 @@ export const FloatingNumberPanel = ({
             border: "1px solid #d1d5db",
             boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
           }}
-          title="Active numbers — tap to use"
+          title="Floating numbers — tap to use"
         >
           <button
-            onClick={(e) => { e.stopPropagation(); if (canPrev) { setOffset((o) => o - 1); onPing(); } }}
+            onClick={(e) => { e.stopPropagation(); if (canPrev) { goBackward(); onPing(); } }}
             disabled={!canPrev}
-            title="Scroll backward"
+            title="Backward"
+            aria-label="Backward"
             style={{
               background: "transparent", border: 0, color: "#374151",
               padding: 0, opacity: canPrev ? 1 : 0.25,
@@ -558,38 +559,44 @@ export const FloatingNumberPanel = ({
           >
             <ChevronLeft size={22} />
           </button>
-          {activeWindow.length === 0 ? (
+          {windowSlots.length === 0 ? (
             <span style={{ opacity: 0.5, fontSize: 13, color: "#374151" }}>
-              {usedSlots.length > 0 ? "all used" : "no floating numbers"}
+              no floating numbers
             </span>
-          ) : activeWindow.map(({ token, absIdx }, i) => {
+          ) : windowSlots.map(({ token, absIdx, used }, i) => {
             const label = slotLabel(token);
             if (label == null) return null;
             const lineNo = lineNoOf(absIdx);
+            const ink = used ? "#065f46" : "#111827";
             return (
               <button
                 key={`fn-${viewIdx}-${absIdx}-${i}`}
-                onClick={(e) => { e.stopPropagation(); handleActiveTap(label, absIdx); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (used) handleUsedTap(absIdx);
+                  else handleActiveTap(label, absIdx);
+                }}
                 className="transition-transform hover:scale-110 active:scale-95 relative"
                 style={{
-                  background: "transparent",
-                  border: 0,
-                  color: "#111827",
-                  padding: "0 2px",
-                  opacity: 1,
+                  background: used ? "#d1fae5" : "transparent",
+                  border: used ? "1px solid #6ee7b7" : "1px solid transparent",
+                  borderRadius: 8,
+                  color: ink,
+                  padding: "0 4px",
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
                 }}
+                title={used ? "Already used — tap to return it" : "Tap to use"}
               >
-                <ChipLabel label={label} color="#111827" />
+                <ChipLabel label={label} color={ink} />
                 {lineNo != null && (
                   <span
                     aria-hidden
                     style={{
                       position: "absolute", right: -2, bottom: -6,
-                      fontSize: 10, lineHeight: 1, opacity: 0.4,
-                      color: "#111827", fontWeight: 700,
+                      fontSize: 10, lineHeight: 1, opacity: used ? 0.5 : 0.4,
+                      color: ink, fontWeight: 700,
                       pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
                     }}
                   >
@@ -600,9 +607,10 @@ export const FloatingNumberPanel = ({
             );
           })}
           <button
-            onClick={(e) => { e.stopPropagation(); if (canNext) { setOffset((o) => o + 1); onPing(); } }}
+            onClick={(e) => { e.stopPropagation(); if (canNext) { goForward(); onPing(); } }}
             disabled={!canNext}
-            title="Scroll forward"
+            title="Forward"
+            aria-label="Forward"
             style={{
               background: "transparent", border: 0, color: "#374151",
               padding: 0, opacity: canNext ? 1 : 0.25,
@@ -613,37 +621,6 @@ export const FloatingNumberPanel = ({
             <ChevronRight size={22} />
           </button>
         </div>
-
-        {/* ── UPCOMING zone (right, light grey container, waiting to flow in) ── */}
-        {upcomingWindow.length > 0 && (
-          <div
-            className="flex items-center"
-            style={{
-              gap: 6,
-              padding: "2px 8px",
-              borderRadius: 10,
-              background: "#f3f4f6",
-              border: "1px solid #e5e7eb",
-              maxWidth: 220,
-              overflowX: "auto",
-              opacity: 0.75,
-            }}
-            title="Coming up next"
-          >
-            {upcomingWindow.map(({ token, absIdx }, i) => {
-              const label = slotLabel(token);
-              if (label == null) return null;
-              return (
-                <span
-                  key={`up-${viewIdx}-${absIdx}-${i}`}
-                  style={{ color: "#6b7280", padding: "0 1px", display: "inline-flex", alignItems: "center" }}
-                >
-                  <ChipLabel label={label} color="#6b7280" />
-                </span>
-              );
-            })}
-          </div>
-        )}
       </div>
       )}
 
