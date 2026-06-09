@@ -1291,7 +1291,15 @@ const PresentationView = ({
     }
     const target = guidedLines[activeLineIdx];
     if (!target?.lineId) return;
-    const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
+    // Find the student's written rows within the active band, top-to-bottom.
+    // The k-th written row maps to guided line k, so the line does NOT have to
+    // land on one exact physical row to be recognised.
+    const a = bandStart(activeLayout), b = bandEnd(activeLayout);
+    const writtenRows = Object.keys(freeLines)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n >= a && n <= b && !!freeLines[n] && freeLines[n].length > 0)
+      .sort((x, y) => x - y);
+    const expectedLineNum = writtenRows[activeLineIdx] ?? (bandStart(activeLayout) + activeLineIdx);
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) {
       toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
