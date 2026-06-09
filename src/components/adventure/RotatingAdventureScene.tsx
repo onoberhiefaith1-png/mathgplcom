@@ -9,6 +9,7 @@ import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
 import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
 import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
+import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
@@ -33,6 +34,17 @@ const SEG_ANGLE = (Math.PI * 2) / SEGMENTS; // 45° per curved slice
 const WORLD_RADIUS = 5.1; // radius of the connected cylinder world
 const WORLD_HEIGHT = 4.4; // shared height so every slice connects top & bottom
 const ringSpeed = (Math.PI * 2) / 60; // one full revolution ~60s — slow, cinematic
+
+// ── INNER CENTRAL CORE ────────────────────────────────────────────────────
+// One royal academy palace built from FOUR identical dome copies (N/S/E/W),
+// each wrapped onto a 90° curved slice of a smaller inner cylinder. The slices
+// overlap so their walls/roofs merge into a single continuous cylindrical core
+// that sits INSIDE the outer ring city and rotates locked to it.
+const CORE_SEGMENTS = 4;
+const CORE_SEG_ANGLE = (Math.PI * 2) / CORE_SEGMENTS; // 90° per dome copy
+const CORE_RADIUS = 2.55; // well inside the outer ring (5.1) → hidden behind towers
+const CORE_HEIGHT = 5.4; // taller than the city so the roof dominates the skyline
+const CORE_Y_OFFSET = 0.55; // lift so the roof crowns above the outer towers, base hidden
 
 // Each academy is a curved slice of the giant cylinder (a convex panel that
 // bends backward at both edges and projects forward at its centre). Segments
@@ -87,6 +99,38 @@ const WorldSegment = ({
       />
       <meshBasicMaterial map={texture} transparent alphaTest={0.02} side={THREE.DoubleSide} toneMapped={false} />
     </mesh>
+  );
+};
+
+// The inner royal palace: four identical dome copies wrapped onto overlapping
+// 90° slices of one smaller cylinder. Overlap merges their walls + roofs so the
+// viewer reads a single continuous cylindrical core, not four buildings.
+const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number }) => {
+  // Generous overlap so each copy's edges push into its neighbour — no gaps.
+  const overlap = CORE_SEG_ANGLE * 0.34;
+  const thetaStart = index * CORE_SEG_ANGLE - overlap / 2;
+  const thetaLength = CORE_SEG_ANGLE + overlap;
+  // Alternate radius so neighbouring copies cover (not z-fight) each other.
+  const radius = CORE_RADIUS + (index % 2 === 0 ? 0.1 : 0);
+
+  return (
+    <mesh renderOrder={index % 2 === 0 ? -1 : -2}>
+      <cylinderGeometry args={[radius, radius, CORE_HEIGHT, 64, 1, true, thetaStart, thetaLength]} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.04} side={THREE.DoubleSide} toneMapped={false} />
+    </mesh>
+  );
+};
+
+const CentralCore = () => {
+  const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return (
+    <group position={[0, CORE_Y_OFFSET, 0]}>
+      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
+        <CoreSegment key={i} index={i} texture={texture} />
+      ))}
+    </group>
   );
 };
 
@@ -191,6 +235,8 @@ const Showcase = () => {
       <FloatingParticles color="#c79bff" size={0.06} count={110} spread={13} />
 
       <group ref={worldRef}>
+        {/* Inner royal palace core — locked to the same group so it rotates with the city. */}
+        <CentralCore />
         {academies.map((academy, i) => (
           <WorldSegment
             key={i}
