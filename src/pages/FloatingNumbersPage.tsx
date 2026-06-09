@@ -97,7 +97,7 @@ const FloatingNumbersPage = () => {
       const [{ data: ss }, { data: nb }] = await Promise.all([
         supabase
           .from("notebook_subsections")
-          .select("id, section_id, floating_lines, floating_highlights, notebook_sections!inner(kind, notebook_id)")
+          .select("id, section_id, floating_lines, floating_highlights, floating_scoring, notebook_sections!inner(kind, notebook_id)")
           .eq("id", subsectionId)
           .maybeSingle(),
         supabase.from("notebooks").select("title, subject, subtopic").eq("id", notebookId).maybeSingle(),
