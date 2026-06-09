@@ -71,7 +71,7 @@ const StudentClassPage = () => {
   useEffect(() => {
     if (!classId) return;
     const ch = supabase
-      .channel(`class-notes-${classId}`)
+      .channel(`class-notes-${classId}`, { config: { private: true } })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "class_lesson_notes", filter: `class_id=eq.${classId}` },
