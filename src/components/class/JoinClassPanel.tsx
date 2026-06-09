@@ -97,19 +97,24 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
   // Realtime: when this user is added as a member → open their classroom.
   useEffect(() => {
     if (!userId) return;
-    const channel = supabase
-      .channel(`member-of-${userId}`, { config: { private: true } })
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "class_members", filter: `user_id=eq.${userId}` },
-        (payload: { new: { class_id: string } }) => {
-          const cid = payload.new.class_id;
-          toast({ title: "Approved", description: "Opening your classroom…" });
-          navigate(`/student/class/${cid}`);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      channel = supabase
+        .channel(`member-of-${userId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "class_members", filter: `user_id=eq.${userId}` },
+          (payload: { new: { class_id: string } }) => {
+            const cid = payload.new.class_id;
+            toast({ title: "Approved", description: "Opening your classroom…" });
+            navigate(`/student/class/${cid}`);
+          },
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (channel) supabase.removeChannel(channel); };
   }, [userId, navigate, toast]);
 
   const submit = async (rawCode: string) => {
