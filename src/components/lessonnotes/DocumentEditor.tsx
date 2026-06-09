@@ -429,13 +429,22 @@ export function DocumentEditor({
       const msg = String(err?.message ?? err);
       if (msg.includes("question_lock_mismatch") || msg.includes("missing_inherited_question")) {
         toast({
-          title: "Solution rejected — question mismatch",
-          description: "The model produced a solution for a different question. Please retry.",
+          title: "Couldn't match this solution to the question",
+          description: "Try again, or simplify the question text above the Solution.",
           variant: "destructive",
         });
         return;
       }
-      throw err;
+      // Any other backend/network failure: show a friendly message instead of
+      // letting the error bubble up into React (which triggers the full app
+      // error overlay teachers and students were seeing).
+      console.warn("[handleSectionAi] generation failed:", msg);
+      toast({
+        title: "Generation failed",
+        description: "Something went wrong while generating. Please try again.",
+        variant: "destructive",
+      });
+      return;
     }
     if (!content) { toast({ title: "No content returned" }); return; }
 
