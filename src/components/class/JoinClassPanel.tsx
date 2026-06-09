@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useToast } from "@/hooks/use-toast";
 
 type PreviousClass = { id: string; name: string };
