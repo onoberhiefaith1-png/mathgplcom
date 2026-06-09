@@ -354,6 +354,20 @@ const PresentationView = ({
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
   const boardScrollRef = useRef<HTMLElement>(null);
 
+  // Track the scroll host's visible height so assistant panels can default
+  // to a position INSIDE the viewport (not the off-screen band bottom).
+  const [viewportH, setViewportH] = useState(0);
+  useEffect(() => {
+    const host = boardScrollRef.current;
+    if (!host) return;
+    const update = () => setViewportH(host.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, []);
+
+
   // Smart Line overlay objects — free-floating draggable/extendable/rotatable
   // strokes that live above the writing surface (not in the math tree).
   // Used as wide fraction bars, division strokes, or cancel/strike-through.
