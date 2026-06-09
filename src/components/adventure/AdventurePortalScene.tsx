@@ -211,10 +211,14 @@ const WorldSegment = ({
     const opacity = getOpacity(index);
 
     if (groupRef.current) {
-      const targetScale = 1 + selectionProgress * 2.35;
-      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1 + selectionProgress * 0.2), 1 - Math.pow(0.001, delta));
-      groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, selectionProgress * 4.9, 4.8, delta);
-      groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, selectionProgress * 0.18, 4.2, delta);
+      // Gentle grow only — the "coming closer" feel comes mostly from the door
+      // texture crop. We keep the panel's front face well in front of the camera
+      // (camera z=10.5) so it NEVER clashes/passes through the lens: front face
+      // ≈ WORLD_RADIUS*scale + z ≈ 5.1*1.32 + 0.45 ≈ 7.2 (a safe ~3.3 gap).
+      const targetScale = 1 + selectionProgress * 0.32;
+      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1 + selectionProgress * 0.12), 1 - Math.pow(0.001, delta));
+      groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, selectionProgress * 0.45, 4.8, delta);
+      groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, selectionProgress * 0.12, 4.2, delta);
     }
 
     if (materialRef.current) {
