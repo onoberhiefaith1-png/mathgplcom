@@ -419,6 +419,14 @@ const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof ac
     return 1 - fade * 0.97;
   };
 
+  // The middle core fades out as we zoom into a selected door (like the other
+  // non-selected buildings) so it never pokes in front of the door framing.
+  const getCoreOpacity = () => {
+    if (selectedIndexRef.current === null) return 1;
+    const fade = smoothstep(0.18, 0.7, approachProgressRef.current);
+    return 1 - fade * 0.98;
+  };
+
   useFrame((state, delta) => {
     camera.position.set(0, -0.2, 10.5);
     camera.lookAt(0, 0, 0);
