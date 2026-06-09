@@ -252,7 +252,7 @@ const BracketView = ({
   const bodyH = height > 0 ? `${height}px` : "1em";
   return (
     <span style={{
-      display: "inline-flex", alignItems: "center", verticalAlign: "baseline",
+      display: "inline-flex", alignItems: "center", verticalAlign: "middle",
       margin: "0 0.12em", lineHeight: 1.05,
     }}>
       <BracketGlyph kind={node.left} side="L" heightCss={bodyH} />

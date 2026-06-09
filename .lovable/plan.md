@@ -1,72 +1,37 @@
-## Goal
-Make the student's board show the same per-line structures the teacher set in the lesson note. Specifically for the "one unknow" example: line 2 (`y = 3(5) − 2`) has a **bracket** structure on the teacher's board, but the student's line 2 shows no structure.
+# Fix line-check assessment + bracket rendering
 
-## Root cause (confirmed from live data)
-Structures flow like this:
+Two independent fixes on the student assessment board.
 
-```text
-lesson note floating_lines[].containers
-        │  (snapshotted at assessment-create time)
-        ▼
-assessments.questions[].lines[].containers
-        ▼
-student board StructurePanel
-```
+## 1. Line check should assess by line tag, not board position
 
-For this lesson note, line 2 correctly stores `containers: ["bracket"]`. But the existing assessment row was created **before** the code that copies containers into the assessment. Every line in that assessment has `containers = null`, so the student board has nothing to display. New assessments created today already store containers correctly — this one is stale data.
+### Problem
+Today, when a student taps **Check**, the code grabs the *k-th written physical row* in the band (`writtenRows[activeLineIdx]`) and grades that. This breaks when the student writes the line anywhere on the board, or when rows aren't in strict top-to-bottom order — the checker "can't find" the line.
 
-A live re-derivation on the student side is not possible: students can't read the teacher's notebook (row-level security), and the equation is intentionally withheld from the student client. So the stored snapshot must be corrected.
+### How it should work
+Every floating number already belongs to a specific line (the reservoir stores each line's chips as `fragments[fragmentStart..fragmentEnd]`). When checking line N:
 
-## Fix
+1. Build the **expected chip multiset** for line N from its own fragments (its tag), e.g. line 2 = `{5x, +4y, =, 13}` — distinct from the same-looking chips on other lines.
+2. Scan every written row in the active band and compute each row's chip multiset (via `rowToAscii` + `extractTermsFromAscii`).
+3. **Locate** the one row whose chips match line N's expected set (exact multiset match preferred; otherwise the row with the highest overlap of line-N chips). That row is the student's line N — wherever it physically sits.
+4. If line N's chips are **scattered** across multiple rows (no single row contains a complete equation made of them), reject with a clear message ("Arrange all of line N's terms on one line") instead of silently grading the wrong row.
+5. Send that located row's arrangement to the existing `grade-assessment` function exactly as today (server still holds the hidden key and decides correctness/structure).
 
-### 1. Backfill existing assessments (data migration)
-Run a one-time migration that fills in `assessments.questions[].lines[].containers` from the matching lesson-note line. Matching is done by `lineId` (a globally unique id that matches exactly between the assessment line and the notebook's `floating_lines`), scoped to the assessment's own notebook. Lines that already have containers are left untouched; lines with no match get an empty list.
+This means: the student can start at the top-left, drop down to the bottom, write line 2 there — the checker finds it by tag and marks it. Scattered terms (ax² on one row, bx on the next, c below) are detected and refused because they don't form one line.
 
-This immediately makes line 2 of the existing "one unknow" assessment show the bracket for students, with no need for the teacher to re-publish.
+### Where
+- `src/components/smartboard/PresentationView.tsx` → `checkActiveLine` (around lines 1286-1345). Replace the positional `writtenRows[activeLineIdx]` selection with the tag-based locate-and-match logic above. The expected chip set comes from `activeReservoir.fragments` sliced by `target.fragmentStart/fragmentEnd`, normalised the same way the grader normalises chips. Keep the existing "complete equation / has =" guard and the `grade-assessment` call unchanged.
+- No server/answer-key change — grading stays server-authoritative.
 
-### 2. Keep new assessments correct (verify only)
-`createAssessment.ts` already carries `containers` from each `floating_lines` line into the stored question, and `assessmentBoardSource.ts` already passes them through to the board. No code change needed — confirmed correct. This means assessments created from now on will not have the stale-structure problem.
+## 2. Bracket structure renders raised like an exponent
 
-## What the user will see
-Open the existing assignment as a student → tap the structure (F) icon on line 2 → the bracket `( )` appears, exactly like the teacher's board.
+### Problem
+Insert a bracket from the structure menu, type inside it, and the content floats up as if it were a superscript. Cause: in `BracketView` the wrapper uses `alignItems: "center"` together with `verticalAlign: "baseline"`. A centered inline-flex box has no real baseline, so the browser synthesises one at its bottom edge and the whole bracket gets pushed above the text baseline. (Fractions don't have this bug because they use `verticalAlign: "middle"`.)
 
-## Technical details
-Migration SQL (idempotent; preserves existing containers, only fills missing ones):
+### Fix
+- `src/components/smartboard/MathTreeRender.tsx` → `BracketView`: change `verticalAlign: "baseline"` to `verticalAlign: "middle"` (matching the working `frac`/`matrix`/`binom` views) so a bracket and its contents sit at the same height as the surrounding numbers. This also fixes `abs`, `norm`, `floor`, `ceil` (all built as bracket nodes).
+- Audit the other container views for the same height behaviour: `frac`, `matrix`, `binom` already use `middle` (correct); `power`/`sup`/`sub` are intentionally raised/lowered (correct). Adjust `sqrt` only if it shows the same raised-content symptom after the bracket fix.
 
-```sql
-update assessments a
-set questions = (
-  select jsonb_agg(
-    jsonb_set(q, '{lines}', (
-      select jsonb_agg(
-        ln || jsonb_build_object(
-          'containers',
-          coalesce(
-            nullif(ln->'containers', 'null'::jsonb),
-            (
-              select fl.line->'containers'
-              from notebook_subsections ss
-              join notebook_sections sec on sec.id = ss.section_id
-              cross join lateral
-                jsonb_array_elements(coalesce(ss.floating_lines,'[]'::jsonb)) fl(line)
-              where sec.notebook_id = a.notebook_id
-                and fl.line->>'lineId' = ln->>'lineId'
-                and jsonb_array_length(coalesce(fl.line->'containers','[]'::jsonb)) > 0
-              limit 1
-            ),
-            '[]'::jsonb
-          )
-        )
-      )
-      from jsonb_array_elements(q->'lines') ln
-    ))
-  )
-  from jsonb_array_elements(a.questions) q
-)
-where a.questions is not null;
-```
-
-Files/areas touched: one new Supabase migration. No frontend changes (existing student board already renders `containers`). No grading/answer-key changes — containers are display-only hints the teacher chose to show.
-
-## Note for the user
-Any assignments created before today carry the same stale snapshot; this single migration repairs all of them at once. Assignments you create from now on already include the structures automatically.
+## Verification
+- Reload the student assessment board.
+- Insert a bracket, type a value: content sits inline at number height (not raised).
+- Write line 2's terms anywhere on the board and tap Check: it is found by tag and graded; scattering the terms across rows is rejected with a clear message.
