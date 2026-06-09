@@ -1161,6 +1161,7 @@ const PresentationView = ({
   // If the expected line turns green, the sensor and floating queue move down
   // together by exactly one step for fast classroom flow.
   useEffect(() => {
+    if (assessmentMode) return; // assessment lines are graded server-side
     if (!hasGuidedLines) return;
     if (activeLineIdx >= guidedLines.length) return;
     if (!activeLayout || activeLayout.bandLines <= 0) return;
