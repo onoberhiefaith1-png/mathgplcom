@@ -56,6 +56,7 @@ import NotebookScanMobile from "./pages/NotebookScanMobile.tsx";
 import FloatingNumbersPage from "./pages/FloatingNumbersPage.tsx";
 import FloatingPreparationPage from "./pages/FloatingPreparationPage.tsx";
 import TeachingHub from "./pages/TeachingHub.tsx";
+import Adventure from "./pages/Adventure.tsx";
 import TeachingHubClasses from "./pages/TeachingHubClasses.tsx";
 import TeachingHubSettings from "./pages/TeachingHubSettings.tsx";
 import TeachingHubArchive from "./pages/TeachingHubArchive.tsx";
