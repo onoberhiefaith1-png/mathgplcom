@@ -50,13 +50,21 @@ const WorldSegment = ({
   onActivate: (index: number) => void;
   onHoverChange: (hovered: boolean) => void;
 }) => {
-  // A tiny angular overlap removes hairline seams between neighbouring slices.
-  const overlap = SEG_ANGLE * 0.04;
+  // EDGE MERGING: widen each slice well past its 45° share so its outer towers
+  // push deep into the neighbour's territory. Neighbouring towers then occupy
+  // the same arc and interlock like jigsaw pieces instead of meeting edge-to-edge.
+  const overlap = SEG_ANGLE * 0.5; // each edge reaches a quarter-segment into its neighbour
   const thetaStart = index * SEG_ANGLE - overlap / 2;
   const thetaLength = SEG_ANGLE + overlap;
 
+  // Alternate segments sit on a marginally larger radius so they consistently
+  // cover (rather than z-fight with) the edge towers of their neighbours — one
+  // tower partially hides the other, reading as a single continuous structure.
+  const radius = WORLD_RADIUS + (index % 2 === 0 ? 0.14 : 0);
+
   return (
     <mesh
+      renderOrder={index % 2 === 0 ? 1 : 0}
       onPointerOver={(e: ThreeEvent<PointerEvent>) => {
         if (!interactive) return;
         e.stopPropagation();
@@ -75,7 +83,7 @@ const WorldSegment = ({
       }}
     >
       <cylinderGeometry
-        args={[WORLD_RADIUS, WORLD_RADIUS, WORLD_HEIGHT, 32, 1, true, thetaStart, thetaLength]}
+        args={[radius, radius, WORLD_HEIGHT, 48, 1, true, thetaStart, thetaLength]}
       />
       <meshBasicMaterial map={texture} transparent alphaTest={0.02} side={THREE.DoubleSide} toneMapped={false} />
     </mesh>
