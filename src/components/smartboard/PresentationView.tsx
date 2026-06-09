@@ -1998,16 +1998,18 @@ const PresentationView = ({
             );
           })()}
 
-          {/* Right-edge traffic-light bulbs — only when AI verification is on. */}
-          {verifyOn && activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (
+          {/* Right-edge traffic-light bulbs — teacher: when AI verification is
+              on; assessment: always (driven by server grading). */}
+          {((assessmentMode) || verifyOn) && activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (
             <LineStatusRail
               grid={grid}
-              statusByLine={lineStatusMap}
+              statusByLine={assessmentMode ? assessLineStatusMap : lineStatusMap}
               bandTopPx={grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT}
-              allDone={activeLineIdx >= guidedLines.length}
+              allDone={assessmentMode ? currentSolvedCount >= guidedLines.length : activeLineIdx >= guidedLines.length}
               leftPx={6}
             />
           )}
+
 
           {/* Left-side LINE NAVIGATOR — selects which line's floating numbers
               show in the panel. Visible only while the left tools (undo/redo)
