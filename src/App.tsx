@@ -67,6 +67,7 @@ import ClassSmartBoardLauncher from "./pages/class/ClassSmartBoardLauncher.tsx";
 import JoinClassPage from "./pages/JoinClassPage.tsx";
 import StudentClassPage from "./pages/student/StudentClassPage.tsx";
 import StudentSmartBoardPage from "./pages/student/StudentSmartBoardPage.tsx";
+import AssessmentBoardPage from "./pages/student/AssessmentBoardPage.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
 
 // Keep the realtime socket authenticated so private channels stay authorized.
