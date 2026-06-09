@@ -135,6 +135,41 @@ const ZOOM_MAX = 3.5;
 const ZOOM_STEP = 0.12;
 const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
 
+/* ─────── Floating-number usage check (Phase 1 of "Check line") ───────
+   Normalises a chip so that the unicode display form ("−2", "×", "÷", "=")
+   and the ascii term form ("-2", "*", "/", "=") compare equal — mirrors the
+   server's normChip in grade-assessment. */
+const normUsageChip = (raw: string): string => {
+  let s = String(raw ?? "")
+    .replace(/\u2212/g, "-") // unicode minus → hyphen
+    .replace(/[–—]/g, "-")   // en/em dash → hyphen
+    .replace(/\u00d7/g, "*") // × → *
+    .replace(/\u00b7/g, "*") // · → *
+    .replace(/\u00f7/g, "/") // ÷ → /
+    .replace(/\s+/g, "")
+    .trim();
+  if (s.startsWith("+")) s = s.slice(1);
+  return s;
+};
+
+/** Multiset of normalised chips → { key: count }. Empty/blank chips dropped. */
+const chipMultiset = (chips: string[]): Map<string, number> => {
+  const m = new Map<string, number>();
+  for (const c of chips) {
+    const k = normUsageChip(c);
+    if (!k) continue;
+    m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  return m;
+};
+
+/** How many of `expected`'s chips also appear in `used` (multiset overlap). */
+const multisetOverlap = (expected: Map<string, number>, used: Map<string, number>): number => {
+  let n = 0;
+  for (const [k, want] of expected) n += Math.min(want, used.get(k) ?? 0);
+  return n;
+};
+
 /* ─────────────── Page ─────────────── */
 
 const PresentationView = ({
