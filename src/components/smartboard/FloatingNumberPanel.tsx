@@ -113,6 +113,11 @@ interface Props {
   onInsertFrac?: (parts: FractionParts) => void;
   activeLineIdx?: number;
   consumedAbsIdx?: Set<number>;
+  /** Mark a fragment (by absolute index) as USED — the conveyor moves it to the
+   *  grey "used" zone and Check Line trusts this state instead of re-parsing ink. */
+  onUse?: (absIdx: number, label: string) => void;
+  /** Un-mark a fragment — returns it from the USED zone back to ACTIVE. */
+  onUnuse?: (absIdx: number) => void;
   /** Board-space x in pixels (left edge of band). */
   leftPx: number;
   /** Default board-space y (panel centre). */
