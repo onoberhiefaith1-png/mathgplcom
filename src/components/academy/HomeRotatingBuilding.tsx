@@ -256,7 +256,7 @@ const Showcase = () => {
   );
 };
 
-export const RotatingAdventureScene = () => (
+export const HomeRotatingBuilding = () => (
   <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
     <img
       src={adventureClouds.url}
