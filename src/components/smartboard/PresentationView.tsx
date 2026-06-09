@@ -52,7 +52,7 @@ import {
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { rowToAscii, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
-import { LineStatusRail, type LineBulb } from "./LineStatusRail";
+import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
