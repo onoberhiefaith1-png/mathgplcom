@@ -1,7 +1,6 @@
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useNavigate } from "react-router-dom";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import algebraIsland from "@/assets/adventure/algebra-island.png.asset.json";
 import calculusIsland from "@/assets/adventure/calculus-island.png.asset.json";
@@ -9,131 +8,35 @@ import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
 import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
 import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
-import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
+import staircaseEntry from "@/assets/adventure/staircase-entry.jpg";
 
-// ONE continuous floating mathematical world: eight curved segments tiled
-// edge-to-edge around a single cylinder so the academies read as one connected
-// civilization in the sky — never as separate floating islands.
-//
-// Subjects are the primary destinations; MathGPL hubs fill the remaining
-// positions and act as transition/branding hubs between subjects.
-//   Algebra → MathGPL → Geometry → MathGPL → Trigonometry → MathGPL → Statistics → Calculus
 const academies = [
-  { slug: "algebra", image: algebraIsland.url, route: "/subjects/algebra" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "geometry", image: geometryIsland.url, route: "/subjects/geometry" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "trigonometry", image: trigonometryIsland.url, route: "/subjects/trigonometry" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "statistics", image: statisticsIsland.url, route: "/subjects/statistics" },
-  { slug: "calculus", image: calculusIsland.url, route: "/subjects/calculus" },
+  { slug: "algebra", label: "Algebra", image: algebraIsland.url },
+  { slug: "mathgpl", label: "MathGPL", image: mathgplPalace.url },
+  { slug: "geometry", label: "Geometry", image: geometryIsland.url },
+  { slug: "mathgpl", label: "MathGPL", image: mathgplPalace.url },
+  { slug: "trigonometry", label: "Trigonometry", image: trigonometryIsland.url },
+  { slug: "mathgpl", label: "MathGPL", image: mathgplPalace.url },
+  { slug: "statistics", label: "Statistics", image: statisticsIsland.url },
+  { slug: "calculus", label: "Calculus", image: calculusIsland.url },
 ];
 
-const SEGMENTS = academies.length; // 8
-const SEG_ANGLE = (Math.PI * 2) / SEGMENTS; // 45° per curved slice
-const WORLD_RADIUS = 5.1; // radius of the connected cylinder world
-const WORLD_HEIGHT = 4.4; // shared height so every slice connects top & bottom
-const ringSpeed = (Math.PI * 2) / 60; // one full revolution ~60s — slow, cinematic
+const SEGMENTS = academies.length;
+const SEG_ANGLE = (Math.PI * 2) / SEGMENTS;
+const WORLD_RADIUS = 5.1;
+const WORLD_HEIGHT = 4.4;
+const ringSpeed = (Math.PI * 2) / 60;
 
-// ── INNER CENTRAL CORE ────────────────────────────────────────────────────
-// One royal academy palace built from FOUR identical dome copies (N/S/E/W),
-// each wrapped onto a 90° curved slice of a smaller inner cylinder. The slices
-// overlap so their walls/roofs merge into a single continuous cylindrical core
-// that sits INSIDE the outer ring city and rotates locked to it.
-const CORE_SEGMENTS = 12; // many overlapping dome copies → roof closes into one ring
-const CORE_SEG_ANGLE = (Math.PI * 2) / CORE_SEGMENTS; // 30° base step per dome copy
-const CORE_RADIUS = 2.55; // well inside the outer ring (5.1) → hidden behind towers
-const CORE_HEIGHT = 5.4; // taller than the city so the roof dominates the skyline
-const CORE_Y_OFFSET = 0.95; // lift so the roof crowns above the outer towers, base hidden
-
-// Each academy is a curved slice of the giant cylinder (a convex panel that
-// bends backward at both edges and projects forward at its centre). Segments
-// share radius + height, so they butt seamlessly with no sky gaps between them.
-const WorldSegment = ({
-  texture,
-  index,
-  interactive,
-  onActivate,
-  onHoverChange,
-}: {
-  texture: THREE.Texture;
-  index: number;
-  interactive: boolean;
-  onActivate: (index: number) => void;
-  onHoverChange: (hovered: boolean) => void;
-}) => {
-  // EDGE MERGING: widen each slice well past its 45° share so its outer towers
-  // push deep into the neighbour's territory. Neighbouring towers then occupy
-  // the same arc and interlock like jigsaw pieces instead of meeting edge-to-edge.
-  const overlap = SEG_ANGLE * 0.5; // each edge reaches a quarter-segment into its neighbour
-  const thetaStart = index * SEG_ANGLE - overlap / 2;
-  const thetaLength = SEG_ANGLE + overlap;
-
-  // Alternate segments sit on a marginally larger radius so they consistently
-  // cover (rather than z-fight with) the edge towers of their neighbours — one
-  // tower partially hides the other, reading as a single continuous structure.
-  const radius = WORLD_RADIUS + (index % 2 === 0 ? 0.14 : 0);
-
-  return (
-    <mesh
-      renderOrder={index % 2 === 0 ? 1 : 0}
-      onPointerOver={(e: ThreeEvent<PointerEvent>) => {
-        if (!interactive) return;
-        e.stopPropagation();
-        onHoverChange(true);
-        document.body.style.cursor = "pointer";
-      }}
-      onPointerOut={() => {
-        if (!interactive) return;
-        onHoverChange(false);
-        document.body.style.cursor = "default";
-      }}
-      onClick={(e: ThreeEvent<MouseEvent>) => {
-        if (!interactive) return;
-        e.stopPropagation();
-        onActivate(index);
-      }}
-    >
-      <cylinderGeometry
-        args={[radius, radius, WORLD_HEIGHT, 48, 1, true, thetaStart, thetaLength]}
-      />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} side={THREE.DoubleSide} toneMapped={false} />
-    </mesh>
-  );
+const smoothstep = (edge0: number, edge1: number, x: number) => {
+  const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
 };
 
-// The inner royal palace: four identical dome copies wrapped onto overlapping
-// 90° slices of one smaller cylinder. Overlap merges their walls + roofs so the
-// viewer reads a single continuous cylindrical core, not four buildings.
-const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number }) => {
-  // Heavy overlap so each copy's edges wrap deep into both neighbours. With many
-  // copies tiled around the full circle, their roofs and walls fuse into one
-  // continuous, gapless cylindrical core — a single seamless spherical dome.
-  const overlap = CORE_SEG_ANGLE * 3; // each copy spans 30° + 90° = 120°
-  const thetaStart = index * CORE_SEG_ANGLE - overlap / 2;
-  const thetaLength = CORE_SEG_ANGLE + overlap;
-  // Alternate radius so neighbouring copies cover (not z-fight) each other.
-  const radius = CORE_RADIUS + (index % 2 === 0 ? 0.06 : 0);
-
-  return (
-    <mesh renderOrder={index % 2 === 0 ? -1 : -2}>
-      <cylinderGeometry args={[radius, radius, CORE_HEIGHT, 64, 1, true, thetaStart, thetaLength]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.04} side={THREE.DoubleSide} toneMapped={false} />
-    </mesh>
-  );
-};
-
-const CentralCore = () => {
-  const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  return (
-    <group position={[0, CORE_Y_OFFSET, 0]}>
-      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
-        <CoreSegment key={i} index={i} texture={texture} />
-      ))}
-    </group>
-  );
+const shortestAngleDiff = (current: number, target: number) => {
+  let diff = target - current;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  return diff;
 };
 
 const FloatingParticles = ({ color, size, count, spread }: { color: string; size: number; count: number; spread: number }) => {
@@ -164,15 +67,184 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   );
 };
 
-const Showcase = () => {
+const WorldSegment = ({
+  texture,
+  index,
+  interactive,
+  getSelectionProgress,
+  getPortalProgress,
+  getOpacity,
+  onActivate,
+  onHoverChange,
+}: {
+  texture: THREE.Texture;
+  index: number;
+  interactive: boolean;
+  getSelectionProgress: (index: number) => number;
+  getPortalProgress: (index: number) => number;
+  getOpacity: (index: number) => number;
+  onActivate: (index: number) => void;
+  onHoverChange: (hovered: boolean) => void;
+}) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const portalRef = useRef<THREE.Group>(null);
+  const portalCoreRef = useRef<THREE.Mesh>(null);
+  const portalDoorGlowRef = useRef<THREE.Mesh>(null);
+  const portalRingARef = useRef<THREE.Mesh>(null);
+  const portalRingBRef = useRef<THREE.Mesh>(null);
+  const portalLightRef = useRef<THREE.PointLight>(null);
+  const overlap = SEG_ANGLE * 0.5;
+  const thetaStart = index * SEG_ANGLE - overlap / 2;
+  const thetaLength = SEG_ANGLE + overlap;
+  const radius = WORLD_RADIUS + (index % 2 === 0 ? 0.14 : 0);
+
+  const localTexture = useMemo(() => {
+    const cloned = texture.clone();
+    cloned.colorSpace = THREE.SRGBColorSpace;
+    cloned.anisotropy = 8;
+    cloned.wrapS = THREE.ClampToEdgeWrapping;
+    cloned.wrapT = THREE.ClampToEdgeWrapping;
+    cloned.needsUpdate = true;
+    return cloned;
+  }, [texture]);
+
+  const portalPoints = useMemo(() => {
+    const positions = new Float32Array(120 * 3);
+    for (let i = 0; i < 120; i += 1) {
+      const angle = (i / 120) * Math.PI * 2;
+      const radiusJitter = 0.56 + (Math.random() - 0.5) * 0.14;
+      positions[i * 3] = Math.cos(angle) * radiusJitter;
+      positions[i * 3 + 1] = Math.sin(angle) * radiusJitter * 1.25;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 0.12;
+    }
+    return positions;
+  }, []);
+
+  useFrame((state, delta) => {
+    const selectionProgress = getSelectionProgress(index);
+    const portalProgress = getPortalProgress(index);
+    const opacity = getOpacity(index);
+
+    if (groupRef.current) {
+      const targetScale = 1 + selectionProgress * 2.35;
+      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1 + selectionProgress * 0.2), 1 - Math.pow(0.001, delta));
+      groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, selectionProgress * 4.9, 4.8, delta);
+      groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, selectionProgress * 0.18, 4.2, delta);
+    }
+
+    if (materialRef.current) {
+      materialRef.current.opacity = THREE.MathUtils.damp(materialRef.current.opacity, opacity, 6, delta);
+    }
+
+    localTexture.repeat.set(
+      THREE.MathUtils.lerp(1, 0.34, selectionProgress),
+      THREE.MathUtils.lerp(1, 0.58, selectionProgress),
+    );
+    localTexture.offset.set(
+      THREE.MathUtils.lerp(0, 0.33, selectionProgress),
+      THREE.MathUtils.lerp(0, 0.16, selectionProgress),
+    );
+
+    if (portalRef.current) {
+      portalRef.current.visible = portalProgress > 0.002;
+      portalRef.current.scale.setScalar(0.65 + portalProgress * 1.45);
+      portalRef.current.rotation.z += delta * (0.35 + portalProgress * 0.8);
+    }
+
+    if (portalRingARef.current) portalRingARef.current.rotation.z += delta * (0.55 + portalProgress * 1.9);
+    if (portalRingBRef.current) portalRingBRef.current.rotation.z -= delta * (0.45 + portalProgress * 1.5);
+
+    const pulse = 0.84 + Math.sin(state.clock.elapsedTime * 7.5) * 0.16;
+    if (portalCoreRef.current) {
+      const coreMaterial = portalCoreRef.current.material as THREE.MeshBasicMaterial;
+      coreMaterial.opacity = portalProgress * 0.45 * pulse;
+    }
+    if (portalDoorGlowRef.current) {
+      const glowMaterial = portalDoorGlowRef.current.material as THREE.MeshBasicMaterial;
+      glowMaterial.opacity = portalProgress * 0.88 * pulse;
+      portalDoorGlowRef.current.scale.set(1 + portalProgress * 0.16, 1 + portalProgress * 0.16, 1);
+    }
+    if (portalRingARef.current) {
+      const ringMaterial = portalRingARef.current.material as THREE.MeshBasicMaterial;
+      ringMaterial.opacity = portalProgress * 0.8;
+    }
+    if (portalRingBRef.current) {
+      const ringMaterial = portalRingBRef.current.material as THREE.MeshBasicMaterial;
+      ringMaterial.opacity = portalProgress * 0.68;
+    }
+    if (portalLightRef.current) {
+      portalLightRef.current.intensity = THREE.MathUtils.damp(portalLightRef.current.intensity, portalProgress * 18, 6, delta);
+    }
+  });
+
+  return (
+    <group ref={groupRef} renderOrder={getSelectionProgress(index) > 0.01 ? 20 : index % 2 === 0 ? 1 : 0}>
+      <mesh
+        onPointerOver={(e: ThreeEvent<PointerEvent>) => {
+          if (!interactive) return;
+          e.stopPropagation();
+          onHoverChange(true);
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          if (!interactive) return;
+          onHoverChange(false);
+          document.body.style.cursor = "default";
+        }}
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          if (!interactive) return;
+          e.stopPropagation();
+          onActivate(index);
+        }}
+      >
+        <cylinderGeometry args={[radius, radius, WORLD_HEIGHT, 48, 1, true, thetaStart, thetaLength]} />
+        <meshBasicMaterial ref={materialRef} map={localTexture} transparent alphaTest={0.02} opacity={1} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+
+      <group ref={portalRef} position={[0, 0.22, WORLD_RADIUS + 0.24]} visible={false}>
+        <pointLight ref={portalLightRef} color="#f8c56d" distance={6} intensity={0} />
+        <mesh ref={portalDoorGlowRef} position={[0, 0, 0.02]}>
+          <planeGeometry args={[1.08, 1.95]} />
+          <meshBasicMaterial color="#f7e4be" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+        <mesh ref={portalCoreRef}>
+          <sphereGeometry args={[0.46, 32, 32]} />
+          <meshBasicMaterial color="#c58cff" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+        <mesh ref={portalRingARef}>
+          <torusGeometry args={[0.78, 0.03, 18, 72]} />
+          <meshBasicMaterial color="#b579ff" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+        <mesh ref={portalRingBRef} rotation={[0, 0, Math.PI / 3]}>
+          <torusGeometry args={[0.56, 0.025, 18, 72]} />
+          <meshBasicMaterial color="#ffd36f" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+        <points>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" count={portalPoints.length / 3} array={portalPoints} itemSize={3} />
+          </bufferGeometry>
+          <pointsMaterial size={0.045} color="#ffd36f" transparent opacity={0.9} depthWrite={false} blending={THREE.AdditiveBlending} />
+        </points>
+      </group>
+    </group>
+  );
+};
+
+const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof academies)[number]) => void }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
-  const frontIndexRef = useRef(0);
-  const navigate = useNavigate();
+  const interactionLockedRef = useRef(false);
+  const selectedIndexRef = useRef<number | null>(null);
+  const sequenceRef = useRef<"rotate" | "centering" | "approach" | "flash">("rotate");
+  const targetRotationRef = useRef(0);
+  const approachProgressRef = useRef(0);
+  const flashOpacityRef = useRef(0);
+  const enteredRef = useRef(false);
+  const flashPlaneRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
 
-  // Six unique textures; the three MathGPL hubs reuse the palace texture.
   const uniqueUrls = useMemo(() => Array.from(new Set(academies.map((a) => a.image))), []);
   const loaded = useLoader(THREE.TextureLoader, uniqueUrls) as THREE.Texture[];
   const textureByUrl = useMemo(() => {
@@ -186,43 +258,79 @@ const Showcase = () => {
     return map;
   }, [uniqueUrls, loaded]);
 
-  useFrame((state, delta) => {
-    if (!worldRef.current) return;
-    // Ease rotation to a gentle near-stop while a hovered academy invites a click.
-    const targetSpeed = hoveredRef.current ? ringSpeed * 0.1 : ringSpeed;
-    speedRef.current = THREE.MathUtils.damp(speedRef.current, targetSpeed, 3.2, delta);
-    worldRef.current.rotation.y += speedRef.current * delta;
+  const getSelectionProgress = (index: number) => {
+    if (selectedIndexRef.current !== index) return 0;
+    return smoothstep(0, 1, approachProgressRef.current);
+  };
 
-    // Determine which segment currently faces the camera (front = nearest +Z).
-    // Cylinder vertex angle: pos = (R·sinθ, y, R·cosθ); front faces camera at θ = 0.
-    const twoPi = Math.PI * 2;
-    const baseRot = worldRef.current.rotation.y;
-    let best = 0;
-    let bestCos = -Infinity;
-    for (let i = 0; i < SEGMENTS; i += 1) {
-      const center = i * SEG_ANGLE + SEG_ANGLE / 2 + baseRot;
-      const c = Math.cos(((center % twoPi) + twoPi) % twoPi);
-      if (c > bestCos) {
-        bestCos = c;
-        best = i;
+  const getPortalProgress = (index: number) => {
+    if (selectedIndexRef.current !== index) return 0;
+    return smoothstep(0.56, 0.96, approachProgressRef.current);
+  };
+
+  const getOpacity = (index: number) => {
+    if (selectedIndexRef.current === null) return 1;
+    if (selectedIndexRef.current === index) return 1;
+    const fade = smoothstep(0.24, 0.84, approachProgressRef.current);
+    return 1 - fade * 0.97;
+  };
+
+  useFrame((state, delta) => {
+    camera.position.set(0, -0.2, 10.5);
+    camera.lookAt(0, 0, 0);
+
+    if (!worldRef.current) return;
+
+    if (sequenceRef.current === "rotate") {
+      const targetSpeed = hoveredRef.current ? ringSpeed * 0.15 : ringSpeed;
+      speedRef.current = THREE.MathUtils.damp(speedRef.current, targetSpeed, 3.2, delta);
+      worldRef.current.rotation.y += speedRef.current * delta;
+      worldRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.4) * 0.12;
+    }
+
+    if (sequenceRef.current === "centering") {
+      speedRef.current = THREE.MathUtils.damp(speedRef.current, 0, 5.5, delta);
+      const diff = shortestAngleDiff(worldRef.current.rotation.y, targetRotationRef.current);
+      worldRef.current.rotation.y += diff * Math.min(1, delta * 5.2);
+      worldRef.current.position.y = THREE.MathUtils.damp(worldRef.current.position.y, 0, 5.5, delta);
+      if (Math.abs(diff) < 0.015) {
+        worldRef.current.rotation.y = targetRotationRef.current;
+        sequenceRef.current = "approach";
       }
     }
-    frontIndexRef.current = best;
 
-    // Gentle breathing bob of the whole world for a living, floating feel.
-    worldRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.4) * 0.12;
+    if (sequenceRef.current === "approach") {
+      worldRef.current.rotation.y = THREE.MathUtils.damp(worldRef.current.rotation.y, targetRotationRef.current, 8, delta);
+      worldRef.current.position.y = THREE.MathUtils.damp(worldRef.current.position.y, 0, 5.5, delta);
+      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 2.5);
+      if (approachProgressRef.current > 0.84) sequenceRef.current = "flash";
+    }
 
-    // Subtle cinematic camera drift + parallax + breathing zoom. Never jarring.
-    const t = state.clock.elapsedTime;
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.sin(t * 0.12) * 0.45, 2, delta);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, -0.2 + Math.sin(t * 0.17) * 0.16, 2, delta);
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, 10.5 + Math.sin(t * 0.1) * 0.35, 2, delta);
-    camera.lookAt(0, 0, 0);
+    if (sequenceRef.current === "flash") {
+      worldRef.current.rotation.y = targetRotationRef.current;
+      worldRef.current.position.y = 0;
+      approachProgressRef.current = Math.min(1, approachProgressRef.current + delta / 1.1);
+      flashOpacityRef.current = smoothstep(0.86, 1, approachProgressRef.current);
+      if (!enteredRef.current && approachProgressRef.current >= 1 && selectedIndexRef.current !== null) {
+        enteredRef.current = true;
+        document.body.style.cursor = "default";
+        onEnterAdventure(academies[selectedIndexRef.current]);
+      }
+    }
+
+    if (flashPlaneRef.current) {
+      const flashMaterial = flashPlaneRef.current.material as THREE.MeshBasicMaterial;
+      flashMaterial.opacity = flashOpacityRef.current;
+    }
   });
 
-  const handleActivate = () => {
-    const academy = academies[frontIndexRef.current];
-    if (academy) navigate(academy.route);
+  const handleActivate = (index: number) => {
+    if (interactionLockedRef.current) return;
+    interactionLockedRef.current = true;
+    hoveredRef.current = false;
+    selectedIndexRef.current = index;
+    sequenceRef.current = "centering";
+    targetRotationRef.current = -(index * SEG_ANGLE + SEG_ANGLE / 2);
   };
 
   return (
@@ -232,43 +340,70 @@ const Showcase = () => {
       <pointLight position={[-3, 2.4, 2]} intensity={9} color="#c287ff" distance={16} />
       <pointLight position={[3, -1.4, -2]} intensity={6} color="#87cefa" distance={16} />
 
-      {/* Magical purple energy + floating mathematical sparks (no orbit rings). */}
       <FloatingParticles color="#ffe7c2" size={0.04} count={140} spread={16} />
       <FloatingParticles color="#c79bff" size={0.06} count={110} spread={13} />
 
       <group ref={worldRef}>
-        {/* Inner royal palace core — locked to the same group so it rotates with the city. */}
-        <CentralCore />
         {academies.map((academy, i) => (
           <WorldSegment
-            key={i}
+            key={`${academy.slug}-${i}`}
             index={i}
             texture={textureByUrl.get(academy.image)!}
-            interactive
+            interactive={!interactionLockedRef.current}
+            getSelectionProgress={getSelectionProgress}
+            getPortalProgress={getPortalProgress}
+            getOpacity={getOpacity}
             onActivate={handleActivate}
-            onHoverChange={(h) => (hoveredRef.current = h)}
+            onHoverChange={(hovered) => {
+              if (!interactionLockedRef.current) hoveredRef.current = hovered;
+            }}
           />
         ))}
       </group>
+
+      <mesh ref={flashPlaneRef} position={[0, 0, 8.9]} renderOrder={1000}>
+        <planeGeometry args={[18, 12]} />
+        <meshBasicMaterial color="#fff7ea" transparent opacity={0} depthWrite={false} toneMapped={false} />
+      </mesh>
 
       <fog attach="fog" args={["#e9b58f", 13, 26]} />
     </>
   );
 };
 
-export const HomeRotatingBuilding = () => (
-  <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
-    <img
-      src={adventureClouds.url}
-      alt="Sunset clouds over mountains with sacred geometry"
-      className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
-      loading="eager"
-    />
-    <Canvas camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
-      <Suspense fallback={null}>
-        <Showcase />
-      </Suspense>
-    </Canvas>
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
-  </main>
-);
+export const HomeRotatingBuilding = () => {
+  const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
+
+  return (
+    <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
+      {enteredAcademy ? (
+        <div className="absolute inset-0 animate-fade-in">
+          <img
+            src={staircaseEntry}
+            alt={`${enteredAcademy.label} adventure staircase hall`}
+            className="h-full w-full object-cover object-center"
+            loading="eager"
+            width={1920}
+            height={1080}
+          />
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.08),transparent_28%,transparent_72%,hsl(var(--background)/0.24))]" />
+        </div>
+      ) : (
+        <>
+          <img
+            src={adventureClouds.url}
+            alt="Sunset clouds behind the floating academy subject selector"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+            loading="eager"
+          />
+          <Canvas camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
+            <Suspense fallback={null}>
+              <Showcase onEnterAdventure={setEnteredAcademy} />
+            </Suspense>
+          </Canvas>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
+        </>
+      )}
+    </main>
+  );
+};
