@@ -1332,22 +1332,32 @@ const PresentationView = ({
       .slice(target.fragmentStart, target.fragmentEnd)
       .filter(Boolean);
     const expectedSet = chipMultiset(expectedFrags);
+    const showIncomplete = (unused: string[], lineNum?: number) => {
+      if (typeof lineNum === "number") setWrongLine(lineNum);
+      toast({
+        title: `⚠ Line ${activeLineIdx + 1} incomplete`,
+        description: unused.length > 0
+          ? `Unused floating numbers: ${unused.join("  ")}`
+          : `Values from line ${activeLineIdx + 1} have not yet been entered.`,
+        variant: "destructive",
+      });
+    };
 
     // Locate the student's row by TAG MATCH, not physical position: scan every
     // written row in the active band and pick the one whose chips overlap this
     // line's expected floating numbers the most. This lets the student write
     // the line anywhere on the board and still be recognised.
-    const a = bandStart(activeLayout), b = bandEnd(activeLayout);
+    const fallbackLineNum = clampToActiveBand(bandStart(activeLayout) + activeLineIdx);
     const writtenRows = Object.keys(freeLines)
       .map(Number)
-      .filter((n) => Number.isInteger(n) && n >= a && n <= b && !!freeLines[n] && freeLines[n].length > 0)
+      .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
       .sort((x, y) => x - y);
     if (writtenRows.length === 0) {
-      toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
+      showIncomplete(expectedFrags.map((frag) => String(frag).trim()).filter(Boolean), fallbackLineNum);
       return;
     }
 
-    let expectedLineNum = writtenRows[activeLineIdx] ?? writtenRows[writtenRows.length - 1];
+    let expectedLineNum = fallbackLineNum;
     if (expectedSet.size > 0) {
       let bestRow = -1, bestScore = -1;
       for (const n of writtenRows) {
@@ -1360,7 +1370,7 @@ const PresentationView = ({
 
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) {
-      toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
+      showIncomplete(expectedFrags.map((frag) => String(frag).trim()).filter(Boolean), expectedLineNum);
       return;
     }
     const ascii = rowToAscii(row);
