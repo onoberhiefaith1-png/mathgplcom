@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Presentation } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import PresentationView from "@/components/smartboard/PresentationView";
 
 /**
@@ -65,33 +66,43 @@ const StudentSmartBoardPage = () => {
   // Follow teacher's active-notebook changes in realtime.
   useEffect(() => {
     if (!classId || !authorized) return;
-    const ch = supabase
-      .channel(`smartboard-state-${classId}`, { config: { private: true } })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
-        (payload: { new?: { notebook_id?: string } | null }) => {
-          setActiveNotebookId(payload.new?.notebook_id ?? null);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`smartboard-state-${classId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
+          (payload: { new?: { notebook_id?: string } | null }) => {
+            setActiveNotebookId(payload.new?.notebook_id ?? null);
+          },
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, authorized]);
 
   // Follow SmartBoard access grant/removal in realtime — no refresh needed.
   useEffect(() => {
     if (!classId || !authorized) return;
-    const ch = supabase
-      .channel(`class-visibility-${classId}`, { config: { private: true } })
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "classes", filter: `id=eq.${classId}` },
-        (payload: { new?: { smartboard_visibility?: string } | null }) => {
-          setAccessEnabled(payload.new?.smartboard_visibility === "student_access_enabled");
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`class-visibility-${classId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "classes", filter: `id=eq.${classId}` },
+          (payload: { new?: { smartboard_visibility?: string } | null }) => {
+            setAccessEnabled(payload.new?.smartboard_visibility === "student_access_enabled");
+          },
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, authorized]);
 
   if (authorized === null) {

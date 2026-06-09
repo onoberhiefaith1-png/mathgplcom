@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Users, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 type Member = { user_id: string; display_name: string | null };
 
@@ -46,15 +47,20 @@ const ActiveStudentControl = ({
   useEffect(() => {
     if (!open) return;
     load();
-    const ch = supabase
-      .channel(`active-student-members-${classId}`, { config: { private: true } })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "class_members", filter: `class_id=eq.${classId}` },
-        () => load(),
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`active-student-members-${classId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "class_members", filter: `class_id=eq.${classId}` },
+          () => load(),
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [open, classId, load]);
 
   const activeName = members.find((m) => m.user_id === activeStudentId)?.display_name;

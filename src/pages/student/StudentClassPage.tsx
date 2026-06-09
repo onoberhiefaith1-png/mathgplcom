@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 type ClassRow = { id: string; name: string };
 type LessonNote = { notebook_id: string; notebooks: { title: string | null } | null };
@@ -70,15 +71,20 @@ const StudentClassPage = () => {
   // Live: note grant / removal / visibility toggle reflects instantly.
   useEffect(() => {
     if (!classId) return;
-    const ch = supabase
-      .channel(`class-notes-${classId}`, { config: { private: true } })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "class_lesson_notes", filter: `class_id=eq.${classId}` },
-        () => { loadNotes(); },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`class-notes-${classId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "class_lesson_notes", filter: `class_id=eq.${classId}` },
+          () => { loadNotes(); },
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, loadNotes]);
 
   if (loading) {
