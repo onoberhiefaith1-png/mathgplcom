@@ -63,10 +63,12 @@ import CreateClassPage from "./pages/CreateClassPage.tsx";
 import ClassDashboardPage from "./pages/ClassDashboardPage.tsx";
 import StudentsPage from "./pages/class/StudentsPage.tsx";
 import ClassLessonNotesPage from "./pages/class/ClassLessonNotesPage.tsx";
+import ClassAssignmentsPage from "./pages/class/ClassAssignmentsPage.tsx";
 import ClassSmartBoardLauncher from "./pages/class/ClassSmartBoardLauncher.tsx";
 import JoinClassPage from "./pages/JoinClassPage.tsx";
 import StudentClassPage from "./pages/student/StudentClassPage.tsx";
 import StudentSmartBoardPage from "./pages/student/StudentSmartBoardPage.tsx";
+import AssessmentBoardPage from "./pages/student/AssessmentBoardPage.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
 
 // Keep the realtime socket authenticated so private channels stay authorized.
@@ -87,6 +89,7 @@ const App = () => (
           <Route path="/teaching-hub/classes/:classId" element={<ClassDashboardPage />} />
           <Route path="/teaching-hub/classes/:classId/students" element={<StudentsPage />} />
           <Route path="/teaching-hub/classes/:classId/lesson-notes" element={<ClassLessonNotesPage />} />
+          <Route path="/teaching-hub/classes/:classId/assignments" element={<ClassAssignmentsPage />} />
           <Route path="/teaching-hub/classes/:classId/smartboard" element={<ClassSmartBoardLauncher />} />
           <Route path="/teaching-hub/settings" element={<TeachingHubSettings />} />
           <Route path="/teaching-hub/settings/archive" element={<TeachingHubArchive />} />
@@ -94,6 +97,7 @@ const App = () => (
           <Route path="/join/:code" element={<JoinClassPage />} />
           <Route path="/student/class/:classId" element={<StudentClassPage />} />
           <Route path="/student/class/:classId/smartboard" element={<StudentSmartBoardPage />} />
+          <Route path="/student/class/:classId/assessment/:assessmentId" element={<AssessmentBoardPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/backgrounds" element={<Backgrounds />} />
           <Route path="/games/tally" element={<TallyGame />} />

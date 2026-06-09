@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 type ClassRow = { id: string; name: string };
 type LessonNote = { notebook_id: string; notebooks: { title: string | null } | null };
+type Assignment = {
+  id: string;
+  title: string;
+  kind: string;
+  score_label: string;
+  total_marks: number;
+  score: number;
+  completed: boolean;
+};
 
 const StudentClassPage = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -13,6 +22,7 @@ const StudentClassPage = () => {
   const [loading, setLoading] = useState(true);
   const [cls, setCls] = useState<ClassRow | null>(null);
   const [notes, setNotes] = useState<{ id: string; title: string }[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
 
   const loadNotes = useCallback(async () => {
     if (!classId) return;
@@ -28,6 +38,44 @@ const StudentClassPage = () => {
       })),
     );
   }, [classId]);
+
+  const loadAssignments = useCallback(async () => {
+    if (!classId) return;
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    const { data: rows } = await supabase
+      .from("assessments")
+      .select("id, title, kind, score_label, total_marks")
+      .eq("class_id", classId)
+      .order("created_at", { ascending: false });
+    const ids = (rows ?? []).map((r: any) => r.id);
+    const progByAssessment = new Map<string, { score: number; status: string }>();
+    if (uid && ids.length) {
+      const { data: progs } = await supabase
+        .from("assessment_progress")
+        .select("assessment_id, score, status")
+        .eq("student_id", uid)
+        .in("assessment_id", ids);
+      for (const p of progs ?? []) {
+        progByAssessment.set((p as any).assessment_id, { score: Number((p as any).score ?? 0), status: (p as any).status });
+      }
+    }
+    setAssignments(
+      (rows ?? []).map((r: any) => {
+        const p = progByAssessment.get(r.id);
+        return {
+          id: r.id,
+          title: r.title ?? "Assignment",
+          kind: r.kind ?? "classwork",
+          score_label: r.score_label ?? "Marks",
+          total_marks: Number(r.total_marks ?? 0),
+          score: p?.score ?? 0,
+          completed: p?.status === "completed",
+        };
+      }),
+    );
+  }, [classId]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -61,12 +109,12 @@ const StudentClassPage = () => {
 
       if (cancelled) return;
       setCls(classRow as ClassRow);
-      await loadNotes();
+      await Promise.all([loadNotes(), loadAssignments()]);
       if (cancelled) return;
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [classId, navigate, loadNotes]);
+  }, [classId, navigate, loadNotes, loadAssignments]);
 
   // Live: note grant / removal / visibility toggle reflects instantly.
   useEffect(() => {
@@ -86,6 +134,25 @@ const StudentClassPage = () => {
     });
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, loadNotes]);
+
+  // Live: new assignments appear and scores refresh instantly.
+  useEffect(() => {
+    if (!classId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`class-assessments-${classId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "assessments", filter: `class_id=eq.${classId}` },
+          () => { loadAssignments(); },
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  }, [classId, loadAssignments]);
 
   if (loading) {
     return (
@@ -143,7 +210,41 @@ const StudentClassPage = () => {
             </ul>
           )}
         </section>
+
+        <section>
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <ClipboardList className="h-3.5 w-3.5" /> Assessment Workspace
+          </div>
+          {assignments.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              No assignments yet.
+            </div>
+          ) : (
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {assignments.map((a) => (
+                <li key={a.id}>
+                  <Link
+                    to={`/student/class/${classId}/assessment/${a.id}`}
+                    className="block rounded-xl border border-border bg-card/40 p-4 backdrop-blur transition hover:border-primary/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{a.kind}</div>
+                        <div className="truncate text-base font-semibold">{a.title}</div>
+                      </div>
+                      {a.completed && <Check className="h-4 w-4 shrink-0" style={{ color: "hsl(142 70% 45%)" }} />}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground tabular-nums">
+                      {a.score} / {a.total_marks} {a.score_label}
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </main>
+
     </div>
   );
 };

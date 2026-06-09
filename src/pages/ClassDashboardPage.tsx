@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Users, BookOpen, Presentation, Settings, Copy, Check } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
@@ -59,6 +59,7 @@ const ClassDashboardPage = () => {
     { label: "Students", icon: Users, to: `/teaching-hub/classes/${classId}/students` },
     { label: "Lesson Notes", icon: BookOpen, to: `/teaching-hub/classes/${classId}/lesson-notes` },
     { label: "SmartBoard", icon: Presentation, to: `/teaching-hub/classes/${classId}/smartboard` },
+    { label: "Assignments", icon: ClipboardList, to: `/teaching-hub/classes/${classId}/assignments` },
     { label: "Settings", icon: Settings, to: `/teaching-hub/classes/${classId}` },
   ];
 

@@ -14,6 +14,129 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_answer_keys: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          lines: Json
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          lines?: Json
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          lines?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_answer_keys_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: true
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_progress: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          score: number
+          solved_lines: Json
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          score?: number
+          solved_lines?: Json
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          score?: number
+          solved_lines?: Json
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_progress_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          kind: string
+          notebook_id: string | null
+          owner_id: string
+          questions: Json
+          score_label: string
+          section_id: string | null
+          title: string
+          total_marks: number
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          kind?: string
+          notebook_id?: string | null
+          owner_id: string
+          questions?: Json
+          score_label?: string
+          section_id?: string | null
+          title?: string
+          total_marks?: number
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          notebook_id?: string | null
+          owner_id?: string
+          questions?: Json
+          score_label?: string
+          section_id?: string | null
+          title?: string
+          total_marks?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_invitations: {
         Row: {
           class_id: string
@@ -332,6 +455,7 @@ export type Database = {
           floating_bucket: Json | null
           floating_highlights: Json | null
           floating_lines: Json
+          floating_scoring: Json | null
           id: string
           order_index: number
           section_id: string
@@ -341,6 +465,7 @@ export type Database = {
           floating_bucket?: Json | null
           floating_highlights?: Json | null
           floating_lines?: Json
+          floating_scoring?: Json | null
           id?: string
           order_index?: number
           section_id: string
@@ -350,6 +475,7 @@ export type Database = {
           floating_bucket?: Json | null
           floating_highlights?: Json | null
           floating_lines?: Json
+          floating_scoring?: Json | null
           id?: string
           order_index?: number
           section_id?: string

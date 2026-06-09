@@ -11,8 +11,12 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type FloatingLine,
   type ContainerKind,
+  type FloatingScoring,
   rearrangeIndices,
   compileBucket,
+  totalMarks as computeTotalMarks,
+  DEFAULT_SCORING,
+  SCORE_LABELS,
 } from "@/lib/lessonnotes/floatingCompile";
 import { sanitizeFillers, detectStructures, extractTermsFromAscii, renderTermLabel, STRUCTURE_MARKUP, expandTransitionLine, dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
 import FloatingWorkspace from "@/components/lessonnotes/FloatingWorkspace";
@@ -84,6 +88,7 @@ const FloatingNumbersPage = () => {
 
   const [fromHighlights, setFromHighlights] = useState(false);
   const [highlightsData, setHighlightsData] = useState<{ groupId: number; payload: string }[]>([]);
+  const [scoring, setScoring] = useState<FloatingScoring>(DEFAULT_SCORING);
 
   useEffect(() => {
     (async () => {
@@ -92,7 +97,7 @@ const FloatingNumbersPage = () => {
       const [{ data: ss }, { data: nb }] = await Promise.all([
         supabase
           .from("notebook_subsections")
-          .select("id, section_id, floating_lines, floating_highlights, notebook_sections!inner(kind, notebook_id)")
+          .select("id, section_id, floating_lines, floating_highlights, floating_scoring, notebook_sections!inner(kind, notebook_id)")
           .eq("id", subsectionId)
           .maybeSingle(),
         supabase.from("notebooks").select("title, subject, subtopic").eq("id", notebookId).maybeSingle(),
@@ -124,6 +129,11 @@ const FloatingNumbersPage = () => {
       const highlights = (ss as any).floating_highlights as
         | { groupId: number; payload: string }[] | null;
       const persisted = (ss as any).floating_lines as FloatingLine[] | null;
+
+      const savedScoring = (ss as any).floating_scoring as FloatingScoring | null;
+      if (savedScoring && typeof savedScoring === "object") {
+        setScoring({ ...DEFAULT_SCORING, ...savedScoring });
+      }
 
       const hasHighlights = !!(highlights && Array.isArray(highlights) && highlights.length > 0);
       setFromHighlights(hasHighlights);
@@ -300,6 +310,7 @@ const FloatingNumbersPage = () => {
       .update({
         floating_lines: cleanLines as any,
         floating_bucket: bucket as any,
+        floating_scoring: scoring as any,
       })
       .eq("id", info.subsectionId);
     setSaving(false);
@@ -311,7 +322,7 @@ const FloatingNumbersPage = () => {
     setSavedAt(Date.now());
     if (!silent) toast({ title: "Saved", description: `${bucket.fillers.length} floating numbers persisted.` });
     return true;
-  }, [info, lines]);
+  }, [info, lines, scoring]);
 
   /* Manual Save — force flush + reload from DB to confirm persistence. */
   const saveNow = useCallback(async () => {
@@ -340,6 +351,29 @@ const FloatingNumbersPage = () => {
     const k = info.sectionKind.charAt(0).toUpperCase() + info.sectionKind.slice(1);
     return `${k} · Floating Numbers`;
   }, [info]);
+
+  const total = useMemo(() => computeTotalMarks(lines), [lines]);
+
+  /* Equal mode: keep every line's marks in lockstep with marksPerLine. */
+  useEffect(() => {
+    if (scoring.mode !== "equal") return;
+    setLines((prev) => {
+      let changed = false;
+      const next = prev.map((l) => {
+        if ((Number(l.marks) || 0) === scoring.marksPerLine) return l;
+        changed = true;
+        return { ...l, marks: scoring.marksPerLine };
+      });
+      if (changed) dirtyRef.current = true;
+      return changed ? next : prev;
+    });
+  }, [scoring.mode, scoring.marksPerLine, lines.length]);
+
+  const updateScoring = useCallback((patch: Partial<FloatingScoring>) => {
+    dirtyRef.current = true;
+    setScoring((prev) => ({ ...prev, ...patch }));
+  }, []);
+
 
   return (
     <div className="min-h-screen" style={{ background: "hsl(38 35% 92%)" }}>
@@ -409,7 +443,65 @@ const FloatingNumbersPage = () => {
             </button>
           </div>
         </div>
+
+        {/* Scoring strip */}
+        <div
+          className="max-w-5xl mx-auto px-6 pb-2 flex items-center gap-3 flex-wrap"
+          style={{ color: "hsl(220 35% 18%)" }}
+        >
+          <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/55">Scoring</span>
+
+          <select
+            value={scoring.label}
+            onChange={(e) => updateScoring({ label: e.target.value })}
+            className="text-sm rounded-md px-2 py-1 border border-foreground/20 bg-transparent"
+            title="What to call the score"
+          >
+            {SCORE_LABELS.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+
+          <div className="inline-flex rounded-md overflow-hidden border border-foreground/20">
+            <button
+              onClick={() => updateScoring({ mode: "equal" })}
+              className="text-xs px-2.5 py-1"
+              style={scoring.mode === "equal"
+                ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
+                : { color: "hsl(220 35% 18%)" }}
+            >
+              Equal
+            </button>
+            <button
+              onClick={() => updateScoring({ mode: "individual" })}
+              className="text-xs px-2.5 py-1"
+              style={scoring.mode === "individual"
+                ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
+                : { color: "hsl(220 35% 18%)" }}
+            >
+              Individual
+            </button>
+          </div>
+
+          {scoring.mode === "equal" && (
+            <label className="inline-flex items-center gap-1.5 text-sm">
+              <span className="text-foreground/60">{scoring.label} per line</span>
+              <input
+                type="number"
+                min={0}
+                value={scoring.marksPerLine}
+                onChange={(e) => updateScoring({ marksPerLine: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                className="w-16 text-center text-sm rounded-md px-1.5 py-0.5 border border-foreground/20 bg-transparent tabular-nums"
+              />
+            </label>
+          )}
+
+          <div className="ml-auto text-sm font-semibold tabular-nums">
+            Total Available = {total} {scoring.label}
+          </div>
+        </div>
       </div>
+
 
       {/* Notebook page */}
       <div className="max-w-5xl mx-auto px-6 py-8">
@@ -447,11 +539,14 @@ const FloatingNumbersPage = () => {
                   key={l.lineId}
                   line={l}
                   index={i}
+                  scoreLabel={scoring.label}
+                  scoringMode={scoring.mode}
                   onChange={(next) => {
                     dirtyRef.current = true;
                     setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
                   }}
                 />
+
               ))}
             </div>
           )}
