@@ -22,6 +22,10 @@ interface Props {
   line: FloatingLine;
   index: number;
   onChange: (next: FloatingLine) => void;
+  /** Scoring label (Marks / Points …). When set, a per-line marks box shows. */
+  scoreLabel?: string;
+  /** "equal" renders the marks box read-only; "individual" lets it be edited. */
+  scoringMode?: "equal" | "individual";
 }
 
 const CONTAINER_KINDS: ContainerKind[] = [
