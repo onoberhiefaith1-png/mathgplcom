@@ -284,7 +284,7 @@ function SectionHeadingView(props: NodeViewProps) {
           onOpenChange={setAssignOpen}
           subsectionId={assignSub}
           notebookId={notebookId}
-          defaultTitle={text && text.trim() && kind ? SECTION_LABELS[kind] : "Assignment"}
+          defaultTitle=""
         />
       )}
     </NodeViewWrapper>
