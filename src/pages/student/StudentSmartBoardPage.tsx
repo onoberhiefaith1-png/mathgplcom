@@ -82,7 +82,7 @@ const StudentSmartBoardPage = () => {
   useEffect(() => {
     if (!classId || !authorized) return;
     const ch = supabase
-      .channel(`class-visibility-${classId}`)
+      .channel(`class-visibility-${classId}`, { config: { private: true } })
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "classes", filter: `id=eq.${classId}` },
