@@ -241,7 +241,51 @@ function SectionHeadingView(props: NodeViewProps) {
               Floating
             </button>
           )}
+          {notebookId && kind === "solution" && (
+            <button
+              type="button"
+              onClick={async () => {
+                setAssigning(true);
+                try {
+                  let target = await resolveSubsectionId();
+                  if (!target && subsectionId) {
+                    const { data: liveCached } = await supabase
+                      .from("notebook_subsections")
+                      .select("id")
+                      .eq("id", subsectionId)
+                      .maybeSingle();
+                    target = liveCached?.id ?? null;
+                  }
+                  if (!target) {
+                    toast({
+                      title: "Not ready to assign",
+                      description: "Save the document first, then try again.",
+                    });
+                    return;
+                  }
+                  setAssignSub(target);
+                  setAssignOpen(true);
+                } finally {
+                  setAssigning(false);
+                }
+              }}
+              className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider transition"
+              title="Assign this question to students"
+            >
+              {assigning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Users className="h-3 w-3" />}
+              Assign
+            </button>
+          )}
         </span>
+      )}
+      {notebookId && (
+        <AssignDialog
+          open={assignOpen}
+          onOpenChange={setAssignOpen}
+          subsectionId={assignSub}
+          notebookId={notebookId}
+          defaultTitle={text && text.trim() && kind ? SECTION_LABELS[kind] : "Assignment"}
+        />
       )}
     </NodeViewWrapper>
   );
