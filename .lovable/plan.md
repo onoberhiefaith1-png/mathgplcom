@@ -1,38 +1,28 @@
-## Goal
+# MathGPL Academy — Two-Island Rotating Showcase (/adventure)
 
-Turn the Adventure scene into a single, continuous rotating building — the same way the homepage academy curves its images onto a cylinder so the panels visually connect and rotate as one. Add the new MATH GPL palace image, remove the spherical cloud structure, and make the whole building much larger (covering about two-thirds of the screen width).
+Rewrites `src/components/adventure/RotatingAdventureScene.tsx`. Only `Showcase` logic changes; `Adventure.tsx` (route + Back button) stays as-is.
 
-## What I'll change
+## Behavior
+- Only **two** island planes are ever rendered: one **Front** (facing camera), one **Back** (facing away). They orbit a shared central Y-axis and always face radially outward.
+- The six academies cycle through over time: **MathGPL → Algebra → Trigonometry → Statistics → Geometry → Calculus → repeat**. Each takes its turn at the Front as the carousel turns.
+- **Hidden swap:** when a slot rotates into the back zone (turned away, faded out), its texture is swapped to the next academy in the queue — the user never sees the change.
+- **Clickable:** the Front island is clickable; rotation eases to a near-stop on hover. Clicking navigates to that academy (`/subjects/{slug}`; MathGPL → `/teaching-hub`).
 
-### 1. Add the new MATH GPL palace image
-- Process the uploaded palace image: remove the bright green background (same chroma-key + edge-feather approach already used for the island images), keeping all the architecture intact.
-- Upload it as a CDN asset (`adventure/mathgpl-palace.png`) and add it to the Adventure scene's image set.
-- It becomes one of the panels in the rotating ring alongside Geometry, Algebra, Statistics, Calculus, and Trigonometry (six panels total).
+## Depth & atmosphere
+- Distance fog so the Back island reads as further away.
+- Per-island opacity + scale fade based on facing angle (front large/opaque, back small/faint) for parallax depth.
+- Soft radial contact-shadow blob beneath each floating island (canvas-generated texture).
+- Bright magical lighting kept (warm + purple + blue accents).
 
-### 2. Mesh the images into one connected building
-- Replace the current flat floating `planeGeometry` panels with **curved cylinder segments**, exactly like the academy guide (`CylinderGeometry` with a per-panel `thetaStart`/arc).
-- The six images wrap seamlessly around a single cylinder, so as it rotates they read as one identical, connected structure rather than separate stickers.
-- Keep the gentle auto-rotation; tune the radius/height so the seams line up and the bases sit in the cloud line.
+## Remove / Keep
+- **Remove:** the white circular cloud platform / rotating disk (`CloudFloor`).
+- **Keep:** sky background, floating particles, magical lighting; **add** subtle purple energy-trail rings + purple particles.
 
-### 3. Remove the spherical cloud structure
-- Delete the `CloudBasin` (the stacked ring/circle disks) and the extra glow disks that create the "spherical surface" look.
-- Replace with an academy-style low cloud treatment: clouds sit at the building's base and rotate with it, so the cloud reads as part of the rotating building instead of a separate sphere underneath.
-- Keep the full-screen cloud photo backdrop as-is.
+## Camera
+- Subtle cinematic drift: slow x/y float, gentle parallax, minor zoom breathing. Never jarring.
 
-### 4. Make it bigger (two-thirds of the screen)
-- Increase the cylinder radius/height and/or pull the camera in so the building fills roughly two-thirds of the screen width, leaving small margins on the left and right edges.
-- Re-center vertically so the enlarged building stays framed.
-
-### 5. Keep navigation intact
-- Preserve the `/adventure` route and the Back button.
-- Leave room for future content to sit on top of the scene.
-
-## Technical details
-
-- File: `src/components/adventure/RotatingAdventureScene.tsx` — swap plane panels for cylinder-segment panels (mirroring `RotatingAcademyScene.tsx`), remove `CloudBasin`, add a base cloud floor that rotates with the building, bump scale, adjust camera `position`/`fov`.
-- New asset: `src/assets/adventure/mathgpl-palace.png.asset.json` (green removed via Python PIL/numpy chroma key, then `lovable-assets create`).
-- No changes to `Adventure.tsx` page wiring or routes beyond what's needed.
-
-## Result
-
-Clicking Adventure opens a large rotating cloud-world building: the six images (five islands + the new MATH GPL palace) curve together into one continuous, identical-looking structure that rotates as a single building, with clouds integrated at its base and no spherical disk underneath.
+## Technical notes
+- Two `IslandSlot` meshes (`planeGeometry`, billboard facing outward) on a shared rotation angle ref; base angles 0 and π.
+- All six textures preloaded via `useLoader`; each slot holds a current index in state, swapped only inside the hidden back zone (`|phi - π| < 0.18`) guarded by a per-slot flag.
+- Front slot tracked per-frame for click navigation via `useNavigate`.
+- Performance goal met: two visible meshes at a time, textures preloaded, infrequent state updates on swap.
