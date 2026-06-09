@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     if (!parsed.success) {
       return json({ error: parsed.error.flatten().fieldErrors }, 400);
     }
-    const { assessmentId, questionId, lineId, arrangement } = parsed.data;
+    const { assessmentId, questionId, lineId, arrangement, studentAscii } = parsed.data;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
