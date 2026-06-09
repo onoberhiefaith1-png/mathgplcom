@@ -1291,7 +1291,15 @@ const PresentationView = ({
     }
     const target = guidedLines[activeLineIdx];
     if (!target?.lineId) return;
-    const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
+    // Find the student's written rows within the active band, top-to-bottom.
+    // The k-th written row maps to guided line k, so the line does NOT have to
+    // land on one exact physical row to be recognised.
+    const a = bandStart(activeLayout), b = bandEnd(activeLayout);
+    const writtenRows = Object.keys(freeLines)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n >= a && n <= b && !!freeLines[n] && freeLines[n].length > 0)
+      .sort((x, y) => x - y);
+    const expectedLineNum = writtenRows[activeLineIdx] ?? (bandStart(activeLayout) + activeLineIdx);
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) {
       toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
@@ -1311,7 +1319,7 @@ const PresentationView = ({
     setAssessChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke("grade-assessment", {
-        body: { assessmentId, questionId: current.id, lineId: target.lineId, arrangement },
+        body: { assessmentId, questionId: current.id, lineId: target.lineId, arrangement, studentAscii: ascii },
       });
       if (error) throw error;
       const res = data as { correct: boolean; score: number; solvedLines: Record<string, number> };
@@ -1904,6 +1912,11 @@ const PresentationView = ({
               defaultY = Math.max(upperBound, Math.min(defaultY, bandDefaultY));
             }
 
+            // Structure panel sits ~1.6 lines higher than the floating-number
+            // strip so it never collides with the fixed bottom-right Check
+            // button in assessment mode. Still draggable afterwards.
+            const structureDefaultY = Math.max(upperBound, defaultY - grid.LINE_HEIGHT * 1.6);
+
             const beatKey = current.id;
             const fnY = assistantYByBeat[`numbers:${beatKey}`] ?? null;
             const stY = assistantYByBeat[`structures:${beatKey}`] ?? null;
@@ -1993,7 +2006,7 @@ const PresentationView = ({
                   consumedStructures={consumedStructures}
                   onStructureInsert={(k) => { handleStructureInsert(k); pingAssistant(); }}
                   rightPx={32}
-                  defaultYPx={defaultY}
+                  defaultYPx={structureDefaultY}
                   topYPx={bandTopPx + 8}
                   bottomYPx={bandBotPx - 8}
                   finalLineBottomPx={finalLineBottomPx}

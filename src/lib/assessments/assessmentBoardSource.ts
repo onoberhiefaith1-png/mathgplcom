@@ -9,11 +9,12 @@
 
 import type { Beat } from "@/lib/smartboard/presentation";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
+import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 
 export interface AssessmentQuestion {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number }[];
+  lines: { lineId: string; chips: string[]; marks: number; containers?: string[] }[];
 }
 
 export interface AssessmentLike {
@@ -60,7 +61,7 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
       lines.push({
         equation: "", // withheld — graded server-side
         fillers: fills,
-        containers: [],
+        containers: (ln.containers ?? []) as ContainerKind[], // structures from the teacher's lesson note
         fragmentStart: start,
         fragmentEnd: fragments.length,
         lineId: ln.lineId,

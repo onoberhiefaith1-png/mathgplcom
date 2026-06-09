@@ -18,7 +18,65 @@ const BodySchema = z.object({
   questionId: z.string().min(1),
   lineId: z.string().min(1),
   arrangement: z.array(z.string()).min(1).max(64),
+  // Full text of the line as written on the board. Optional — used only as an
+  // AI second-opinion when the fast chip-multiset check does not match.
+  studentAscii: z.string().max(2000).optional(),
 });
+
+/** AI second-opinion equivalence check. Compares ONLY the student's line
+ *  against the hidden correct line for THIS question. Returns true/false, or
+ *  null when the gateway is unavailable so the caller falls back safely. */
+async function aiLineEquivalent(
+  studentLine: string,
+  correctLine: string,
+): Promise<boolean | null> {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey || !studentLine.trim() || !correctLine.trim()) return null;
+  const system = [
+    "You are a strict mathematics line checker for a classroom smartboard.",
+    "You are given exactly TWO single lines of mathematics: the CORRECT line",
+    "(the answer key for this one step) and the STUDENT line.",
+    "Decide ONLY whether the STUDENT line is mathematically equivalent to the",
+    "CORRECT line. Rules:",
+    "- Compare ONLY these two lines. Never invent, substitute, or solve a",
+    "  different equation, and never change numbers, signs, variables, or",
+    "  exponents.",
+    "- Accept equivalent rearrangements and side-swaps of the SAME equation",
+    "  (e.g. 2x=10 ≡ 10=2x, A+B=C ≡ B+A=C).",
+    "- Reject anything that moves a term across '=' so the relationship",
+    "  changes, or that is not equivalent.",
+    "- Ignore spacing and harmless formatting differences (×/*, ÷//, unicode",
+    "  minus vs hyphen).",
+    'Reply with ONLY compact JSON: {"correct": true} or {"correct": false}.',
+  ].join("\n");
+  const user = `CORRECT line: ${correctLine}\nSTUDENT line: ${studentLine}`;
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0,
+      }),
+    });
+    if (!resp.ok) return null; // 429/402/etc → safe fallback to fast check
+    const data = await resp.json();
+    const text: string = data?.choices?.[0]?.message?.content ?? "";
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) return /\btrue\b/i.test(text) ? true : /\bfalse\b/i.test(text) ? false : null;
+    const parsedJson = JSON.parse(m[0]);
+    return parsedJson?.correct === true;
+  } catch {
+    return null;
+  }
+}
 
 /** Normalise a chip so "+A", " A " and unicode-minus variants compare equal. */
 function normChip(raw: string): string {
@@ -77,7 +135,7 @@ Deno.serve(async (req) => {
     if (!parsed.success) {
       return json({ error: parsed.error.flatten().fieldErrors }, 400);
     }
-    const { assessmentId, questionId, lineId, arrangement } = parsed.data;
+    const { assessmentId, questionId, lineId, arrangement, studentAscii } = parsed.data;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -147,7 +205,16 @@ Deno.serve(async (req) => {
       return json({ error: "key_not_found" }, 404);
     }
 
-    const isCorrect = relationshipMatches(correct.tokens ?? [], arrangement);
+    // Fast path: constrained chip-multiset comparison. If that does not match,
+    // ask the AI for a second opinion on mathematical equivalence (the answer
+    // key never leaves the server). AI failures fall back to the fast result.
+    let isCorrect = relationshipMatches(correct.tokens ?? [], arrangement);
+    if (!isCorrect) {
+      const correctLine = (correct.tokens ?? []).join(" ").trim();
+      const studentLine = (studentAscii ?? arrangement.join(" ")).trim();
+      const aiVerdict = await aiLineEquivalent(studentLine, correctLine);
+      if (aiVerdict === true) isCorrect = true;
+    }
 
     // Load (or seed) this student's progress row, then update authoritatively.
     const { data: existing } = await admin

@@ -13,6 +13,7 @@ import {
   type FloatingLine,
   rearrangeStream,
 } from "@/lib/lessonnotes/floatingCompile";
+import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 
 export type AssessmentKind = "classwork" | "homework" | "assessment" | "practice";
@@ -29,7 +30,7 @@ export interface CreateAssessmentInput {
 interface QuestionPayload {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number }[];
+  lines: { lineId: string; chips: string[]; marks: number; containers: ContainerKind[] }[];
 }
 
 interface AnswerKeyLine {
@@ -98,6 +99,7 @@ export async function createAssessmentFromSubsection(
         lineId: line.lineId,
         chips: rearrangeStream(tokens), // shuffled for the student
         marks,
+        containers: (line.containers ?? []) as ContainerKind[], // structures from the lesson note
       });
       answerKey.push({
         questionId: sid,

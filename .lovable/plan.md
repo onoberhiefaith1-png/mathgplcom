@@ -1,54 +1,42 @@
-## Goal
+# Classwork board: structure icon, line-check, and structure source
 
-When the floating-number display (the hash "#" assistant) is activated on the Smartboard — teacher side or student classwork — it must appear **inside the visible screen by default**, near the bottom of the on-screen writable space. Today it defaults to the bottom of the writable *band* (12 lines tall), which lands far below the fold, so the user has to zoom out to reach it. After the user zooms or drags it, their chosen position is still respected.
+Three fixes to the student classwork board (assessment mode), all reusing the existing board.
 
-## Why it happens
+## 1. Move the structure icon up so it stops overlapping "Check line"
 
-In `PresentationView.tsx` the assistant panels live **inside the scrolling board surface** and are positioned in board pixels. The default vertical position is:
+The structure tools panel and the "Check line" button currently sit in the same bottom-right corner, so the structure icon is hard to tap.
 
-```text
-defaultY = bandBotPx - LINE_HEIGHT * 0.6
-bandBotPx = MARGIN_TOP(72) + (bandEnd + 1) * LINE_HEIGHT(64)
-```
+- In `PresentationView.tsx`, give the `StructurePanel` its own default vertical position in assessment mode, raised about 1.5 line-heights above the shared `defaultY` (where the floating-number strip sits). This lifts it clear of the fixed bottom-right "Check line" button.
+- The structure panel stays vertically draggable, so the student can still move it afterward; this only changes where it first appears.
+- No other icon shares that lane (floating numbers sit on the left), so nothing else collides.
 
-For a problem beat the band is 12 lines, so `bandBotPx ≈ 1032px` and `defaultY ≈ 994px`. On a typical screen (~500-700px visible) that is well below the viewport, so the panel renders off-screen until you zoom out.
+## 2. Make "Check line" recognize the completed line — and grade it with AI
 
-`FloatingNumberPanel` only initializes/re-anchors its `y` from `defaultYPx` on mount and on `beatId` change — not when the panel is toggled visible — so even a corrected default wouldn't apply on first hash-click without a small re-anchor change.
+Two problems are stacked here.
 
-## Changes
+**a. The line is never found.** Today `checkActiveLine` reads only the one exact physical row `bandStart + activeLineIdx`. If the student's line landed on any other row, it reports "Build this line on the board, then tap Check" and never calls the grader.
 
-### 1. Compute a viewport-aware default position (`PresentationView.tsx`)
+Fix: scan the active band for the student's written rows in top-to-bottom order and map the *k*-th non-empty completed row to guided line *k*. When checking line N, grab the N-th written line instead of demanding one fixed row. This is what actually made it "not recognize" the completed line.
 
-- Add lightweight tracking of the scroll host's visible height via a `ResizeObserver` on `boardScrollRef` (store `clientHeight` in state) so the default recomputes when the screen/zoom changes.
-- In the assistants render block (around lines 1860-1876), compute an on-screen default using the live scroll host:
+**b. Grading is too literal.** The server currently only does an exact chip-multiset comparison. We add AI as the smart checker the user asked for.
 
-```text
-visibleBottom = host.scrollTop + host.clientHeight - paddingBottom(panel/tab)
-onScreenDefault = visibleBottom - LINE_HEIGHT * 1.1
-defaultY = clamp(
-   min(bandBotPx - LINE_HEIGHT * 0.6, onScreenDefault),
-   finalLineBottomPx + 8,     // never above the last written line
-   bandBotPx - LINE_HEIGHT*0.6 // never below band bottom
-)
-```
+- Send the student's full line text (ascii equation) to `grade-assessment` alongside the existing chip `arrangement`.
+- Server flow becomes: run the fast multiset check first (cheap, instant). If that does not match, call Lovable AI as a second opinion to decide whether the student's line is mathematically equivalent to the hidden correct line.
+- The AI is given an explicit, locked rule: compare ONLY the student's line against the stored correct line for this exact question; reply strictly correct / not-correct; never invent a different equation; equivalent rearrangements and side-swaps count as correct, moving a term across "=" does not. This mirrors the QUESTION_LOCK / answer-key security model — the answer key never leaves the server.
+- Marks, score, solved-lines, and progress writes stay exactly as they are; only the correct/incorrect decision gains the AI fallback.
 
-This places the panel "towards the end" of the currently visible space (matching the user's description of the gap below a published solution), never below the fold, and still inside the writable band.
+This keeps grading server-authoritative and the answer key hidden, while making the check forgiving enough to recognize a genuinely correct line.
 
-- Pass this corrected `defaultY` to the `FloatingNumberPanel` (the hash assistant).
+## 3. Structure icon must match the teacher's lesson note
 
-### 2. Re-anchor on activation (`FloatingNumberPanel.tsx`)
+In assessment mode every line is currently built with `containers: []`, so the structure panel only ever shows the generic box — never the fraction/root/power structures the teacher used.
 
-- When `visible` transitions to `true` and there is **no** remembered position (`rememberedY == null`), set `y` to `defaultYPx`. This guarantees the very first hash-click drops the panel into the visible area. Once dragged (which calls `onCommitY`, storing `rememberedY`), the remembered value wins and this default no longer overrides it.
+- In `createAssessment.ts`, carry each floating line's `containers` (the structures from the lesson note) into the question payload stored on the assessment.
+- In `assessmentBoardSource.ts`, populate each `ReservoirLine.containers` from that payload instead of `[]`.
+- The existing `requiredStructures` logic then surfaces exactly the structures the teacher's lesson note generated for each line. No answer content is exposed — structure kinds (fraction, root, power, …) are not the answer.
 
-## Scope / behavior notes
+## Technical notes
 
-- Applies to both teacher Smartboard and student classwork (assessment mode reuses the same `PresentationView` + `FloatingNumberPanel`).
-- Manual drag and per-beat memory keep working unchanged; zoom still lets the user reposition freely.
-- This is a frontend/presentation-only change — no backend, grading, or data-model changes.
-- Optional (not included unless you want it): apply the same viewport-aware default to the Structures and Symbols assistants, which share the same off-screen default today.
-
-## Verification
-
-- Open an empty Smartboard on a normal-height window, click the hash icon → the floating number strip appears within the visible area near the bottom of the writable space (no zoom needed).
-- Repeat on the student classwork board.
-- Drag it elsewhere, switch beats/lines, confirm the dragged position is remembered; confirm zooming still lets it be moved.
+- Files: `src/components/smartboard/PresentationView.tsx` (structure default Y + robust line lookup + send ascii), `supabase/functions/grade-assessment/index.ts` (AI fallback, new optional `studentAscii` field), `src/lib/assessments/createAssessment.ts` and `src/lib/assessments/assessmentBoardSource.ts` (carry/populate `containers`).
+- AI uses the Lovable AI gateway with `LOVABLE_API_KEY` (already configured); default model `google/gemini-3-flash-preview`. Gateway 429/402 errors fall back to the multiset result so a credit/rate issue never blocks a correct student.
+- Existing assessments created before this change won't have stored `containers`; they keep showing the generic box until regenerated. New classwork picks up structures immediately.
