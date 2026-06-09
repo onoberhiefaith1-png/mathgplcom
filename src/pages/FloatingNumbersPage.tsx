@@ -310,6 +310,7 @@ const FloatingNumbersPage = () => {
       .update({
         floating_lines: cleanLines as any,
         floating_bucket: bucket as any,
+        floating_scoring: scoring as any,
       })
       .eq("id", info.subsectionId);
     setSaving(false);
@@ -321,7 +322,7 @@ const FloatingNumbersPage = () => {
     setSavedAt(Date.now());
     if (!silent) toast({ title: "Saved", description: `${bucket.fillers.length} floating numbers persisted.` });
     return true;
-  }, [info, lines]);
+  }, [info, lines, scoring]);
 
   /* Manual Save — force flush + reload from DB to confirm persistence. */
   const saveNow = useCallback(async () => {
