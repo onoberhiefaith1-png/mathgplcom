@@ -1326,21 +1326,76 @@ const PresentationView = ({
     }
     const target = guidedLines[activeLineIdx];
     if (!target?.lineId) return;
-    // Find the student's written rows within the active band, top-to-bottom.
-    // The k-th written row maps to guided line k, so the line does NOT have to
-    // land on one exact physical row to be recognised.
+
+    // This line's OWN floating numbers (its tag): the fragments reserved for it.
+    const expectedFrags = (activeReservoir?.fragments ?? [])
+      .slice(target.fragmentStart, target.fragmentEnd)
+      .filter(Boolean);
+    const expectedSet = chipMultiset(expectedFrags);
+
+    // Locate the student's row by TAG MATCH, not physical position: scan every
+    // written row in the active band and pick the one whose chips overlap this
+    // line's expected floating numbers the most. This lets the student write
+    // the line anywhere on the board and still be recognised.
     const a = bandStart(activeLayout), b = bandEnd(activeLayout);
     const writtenRows = Object.keys(freeLines)
       .map(Number)
       .filter((n) => Number.isInteger(n) && n >= a && n <= b && !!freeLines[n] && freeLines[n].length > 0)
       .sort((x, y) => x - y);
-    const expectedLineNum = writtenRows[activeLineIdx] ?? (bandStart(activeLayout) + activeLineIdx);
+    if (writtenRows.length === 0) {
+      toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
+      return;
+    }
+
+    let expectedLineNum = writtenRows[activeLineIdx] ?? writtenRows[writtenRows.length - 1];
+    if (expectedSet.size > 0) {
+      let bestRow = -1, bestScore = -1;
+      for (const n of writtenRows) {
+        const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
+        const score = multisetOverlap(expectedSet, used);
+        if (score > bestScore) { bestScore = score; bestRow = n; }
+      }
+      if (bestRow >= 0) expectedLineNum = bestRow;
+    }
+
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) {
       toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
       return;
     }
     const ascii = rowToAscii(row);
+    const arrangement = extractTermsFromAscii(ascii).map((t) => t.ascii).filter(Boolean);
+
+    // ── Phase 1: floating-number usage check ──────────────────────────────
+    // Before any maths, every floating number assigned to this line MUST be
+    // present on the located row. Report the unused ones and stop — no grading,
+    // no green mark — so the student knows the line is incomplete (not wrong).
+    if (expectedSet.size > 0) {
+      const usedSet = chipMultiset(arrangement);
+      const unused: string[] = [];
+      for (let i = target.fragmentStart; i < target.fragmentEnd; i++) {
+        const frag = (activeReservoir?.fragments ?? [])[i];
+        const key = normUsageChip(frag ?? "");
+        if (!key) continue;
+        const have = usedSet.get(key) ?? 0;
+        if (have > 0) {
+          usedSet.set(key, have - 1); // consume one match
+        } else {
+          unused.push(String(frag).trim()); // keep display glyph
+        }
+      }
+      if (unused.length > 0) {
+        setWrongLine(expectedLineNum);
+        toast({
+          title: "⚠ Line incomplete",
+          description: `Unused floating numbers: ${unused.join("  ")}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // ── Phase 2: mathematical validation (server-authoritative) ───────────
     const eqIdx = ascii.indexOf("=");
     const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
     const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
@@ -1349,7 +1404,6 @@ const PresentationView = ({
       toast({ title: "Finish the line", description: "Make sure it's a complete equation (both sides of =).", variant: "destructive" });
       return;
     }
-    const arrangement = extractTermsFromAscii(ascii).map((t) => t.ascii).filter(Boolean);
     if (arrangement.length === 0) return;
     setAssessChecking(true);
     try {
@@ -1367,10 +1421,10 @@ const PresentationView = ({
         setFloatingLineIdx(nextIdx);
         setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
         setCursor({ path: [], index: 0 });
-        toast({ title: "Correct!", description: `+${target.marks ?? 0} marks` });
+        toast({ title: "✓ Line verified", description: `+${target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
-        toast({ title: "Not quite", description: "Check this line and try again.", variant: "destructive" });
+        toast({ title: "❌ Error in your solution", description: "Check your operation and try again.", variant: "destructive" });
       }
     } catch (e: any) {
       toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
