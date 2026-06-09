@@ -2637,7 +2637,7 @@ const PresentationView = ({
             <button
               onClick={checkActiveLine}
               disabled={assessChecking || activeLineIdx >= guidedLines.length}
-              className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
+              className="fixed bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
               style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
             >
               {assessChecking
