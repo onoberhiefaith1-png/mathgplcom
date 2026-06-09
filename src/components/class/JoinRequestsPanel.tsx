@@ -49,7 +49,7 @@ const JoinRequestsPanel = ({ classId }: { classId: string }) => {
   useEffect(() => {
     load();
     const ch = supabase
-      .channel(`join-requests-${classId}`)
+      .channel(`join-requests-${classId}`, { config: { private: true } })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "class_join_requests", filter: `class_id=eq.${classId}` },
