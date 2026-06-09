@@ -99,6 +99,7 @@ export async function createAssessmentFromSubsection(
         lineId: line.lineId,
         chips: rearrangeStream(tokens), // shuffled for the student
         marks,
+        containers: (line.containers ?? []) as ContainerKind[], // structures from the lesson note
       });
       answerKey.push({
         questionId: sid,
