@@ -135,6 +135,25 @@ const StudentClassPage = () => {
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, loadNotes]);
 
+  // Live: new assignments appear and scores refresh instantly.
+  useEffect(() => {
+    if (!classId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`class-assessments-${classId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "assessments", filter: `class_id=eq.${classId}` },
+          () => { loadAssignments(); },
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  }, [classId, loadAssignments]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
