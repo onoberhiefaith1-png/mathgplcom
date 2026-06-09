@@ -1358,7 +1358,7 @@ const PresentationView = ({
 
 
 
-  if (loading) {
+  if (loading && !assessmentMode) {
     return (
       <div
         className="h-screen w-screen grid place-items-center text-sm"
@@ -1368,7 +1368,7 @@ const PresentationView = ({
       </div>
     );
   }
-  if (!notebook) {
+  if (!notebook && !assessmentMode) {
     return (
       <div
         className="h-screen w-screen grid place-items-center text-sm flex-col gap-3"
