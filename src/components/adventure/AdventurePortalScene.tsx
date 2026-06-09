@@ -8,6 +8,7 @@ import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
 import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
 import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
+import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
 import staircaseEntry from "@/assets/adventure/staircase-entry.jpg";
 
 const academies = [
