@@ -34,7 +34,31 @@ export interface FloatingLine {
   fillersSelected?: boolean[];
   /** Persisted teacher highlight state, parallel to containers. */
   containersSelected?: boolean[];
+  /** Marks awarded when a student reproduces this line correctly. */
+  marks?: number;
 }
+
+export type ScoringMode = "equal" | "individual";
+
+export interface FloatingScoring {
+  /** Display label the teacher chose (Marks / Points / Score / Credits / Reward). */
+  label: string;
+  mode: ScoringMode;
+  /** Used in equal mode — applied to every line. */
+  marksPerLine: number;
+}
+
+export const SCORE_LABELS = ["Marks", "Points", "Score", "Credits", "Reward"] as const;
+
+export const DEFAULT_SCORING: FloatingScoring = {
+  label: "Marks",
+  mode: "equal",
+  marksPerLine: 1,
+};
+
+/** Sum the per-line marks into a Total Available. */
+export const totalMarks = (lines: FloatingLine[]): number =>
+  lines.reduce((sum, l) => sum + (Number(l.marks) || 0), 0);
 
 export interface FloatingBucket {
   fillers: string[];
