@@ -355,6 +355,31 @@ const FloatingNumbersPage = () => {
     return () => window.clearTimeout(t);
   }, [lines, info, persist]);
 
+  /* Flush-on-leave: a chip toggle made right before navigating away (or a tab
+     close / refresh) must never be lost to the 500 ms debounce. Keep the latest
+     persist in a ref so the unmount cleanup saves the freshest state. */
+  const persistRef = useRef(persist);
+  useEffect(() => { persistRef.current = persist; }, [persist]);
+  useEffect(() => {
+    return () => { if (dirtyRef.current) void persistRef.current(true); };
+  }, []);
+  useEffect(() => {
+    const onHide = () => { if (dirtyRef.current) void persistRef.current(true); };
+    window.addEventListener("pagehide", onHide);
+    window.addEventListener("beforeunload", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("beforeunload", onHide);
+    };
+  }, []);
+
+  /* Save pending edits before an in-app navigation, then route. */
+  const flushThenNavigate = useCallback(async (to: string) => {
+    if (dirtyRef.current) await persist(true);
+    navigate(to);
+  }, [persist, navigate]);
+
+
   const headerLabel = useMemo(() => {
     if (!info) return "";
     const k = info.sectionKind.charAt(0).toUpperCase() + info.sectionKind.slice(1);
