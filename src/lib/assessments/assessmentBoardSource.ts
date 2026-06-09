@@ -13,7 +13,7 @@ import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 export interface AssessmentQuestion {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number }[];
+  lines: { lineId: string; chips: string[]; marks: number; containers?: string[] }[];
 }
 
 export interface AssessmentLike {
