@@ -2553,6 +2553,7 @@ const PresentationView = ({
           chromeBorder={palette.chromeBorder}
           ink={ink}
           bottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
+          liftRightBottom={hasGuidedLines ? 64 : 0}
         />
       )}
 
