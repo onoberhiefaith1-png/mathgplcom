@@ -49,6 +49,9 @@ function SectionHeadingView(props: NodeViewProps) {
   const navigate = useNavigate();
   const { id: notebookId } = useParams();
   const [busy, setBusy] = useState<SectionAction | null>(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignSub, setAssignSub] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
   const level: number = node.attrs.level ?? 2;
   const text = node.textContent;
   const kind = (level <= 3) ? detectSectionKind(text) : null;
