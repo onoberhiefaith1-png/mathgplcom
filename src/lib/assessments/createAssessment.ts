@@ -13,6 +13,7 @@ import {
   type FloatingLine,
   rearrangeStream,
 } from "@/lib/lessonnotes/floatingCompile";
+import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 
 export type AssessmentKind = "classwork" | "homework" | "assessment" | "practice";
