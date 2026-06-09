@@ -1,25 +1,72 @@
-# Fix the hidden Structures icon on the student board
+## Goal
+Make the student's board show the same per-line structures the teacher set in the lesson note. Specifically for the "one unknow" example: line 2 (`y = 3(5) − 2`) has a **bracket** structure on the teacher's board, but the student's line 2 shows no structure.
 
-## Problem
-On the student/assessment board the **Structures toggle button** (the □-function icon) is fixed to the bottom-right corner at `right:12, bottom: bottomInset+12`. The per-line **"Check line N"** button is also fixed to the bottom-right (`bottom-6 right-6`). They overlap, so the Check pill covers the Structures icon and the student can't open it to insert the structure (fraction, root, power, etc.) needed to finish the line.
+## Root cause (confirmed from live data)
+Structures flow like this:
 
-A previous change moved the *expanded* structure strip up, but not the toggle button you actually tap — so it's still buried.
+```text
+lesson note floating_lines[].containers
+        │  (snapshotted at assessment-create time)
+        ▼
+assessments.questions[].lines[].containers
+        ▼
+student board StructurePanel
+```
+
+For this lesson note, line 2 correctly stores `containers: ["bracket"]`. But the existing assessment row was created **before** the code that copies containers into the assessment. Every line in that assessment has `containers = null`, so the student board has nothing to display. New assessments created today already store containers correctly — this one is stale data.
+
+A live re-derivation on the student side is not possible: students can't read the teacher's notebook (row-level security), and the equation is intentionally withheld from the student client. So the stored snapshot must be corrected.
 
 ## Fix
 
-### 1. Lift the Structures toggle clear of the Check button
-- In `AssistantButtons.tsx`, add a prop (e.g. `liftRightBottom?: number`, default `0`) and apply it as extra bottom offset on the **Structures** button only:
-  `bottom: bottomInset + 12 + liftRightBottom`.
-- In `PresentationView.tsx`, pass `liftRightBottom` so the Structures button rises above the Check pill **only when the Check button is present** (i.e. `hasGuidedLines`). The Check button is ~50px tall sitting 24px from the bottom, so a lift of about 64px clears it with margin. When there is no Check button (teacher Smartboard), the lift is `0` and nothing changes.
+### 1. Backfill existing assessments (data migration)
+Run a one-time migration that fills in `assessments.questions[].lines[].containers` from the matching lesson-note line. Matching is done by `lineId` (a globally unique id that matches exactly between the assessment line and the notebook's `floating_lines`), scoped to the assessment's own notebook. Lines that already have containers are left untouched; lines with no match get an empty list.
 
-This keeps the icon in the same familiar corner, just raised enough to be fully tappable, and it remains independent of the already-raised expanded structure strip.
+This immediately makes line 2 of the existing "one unknow" assessment show the bracket for students, with no need for the teacher to re-publish.
 
-### 2. Confirm the lesson-note structures show in the panel
-The data path is already wired: lesson-note `floating_lines[].containers` → `createAssessment` → assessment `questions[].lines[].containers` → `assessmentBoardSource` → `ReservoirLine.containers` → `StructurePanel.requiredStructures` for the active line. After fix #1, verify on the live board that opening Structures on the active line shows exactly the structures the teacher's lesson note used for that line.
+### 2. Keep new assessments correct (verify only)
+`createAssessment.ts` already carries `containers` from each `floating_lines` line into the stored question, and `assessmentBoardSource.ts` already passes them through to the board. No code change needed — confirmed correct. This means assessments created from now on will not have the stale-structure problem.
 
-- Note: assessments **created before** the container-carrying change won't have `containers` stored, so their structure panel will be empty. If this assignment is one of those, the teacher needs to re-publish/recreate the assessment so the structures are captured. This will be flagged after testing.
+## What the user will see
+Open the existing assignment as a student → tap the structure (F) icon on line 2 → the bracket `( )` appears, exactly like the teacher's board.
 
 ## Technical details
-- Files: `src/components/smartboard/AssistantButtons.tsx`, `src/components/smartboard/PresentationView.tsx`.
-- No backend/grading changes. Purely a chrome-positioning change plus verification of the existing structure data flow.
-- The button stays `position: fixed` and `z-40`; the Check button is `z-[60]`, so even on overlap the Check button wins — hence the need to physically move the Structures button rather than restack.
+Migration SQL (idempotent; preserves existing containers, only fills missing ones):
+
+```sql
+update assessments a
+set questions = (
+  select jsonb_agg(
+    jsonb_set(q, '{lines}', (
+      select jsonb_agg(
+        ln || jsonb_build_object(
+          'containers',
+          coalesce(
+            nullif(ln->'containers', 'null'::jsonb),
+            (
+              select fl.line->'containers'
+              from notebook_subsections ss
+              join notebook_sections sec on sec.id = ss.section_id
+              cross join lateral
+                jsonb_array_elements(coalesce(ss.floating_lines,'[]'::jsonb)) fl(line)
+              where sec.notebook_id = a.notebook_id
+                and fl.line->>'lineId' = ln->>'lineId'
+                and jsonb_array_length(coalesce(fl.line->'containers','[]'::jsonb)) > 0
+              limit 1
+            ),
+            '[]'::jsonb
+          )
+        )
+      )
+      from jsonb_array_elements(q->'lines') ln
+    ))
+  )
+  from jsonb_array_elements(a.questions) q
+)
+where a.questions is not null;
+```
+
+Files/areas touched: one new Supabase migration. No frontend changes (existing student board already renders `containers`). No grading/answer-key changes — containers are display-only hints the teacher chose to show.
+
+## Note for the user
+Any assignments created before today carry the same stale snapshot; this single migration repairs all of them at once. Assignments you create from now on already include the structures automatically.
