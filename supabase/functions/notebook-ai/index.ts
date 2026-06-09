@@ -330,6 +330,23 @@ const matchesLock = (candidate: string, source: string): boolean => {
       .join("\n");
     if (normaliseForLock(candMathPrefix) === normaliseForLock(srcMath.join("\n"))) return true;
   }
+
+  // Prose lead-in tolerance. Questions such as
+  //   "Rationalize the denominator of \frac{\sqrt{3}}{\sqrt{10} - \sqrt{5}}."
+  // are frequently restated by the model as just the bare expression
+  //   "\frac{\sqrt{3}}{\sqrt{10} - \sqrt{5}}".
+  // That is the SAME locked problem — the instruction words were dropped, no
+  // mathematics was changed. Accept when one side's normalised text fully
+  // contains the other AND the contained side carries real math structure, so
+  // the restatement still reproduces the exact locked expression verbatim.
+  const s = normaliseForLock(source);
+  const carriesMath = (x: string) =>
+    x.length >= 4 && (/\\frac|\\sqrt|=|\^/.test(x) || ((x.match(/\d/g)?.length ?? 0) >= 2));
+  if (s && c) {
+    if (s.includes(c) && carriesMath(c)) return true;
+    if (c.includes(s) && carriesMath(s)) return true;
+  }
+
   return false;
 };
 
