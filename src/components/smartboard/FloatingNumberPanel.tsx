@@ -301,6 +301,23 @@ export const FloatingNumberPanel = ({
     onPing();
   };
 
+  /** Resolve a slot token to its display label (null = skip dirty chips). */
+  const slotLabel = (token: string): string | null => {
+    const cleaned = toUnicodeMath(token);
+    if (!cleaned || isStillDirty(cleaned)) return null;
+    const term = extractTermsFromAscii(cleaned)[0];
+    return term ? renderTermLabel(term, { isFirst: false, prevWasEquals: false }) : cleaned;
+  };
+
+  /** 1-based line number that owns a fragment (for the tiny corner badge). */
+  const lineNoOf = (absIdx: number): number | null => {
+    for (let li = 0; li < lines.length; li++) {
+      const ln = lines[li];
+      if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) return li + 1;
+    }
+    return null;
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
