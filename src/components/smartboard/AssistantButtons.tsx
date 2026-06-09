@@ -39,6 +39,7 @@ const btnStyle = (
 
 export const AssistantButtons = ({
   active, onToggle, chromeBg, chromeFg, chromeBorder, ink, bottomInset,
+  liftRightBottom = 0,
 }: Props) => {
   const palette = { chromeBg, chromeFg, chromeBorder, ink };
   return (
