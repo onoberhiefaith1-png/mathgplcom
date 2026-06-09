@@ -2080,6 +2080,20 @@ const PresentationView = ({
                   onInsertFrac={(p) => insertFractionAtSensor(p)}
                   activeLineIdx={hasGuidedLines ? curLineIdx : undefined}
                   consumedAbsIdx={consumedAbsIdx}
+                  onUse={(absIdx) =>
+                    setConsumedAbsIdx((prev) => {
+                      const next = new Set(prev);
+                      next.add(absIdx);
+                      return next;
+                    })
+                  }
+                  onUnuse={(absIdx) =>
+                    setConsumedAbsIdx((prev) => {
+                      const next = new Set(prev);
+                      next.delete(absIdx);
+                      return next;
+                    })
+                  }
                   leftPx={grid.MARGIN_LEFT + 8}
                   defaultYPx={defaultY}
                   topYPx={bandTopPx + 8}
