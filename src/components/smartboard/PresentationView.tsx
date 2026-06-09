@@ -52,7 +52,7 @@ import {
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { rowToAscii, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
-import { LineStatusRail, type LineBulb } from "./LineStatusRail";
+import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
@@ -134,6 +134,41 @@ const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 3.5;
 const ZOOM_STEP = 0.12;
 const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+
+/* ─────── Floating-number usage check (Phase 1 of "Check line") ───────
+   Normalises a chip so that the unicode display form ("−2", "×", "÷", "=")
+   and the ascii term form ("-2", "*", "/", "=") compare equal — mirrors the
+   server's normChip in grade-assessment. */
+const normUsageChip = (raw: string): string => {
+  let s = String(raw ?? "")
+    .replace(/\u2212/g, "-") // unicode minus → hyphen
+    .replace(/[–—]/g, "-")   // en/em dash → hyphen
+    .replace(/\u00d7/g, "*") // × → *
+    .replace(/\u00b7/g, "*") // · → *
+    .replace(/\u00f7/g, "/") // ÷ → /
+    .replace(/\s+/g, "")
+    .trim();
+  if (s.startsWith("+")) s = s.slice(1);
+  return s;
+};
+
+/** Multiset of normalised chips → { key: count }. Empty/blank chips dropped. */
+const chipMultiset = (chips: string[]): Map<string, number> => {
+  const m = new Map<string, number>();
+  for (const c of chips) {
+    const k = normUsageChip(c);
+    if (!k) continue;
+    m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  return m;
+};
+
+/** How many of `expected`'s chips also appear in `used` (multiset overlap). */
+const multisetOverlap = (expected: Map<string, number>, used: Map<string, number>): number => {
+  let n = 0;
+  for (const [k, want] of expected) n += Math.min(want, used.get(k) ?? 0);
+  return n;
+};
 
 /* ─────────────── Page ─────────────── */
 
@@ -1291,21 +1326,76 @@ const PresentationView = ({
     }
     const target = guidedLines[activeLineIdx];
     if (!target?.lineId) return;
-    // Find the student's written rows within the active band, top-to-bottom.
-    // The k-th written row maps to guided line k, so the line does NOT have to
-    // land on one exact physical row to be recognised.
+
+    // This line's OWN floating numbers (its tag): the fragments reserved for it.
+    const expectedFrags = (activeReservoir?.fragments ?? [])
+      .slice(target.fragmentStart, target.fragmentEnd)
+      .filter(Boolean);
+    const expectedSet = chipMultiset(expectedFrags);
+
+    // Locate the student's row by TAG MATCH, not physical position: scan every
+    // written row in the active band and pick the one whose chips overlap this
+    // line's expected floating numbers the most. This lets the student write
+    // the line anywhere on the board and still be recognised.
     const a = bandStart(activeLayout), b = bandEnd(activeLayout);
     const writtenRows = Object.keys(freeLines)
       .map(Number)
       .filter((n) => Number.isInteger(n) && n >= a && n <= b && !!freeLines[n] && freeLines[n].length > 0)
       .sort((x, y) => x - y);
-    const expectedLineNum = writtenRows[activeLineIdx] ?? (bandStart(activeLayout) + activeLineIdx);
+    if (writtenRows.length === 0) {
+      toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
+      return;
+    }
+
+    let expectedLineNum = writtenRows[activeLineIdx] ?? writtenRows[writtenRows.length - 1];
+    if (expectedSet.size > 0) {
+      let bestRow = -1, bestScore = -1;
+      for (const n of writtenRows) {
+        const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
+        const score = multisetOverlap(expectedSet, used);
+        if (score > bestScore) { bestScore = score; bestRow = n; }
+      }
+      if (bestRow >= 0) expectedLineNum = bestRow;
+    }
+
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) {
       toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
       return;
     }
     const ascii = rowToAscii(row);
+    const arrangement = extractTermsFromAscii(ascii).map((t) => t.ascii).filter(Boolean);
+
+    // ── Phase 1: floating-number usage check ──────────────────────────────
+    // Before any maths, every floating number assigned to this line MUST be
+    // present on the located row. Report the unused ones and stop — no grading,
+    // no green mark — so the student knows the line is incomplete (not wrong).
+    if (expectedSet.size > 0) {
+      const usedSet = chipMultiset(arrangement);
+      const unused: string[] = [];
+      for (let i = target.fragmentStart; i < target.fragmentEnd; i++) {
+        const frag = (activeReservoir?.fragments ?? [])[i];
+        const key = normUsageChip(frag ?? "");
+        if (!key) continue;
+        const have = usedSet.get(key) ?? 0;
+        if (have > 0) {
+          usedSet.set(key, have - 1); // consume one match
+        } else {
+          unused.push(String(frag).trim()); // keep display glyph
+        }
+      }
+      if (unused.length > 0) {
+        setWrongLine(expectedLineNum);
+        toast({
+          title: "⚠ Line incomplete",
+          description: `Unused floating numbers: ${unused.join("  ")}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // ── Phase 2: mathematical validation (server-authoritative) ───────────
     const eqIdx = ascii.indexOf("=");
     const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
     const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
@@ -1314,7 +1404,6 @@ const PresentationView = ({
       toast({ title: "Finish the line", description: "Make sure it's a complete equation (both sides of =).", variant: "destructive" });
       return;
     }
-    const arrangement = extractTermsFromAscii(ascii).map((t) => t.ascii).filter(Boolean);
     if (arrangement.length === 0) return;
     setAssessChecking(true);
     try {
@@ -1332,10 +1421,10 @@ const PresentationView = ({
         setFloatingLineIdx(nextIdx);
         setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
         setCursor({ path: [], index: 0 });
-        toast({ title: "Correct!", description: `+${target.marks ?? 0} marks` });
+        toast({ title: "✓ Line verified", description: `+${target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
-        toast({ title: "Not quite", description: "Check this line and try again.", variant: "destructive" });
+        toast({ title: "❌ Error in your solution", description: "Check your operation and try again.", variant: "destructive" });
       }
     } catch (e: any) {
       toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
@@ -2046,17 +2135,8 @@ const PresentationView = ({
             );
           })()}
 
-          {/* Right-edge traffic-light bulbs — teacher: when AI verification is
-              on; assessment: always (driven by server grading). */}
-          {((assessmentMode) || verifyOn) && activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (
-            <LineStatusRail
-              grid={grid}
-              statusByLine={assessmentMode ? assessLineStatusMap : lineStatusMap}
-              bandTopPx={grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT}
-              allDone={assessmentMode ? currentSolvedCount >= guidedLines.length : activeLineIdx >= guidedLines.length}
-              leftPx={6}
-            />
-          )}
+          {/* Per-line status bulbs removed — the top progress tracker is the
+              single source of line status (no duplicate left-edge indicators). */}
 
 
           {/* Left-side LINE NAVIGATOR — selects which line's floating numbers
