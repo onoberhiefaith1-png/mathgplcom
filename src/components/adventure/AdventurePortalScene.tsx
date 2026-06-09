@@ -168,16 +168,18 @@ const WorldSegment = ({
       materialRef.current.opacity = THREE.MathUtils.damp(materialRef.current.opacity, opacity, 6, delta);
     }
 
-    // DOOR-LOCKED FRAMING: zoom toward a window that stays horizontally centred
-    // (door never drifts to the side) and biased to the bottom of the building
-    // (offset.y → 0) so the door at the base is ALWAYS visible during the zoom.
+    // DOOR-LOCKED FRAMING: the door (glowing central arch) is the focal point.
+    // It sits at the horizontal centre (u≈0.5) and just above mid-height of the
+    // image (door spans v≈0.42–0.66). We zoom into a tight window centred on the
+    // door so it DOMINATES the screen, while the two flanking statues stay just
+    // inside the left/right edges.
     localTexture.repeat.set(
-      THREE.MathUtils.lerp(1, 0.48, selectionProgress),
-      THREE.MathUtils.lerp(1, 0.6, selectionProgress),
+      THREE.MathUtils.lerp(1, 0.34, selectionProgress), // width: door + statues at the sides
+      THREE.MathUtils.lerp(1, 0.4, selectionProgress), // height: door dominates the frame
     );
     localTexture.offset.set(
-      THREE.MathUtils.lerp(0, 0.26, selectionProgress),
-      THREE.MathUtils.lerp(0, 0.0, selectionProgress),
+      THREE.MathUtils.lerp(0, 0.33, selectionProgress), // centre horizontally on the door
+      THREE.MathUtils.lerp(0, 0.34, selectionProgress), // raise window onto the door (off the courtyard)
     );
 
     if (portalRef.current) {
