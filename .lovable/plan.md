@@ -1,37 +1,58 @@
-# Fix line-check assessment + bracket rendering
+## Goal
 
-Two independent fixes on the student assessment board.
+Make "Check line" a **two-phase verification** on the student assessment board, and remove the duplicate left-edge line indicators (keep only the top tracker).
 
-## 1. Line check should assess by line tag, not board position
+```text
+Check line
+   │
+   ▼
+Collect this line's floating numbers (its tag fragments)
+   │
+   ▼
+All of them used in the written line?  ── No ──▶ ⚠ Toast: "Line incomplete"
+   │                                              lists the UNUSED floating numbers.
+   Yes                                            Stop. No server call. No green.
+   │
+   ▼
+Mathematical validation (existing grade-assessment call)
+   │                                  └─ wrong ─▶ ❌ Toast: "Error in your solution"
+   ▼
+✓ Line verified → mark solved, advance to next line, update top tracker
+```
 
-### Problem
-Today, when a student taps **Check**, the code grabs the *k-th written physical row* in the band (`writtenRows[activeLineIdx]`) and grades that. This breaks when the student writes the line anywhere on the board, or when rows aren't in strict top-to-bottom order — the checker "can't find" the line.
+## Phase 1 — Floating-number usage check (new, client-side)
 
-### How it should work
-Every floating number already belongs to a specific line (the reservoir stores each line's chips as `fragments[fragmentStart..fragmentEnd]`). When checking line N:
+In `src/components/smartboard/PresentationView.tsx` → `checkActiveLine`, before any `grade-assessment` call:
 
-1. Build the **expected chip multiset** for line N from its own fragments (its tag), e.g. line 2 = `{5x, +4y, =, 13}` — distinct from the same-looking chips on other lines.
-2. Scan every written row in the active band and compute each row's chip multiset (via `rowToAscii` + `extractTermsFromAscii`).
-3. **Locate** the one row whose chips match line N's expected set (exact multiset match preferred; otherwise the row with the highest overlap of line-N chips). That row is the student's line N — wherever it physically sits.
-4. If line N's chips are **scattered** across multiple rows (no single row contains a complete equation made of them), reject with a clear message ("Arrange all of line N's terms on one line") instead of silently grading the wrong row.
-5. Send that located row's arrangement to the existing `grade-assessment` function exactly as today (server still holds the hidden key and decides correctness/structure).
+1. Get the active line's own tag: `target.fragmentStart`/`target.fragmentEnd` slice of `activeReservoir.fragments`. This is the exact set of floating numbers assigned to this line (e.g. line 4 = `5, −, 2, =, 3`).
+2. Locate the student's row by **tag match** (not physical position): scan every written row in the active band, normalise each row's chips, and pick the row whose chips overlap this line's expected fragments the most. This fixes the "line 4 visually exists but isn't recognised" bug — the student can write the line anywhere.
+3. Build the **used multiset** from that located row (`extractTermsFromAscii(ascii)` → term strings) and compare against the **expected multiset** of the line's fragments, using a shared normaliser (strip spaces, unicode minus → `-`, `×`→`*`, `÷`→`/`, drop leading `+`, treat `=` as a token) so `5`, `−2`, `=`, `3` compare correctly across the two formats.
+4. Compute `unusedTokens = expected − used` (multiset difference).
+   - If `unusedTokens.length > 0`: show a warning toast — `⚠ Line incomplete` with description listing the unused floating numbers (their display glyphs, e.g. `= , 3`). **Return early** — no server call, no status change, line stays not-green.
+   - If empty: continue to Phase 2.
 
-This means: the student can start at the top-left, drop down to the bottom, write line 2 there — the checker finds it by tag and marks it. Scattered terms (ax² on one row, bx on the next, c below) are detected and refused because they don't form one line.
+## Phase 2 — Mathematical validation (existing, unchanged server logic)
 
-### Where
-- `src/components/smartboard/PresentationView.tsx` → `checkActiveLine` (around lines 1286-1345). Replace the positional `writtenRows[activeLineIdx]` selection with the tag-based locate-and-match logic above. The expected chip set comes from `activeReservoir.fragments` sliced by `target.fragmentStart/fragmentEnd`, normalised the same way the grader normalises chips. Keep the existing "complete equation / has =" guard and the `grade-assessment` call unchanged.
-- No server/answer-key change — grading stays server-authoritative.
+Only reached when all floating numbers are used:
+- Send the located row's `arrangement` + `studentAscii` to `grade-assessment` exactly as today (server still owns the hidden key).
+- `correct: false` → error toast (`❌ Error in your solution — check your operation`).
+- `correct: true` → mark slot solved, set score, advance `activeLineIdx`/`floatingLineIdx`, move sensor/cursor to the next line, success toast. (Top tracker updates automatically from `solvedSlots`.)
 
-## 2. Bracket structure renders raised like an exponent
+## Remove duplicate left indicators
 
-### Problem
-Insert a bracket from the structure menu, type inside it, and the content floats up as if it were a superscript. Cause: in `BracketView` the wrapper uses `alignItems: "center"` together with `verticalAlign: "baseline"`. A centered inline-flex box has no real baseline, so the browser synthesises one at its bottom edge and the whole bracket gets pushed above the text baseline. (Fractions don't have this bug because they use `verticalAlign: "middle"`.)
+- In `PresentationView.tsx`, remove the `<LineStatusRail …>` render block (around lines 2049–2059) so the left-edge per-line bulbs no longer appear in **either** assessment or teacher-verify mode (per your choice). The top progress strip (the `○ ○ ○ ○ ○` → `✓ ✓ ✓ ○ ○` ticks at lines 2658–2677) remains the single source of line status.
+- Leave `lineStatusMap` / `assessLineStatusMap` computations in place (cheap, harmless) or drop the now-unused rail import; the visual rail is what goes.
 
-### Fix
-- `src/components/smartboard/MathTreeRender.tsx` → `BracketView`: change `verticalAlign: "baseline"` to `verticalAlign: "middle"` (matching the working `frac`/`matrix`/`binom` views) so a bracket and its contents sit at the same height as the surrounding numbers. This also fixes `abs`, `norm`, `floor`, `ceil` (all built as bracket nodes).
-- Audit the other container views for the same height behaviour: `frac`, `matrix`, `binom` already use `middle` (correct); `power`/`sup`/`sub` are intentionally raised/lowered (correct). Adjust `sqrt` only if it shows the same raised-content symptom after the bracket fix.
+## Technical notes
+
+- Expected fragments source: `activeReservoir.fragments.slice(target.fragmentStart, target.fragmentEnd)` — already unicode-normalised by `cleanFragments`.
+- Used terms source: `extractTermsFromAscii(rowToAscii(row)).map(t => t.ascii)` — ascii-flavoured; the shared normaliser bridges the two formats (mirrors the server's `normChip`).
+- A small helper `normChip(s)` + multiset compare (count map) added locally in `PresentationView.tsx`; no backend change.
+- Row location reuses the existing band scan (`bandStart`/`bandEnd`, `freeLines`) but selects by best fragment overlap instead of `writtenRows[activeLineIdx]`.
 
 ## Verification
-- Reload the student assessment board.
-- Insert a bracket, type a value: content sits inline at number height (not raised).
-- Write line 2's terms anywhere on the board and tap Check: it is found by tag and graded; scattering the terms across rows is rejected with a clear message.
+
+- On a line with missing chips (e.g. wrote `5 − 2`, missing `=`, `3`): tapping Check shows `⚠ Line incomplete` listing `=`, `3`; line stays un-marked; no network call to `grade-assessment`.
+- After completing the line (`5 − 2 = 3`): Check proceeds to grading; correct → green tick on top tracker + next line unlocked; wrong → error toast.
+- Left edge shows no per-line bulbs; only the top tracker reflects progress.
+- Writing line 4 anywhere on the board is still found and graded (tag match).
