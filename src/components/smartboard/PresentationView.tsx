@@ -175,6 +175,71 @@ const PresentationView = ({
   const beats = assessmentMode && source ? source.beats : notebookBeats;
   const reservoirs = assessmentMode && source ? source.reservoirs : notebookReservoirs;
 
+  // ── Assessment grading state (assessment mode only) ──────────────────────
+  // `solvedSlots` keys are `${questionId}:${lineId}`; the value is the marks
+  // awarded. Score + total are derived from this map / the assessment payload.
+  const [solvedSlots, setSolvedSlots] = useState<Record<string, number>>({});
+  const [assessScore, setAssessScore] = useState(0);
+  const [assessChecking, setAssessChecking] = useState(false);
+  // Per-line "wrong" flash keyed by absolute board line number.
+  const [wrongLine, setWrongLine] = useState<number | null>(null);
+  const assessTotal = useMemo(
+    () =>
+      assessmentMode && source
+        ? source.reservoirs.reduce(
+            (sum, r) => sum + r.lines.reduce((s, l) => s + (Number(l.marks) || 0), 0),
+            0,
+          )
+        : 0,
+    [assessmentMode, source],
+  );
+
+  // Seed progress from the server on open + follow live updates.
+  useEffect(() => {
+    if (!assessmentMode || !assessmentId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) return;
+      const { data: prog } = await supabase
+        .from("assessment_progress")
+        .select("solved_lines, score")
+        .eq("assessment_id", assessmentId)
+        .eq("student_id", uid)
+        .maybeSingle();
+      if (cancelled) return;
+      setSolvedSlots(((prog?.solved_lines as Record<string, number>) ?? {}));
+      setAssessScore(Number(prog?.score ?? 0));
+    })();
+    return () => { cancelled = true; };
+  }, [assessmentMode, assessmentId]);
+
+  useEffect(() => {
+    if (!assessmentMode || !assessmentId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`assessment-progress-${assessmentId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "assessment_progress", filter: `assessment_id=eq.${assessmentId}` },
+          (payload) => {
+            const row = payload.new as { solved_lines?: Record<string, number>; score?: number } | null;
+            if (!row) return;
+            setSolvedSlots(row.solved_lines ?? {});
+            setAssessScore(Number(row.score ?? 0));
+          },
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  }, [assessmentMode, assessmentId]);
+
+
+
 
 
   const [beatCursor, setBeatCursor] = useState<number>(0);
