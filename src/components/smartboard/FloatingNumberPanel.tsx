@@ -151,7 +151,7 @@ interface Props {
 export const FloatingNumberPanel = ({
   chromeFg,
   reservoirs, viewIdx, activeIdx, visible,
-  onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx,
+  onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
   leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx,
   rememberedY, onCommitY, onPing, beatId,
   lineNumber, lineCount, onPrevLine, onNextLine,
