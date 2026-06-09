@@ -97,7 +97,7 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
-      .channel(`member-of-${userId}`)
+      .channel(`member-of-${userId}`, { config: { private: true } })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "class_members", filter: `user_id=eq.${userId}` },
