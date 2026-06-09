@@ -1319,7 +1319,7 @@ const PresentationView = ({
     setAssessChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke("grade-assessment", {
-        body: { assessmentId, questionId: current.id, lineId: target.lineId, arrangement },
+        body: { assessmentId, questionId: current.id, lineId: target.lineId, arrangement, studentAscii: ascii },
       });
       if (error) throw error;
       const res = data as { correct: boolean; score: number; solvedLines: Record<string, number> };
