@@ -255,8 +255,11 @@ const WorldSegment = ({
     }
     if (portalDoorGlowRef.current) {
       const glowMaterial = portalDoorGlowRef.current.material as THREE.MeshBasicMaterial;
-      glowMaterial.opacity = portalProgress * 0.88 * pulse;
-      portalDoorGlowRef.current.scale.set(1 + portalProgress * 0.16, 1 + portalProgress * 0.16, 1);
+      // Sustained glow that intensifies while paused in front of the door.
+      const glow = portalProgress * 0.88 + thunderProgress * 0.5;
+      glowMaterial.opacity = glow * pulse;
+      const glowScale = 1 + portalProgress * 0.16 + thunderProgress * 0.18;
+      portalDoorGlowRef.current.scale.set(glowScale, glowScale, 1);
     }
     if (portalRingARef.current) {
       const ringMaterial = portalRingARef.current.material as THREE.MeshBasicMaterial;
