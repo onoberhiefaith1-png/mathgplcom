@@ -35,6 +35,17 @@ const WORLD_RADIUS = 5.1; // radius of the connected cylinder world
 const WORLD_HEIGHT = 4.4; // shared height so every slice connects top & bottom
 const ringSpeed = (Math.PI * 2) / 60; // one full revolution ~60s — slow, cinematic
 
+// ── INNER CENTRAL CORE ────────────────────────────────────────────────────
+// One royal academy palace built from FOUR identical dome copies (N/S/E/W),
+// each wrapped onto a 90° curved slice of a smaller inner cylinder. The slices
+// overlap so their walls/roofs merge into a single continuous cylindrical core
+// that sits INSIDE the outer ring city and rotates locked to it.
+const CORE_SEGMENTS = 4;
+const CORE_SEG_ANGLE = (Math.PI * 2) / CORE_SEGMENTS; // 90° per dome copy
+const CORE_RADIUS = 2.55; // well inside the outer ring (5.1) → hidden behind towers
+const CORE_HEIGHT = 5.4; // taller than the city so the roof dominates the skyline
+const CORE_Y_OFFSET = 0.55; // lift so the roof crowns above the outer towers, base hidden
+
 // Each academy is a curved slice of the giant cylinder (a convex panel that
 // bends backward at both edges and projects forward at its centre). Segments
 // share radius + height, so they butt seamlessly with no sky gaps between them.
