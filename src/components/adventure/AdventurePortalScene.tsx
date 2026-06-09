@@ -28,6 +28,13 @@ const WORLD_RADIUS = 5.1;
 const WORLD_HEIGHT = 4.4;
 const ringSpeed = (Math.PI * 2) / 60;
 
+// ── INNER CENTRAL CORE (the middle royal palace building) ──────────────────
+const CORE_SEGMENTS = 12;
+const CORE_SEG_ANGLE = (Math.PI * 2) / CORE_SEGMENTS;
+const CORE_RADIUS = 2.55;
+const CORE_HEIGHT = 5.4;
+const CORE_Y_OFFSET = 0.95;
+
 const smoothstep = (edge0: number, edge1: number, x: number) => {
   const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
   return t * t * (3 - 2 * t);
