@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useNavigate } from "react-router-dom";
@@ -10,118 +10,75 @@ import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.jso
 import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 
-// The six academies cycle through the showcase, but only TWO are ever rendered
-// at once (one Front, one Back). Front displays each island in this order over
-// time as the carousel turns; the hidden swap happens while an island faces away.
+// ONE continuous floating mathematical world: eight curved segments tiled
+// edge-to-edge around a single cylinder so the academies read as one connected
+// civilization in the sky — never as separate floating islands.
+//
+// Subjects are the primary destinations; MathGPL hubs fill the remaining
+// positions and act as transition/branding hubs between subjects.
+//   Algebra → MathGPL → Geometry → MathGPL → Trigonometry → MathGPL → Statistics → Calculus
 const academies = [
-  { slug: "mathgpl", image: mathgplPalace.url, hero: true, route: "/teaching-hub" },
   { slug: "algebra", image: algebraIsland.url, route: "/subjects/algebra" },
-  { slug: "trigonometry", image: trigonometryIsland.url, route: "/subjects/trigonometry" },
-  { slug: "statistics", image: statisticsIsland.url, route: "/subjects/statistics" },
+  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
   { slug: "geometry", image: geometryIsland.url, route: "/subjects/geometry" },
+  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
+  { slug: "trigonometry", image: trigonometryIsland.url, route: "/subjects/trigonometry" },
+  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
+  { slug: "statistics", image: statisticsIsland.url, route: "/subjects/statistics" },
   { slug: "calculus", image: calculusIsland.url, route: "/subjects/calculus" },
 ];
 
-const ringRadius = 3.6;
-const ringSpeed = (Math.PI * 2) / 26; // one full island change per ~13s
+const SEGMENTS = academies.length; // 8
+const SEG_ANGLE = (Math.PI * 2) / SEGMENTS; // 45° per curved slice
+const WORLD_RADIUS = 5.1; // radius of the connected cylinder world
+const WORLD_HEIGHT = 4.4; // shared height so every slice connects top & bottom
+const ringSpeed = (Math.PI * 2) / 60; // one full revolution ~60s — slow, cinematic
 
-// Soft radial shadow blob (canvas texture) used as the contact shadow beneath each island.
-const makeShadowTexture = () => {
-  const size = 256;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, "rgba(40,20,70,0.55)");
-  grad.addColorStop(0.5, "rgba(40,20,70,0.22)");
-  grad.addColorStop(1, "rgba(40,20,70,0)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-};
-
-type SlotProps = {
+// Each academy is a curved slice of the giant cylinder (a convex panel that
+// bends backward at both edges and projects forward at its centre). Segments
+// share radius + height, so they butt seamlessly with no sky gaps between them.
+const WorldSegment = ({
+  texture,
+  index,
+  interactive,
+  onActivate,
+  onHoverChange,
+}: {
   texture: THREE.Texture;
-  baseAngle: number; // 0 = starts at front, PI = starts at back
-  thetaRef: React.MutableRefObject<number>;
-  shadowTexture: THREE.Texture;
+  index: number;
   interactive: boolean;
-  onActivate: () => void;
+  onActivate: (index: number) => void;
   onHoverChange: (hovered: boolean) => void;
-};
-
-// A single floating island plane that orbits the central axis, always facing
-// radially outward (Front faces the camera, Back faces away).
-const IslandSlot = ({ texture, baseAngle, thetaRef, shadowTexture, interactive, onActivate, onHoverChange }: SlotProps) => {
-  const groupRef = useRef<THREE.Group>(null);
-  const matRef = useRef<THREE.MeshBasicMaterial>(null);
-  const shadowMatRef = useRef<THREE.MeshBasicMaterial>(null);
-
-  const aspect = useMemo(() => {
-    const img = texture.image as HTMLImageElement | undefined;
-    if (img && img.width && img.height) return img.width / img.height;
-    return 1.4;
-  }, [texture]);
-
-  const planeWidth = 4.4;
-  const planeHeight = planeWidth / aspect;
-
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const phi = thetaRef.current + baseAngle;
-    const x = Math.sin(phi) * ringRadius;
-    const z = Math.cos(phi) * ringRadius;
-    // 1 at front (facing camera), 0 at back (facing away).
-    const front = (Math.cos(phi) + 1) / 2;
-
-    const bob = Math.sin(state.clock.elapsedTime * 0.5 + baseAngle) * 0.12;
-    groupRef.current.position.set(x, bob - 0.1, z);
-    groupRef.current.rotation.y = phi; // face radially outward
-
-    // Depth cues: front island is larger + fully opaque, back island recedes.
-    const scale = 0.78 + front * 0.34;
-    groupRef.current.scale.setScalar(scale);
-
-    if (matRef.current) {
-      matRef.current.opacity = 0.18 + front * 0.82;
-    }
-    if (shadowMatRef.current) {
-      shadowMatRef.current.opacity = 0.1 + front * 0.4;
-    }
-  });
+}) => {
+  // A tiny angular overlap removes hairline seams between neighbouring slices.
+  const overlap = SEG_ANGLE * 0.04;
+  const thetaStart = index * SEG_ANGLE - overlap / 2;
+  const thetaLength = SEG_ANGLE + overlap;
 
   return (
-    <group ref={groupRef}>
-      <mesh
-        onPointerOver={(e: ThreeEvent<PointerEvent>) => {
-          if (!interactive) return;
-          e.stopPropagation();
-          onHoverChange(true);
-          document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => {
-          if (!interactive) return;
-          onHoverChange(false);
-          document.body.style.cursor = "default";
-        }}
-        onClick={(e: ThreeEvent<MouseEvent>) => {
-          if (!interactive) return;
-          e.stopPropagation();
-          onActivate();
-        }}
-      >
-        <planeGeometry args={[planeWidth, planeHeight]} />
-        <meshBasicMaterial ref={matRef} map={texture} transparent alphaTest={0.02} side={THREE.DoubleSide} toneMapped={false} />
-      </mesh>
-      {/* Soft contact shadow drifting just beneath the island */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -planeHeight / 2 - 0.15, 0]}>
-        <planeGeometry args={[planeWidth * 0.9, planeWidth * 0.5]} />
-        <meshBasicMaterial ref={shadowMatRef} map={shadowTexture} transparent depthWrite={false} />
-      </mesh>
-    </group>
+    <mesh
+      onPointerOver={(e: ThreeEvent<PointerEvent>) => {
+        if (!interactive) return;
+        e.stopPropagation();
+        onHoverChange(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        if (!interactive) return;
+        onHoverChange(false);
+        document.body.style.cursor = "default";
+      }}
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        if (!interactive) return;
+        e.stopPropagation();
+        onActivate(index);
+      }}
+    >
+      <cylinderGeometry
+        args={[WORLD_RADIUS, WORLD_RADIUS, WORLD_HEIGHT, 32, 1, true, thetaStart, thetaLength]}
+      />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} side={THREE.DoubleSide} toneMapped={false} />
+    </mesh>
   );
 };
 
@@ -153,104 +110,59 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   );
 };
 
-// Slow swirling purple energy trail ribbon around the showcase.
-const PurpleTrails = () => {
-  const groupRef = useRef<THREE.Group>(null);
-  useFrame((state) => {
-    if (groupRef.current) groupRef.current.rotation.y = state.clock.elapsedTime * 0.08;
-  });
-  const rings = useMemo(
-    () => [
-      { r: 4.6, y: 0.4, tilt: 0.2 },
-      { r: 5.2, y: -0.6, tilt: -0.15 },
-    ],
-    [],
-  );
-  return (
-    <group ref={groupRef}>
-      {rings.map((ring, i) => (
-        <mesh key={i} rotation={[Math.PI / 2 + ring.tilt, 0, 0]} position={[0, ring.y, 0]}>
-          <torusGeometry args={[ring.r, 0.012, 8, 120]} />
-          <meshBasicMaterial color="#b07cff" transparent opacity={0.5} blending={THREE.AdditiveBlending} depthWrite={false} />
-        </mesh>
-      ))}
-    </group>
-  );
-};
-
 const Showcase = () => {
-  const thetaRef = useRef(0);
+  const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
-  const shadowTexture = useMemo(() => makeShadowTexture(), []);
+  const frontIndexRef = useRef(0);
   const navigate = useNavigate();
   const { camera } = useThree();
 
-  const textures = useLoader(
-    THREE.TextureLoader,
-    academies.map((a) => a.image),
-  ) as THREE.Texture[];
-  textures.forEach((t) => {
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
-  });
-
-  // Slot A starts at the front, slot B starts at the back. Each slot tracks which
-  // academy it currently shows and swaps to the next queue item while hidden.
-  const [slotAIndex, setSlotAIndex] = useState(0);
-  const [slotBIndex, setSlotBIndex] = useState(1);
-  const queueRef = useRef(2); // next academy to reveal
-  const swappedRef = useRef({ a: false, b: false });
-
-  const frontIndexRef = useRef(0);
-  const slotAIndexRef = useRef(0);
-  const slotBIndexRef = useRef(1);
-  slotAIndexRef.current = slotAIndex;
-  slotBIndexRef.current = slotBIndex;
+  // Six unique textures; the three MathGPL hubs reuse the palace texture.
+  const uniqueUrls = useMemo(() => Array.from(new Set(academies.map((a) => a.image))), []);
+  const loaded = useLoader(THREE.TextureLoader, uniqueUrls) as THREE.Texture[];
+  const textureByUrl = useMemo(() => {
+    const map = new Map<string, THREE.Texture>();
+    uniqueUrls.forEach((url, i) => {
+      const t = loaded[i];
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      map.set(url, t);
+    });
+    return map;
+  }, [uniqueUrls, loaded]);
 
   useFrame((state, delta) => {
-    // Ease rotation to a gentle near-stop while a hovered island invites a click.
-    const targetSpeed = hoveredRef.current ? ringSpeed * 0.12 : ringSpeed;
+    if (!worldRef.current) return;
+    // Ease rotation to a gentle near-stop while a hovered academy invites a click.
+    const targetSpeed = hoveredRef.current ? ringSpeed * 0.1 : ringSpeed;
     speedRef.current = THREE.MathUtils.damp(speedRef.current, targetSpeed, 3.2, delta);
-    thetaRef.current += speedRef.current * delta;
+    worldRef.current.rotation.y += speedRef.current * delta;
 
+    // Determine which segment currently faces the camera (front = nearest +Z).
+    // Cylinder vertex angle: pos = (R·sinθ, y, R·cosθ); front faces camera at θ = 0.
     const twoPi = Math.PI * 2;
-    const phiA = (((thetaRef.current % twoPi) + twoPi) % twoPi);
-    const phiB = ((((thetaRef.current + Math.PI) % twoPi) + twoPi) % twoPi);
-
-    // Hidden-swap zone: an island is fully turned away near phi = PI.
-    const inBack = (phi: number) => Math.abs(phi - Math.PI) < 0.18;
-
-    if (inBack(phiA)) {
-      if (!swappedRef.current.a) {
-        const next = queueRef.current % academies.length;
-        setSlotAIndex(next);
-        queueRef.current = (queueRef.current + 1) % academies.length;
-        swappedRef.current.a = true;
+    const baseRot = worldRef.current.rotation.y;
+    let best = 0;
+    let bestCos = -Infinity;
+    for (let i = 0; i < SEGMENTS; i += 1) {
+      const center = i * SEG_ANGLE + SEG_ANGLE / 2 + baseRot;
+      const c = Math.cos(((center % twoPi) + twoPi) % twoPi);
+      if (c > bestCos) {
+        bestCos = c;
+        best = i;
       }
-    } else {
-      swappedRef.current.a = false;
     }
+    frontIndexRef.current = best;
 
-    if (inBack(phiB)) {
-      if (!swappedRef.current.b) {
-        const next = queueRef.current % academies.length;
-        setSlotBIndex(next);
-        queueRef.current = (queueRef.current + 1) % academies.length;
-        swappedRef.current.b = true;
-      }
-    } else {
-      swappedRef.current.b = false;
-    }
+    // Gentle breathing bob of the whole world for a living, floating feel.
+    worldRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.4) * 0.12;
 
-    // Track which slot is currently at the front for click navigation.
-    frontIndexRef.current = phiA < Math.PI / 2 || phiA > (3 * Math.PI) / 2 ? slotAIndexRef.current : slotBIndexRef.current;
-
-    // Subtle cinematic camera drift + parallax + breathing zoom.
+    // Subtle cinematic camera drift + parallax + breathing zoom. Never jarring.
     const t = state.clock.elapsedTime;
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.sin(t * 0.12) * 0.5, 2, delta);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, -0.25 + Math.sin(t * 0.17) * 0.18, 2, delta);
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, 9 + Math.sin(t * 0.1) * 0.35, 2, delta);
+    camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.sin(t * 0.12) * 0.45, 2, delta);
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, -0.2 + Math.sin(t * 0.17) * 0.16, 2, delta);
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, 10.5 + Math.sin(t * 0.1) * 0.35, 2, delta);
     camera.lookAt(0, 0, 0);
   });
 
@@ -262,34 +174,28 @@ const Showcase = () => {
   return (
     <>
       <ambientLight intensity={1.7} />
-      <pointLight position={[0, 1.2, 5]} intensity={18} color="#ffe0b0" distance={16} />
-      <pointLight position={[-3, 2.4, 1]} intensity={9} color="#c287ff" distance={15} />
-      <pointLight position={[3, -1.4, -2]} intensity={6} color="#87cefa" distance={15} />
+      <pointLight position={[0, 1.2, 7]} intensity={20} color="#ffe0b0" distance={20} />
+      <pointLight position={[-3, 2.4, 2]} intensity={9} color="#c287ff" distance={16} />
+      <pointLight position={[3, -1.4, -2]} intensity={6} color="#87cefa" distance={16} />
 
-      <FloatingParticles color="#ffe7c2" size={0.04} count={140} spread={14} />
-      <FloatingParticles color="#c79bff" size={0.055} count={90} spread={11} />
-      <PurpleTrails />
+      {/* Magical purple energy + floating mathematical sparks (no orbit rings). */}
+      <FloatingParticles color="#ffe7c2" size={0.04} count={140} spread={16} />
+      <FloatingParticles color="#c79bff" size={0.06} count={110} spread={13} />
 
-      <IslandSlot
-        texture={textures[slotAIndex]}
-        baseAngle={0}
-        thetaRef={thetaRef}
-        shadowTexture={shadowTexture}
-        interactive
-        onActivate={handleActivate}
-        onHoverChange={(h) => (hoveredRef.current = h)}
-      />
-      <IslandSlot
-        texture={textures[slotBIndex]}
-        baseAngle={Math.PI}
-        thetaRef={thetaRef}
-        shadowTexture={shadowTexture}
-        interactive
-        onActivate={handleActivate}
-        onHoverChange={(h) => (hoveredRef.current = h)}
-      />
+      <group ref={worldRef}>
+        {academies.map((academy, i) => (
+          <WorldSegment
+            key={i}
+            index={i}
+            texture={textureByUrl.get(academy.image)!}
+            interactive
+            onActivate={handleActivate}
+            onHoverChange={(h) => (hoveredRef.current = h)}
+          />
+        ))}
+      </group>
 
-      <fog attach="fog" args={["#e9b58f", 11, 22]} />
+      <fog attach="fog" args={["#e9b58f", 13, 26]} />
     </>
   );
 };
@@ -302,8 +208,7 @@ export const RotatingAdventureScene = () => (
       className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
       loading="eager"
     />
-    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.16),transparent_26%,transparent_72%,hsl(var(--background)/0.22))]" />
-    <Canvas camera={{ position: [0, -0.25, 9], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
+    <Canvas camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
       <Suspense fallback={null}>
         <Showcase />
       </Suspense>
