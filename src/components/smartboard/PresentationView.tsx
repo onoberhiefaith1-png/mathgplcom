@@ -1425,7 +1425,7 @@ const PresentationView = ({
         toast({ title: "✓ Line verified", description: `+${target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
-        toast({ title: "❌ Error in your solution", description: "Check your operation and try again.", variant: "destructive" });
+        toast({ title: "Error in your solution", description: "Please check your arrangement.", variant: "destructive" });
       }
     } catch (e: any) {
       toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
