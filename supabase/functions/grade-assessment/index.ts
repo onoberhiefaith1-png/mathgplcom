@@ -205,7 +205,16 @@ Deno.serve(async (req) => {
       return json({ error: "key_not_found" }, 404);
     }
 
-    const isCorrect = relationshipMatches(correct.tokens ?? [], arrangement);
+    // Fast path: constrained chip-multiset comparison. If that does not match,
+    // ask the AI for a second opinion on mathematical equivalence (the answer
+    // key never leaves the server). AI failures fall back to the fast result.
+    let isCorrect = relationshipMatches(correct.tokens ?? [], arrangement);
+    if (!isCorrect) {
+      const correctLine = (correct.tokens ?? []).join(" ").trim();
+      const studentLine = (studentAscii ?? arrangement.join(" ")).trim();
+      const aiVerdict = await aiLineEquivalent(studentLine, correctLine);
+      if (aiVerdict === true) isCorrect = true;
+    }
 
     // Load (or seed) this student's progress row, then update authoritatively.
     const { data: existing } = await admin
