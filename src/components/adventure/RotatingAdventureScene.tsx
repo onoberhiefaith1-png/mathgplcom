@@ -134,7 +134,7 @@ const CentralCore = () => {
   );
 };
 
-
+const FloatingParticles = ({ color, size, count, spread }: { color: string; size: number; count: number; spread: number }) => {
   const pointsRef = useRef<THREE.Points>(null);
   const vertices = useMemo(() => {
     const positions = new Float32Array(count * 3);
