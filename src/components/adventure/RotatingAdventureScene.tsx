@@ -9,6 +9,7 @@ import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
 import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
 import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
+import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
