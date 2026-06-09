@@ -2,32 +2,39 @@ import { Suspense, useMemo, useRef } from "react";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
+import academyClouds from "@/assets/academy_clouds.png";
 import algebraIsland from "@/assets/adventure/algebra-island.png.asset.json";
 import calculusIsland from "@/assets/adventure/calculus-island.png.asset.json";
 import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
 import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
 import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
-import academyClouds from "@/assets/academy_clouds.png";
+import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 
-const islands = [
-  { slug: "geometry", image: geometryIsland.url, scale: 2.8, y: -0.08 },
-  { slug: "algebra", image: algebraIsland.url, scale: 2.8, y: 0.06 },
-  { slug: "statistics", image: statisticsIsland.url, scale: 2.82, y: -0.02 },
-  { slug: "calculus", image: calculusIsland.url, scale: 2.84, y: 0.04 },
-  { slug: "trigonometry", image: trigonometryIsland.url, scale: 2.8, y: -0.04 },
+// Six identical-style building faces wrapped onto ONE cylinder so they mesh and
+// rotate together as a single structure (mirrors the homepage academy guide).
+const panels = [
+  { slug: "geometry", image: geometryIsland.url },
+  { slug: "algebra", image: algebraIsland.url },
+  { slug: "mathgpl", image: mathgplPalace.url },
+  { slug: "statistics", image: statisticsIsland.url },
+  { slug: "calculus", image: calculusIsland.url },
+  { slug: "trigonometry", image: trigonometryIsland.url },
 ];
 
-const ringRadius = 4.15;
-const ringSpeed = (Math.PI * 2) / 28;
+const panelArc = (Math.PI * 2) / panels.length;
+// Large enough that the building spans ~2/3 of the screen width.
+const adventureRadius = 3.85;
+const adventureHeight = 3.0;
+const ringSpeed = (Math.PI * 2) / 30;
 
 const AdventureParticles = () => {
   const pointsRef = useRef<THREE.Points>(null);
   const vertices = useMemo(() => {
-    const positions = new Float32Array(190 * 3);
-    for (let i = 0; i < 190; i += 1) {
-      positions[i * 3] = (Math.random() - 0.5) * 12;
+    const positions = new Float32Array(200 * 3);
+    for (let i = 0; i < 200; i += 1) {
+      positions[i * 3] = (Math.random() - 0.5) * 13;
       positions[i * 3 + 1] = Math.random() * 5 - 1.6;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 11;
     }
     return positions;
   }, []);
@@ -43,82 +50,61 @@ const AdventureParticles = () => {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={vertices.length / 3} array={vertices} itemSize={3} />
       </bufferGeometry>
-      <pointsMaterial size={0.035} color="#ffe0a6" transparent opacity={0.72} depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={0.035} color="#ffe0a6" transparent opacity={0.7} depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>
   );
 };
 
-const CloudBasin = ({ speedRef }: { speedRef: React.MutableRefObject<number> }) => {
+// Low cloud belt that hugs the base of the building and rotates with it, so the
+// cloud reads as part of the rotating structure (no spherical disk basin).
+const CloudFloor = ({ speedRef }: { speedRef: React.MutableRefObject<number> }) => {
   const groupRef = useRef<THREE.Group>(null);
   const texture = useLoader(THREE.TextureLoader, academyClouds);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2.2, 2.2);
+  texture.repeat.set(2.4, 2.4);
   texture.anisotropy = 8;
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    groupRef.current.rotation.y -= Math.abs(speedRef.current) * 0.82 * delta;
+    groupRef.current.rotation.y -= Math.abs(speedRef.current) * 0.85 * delta;
   });
 
   return (
-    <group ref={groupRef} position={[0, -1.9, 0]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-        <ringGeometry args={[1.25, 8.25, 128]} />
-        <meshBasicMaterial map={texture} transparent opacity={0.95} depthWrite={false} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.18, 0]}>
-        <circleGeometry args={[5.55, 128]} />
-        <meshBasicMaterial color="#f8dcc0" transparent opacity={0.13} depthWrite={false} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.32, 0]}>
-        <circleGeometry args={[4.6, 128]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.12} depthWrite={false} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.5, 0]}>
-        <ringGeometry args={[1.35, 6.25, 128]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.08} depthWrite={false} side={THREE.DoubleSide} />
+    <group ref={groupRef} position={[0, -adventureHeight / 2 - 0.05, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[adventureRadius - 0.6, adventureRadius + 5.2, 128]} />
+        <meshBasicMaterial map={texture} transparent opacity={0.92} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
 };
 
-const IslandPanel = ({ image, index, scale, yOffset }: { image: string; index: number; scale: number; yOffset: number }) => {
+const BuildingPanel = ({ image, index }: { image: string; index: number }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
   const texture = useLoader(THREE.TextureLoader, image);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
 
-  const aspect = texture.image ? texture.image.height / texture.image.width : 0.67;
-  const width = scale;
-  const height = scale * aspect;
-  const angle = -Math.PI / 2 + index * ((Math.PI * 2) / islands.length);
+  const thetaStart = -Math.PI / 2 - panelArc / 2 + index * panelArc;
+  const geometry = useMemo(
+    () => new THREE.CylinderGeometry(adventureRadius, adventureRadius, adventureHeight, 40, 8, true, thetaStart, panelArc),
+    [thetaStart],
+  );
 
-  useFrame((state, delta) => {
-    if (!meshRef.current || !glowRef.current) return;
-    const wave = Math.sin(state.clock.elapsedTime * 0.7 + index * 0.9) * 0.16;
-    meshRef.current.position.y = yOffset + wave;
-    glowRef.current.position.y = yOffset + wave;
-    meshRef.current.position.z = Math.cos(angle) * ringRadius;
-    glowRef.current.position.z = Math.cos(angle) * ringRadius - 0.04;
-    const targetScale = 1 + Math.sin(state.clock.elapsedTime * 0.55 + index) * 0.012;
-    meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 1 - Math.pow(0.001, delta));
-    glowRef.current.scale.lerp(new THREE.Vector3(targetScale * 1.03, targetScale * 1.03, 1), 1 - Math.pow(0.001, delta));
+  useFrame((state) => {
+    if (!meshRef.current) return;
+    // Subtle breathing so the building feels alive without breaking the seams.
+    const s = 1 + Math.sin(state.clock.elapsedTime * 0.5) * 0.006;
+    meshRef.current.scale.set(s, 1, s);
   });
 
   return (
-    <group position={[Math.sin(angle) * ringRadius, yOffset, Math.cos(angle) * ringRadius]} rotation={[0, angle, 0]}>
-      <mesh ref={glowRef} position={[0, 0, -0.04]}>
-        <planeGeometry args={[width * 1.06, height * 1.06]} />
-        <meshBasicMaterial color="#ffd06a" transparent opacity={0.18} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh ref={meshRef}>
-        <planeGeometry args={[width, height]} />
-        <meshBasicMaterial map={texture} transparent alphaTest={0.04} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
-      </mesh>
-    </group>
+    <mesh ref={meshRef}>
+      <primitive object={geometry} attach="geometry" />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.04} side={THREE.FrontSide} toneMapped={false} />
+    </mesh>
   );
 };
 
@@ -130,35 +116,27 @@ const AdventureStructure = () => {
   useFrame((state, delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y += speedRef.current * delta;
-      groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.42) * 0.05;
+      groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.4) * 0.05;
     }
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, 7.3, 2.8, delta);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, -0.38, 2.8, delta);
-    camera.lookAt(0, -0.1, 0);
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, 8.2, 2.8, delta);
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, -0.3, 2.8, delta);
+    camera.lookAt(0, 0.05, 0);
   });
 
   return (
     <>
-      <ambientLight intensity={1.9} />
-      <pointLight position={[0, -0.4, 3.4]} intensity={16} color="#ffd06a" distance={11} />
-      <pointLight position={[0, 3.2, 1.5]} intensity={8.5} color="#c287ff" distance={12} />
-      <pointLight position={[0, 1.4, -3]} intensity={5.5} color="#87cefa" distance={12} />
+      <ambientLight intensity={1.85} />
+      <pointLight position={[0, -0.6, 3.6]} intensity={20} color="#ffd06a" distance={13} />
+      <pointLight position={[0, 3.4, 1.6]} intensity={9} color="#c287ff" distance={13} />
+      <pointLight position={[0, 1.6, -3.2]} intensity={6} color="#87cefa" distance={13} />
       <AdventureParticles />
-      <CloudBasin speedRef={speedRef} />
+      <CloudFloor speedRef={speedRef} />
       <group ref={groupRef} position={[0, 0, 0]}>
-        {islands.map((island, index) => (
-          <IslandPanel key={island.slug} image={island.image} index={index} scale={island.scale} yOffset={island.y} />
+        {panels.map((panel, index) => (
+          <BuildingPanel key={panel.slug} image={panel.image} index={index} />
         ))}
       </group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.52, 0]}>
-        <ringGeometry args={[2.45, 5.65, 96]} />
-        <meshBasicMaterial color="#ffd06a" transparent opacity={0.1} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.32, 0]}>
-        <circleGeometry args={[3.85, 96]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.06} depthWrite={false} />
-      </mesh>
-      <fog attach="fog" args={["#f4b48f", 8, 17]} />
+      <fog attach="fog" args={["#f4b48f", 10, 20]} />
     </>
   );
 };
@@ -171,13 +149,12 @@ export const RotatingAdventureScene = () => (
       className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
       loading="eager"
     />
-    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.18),transparent_26%,transparent_72%,hsl(var(--background)/0.24))]" />
-    <Canvas camera={{ position: [0, -0.38, 7.3], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
+    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.16),transparent_26%,transparent_72%,hsl(var(--background)/0.22))]" />
+    <Canvas camera={{ position: [0, -0.3, 8.2], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
       <Suspense fallback={null}>
         <AdventureStructure />
       </Suspense>
     </Canvas>
-    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(var(--foreground)/0.02),transparent_44%,hsl(var(--background)/0.42)_100%)]" />
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_34%,hsl(var(--background)/0.62)_100%)]" />
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
   </main>
 );
