@@ -465,16 +465,74 @@ export const FloatingNumberPanel = ({
       {/* Side-note tooltip removed — prose is now written onto the board
           via onWriteNotebookToBoard. */}
       {(
-
       <div
         className="flex items-center select-none"
         style={{
           color: chromeFg,
           fontSize: 22,
-          gap: 10,
+          gap: 8,
           fontFamily: "ui-serif, Georgia, serif",
         }}
       >
+        {/* ── USED zone (left, muted grey, still clickable to undo) ── */}
+        {usedSlots.length > 0 && (
+          <div
+            className="flex items-center"
+            style={{
+              gap: 6,
+              padding: "2px 8px",
+              borderRadius: 10,
+              background: "#e5e7eb",
+              border: "1px solid #9ca3af",
+            }}
+            title="Used numbers — tap to return one"
+          >
+            {usedSlots.map(({ token, absIdx }, i) => {
+              const label = slotLabel(token);
+              if (label == null) return null;
+              const lineNo = lineNoOf(absIdx);
+              return (
+                <button
+                  key={`used-${viewIdx}-${absIdx}-${i}`}
+                  onClick={(e) => { e.stopPropagation(); handleUsedTap(absIdx); }}
+                  className="transition-transform hover:scale-110 active:scale-95 relative"
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    color: "#374151",
+                    padding: "0 2px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                  title="Return this number"
+                >
+                  <ChipLabel label={label} color="#374151" />
+                  {lineNo != null && (
+                    <span
+                      aria-hidden
+                      style={{
+                        position: "absolute", right: -2, bottom: -6,
+                        fontSize: 10, lineHeight: 1, opacity: 0.45,
+                        color: "#374151", fontWeight: 700,
+                        pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
+                      }}
+                    >
+                      {lineNo}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* divider between USED and ACTIVE */}
+        {usedSlots.length > 0 && (
+          <span style={{ width: 1, height: 22, background: `color-mix(in oklab, ${chromeFg} 25%, transparent)` }} />
+        )}
+
+        {/* ── ACTIVE zone (middle, working chips) ── */}
         <button
           onClick={(e) => { e.stopPropagation(); if (canPrev) { setOffset((o) => o - 1); onPing(); } }}
           disabled={!canPrev}
@@ -488,36 +546,18 @@ export const FloatingNumberPanel = ({
         >
           <ChevronLeft size={22} />
         </button>
-        {windowed.length === 0 ? (
-          <span style={{ opacity: 0.5, fontSize: 13 }}>no floating numbers</span>
-        ) : windowed.map(({ token, absIdx }, i) => {
-          const cleaned = toUnicodeMath(token);
-          if (!cleaned || isStillDirty(cleaned)) return null;
-          const term = extractTermsFromAscii(cleaned)[0];
-          // After shuffling we no longer know the "first" position — keep
-          // each chip's leading sign so the math reads correctly.
-          const label = term
-            ? renderTermLabel(term, { isFirst: false, prevWasEquals: false })
-            : cleaned;
-          const isConsumed = !!consumedAbsIdx?.has(absIdx);
-          // Derive the line number (1-based) that owns this fragment.
-          let lineNo: number | null = null;
-          if (lines.length > 0) {
-            for (let li = 0; li < lines.length; li++) {
-              const ln = lines[li];
-              if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) {
-                lineNo = li + 1;
-                break;
-              }
-            }
-          }
+        {activeWindow.length === 0 ? (
+          <span style={{ opacity: 0.5, fontSize: 13 }}>
+            {usedSlots.length > 0 ? "all used" : "no floating numbers"}
+          </span>
+        ) : activeWindow.map(({ token, absIdx }, i) => {
+          const label = slotLabel(token);
+          if (label == null) return null;
+          const lineNo = lineNoOf(absIdx);
           return (
             <button
               key={`fn-${viewIdx}-${absIdx}-${i}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTokenTap(label);
-              }}
+              onClick={(e) => { e.stopPropagation(); handleActiveTap(label, absIdx); }}
               className="transition-transform hover:scale-110 active:scale-95 relative"
               style={{
                 background: "transparent",
@@ -535,16 +575,10 @@ export const FloatingNumberPanel = ({
                 <span
                   aria-hidden
                   style={{
-                    position: "absolute",
-                    right: -2,
-                    bottom: -6,
-                    fontSize: 10,
-                    lineHeight: 1,
-                    opacity: 0.35,
-                    color: chromeFg,
-                    fontWeight: 700,
-                    pointerEvents: "none",
-                    fontFamily: "ui-sans-serif, system-ui",
+                    position: "absolute", right: -2, bottom: -6,
+                    fontSize: 10, lineHeight: 1, opacity: 0.35,
+                    color: chromeFg, fontWeight: 700,
+                    pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
                   }}
                 >
                   {lineNo}
@@ -566,6 +600,27 @@ export const FloatingNumberPanel = ({
         >
           <ChevronRight size={22} />
         </button>
+
+        {/* ── UPCOMING zone (right, dimmed, waiting to flow into ACTIVE) ── */}
+        {upcomingWindow.length > 0 && (
+          <>
+            <span style={{ width: 1, height: 22, background: `color-mix(in oklab, ${chromeFg} 25%, transparent)` }} />
+            <div className="flex items-center" style={{ gap: 6, opacity: 0.4 }} title="Coming up next">
+              {upcomingWindow.map(({ token, absIdx }, i) => {
+                const label = slotLabel(token);
+                if (label == null) return null;
+                return (
+                  <span
+                    key={`up-${viewIdx}-${absIdx}-${i}`}
+                    style={{ color: chromeFg, padding: "0 1px", display: "inline-flex", alignItems: "center" }}
+                  >
+                    <ChipLabel label={label} color={chromeFg} />
+                  </span>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
       )}
 
