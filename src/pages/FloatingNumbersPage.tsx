@@ -443,7 +443,65 @@ const FloatingNumbersPage = () => {
             </button>
           </div>
         </div>
+
+        {/* Scoring strip */}
+        <div
+          className="max-w-5xl mx-auto px-6 pb-2 flex items-center gap-3 flex-wrap"
+          style={{ color: "hsl(220 35% 18%)" }}
+        >
+          <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/55">Scoring</span>
+
+          <select
+            value={scoring.label}
+            onChange={(e) => updateScoring({ label: e.target.value })}
+            className="text-sm rounded-md px-2 py-1 border border-foreground/20 bg-transparent"
+            title="What to call the score"
+          >
+            {SCORE_LABELS.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+
+          <div className="inline-flex rounded-md overflow-hidden border border-foreground/20">
+            <button
+              onClick={() => updateScoring({ mode: "equal" })}
+              className="text-xs px-2.5 py-1"
+              style={scoring.mode === "equal"
+                ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
+                : { color: "hsl(220 35% 18%)" }}
+            >
+              Equal
+            </button>
+            <button
+              onClick={() => updateScoring({ mode: "individual" })}
+              className="text-xs px-2.5 py-1"
+              style={scoring.mode === "individual"
+                ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
+                : { color: "hsl(220 35% 18%)" }}
+            >
+              Individual
+            </button>
+          </div>
+
+          {scoring.mode === "equal" && (
+            <label className="inline-flex items-center gap-1.5 text-sm">
+              <span className="text-foreground/60">{scoring.label} per line</span>
+              <input
+                type="number"
+                min={0}
+                value={scoring.marksPerLine}
+                onChange={(e) => updateScoring({ marksPerLine: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                className="w-16 text-center text-sm rounded-md px-1.5 py-0.5 border border-foreground/20 bg-transparent tabular-nums"
+              />
+            </label>
+          )}
+
+          <div className="ml-auto text-sm font-semibold tabular-nums">
+            Total Available = {total} {scoring.label}
+          </div>
+        </div>
       </div>
+
 
       {/* Notebook page */}
       <div className="max-w-5xl mx-auto px-6 py-8">
