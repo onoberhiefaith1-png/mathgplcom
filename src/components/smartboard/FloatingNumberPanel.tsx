@@ -501,7 +501,8 @@ export const FloatingNumberPanel = ({
                   style={{
                     background: "transparent",
                     border: 0,
-                    color: "#374151",
+                    color: "#065f46",
+                    opacity: 0.8,
                     padding: "0 2px",
                     cursor: "pointer",
                     display: "inline-flex",
