@@ -358,7 +358,7 @@ const AcademyStructure = () => {
   );
 };
 
-export const RotatingAcademyScene = () => (
+export const RotatingBuildingArchive = () => (
   <main className="cinematic-sky relative h-screen w-screen overflow-hidden animate-fade-in">
     <img
       src={academyBackground}
