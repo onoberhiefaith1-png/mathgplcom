@@ -1904,6 +1904,11 @@ const PresentationView = ({
               defaultY = Math.max(upperBound, Math.min(defaultY, bandDefaultY));
             }
 
+            // Structure panel sits ~1.6 lines higher than the floating-number
+            // strip so it never collides with the fixed bottom-right Check
+            // button in assessment mode. Still draggable afterwards.
+            const structureDefaultY = Math.max(upperBound, defaultY - grid.LINE_HEIGHT * 1.6);
+
             const beatKey = current.id;
             const fnY = assistantYByBeat[`numbers:${beatKey}`] ?? null;
             const stY = assistantYByBeat[`structures:${beatKey}`] ?? null;
