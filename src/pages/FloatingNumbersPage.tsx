@@ -88,6 +88,7 @@ const FloatingNumbersPage = () => {
 
   const [fromHighlights, setFromHighlights] = useState(false);
   const [highlightsData, setHighlightsData] = useState<{ groupId: number; payload: string }[]>([]);
+  const [scoring, setScoring] = useState<FloatingScoring>(DEFAULT_SCORING);
 
   useEffect(() => {
     (async () => {
