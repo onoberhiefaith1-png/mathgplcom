@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 export type BoardSnapshot = {
   v: number;
