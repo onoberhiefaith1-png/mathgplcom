@@ -109,12 +109,12 @@ const StudentClassPage = () => {
 
       if (cancelled) return;
       setCls(classRow as ClassRow);
-      await loadNotes();
+      await Promise.all([loadNotes(), loadAssignments()]);
       if (cancelled) return;
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [classId, navigate, loadNotes]);
+  }, [classId, navigate, loadNotes, loadAssignments]);
 
   // Live: note grant / removal / visibility toggle reflects instantly.
   useEffect(() => {
