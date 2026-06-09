@@ -530,65 +530,9 @@ export const FloatingNumberPanel = ({
           fontFamily: "ui-serif, Georgia, serif",
         }}
       >
-        {/* ── USED zone (left, mint green, still clickable to undo) ── */}
-        {usedSlots.length > 0 && (
-          <div
-            className="flex items-center"
-            style={{
-              gap: 6,
-              padding: "2px 8px",
-              borderRadius: 10,
-              background: "#d1fae5",
-              border: "1px solid #6ee7b7",
-              maxWidth: 200,
-              overflowX: "auto",
-            }}
-            title="Used numbers — tap to return one"
-          >
-            {usedSlots.map(({ token, absIdx }, i) => {
-              const label = slotLabel(token);
-              if (label == null) return null;
-              const lineNo = lineNoOf(absIdx);
-              return (
-                <button
-                  key={`used-${viewIdx}-${absIdx}-${i}`}
-                  onClick={(e) => { e.stopPropagation(); handleUsedTap(absIdx); }}
-                  className="transition-transform hover:scale-110 active:scale-95 relative"
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: "#065f46",
-                    opacity: 0.8,
-                    padding: "0 2px",
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                  }}
-                  title="Return this number"
-                >
-                  <ChipLabel label={label} color="#065f46" />
-                  {lineNo != null && (
-                    <span
-                      aria-hidden
-                      style={{
-                        position: "absolute", right: -2, bottom: -6,
-                        fontSize: 10, lineHeight: 1, opacity: 0.5,
-                        color: "#065f46", fontWeight: 700,
-                        pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
-                      }}
-                    >
-                      {lineNo}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-
-
-        {/* ── ACTIVE zone (middle, white container, working chips) ── */}
+        {/* ── ONE strip: ◀ Backward · 5 numbers · Forward ▶ ──
+            Numbers outside this window are hidden. Used numbers only appear
+            (green) when revealed via Backward; tapping one returns it. */}
         <div
           className="flex items-center"
           style={{
@@ -599,12 +543,13 @@ export const FloatingNumberPanel = ({
             border: "1px solid #d1d5db",
             boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
           }}
-          title="Active numbers — tap to use"
+          title="Floating numbers — tap to use"
         >
           <button
-            onClick={(e) => { e.stopPropagation(); if (canPrev) { setOffset((o) => o - 1); onPing(); } }}
+            onClick={(e) => { e.stopPropagation(); if (canPrev) { goBackward(); onPing(); } }}
             disabled={!canPrev}
-            title="Scroll backward"
+            title="Backward"
+            aria-label="Backward"
             style={{
               background: "transparent", border: 0, color: "#374151",
               padding: 0, opacity: canPrev ? 1 : 0.25,
@@ -614,38 +559,44 @@ export const FloatingNumberPanel = ({
           >
             <ChevronLeft size={22} />
           </button>
-          {activeWindow.length === 0 ? (
+          {windowSlots.length === 0 ? (
             <span style={{ opacity: 0.5, fontSize: 13, color: "#374151" }}>
-              {usedSlots.length > 0 ? "all used" : "no floating numbers"}
+              no floating numbers
             </span>
-          ) : activeWindow.map(({ token, absIdx }, i) => {
+          ) : windowSlots.map(({ token, absIdx, used }, i) => {
             const label = slotLabel(token);
             if (label == null) return null;
             const lineNo = lineNoOf(absIdx);
+            const ink = used ? "#065f46" : "#111827";
             return (
               <button
                 key={`fn-${viewIdx}-${absIdx}-${i}`}
-                onClick={(e) => { e.stopPropagation(); handleActiveTap(label, absIdx); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (used) handleUsedTap(absIdx);
+                  else handleActiveTap(label, absIdx);
+                }}
                 className="transition-transform hover:scale-110 active:scale-95 relative"
                 style={{
-                  background: "transparent",
-                  border: 0,
-                  color: "#111827",
-                  padding: "0 2px",
-                  opacity: 1,
+                  background: used ? "#d1fae5" : "transparent",
+                  border: used ? "1px solid #6ee7b7" : "1px solid transparent",
+                  borderRadius: 8,
+                  color: ink,
+                  padding: "0 4px",
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
                 }}
+                title={used ? "Already used — tap to return it" : "Tap to use"}
               >
-                <ChipLabel label={label} color="#111827" />
+                <ChipLabel label={label} color={ink} />
                 {lineNo != null && (
                   <span
                     aria-hidden
                     style={{
                       position: "absolute", right: -2, bottom: -6,
-                      fontSize: 10, lineHeight: 1, opacity: 0.4,
-                      color: "#111827", fontWeight: 700,
+                      fontSize: 10, lineHeight: 1, opacity: used ? 0.5 : 0.4,
+                      color: ink, fontWeight: 700,
                       pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
                     }}
                   >
@@ -656,9 +607,10 @@ export const FloatingNumberPanel = ({
             );
           })}
           <button
-            onClick={(e) => { e.stopPropagation(); if (canNext) { setOffset((o) => o + 1); onPing(); } }}
+            onClick={(e) => { e.stopPropagation(); if (canNext) { goForward(); onPing(); } }}
             disabled={!canNext}
-            title="Scroll forward"
+            title="Forward"
+            aria-label="Forward"
             style={{
               background: "transparent", border: 0, color: "#374151",
               padding: 0, opacity: canNext ? 1 : 0.25,
@@ -669,37 +621,6 @@ export const FloatingNumberPanel = ({
             <ChevronRight size={22} />
           </button>
         </div>
-
-        {/* ── UPCOMING zone (right, light grey container, waiting to flow in) ── */}
-        {upcomingWindow.length > 0 && (
-          <div
-            className="flex items-center"
-            style={{
-              gap: 6,
-              padding: "2px 8px",
-              borderRadius: 10,
-              background: "#f3f4f6",
-              border: "1px solid #e5e7eb",
-              maxWidth: 220,
-              overflowX: "auto",
-              opacity: 0.75,
-            }}
-            title="Coming up next"
-          >
-            {upcomingWindow.map(({ token, absIdx }, i) => {
-              const label = slotLabel(token);
-              if (label == null) return null;
-              return (
-                <span
-                  key={`up-${viewIdx}-${absIdx}-${i}`}
-                  style={{ color: "#6b7280", padding: "0 1px", display: "inline-flex", alignItems: "center" }}
-                >
-                  <ChipLabel label={label} color="#6b7280" />
-                </span>
-              );
-            })}
-          </div>
-        )}
       </div>
       )}
 
