@@ -474,7 +474,7 @@ export const FloatingNumberPanel = ({
           fontFamily: "ui-serif, Georgia, serif",
         }}
       >
-        {/* ── USED zone (left, muted grey, still clickable to undo) ── */}
+        {/* ── USED zone (left, mint green, still clickable to undo) ── */}
         {usedSlots.length > 0 && (
           <div
             className="flex items-center"
@@ -482,8 +482,10 @@ export const FloatingNumberPanel = ({
               gap: 6,
               padding: "2px 8px",
               borderRadius: 10,
-              background: "#e5e7eb",
-              border: "1px solid #9ca3af",
+              background: "#d1fae5",
+              border: "1px solid #6ee7b7",
+              maxWidth: 200,
+              overflowX: "auto",
             }}
             title="Used numbers — tap to return one"
           >

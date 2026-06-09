@@ -1,60 +1,65 @@
-# Floating-Number Conveyor + Tap-Driven Check Line
+# Floating Number System — Visible 3-Zone Conveyor
 
-Rebuild the floating-number strip into a three-zone conveyor and make a token's **used** state the single source of truth for both the UI and Check Line. No AI, no OCR, no equation scanning needed to know whether a token was used — the tap is the proof.
+## Goal
+The conveyor logic and the state-driven Check Line already exist, but the three zones are not visually distinct, so used numbers look invisible until you scroll. This makes the three zones always clearly visible and styled per your spec, keeps the conveyor + Check Line behavior, and scales to 50+ numbers.
 
-## How it works
+## Zone layout (per active line)
 
 ```text
-   USED (grey)        ACTIVE (working, 5 max)        UPCOMING (waiting)
- ┌───────────┐  ┌─────────────────────────────┐  ┌────────────────────┐
- │ 2x  =     │  │  [-] [11] [5] [÷] [3]        │  │  x + 7 4 9 …       │
- └───────────┘  └─────────────────────────────┘  └────────────────────┘
-        ▲                    │ tap "11"
-        └────────────────────┘  (11 → USED, next upcoming slides into ACTIVE)
+   USED (mint green)        ACTIVE (white, 5 max)        UPCOMING (light grey)
+ ┌──────────────────┐  ┌───────────────────────────┐  ┌──────────────────────┐
+ │  2x   =          │  │  ◀ [11] [-] [5] [÷] [3] ▶ │  │  7  +  9  4  8  1 …  │
+ └──────────────────┘  └───────────────────────────┘  └──────────────────────┘
 ```
 
-- **Scope:** per active line (the current line's own floating numbers only), matching how Check Line already grades line by line.
-- **Tap a token in ACTIVE** → it inserts onto the board (as today) AND is marked **used**: it moves into the USED zone, and the next UPCOMING token slides into ACTIVE so there are always up to 5 working tokens, no scrolling.
-- **USED zone (left):** muted grey background (`#e5e7eb` bg, `#9ca3af` border, `#374151` text), tokens still fully visible and clickable.
-- **Tap a token in the USED zone** → un-mark it (returns to ACTIVE as available). The student erases it from the board themselves.
-- **UPCOMING zone (right):** the line's remaining not-yet-used tokens, shown dimmed; they are not directly tappable, they just flow into ACTIVE as space frees up.
+- **Used zone (left):** mint green background, numbers shown at slightly reduced opacity, still clickable to undo (returns the number to Active). Always visible whenever at least one number is used — no scrolling needed to see what's been used.
+- **Active zone (center):** white background, exactly up to 5 working numbers, in the board ink color. Tapping one inserts it on the board and sends it to the Used zone.
+- **Upcoming zone (right):** light grey background, dimmed, shows the not-yet-used numbers waiting to flow in. Not directly tappable.
 
-## Check Line becomes a state read
+## Conveyor behavior (already works — kept and verified)
+When a number is tapped in Active: it moves to the Used zone, the remaining numbers shift left, and the next Upcoming number slides into Active so the student always sees 5 when available. Undo by tapping a Used number returns it to Active.
 
-Check Line no longer has to locate a row and diff multisets to decide usage. It simply asks: are any of this line's tokens still **not used**?
+## Forward / Backward navigation
+- **Forward** ▶ moves the Active window toward Upcoming numbers.
+- **Backward** ◀ moves the Active window back toward earlier numbers.
+- Because the Used and Upcoming zones are always on screen, the student can see used/remaining state at a glance and does not need to scroll just to find used numbers (this is the core fix for "used numbers invisible until I press forward").
 
-- Any token still un-used → `⚠ Line N incomplete — Unused floating numbers: …` (lists the still-available tokens). Stop. No grading.
-- All tokens used → proceed to the existing Phase 2 math grading (`grade-assessment`) exactly as today.
+## Scalability (5 → 50+ numbers)
+- Active is always capped at 5.
+- The Used and Upcoming zones get a fixed max width with horizontal overflow, so a line with 50 numbers stays compact instead of stretching off-screen. State (used vs available) stays readable at any count.
 
-This directly fixes the reported bug (`2x = 11 − 5` reporting "minus not used"): the moment `−` was tapped it is recorded used, so the check trusts that record instead of re-parsing the handwriting.
+## Check Line logic (already state-driven — kept, minor wording)
+Each number carries a used/unused state (the tap is the proof), so Check Line does not rely on equation re-parsing for usage:
+- **Incomplete:** any required number still unused → toast `⚠ Line N incomplete — Unused floating numbers: <glyphs exactly as shown in the strip>`. No grading.
+- **Incorrect:** all numbers used but arrangement invalid → toast `Error in your solution — Please check your arrangement.` (wording aligned to spec).
+- **Correct:** all used + valid arrangement → green success, score added, advance to next line.
 
-## Files & changes
+## Green side markers
+The per-line left/side status bulbs were already removed; the top progress tracker (and the assessment tick row) remains the single source of completion status. This plan verifies no per-line side markers remain on the board.
+
+## Color choice
+Used zone uses **mint green** (first option in your spec). Easy to switch to light brown later if preferred.
+
+## Technical details
 
 ### `src/components/smartboard/FloatingNumberPanel.tsx`
-- Replace the single windowed 5-chip row with three rendered zones from the active line's slot list:
-  - `usedSlots` = fragments of the active line whose `absIdx` is in `consumedAbsIdx`.
-  - `activeSlots` = first 5 un-used fragments.
-  - `upcomingSlots` = remaining un-used fragments.
-- Add `onUse(absIdx, label)` and `onUnuse(absIdx)` callbacks (props). ACTIVE chip tap calls existing insert path **and** `onUse`. USED chip tap calls `onUnuse`.
-- Style the USED zone with the muted-grey tokens; keep ACTIVE chips in the current ink color; render UPCOMING dimmed/non-interactive.
-- Keep the existing vertical drag, line navigator, and notebook page-icon behavior. Keep the `◀ ▶` arrows only as an optional nudge within ACTIVE if a line has more than 5 un-used tokens (the conveyor handles refill automatically, so arrows become secondary).
+- Wrap the **Active** chips in a white rounded container (currently transparent).
+- Restyle the **Used** zone container from muted grey to mint green (e.g. `#d1fae5` bg, `#6ee7b7` border, dark text) and apply slight opacity to used chips; keep the existing `onUnuse` tap-to-return.
+- Give the **Upcoming** zone a light grey rounded container (e.g. `#f3f4f6`) instead of only dimming text; keep it non-interactive.
+- Add `maxWidth` + `overflowX: auto` to the Used and Upcoming containers for scalability; Active stays exactly `WINDOW_SIZE` (5).
+- Keep the existing `allSlots` (unconsumed) / `usedSlots` (consumed) derivation, `handleActiveTap` (insert + `onUse`), `handleUsedTap` (`onUnuse`), and the ◀/▶ offset logic unchanged.
 
 ### `src/components/smartboard/PresentationView.tsx`
-- Add handlers passed to the panel:
-  - `markUsed(absIdx)` → `setConsumedAbsIdx(add absIdx)`.
-  - `unmarkUsed(absIdx)` → `setConsumedAbsIdx(remove absIdx)`.
-- Wire `onUse` so tapping inserts (current `insertTextAtSensor` / `insertFractionAtSensor`) and then marks used; wire `onUnuse` to `unmarkUsed`.
-- Rewrite `checkActiveLine` Phase 1 to read `consumedAbsIdx` instead of scanning rows: build `unused` from `[fragmentStart, fragmentEnd)` indices not in `consumedAbsIdx`; if non-empty show the incomplete toast and return. If empty, run Phase 2 unchanged. (Row location is still used in Phase 2 to send `arrangement`/`studentAscii` to the server.)
-- On line advance / question change, the existing resets of `consumedAbsIdx` remain; ensure the guided auto-match effect still adds to the same set so teacher mode and tap mode stay consistent.
-
-## Notes
-- Works in both teacher (guided) and student (assessment) modes — both already render this same panel and share `consumedAbsIdx`.
-- No backend changes. `grade-assessment` and the server-held answer key are untouched.
-- Undo is manual un-mark only (no automatic board edit), per the chosen behavior.
+- No logic change to the conveyor wiring (`onUse`/`onUnuse` → `consumedAbsIdx`) or Phase-1 usage check.
+- Update only the Phase-2 incorrect-answer toast text to `Error in your solution` / `Please check your arrangement.`
+- Confirm no remaining per-line side markers render (already removed at the former bulbs block).
 
 ## Verification
-- Tap `11` in ACTIVE: it appears on the board, moves to the grey USED zone, and the next upcoming token slides into ACTIVE.
-- Tap `11` in USED: it returns to ACTIVE as available.
-- With one token still un-used, Check Line shows `⚠ Line N incomplete` listing it and does not grade.
-- After all tokens are used, Check Line grades via the server; correct → green tick on the top tracker + next line; wrong → error toast.
-- `2x = 11 − 5` with every chip tapped no longer reports "minus sign not used."
+- Open a guided line: Used zone empty, Active shows up to 5 (white), Upcoming shows the rest (grey).
+- Tap a number: it appears on the board, moves to the mint Used zone immediately (visible without scrolling), and the next Upcoming number slides into Active.
+- Tap a Used number: it returns to Active.
+- With a line of many numbers (10–50), zones stay compact and scroll within themselves; Active still shows 5.
+- Check Line with one number unused → `⚠ Line N incomplete — Unused floating numbers: …` listing the exact glyph(s).
+- Check Line with all used but wrong arrangement → `Error in your solution`.
+- Check Line all used + correct → green success and advance.
+- No green markers beside lines; top tracker shows progress.
