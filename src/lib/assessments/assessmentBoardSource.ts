@@ -61,7 +61,7 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
       lines.push({
         equation: "", // withheld — graded server-side
         fillers: fills,
-        containers: [],
+        containers: (ln.containers ?? []) as ContainerKind[], // structures from the teacher's lesson note
         fragmentStart: start,
         fragmentEnd: fragments.length,
         lineId: ln.lineId,
