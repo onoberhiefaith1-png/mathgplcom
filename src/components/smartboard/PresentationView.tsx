@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { useNotebook } from "@/hooks/useNotebook";
-import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat } from "@/lib/smartboard/presentation";
+import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
 import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
 
@@ -58,6 +58,13 @@ import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import ActiveStudentControl from "./ActiveStudentControl";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
+import { Check as CheckIcon, Loader2 } from "lucide-react";
+
+
 
 
 
@@ -134,26 +141,105 @@ const PresentationView = ({
   notebookId: notebookIdProp,
   classId: classIdProp = null,
   role = "teacher",
+  source = null,
+  assessmentId = null,
 }: {
   notebookId?: string | null;
   classId?: string | null;
   role?: "teacher" | "student";
+  /** When provided, the board renders from this content instead of a notebook
+   *  (used by the student Assessment workspace). */
+  source?: { beats: Beat[]; reservoirs: Reservoir[]; title?: string } | null;
+  /** Set together with `source` to enable server-graded assessment mode. */
+  assessmentId?: string | null;
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
   const navigate = useNavigate();
-  const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
+  // Assessment mode renders from an injected source and grades via the server.
+  const assessmentMode = !!source && !!assessmentId;
+  const { notebook, sections, loading } = useNotebook(assessmentMode ? undefined : (notebookId ?? undefined));
 
-  // Live classroom mirroring.
+  // Live classroom mirroring (disabled in assessment mode).
   const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent } =
-    useSmartboardSync({ classId: classIdProp, role });
-  const syncEnabled = !!classIdProp;
-  const isTeacher = role === "teacher";
+    useSmartboardSync({ classId: assessmentMode ? null : classIdProp, role });
+  const syncEnabled = !!classIdProp && !assessmentMode;
+  // In assessment mode the student edits their OWN board (canEdit true) but no
+  // teacher-only chrome is shown.
+  const isTeacher = role === "teacher" && !assessmentMode;
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
-  const canEdit = isTeacher || isActiveStudent;
+  const canEdit = assessmentMode ? true : (isTeacher || isActiveStudent);
   const applyingRemoteRef = useRef(false);
-  const beats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
-  const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
+  const notebookBeats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
+  const notebookReservoirs = useMemo(() => buildReservoirs(sections), [sections]);
+  const beats = assessmentMode && source ? source.beats : notebookBeats;
+  const reservoirs = assessmentMode && source ? source.reservoirs : notebookReservoirs;
+
+  // ── Assessment grading state (assessment mode only) ──────────────────────
+  // `solvedSlots` keys are `${questionId}:${lineId}`; the value is the marks
+  // awarded. Score + total are derived from this map / the assessment payload.
+  const [solvedSlots, setSolvedSlots] = useState<Record<string, number>>({});
+  const [assessScore, setAssessScore] = useState(0);
+  const [assessChecking, setAssessChecking] = useState(false);
+  // Per-line "wrong" flash keyed by absolute board line number.
+  const [wrongLine, setWrongLine] = useState<number | null>(null);
+  const assessTotal = useMemo(
+    () =>
+      assessmentMode && source
+        ? source.reservoirs.reduce(
+            (sum, r) => sum + r.lines.reduce((s, l) => s + (Number(l.marks) || 0), 0),
+            0,
+          )
+        : 0,
+    [assessmentMode, source],
+  );
+
+  // Seed progress from the server on open + follow live updates.
+  useEffect(() => {
+    if (!assessmentMode || !assessmentId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) return;
+      const { data: prog } = await supabase
+        .from("assessment_progress")
+        .select("solved_lines, score")
+        .eq("assessment_id", assessmentId)
+        .eq("student_id", uid)
+        .maybeSingle();
+      if (cancelled) return;
+      setSolvedSlots(((prog?.solved_lines as Record<string, number>) ?? {}));
+      setAssessScore(Number(prog?.score ?? 0));
+    })();
+    return () => { cancelled = true; };
+  }, [assessmentMode, assessmentId]);
+
+  useEffect(() => {
+    if (!assessmentMode || !assessmentId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`assessment-progress-${assessmentId}`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "assessment_progress", filter: `assessment_id=eq.${assessmentId}` },
+          (payload) => {
+            const row = payload.new as { solved_lines?: Record<string, number>; score?: number } | null;
+            if (!row) return;
+            setSolvedSlots(row.solved_lines ?? {});
+            setAssessScore(Number(row.score ?? 0));
+          },
+        )
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  }, [assessmentMode, assessmentId]);
+
+
+
 
 
   const [beatCursor, setBeatCursor] = useState<number>(0);
@@ -1075,6 +1161,7 @@ const PresentationView = ({
   // If the expected line turns green, the sensor and floating queue move down
   // together by exactly one step for fast classroom flow.
   useEffect(() => {
+    if (assessmentMode) return; // assessment lines are graded server-side
     if (!hasGuidedLines) return;
     if (activeLineIdx >= guidedLines.length) return;
     if (!activeLayout || activeLayout.bandLines <= 0) return;
@@ -1146,6 +1233,96 @@ const PresentationView = ({
     return out;
   }, [freeLines, hasGuidedLines, guidedLines, activeLayout, activeLineIdx]);
 
+  // ── Assessment line status + per-line server grading ─────────────────────
+  const slotFor = (k: number): string | null => {
+    const ln = guidedLines[k];
+    if (!current || !ln?.lineId) return null;
+    return `${current.id}:${ln.lineId}`;
+  };
+
+  // Bulb status for the rail in assessment mode: green = graded correct,
+  // red = last check wrong, yellow = ink present and not yet correct.
+  const assessLineStatusMap = useMemo<Record<number, LineBulb>>(() => {
+    if (!assessmentMode || !hasGuidedLines || !current) return {};
+    const out: Record<number, LineBulb> = {};
+    const a = activeLayout ? bandStart(activeLayout) : 0;
+    for (let k = 0; k < guidedLines.length; k++) {
+      const ln = a + k;
+      const slot = slotFor(k);
+      const solved = slot ? slot in solvedSlots : false;
+      if (solved) { out[ln] = "green"; continue; }
+      if (wrongLine === ln) { out[ln] = "red"; continue; }
+      const row = freeLines[ln];
+      if (row && row.length > 0) out[ln] = "yellow";
+    }
+    return out;
+  }, [assessmentMode, hasGuidedLines, current, activeLayout, guidedLines, solvedSlots, wrongLine, freeLines]);
+
+  // How many lines of the CURRENT question are solved (for the progress strip).
+  const currentSolvedCount = useMemo(() => {
+    if (!assessmentMode || !current) return 0;
+    let n = 0;
+    for (let k = 0; k < guidedLines.length; k++) {
+      const slot = slotFor(k);
+      if (slot && slot in solvedSlots) n++;
+    }
+    return n;
+  }, [assessmentMode, current, guidedLines, solvedSlots]);
+
+  const checkActiveLine = async () => {
+    if (!assessmentMode || !assessmentId || !current || !activeLayout) return;
+    if (activeLineIdx >= guidedLines.length) {
+      toast({ title: "All lines done", description: "You've solved every line in this question." });
+      return;
+    }
+    const target = guidedLines[activeLineIdx];
+    if (!target?.lineId) return;
+    const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
+    const row = freeLines[expectedLineNum];
+    if (!row || row.length === 0) {
+      toast({ title: "Write the line first", description: "Build this line on the board, then tap Check.", variant: "destructive" });
+      return;
+    }
+    const ascii = rowToAscii(row);
+    const eqIdx = ascii.indexOf("=");
+    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
+    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
+    const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
+    if (eqIdx < 0 || !lhs || !rhs || dangling) {
+      toast({ title: "Finish the line", description: "Make sure it's a complete equation (both sides of =).", variant: "destructive" });
+      return;
+    }
+    const arrangement = extractTermsFromAscii(ascii).map((t) => t.ascii).filter(Boolean);
+    if (arrangement.length === 0) return;
+    setAssessChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("grade-assessment", {
+        body: { assessmentId, questionId: current.id, lineId: target.lineId, arrangement },
+      });
+      if (error) throw error;
+      const res = data as { correct: boolean; score: number; solvedLines: Record<string, number> };
+      if (res.correct) {
+        setSolvedSlots(res.solvedLines ?? {});
+        setAssessScore(Number(res.score ?? 0));
+        setWrongLine((w) => (w === expectedLineNum ? null : w));
+        const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
+        setActiveLineIdx(nextIdx);
+        setFloatingLineIdx(nextIdx);
+        setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
+        setCursor({ path: [], index: 0 });
+        toast({ title: "Correct!", description: `+${target.marks ?? 0} marks` });
+      } else {
+        setWrongLine(expectedLineNum);
+        toast({ title: "Not quite", description: "Check this line and try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
+    } finally {
+      setAssessChecking(false);
+    }
+  };
+
+
 
   // Structures the carrier should expose — current line first, then anything
   // still needed in upcoming lines. Used structures stay visible (just dim)
@@ -1181,7 +1358,7 @@ const PresentationView = ({
 
 
 
-  if (loading) {
+  if (loading && !assessmentMode) {
     return (
       <div
         className="h-screen w-screen grid place-items-center text-sm"
@@ -1191,7 +1368,7 @@ const PresentationView = ({
       </div>
     );
   }
-  if (!notebook) {
+  if (!notebook && !assessmentMode) {
     return (
       <div
         className="h-screen w-screen grid place-items-center text-sm flex-col gap-3"
@@ -1272,8 +1449,8 @@ const PresentationView = ({
         </button>
 
         <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
-          <span className="font-medium truncate">{notebook.title ?? "Untitled"}</span>
-          {notebook.subtopic && (
+          <span className="font-medium truncate">{notebook?.title ?? "Untitled"}</span>
+          {notebook?.subtopic && (
             <span className="opacity-60 truncate">· {notebook.subtopic}</span>
           )}
           <span className="opacity-40 tabular-nums whitespace-nowrap">· {today()}</span>
@@ -1602,9 +1779,9 @@ const PresentationView = ({
                   ink={ink}
                   accent={palette.accent}
                   jitter={profile.strokeJitter}
-                  notebookTitle={notebook.title ?? "Untitled"}
-                  topic={notebook.subject ?? ""}
-                  subtopic={notebook.subtopic ?? ""}
+                  notebookTitle={notebook?.title ?? "Untitled"}
+                  topic={notebook?.subject ?? ""}
+                  subtopic={notebook?.subtopic ?? ""}
                   dateLabel={today()}
                 />
               </div>
@@ -1821,16 +1998,18 @@ const PresentationView = ({
             );
           })()}
 
-          {/* Right-edge traffic-light bulbs — only when AI verification is on. */}
-          {verifyOn && activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (
+          {/* Right-edge traffic-light bulbs — teacher: when AI verification is
+              on; assessment: always (driven by server grading). */}
+          {((assessmentMode) || verifyOn) && activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (
             <LineStatusRail
               grid={grid}
-              statusByLine={lineStatusMap}
+              statusByLine={assessmentMode ? assessLineStatusMap : lineStatusMap}
               bandTopPx={grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT}
-              allDone={activeLineIdx >= guidedLines.length}
+              allDone={assessmentMode ? currentSolvedCount >= guidedLines.length : activeLineIdx >= guidedLines.length}
               leftPx={6}
             />
           )}
+
 
           {/* Left-side LINE NAVIGATOR — selects which line's floating numbers
               show in the panel. Visible only while the left tools (undo/redo)
@@ -2392,9 +2571,86 @@ const PresentationView = ({
         />
       )}
 
-      {/* Student status indicator — always visible to students (exempt from
-          the chrome-hiding rules). Reflects the teacher's grant in realtime. */}
-      {role === "student" && (
+      {/* ── Assessment mode: top progress strip + per-line Check button ── */}
+      {assessmentMode && (
+        <>
+          <div
+            className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
+            style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
+          >
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-black/5"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back
+            </button>
+            <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
+
+            {beats.length > 1 && (
+              <div className="flex items-center gap-1">
+                {beats.map((b, i) => (
+                  <button
+                    key={b.id}
+                    onClick={() => setBeatCursor(i)}
+                    className="grid h-6 min-w-6 place-items-center rounded-full border px-2 text-[11px] font-medium transition"
+                    style={i === beatCursor
+                      ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
+                      : { borderColor: palette.chromeBorder }}
+                    title={`Question ${i + 1}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Per-line ticks for the current question */}
+            {hasGuidedLines && (
+              <div className="flex items-center gap-1">
+                {guidedLines.map((ln, k) => {
+                  const slot = slotFor(k);
+                  const solved = !!slot && slot in solvedSlots;
+                  return (
+                    <span
+                      key={k}
+                      className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
+                      style={solved
+                        ? { background: "rgba(34,197,94,0.18)", color: "#16a34a", borderColor: "rgba(34,197,94,0.5)" }
+                        : { borderColor: palette.chromeBorder, opacity: 0.55 }}
+                      title={`Line ${k + 1}${solved ? " · solved" : ""}`}
+                    >
+                      {solved ? <CheckIcon className="h-3 w-3" /> : k + 1}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="ml-1 rounded-lg px-2 py-1 text-sm font-bold tabular-nums" style={{ background: palette.hoverBg }}>
+              {assessScore} <span className="opacity-60">/ {assessTotal}</span>
+            </div>
+          </div>
+
+          {/* Per-line Check button — grades the current line server-side. */}
+          {hasGuidedLines && (
+            <button
+              onClick={checkActiveLine}
+              disabled={assessChecking || activeLineIdx >= guidedLines.length}
+              className="fixed bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
+              style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
+            >
+              {assessChecking
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <CheckIcon className="h-4 w-4" />}
+              {activeLineIdx >= guidedLines.length ? "All lines solved" : `Check line ${activeLineIdx + 1}`}
+            </button>
+          )}
+        </>
+      )}
+
+      {/* Student status indicator — visible to live-mirror students only. */}
+      {role === "student" && !assessmentMode && (
         <div
           className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 select-none rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur"
           style={
@@ -2412,9 +2668,9 @@ const PresentationView = ({
         <style>{`[data-sb-chrome]{display:none !important;}`}</style>
       )}
 
-      {/* Active student editor: enable board/writing/math tools but keep all
+      {/* Active student / assessment editor: enable board tools but keep all
           teacher-exclusive controls hidden. */}
-      {role === "student" && canEdit && (
+      {((role === "student" && canEdit) || assessmentMode) && (
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
     </div>

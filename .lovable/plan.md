@@ -1,53 +1,46 @@
-# Floating Number Highlight Persistence Fix
+## Goal
 
-## What's actually happening
+Replace the scattered "chips-in-boxes" assignment page with the **real SmartBoard**, scoped to a single assigned question. The student meets the same board the teacher uses: the question sits at the top, the floating numbers are present, and they solve line-by-line with the full board tools. Each completed line is checked with a small per-line "Check" button — correct turns it **green and awards the marks**, wrong turns it **red so they keep trying**. Running progress and score sit at the top.
 
-Highlights are *already* stored as lesson data (on the subsection row, in `floating_highlights` + `floating_lines` + `floating_bucket`). The bug is not that they aren't saved — it's that **other code paths destroy and rebuild that row and fail to carry the highlight forward**, so the selection silently vanishes on navigation/refresh.
+## What exists today
 
-Two weak links cause the loss:
+- `PresentationView` is the SmartBoard. It loads a whole notebook, builds the "beats" (the questions) and "reservoirs" (the floating numbers + answer key), lets the user write freely, drag floating numbers, use fractions, etc., and shows a per-line status rail.
+- `AssessmentBoardPage` is a *separate, simpler* page that shows each line as a box of tappable chips. This is the "disjointed" UI to remove.
+- `grade-assessment` (server) already holds the hidden answer key and grades one line at a time, awards marks, and saves progress. The correct answer never reaches the student. We keep this as the marking brain.
 
-### 1. The lesson-note sync wipes and recreates every subsection
+## The approach
 
-`src/lib/lessonnotes/syncDocumentToNotebook.ts` runs **every time the lesson note opens** (via `useNotebook`) and **every time the document is saved**. It:
-- deletes ALL sections (cascading to subsections + blocks), then
-- rebuilds them from the document, and
-- re-attaches floating data **only when the new subsection's problem text matches the old one exactly** (normalized).
+Make the SmartBoard able to run in an **Assessment mode**, fed from the assignment (not the notebook), with marking done by the server.
 
-When that match fails — empty problem text, slightly edited problem, math/LaTeX normalization differences, or two subsections sharing a problem — the highlight data is dropped. This is why "open SmartBoard → return to Lesson Notes" and "refresh" lose highlights: returning re-runs the sync, which can't re-pair the row.
+### 1. Build the board content from the assignment
+A new helper turns one assignment into SmartBoard content:
+- One question "beat" per question in the assignment (the question text shown at the top of the board).
+- The floating numbers come from the assignment's stored chips (these are already what students were meant to see — no answer leak).
+- Each line carries only its `lineId` and its marks — **never the correct equation**. The student's device never receives the answer.
 
-### 2. The Floating Numbers reload can't re-pair a selection
+### 2. Add an "assessment" mode to the SmartBoard
+`PresentationView` gains an optional mode where it renders from the supplied assignment content instead of a notebook, and where:
+- All the writing/editing tools and floating numbers stay exactly as the teacher's board.
+- Live class-mirroring and teacher-only controls are turned off.
+- Each board line gets a small **Check** button. Tapping it sends that line to the server (`grade-assessment`), which compares it to the hidden answer and replies correct/incorrect plus the new score.
+- Correct → the line locks **green** and the marks are added. Wrong → the line flashes **red** and stays editable so the student keeps trying. No marks are lost.
 
-`src/pages/FloatingNumbersPage.tsx` reload reconciles persisted lines to highlights by `equation === payload` string equality only. Any drift drops the line (and its `fillersSelected` selection) and reseeds an empty one.
+### 3. Progress + score at the top
+A slim progress strip across the top of the board shows each line as a tick that turns green when solved, plus the running score (e.g. `6 / 10 Marks`). It restores automatically when the student reopens the assignment (already saved server-side).
 
-A secondary timing issue: chip toggles only autosave after a 500 ms debounce with no flush on unmount, so navigating away immediately after a click loses that click.
+### 4. Swap the student page
+`AssessmentBoardPage` is rewritten to load the assignment and render the SmartBoard in assessment mode. The old chip-box layout is removed. Navigation from the class assignment list is unchanged.
 
-## The fix
+## Security note
 
-Treat highlight state as permanent and make every rebuild/reload path carry it forward robustly. No database schema change is needed (columns already exist).
+The correct answer stays on the server only. The student board is fed from the assignment's question text + shuffled floating numbers (which were always meant to be visible), and every "Check" is graded server-side. No answer equations are loaded onto the student's device.
 
-### A. Harden `syncDocumentToNotebook.ts`
-- Build the floating-data preservation map keyed by normalized problem text **and** keep an ordered positional fallback list (Nth question subsection in document order).
-- When rebuilding each subsection, resolve preserved floating data in priority order: (1) exact problem match, (2) positional fallback for the same question index, so edited/empty problem text no longer drops highlights.
-- Never overwrite an existing subsection's floating fields with empty/null when preserved data is available — only an explicit teacher action may clear them.
-- Skip rewriting a subsection's floating data entirely when nothing changed.
+## Technical details
 
-### B. Harden `FloatingNumbersPage.tsx` reload + saving
-- In the highlight-mode reconciliation, when `equation === payload` fails, fall back to positional pairing (same index) so the line and its `fillersSelected`/`containersSelected` selection are preserved.
-- Add a flush-on-unmount/navigation save (mirroring `FloatingPreparationPage`'s `flushHighlightState`) and flush before the "Back"/"Lesson Note"/Generate navigations, so a chip toggle made right before leaving is always persisted.
-
-### C. Confirm toggle semantics (already correct, keep intact)
-- Clicking a chip toggles `fillersSelected[i]` / `containersSelected[i]`; clicking the same chip again removes it. This is the only removal path and stays the only removal path. The compiled `floating_bucket.selected` (which the SmartBoard reads) is derived from this saved state, so SmartBoard and Lesson Notes share one source of truth.
-
-## Validation
-1. Open a floating-number workspace, highlight lines 1, 4, 7.
-2. Navigate to SmartBoard, then back to the lesson note → 1, 4, 7 still highlighted.
-3. Refresh the page → 1, 4, 7 still highlighted.
-4. Click line 4 again → line 4 unhighlighted; 1 and 7 remain.
-5. Refresh → 1 and 7 highlighted, 4 not.
-6. Edit unrelated lesson-note text and re-open → highlights survive (positional fallback covers any problem-text drift).
-
-## Technical notes / files touched
-- `src/lib/lessonnotes/syncDocumentToNotebook.ts` — robust floating-data preservation (problem-match + positional fallback; never clobber with empty).
-- `src/pages/FloatingNumbersPage.tsx` — positional fallback in reload reconciliation; flush-on-navigation/unmount save.
-- No migration: `floating_highlights`, `floating_lines`, `floating_bucket` columns already exist on `notebook_subsections`.
-- Scope is persistence/reattachment only — no change to highlight UI behavior, scoring, or grading logic.
+- **New** `src/lib/assessments/assessmentBoardSource.ts`: builds `Beat[]` + `Reservoir[]` from an `assessments` row. Beats: one `problem` beat per question (`id = questionId`, `content = questionText`). Reservoirs: `beatId = questionId`, `fragments` = that question's chips in order, `lines[]` = `{ lineId, marks }` with **`equation` omitted** so no client-side self-grading is possible.
+- **`PresentationView` props**: add `source?: { beats; reservoirs; title }` and `grading?: { kind: "assessment"; assessmentId; questions }`. When `source` is present, bypass `useNotebook`/`buildBeats`/`buildReservoirs` and use it directly; force `syncEnabled = false`, `role` non-teacher chrome off, hide `ActiveStudentControl`.
+- **Line check**: in assessment mode, the per-line action calls `supabase.functions.invoke("grade-assessment", { assessmentId, questionId: activeBeat.id, lineId: reservoir.lines[k].lineId, arrangement })`, where `arrangement` = the written row parsed to terms via `extractTermsFromAscii(rowToAscii(row))`. Use the returned `solvedLines`/`score` as the source of truth; map solved lines → green bulbs in `LineStatusRail` (replacing the client `equationsMatch` path for this mode). Lines are validated in document order (kth board line → kth unsolved assignment line), matching the existing teacher in-order model.
+- **Progress HUD**: new lightweight top bar component shown only in assessment mode, reading `solved`/`score`/`total_marks` (seeded from `assessment_progress`, updated from each grade response and the existing realtime subscription).
+- **`AssessmentBoardPage`**: replace body with assignment load → `assessmentBoardSource` → `<PresentationView source=… grading=… classId=… role="student" />`. Keep the auth/membership redirect and progress restore.
+- **`grade-assessment`**: no schema change. It already accepts an `arrangement` array and does multiset/relationship matching, which tolerates the reordered terms a free-written line produces.
+- No database migration required — `assessments`, `assessment_answer_keys`, `assessment_progress` already hold everything.

@@ -36,10 +36,16 @@ export interface ReservoirLine {
   fragmentEnd: number;
   /** Optional explanation surfaced via a "+" marker on the smartboard. */
   explanation?: string;
-  /** Plain-text "Notebook N" block paired with this line — non-highlighted
+   /** Plain-text "Notebook N" block paired with this line — non-highlighted
    *  prose sitting immediately above the teacher's highlight in the lesson
    *  source. Empty string means no notebook (line appears alone). */
   notebook?: string;
+  /** Assessment grading id for this line (set only in assessment mode). The
+   *  correct equation is NEVER carried client-side in assessment mode; this id
+   *  is sent to the server grader, which holds the hidden answer key. */
+  lineId?: string;
+  /** Marks awarded when this line is graded correct (assessment mode only). */
+  marks?: number;
 }
 
 export interface Reservoir {
