@@ -2630,6 +2630,30 @@ const PresentationView = ({
             <div className="ml-1 rounded-lg px-2 py-1 text-sm font-bold tabular-nums" style={{ background: palette.hoverBg }}>
               {assessScore} <span className="opacity-60">/ {assessTotal}</span>
             </div>
+
+            {/* Zoom controls */}
+            <div className="inline-flex items-center gap-0.5 rounded-md" style={{ background: palette.hoverBg }}>
+              <button
+                onClick={() => applyZoom(zoom - ZOOM_STEP)}
+                className="px-2 py-1 text-base leading-none"
+                aria-label="Zoom out"
+                title="Zoom out"
+              >−</button>
+              <button
+                onClick={() => applyZoom(1)}
+                className="px-2 py-1 tabular-nums text-[10px]"
+                aria-label="Reset zoom"
+                title="Reset zoom"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                onClick={() => applyZoom(zoom + ZOOM_STEP)}
+                className="px-2 py-1 text-base leading-none"
+                aria-label="Zoom in"
+                title="Zoom in"
+              >+</button>
+            </div>
           </div>
 
           {/* Per-line Check button — grades the current line server-side. */}
