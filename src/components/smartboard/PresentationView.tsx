@@ -134,26 +134,40 @@ const PresentationView = ({
   notebookId: notebookIdProp,
   classId: classIdProp = null,
   role = "teacher",
+  source = null,
+  assessmentId = null,
 }: {
   notebookId?: string | null;
   classId?: string | null;
   role?: "teacher" | "student";
+  /** When provided, the board renders from this content instead of a notebook
+   *  (used by the student Assessment workspace). */
+  source?: { beats: Beat[]; reservoirs: Reservoir[]; title?: string } | null;
+  /** Set together with `source` to enable server-graded assessment mode. */
+  assessmentId?: string | null;
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
   const navigate = useNavigate();
-  const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
+  // Assessment mode renders from an injected source and grades via the server.
+  const assessmentMode = !!source && !!assessmentId;
+  const { notebook, sections, loading } = useNotebook(assessmentMode ? undefined : (notebookId ?? undefined));
 
-  // Live classroom mirroring.
+  // Live classroom mirroring (disabled in assessment mode).
   const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent } =
-    useSmartboardSync({ classId: classIdProp, role });
-  const syncEnabled = !!classIdProp;
-  const isTeacher = role === "teacher";
+    useSmartboardSync({ classId: assessmentMode ? null : classIdProp, role });
+  const syncEnabled = !!classIdProp && !assessmentMode;
+  // In assessment mode the student edits their OWN board (canEdit true) but no
+  // teacher-only chrome is shown.
+  const isTeacher = role === "teacher" && !assessmentMode;
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
-  const canEdit = isTeacher || isActiveStudent;
+  const canEdit = assessmentMode ? true : (isTeacher || isActiveStudent);
   const applyingRemoteRef = useRef(false);
-  const beats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
-  const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
+  const notebookBeats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
+  const notebookReservoirs = useMemo(() => buildReservoirs(sections), [sections]);
+  const beats = assessmentMode && source ? source.beats : notebookBeats;
+  const reservoirs = assessmentMode && source ? source.reservoirs : notebookReservoirs;
+
 
 
   const [beatCursor, setBeatCursor] = useState<number>(0);
