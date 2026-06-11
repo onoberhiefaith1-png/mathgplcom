@@ -436,6 +436,13 @@ const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[n
     return 1 - fade * 0.97;
   };
 
+  // Whole-world balloon expansion: every segment uses the selected segment's
+  // approach progress so the entire ring inflates outward together.
+  const getWorldExpand = () => {
+    if (selectedIndexRef.current === null) return 0;
+    return smoothstep(0, 1, approachProgressRef.current);
+  };
+
   // The middle core fades out as we zoom into a selected door (like the other
   // non-selected buildings) so it never pokes in front of the door framing.
   const getCoreOpacity = () => {
