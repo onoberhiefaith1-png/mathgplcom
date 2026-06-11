@@ -1,3 +1,9 @@
+import infectedVeins from "@/assets/effects/video-fx/infected_veins.mp4.asset.json";
+import iceSpikePower from "@/assets/effects/video-fx/ice_spike_power.mp4.asset.json";
+import groundMist from "@/assets/effects/video-fx/ground_mist.mp4.asset.json";
+import magicSakura from "@/assets/effects/video-fx/magic_sakura.mp4.asset.json";
+import magicBallStorm from "@/assets/effects/video-fx/magic_ball_storm.mp4.asset.json";
+
 export type AssetItem = { name: string; src: string };
 export type Subcategory = {
   slug: string;
