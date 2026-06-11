@@ -527,7 +527,7 @@ const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[n
 
       <group ref={worldRef}>
         {/* Middle royal palace core — locked to the same group so it rotates with the city. */}
-        <CentralCore getCoreOpacity={getCoreOpacity} />
+        <CentralCore getCoreOpacity={getCoreOpacity} getWorldExpand={getWorldExpand} />
         {academies.map((academy, i) => (
           <WorldSegment
             key={`${academy.slug}-${i}`}
@@ -535,6 +535,7 @@ const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[n
             texture={textureByUrl.get(academy.image)!}
             interactive={!interactionLockedRef.current}
             getSelectionProgress={getSelectionProgress}
+            getWorldExpand={getWorldExpand}
             getPortalProgress={getPortalProgress}
             getThunderProgress={getThunderProgress}
             getOpacity={getOpacity}
