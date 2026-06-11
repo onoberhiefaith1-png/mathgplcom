@@ -159,6 +159,7 @@ const WorldSegment = ({
   index,
   interactive,
   getSelectionProgress,
+  getWorldExpand,
   getPortalProgress,
   getThunderProgress,
   getOpacity,
@@ -169,6 +170,7 @@ const WorldSegment = ({
   index: number;
   interactive: boolean;
   getSelectionProgress: (index: number) => number;
+  getWorldExpand: () => number;
   getPortalProgress: (index: number) => number;
   getThunderProgress: (index: number) => number;
   getOpacity: (index: number) => number;
