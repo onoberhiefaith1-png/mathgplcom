@@ -367,7 +367,7 @@ const WorldSegment = ({
   );
 };
 
-const Showcase = ({ onEnterAdventure }: { onEnterAdventure: (academy: (typeof academies)[number]) => void }) => {
+const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[number]) => void }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
