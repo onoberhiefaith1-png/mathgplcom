@@ -57,9 +57,27 @@ const AssetSubcategory = () => {
             {sub.assets.map((a) => {
               const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(a.src);
               const is3DModel = /\.(glb|gltf)$/i.test(a.src);
+              const isVideo = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(a.src);
               const card = is3DModel ? (
                 <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
                   <GlbViewer src={a.src} />
+                  <figcaption className="px-3 py-2 text-center text-sm font-medium">
+                    {a.name}
+                  </figcaption>
+                </figure>
+              ) : isVideo ? (
+                <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
+                  <div className="aspect-square w-full overflow-hidden bg-black/40">
+                    <video
+                      src={a.src}
+                      controls
+                      loop
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                   <figcaption className="px-3 py-2 text-center text-sm font-medium">
                     {a.name}
                   </figcaption>

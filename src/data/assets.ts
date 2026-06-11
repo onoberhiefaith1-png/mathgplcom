@@ -1,3 +1,9 @@
+import infectedVeins from "@/assets/effects/video-fx/infected_veins.mp4.asset.json";
+import iceSpikePower from "@/assets/effects/video-fx/ice_spike_power.mp4.asset.json";
+import groundMist from "@/assets/effects/video-fx/ground_mist.mp4.asset.json";
+import magicSakura from "@/assets/effects/video-fx/magic_sakura.mp4.asset.json";
+import magicBallStorm from "@/assets/effects/video-fx/magic_ball_storm.mp4.asset.json";
+
 export type AssetItem = { name: string; src: string };
 export type Subcategory = {
   slug: string;
@@ -549,6 +555,13 @@ export const assetCategories: Category[] = [
     name: "Effects",
     background: "arcane.png",
     subcategories: [
+      sub("Video FX", "ember.png", [
+        { name: "Infected Veins", src: infectedVeins.url },
+        { name: "Ice Spike Power", src: iceSpikePower.url },
+        { name: "Ground Mist", src: groundMist.url },
+        { name: "Magic Sakura", src: magicSakura.url },
+        { name: "Magic Ball Storm", src: magicBallStorm.url },
+      ]),
       sub("Glow", "crystal.png", [
         { name: "Gold Glow", src: "/assets/effects/glow/gold_glow.png" },
         { name: "Blue Glow", src: "/assets/effects/glow/blue_glow.png" },
