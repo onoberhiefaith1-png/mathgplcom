@@ -28,6 +28,10 @@ import thorLightningGroundStrike6 from "@/assets/effects/video-fx/thor_lightning
 import thorLightningGroundStrike17 from "@/assets/effects/video-fx/thor_lightning_ground_strike_17.mp4.asset.json";
 import thorLightningFloating5 from "@/assets/effects/video-fx/thor_lightning_floating_5.mp4.asset.json";
 import thorLightningFloating9 from "@/assets/effects/video-fx/thor_lightning_floating_9.mp4.asset.json";
+import thorLightningArc12 from "@/assets/effects/video-fx/thor_lightning_arc_12.mp4.asset.json";
+import slowOrangeLightningPulse from "@/assets/effects/video-fx/slow_orange_lightning_pulse.mp4.asset.json";
+import superLightningSlowMotion1 from "@/assets/effects/video-fx/super_lightning_slow_motion_1.mp4.asset.json";
+import superLightningSlowMotion8 from "@/assets/effects/video-fx/super_lightning_slow_motion_8.mp4.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type Subcategory = {
@@ -611,6 +615,10 @@ export const assetCategories: Category[] = [
         { name: "Thor Lightning Ground Strike 17", src: thorLightningGroundStrike17.url },
         { name: "Thor Lightning Floating 5", src: thorLightningFloating5.url },
         { name: "Thor Lightning Floating 9", src: thorLightningFloating9.url },
+        { name: "Thor Lightning Arc 12", src: thorLightningArc12.url },
+        { name: "Slow Orange Lightning Pulse", src: slowOrangeLightningPulse.url },
+        { name: "Super Lightning Slow Motion 1", src: superLightningSlowMotion1.url },
+        { name: "Super Lightning Slow Motion 8", src: superLightningSlowMotion8.url },
       ]),
       sub("Glow", "crystal.png", [
         { name: "Gold Glow", src: "/assets/effects/glow/gold_glow.png" },
