@@ -11,6 +11,9 @@ import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
 import staircaseEntry from "@/assets/adventure/staircase-entry.jpg";
 import magicBallStorm from "@/assets/effects/video-fx/magic_ball_storm.mp4.asset.json";
+import thorLightningOverlay11 from "@/assets/effects/video-fx/thor_lightning_overlay_11.mp4.asset.json";
+import halfDomeShockwave from "@/assets/effects/video-fx/half_dome_shockwave.mp4.asset.json";
+import magicEnergyBurstPink from "@/assets/effects/video-fx/magic_energy_burst_pink.mp4.asset.json";
 
 const academies = [
   { slug: "algebra", label: "Algebra", image: algebraIsland.url },
