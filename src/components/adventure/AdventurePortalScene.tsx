@@ -657,8 +657,8 @@ export const AdventurePortalScene = () => {
         </>
       )}
 
-      {/* 1) Lightning crackles on the door frame */}
-      {effectAcademy && effectStage !== "done" && (
+      {/* 1) Lightning crackles around the door FRAME (mask knocks out the centre). */}
+      {(zoomingAcademy || effectAcademy) && effectStage !== "done" && (
         <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center overflow-hidden">
           <video
             ref={lightningVideoRef}
@@ -667,10 +667,16 @@ export const AdventurePortalScene = () => {
             playsInline
             autoPlay
             loop
-            className="aspect-square h-[44vmin] w-[44vmin] object-cover transition-opacity duration-500 ease-out"
+            className="h-[72vmin] w-[42vmin] object-cover transition-opacity duration-700 ease-out"
             style={{
               opacity: lightningVisible ? 1 : 0,
               mixBlendMode: "screen",
+              // Hollow-out the middle so only the door-frame perimeter is lit.
+              WebkitMaskImage:
+                "radial-gradient(ellipse 42% 48% at 50% 50%, transparent 55%, black 78%)",
+              maskImage:
+                "radial-gradient(ellipse 42% 48% at 50% 50%, transparent 55%, black 78%)",
+              filter: "drop-shadow(0 0 18px rgba(180,210,255,0.55))",
             }}
           />
         </div>
