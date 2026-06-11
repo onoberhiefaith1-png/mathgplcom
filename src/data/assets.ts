@@ -32,6 +32,14 @@ import thorLightningArc12 from "@/assets/effects/video-fx/thor_lightning_arc_12.
 import slowOrangeLightningPulse from "@/assets/effects/video-fx/slow_orange_lightning_pulse.mp4.asset.json";
 import superLightningSlowMotion1 from "@/assets/effects/video-fx/super_lightning_slow_motion_1.mp4.asset.json";
 import superLightningSlowMotion8 from "@/assets/effects/video-fx/super_lightning_slow_motion_8.mp4.asset.json";
+import yellowAura from "@/assets/effects/video-fx/yellow_aura.mp4.asset.json";
+import magicAuraBodyFlame6 from "@/assets/effects/video-fx/magic_aura_body_flame_6.mp4.asset.json";
+import halfDomeShockwave from "@/assets/effects/video-fx/half_dome_shockwave.mp4.asset.json";
+import superheroEyeLasersAway10 from "@/assets/effects/video-fx/superhero_eye_lasers_away_10.mp4.asset.json";
+import superheroEyeLasersToCam28 from "@/assets/effects/video-fx/superhero_eye_lasers_to_cam_28.mp4.asset.json";
+import superheroEyeLasersAway8 from "@/assets/effects/video-fx/superhero_eye_lasers_away_8.mp4.asset.json";
+import blueLaserEyesToCamera from "@/assets/effects/video-fx/blue_laser_eyes_to_camera.mp4.asset.json";
+import magicBeamTesla from "@/assets/effects/video-fx/magic_beam_tesla.mp4.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type Subcategory = {
