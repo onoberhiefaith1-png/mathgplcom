@@ -220,17 +220,20 @@ const WorldSegment = ({
 
   useFrame((state, delta) => {
     const selectionProgress = getSelectionProgress(index);
+    const worldExpand = getWorldExpand();
     const portalProgress = getPortalProgress(index);
     const thunderProgress = getThunderProgress(index);
     const opacity = getOpacity(index);
 
     if (groupRef.current) {
-      // Gentle grow only — the "coming closer" feel comes mostly from the door
-      // texture crop. We keep the panel's front face well in front of the camera
-      // (camera z=10.5) so it NEVER clashes/passes through the lens: front face
-      // ≈ WORLD_RADIUS*scale + z ≈ 5.1*1.32 + 0.45 ≈ 7.2 (a safe ~3.3 gap).
-      const targetScale = 1 + selectionProgress * 0.32;
-      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1 + selectionProgress * 0.12), 1 - Math.pow(0.001, delta));
+      // BALLOON: every segment inflates uniformly with the world expand so the
+      // whole circular city grows outward as one — never a detached slice.
+      const balloon = 1 + worldExpand * 0.32;
+      // Selected segment gets a tiny extra forward push so the camera locks on the door.
+      const targetX = balloon;
+      const targetY = balloon;
+      const targetZ = balloon + selectionProgress * 0.06;
+      groupRef.current.scale.lerp(new THREE.Vector3(targetX, targetY, targetZ), 1 - Math.pow(0.001, delta));
       groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, selectionProgress * 0.45, 4.8, delta);
       groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, selectionProgress * 0.12, 4.2, delta);
     }
