@@ -464,31 +464,22 @@ const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[n
     }
 
     if (sequenceRef.current === "pause") {
-      // Hold in front of the door (door fills the screen, statues at the sides)
-      // while the glow + thunderbolt effect plays — slow, ~2.8s.
+      // Hold camera framed on the door while the magic ball storm effect plays
+      // in the parent DOM overlay. Fire the ready callback once.
       worldRef.current.rotation.y = targetRotationRef.current;
       worldRef.current.position.y = 0;
       approachProgressRef.current = 1;
-      pauseProgressRef.current = Math.min(1, pauseProgressRef.current + delta / 2.8);
-      if (pauseProgressRef.current >= 1) sequenceRef.current = "flash";
-    }
-
-    if (sequenceRef.current === "flash") {
-      worldRef.current.rotation.y = targetRotationRef.current;
-      worldRef.current.position.y = 0;
-      approachProgressRef.current = 1;
-      flashProgressRef.current = Math.min(1, flashProgressRef.current + delta / 0.7);
-      flashOpacityRef.current = smoothstep(0, 1, flashProgressRef.current);
-      if (!enteredRef.current && flashProgressRef.current >= 1 && selectedIndexRef.current !== null) {
+      if (!enteredRef.current && selectedIndexRef.current !== null) {
         enteredRef.current = true;
         document.body.style.cursor = "default";
-        onEnterAdventure(academies[selectedIndexRef.current]);
+        onDoorReady(academies[selectedIndexRef.current]);
       }
+      pauseProgressRef.current = Math.min(1, pauseProgressRef.current + delta / 2.8);
     }
 
     if (flashPlaneRef.current) {
       const flashMaterial = flashPlaneRef.current.material as THREE.MeshBasicMaterial;
-      flashMaterial.opacity = flashOpacityRef.current;
+      flashMaterial.opacity = 0;
     }
   });
 
