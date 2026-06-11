@@ -650,7 +650,7 @@ export const AdventurePortalScene = () => {
           />
           <Canvas camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
             <Suspense fallback={null}>
-              <Showcase onDoorReady={setEffectAcademy} />
+              <Showcase onDoorReady={setEffectAcademy} onZoomStart={setZoomingAcademy} />
             </Suspense>
           </Canvas>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
