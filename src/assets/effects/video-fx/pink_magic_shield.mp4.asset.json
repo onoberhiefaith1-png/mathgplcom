@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "469b6f81-b71a-44db-a76d-e202afc2381d",
-  "project_id": "ae151d80-72fe-4025-960e-a28281d1d744",
-  "url": "/__l5e/assets-v1/469b6f81-b71a-44db-a76d-e202afc2381d/pink_magic_shield.mp4",
-  "r2_key": "a/v1/ae151d80-72fe-4025-960e-a28281d1d744/469b6f81-b71a-44db-a76d-e202afc2381d/pink_magic_shield.mp4",
-  "original_filename": "pink_magic_shield.mp4",
-  "size": 4040139,
   "content_type": "video/mp4",
-  "created_at": "2026-06-11T20:55:52Z"
+  "created_at": "2026-06-11T20:55:52Z",
+  "original_filename": "pink_magic_shield.mp4",
+  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
+  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/469b6f81-b71a-44db-a76d-e202afc2381d/pink_magic_shield.mp4",
+  "size": 4040139,
+  "url": "/__l5e/assets-v1/469b6f81-b71a-44db-a76d-e202afc2381d/pink_magic_shield.mp4",
+  "version": 1
 }

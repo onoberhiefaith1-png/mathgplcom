@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "539ce774-ecf0-4b2a-9042-fb174f7efb11",
-  "project_id": "ae151d80-72fe-4025-960e-a28281d1d744",
-  "url": "/__l5e/assets-v1/539ce774-ecf0-4b2a-9042-fb174f7efb11/mathgpl-palace.png",
-  "r2_key": "a/v1/ae151d80-72fe-4025-960e-a28281d1d744/539ce774-ecf0-4b2a-9042-fb174f7efb11/mathgpl-palace.png",
-  "original_filename": "mathgpl-palace.png",
-  "size": 3104118,
   "content_type": "image/png",
-  "created_at": "2026-06-09T16:03:29Z"
+  "created_at": "2026-06-09T16:03:29Z",
+  "original_filename": "mathgpl-palace.png",
+  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
+  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/539ce774-ecf0-4b2a-9042-fb174f7efb11/mathgpl-palace.png",
+  "size": 3104118,
+  "url": "/__l5e/assets-v1/539ce774-ecf0-4b2a-9042-fb174f7efb11/mathgpl-palace.png",
+  "version": 1
 }

@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "fe67578f-757b-4c9b-a268-bd2dd228ecdb",
-  "project_id": "ae151d80-72fe-4025-960e-a28281d1d744",
-  "url": "/__l5e/assets-v1/fe67578f-757b-4c9b-a268-bd2dd228ecdb/central-dome-core.png",
-  "r2_key": "a/v1/ae151d80-72fe-4025-960e-a28281d1d744/fe67578f-757b-4c9b-a268-bd2dd228ecdb/central-dome-core.png",
-  "original_filename": "central-dome-core.png",
-  "size": 2401670,
   "content_type": "image/png",
-  "created_at": "2026-06-09T17:13:05Z"
+  "created_at": "2026-06-09T17:13:05Z",
+  "original_filename": "central-dome-core.png",
+  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
+  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/fe67578f-757b-4c9b-a268-bd2dd228ecdb/central-dome-core.png",
+  "size": 2401670,
+  "url": "/__l5e/assets-v1/fe67578f-757b-4c9b-a268-bd2dd228ecdb/central-dome-core.png",
+  "version": 1
 }

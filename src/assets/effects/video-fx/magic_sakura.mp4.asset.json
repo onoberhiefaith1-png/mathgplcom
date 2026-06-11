@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "e737c8e5-8913-463a-bf79-ca631a9cd391",
-  "project_id": "ae151d80-72fe-4025-960e-a28281d1d744",
-  "url": "/__l5e/assets-v1/e737c8e5-8913-463a-bf79-ca631a9cd391/magic_sakura.mp4",
-  "r2_key": "a/v1/ae151d80-72fe-4025-960e-a28281d1d744/e737c8e5-8913-463a-bf79-ca631a9cd391/magic_sakura.mp4",
-  "original_filename": "magic_sakura.mp4",
-  "size": 57421334,
   "content_type": "video/mp4",
-  "created_at": "2026-06-11T20:48:54Z"
+  "created_at": "2026-06-11T20:48:54Z",
+  "original_filename": "magic_sakura.mp4",
+  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
+  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/e737c8e5-8913-463a-bf79-ca631a9cd391/magic_sakura.mp4",
+  "size": 57421334,
+  "url": "/__l5e/assets-v1/e737c8e5-8913-463a-bf79-ca631a9cd391/magic_sakura.mp4",
+  "version": 1
 }

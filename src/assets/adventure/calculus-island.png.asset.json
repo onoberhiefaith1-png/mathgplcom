@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "f9cade4a-59cb-4ed5-a0be-18fc0d8c8e91",
-  "project_id": "ae151d80-72fe-4025-960e-a28281d1d744",
-  "url": "/__l5e/assets-v1/f9cade4a-59cb-4ed5-a0be-18fc0d8c8e91/calculus-island.png",
-  "r2_key": "a/v1/ae151d80-72fe-4025-960e-a28281d1d744/f9cade4a-59cb-4ed5-a0be-18fc0d8c8e91/calculus-island.png",
-  "original_filename": "calculus-island.png",
-  "size": 2961941,
   "content_type": "image/png",
-  "created_at": "2026-06-09T15:51:28Z"
+  "created_at": "2026-06-09T15:51:28Z",
+  "original_filename": "calculus-island.png",
+  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
+  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/f9cade4a-59cb-4ed5-a0be-18fc0d8c8e91/calculus-island.png",
+  "size": 2961941,
+  "url": "/__l5e/assets-v1/f9cade4a-59cb-4ed5-a0be-18fc0d8c8e91/calculus-island.png",
+  "version": 1
 }

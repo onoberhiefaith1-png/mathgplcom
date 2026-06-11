@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "5b3e812d-fcba-4ed8-98d5-e369bea9d3af",
-  "project_id": "ae151d80-72fe-4025-960e-a28281d1d744",
-  "url": "/__l5e/assets-v1/5b3e812d-fcba-4ed8-98d5-e369bea9d3af/adventure-clouds.png",
-  "r2_key": "a/v1/ae151d80-72fe-4025-960e-a28281d1d744/5b3e812d-fcba-4ed8-98d5-e369bea9d3af/adventure-clouds.png",
-  "original_filename": "adventure-clouds.png",
-  "size": 2476013,
   "content_type": "image/png",
-  "created_at": "2026-06-09T15:14:02Z"
+  "created_at": "2026-06-09T15:14:02Z",
+  "original_filename": "adventure-clouds.png",
+  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
+  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/5b3e812d-fcba-4ed8-98d5-e369bea9d3af/adventure-clouds.png",
+  "size": 2476013,
+  "url": "/__l5e/assets-v1/5b3e812d-fcba-4ed8-98d5-e369bea9d3af/adventure-clouds.png",
+  "version": 1
 }
