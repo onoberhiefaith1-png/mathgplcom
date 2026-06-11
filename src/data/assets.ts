@@ -555,6 +555,13 @@ export const assetCategories: Category[] = [
     name: "Effects",
     background: "arcane.png",
     subcategories: [
+      sub("Video FX", "ember.png", [
+        { name: "Infected Veins", src: infectedVeins.url },
+        { name: "Ice Spike Power", src: iceSpikePower.url },
+        { name: "Ground Mist", src: groundMist.url },
+        { name: "Magic Sakura", src: magicSakura.url },
+        { name: "Magic Ball Storm", src: magicBallStorm.url },
+      ]),
       sub("Glow", "crystal.png", [
         { name: "Gold Glow", src: "/assets/effects/glow/gold_glow.png" },
         { name: "Blue Glow", src: "/assets/effects/glow/blue_glow.png" },
