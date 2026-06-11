@@ -11,6 +11,15 @@ import magicFairyDust from "@/assets/effects/video-fx/magic_fairy_dust.mp4.asset
 import redWitchEnergyBall from "@/assets/effects/video-fx/red_witch_energy_ball.mov.asset.json";
 import groundOrb4 from "@/assets/effects/video-fx/ground_orb_4.mp4.asset.json";
 import groundOrb2 from "@/assets/effects/video-fx/ground_orb_2.mp4.asset.json";
+import magicCircleOrangeSpin from "@/assets/effects/video-fx/magic_circle_orange_spin.mp4.asset.json";
+import magicCircleOrangeAppear from "@/assets/effects/video-fx/magic_circle_orange_appear.mp4.asset.json";
+import blueInfernoBreath from "@/assets/effects/video-fx/blue_inferno_breath.mp4.asset.json";
+import magicEnergyBurstGreen from "@/assets/effects/video-fx/magic_energy_burst_green.mp4.asset.json";
+import magicEnergyBurstPink from "@/assets/effects/video-fx/magic_energy_burst_pink.mp4.asset.json";
+import magicAuraBodyFlame from "@/assets/effects/video-fx/magic_aura_body_flame.mp4.asset.json";
+import magicAuraContainedFlare from "@/assets/effects/video-fx/magic_aura_contained_flare.mp4.asset.json";
+import loopingOrangeMagicAura from "@/assets/effects/video-fx/looping_orange_magic_aura.mp4.asset.json";
+import smokeFromWindow from "@/assets/effects/video-fx/smoke_from_window.mp4.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type Subcategory = {
@@ -577,6 +586,15 @@ export const assetCategories: Category[] = [
         { name: "Red Witch Energy Ball", src: redWitchEnergyBall.url },
         { name: "Ground Orb 4", src: groundOrb4.url },
         { name: "Ground Orb 2", src: groundOrb2.url },
+        { name: "Magic Circle Orange Spin", src: magicCircleOrangeSpin.url },
+        { name: "Magic Circle Orange Appear", src: magicCircleOrangeAppear.url },
+        { name: "Blue Inferno Breath", src: blueInfernoBreath.url },
+        { name: "Magic Energy Burst Green", src: magicEnergyBurstGreen.url },
+        { name: "Magic Energy Burst Pink", src: magicEnergyBurstPink.url },
+        { name: "Magic Aura Body Flame", src: magicAuraBodyFlame.url },
+        { name: "Magic Aura Contained Flare", src: magicAuraContainedFlare.url },
+        { name: "Looping Orange Magic Aura", src: loopingOrangeMagicAura.url },
+        { name: "Smoke From Window", src: smokeFromWindow.url },
       ]),
       sub("Glow", "crystal.png", [
         { name: "Gold Glow", src: "/assets/effects/glow/gold_glow.png" },
