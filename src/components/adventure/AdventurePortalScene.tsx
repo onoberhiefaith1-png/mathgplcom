@@ -534,17 +534,50 @@ const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[n
 };
 
 export const AdventurePortalScene = () => {
+  const [effectAcademy, setEffectAcademy] = useState<(typeof academies)[number] | null>(null);
   const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
   const [revealed, setRevealed] = useState(false);
+  // Overlay stages: 'idle' → 'grow' (small, expanding from door) → 'cover' (full screen, swap underlying image) → 'fade' (fade out the storm) → 'done'.
+  const [effectStage, setEffectStage] = useState<"idle" | "grow" | "cover" | "fade" | "done">("idle");
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Seamless hand-off: the new scene mounts UNDER a white veil that picks up
-  // exactly where the in-canvas flash ended, then fades away — so there is never
-  // an empty gap between the leaving image and the entering image.
+  // Magic ball storm sequence: starts small at door centre, grows to fill the
+  // screen, swaps the underlying image to the staircase hall while fully
+  // covered, then fades the storm away to reveal the new scene.
+  useEffect(() => {
+    if (!effectAcademy) return;
+    setEffectStage("grow");
+    videoRef.current?.play().catch(() => undefined);
+    // Slow grow ~2.6s to fill the screen.
+    const t1 = window.setTimeout(() => {
+      setEffectStage("cover");
+      setEnteredAcademy(effectAcademy);
+    }, 2600);
+    // Then fade out the storm over ~0.9s.
+    const t2 = window.setTimeout(() => setEffectStage("fade"), 2600 + 350);
+    const t3 = window.setTimeout(() => setEffectStage("done"), 2600 + 350 + 900);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [effectAcademy]);
+
   useEffect(() => {
     if (!enteredAcademy) return;
     const id = requestAnimationFrame(() => setRevealed(true));
     return () => cancelAnimationFrame(id);
   }, [enteredAcademy]);
+
+  const stormScale =
+    effectStage === "idle"
+      ? 0.06
+      : effectStage === "grow"
+        ? 2.6
+        : effectStage === "cover" || effectStage === "fade"
+          ? 2.6
+          : 2.6;
+  const stormOpacity = effectStage === "fade" || effectStage === "done" ? 0 : effectStage === "idle" ? 0 : 1;
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
@@ -559,7 +592,6 @@ export const AdventurePortalScene = () => {
             height={1080}
           />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.08),transparent_28%,transparent_72%,hsl(var(--background)/0.24))]" />
-          {/* White veil that fades out, continuing the flash with no visible gap. */}
           <div
             className="pointer-events-none absolute inset-0 bg-[#fff7ea] transition-opacity duration-700 ease-out"
             style={{ opacity: revealed ? 0 : 1 }}
@@ -575,11 +607,30 @@ export const AdventurePortalScene = () => {
           />
           <Canvas camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
             <Suspense fallback={null}>
-              <Showcase onEnterAdventure={setEnteredAcademy} />
+              <Showcase onDoorReady={setEffectAcademy} />
             </Suspense>
           </Canvas>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
         </>
+      )}
+
+      {effectStage !== "done" && effectAcademy && (
+        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center overflow-hidden">
+          <video
+            ref={videoRef}
+            src={magicBallStorm.url}
+            muted
+            playsInline
+            autoPlay
+            className="aspect-square h-[60vmin] w-[60vmin] object-cover transition-[transform,opacity] duration-[2600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+            style={{
+              transform: `scale(${stormScale})`,
+              opacity: stormOpacity,
+              mixBlendMode: "screen",
+              transitionDuration: effectStage === "fade" ? "900ms" : "2600ms",
+            }}
+          />
+        </div>
       )}
     </main>
   );
