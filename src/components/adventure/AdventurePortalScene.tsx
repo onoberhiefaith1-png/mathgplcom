@@ -559,11 +559,12 @@ const Showcase = ({ onDoorReady, onZoomStart }: { onDoorReady: (academy: (typeof
 };
 
 export const AdventurePortalScene = () => {
+  const [zoomingAcademy, setZoomingAcademy] = useState<(typeof academies)[number] | null>(null);
   const [effectAcademy, setEffectAcademy] = useState<(typeof academies)[number] | null>(null);
   const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
   const [revealed, setRevealed] = useState(false);
   // Cinematic door-open sequence:
-  //   idle → lightning (lightning crackles on door frame, 2s)
+  //   idle → lightning (lightning crackles around the door frame while the camera zooms, 2s)
   //        → grow      (magic ball storm grows from door centre, 2.6s)
   //        → cover     (storm fully covers screen; swap underlying image, 0.35s)
   //        → transition(storm fades out + shockwave + pink burst land us in next scene, 1.2s)
@@ -574,32 +575,33 @@ export const AdventurePortalScene = () => {
   const stormVideoRef = useRef<HTMLVideoElement>(null);
   const lightningVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Orchestrate the cinematic door sequence whenever a door becomes ready.
+  // Kick off the lightning around the door frame the moment the camera starts zooming.
   useEffect(() => {
-    if (!effectAcademy) return;
+    if (!zoomingAcademy) return;
     setEffectStage("lightning");
     lightningVideoRef.current?.play().catch(() => undefined);
-
-    const LIGHTNING = 2000;
-    const GROW = 2600;
-    const COVER = 350;
-    const TRANSITION = 1200;
-
-    const t1 = window.setTimeout(() => {
+    const t = window.setTimeout(() => {
       setEffectStage("grow");
       stormVideoRef.current?.play().catch(() => undefined);
-    }, LIGHTNING);
-    const t2 = window.setTimeout(() => {
+    }, 2000);
+    return () => window.clearTimeout(t);
+  }, [zoomingAcademy]);
+
+  // Once the camera lands on the door, run the cover/transition stages.
+  useEffect(() => {
+    if (!effectAcademy) return;
+    const COVER = 350;
+    const TRANSITION = 1200;
+    const t1 = window.setTimeout(() => {
       setEffectStage("cover");
       setEnteredAcademy(effectAcademy);
-    }, LIGHTNING + GROW);
-    const t3 = window.setTimeout(() => setEffectStage("transition"), LIGHTNING + GROW + COVER);
-    const t4 = window.setTimeout(() => setEffectStage("done"), LIGHTNING + GROW + COVER + TRANSITION);
+    }, 0);
+    const t2 = window.setTimeout(() => setEffectStage("transition"), COVER);
+    const t3 = window.setTimeout(() => setEffectStage("done"), COVER + TRANSITION);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       window.clearTimeout(t3);
-      window.clearTimeout(t4);
     };
   }, [effectAcademy]);
 
@@ -616,7 +618,8 @@ export const AdventurePortalScene = () => {
   const stormOpacity =
     effectStage === "grow" || effectStage === "cover" ? 1 : effectStage === "transition" ? 0 : 0;
   const stormVisible = effectStage === "grow" || effectStage === "cover" || effectStage === "transition";
-  const lightningVisible = effectStage === "lightning";
+  // Lightning frames the door from zoom-start through to when the storm fully covers the screen.
+  const lightningVisible = effectStage === "lightning" || effectStage === "grow";
   const transitionVisible = effectStage === "transition";
 
   return (
