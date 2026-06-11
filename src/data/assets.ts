@@ -11,6 +11,15 @@ import magicFairyDust from "@/assets/effects/video-fx/magic_fairy_dust.mp4.asset
 import redWitchEnergyBall from "@/assets/effects/video-fx/red_witch_energy_ball.mov.asset.json";
 import groundOrb4 from "@/assets/effects/video-fx/ground_orb_4.mp4.asset.json";
 import groundOrb2 from "@/assets/effects/video-fx/ground_orb_2.mp4.asset.json";
+import magicCircleOrangeSpin from "@/assets/effects/video-fx/magic_circle_orange_spin.mp4.asset.json";
+import magicCircleOrangeAppear from "@/assets/effects/video-fx/magic_circle_orange_appear.mp4.asset.json";
+import blueInfernoBreath from "@/assets/effects/video-fx/blue_inferno_breath.mp4.asset.json";
+import magicEnergyBurstGreen from "@/assets/effects/video-fx/magic_energy_burst_green.mp4.asset.json";
+import magicEnergyBurstPink from "@/assets/effects/video-fx/magic_energy_burst_pink.mp4.asset.json";
+import magicAuraBodyFlame from "@/assets/effects/video-fx/magic_aura_body_flame.mp4.asset.json";
+import magicAuraContainedFlare from "@/assets/effects/video-fx/magic_aura_contained_flare.mp4.asset.json";
+import loopingOrangeMagicAura from "@/assets/effects/video-fx/looping_orange_magic_aura.mp4.asset.json";
+import smokeFromWindow from "@/assets/effects/video-fx/smoke_from_window.mp4.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type Subcategory = {
