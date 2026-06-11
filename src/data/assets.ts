@@ -3,6 +3,14 @@ import iceSpikePower from "@/assets/effects/video-fx/ice_spike_power.mp4.asset.j
 import groundMist from "@/assets/effects/video-fx/ground_mist.mp4.asset.json";
 import magicSakura from "@/assets/effects/video-fx/magic_sakura.mp4.asset.json";
 import magicBallStorm from "@/assets/effects/video-fx/magic_ball_storm.mp4.asset.json";
+import magicBallElectricGreen from "@/assets/effects/video-fx/magic_ball_electric_green.mp4.asset.json";
+import magicBallFireheart from "@/assets/effects/video-fx/magic_ball_fireheart.mp4.asset.json";
+import magicBallTorch from "@/assets/effects/video-fx/magic_ball_torch.mp4.asset.json";
+import pinkMagicShield from "@/assets/effects/video-fx/pink_magic_shield.mp4.asset.json";
+import magicFairyDust from "@/assets/effects/video-fx/magic_fairy_dust.mp4.asset.json";
+import redWitchEnergyBall from "@/assets/effects/video-fx/red_witch_energy_ball.mov.asset.json";
+import groundOrb4 from "@/assets/effects/video-fx/ground_orb_4.mp4.asset.json";
+import groundOrb2 from "@/assets/effects/video-fx/ground_orb_2.mp4.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type Subcategory = {
