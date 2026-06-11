@@ -615,6 +615,10 @@ export const assetCategories: Category[] = [
         { name: "Thor Lightning Ground Strike 17", src: thorLightningGroundStrike17.url },
         { name: "Thor Lightning Floating 5", src: thorLightningFloating5.url },
         { name: "Thor Lightning Floating 9", src: thorLightningFloating9.url },
+        { name: "Thor Lightning Arc 12", src: thorLightningArc12.url },
+        { name: "Slow Orange Lightning Pulse", src: slowOrangeLightningPulse.url },
+        { name: "Super Lightning Slow Motion 1", src: superLightningSlowMotion1.url },
+        { name: "Super Lightning Slow Motion 8", src: superLightningSlowMotion8.url },
       ]),
       sub("Glow", "crystal.png", [
         { name: "Gold Glow", src: "/assets/effects/glow/gold_glow.png" },
