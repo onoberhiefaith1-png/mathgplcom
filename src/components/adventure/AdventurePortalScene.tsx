@@ -383,7 +383,7 @@ const WorldSegment = ({
   );
 };
 
-const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[number]) => void }) => {
+const Showcase = ({ onDoorReady, onZoomStart }: { onDoorReady: (academy: (typeof academies)[number]) => void; onZoomStart: (academy: (typeof academies)[number]) => void }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
