@@ -513,6 +513,7 @@ const Showcase = ({ onDoorReady, onZoomStart }: { onDoorReady: (academy: (typeof
     selectedIndexRef.current = index;
     sequenceRef.current = "centering";
     targetRotationRef.current = -(index * SEG_ANGLE + SEG_ANGLE / 2);
+    onZoomStart(academies[index]);
   };
 
   return (
