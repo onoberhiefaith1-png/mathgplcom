@@ -561,29 +561,44 @@ export const AdventurePortalScene = () => {
   const [effectAcademy, setEffectAcademy] = useState<(typeof academies)[number] | null>(null);
   const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
   const [revealed, setRevealed] = useState(false);
-  // Overlay stages: 'idle' → 'grow' (small, expanding from door) → 'cover' (full screen, swap underlying image) → 'fade' (fade out the storm) → 'done'.
-  const [effectStage, setEffectStage] = useState<"idle" | "grow" | "cover" | "fade" | "done">("idle");
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Cinematic door-open sequence:
+  //   idle → lightning (lightning crackles on door frame, 2s)
+  //        → grow      (magic ball storm grows from door centre, 2.6s)
+  //        → cover     (storm fully covers screen; swap underlying image, 0.35s)
+  //        → transition(storm fades out + shockwave + pink burst land us in next scene, 1.2s)
+  //        → done
+  const [effectStage, setEffectStage] = useState<
+    "idle" | "lightning" | "grow" | "cover" | "transition" | "done"
+  >("idle");
+  const stormVideoRef = useRef<HTMLVideoElement>(null);
+  const lightningVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Magic ball storm sequence: starts small at door centre, grows to fill the
-  // screen, swaps the underlying image to the staircase hall while fully
-  // covered, then fades the storm away to reveal the new scene.
+  // Orchestrate the cinematic door sequence whenever a door becomes ready.
   useEffect(() => {
     if (!effectAcademy) return;
-    setEffectStage("grow");
-    videoRef.current?.play().catch(() => undefined);
-    // Slow grow ~2.6s to fill the screen.
+    setEffectStage("lightning");
+    lightningVideoRef.current?.play().catch(() => undefined);
+
+    const LIGHTNING = 2000;
+    const GROW = 2600;
+    const COVER = 350;
+    const TRANSITION = 1200;
+
     const t1 = window.setTimeout(() => {
+      setEffectStage("grow");
+      stormVideoRef.current?.play().catch(() => undefined);
+    }, LIGHTNING);
+    const t2 = window.setTimeout(() => {
       setEffectStage("cover");
       setEnteredAcademy(effectAcademy);
-    }, 2600);
-    // Then fade out the storm over ~0.9s.
-    const t2 = window.setTimeout(() => setEffectStage("fade"), 2600 + 350);
-    const t3 = window.setTimeout(() => setEffectStage("done"), 2600 + 350 + 900);
+    }, LIGHTNING + GROW);
+    const t3 = window.setTimeout(() => setEffectStage("transition"), LIGHTNING + GROW + COVER);
+    const t4 = window.setTimeout(() => setEffectStage("done"), LIGHTNING + GROW + COVER + TRANSITION);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       window.clearTimeout(t3);
+      window.clearTimeout(t4);
     };
   }, [effectAcademy]);
 
@@ -594,14 +609,14 @@ export const AdventurePortalScene = () => {
   }, [enteredAcademy]);
 
   const stormScale =
-    effectStage === "idle"
-      ? 0.06
-      : effectStage === "grow"
-        ? 2.6
-        : effectStage === "cover" || effectStage === "fade"
-          ? 2.6
-          : 2.6;
-  const stormOpacity = effectStage === "fade" || effectStage === "done" ? 0 : effectStage === "idle" ? 0 : 1;
+    effectStage === "grow" || effectStage === "cover" || effectStage === "transition"
+      ? 2.6
+      : 0.06;
+  const stormOpacity =
+    effectStage === "grow" || effectStage === "cover" ? 1 : effectStage === "transition" ? 0 : 0;
+  const stormVisible = effectStage === "grow" || effectStage === "cover" || effectStage === "transition";
+  const lightningVisible = effectStage === "lightning";
+  const transitionVisible = effectStage === "transition";
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
@@ -638,23 +653,69 @@ export const AdventurePortalScene = () => {
         </>
       )}
 
-      {effectStage !== "done" && effectAcademy && (
+      {/* 1) Lightning crackles on the door frame */}
+      {effectAcademy && effectStage !== "done" && (
+        <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center overflow-hidden">
+          <video
+            ref={lightningVideoRef}
+            src={thorLightningOverlay11.url}
+            muted
+            playsInline
+            autoPlay
+            loop
+            className="aspect-square h-[44vmin] w-[44vmin] object-cover transition-opacity duration-500 ease-out"
+            style={{
+              opacity: lightningVisible ? 1 : 0,
+              mixBlendMode: "screen",
+            }}
+          />
+        </div>
+      )}
+
+      {/* 2) Magic ball storm grows from door centre to fullscreen */}
+      {effectAcademy && effectStage !== "done" && (
         <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center overflow-hidden">
           <video
-            ref={videoRef}
+            ref={stormVideoRef}
             src={magicBallStorm.url}
             muted
             playsInline
             autoPlay
-            className="aspect-square h-[60vmin] w-[60vmin] object-cover transition-[transform,opacity] duration-[2600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+            className="aspect-square h-[60vmin] w-[60vmin] object-cover transition-[transform,opacity] ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{
-              transform: `scale(${stormScale})`,
+              transform: `scale(${stormVisible ? stormScale : 0.06})`,
               opacity: stormOpacity,
               mixBlendMode: "screen",
-              transitionDuration: effectStage === "fade" ? "900ms" : "2600ms",
+              transitionDuration: effectStage === "transition" ? "900ms" : "2600ms",
             }}
           />
         </div>
+      )}
+
+      {/* 3) Cinematic transition into the new scene: shockwave + pink energy burst */}
+      {effectAcademy && transitionVisible && (
+        <>
+          <div className="pointer-events-none absolute inset-0 z-[60] overflow-hidden">
+            <video
+              src={halfDomeShockwave.url}
+              muted
+              playsInline
+              autoPlay
+              className="h-full w-full object-cover"
+              style={{ mixBlendMode: "screen", opacity: 0.95 }}
+            />
+          </div>
+          <div className="pointer-events-none absolute inset-0 z-[61] overflow-hidden">
+            <video
+              src={magicEnergyBurstPink.url}
+              muted
+              playsInline
+              autoPlay
+              className="h-full w-full object-cover animate-fade-in"
+              style={{ mixBlendMode: "screen", opacity: 0.85 }}
+            />
+          </div>
+        </>
       )}
     </main>
   );
