@@ -111,12 +111,20 @@ const CoreSegment = ({
   );
 };
 
-const CentralCore = ({ getCoreOpacity }: { getCoreOpacity: () => number }) => {
+const CentralCore = ({ getCoreOpacity, getWorldExpand }: { getCoreOpacity: () => number; getWorldExpand: () => number }) => {
   const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    const expand = 1 + getWorldExpand() * 0.32;
+    groupRef.current.scale.x = THREE.MathUtils.damp(groupRef.current.scale.x, expand, 4.8, delta);
+    groupRef.current.scale.y = THREE.MathUtils.damp(groupRef.current.scale.y, expand, 4.8, delta);
+    groupRef.current.scale.z = THREE.MathUtils.damp(groupRef.current.scale.z, expand, 4.8, delta);
+  });
   return (
-    <group position={[0, CORE_Y_OFFSET, 0]}>
+    <group ref={groupRef} position={[0, CORE_Y_OFFSET, 0]}>
       {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
         <CoreSegment key={i} index={i} texture={texture} getCoreOpacity={getCoreOpacity} />
       ))}
