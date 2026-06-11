@@ -11,6 +11,9 @@ import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
 import staircaseEntry from "@/assets/adventure/staircase-entry.jpg";
 import magicBallStorm from "@/assets/effects/video-fx/magic_ball_storm.mp4.asset.json";
+import thorLightningOverlay11 from "@/assets/effects/video-fx/thor_lightning_overlay_11.mp4.asset.json";
+import halfDomeShockwave from "@/assets/effects/video-fx/half_dome_shockwave.mp4.asset.json";
+import magicEnergyBurstPink from "@/assets/effects/video-fx/magic_energy_burst_pink.mp4.asset.json";
 
 const academies = [
   { slug: "algebra", label: "Algebra", image: algebraIsland.url },
@@ -108,12 +111,20 @@ const CoreSegment = ({
   );
 };
 
-const CentralCore = ({ getCoreOpacity }: { getCoreOpacity: () => number }) => {
+const CentralCore = ({ getCoreOpacity, getWorldExpand }: { getCoreOpacity: () => number; getWorldExpand: () => number }) => {
   const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    const expand = 1 + getWorldExpand() * 0.32;
+    groupRef.current.scale.x = THREE.MathUtils.damp(groupRef.current.scale.x, expand, 4.8, delta);
+    groupRef.current.scale.y = THREE.MathUtils.damp(groupRef.current.scale.y, expand, 4.8, delta);
+    groupRef.current.scale.z = THREE.MathUtils.damp(groupRef.current.scale.z, expand, 4.8, delta);
+  });
   return (
-    <group position={[0, CORE_Y_OFFSET, 0]}>
+    <group ref={groupRef} position={[0, CORE_Y_OFFSET, 0]}>
       {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
         <CoreSegment key={i} index={i} texture={texture} getCoreOpacity={getCoreOpacity} />
       ))}
@@ -148,6 +159,7 @@ const WorldSegment = ({
   index,
   interactive,
   getSelectionProgress,
+  getWorldExpand,
   getPortalProgress,
   getThunderProgress,
   getOpacity,
@@ -158,6 +170,7 @@ const WorldSegment = ({
   index: number;
   interactive: boolean;
   getSelectionProgress: (index: number) => number;
+  getWorldExpand: () => number;
   getPortalProgress: (index: number) => number;
   getThunderProgress: (index: number) => number;
   getOpacity: (index: number) => number;
@@ -207,17 +220,20 @@ const WorldSegment = ({
 
   useFrame((state, delta) => {
     const selectionProgress = getSelectionProgress(index);
+    const worldExpand = getWorldExpand();
     const portalProgress = getPortalProgress(index);
     const thunderProgress = getThunderProgress(index);
     const opacity = getOpacity(index);
 
     if (groupRef.current) {
-      // Gentle grow only — the "coming closer" feel comes mostly from the door
-      // texture crop. We keep the panel's front face well in front of the camera
-      // (camera z=10.5) so it NEVER clashes/passes through the lens: front face
-      // ≈ WORLD_RADIUS*scale + z ≈ 5.1*1.32 + 0.45 ≈ 7.2 (a safe ~3.3 gap).
-      const targetScale = 1 + selectionProgress * 0.32;
-      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1 + selectionProgress * 0.12), 1 - Math.pow(0.001, delta));
+      // BALLOON: every segment inflates uniformly with the world expand so the
+      // whole circular city grows outward as one — never a detached slice.
+      const balloon = 1 + worldExpand * 0.32;
+      // Selected segment gets a tiny extra forward push so the camera locks on the door.
+      const targetX = balloon;
+      const targetY = balloon;
+      const targetZ = balloon + selectionProgress * 0.06;
+      groupRef.current.scale.lerp(new THREE.Vector3(targetX, targetY, targetZ), 1 - Math.pow(0.001, delta));
       groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, selectionProgress * 0.45, 4.8, delta);
       groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, selectionProgress * 0.12, 4.2, delta);
     }
@@ -420,6 +436,13 @@ const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[n
     return 1 - fade * 0.97;
   };
 
+  // Whole-world balloon expansion: every segment uses the selected segment's
+  // approach progress so the entire ring inflates outward together.
+  const getWorldExpand = () => {
+    if (selectedIndexRef.current === null) return 0;
+    return smoothstep(0, 1, approachProgressRef.current);
+  };
+
   // The middle core fades out as we zoom into a selected door (like the other
   // non-selected buildings) so it never pokes in front of the door framing.
   const getCoreOpacity = () => {
@@ -504,7 +527,7 @@ const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[n
 
       <group ref={worldRef}>
         {/* Middle royal palace core — locked to the same group so it rotates with the city. */}
-        <CentralCore getCoreOpacity={getCoreOpacity} />
+        <CentralCore getCoreOpacity={getCoreOpacity} getWorldExpand={getWorldExpand} />
         {academies.map((academy, i) => (
           <WorldSegment
             key={`${academy.slug}-${i}`}
@@ -512,6 +535,7 @@ const Showcase = ({ onDoorReady }: { onDoorReady: (academy: (typeof academies)[n
             texture={textureByUrl.get(academy.image)!}
             interactive={!interactionLockedRef.current}
             getSelectionProgress={getSelectionProgress}
+            getWorldExpand={getWorldExpand}
             getPortalProgress={getPortalProgress}
             getThunderProgress={getThunderProgress}
             getOpacity={getOpacity}
@@ -537,29 +561,44 @@ export const AdventurePortalScene = () => {
   const [effectAcademy, setEffectAcademy] = useState<(typeof academies)[number] | null>(null);
   const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
   const [revealed, setRevealed] = useState(false);
-  // Overlay stages: 'idle' → 'grow' (small, expanding from door) → 'cover' (full screen, swap underlying image) → 'fade' (fade out the storm) → 'done'.
-  const [effectStage, setEffectStage] = useState<"idle" | "grow" | "cover" | "fade" | "done">("idle");
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Cinematic door-open sequence:
+  //   idle → lightning (lightning crackles on door frame, 2s)
+  //        → grow      (magic ball storm grows from door centre, 2.6s)
+  //        → cover     (storm fully covers screen; swap underlying image, 0.35s)
+  //        → transition(storm fades out + shockwave + pink burst land us in next scene, 1.2s)
+  //        → done
+  const [effectStage, setEffectStage] = useState<
+    "idle" | "lightning" | "grow" | "cover" | "transition" | "done"
+  >("idle");
+  const stormVideoRef = useRef<HTMLVideoElement>(null);
+  const lightningVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Magic ball storm sequence: starts small at door centre, grows to fill the
-  // screen, swaps the underlying image to the staircase hall while fully
-  // covered, then fades the storm away to reveal the new scene.
+  // Orchestrate the cinematic door sequence whenever a door becomes ready.
   useEffect(() => {
     if (!effectAcademy) return;
-    setEffectStage("grow");
-    videoRef.current?.play().catch(() => undefined);
-    // Slow grow ~2.6s to fill the screen.
+    setEffectStage("lightning");
+    lightningVideoRef.current?.play().catch(() => undefined);
+
+    const LIGHTNING = 2000;
+    const GROW = 2600;
+    const COVER = 350;
+    const TRANSITION = 1200;
+
     const t1 = window.setTimeout(() => {
+      setEffectStage("grow");
+      stormVideoRef.current?.play().catch(() => undefined);
+    }, LIGHTNING);
+    const t2 = window.setTimeout(() => {
       setEffectStage("cover");
       setEnteredAcademy(effectAcademy);
-    }, 2600);
-    // Then fade out the storm over ~0.9s.
-    const t2 = window.setTimeout(() => setEffectStage("fade"), 2600 + 350);
-    const t3 = window.setTimeout(() => setEffectStage("done"), 2600 + 350 + 900);
+    }, LIGHTNING + GROW);
+    const t3 = window.setTimeout(() => setEffectStage("transition"), LIGHTNING + GROW + COVER);
+    const t4 = window.setTimeout(() => setEffectStage("done"), LIGHTNING + GROW + COVER + TRANSITION);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       window.clearTimeout(t3);
+      window.clearTimeout(t4);
     };
   }, [effectAcademy]);
 
@@ -570,14 +609,14 @@ export const AdventurePortalScene = () => {
   }, [enteredAcademy]);
 
   const stormScale =
-    effectStage === "idle"
-      ? 0.06
-      : effectStage === "grow"
-        ? 2.6
-        : effectStage === "cover" || effectStage === "fade"
-          ? 2.6
-          : 2.6;
-  const stormOpacity = effectStage === "fade" || effectStage === "done" ? 0 : effectStage === "idle" ? 0 : 1;
+    effectStage === "grow" || effectStage === "cover" || effectStage === "transition"
+      ? 2.6
+      : 0.06;
+  const stormOpacity =
+    effectStage === "grow" || effectStage === "cover" ? 1 : effectStage === "transition" ? 0 : 0;
+  const stormVisible = effectStage === "grow" || effectStage === "cover" || effectStage === "transition";
+  const lightningVisible = effectStage === "lightning";
+  const transitionVisible = effectStage === "transition";
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
@@ -614,23 +653,69 @@ export const AdventurePortalScene = () => {
         </>
       )}
 
-      {effectStage !== "done" && effectAcademy && (
+      {/* 1) Lightning crackles on the door frame */}
+      {effectAcademy && effectStage !== "done" && (
+        <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center overflow-hidden">
+          <video
+            ref={lightningVideoRef}
+            src={thorLightningOverlay11.url}
+            muted
+            playsInline
+            autoPlay
+            loop
+            className="aspect-square h-[44vmin] w-[44vmin] object-cover transition-opacity duration-500 ease-out"
+            style={{
+              opacity: lightningVisible ? 1 : 0,
+              mixBlendMode: "screen",
+            }}
+          />
+        </div>
+      )}
+
+      {/* 2) Magic ball storm grows from door centre to fullscreen */}
+      {effectAcademy && effectStage !== "done" && (
         <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center overflow-hidden">
           <video
-            ref={videoRef}
+            ref={stormVideoRef}
             src={magicBallStorm.url}
             muted
             playsInline
             autoPlay
-            className="aspect-square h-[60vmin] w-[60vmin] object-cover transition-[transform,opacity] duration-[2600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+            className="aspect-square h-[60vmin] w-[60vmin] object-cover transition-[transform,opacity] ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{
-              transform: `scale(${stormScale})`,
+              transform: `scale(${stormVisible ? stormScale : 0.06})`,
               opacity: stormOpacity,
               mixBlendMode: "screen",
-              transitionDuration: effectStage === "fade" ? "900ms" : "2600ms",
+              transitionDuration: effectStage === "transition" ? "900ms" : "2600ms",
             }}
           />
         </div>
+      )}
+
+      {/* 3) Cinematic transition into the new scene: shockwave + pink energy burst */}
+      {effectAcademy && transitionVisible && (
+        <>
+          <div className="pointer-events-none absolute inset-0 z-[60] overflow-hidden">
+            <video
+              src={halfDomeShockwave.url}
+              muted
+              playsInline
+              autoPlay
+              className="h-full w-full object-cover"
+              style={{ mixBlendMode: "screen", opacity: 0.95 }}
+            />
+          </div>
+          <div className="pointer-events-none absolute inset-0 z-[61] overflow-hidden">
+            <video
+              src={magicEnergyBurstPink.url}
+              muted
+              playsInline
+              autoPlay
+              className="h-full w-full object-cover animate-fade-in"
+              style={{ mixBlendMode: "screen", opacity: 0.85 }}
+            />
+          </div>
+        </>
       )}
     </main>
   );
