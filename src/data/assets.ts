@@ -20,6 +20,14 @@ import magicAuraBodyFlame from "@/assets/effects/video-fx/magic_aura_body_flame.
 import magicAuraContainedFlare from "@/assets/effects/video-fx/magic_aura_contained_flare.mp4.asset.json";
 import loopingOrangeMagicAura from "@/assets/effects/video-fx/looping_orange_magic_aura.mp4.asset.json";
 import smokeFromWindow from "@/assets/effects/video-fx/smoke_from_window.mp4.asset.json";
+import thorLightningShockwave from "@/assets/effects/video-fx/thor_lightning_shockwave.mp4.asset.json";
+import thorLightningToCamera from "@/assets/effects/video-fx/thor_lightning_to_camera.mp4.asset.json";
+import thorLightningOverlay1 from "@/assets/effects/video-fx/thor_lightning_overlay_1.mp4.asset.json";
+import thorLightningOverlay11 from "@/assets/effects/video-fx/thor_lightning_overlay_11.mp4.asset.json";
+import thorLightningGroundStrike6 from "@/assets/effects/video-fx/thor_lightning_ground_strike_6.mp4.asset.json";
+import thorLightningGroundStrike17 from "@/assets/effects/video-fx/thor_lightning_ground_strike_17.mp4.asset.json";
+import thorLightningFloating5 from "@/assets/effects/video-fx/thor_lightning_floating_5.mp4.asset.json";
+import thorLightningFloating9 from "@/assets/effects/video-fx/thor_lightning_floating_9.mp4.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type Subcategory = {
