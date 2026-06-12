@@ -331,10 +331,19 @@ export function DocumentEditor({
     });
     const parentNode = editor?.state.doc.nodeAt(parentPos);
     const problemStart = parentPos + (parentNode?.nodeSize ?? 0);
-    const problemText = (editor && problemStart < headingPos)
+    const rawText = (editor && problemStart < headingPos)
       ? serializeRangeAsMath(problemStart, headingPos)
       : "";
-    return {
+    // Strip anything before the LAST section-label line ("Solution",
+    // "Example", "Exercise"...) that appears as inline text rather than a
+    // heading node. Without this, ACTIVE_QUESTION can leak the previous
+    // question that lives above an inline "Solution" label.
+    const lines = rawText.split("\n");
+    let cutAt = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (detectSectionKind(lines[i])) { cutAt = i; break; }
+    }
+    const problemText = (cutAt >= 0 ? lines.slice(cutAt + 1) : lines).join("\n").trim();
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
       problemText,
       hasInheritedQuestion: Boolean(problemText),
