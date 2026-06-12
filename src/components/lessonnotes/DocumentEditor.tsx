@@ -344,6 +344,7 @@ export function DocumentEditor({
       if (detectSectionKind(lines[i])) { cutAt = i; break; }
     }
     const problemText = (cutAt >= 0 ? lines.slice(cutAt + 1) : lines).join("\n").trim();
+    return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
       problemText,
       hasInheritedQuestion: Boolean(problemText),
