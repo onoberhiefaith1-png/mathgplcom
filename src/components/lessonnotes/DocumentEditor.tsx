@@ -314,11 +314,18 @@ export function DocumentEditor({
   const getSolutionSource = (headingPos: number) => {
     let parentKind: SectionKind = "example";
     let parentPos = 0;
+    // Walk every prior heading (≤ level 2). The CLOSEST prior heading — of any
+    // kind — is the boundary, so we never span across a previous Solution and
+    // accidentally pull an older example's question into ACTIVE_QUESTION.
+    // We still remember the most recent QUESTION-kind heading to label the
+    // parent (parentKind), but the range itself starts after the closest
+    // heading regardless of kind.
     editor?.state.doc.descendants((n, p) => {
       if (p >= headingPos) return false;
       if (n.type.name === "heading" && (n.attrs.level ?? 6) <= 2) {
+        parentPos = p;
         const k = detectSectionKind(n.textContent);
-        if (k && k !== "solution") { parentKind = k; parentPos = p; }
+        if (k && k !== "solution") parentKind = k;
       }
       return true;
     });
