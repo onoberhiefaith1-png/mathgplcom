@@ -107,6 +107,30 @@ const QuestionProgressContainerEditor = () => {
               />
             </label>
 
+            <label className="block">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Zoom (size)</span>
+                <span className="text-xs font-mono text-foreground">{zoom}px</span>
+              </div>
+              <input
+                type="range"
+                min={16}
+                max={1200}
+                step={2}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                <button type="button" onClick={() => setZoom(24)} className="hover:text-primary">tiny</button>
+                <button type="button" onClick={() => setZoom(80)} className="hover:text-primary">small</button>
+                <button type="button" onClick={() => setZoom(280)} className="hover:text-primary">medium</button>
+                <button type="button" onClick={() => setZoom(600)} className="hover:text-primary">large</button>
+                <button type="button" onClick={() => setZoom(1200)} className="hover:text-primary">huge</button>
+              </div>
+            </label>
+
+
             <div>
               <span className="mb-2 block text-xs font-medium text-muted-foreground">
                 Crystal Theme
