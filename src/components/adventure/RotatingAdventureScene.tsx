@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useNavigate } from "react-router-dom";
