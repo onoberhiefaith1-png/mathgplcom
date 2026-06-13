@@ -256,19 +256,44 @@ const Showcase = () => {
   );
 };
 
-export const RotatingAdventureScene = () => (
-  <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
-    <img
-      src={adventureClouds.url}
-      alt="Sunset clouds over mountains with sacred geometry"
-      className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
-      loading="eager"
-    />
-    <Canvas camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
-      <Suspense fallback={null}>
-        <Showcase />
-      </Suspense>
-    </Canvas>
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
-  </main>
-);
+export const RotatingAdventureScene = () => {
+  // Recover from "Web page caused context loss and was blocked" by remounting
+  // the Canvas with a fresh key when the browser drops the WebGL context.
+  const [ctxKey, setCtxKey] = useState(0);
+
+  useEffect(() => {
+    const onLost = () => setCtxKey((k) => k + 1);
+    window.addEventListener("webglcontextlost", onLost);
+    return () => window.removeEventListener("webglcontextlost", onLost);
+  }, []);
+
+  return (
+    <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
+      <img
+        src={adventureClouds.url}
+        alt="Sunset clouds over mountains with sacred geometry"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+        loading="eager"
+      />
+      <Canvas
+        key={ctxKey}
+        camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
+        dpr={[1, 1.5]}
+        gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
+        onCreated={({ gl }) => {
+          const canvas = gl.domElement;
+          const handleLost = (e: Event) => {
+            e.preventDefault();
+            setCtxKey((k) => k + 1);
+          };
+          canvas.addEventListener("webglcontextlost", handleLost as EventListener);
+        }}
+      >
+        <Suspense fallback={null}>
+          <Showcase />
+        </Suspense>
+      </Canvas>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
+    </main>
+  );
+};
