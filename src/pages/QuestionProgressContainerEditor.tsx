@@ -17,6 +17,7 @@ const QuestionProgressContainerEditor = () => {
   const [current, setCurrent] = useState<number>(3);
   const [max, setMax] = useState<number>(10);
   const [theme, setTheme] = useState<CrystalTheme>("blue");
+  const [zoom, setZoom] = useState<number>(280);
 
   const safeMax = Math.max(0, max);
   const safeCurrent = Math.min(Math.max(0, current), safeMax);
