@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, FolderOpen } from "lucide-react";
+import { ArrowLeft, FolderOpen, Sparkles } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { assetCategories } from "@/data/assets";
+import QuestionProgressContainer from "@/components/assets/QuestionProgressContainer";
 
 const Assets = () => (
   <main className="relative min-h-screen text-foreground animate-fade-in">
@@ -24,7 +25,37 @@ const Assets = () => (
       </Link>
     </header>
 
+    <section className="relative z-10 mx-auto max-w-6xl px-6 pb-10">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-primary">
+        Interactive
+      </h2>
+      <Link
+        to="/assets/interactive/question-progress"
+        className="group flex items-center gap-5 rounded-xl border border-primary/40 bg-background/60 p-5 backdrop-blur transition hover:border-primary hover:bg-background/80"
+      >
+        <QuestionProgressContainer
+          questionNumber={7}
+          current={6}
+          max={10}
+          theme="purple"
+          width={88}
+        />
+        <div className="flex-1">
+          <div className="flex items-center gap-2 text-base font-semibold">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Question Progress Container
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Reusable crystal vessel with live liquid fill driven by current ÷ max. Configurable themes.
+          </div>
+        </div>
+      </Link>
+    </section>
+
     <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-primary">
+        Library
+      </h2>
       <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-3">
         {assetCategories.map((c) => (
           <Link

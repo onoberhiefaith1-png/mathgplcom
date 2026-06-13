@@ -11,6 +11,7 @@ import Auth from "./pages/Auth.tsx";
 import Assets from "./pages/Assets.tsx";
 import AssetCategory from "./pages/AssetCategory.tsx";
 import AssetSubcategory from "./pages/AssetSubcategory.tsx";
+import QuestionProgressContainerEditor from "./pages/QuestionProgressContainerEditor.tsx";
 import Backgrounds from "./pages/Backgrounds.tsx";
 import TallyGame from "./pages/TallyGame.tsx";
 import RomanGame from "./pages/RomanGame.tsx";
@@ -163,6 +164,7 @@ const App = () => (
           <Route path="/year/:n" element={<LevelContent mode="year" />} />
           <Route path="/class/:code" element={<LevelContent mode="class" />} />
           <Route path="/assets" element={<Assets />} />
+          <Route path="/assets/interactive/question-progress" element={<QuestionProgressContainerEditor />} />
           <Route path="/assets/:category" element={<AssetCategory />} />
           <Route path="/assets/:category/:subcategory" element={<AssetSubcategory />} />
           <Route path="/subjects/:subject" element={<SubjectTopics />} />
