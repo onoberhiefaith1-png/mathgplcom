@@ -17,6 +17,7 @@ const QuestionProgressContainerEditor = () => {
   const [current, setCurrent] = useState<number>(3);
   const [max, setMax] = useState<number>(10);
   const [theme, setTheme] = useState<CrystalTheme>("blue");
+  const [zoom, setZoom] = useState<number>(280);
 
   const safeMax = Math.max(0, max);
   const safeCurrent = Math.min(Math.max(0, current), safeMax);
@@ -45,16 +46,18 @@ const QuestionProgressContainerEditor = () => {
 
       <section className="relative z-10 mx-auto grid max-w-6xl gap-8 px-6 pb-24 lg:grid-cols-[1fr_360px]">
         {/* LIVE PREVIEW */}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border/40 bg-background/40 p-8 backdrop-blur">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-border/40 bg-background/40 p-8 backdrop-blur overflow-auto">
           <QuestionProgressContainer
             questionNumber={questionNumber}
             current={safeCurrent}
             max={safeMax}
             theme={theme}
-            width={280}
+            width={zoom}
           />
-          <div className="mt-4 text-xs text-muted-foreground">
-            Liquid level: <span className="font-semibold text-foreground">{pct.toFixed(1)}%</span>
+          <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Liquid level: <span className="font-semibold text-foreground">{pct.toFixed(1)}%</span></span>
+            <span>•</span>
+            <span>Size: <span className="font-semibold text-foreground">{zoom}px</span></span>
           </div>
         </div>
 
@@ -103,6 +106,30 @@ const QuestionProgressContainerEditor = () => {
                 className="w-full rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm focus:border-primary focus:outline-none"
               />
             </label>
+
+            <label className="block">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Zoom (size)</span>
+                <span className="text-xs font-mono text-foreground">{zoom}px</span>
+              </div>
+              <input
+                type="range"
+                min={16}
+                max={1200}
+                step={2}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                <button type="button" onClick={() => setZoom(24)} className="hover:text-primary">tiny</button>
+                <button type="button" onClick={() => setZoom(80)} className="hover:text-primary">small</button>
+                <button type="button" onClick={() => setZoom(280)} className="hover:text-primary">medium</button>
+                <button type="button" onClick={() => setZoom(600)} className="hover:text-primary">large</button>
+                <button type="button" onClick={() => setZoom(1200)} className="hover:text-primary">huge</button>
+              </div>
+            </label>
+
 
             <div>
               <span className="mb-2 block text-xs font-medium text-muted-foreground">
