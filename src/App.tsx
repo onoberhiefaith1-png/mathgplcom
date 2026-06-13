@@ -11,6 +11,7 @@ import Auth from "./pages/Auth.tsx";
 import Assets from "./pages/Assets.tsx";
 import AssetCategory from "./pages/AssetCategory.tsx";
 import AssetSubcategory from "./pages/AssetSubcategory.tsx";
+import QuestionProgressContainerEditor from "./pages/QuestionProgressContainerEditor.tsx";
 import Backgrounds from "./pages/Backgrounds.tsx";
 import TallyGame from "./pages/TallyGame.tsx";
 import RomanGame from "./pages/RomanGame.tsx";
