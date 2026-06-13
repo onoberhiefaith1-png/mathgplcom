@@ -164,6 +164,7 @@ const App = () => (
           <Route path="/year/:n" element={<LevelContent mode="year" />} />
           <Route path="/class/:code" element={<LevelContent mode="class" />} />
           <Route path="/assets" element={<Assets />} />
+          <Route path="/assets/interactive/question-progress" element={<QuestionProgressContainerEditor />} />
           <Route path="/assets/:category" element={<AssetCategory />} />
           <Route path="/assets/:category/:subcategory" element={<AssetSubcategory />} />
           <Route path="/subjects/:subject" element={<SubjectTopics />} />
