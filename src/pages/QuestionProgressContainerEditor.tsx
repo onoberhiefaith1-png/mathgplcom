@@ -46,16 +46,18 @@ const QuestionProgressContainerEditor = () => {
 
       <section className="relative z-10 mx-auto grid max-w-6xl gap-8 px-6 pb-24 lg:grid-cols-[1fr_360px]">
         {/* LIVE PREVIEW */}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border/40 bg-background/40 p-8 backdrop-blur">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-border/40 bg-background/40 p-8 backdrop-blur overflow-auto">
           <QuestionProgressContainer
             questionNumber={questionNumber}
             current={safeCurrent}
             max={safeMax}
             theme={theme}
-            width={280}
+            width={zoom}
           />
-          <div className="mt-4 text-xs text-muted-foreground">
-            Liquid level: <span className="font-semibold text-foreground">{pct.toFixed(1)}%</span>
+          <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Liquid level: <span className="font-semibold text-foreground">{pct.toFixed(1)}%</span></span>
+            <span>•</span>
+            <span>Size: <span className="font-semibold text-foreground">{zoom}px</span></span>
           </div>
         </div>
 
