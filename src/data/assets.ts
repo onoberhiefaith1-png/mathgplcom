@@ -756,6 +756,7 @@ export const assetCategories: Category[] = [
             { name: "Magic Fairy Dust", src: magicFairyDust.url },
             { name: "Magic Sakura", src: magicSakura.url },
             { name: "Drippy Transition Spiral", src: drippyTransitionSpiral.url },
+            { name: "Magic Green Smoke Symbol", src: magicGreenSmokeSymbol.url },
           ],
         },
         {
