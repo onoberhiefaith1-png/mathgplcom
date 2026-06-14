@@ -84,6 +84,16 @@ import vfxGrpBirds from "@/assets/effects/video-fx-groups/birds-wildlife.jpg";
 import vfxGrpImpacts from "@/assets/effects/video-fx-groups/impacts.jpg";
 import vfxGrpDestruction from "@/assets/effects/video-fx-groups/destruction.jpg";
 import vfxGrpRocket from "@/assets/effects/video-fx-groups/rocket-exhaust.jpg";
+import vfxGrpStormClouds from "@/assets/effects/video-fx-groups/storm-clouds.jpg";
+import stormCloud1 from "@/assets/effects/video-fx/storm_cloud_1.mp4.asset.json";
+import stormCloud2 from "@/assets/effects/video-fx/storm_cloud_2.mp4.asset.json";
+import largeWaterfall1 from "@/assets/effects/video-fx/large_waterfall_1.mov.asset.json";
+import mediumWaterfall2 from "@/assets/effects/video-fx/medium_waterfall_2.mp4.asset.json";
+import forcefieldScifi1Front from "@/assets/effects/video-fx/forcefield_scifi1_front.mp4.asset.json";
+import forcefieldScifi3Front from "@/assets/effects/video-fx/forcefield_scifi3_front.mp4.asset.json";
+import forcefieldScifi3Back from "@/assets/effects/video-fx/forcefield_scifi3_back.mp4.asset.json";
+import forcefieldMagic2Front from "@/assets/effects/video-fx/forcefield_magic2_front.mp4.asset.json";
+import iceyCloudSprayAtCamera from "@/assets/effects/video-fx/icey_cloud_spray_at_camera.mp4.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type AssetGroup = { name: string; assets: AssetItem[]; image?: string };
