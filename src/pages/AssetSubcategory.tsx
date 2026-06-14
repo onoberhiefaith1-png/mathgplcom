@@ -175,7 +175,7 @@ const AssetSubcategory = () => {
           return (
             <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
               <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
-                {sub.assets!.map(renderCard)}
+                {sub.assets!.map((a) => renderCard(a))}
               </div>
             </section>
           );
