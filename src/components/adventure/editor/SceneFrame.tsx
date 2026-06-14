@@ -129,9 +129,9 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
             <Button size="sm" variant="outline" onClick={() => addVault("Bronze Vault")}>+ Bronze</Button>
           </>
         )}
-        {scene.kind !== "vault" && (
-          <Button size="sm" onClick={() => setQuestionsOpen({})}><ListChecks className="h-3.5 w-3.5 mr-1" /> Questions</Button>
-        )}
+        <Button size="sm" onClick={openQuestions} disabled={openingQuestions}>
+          <ListChecks className="h-3.5 w-3.5 mr-1" /> {openingQuestions ? "Opening…" : "Questions"}
+        </Button>
       </div>
 
       {/* Frame */}
