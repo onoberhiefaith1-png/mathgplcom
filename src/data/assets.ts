@@ -816,7 +816,9 @@ export const assetCategories: Category[] = [
           image: vfxGrpWaterfalls,
           assets: [
             { name: "Large Waterfall", src: largeWaterfall.url },
+            { name: "Large Waterfall 1 (LQ)", src: largeWaterfall1.url },
             { name: "Medium Waterfall", src: mediumWaterfall.url },
+            { name: "Medium Waterfall 2", src: mediumWaterfall2.url },
           ],
         },
         {
@@ -825,6 +827,14 @@ export const assetCategories: Category[] = [
           assets: [
             { name: "Giant Tornado", src: giantTornado.url },
             { name: "Tornado Small", src: tornadoSmall.url },
+          ],
+        },
+        {
+          name: "Storm Clouds",
+          image: vfxGrpStormClouds,
+          assets: [
+            { name: "Storm Cloud 1", src: stormCloud1.url },
+            { name: "Storm Cloud 2", src: stormCloud2.url },
           ],
         },
       ]),
