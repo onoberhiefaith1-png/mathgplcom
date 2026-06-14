@@ -666,6 +666,9 @@ export const assetCategories: Category[] = [
           assets: [
             { name: "Blue Inferno Breath", src: blueInfernoBreath.url },
             { name: "Lava Flow", src: lavaFlow.url },
+            { name: "Fire Burning Surface 8", src: fireBurningSurface8.url },
+            { name: "Fire Burning Surface 30", src: fireBurningSurface30.url },
+            { name: "Embers Hit (Slow Mo)", src: embersHitSlow.url },
           ],
         },
         {
@@ -715,7 +718,38 @@ export const assetCategories: Category[] = [
             { name: "Ice Spike Power", src: iceSpikePower.url },
             { name: "Ground Mist", src: groundMist.url },
             { name: "Smoke From Window", src: smokeFromWindow.url },
+            { name: "Smoke Plume (Small)", src: smokePlumeSmall.url },
             { name: "Infected Veins", src: infectedVeins.url },
+          ],
+        },
+        {
+          name: "Impacts",
+          image: vfxGrpImpacts,
+          assets: [
+            { name: "Glass Bullet Impact (Slow)", src: glassBulletImpact.url },
+          ],
+        },
+        {
+          name: "Destruction",
+          image: vfxGrpDestruction,
+          assets: [
+            { name: "Building Destruction (Earthquake)", src: buildingDestructionEarthquake.url },
+          ],
+        },
+        {
+          name: "Rocket & Exhaust",
+          image: vfxGrpRocket,
+          assets: [
+            { name: "Rocket Exhaust (Cyan)", src: rocketExhaustCyan.url },
+          ],
+        },
+        {
+          name: "Birds & Wildlife",
+          image: vfxGrpBirds,
+          assets: [
+            { name: "Seagulls (Rear)", src: seagullsRear.url },
+            { name: "Seagulls (Rear Quarter)", src: seagullsRearQuarter.url },
+            { name: "Seagulls (Side)", src: seagullsSide.url },
           ],
         },
         {
