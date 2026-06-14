@@ -55,10 +55,25 @@ const AssetSubcategory = () => {
         const hasAssets = !!sub.assets && sub.assets.length > 0;
         if (isMusicGenerator && !hasAssets && !hasGroups) return <MusicGenerator />;
 
-        const renderCard = (a: { name: string; src: string }) => {
+        // Group names that contain real-world footage (not overlays).
+        // Blend modes would destroy these, so we keep them as-is.
+        const REAL_FOOTAGE_GROUPS = new Set([
+          "Trees (Wind)",
+          "Waterfalls",
+          "Tornadoes",
+          "Birds & Wildlife",
+          "Destruction",
+          "Storm Clouds",
+          "Impacts",
+        ]);
+        const isVideoFx = cat.slug === "effects" && sub.slug === "video-fx";
+
+        const renderCard = (a: { name: string; src: string }, groupName?: string) => {
           const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(a.src);
           const is3DModel = /\.(glb|gltf)$/i.test(a.src);
           const isVideo = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(a.src);
+          const useScreenBlend =
+            isVideo && isVideoFx && !(groupName && REAL_FOOTAGE_GROUPS.has(groupName));
           const card = is3DModel ? (
             <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
               <GlbViewer src={a.src} />
@@ -66,8 +81,28 @@ const AssetSubcategory = () => {
             </figure>
           ) : isVideo ? (
             <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
-              <div className="aspect-square w-full overflow-hidden bg-black/40">
-                <video src={a.src} controls loop muted playsInline preload="metadata" className="h-full w-full object-cover" />
+              <div
+                className="aspect-square w-full overflow-hidden"
+                style={
+                  useScreenBlend
+                    ? {
+                        backgroundImage:
+                          "repeating-conic-gradient(hsl(var(--muted)) 0% 25%, hsl(var(--background)) 0% 50%)",
+                        backgroundSize: "24px 24px",
+                      }
+                    : { background: "rgba(0,0,0,0.4)" }
+                }
+              >
+                <video
+                  src={a.src}
+                  controls
+                  loop
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-cover"
+                  style={useScreenBlend ? { mixBlendMode: "screen" } : undefined}
+                />
               </div>
               <figcaption className="px-3 py-2 text-center text-sm font-medium">{a.name}</figcaption>
             </figure>
