@@ -1,6 +1,12 @@
 import algebra from "@/assets/adventure/algebra-island.png.asset.json";
 import calculus from "@/assets/adventure/calculus-island.png.asset.json";
 import central from "@/assets/adventure/central-dome-core.png.asset.json";
+import grandHall from "@/assets/adventure/custom-backgrounds/mathgpl-grand-hall.png.asset.json";
+import observatoryHall from "@/assets/adventure/custom-backgrounds/mathgpl-observatory-hall.png.asset.json";
+import eternalLibrary from "@/assets/adventure/custom-backgrounds/mathgpl-eternal-library.png.asset.json";
+import staircaseWingWide from "@/assets/adventure/custom-backgrounds/mathgpl-staircase-wing-wide.png.asset.json";
+import staircaseWingClose from "@/assets/adventure/custom-backgrounds/mathgpl-staircase-wing-close.png.asset.json";
+import academyGate from "@/assets/adventure/custom-backgrounds/mathgpl-academy-gate.png.asset.json";
 import geometry from "@/assets/adventure/geometry-island.png.asset.json";
 import palace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 import statistics from "@/assets/adventure/statistics-island.png.asset.json";
@@ -14,6 +20,12 @@ export interface LibraryBackground {
 
 export const ADVENTURE_BACKGROUND_LIBRARY: LibraryBackground[] = [
   { id: "palace", label: "MathGPL Palace", url: palace.url },
+  { id: "grand-hall", label: "Grand Hall", url: grandHall.url },
+  { id: "observatory-hall", label: "Observatory Hall", url: observatoryHall.url },
+  { id: "eternal-library", label: "Eternal Library", url: eternalLibrary.url },
+  { id: "academy-gate", label: "Academy Gate", url: academyGate.url },
+  { id: "staircase-wing-wide", label: "Staircase Wing", url: staircaseWingWide.url },
+  { id: "staircase-wing-close", label: "Staircase Wing Close", url: staircaseWingClose.url },
   { id: "central", label: "Central Dome", url: central.url },
   { id: "algebra", label: "Algebra Island", url: algebra.url },
   { id: "geometry", label: "Geometry Island", url: geometry.url },
