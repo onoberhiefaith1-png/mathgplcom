@@ -50,6 +50,16 @@ import treeWindyAutumn from "@/assets/effects/video-fx/tree_windy_autumn.mp4.ass
 import treeWindyEuropean from "@/assets/effects/video-fx/tree_windy_european.mp4.asset.json";
 import treeWindyPines from "@/assets/effects/video-fx/tree_windy_pines.mp4.asset.json";
 import treeWindyWinter from "@/assets/effects/video-fx/tree_windy_winter.mp4.asset.json";
+import seagullsRear from "@/assets/effects/video-fx/seagulls_rear.mp4.asset.json";
+import seagullsRearQuarter from "@/assets/effects/video-fx/seagulls_rear_quarter.mp4.asset.json";
+import seagullsSide from "@/assets/effects/video-fx/seagulls_side.mp4.asset.json";
+import glassBulletImpact from "@/assets/effects/video-fx/glass_bullet_impact.mp4.asset.json";
+import buildingDestructionEarthquake from "@/assets/effects/video-fx/building_destruction_earthquake.mp4.asset.json";
+import smokePlumeSmall from "@/assets/effects/video-fx/smoke_plume_small.mp4.asset.json";
+import rocketExhaustCyan from "@/assets/effects/video-fx/rocket_exhaust_cyan.mp4.asset.json";
+import embersHitSlow from "@/assets/effects/video-fx/embers_hit_slow.mp4.asset.json";
+import fireBurningSurface30 from "@/assets/effects/video-fx/fire_burning_surface_30.mp4.asset.json";
+import fireBurningSurface8 from "@/assets/effects/video-fx/fire_burning_surface_8.mp4.asset.json";
 import vfxGrpMagicBalls from "@/assets/effects/video-fx-groups/magic-balls.jpg";
 import vfxGrpAuras from "@/assets/effects/video-fx-groups/auras-shields.jpg";
 import vfxGrpFireLava from "@/assets/effects/video-fx-groups/fire-lava.jpg";
@@ -61,6 +71,10 @@ import vfxGrpShockwaves from "@/assets/effects/video-fx-groups/shockwaves.jpg";
 import vfxGrpTrees from "@/assets/effects/video-fx-groups/trees-wind.jpg";
 import vfxGrpWaterfalls from "@/assets/effects/video-fx-groups/waterfalls.jpg";
 import vfxGrpTornadoes from "@/assets/effects/video-fx-groups/tornadoes.jpg";
+import vfxGrpBirds from "@/assets/effects/video-fx-groups/birds-wildlife.jpg";
+import vfxGrpImpacts from "@/assets/effects/video-fx-groups/impacts.jpg";
+import vfxGrpDestruction from "@/assets/effects/video-fx-groups/destruction.jpg";
+import vfxGrpRocket from "@/assets/effects/video-fx-groups/rocket-exhaust.jpg";
 
 export type AssetItem = { name: string; src: string };
 export type AssetGroup = { name: string; assets: AssetItem[]; image?: string };
