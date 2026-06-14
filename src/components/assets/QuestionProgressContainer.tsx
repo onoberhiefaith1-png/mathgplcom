@@ -289,73 +289,79 @@ export const QuestionProgressContainer = ({
           strokeWidth={CH_W * 0.012}
         />
 
-        {/* Top label plate covering painted Q-number */}
-        <g>
-          <rect
-            x={CH_X + CH_W / 2 - plateTopW / 2}
-            y={plateTopY}
-            width={plateTopW}
-            height={plateTopH}
-            rx={plateTopH * 0.22}
-            fill="#0d1014"
-            stroke="#05070a"
-            strokeWidth="1.2"
-          />
-          <rect
-            x={CH_X + CH_W / 2 - plateTopW / 2 + plateTopW * 0.02}
-            y={plateTopY + plateTopH * 0.1}
-            width={plateTopW * 0.96}
-            height={plateTopH * 0.8}
-            rx={plateTopH * 0.18}
-            fill="none"
-            stroke={t.glow}
-            strokeOpacity="0.35"
-            strokeWidth="0.8"
-          />
-          <text
-            x={CH_X + CH_W / 2}
-            y={plateTopY + plateTopH * 0.7}
-            textAnchor="middle"
-            fontFamily="'Cinzel', 'Trajan Pro', Georgia, serif"
-            fontWeight={800}
-            fontSize={plateTopH * 0.68}
-            fill={t.counter}
-            style={{ paintOrder: "stroke", stroke: "#000", strokeWidth: 1 } as React.CSSProperties}
-          >
-            Q{questionNumber}
-          </text>
-        </g>
-
-        {/* Bottom progress plate covering painted N/N */}
-        {!hideProgressText && (
-          <g>
-            <rect
-              x={CH_X + CH_W / 2 - plateBotW / 2}
-              y={plateBotY}
-              width={plateBotW}
-              height={plateBotH}
-              rx={plateBotH * 0.22}
-              fill="#0d1014"
-              stroke="#05070a"
-              strokeWidth="1.2"
-            />
-            <text
-              x={CH_X + CH_W / 2}
-              y={plateBotY + plateBotH * 0.7}
-              textAnchor="middle"
-              fontFamily="'Cinzel', 'Trajan Pro', Georgia, serif"
-              fontWeight={800}
-              fontSize={plateBotH * 0.65}
-              fill={t.counter}
-              style={{ paintOrder: "stroke", stroke: "#000", strokeWidth: 0.8 } as React.CSSProperties}
-            >
-              {current}/{max}
-            </text>
-          </g>
-        )}
       </svg>
+
+      {/* Blurred patch that hides the painted-in Q-number on the frame, with
+          engraved dynamic text on top that blends with the stone. */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          left: `${topPlateLeft}%`,
+          top: `${topPlateTopPct}%`,
+          width: `${topPlateW}%`,
+          height: `${topPlateHPct}%`,
+          backdropFilter: "blur(6px) saturate(1.1)",
+          WebkitBackdropFilter: "blur(6px) saturate(1.1)",
+          borderRadius: "20%",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: `${topPlateLeft}%`,
+          top: `${topPlateTopPct}%`,
+          width: `${topPlateW}%`,
+          height: `${topPlateHPct}%`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+          ...engravedStyle,
+          fontSize: `${topPlateHPct * 0.7}cqh`,
+        }}
+      >
+        <span style={{ fontSize: `${width * topPlateHPct * 0.006}px` }}>Q{questionNumber}</span>
+      </div>
+
+      {!hideProgressText && (
+        <>
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: `${botPlateLeft}%`,
+              top: `${botPlateTopPct}%`,
+              width: `${botPlateW}%`,
+              height: `${botPlateHPct}%`,
+              backdropFilter: "blur(6px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(6px) saturate(1.1)",
+              borderRadius: "30%",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: `${botPlateLeft}%`,
+              top: `${botPlateTopPct}%`,
+              width: `${botPlateW}%`,
+              height: `${botPlateHPct}%`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              ...engravedStyle,
+            }}
+          >
+            <span style={{ fontSize: `${width * botPlateHPct * 0.0055}px` }}>{current}/{max}</span>
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 export default QuestionProgressContainer;
+
