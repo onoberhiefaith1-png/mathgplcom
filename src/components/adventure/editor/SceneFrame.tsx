@@ -172,7 +172,15 @@ function ItemBody({ item, onOpenQuestions, onRemove, selected }: { item: LayoutI
   return (
     <div className="relative h-full w-full">
       {item.kind === "effect" && item.src && (
-        <video src={item.src} autoPlay muted loop playsInline className="h-full w-full rounded object-cover pointer-events-none" />
+        <video
+          src={item.src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="h-full w-full rounded object-cover pointer-events-none"
+          style={{ mixBlendMode: "screen" }}
+        />
       )}
       {item.kind === "progress" && (
         <div className="flex h-full w-full flex-col justify-center rounded bg-background/70 p-2 backdrop-blur">
