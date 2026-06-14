@@ -94,6 +94,11 @@ import forcefieldScifi3Front from "@/assets/effects/video-fx/forcefield_scifi3_f
 import forcefieldScifi3Back from "@/assets/effects/video-fx/forcefield_scifi3_back.mp4.asset.json";
 import forcefieldMagic2Front from "@/assets/effects/video-fx/forcefield_magic2_front.mp4.asset.json";
 import iceyCloudSprayAtCamera from "@/assets/effects/video-fx/icey_cloud_spray_at_camera.mp4.asset.json";
+import cloudBurstUp from "@/assets/effects/video-fx/cloud_burst_up.mov.asset.json";
+import lowThickMist from "@/assets/effects/video-fx/low_thick_mist.mp4.asset.json";
+import magicGreenSmokeSymbol from "@/assets/effects/video-fx/magic_green_smoke_symbol.mov.asset.json";
+import skullCloud3 from "@/assets/effects/video-fx/skull_cloud_3.mov.asset.json";
+import animeTransitionFire from "@/assets/effects/video-fx/anime_transition_fire.mov.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type AssetGroup = { name: string; assets: AssetItem[]; image?: string };
@@ -694,6 +699,7 @@ export const assetCategories: Category[] = [
             { name: "Fire Burning Surface 38", src: fireBurningSurface38.url },
             { name: "Fire Burning Surface 40", src: fireBurningSurface40.url },
             { name: "Embers Hit (Slow Mo)", src: embersHitSlow.url },
+            { name: "Anime Transition Fire", src: animeTransitionFire.url },
           ],
         },
         {
@@ -751,6 +757,7 @@ export const assetCategories: Category[] = [
             { name: "Magic Fairy Dust", src: magicFairyDust.url },
             { name: "Magic Sakura", src: magicSakura.url },
             { name: "Drippy Transition Spiral", src: drippyTransitionSpiral.url },
+            { name: "Magic Green Smoke Symbol", src: magicGreenSmokeSymbol.url },
           ],
         },
         {
@@ -763,6 +770,9 @@ export const assetCategories: Category[] = [
             { name: "Smoke Plume (Small)", src: smokePlumeSmall.url },
             { name: "Infected Veins", src: infectedVeins.url },
             { name: "Icey Cloud Spray (At Camera)", src: iceyCloudSprayAtCamera.url },
+            { name: "Cloud Burst Up", src: cloudBurstUp.url },
+            { name: "Low Thick Mist", src: lowThickMist.url },
+            { name: "Skull Cloud", src: skullCloud3.url },
           ],
         },
         {
