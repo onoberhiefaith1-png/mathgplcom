@@ -290,22 +290,9 @@ export const QuestionProgressContainer = ({
 
       </svg>
 
-      {/* Blurred patch that hides the painted-in Q-number on the frame, with
-          engraved dynamic text on top that blends with the stone. */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          left: `${topPlateLeft}%`,
-          top: `${topPlateTopPct}%`,
-          width: `${topPlateW}%`,
-          height: `${topPlateHPct}%`,
-          backdropFilter: "blur(6px) saturate(1.1)",
-          WebkitBackdropFilter: "blur(6px) saturate(1.1)",
-          borderRadius: "20%",
-          pointerEvents: "none",
-        }}
-      />
+      {/* Thick white dynamic labels over the frame's painted dark plates.
+          The new frame artwork has no baked-in numbers, so no backdrop blur
+          is needed. */}
       <div
         style={{
           position: "absolute",
@@ -318,45 +305,28 @@ export const QuestionProgressContainer = ({
           justifyContent: "center",
           pointerEvents: "none",
           ...engravedStyle,
-          fontSize: `${topPlateHPct * 0.7}cqh`,
         }}
       >
-        <span style={{ fontSize: `${width * topPlateHPct * 0.006}px` }}>Q{questionNumber}</span>
+        <span style={{ fontSize: `${width * 0.11}px` }}>Q{questionNumber}</span>
       </div>
 
       {!hideProgressText && (
-        <>
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: `${botPlateLeft}%`,
-              top: `${botPlateTopPct}%`,
-              width: `${botPlateW}%`,
-              height: `${botPlateHPct}%`,
-              backdropFilter: "blur(6px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(6px) saturate(1.1)",
-              borderRadius: "30%",
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: `${botPlateLeft}%`,
-              top: `${botPlateTopPct}%`,
-              width: `${botPlateW}%`,
-              height: `${botPlateHPct}%`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "none",
-              ...engravedStyle,
-            }}
-          >
-            <span style={{ fontSize: `${width * botPlateHPct * 0.0055}px` }}>{current}/{max}</span>
-          </div>
-        </>
+        <div
+          style={{
+            position: "absolute",
+            left: `${botPlateLeft}%`,
+            top: `${botPlateTopPct}%`,
+            width: `${botPlateW}%`,
+            height: `${botPlateHPct}%`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            ...engravedStyle,
+          }}
+        >
+          <span style={{ fontSize: `${width * 0.085}px` }}>{current}/{max}</span>
+        </div>
       )}
     </div>
   );
