@@ -127,24 +127,23 @@ export const QuestionProgressContainer = ({
 
   // Engraved-stone text style: warm dark fill with light highlight to look
   // chiselled into the rock instead of pasted on a black tag.
-  const engravedColor = {
-    blue:   { ink: "#0b2240", glow: "#9ad6ff" },
-    green:  { ink: "#0e3a18", glow: "#a8ffbf" },
-    purple: { ink: "#2a0b55", glow: "#d6b2ff" },
-    orange: { ink: "#3a1602", glow: "#ffd5a8" },
-    gold:   { ink: "#3a2400", glow: "#ffe9a0" },
-  }[theme];
+  // Dynamic label text: thick white, no background plate. The baked-in
+  // numbers on the painted frame are hidden by a transparent backdrop-blur
+  // patch underneath.
   const engravedStyle: React.CSSProperties = {
     fontFamily: "'Cinzel', 'Trajan Pro', Georgia, serif",
     fontWeight: 900,
-    color: engravedColor.ink,
-    textShadow: `0 1px 0 ${engravedColor.glow}, 0 -1px 0 rgba(0,0,0,0.55), 0 0 6px ${engravedColor.glow}88`,
+    color: "#ffffff",
+    textShadow:
+      "0 0 2px rgba(0,0,0,0.85), 0 2px 4px rgba(0,0,0,0.7), 0 0 10px rgba(0,0,0,0.5)",
     letterSpacing: "0.05em",
     textTransform: "uppercase",
     lineHeight: 1,
     userSelect: "none",
     whiteSpace: "nowrap",
+    WebkitTextStroke: "1px rgba(0,0,0,0.55)",
   };
+
 
 
   return (
