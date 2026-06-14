@@ -1,87 +1,108 @@
-# Adventure Game Mode — v1 (Editor only)
+# Adventure Effect System & Motion Engine
 
-Scope of this plan: GAME MODE entry, dashboard, create-game flow, scene editor with backgrounds + effects + questions, and Obstacle / Door / Vault challenge configuration. **No student join/play yet** — that's a follow-up.
+Turn the current "drop a video on a scene" flow into a lightweight game-editor inspired effect engine. All customization happens in a visual Property Panel on the right side of the selected scene — zero AI generation.
 
-## 1. Entry point on Adventure page
+## Scope
 
-- Keep `AdventurePortalScene` untouched.
-- Add a `GAME MODE` button top-right in `src/pages/Adventure.tsx` → links to `/adventure/games`.
+Everything below is frontend + scene JSON only. No new AI calls, no new edge functions. Effect library reuses the existing `Assets → Video Effects` catalog plus teacher uploads.
 
-## 2. Adventure Game Dashboard (`/adventure/games`)
+## Data model (extend `LayoutItem` for `kind: "effect"`)
 
-Visual structure mirrors `LessonNotesPage`: header + grid of cards.
+Stored inside `scene.layout_json.items[*]` (already a JSONB blob in `notebook_blocks`/`adventure_scenes`, so no migration needed):
 
-- Top toolbar: `Create Game` button + search.
-- Card content: Game Name, Topic, Subtopic, Scene count, Last modified.
-- Card click → opens editor at `/adventure/games/:gameId`.
-- Empty state with prompt to create the first game.
+```text
+effect item {
+  id, kind:"effect", src, label, x, y, w, h,    // existing
+  rotation:    0-360                            // deg
+  opacity:     0-1
+  zIndex:      number                           // layer order
+  blendMode:   "screen" | "normal" | "multiply" | "lighten"
+  motion: {
+    type: "static"|"left"|"right"|"up"|"down"|"circle"|"figure8"|"random"|"path"
+    speed: 0.25..8                              // multiplier
+    amplitude: number                           // px / % for built-ins
+    path?: [{x,y}, ...]                         // for "path"
+  }
+  playback: {
+    direction: "forward"|"reverse"|"pingpong"
+    speed: 0.25..4
+    loopMode: "forever"|"once"|"count"
+    loopCount?: number
+    enterEnd?: number      // seconds — end of ENTER state
+    activeStart?: number   // seconds — loop start
+    activeEnd?: number     // seconds — loop end
+    exitStart?: number     // seconds — start of EXIT state
+    freezeLastFrame: boolean
+  }
+  trigger: {
+    start: "always"|"sceneStart"|"questionSolved"|"obstacleCleared"
+         |"doorOpened"|"vaultOpened"|"sceneComplete"|"custom"
+    delay: number                               // seconds
+    exitOn?: same enum
+    exitBehavior: "instant"|"fade"|"shrink"|"explode"|"playExit"|"custom"
+  }
+}
+```
 
-**Create Game dialog** asks: Game Name, Topic, Subtopic, Description → inserts row → routes to editor.
+Scene-level additions (stored in `scene.config`):
+```text
+camera { startX, startY, endX, endY, speed, zoomStart, zoomEnd }
+```
 
-## 3. Game Editor (`/adventure/games/:gameId`)
+All fields are optional with sensible defaults so existing scenes keep working.
 
-Hybrid layout per your guidance:
+## UI changes
 
-- **Outer flow = vertical stack.** Scenes render top-to-bottom with a downward arrow connector between them. Drag a scene's handle to reorder. `Add Scene` button at the bottom.
-- **Inside a scene = free placement.** Each scene is a fixed-aspect frame (e.g. 16:9) showing the chosen background. Effects, Question Progress Containers, and labels are absolute-positioned children with drag + resize handles. No snapping, no collision — just `pointer` drag updating `x,y,w,h` percentages relative to the scene frame.
-- Whole-scene controls: rename, duplicate, delete, scale slider (scales the scene frame on the page; inner element % positions stay valid).
+### 1. Property Panel (new) — `EffectPropertyPanel.tsx`
+Slides in from the right of `SceneFrame` when an `effect` item is selected. Replaces the current bare drag/resize-only UX. Sections (collapsible):
 
-## 4. Add Scene flow
+- **Transform** — X, Y, Width, Height sliders + numeric inputs; Rotation slider with 0/90/180/270 quick-buttons; Opacity slider; Scale preset chips (50/100/150/200/300%).
+- **Layer** — Bring Forward / To Front / Send Backward / To Back buttons (mutate zIndex).
+- **Motion** — Type dropdown; Speed slider (0.5×/1×/2×/4× chips); Amplitude slider (where relevant); `Edit Path` button enabling on-canvas path mode (click to add A→B→C→D points; drag to adjust; right-click to remove).
+- **Playback / Timeline** — Mini timeline scrubber bound to the `<video>` `duration`. Four draggable handles: `enterEnd`, `activeStart`, `activeEnd`, `exitStart` carving the clip into Enter / Active (loop) / Exit segments. Direction (Forward/Reverse/Ping-Pong) + Loop mode (Forever / Once / X times) + Freeze Last Frame toggle + Speed.
+- **Trigger** — Start trigger dropdown, Delay (0/1/2/5/10 s chips + custom), Exit trigger dropdown, Exit behavior dropdown.
 
-Step 1 — **Choose Background** → opens an Adventure Background Library modal:
-- Pre-seeded with existing adventure island assets (`mathgpl-palace`, `central-dome-core`, `algebra-island`, `geometry-island`, `calculus-island`, `statistics-island`, `trigonometry-island`, `adventure-clouds`) plus placeholders for Castle Entrance, Library, Observatory, Crystal Hall, Staircase, Bridge, Courtyard, Throne Room (upload-when-ready).
-- Upload Custom Background uploads to a new `adventure-assets` storage bucket.
+### 2. Effect Library modal — `EffectLibraryModal.tsx`
+Replaces today's tiny `EffectMenu` popover. Browses `ADVENTURE_EFFECTS` (already auto-pulls from `src/assets/effects/video-fx/`) grouped by category, with thumbnail preview, search, and a "Upload custom" button (asset upload via existing pipeline).
 
-Step 2 — **Choose Challenge Type**: Obstacle / Door / Vault. Sets `scene.kind`.
+### 3. Camera panel — `SceneCameraPanel.tsx`
+Floating panel per scene. Two draggable markers on the scene frame for Start and End, plus Speed and Zoom sliders. Preview button animates the frame using a CSS `transform` to demo the move.
 
-## 5. Challenge modes
+### 4. Runtime renderer — extend `ItemBody` in `SceneFrame.tsx` (editor) and the player counterpart
+- Wrap effect video in a positioned div applying `transform: translate · rotate · scale`, `opacity`, `zIndex`, `mixBlendMode`.
+- Motion: a single `requestAnimationFrame` loop drives `x/y` offset based on `motion.type` (static = noop, directions = linear, circle/figure8 = parametric, random = perlin-ish jitter, path = lerp through points).
+- Timeline state machine: `enter → active(loop activeStart→activeEnd, honoring direction/pingpong) → exit`. Implemented by listening to `timeupdate` and using `video.currentTime` setters; on `loopMode:"once"` skip the active loop.
+- Triggers wired through a tiny `SceneEventBus` (in-memory) so gameplay events (`questionSolved`, `doorOpened`, etc.) can flip an effect from `enter` to `exit`.
 
-### Obstacle (collaboration)
-- Pick an effect from the existing Video Effects library (`src/assets/effects/video-fx/`) + custom upload.
-- `Add Questions` opens the **embedded question generator** (see §6).
-- Config: `requiredProgress` (e.g. 500). Each correct solve from any student adds `question.marks`. Displays `current / required` progress bar in the scene preview.
+## Files
 
-### Door (coordination)
-- Effect picker + questions.
-- Each question auto-spawns one `QuestionProgressContainer` in the scene (placed in a default row, draggable afterwards).
-- Logic flag: `claimOncePerQuestion = true` (first solver claims the marks).
+New:
+- `src/lib/adventure/effectDefaults.ts` — defaults + helpers (`withEffectDefaults`, `clampTimeline`).
+- `src/lib/adventure/motionEngine.ts` — `useEffectMotion` hook (rAF loop, returns transform).
+- `src/lib/adventure/timelineEngine.ts` — `useEffectTimeline` hook (Enter/Active/Exit state machine on the `<video>`).
+- `src/lib/adventure/sceneEvents.ts` — pub/sub for triggers.
+- `src/components/adventure/editor/EffectPropertyPanel.tsx`
+- `src/components/adventure/editor/EffectTimelineEditor.tsx`
+- `src/components/adventure/editor/EffectPathEditor.tsx`
+- `src/components/adventure/editor/EffectLibraryModal.tsx`
+- `src/components/adventure/editor/SceneCameraPanel.tsx`
 
-### Vault (competition)
-- Add **multiple vaults** (Diamond/Gold/Silver/Bronze presets + custom). Each vault has: effect, questions, reward (coins).
-- Logic flag: `firstCorrectWins = true` per vault.
+Edited:
+- `src/lib/adventure/types.ts` — extend `LayoutItem` and `AdventureScene.config` typing as above (all new fields optional).
+- `src/components/adventure/editor/SceneFrame.tsx` — show panel on selection, render with new transform/motion/timeline hooks, replace `EffectMenu` with `EffectLibraryModal`, mount `SceneCameraPanel`.
+- `src/components/adventure/editor/DraggableResizable.tsx` — accept `rotation`, render rotated bounding box and rotated resize handle.
 
-## 6. Question authoring — reuse Lesson Note generator
+No DB migration: everything lives in the existing JSONB `layout_json` / `config` columns.
 
-- Wrap the existing question generator in a new `QuestionGeneratorModal` that mounts it with feature flags: hide Introduction, Conclusion, and Sections; show only Game Questions, AI Generate, Floating Numbers, Solution Builder, Marks.
-- On save, the resulting question payloads are written to `scene_questions` (with the same shape the generator already produces) and listed inside the scene card.
-- No changes to the underlying AI / pedagogy pipeline.
+## Out of scope (intentionally)
+- Multi-effect timeline orchestration UI (we ship per-effect timeline now; cross-effect cinematic sequencing can be a v2).
+- AI-driven motion suggestions.
+- Server-side video re-encoding.
 
-## 7. Data model (Lovable Cloud)
-
-New tables (RLS: owner-only for v1; student-play policies added later):
-
-- `adventure_games` — name, topic, subtopic, description, owner_id.
-- `adventure_scenes` — game_id, order_index, kind (`obstacle|door|vault`), background_ref (library id or storage path), required_progress, layout_json (free-position children: effects, containers, vaults with `{x,y,w,h}` percentages).
-- `adventure_scene_questions` — scene_id, vault_id (nullable), question_payload jsonb, marks, claim_once bool.
-- (Optional) `adventure_backgrounds` — curated library entries; custom uploads also recorded here.
-
-Storage bucket: `adventure-assets` (private, owner-only) for custom backgrounds/effects.
-
-## 8. Files to add / change
-
-- `src/pages/Adventure.tsx` — add GAME MODE button.
-- `src/pages/adventure/AdventureGamesDashboard.tsx` (new).
-- `src/pages/adventure/AdventureGameEditor.tsx` (new).
-- `src/components/adventure/editor/` (new): `SceneStack.tsx`, `SceneFrame.tsx`, `DraggableResizable.tsx`, `BackgroundLibraryModal.tsx`, `ChallengeTypePicker.tsx`, `ObstacleConfig.tsx`, `DoorConfig.tsx`, `VaultConfig.tsx`, `QuestionGeneratorModal.tsx`.
-- `src/lib/adventure/` (new): types + CRUD helpers against the new tables.
-- `src/App.tsx` — two new routes.
-- One Supabase migration for the tables, GRANTs, RLS, owner policies, `updated_at` triggers, plus the storage bucket.
-
-## 9. Explicitly out of scope for v1
-
-- Student `Join Adventure` / play runtime.
-- Real-time progress aggregation.
-- Reward/coin economy.
-- Collision detection, snapping, multi-select, undo/redo inside scenes.
-
-These slot in cleanly on top of the data model above in a follow-up pass.
+## Build order
+1. Types + defaults + sceneEvents.
+2. Motion engine + timeline engine hooks (with stub UI).
+3. Property Panel + Path Editor + Timeline Editor.
+4. Effect Library Modal (replaces old popover).
+5. Scene Camera Panel.
+6. Wire trigger events from existing gameplay buttons (question solved / door opened / vault claimed).
