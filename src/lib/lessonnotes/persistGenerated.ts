@@ -19,6 +19,7 @@ const MAP_TO_DB_KIND: Record<SectionKind, string> = {
   summary: "summary",
   objectives: "explanation",
   solution: "example",
+  game_questions: "exercise",
 };
 
 /**

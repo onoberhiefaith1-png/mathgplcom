@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowUp, ArrowDown, Copy, Trash2, Image as ImageIcon, Plus, Sparkles, ListChecks, Maximize2 } from "lucide-react";
 import DraggableResizable from "./DraggableResizable";
 import BackgroundLibraryModal from "./BackgroundLibraryModal";
-import QuestionGeneratorModal from "./QuestionGeneratorModal";
 import { ADVENTURE_EFFECTS } from "@/lib/adventure/effects";
 import { resolveBackgroundUrl } from "@/lib/adventure/backgrounds";
-import { updateScene } from "@/lib/adventure/api";
+import { ensureSceneNotebook, getGame, updateScene } from "@/lib/adventure/api";
 import type { AdventureScene, LayoutItem } from "@/lib/adventure/types";
 import { toast } from "@/hooks/use-toast";
 
@@ -22,9 +22,10 @@ interface Props {
 }
 
 export default function SceneFrame({ scene, index, total, onMove, onDuplicate, onDelete, onLocalUpdate }: Props) {
+  const navigate = useNavigate();
   const frameRef = useRef<HTMLDivElement>(null);
   const [bgOpen, setBgOpen] = useState(false);
-  const [questionsOpen, setQuestionsOpen] = useState<{ vaultId?: string } | null>(null);
+  const [openingQuestions, setOpeningQuestions] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [title, setTitle] = useState(scene.title ?? "");
@@ -62,6 +63,21 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
   const addVault = (label: string) => {
     addItem({ id: crypto.randomUUID(), kind: "vault", label, vaultId: crypto.randomUUID().slice(0, 6), reward: 50, x: 10, y: 30, w: 22, h: 30 });
   };
+  const openQuestions = async () => {
+    if (openingQuestions) return;
+    setOpeningQuestions(true);
+    try {
+      const game = await getGame(scene.game_id);
+      const notebookId = await ensureSceneNotebook({ scene, game });
+      if (!scene.notebook_id) onLocalUpdate({ notebook_id: notebookId });
+      navigate(`/lesson-notes/${notebookId}`);
+    } catch (e: unknown) {
+      toast({ title: "Could not open questions", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally {
+      setOpeningQuestions(false);
+    }
+  };
+
 
   return (
     <div className="w-full">
@@ -113,9 +129,9 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
             <Button size="sm" variant="outline" onClick={() => addVault("Bronze Vault")}>+ Bronze</Button>
           </>
         )}
-        {scene.kind !== "vault" && (
-          <Button size="sm" onClick={() => setQuestionsOpen({})}><ListChecks className="h-3.5 w-3.5 mr-1" /> Questions</Button>
-        )}
+        <Button size="sm" onClick={openQuestions} disabled={openingQuestions}>
+          <ListChecks className="h-3.5 w-3.5 mr-1" /> {openingQuestions ? "Opening…" : "Questions"}
+        </Button>
       </div>
 
       {/* Frame */}
@@ -141,27 +157,18 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
               onChange={(v) => updateItem(it.id, v)}
               containerRef={frameRef}
             >
-              <ItemBody item={it} onOpenQuestions={(vaultId) => setQuestionsOpen({ vaultId })} onRemove={() => removeItem(it.id)} selected={selected === it.id} />
+              <ItemBody item={it} onOpenQuestions={openQuestions} onRemove={() => removeItem(it.id)} selected={selected === it.id} />
             </DraggableResizable>
           ))}
         </div>
       </div>
 
       <BackgroundLibraryModal open={bgOpen} onClose={() => setBgOpen(false)} onPick={(ref) => persist({ background_ref: ref })} />
-      {questionsOpen !== null && (
-        <QuestionGeneratorModal
-          open
-          onClose={() => setQuestionsOpen(null)}
-          sceneId={scene.id}
-          sceneKind={scene.kind}
-          vaultId={questionsOpen.vaultId ?? null}
-        />
-      )}
     </div>
   );
 }
 
-function ItemBody({ item, onOpenQuestions, onRemove, selected }: { item: LayoutItem; onOpenQuestions: (vaultId?: string) => void; onRemove: () => void; selected: boolean }) {
+function ItemBody({ item, onOpenQuestions, onRemove, selected }: { item: LayoutItem; onOpenQuestions: () => void; onRemove: () => void; selected: boolean }) {
   return (
     <div className="relative h-full w-full">
       {item.kind === "effect" && item.src && (
@@ -179,7 +186,7 @@ function ItemBody({ item, onOpenQuestions, onRemove, selected }: { item: LayoutI
           <div className="text-xs font-bold drop-shadow">{item.label}</div>
           <div className="text-[10px] opacity-80">Reward {item.reward}</div>
           {selected && (
-            <button onClick={(e) => { e.stopPropagation(); onOpenQuestions(item.vaultId); }} className="mt-1 text-[10px] underline">Edit questions</button>
+            <button onClick={(e) => { e.stopPropagation(); onOpenQuestions(); }} className="mt-1 text-[10px] underline">Edit questions</button>
           )}
         </div>
       )}

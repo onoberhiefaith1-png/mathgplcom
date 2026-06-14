@@ -16,7 +16,7 @@ import { detectSectionKind, type SectionKind } from "@/lib/lessonnotes/sectionKi
 
 type Node = any;
 
-const QUESTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment"];
+const QUESTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionKind = (k: SectionKind) => QUESTION_KINDS.includes(k);
 
 // Smartboard's section.kind column only accepts the legacy set.
@@ -31,6 +31,7 @@ const DB_KIND: Record<SectionKind, string> = {
   assessment: "exercise",
   summary: "summary",
   solution: "example",
+  game_questions: "exercise",
 };
 
 /** Concatenate the visible text of a TipTap node, preserving math as their

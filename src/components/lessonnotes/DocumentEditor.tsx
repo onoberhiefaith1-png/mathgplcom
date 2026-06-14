@@ -69,6 +69,8 @@ interface Props {
   onPresent?: () => void;
   onScanFromPhone?: () => void;
   exportFileName?: string;
+  /** When true, the section picker only offers "Game Questions" (used by Adventure scenes). */
+  gameQuestionsOnly?: boolean;
 }
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
@@ -182,7 +184,7 @@ async function aiGenerate(opts: {
   return ((data as any)?.content ?? "").toString();
 }
 
-const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment"];
+const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.includes(kind);
 
 const solutionPlaceholderNodes = () => ([
@@ -212,7 +214,7 @@ async function scanImages(images: string[]): Promise<string[]> {
 export function DocumentEditor({
   documentJson, paperSize, paperStyle, zoom,
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
-  notebookContext, onPresent, onScanFromPhone, exportFileName,
+  notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
@@ -795,7 +797,7 @@ export function DocumentEditor({
           <DropdownMenuContent align="start">
             <DropdownMenuLabel>Insert section</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {SECTION_OPTIONS.map((s) => (
+            {(gameQuestionsOnly ? (["game_questions"] as SectionKind[]) : SECTION_OPTIONS).map((s) => (
               <DropdownMenuItem key={s} onClick={() => insertSection(s)}>{SECTION_LABELS[s]}</DropdownMenuItem>
             ))}
           </DropdownMenuContent>

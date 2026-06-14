@@ -157,6 +157,7 @@ const NotebookEditorPage = () => {
           onPresent={() => navigate(`/smartboard/${notebook.id}`)}
           onScanFromPhone={() => setQrOpen(true)}
           exportFileName={notebook.title || notebook.subtopic || "lesson-notes"}
+          gameQuestionsOnly={(notebook as { purpose?: string }).purpose === "game"}
         />
       </div>
 
