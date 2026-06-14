@@ -186,7 +186,7 @@ function ItemBody({ item, onOpenQuestions, onRemove, selected }: { item: LayoutI
           <div className="text-xs font-bold drop-shadow">{item.label}</div>
           <div className="text-[10px] opacity-80">Reward {item.reward}</div>
           {selected && (
-            <button onClick={(e) => { e.stopPropagation(); onOpenQuestions(item.vaultId); }} className="mt-1 text-[10px] underline">Edit questions</button>
+            <button onClick={(e) => { e.stopPropagation(); onOpenQuestions(); }} className="mt-1 text-[10px] underline">Edit questions</button>
           )}
         </div>
       )}
