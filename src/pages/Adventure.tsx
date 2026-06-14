@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Gamepad2 } from "lucide-react";
 import { AdventurePortalScene } from "@/components/adventure/AdventurePortalScene";
 
 const Adventure = () => (
@@ -11,7 +11,14 @@ const Adventure = () => (
     >
       <ArrowLeft className="h-4 w-4" /> Back
     </Link>
+    <Link
+      to="/adventure/games"
+      className="absolute right-5 top-5 z-10 inline-flex items-center gap-2 rounded-full border border-primary/50 bg-primary/20 px-4 py-2 text-sm font-semibold text-foreground backdrop-blur transition hover:bg-primary/35"
+    >
+      <Gamepad2 className="h-4 w-4" /> Game Mode
+    </Link>
   </div>
 );
 
 export default Adventure;
+
