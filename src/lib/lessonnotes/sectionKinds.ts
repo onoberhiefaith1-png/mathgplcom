@@ -44,6 +44,7 @@ export const REPEATABLE_SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
 export function detectSectionKind(text: string): SectionKind | null {
   const t = (text || "").trim().toLowerCase();
   if (!t) return null;
+  if (t.includes("game question") || t === "game questions") return "game_questions";
   if (t.includes("introduction") || t.startsWith("intro")) return "introduction";
   if (t.includes("objective")) return "objectives";
   if (t.includes("explanation") || t.includes("concept") || t.includes("theory")) return "explanation";
