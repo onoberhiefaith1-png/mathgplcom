@@ -246,7 +246,8 @@ function GameCard({ game, position, onOpen, onDelete, onPickFrame }: {
       </Popover>
 
       {/* Text overlay (lower label area of the frame) */}
-      <div className="absolute inset-x-[10%] bottom-[6%] top-[58%] flex flex-col justify-center px-2 text-center">
+      <div className="absolute inset-x-[10%] bottom-[4%] top-[72%] flex flex-col justify-center px-2 text-center">
+
         <div className="line-clamp-1 text-base font-extrabold tracking-tight text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
           {game.name}
         </div>
