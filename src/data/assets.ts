@@ -40,14 +40,26 @@ import superheroEyeLasersToCam28 from "@/assets/effects/video-fx/superhero_eye_l
 import superheroEyeLasersAway8 from "@/assets/effects/video-fx/superhero_eye_lasers_away_8.mp4.asset.json";
 import blueLaserEyesToCamera from "@/assets/effects/video-fx/blue_laser_eyes_to_camera.mp4.asset.json";
 import magicBeamTesla from "@/assets/effects/video-fx/magic_beam_tesla.mp4.asset.json";
+import drippyTransitionSpiral from "@/assets/effects/video-fx/drippy_transition_spiral.mov.asset.json";
+import lavaFlow from "@/assets/effects/video-fx/lava_flow.mp4.asset.json";
+import largeWaterfall from "@/assets/effects/video-fx/large_waterfall.mp4.asset.json";
+import mediumWaterfall from "@/assets/effects/video-fx/medium_waterfall.mp4.asset.json";
+import giantTornado from "@/assets/effects/video-fx/giant_tornado.mp4.asset.json";
+import tornadoSmall from "@/assets/effects/video-fx/tornado_small.mp4.asset.json";
+import treeWindyAutumn from "@/assets/effects/video-fx/tree_windy_autumn.mp4.asset.json";
+import treeWindyEuropean from "@/assets/effects/video-fx/tree_windy_european.mp4.asset.json";
+import treeWindyPines from "@/assets/effects/video-fx/tree_windy_pines.mp4.asset.json";
+import treeWindyWinter from "@/assets/effects/video-fx/tree_windy_winter.mp4.asset.json";
 
 export type AssetItem = { name: string; src: string };
+export type AssetGroup = { name: string; assets: AssetItem[] };
 export type Subcategory = {
   slug: string;
   name: string;
   /** Background image filename in /public/assets/backgrounds/ */
   background: string;
   assets?: AssetItem[];
+  groups?: AssetGroup[];
 };
 export type Category = {
   slug: string;
@@ -60,13 +72,16 @@ export type Category = {
 const sub = (
   name: string,
   background: string,
-  assets: AssetItem[] = []
+  assets: AssetItem[] = [],
+  groups?: AssetGroup[]
 ): Subcategory => ({
   slug: name.toLowerCase().replace(/\s+/g, "-"),
   name,
   background,
   assets,
+  groups,
 });
+
 
 export const assetCategories: Category[] = [
   {
