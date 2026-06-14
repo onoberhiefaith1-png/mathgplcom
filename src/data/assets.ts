@@ -94,6 +94,11 @@ import forcefieldScifi3Front from "@/assets/effects/video-fx/forcefield_scifi3_f
 import forcefieldScifi3Back from "@/assets/effects/video-fx/forcefield_scifi3_back.mp4.asset.json";
 import forcefieldMagic2Front from "@/assets/effects/video-fx/forcefield_magic2_front.mp4.asset.json";
 import iceyCloudSprayAtCamera from "@/assets/effects/video-fx/icey_cloud_spray_at_camera.mp4.asset.json";
+import cloudBurstUp from "@/assets/effects/video-fx/cloud_burst_up.mov.asset.json";
+import lowThickMist from "@/assets/effects/video-fx/low_thick_mist.mp4.asset.json";
+import magicGreenSmokeSymbol from "@/assets/effects/video-fx/magic_green_smoke_symbol.mov.asset.json";
+import skullCloud3 from "@/assets/effects/video-fx/skull_cloud_3.mov.asset.json";
+import animeTransitionFire from "@/assets/effects/video-fx/anime_transition_fire.mov.asset.json";
 
 export type AssetItem = { name: string; src: string };
 export type AssetGroup = { name: string; assets: AssetItem[]; image?: string };
