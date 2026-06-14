@@ -182,7 +182,7 @@ async function aiGenerate(opts: {
   return ((data as any)?.content ?? "").toString();
 }
 
-const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment"];
+const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.includes(kind);
 
 const solutionPlaceholderNodes = () => ([
