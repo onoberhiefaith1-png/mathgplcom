@@ -51,6 +51,8 @@ export interface AdventureScene {
   layout_json: SceneLayout;
   required_progress: number;
   config: Record<string, unknown>;
+  /** Linked Game-Questions notebook (created on first "Questions" click). */
+  notebook_id: string | null;
   created_at: string;
   updated_at: string;
 }
