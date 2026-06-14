@@ -113,13 +113,39 @@ export const QuestionProgressContainer = ({
     }));
   }, [id, CH_X, CH_Y, CH_W, CH_H]);
 
-  // Label plate sizing relative to chamber.
-  const plateTopY = CH_Y - VB_H * 0.16;
-  const plateTopH = VB_H * 0.11;
-  const plateTopW = CH_W * 1.05;
-  const plateBotY = CH_Y + CH_H + VB_H * 0.03;
-  const plateBotH = VB_H * 0.085;
-  const plateBotW = CH_W * 1.0;
+  // Label plate sizing relative to chamber (in normalized % of total component box).
+  const chXPct = ch.x1 * 100;
+  const chWPct = (ch.x2 - ch.x1) * 100;
+  const topPlateW = chWPct * 1.15;
+  const topPlateLeft = chXPct + chWPct / 2 - topPlateW / 2;
+  const topPlateTopPct = (ch.y1 - 0.16) * 100;
+  const topPlateHPct = 0.13 * 100;
+  const botPlateW = chWPct * 1.1;
+  const botPlateLeft = chXPct + chWPct / 2 - botPlateW / 2;
+  const botPlateTopPct = (ch.y2 + 0.02) * 100;
+  const botPlateHPct = 0.1 * 100;
+
+  // Engraved-stone text style: warm dark fill with light highlight to look
+  // chiselled into the rock instead of pasted on a black tag.
+  const engravedColor = {
+    blue:   { ink: "#0b2240", glow: "#9ad6ff" },
+    green:  { ink: "#0e3a18", glow: "#a8ffbf" },
+    purple: { ink: "#2a0b55", glow: "#d6b2ff" },
+    orange: { ink: "#3a1602", glow: "#ffd5a8" },
+    gold:   { ink: "#3a2400", glow: "#ffe9a0" },
+  }[theme];
+  const engravedStyle: React.CSSProperties = {
+    fontFamily: "'Cinzel', 'Trajan Pro', Georgia, serif",
+    fontWeight: 900,
+    color: engravedColor.ink,
+    textShadow: `0 1px 0 ${engravedColor.glow}, 0 -1px 0 rgba(0,0,0,0.55), 0 0 6px ${engravedColor.glow}88`,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    lineHeight: 1,
+    userSelect: "none",
+    whiteSpace: "nowrap",
+  };
+
 
   return (
     <div
@@ -263,73 +289,79 @@ export const QuestionProgressContainer = ({
           strokeWidth={CH_W * 0.012}
         />
 
-        {/* Top label plate covering painted Q-number */}
-        <g>
-          <rect
-            x={CH_X + CH_W / 2 - plateTopW / 2}
-            y={plateTopY}
-            width={plateTopW}
-            height={plateTopH}
-            rx={plateTopH * 0.22}
-            fill="#0d1014"
-            stroke="#05070a"
-            strokeWidth="1.2"
-          />
-          <rect
-            x={CH_X + CH_W / 2 - plateTopW / 2 + plateTopW * 0.02}
-            y={plateTopY + plateTopH * 0.1}
-            width={plateTopW * 0.96}
-            height={plateTopH * 0.8}
-            rx={plateTopH * 0.18}
-            fill="none"
-            stroke={t.glow}
-            strokeOpacity="0.35"
-            strokeWidth="0.8"
-          />
-          <text
-            x={CH_X + CH_W / 2}
-            y={plateTopY + plateTopH * 0.7}
-            textAnchor="middle"
-            fontFamily="'Cinzel', 'Trajan Pro', Georgia, serif"
-            fontWeight={800}
-            fontSize={plateTopH * 0.68}
-            fill={t.counter}
-            style={{ paintOrder: "stroke", stroke: "#000", strokeWidth: 1 } as React.CSSProperties}
-          >
-            Q{questionNumber}
-          </text>
-        </g>
-
-        {/* Bottom progress plate covering painted N/N */}
-        {!hideProgressText && (
-          <g>
-            <rect
-              x={CH_X + CH_W / 2 - plateBotW / 2}
-              y={plateBotY}
-              width={plateBotW}
-              height={plateBotH}
-              rx={plateBotH * 0.22}
-              fill="#0d1014"
-              stroke="#05070a"
-              strokeWidth="1.2"
-            />
-            <text
-              x={CH_X + CH_W / 2}
-              y={plateBotY + plateBotH * 0.7}
-              textAnchor="middle"
-              fontFamily="'Cinzel', 'Trajan Pro', Georgia, serif"
-              fontWeight={800}
-              fontSize={plateBotH * 0.65}
-              fill={t.counter}
-              style={{ paintOrder: "stroke", stroke: "#000", strokeWidth: 0.8 } as React.CSSProperties}
-            >
-              {current}/{max}
-            </text>
-          </g>
-        )}
       </svg>
+
+      {/* Blurred patch that hides the painted-in Q-number on the frame, with
+          engraved dynamic text on top that blends with the stone. */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          left: `${topPlateLeft}%`,
+          top: `${topPlateTopPct}%`,
+          width: `${topPlateW}%`,
+          height: `${topPlateHPct}%`,
+          backdropFilter: "blur(6px) saturate(1.1)",
+          WebkitBackdropFilter: "blur(6px) saturate(1.1)",
+          borderRadius: "20%",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: `${topPlateLeft}%`,
+          top: `${topPlateTopPct}%`,
+          width: `${topPlateW}%`,
+          height: `${topPlateHPct}%`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+          ...engravedStyle,
+          fontSize: `${topPlateHPct * 0.7}cqh`,
+        }}
+      >
+        <span style={{ fontSize: `${width * topPlateHPct * 0.006}px` }}>Q{questionNumber}</span>
+      </div>
+
+      {!hideProgressText && (
+        <>
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: `${botPlateLeft}%`,
+              top: `${botPlateTopPct}%`,
+              width: `${botPlateW}%`,
+              height: `${botPlateHPct}%`,
+              backdropFilter: "blur(6px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(6px) saturate(1.1)",
+              borderRadius: "30%",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: `${botPlateLeft}%`,
+              top: `${botPlateTopPct}%`,
+              width: `${botPlateW}%`,
+              height: `${botPlateHPct}%`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              ...engravedStyle,
+            }}
+          >
+            <span style={{ fontSize: `${width * botPlateHPct * 0.0055}px` }}>{current}/{max}</span>
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 export default QuestionProgressContainer;
+
