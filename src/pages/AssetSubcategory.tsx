@@ -162,7 +162,7 @@ const AssetSubcategory = () => {
                   </DialogHeader>
                   <div className="max-h-[70vh] overflow-y-auto pr-1">
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                      {sub.groups!.find((g) => g.name === openGroup)?.assets.map(renderCard)}
+                      {sub.groups!.find((g) => g.name === openGroup)?.assets.map((a) => renderCard(a, openGroup ?? undefined))}
                     </div>
                   </div>
                 </DialogContent>
