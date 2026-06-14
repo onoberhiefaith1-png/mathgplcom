@@ -22,9 +22,10 @@ interface Props {
 }
 
 export default function SceneFrame({ scene, index, total, onMove, onDuplicate, onDelete, onLocalUpdate }: Props) {
+  const navigate = useNavigate();
   const frameRef = useRef<HTMLDivElement>(null);
   const [bgOpen, setBgOpen] = useState(false);
-  const [questionsOpen, setQuestionsOpen] = useState<{ vaultId?: string } | null>(null);
+  const [openingQuestions, setOpeningQuestions] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [title, setTitle] = useState(scene.title ?? "");
