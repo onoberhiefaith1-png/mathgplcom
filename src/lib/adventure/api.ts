@@ -45,6 +45,17 @@ export async function deleteGame(id: string) {
   if (error) throw error;
 }
 
+export async function updateGame(
+  id: string,
+  patch: Partial<Pick<AdventureGame, "name" | "topic" | "subtopic" | "description" | "frame_index">>,
+) {
+  const { error } = await supabase
+    .from("adventure_games")
+    .update(patch as never)
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function getGame(id: string): Promise<AdventureGame> {
   const { data, error } = await supabase.from("adventure_games").select("*").eq("id", id).single();
   if (error) throw error;

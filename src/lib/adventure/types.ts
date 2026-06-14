@@ -7,6 +7,8 @@ export interface AdventureGame {
   topic: string | null;
   subtopic: string | null;
   description: string | null;
+  /** 1–8 override; null = auto-cycle by position */
+  frame_index: number | null;
   created_at: string;
   updated_at: string;
 }
