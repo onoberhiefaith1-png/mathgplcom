@@ -100,6 +100,7 @@ export type Database = {
           id: string
           kind: string
           layout_json: Json
+          notebook_id: string | null
           order_index: number
           required_progress: number
           title: string | null
@@ -113,6 +114,7 @@ export type Database = {
           id?: string
           kind: string
           layout_json?: Json
+          notebook_id?: string | null
           order_index?: number
           required_progress?: number
           title?: string | null
@@ -126,6 +128,7 @@ export type Database = {
           id?: string
           kind?: string
           layout_json?: Json
+          notebook_id?: string | null
           order_index?: number
           required_progress?: number
           title?: string | null
@@ -137,6 +140,13 @@ export type Database = {
             columns: ["game_id"]
             isOneToOne: false
             referencedRelation: "adventure_games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_scenes_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
             referencedColumns: ["id"]
           },
         ]
@@ -627,6 +637,7 @@ export type Database = {
           owner_id: string
           paper_size: string
           paper_style: string
+          purpose: string
           session: string
           subject: string
           subtopic: string
@@ -644,6 +655,7 @@ export type Database = {
           owner_id: string
           paper_size?: string
           paper_style?: string
+          purpose?: string
           session?: string
           subject?: string
           subtopic?: string
@@ -661,6 +673,7 @@ export type Database = {
           owner_id?: string
           paper_size?: string
           paper_style?: string
+          purpose?: string
           session?: string
           subject?: string
           subtopic?: string
