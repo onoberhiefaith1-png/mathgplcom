@@ -63,6 +63,21 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
   const addVault = (label: string) => {
     addItem({ id: crypto.randomUUID(), kind: "vault", label, vaultId: crypto.randomUUID().slice(0, 6), reward: 50, x: 10, y: 30, w: 22, h: 30 });
   };
+  const openQuestions = async () => {
+    if (openingQuestions) return;
+    setOpeningQuestions(true);
+    try {
+      const game = await getGame(scene.game_id);
+      const notebookId = await ensureSceneNotebook({ scene, game });
+      if (!scene.notebook_id) onLocalUpdate({ notebook_id: notebookId });
+      navigate(`/lesson-notes/${notebookId}`);
+    } catch (e: unknown) {
+      toast({ title: "Could not open questions", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally {
+      setOpeningQuestions(false);
+    }
+  };
+
 
   return (
     <div className="w-full">
