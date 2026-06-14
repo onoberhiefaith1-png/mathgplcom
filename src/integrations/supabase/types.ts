@@ -14,6 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      adventure_games: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          subtopic: string | null
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          subtopic?: string | null
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          subtopic?: string | null
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      adventure_scene_questions: {
+        Row: {
+          claim_once: boolean
+          created_at: string
+          id: string
+          marks: number
+          order_index: number
+          question_payload: Json
+          scene_id: string
+          updated_at: string
+          vault_id: string | null
+        }
+        Insert: {
+          claim_once?: boolean
+          created_at?: string
+          id?: string
+          marks?: number
+          order_index?: number
+          question_payload?: Json
+          scene_id: string
+          updated_at?: string
+          vault_id?: string | null
+        }
+        Update: {
+          claim_once?: boolean
+          created_at?: string
+          id?: string
+          marks?: number
+          order_index?: number
+          question_payload?: Json
+          scene_id?: string
+          updated_at?: string
+          vault_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventure_scene_questions_scene_id_fkey"
+            columns: ["scene_id"]
+            isOneToOne: false
+            referencedRelation: "adventure_scenes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adventure_scenes: {
+        Row: {
+          background_ref: Json | null
+          config: Json
+          created_at: string
+          game_id: string
+          id: string
+          kind: string
+          layout_json: Json
+          order_index: number
+          required_progress: number
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          background_ref?: Json | null
+          config?: Json
+          created_at?: string
+          game_id: string
+          id?: string
+          kind: string
+          layout_json?: Json
+          order_index?: number
+          required_progress?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          background_ref?: Json | null
+          config?: Json
+          created_at?: string
+          game_id?: string
+          id?: string
+          kind?: string
+          layout_json?: Json
+          order_index?: number
+          required_progress?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventure_scenes_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "adventure_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_answer_keys: {
         Row: {
           assessment_id: string
