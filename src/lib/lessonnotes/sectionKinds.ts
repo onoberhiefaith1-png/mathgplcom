@@ -61,7 +61,7 @@ export function detectSectionKind(text: string): SectionKind | null {
 export function blockKindFor(kind: SectionKind): "solution" | "text" {
   if (kind === "solution") return "solution";
   return kind === "example" || kind === "exercise" || kind === "classwork" ||
-         kind === "homework" || kind === "assessment" ? "solution" : "text";
+         kind === "homework" || kind === "assessment" || kind === "game_questions" ? "solution" : "text";
 }
 
 /** Map our kind to one the notebook-ai edge accepts (it doesn't know "assessment" / "objectives"). */
@@ -69,5 +69,6 @@ export function aiSectionKind(kind: SectionKind): string {
   if (kind === "solution") return "example";
   if (kind === "assessment") return "exercise";
   if (kind === "objectives") return "explanation";
+  if (kind === "game_questions") return "exercise";
   return kind;
 }
