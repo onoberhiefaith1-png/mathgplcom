@@ -49,95 +49,92 @@ const AssetSubcategory = () => {
         </Link>
       </header>
 
-      {isMusicGenerator && (!sub.assets || sub.assets.length === 0) ? (
-        <MusicGenerator />
-      ) : sub.assets && sub.assets.length > 0 ? (
-        <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
-            {sub.assets.map((a) => {
-              const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(a.src);
-              const is3DModel = /\.(glb|gltf)$/i.test(a.src);
-              const isVideo = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(a.src);
-              const card = is3DModel ? (
-                <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
-                  <GlbViewer src={a.src} />
-                  <figcaption className="px-3 py-2 text-center text-sm font-medium">
-                    {a.name}
-                  </figcaption>
-                </figure>
-              ) : isVideo ? (
-                <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
-                  <div className="aspect-square w-full overflow-hidden bg-black/40">
-                    <video
-                      src={a.src}
-                      controls
-                      loop
-                      muted
-                      playsInline
-                      preload="metadata"
-                      className="h-full w-full object-cover"
-                    />
+      {(() => {
+        const hasGroups = !!sub.groups && sub.groups.length > 0;
+        const hasAssets = !!sub.assets && sub.assets.length > 0;
+        if (isMusicGenerator && !hasAssets && !hasGroups) return <MusicGenerator />;
+
+        const renderCard = (a: { name: string; src: string }) => {
+          const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(a.src);
+          const is3DModel = /\.(glb|gltf)$/i.test(a.src);
+          const isVideo = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(a.src);
+          const card = is3DModel ? (
+            <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
+              <GlbViewer src={a.src} />
+              <figcaption className="px-3 py-2 text-center text-sm font-medium">{a.name}</figcaption>
+            </figure>
+          ) : isVideo ? (
+            <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
+              <div className="aspect-square w-full overflow-hidden bg-black/40">
+                <video src={a.src} controls loop muted playsInline preload="metadata" className="h-full w-full object-cover" />
+              </div>
+              <figcaption className="px-3 py-2 text-center text-sm font-medium">{a.name}</figcaption>
+            </figure>
+          ) : isAudio ? (
+            <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
+              <div className="flex aspect-square w-full items-center justify-center bg-background/30 p-4">
+                <audio src={a.src} controls preload="none" className="w-full" />
+              </div>
+              <figcaption className="px-3 py-2 text-center text-sm font-medium">{a.name}</figcaption>
+            </figure>
+          ) : (
+            <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
+              <div className="aspect-square w-full overflow-hidden bg-background/30 p-4">
+                <img src={a.src} alt={a.name} className="h-full w-full object-contain" loading="lazy" />
+              </div>
+              <figcaption className="px-3 py-2 text-center text-sm font-medium">{a.name}</figcaption>
+            </figure>
+          );
+          return is3DEnabled ? (
+            <button key={a.src} type="button" onClick={() => setActive(a)} className="text-left" aria-label={`View ${a.name} in 3D`}>
+              {card}
+            </button>
+          ) : (
+            <div key={a.src}>{card}</div>
+          );
+        };
+
+        if (hasGroups) {
+          return (
+            <section className="relative z-10 mx-auto max-w-6xl space-y-10 px-6 pb-24">
+              {sub.groups!.map((g) => (
+                <div key={g.name}>
+                  <h2 className="mb-4 text-xl font-semibold text-foreground drop-shadow sm:text-2xl">
+                    {g.name}
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">({g.assets.length})</span>
+                  </h2>
+                  <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+                    {g.assets.map(renderCard)}
                   </div>
-                  <figcaption className="px-3 py-2 text-center text-sm font-medium">
-                    {a.name}
-                  </figcaption>
-                </figure>
-              ) : isAudio ? (
-                <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
-                  <div className="flex aspect-square w-full items-center justify-center bg-background/30 p-4">
-                    <audio
-                      src={a.src}
-                      controls
-                      preload="none"
-                      className="w-full"
-                    />
-                  </div>
-                  <figcaption className="px-3 py-2 text-center text-sm font-medium">
-                    {a.name}
-                  </figcaption>
-                </figure>
-              ) : (
-                <figure className="overflow-hidden rounded-xl border border-border/40 bg-background/60 backdrop-blur transition-transform hover:scale-[1.02]">
-                  <div className="aspect-square w-full overflow-hidden bg-background/30 p-4">
-                    <img
-                      src={a.src}
-                      alt={a.name}
-                      className="h-full w-full object-contain"
-                      loading="lazy"
-                    />
-                  </div>
-                  <figcaption className="px-3 py-2 text-center text-sm font-medium">
-                    {a.name}
-                  </figcaption>
-                </figure>
-              );
-              return is3DEnabled ? (
-                <button
-                  key={a.src}
-                  type="button"
-                  onClick={() => setActive(a)}
-                  className="text-left"
-                  aria-label={`View ${a.name} in 3D`}
-                >
-                  {card}
-                </button>
-              ) : (
-                <div key={a.src}>{card}</div>
-              );
-            })}
-          </div>
-        </section>
-      ) : (
-        <section className="relative z-10 mx-auto flex min-h-[60vh] max-w-3xl flex-col items-center justify-center px-6 pb-24 text-center">
-          <div className="rounded-2xl border border-border/40 bg-background/60 p-10 backdrop-blur">
-            <Inbox className="mx-auto h-12 w-12 text-primary" />
-            <h2 className="mt-4 text-2xl font-semibold">Empty</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              No assets here yet. This folder is ready for {sub.name.toLowerCase()} assets.
-            </p>
-          </div>
-        </section>
-      )}
+                </div>
+              ))}
+            </section>
+          );
+        }
+
+        if (hasAssets) {
+          return (
+            <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+                {sub.assets!.map(renderCard)}
+              </div>
+            </section>
+          );
+        }
+
+        return (
+          <section className="relative z-10 mx-auto flex min-h-[60vh] max-w-3xl flex-col items-center justify-center px-6 pb-24 text-center">
+            <div className="rounded-2xl border border-border/40 bg-background/60 p-10 backdrop-blur">
+              <Inbox className="mx-auto h-12 w-12 text-primary" />
+              <h2 className="mt-4 text-2xl font-semibold">Empty</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                No assets here yet. This folder is ready for {sub.name.toLowerCase()} assets.
+              </p>
+            </div>
+          </section>
+        );
+      })()}
+
 
       {is3DEnabled && (
         <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
