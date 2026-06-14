@@ -797,7 +797,7 @@ export function DocumentEditor({
           <DropdownMenuContent align="start">
             <DropdownMenuLabel>Insert section</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {SECTION_OPTIONS.map((s) => (
+            {(gameQuestionsOnly ? (["game_questions"] as SectionKind[]) : SECTION_OPTIONS).map((s) => (
               <DropdownMenuItem key={s} onClick={() => insertSection(s)}>{SECTION_LABELS[s]}</DropdownMenuItem>
             ))}
           </DropdownMenuContent>
