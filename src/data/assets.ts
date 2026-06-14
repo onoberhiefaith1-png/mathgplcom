@@ -60,6 +60,15 @@ import rocketExhaustCyan from "@/assets/effects/video-fx/rocket_exhaust_cyan.mp4
 import embersHitSlow from "@/assets/effects/video-fx/embers_hit_slow.mp4.asset.json";
 import fireBurningSurface30 from "@/assets/effects/video-fx/fire_burning_surface_30.mp4.asset.json";
 import fireBurningSurface8 from "@/assets/effects/video-fx/fire_burning_surface_8.mp4.asset.json";
+import fireBurningSurface38 from "@/assets/effects/video-fx/fire_burning_surface_38.mp4.asset.json";
+import fireBurningSurface40 from "@/assets/effects/video-fx/fire_burning_surface_40.mp4.asset.json";
+import sparksWallBurstSide from "@/assets/effects/video-fx/sparks_wall_burst_side.mp4.asset.json";
+import sparksBurstUp from "@/assets/effects/video-fx/sparks_burst_up.mp4.asset.json";
+import groundDustExplosion from "@/assets/effects/video-fx/ground_dust_explosion.mp4.asset.json";
+import fireExplosionBoxed from "@/assets/effects/video-fx/fire_explosion_boxed.mp4.asset.json";
+import groundGasExplosion from "@/assets/effects/video-fx/ground_gas_explosion.mp4.asset.json";
+import vfxGrpSparks from "@/assets/effects/video-fx-groups/sparks.jpg";
+import vfxGrpExplosions from "@/assets/effects/video-fx-groups/explosions.jpg";
 import vfxGrpMagicBalls from "@/assets/effects/video-fx-groups/magic-balls.jpg";
 import vfxGrpAuras from "@/assets/effects/video-fx-groups/auras-shields.jpg";
 import vfxGrpFireLava from "@/assets/effects/video-fx-groups/fire-lava.jpg";
