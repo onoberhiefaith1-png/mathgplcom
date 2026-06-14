@@ -157,22 +157,13 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
               onChange={(v) => updateItem(it.id, v)}
               containerRef={frameRef}
             >
-              <ItemBody item={it} onOpenQuestions={(vaultId) => setQuestionsOpen({ vaultId })} onRemove={() => removeItem(it.id)} selected={selected === it.id} />
+              <ItemBody item={it} onOpenQuestions={openQuestions} onRemove={() => removeItem(it.id)} selected={selected === it.id} />
             </DraggableResizable>
           ))}
         </div>
       </div>
 
       <BackgroundLibraryModal open={bgOpen} onClose={() => setBgOpen(false)} onPick={(ref) => persist({ background_ref: ref })} />
-      {questionsOpen !== null && (
-        <QuestionGeneratorModal
-          open
-          onClose={() => setQuestionsOpen(null)}
-          sceneId={scene.id}
-          sceneKind={scene.kind}
-          vaultId={questionsOpen.vaultId ?? null}
-        />
-      )}
     </div>
   );
 }
