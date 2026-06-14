@@ -98,7 +98,7 @@ export async function createScene(input: {
 
 export async function updateScene(
   id: string,
-  patch: Partial<Pick<AdventureScene, "title" | "background_ref" | "layout_json" | "required_progress" | "order_index" | "kind" | "config">>,
+  patch: Partial<Pick<AdventureScene, "title" | "background_ref" | "layout_json" | "required_progress" | "order_index" | "kind" | "config" | "notebook_id">>,
 ) {
   const { error } = await supabase
     .from("adventure_scenes")
