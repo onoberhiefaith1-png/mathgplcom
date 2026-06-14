@@ -60,8 +60,8 @@ export async function listScenes(gameId: string): Promise<AdventureScene[]> {
   if (error) throw error;
   return (data ?? []).map((s) => ({
     ...s,
-    background_ref: (s.background_ref ?? null) as BackgroundRef | null,
-    layout_json: (s.layout_json ?? { items: [] }) as SceneLayout,
+    background_ref: (s.background_ref ?? null) as unknown as BackgroundRef | null,
+    layout_json: (s.layout_json ?? { items: [] }) as unknown as SceneLayout,
     config: (s.config ?? {}) as Record<string, unknown>,
   })) as AdventureScene[];
 }
