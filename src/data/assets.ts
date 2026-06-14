@@ -677,7 +677,26 @@ export const assetCategories: Category[] = [
             { name: "Lava Flow", src: lavaFlow.url },
             { name: "Fire Burning Surface 8", src: fireBurningSurface8.url },
             { name: "Fire Burning Surface 30", src: fireBurningSurface30.url },
+            { name: "Fire Burning Surface 38", src: fireBurningSurface38.url },
+            { name: "Fire Burning Surface 40", src: fireBurningSurface40.url },
             { name: "Embers Hit (Slow Mo)", src: embersHitSlow.url },
+          ],
+        },
+        {
+          name: "Sparks",
+          image: vfxGrpSparks,
+          assets: [
+            { name: "Sparks Wall Burst (Side)", src: sparksWallBurstSide.url },
+            { name: "Sparks Burst Up", src: sparksBurstUp.url },
+          ],
+        },
+        {
+          name: "Explosions",
+          image: vfxGrpExplosions,
+          assets: [
+            { name: "Fire Explosion (Boxed)", src: fireExplosionBoxed.url },
+            { name: "Ground Gas Explosion", src: groundGasExplosion.url },
+            { name: "Ground Dust Explosion", src: groundDustExplosion.url },
           ],
         },
         {
