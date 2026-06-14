@@ -146,3 +146,45 @@ export async function deleteSceneQuestion(id: string) {
   const { error } = await supabase.from("adventure_scene_questions").delete().eq("id", id);
   if (error) throw error;
 }
+
+/** Create (or reuse) a Game-Questions notebook for a scene and link it to the
+ *  scene row. Returns the notebook id so the caller can navigate to it. */
+export async function ensureSceneNotebook(input: {
+  scene: AdventureScene;
+  game: AdventureGame;
+}): Promise<string> {
+  if (input.scene.notebook_id) return input.scene.notebook_id;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+
+  const title = `${input.game.name} — ${input.scene.title || `Scene ${input.scene.order_index + 1}`}`;
+  const seedDoc = {
+    type: "doc",
+    content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Game Questions" }] },
+      { type: "paragraph" },
+    ],
+  };
+
+  const { data, error } = await supabase
+    .from("notebooks")
+    .insert({
+      owner_id: user.id,
+      teacher: "",
+      class_name: "",
+      session: "",
+      subject: input.game.topic ?? "Adventure",
+      title,
+      subtopic: input.game.subtopic ?? "",
+      color_index: 0,
+      document_json: seedDoc as never,
+      purpose: "game",
+    } as never)
+    .select("id")
+    .single();
+  if (error) throw error;
+  const notebookId = (data as { id: string }).id;
+  await updateScene(input.scene.id, { notebook_id: notebookId } as never);
+  return notebookId;
+}
