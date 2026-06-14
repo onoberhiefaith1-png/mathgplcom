@@ -699,6 +699,7 @@ export const assetCategories: Category[] = [
             { name: "Fire Burning Surface 38", src: fireBurningSurface38.url },
             { name: "Fire Burning Surface 40", src: fireBurningSurface40.url },
             { name: "Embers Hit (Slow Mo)", src: embersHitSlow.url },
+            { name: "Anime Transition Fire", src: animeTransitionFire.url },
           ],
         },
         {
