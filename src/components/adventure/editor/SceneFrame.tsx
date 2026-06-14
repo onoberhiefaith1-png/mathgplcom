@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowUp, ArrowDown, Copy, Trash2, Image as ImageIcon, Plus, Sparkles, ListChecks, Maximize2 } from "lucide-react";
 import DraggableResizable from "./DraggableResizable";
 import BackgroundLibraryModal from "./BackgroundLibraryModal";
-import QuestionGeneratorModal from "./QuestionGeneratorModal";
 import { ADVENTURE_EFFECTS } from "@/lib/adventure/effects";
 import { resolveBackgroundUrl } from "@/lib/adventure/backgrounds";
-import { updateScene } from "@/lib/adventure/api";
+import { ensureSceneNotebook, getGame, updateScene } from "@/lib/adventure/api";
 import type { AdventureScene, LayoutItem } from "@/lib/adventure/types";
 import { toast } from "@/hooks/use-toast";
 
