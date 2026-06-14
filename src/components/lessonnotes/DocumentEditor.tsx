@@ -214,7 +214,7 @@ async function scanImages(images: string[]): Promise<string[]> {
 export function DocumentEditor({
   documentJson, paperSize, paperStyle, zoom,
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
-  notebookContext, onPresent, onScanFromPhone, exportFileName,
+  notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
