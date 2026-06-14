@@ -677,6 +677,10 @@ export const assetCategories: Category[] = [
             { name: "Magic Aura Contained Flare", src: magicAuraContainedFlare.url },
             { name: "Looping Orange Magic Aura", src: loopingOrangeMagicAura.url },
             { name: "Yellow Aura", src: yellowAura.url },
+            { name: "Sci-Fi Forcefield 1 (Front)", src: forcefieldScifi1Front.url },
+            { name: "Sci-Fi Forcefield 3 (Front)", src: forcefieldScifi3Front.url },
+            { name: "Sci-Fi Forcefield 3 (Back)", src: forcefieldScifi3Back.url },
+            { name: "Magic Forcefield 2 (Front)", src: forcefieldMagic2Front.url },
           ],
         },
         {
