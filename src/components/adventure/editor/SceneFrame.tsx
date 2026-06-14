@@ -168,7 +168,7 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
   );
 }
 
-function ItemBody({ item, onOpenQuestions, onRemove, selected }: { item: LayoutItem; onOpenQuestions: (vaultId?: string) => void; onRemove: () => void; selected: boolean }) {
+function ItemBody({ item, onOpenQuestions, onRemove, selected }: { item: LayoutItem; onOpenQuestions: () => void; onRemove: () => void; selected: boolean }) {
   return (
     <div className="relative h-full w-full">
       {item.kind === "effect" && item.src && (
