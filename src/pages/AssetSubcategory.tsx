@@ -12,6 +12,7 @@ const AssetSubcategory = () => {
   const { category, subcategory } = useParams();
   const { category: cat, subcategory: sub } = getSubcategory(category, subcategory);
   const [active, setActive] = useState<{ name: string; src: string } | null>(null);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   if (!cat) return <Navigate to="/assets" replace />;
   if (!sub) return <Navigate to={`/assets/${cat.slug}`} replace />;
@@ -96,18 +97,41 @@ const AssetSubcategory = () => {
 
         if (hasGroups) {
           return (
-            <section className="relative z-10 mx-auto max-w-6xl space-y-10 px-6 pb-24">
-              {sub.groups!.map((g) => (
-                <div key={g.name}>
-                  <h2 className="mb-4 text-xl font-semibold text-foreground drop-shadow sm:text-2xl">
-                    {g.name}
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">({g.assets.length})</span>
-                  </h2>
-                  <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
-                    {g.assets.map(renderCard)}
+            <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+                {sub.groups!.map((g) => (
+                  <button
+                    key={g.name}
+                    type="button"
+                    onClick={() => setOpenGroup(g.name)}
+                    className="group relative aspect-square overflow-hidden rounded-xl border border-border/40 bg-background/60 text-left backdrop-blur transition hover:scale-[1.03] hover:border-primary/70"
+                  >
+                    {g.image ? (
+                      <img src={g.image} alt={g.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-110" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-background" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-3">
+                      <div className="text-sm font-semibold drop-shadow sm:text-base">{g.name}</div>
+                      <div className="text-xs text-muted-foreground">{g.assets.length} clips</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
+                <DialogContent className="max-w-5xl border-border/40 bg-background/95 backdrop-blur-xl">
+                  <DialogHeader>
+                    <DialogTitle>{openGroup}</DialogTitle>
+                  </DialogHeader>
+                  <div className="max-h-[70vh] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                      {sub.groups!.find((g) => g.name === openGroup)?.assets.map(renderCard)}
+                    </div>
                   </div>
-                </div>
-              ))}
+                </DialogContent>
+              </Dialog>
             </section>
           );
         }

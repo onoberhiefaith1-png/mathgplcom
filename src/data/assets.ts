@@ -50,9 +50,20 @@ import treeWindyAutumn from "@/assets/effects/video-fx/tree_windy_autumn.mp4.ass
 import treeWindyEuropean from "@/assets/effects/video-fx/tree_windy_european.mp4.asset.json";
 import treeWindyPines from "@/assets/effects/video-fx/tree_windy_pines.mp4.asset.json";
 import treeWindyWinter from "@/assets/effects/video-fx/tree_windy_winter.mp4.asset.json";
+import vfxGrpMagicBalls from "@/assets/effects/video-fx-groups/magic-balls.jpg";
+import vfxGrpAuras from "@/assets/effects/video-fx-groups/auras-shields.jpg";
+import vfxGrpFireLava from "@/assets/effects/video-fx-groups/fire-lava.jpg";
+import vfxGrpEyeLasers from "@/assets/effects/video-fx-groups/eye-lasers.jpg";
+import vfxGrpLightning from "@/assets/effects/video-fx-groups/lightning.jpg";
+import vfxGrpMagicCircles from "@/assets/effects/video-fx-groups/magic-circles.jpg";
+import vfxGrpIceMist from "@/assets/effects/video-fx-groups/ice-mist.jpg";
+import vfxGrpShockwaves from "@/assets/effects/video-fx-groups/shockwaves.jpg";
+import vfxGrpTrees from "@/assets/effects/video-fx-groups/trees-wind.jpg";
+import vfxGrpWaterfalls from "@/assets/effects/video-fx-groups/waterfalls.jpg";
+import vfxGrpTornadoes from "@/assets/effects/video-fx-groups/tornadoes.jpg";
 
 export type AssetItem = { name: string; src: string };
-export type AssetGroup = { name: string; assets: AssetItem[] };
+export type AssetGroup = { name: string; assets: AssetItem[]; image?: string };
 export type Subcategory = {
   slug: string;
   name: string;
@@ -610,6 +621,7 @@ export const assetCategories: Category[] = [
       sub("Video FX", "ember.png", [], [
         {
           name: "Magic Balls & Orbs",
+          image: vfxGrpMagicBalls,
           assets: [
             { name: "Magic Ball Storm", src: magicBallStorm.url },
             { name: "Magic Ball Electric Green", src: magicBallElectricGreen.url },
@@ -624,6 +636,7 @@ export const assetCategories: Category[] = [
         },
         {
           name: "Auras & Shields",
+          image: vfxGrpAuras,
           assets: [
             { name: "Pink Magic Shield", src: pinkMagicShield.url },
             { name: "Magic Aura Body Flame", src: magicAuraBodyFlame.url },
@@ -634,24 +647,26 @@ export const assetCategories: Category[] = [
           ],
         },
         {
-          name: "Magic Circles & Dust",
-          assets: [
-            { name: "Magic Circle Orange Spin", src: magicCircleOrangeSpin.url },
-            { name: "Magic Circle Orange Appear", src: magicCircleOrangeAppear.url },
-            { name: "Magic Fairy Dust", src: magicFairyDust.url },
-            { name: "Magic Sakura", src: magicSakura.url },
-            { name: "Drippy Transition Spiral", src: drippyTransitionSpiral.url },
-          ],
-        },
-        {
           name: "Fire & Lava",
+          image: vfxGrpFireLava,
           assets: [
             { name: "Blue Inferno Breath", src: blueInfernoBreath.url },
             { name: "Lava Flow", src: lavaFlow.url },
           ],
         },
         {
+          name: "Eye Lasers",
+          image: vfxGrpEyeLasers,
+          assets: [
+            { name: "Superhero Eye Lasers Away 8", src: superheroEyeLasersAway8.url },
+            { name: "Superhero Eye Lasers Away 10", src: superheroEyeLasersAway10.url },
+            { name: "Superhero Eye Lasers To Cam 28", src: superheroEyeLasersToCam28.url },
+            { name: "Blue Laser Eyes To Camera", src: blueLaserEyesToCamera.url },
+          ],
+        },
+        {
           name: "Lightning",
+          image: vfxGrpLightning,
           assets: [
             { name: "Thor Lightning Shockwave", src: thorLightningShockwave.url },
             { name: "Thor Lightning To Camera", src: thorLightningToCamera.url },
@@ -669,16 +684,19 @@ export const assetCategories: Category[] = [
           ],
         },
         {
-          name: "Eye Lasers",
+          name: "Magic Circles & Dust",
+          image: vfxGrpMagicCircles,
           assets: [
-            { name: "Superhero Eye Lasers Away 8", src: superheroEyeLasersAway8.url },
-            { name: "Superhero Eye Lasers Away 10", src: superheroEyeLasersAway10.url },
-            { name: "Superhero Eye Lasers To Cam 28", src: superheroEyeLasersToCam28.url },
-            { name: "Blue Laser Eyes To Camera", src: blueLaserEyesToCamera.url },
+            { name: "Magic Circle Orange Spin", src: magicCircleOrangeSpin.url },
+            { name: "Magic Circle Orange Appear", src: magicCircleOrangeAppear.url },
+            { name: "Magic Fairy Dust", src: magicFairyDust.url },
+            { name: "Magic Sakura", src: magicSakura.url },
+            { name: "Drippy Transition Spiral", src: drippyTransitionSpiral.url },
           ],
         },
         {
           name: "Ice, Mist & Smoke",
+          image: vfxGrpIceMist,
           assets: [
             { name: "Ice Spike Power", src: iceSpikePower.url },
             { name: "Ground Mist", src: groundMist.url },
@@ -688,12 +706,14 @@ export const assetCategories: Category[] = [
         },
         {
           name: "Shockwaves",
+          image: vfxGrpShockwaves,
           assets: [
             { name: "Half Dome Shockwave", src: halfDomeShockwave.url },
           ],
         },
         {
           name: "Trees (Wind)",
+          image: vfxGrpTrees,
           assets: [
             { name: "Tree Windy Autumn", src: treeWindyAutumn.url },
             { name: "Tree Windy European", src: treeWindyEuropean.url },
@@ -703,6 +723,7 @@ export const assetCategories: Category[] = [
         },
         {
           name: "Waterfalls",
+          image: vfxGrpWaterfalls,
           assets: [
             { name: "Large Waterfall", src: largeWaterfall.url },
             { name: "Medium Waterfall", src: mediumWaterfall.url },
@@ -710,6 +731,7 @@ export const assetCategories: Category[] = [
         },
         {
           name: "Tornadoes",
+          image: vfxGrpTornadoes,
           assets: [
             { name: "Giant Tornado", src: giantTornado.url },
             { name: "Tornado Small", src: tornadoSmall.url },
