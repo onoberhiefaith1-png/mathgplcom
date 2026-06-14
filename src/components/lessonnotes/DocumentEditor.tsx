@@ -69,6 +69,8 @@ interface Props {
   onPresent?: () => void;
   onScanFromPhone?: () => void;
   exportFileName?: string;
+  /** When true, the section picker only offers "Game Questions" (used by Adventure scenes). */
+  gameQuestionsOnly?: boolean;
 }
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
