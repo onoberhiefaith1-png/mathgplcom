@@ -762,6 +762,7 @@ export const assetCategories: Category[] = [
             { name: "Smoke From Window", src: smokeFromWindow.url },
             { name: "Smoke Plume (Small)", src: smokePlumeSmall.url },
             { name: "Infected Veins", src: infectedVeins.url },
+            { name: "Icey Cloud Spray (At Camera)", src: iceyCloudSprayAtCamera.url },
           ],
         },
         {
