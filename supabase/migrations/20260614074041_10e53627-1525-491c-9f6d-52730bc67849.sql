@@ -1,0 +1,1 @@
+ALTER TABLE public.adventure_games ADD COLUMN IF NOT EXISTS frame_index integer NULL CHECK (frame_index IS NULL OR (frame_index BETWEEN 1 AND 8));
