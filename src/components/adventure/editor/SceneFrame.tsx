@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowUp, ArrowDown, Copy, Trash2, Image as ImageIcon, Plus, Sparkles, ListChecks, Maximize2 } from "lucide-react";
@@ -27,6 +27,7 @@ interface Props {
 
 export default function SceneFrame({ scene, index, total, onMove, onDuplicate, onDelete, onLocalUpdate }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const frameRef = useRef<HTMLDivElement>(null);
   const [bgOpen, setBgOpen] = useState(false);
   const [openingQuestions, setOpeningQuestions] = useState(false);
@@ -62,14 +63,24 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
   };
 
   const openEffectLibrary = () => {
-    navigate("/assets/effects/video-fx", {
-      state: {
-        adventureVideoFxPicker: {
-          returnTo: `/adventure/games/${scene.game_id}`,
-          sceneId: scene.id,
+    const returnTo = `${location.pathname}${location.search}${location.hash}`;
+    const search = new URLSearchParams({
+      adventurePicker: "video-fx",
+      returnTo,
+      sceneId: scene.id,
+    });
+
+    navigate(
+      { pathname: "/assets/effects/video-fx", search: `?${search.toString()}` },
+      {
+        state: {
+          adventureVideoFxPicker: {
+            returnTo,
+            sceneId: scene.id,
+          },
         },
       },
-    });
+    );
   };
 
   const addProgress = () => {

@@ -33,7 +33,12 @@ const AssetSubcategory = () => {
     cat.slug === "characters" && ["player", "additional-players", "enemy", "npc", "creatures"].includes(sub.slug);
   const isMusicGenerator = cat.slug === "audio" && sub.slug === "music";
   const isVideoFx = cat.slug === "effects" && sub.slug === "video-fx";
-  const pickerState = (location.state as PickerState | null)?.adventureVideoFxPicker;
+  const urlParams = new URLSearchParams(location.search);
+  const queryPickerState =
+    urlParams.get("adventurePicker") === "video-fx" && urlParams.get("returnTo") && urlParams.get("sceneId")
+      ? { returnTo: urlParams.get("returnTo")!, sceneId: urlParams.get("sceneId")! }
+      : undefined;
+  const pickerState = (location.state as PickerState | null)?.adventureVideoFxPicker ?? queryPickerState;
   const isAdventureVideoFxPicker = isVideoFx && !!pickerState;
   const backTo = isAdventureVideoFxPicker ? pickerState.returnTo : `/assets/${cat.slug}`;
   const backLabel = isAdventureVideoFxPicker ? "Back to Game" : "Back";
@@ -181,6 +186,7 @@ const AssetSubcategory = () => {
         </div>
         <Link
           to={backTo}
+          replace={isAdventureVideoFxPicker}
           className="inline-flex items-center gap-2 rounded-full bg-background/60 px-3 py-1.5 text-sm text-foreground backdrop-blur underline-offset-4 hover:text-primary hover:underline"
         >
           <ArrowLeft className="h-4 w-4" /> {backLabel}
