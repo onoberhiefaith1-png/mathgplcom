@@ -6,7 +6,6 @@ import { ArrowUp, ArrowDown, Copy, Trash2, Image as ImageIcon, Plus, Sparkles, L
 import DraggableResizable from "./DraggableResizable";
 import BackgroundLibraryModal from "./BackgroundLibraryModal";
 import EffectPropertyPanel from "./EffectPropertyPanel";
-import EffectLibraryModal from "./EffectLibraryModal";
 import EffectPathEditor from "./EffectPathEditor";
 import SceneCameraPanel from "./SceneCameraPanel";
 import { withEffectDefaults } from "@/lib/adventure/effectDefaults";
@@ -30,7 +29,6 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
   const navigate = useNavigate();
   const frameRef = useRef<HTMLDivElement>(null);
   const [bgOpen, setBgOpen] = useState(false);
-  const [libOpen, setLibOpen] = useState(false);
   const [openingQuestions, setOpeningQuestions] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
@@ -63,9 +61,17 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
     if (selected === id) setSelected(null);
   };
 
-  const addEffect = (url: string, label: string) => {
-    addItem({ id: crypto.randomUUID(), kind: "effect", src: url, label, x: 35, y: 30, w: 30, h: 30 });
+  const openEffectLibrary = () => {
+    navigate("/assets/effects/video-fx", {
+      state: {
+        adventureVideoFxPicker: {
+          returnTo: `/adventure/games/${scene.game_id}`,
+          sceneId: scene.id,
+        },
+      },
+    });
   };
+
   const addProgress = () => {
     addItem({ id: crypto.randomUUID(), kind: "progress", label: "Progress", x: 35, y: 70, w: 30, h: 12 });
   };
@@ -106,7 +112,6 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
   const selectedItem = scene.layout_json.items.find((i) => i.id === selected);
   const isEffectSelected = selectedItem?.kind === "effect";
 
-  // Camera preview
   useEffect(() => {
     if (!cameraAnim.on || !camera) return;
     const start = performance.now();
@@ -132,7 +137,6 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
 
   return (
     <div className="w-full">
-      {/* Header */}
       <div className="flex flex-wrap items-center gap-2 rounded-t-lg border border-b-0 bg-card p-2">
         <span className="text-xs font-semibold text-muted-foreground px-2 py-1 rounded bg-muted">Scene {index + 1}</span>
         <span className="text-xs uppercase tracking-wide px-2 py-1 rounded bg-primary/10 text-primary">{scene.kind}</span>
@@ -165,10 +169,9 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
         </div>
       </div>
 
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border border-b-0 bg-card/60 p-2 text-xs">
         <Button size="sm" variant="outline" onClick={() => setBgOpen(true)}><ImageIcon className="h-3.5 w-3.5 mr-1" /> Background</Button>
-        <Button size="sm" variant="outline" onClick={() => setLibOpen(true)}><Sparkles className="h-3.5 w-3.5 mr-1" /> Add Effect</Button>
+        <Button size="sm" variant="outline" onClick={openEffectLibrary}><Sparkles className="h-3.5 w-3.5 mr-1" /> Add Effect</Button>
         {scene.kind === "door" && (
           <Button size="sm" variant="outline" onClick={addProgress}><Plus className="h-3.5 w-3.5 mr-1" /> Add Progress Container</Button>
         )}
@@ -192,7 +195,6 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
         </div>
       </div>
 
-      {/* Frame + panel */}
       <div className="rounded-b-lg border bg-card p-3" style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
         <div className="flex gap-3">
           <div className="flex-1 overflow-hidden">
@@ -219,6 +221,7 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
                     onSelect={() => setSelected(it.id)}
                     onChange={(v) => updateItem(it.id, v)}
                     containerRef={frameRef}
+                    hideIdleOutline={it.kind === "effect"}
                   >
                     <ItemBody item={it} onOpenQuestions={openQuestions} onRemove={() => removeItem(it.id)} selected={selected === it.id} />
                   </DraggableResizable>
@@ -252,7 +255,6 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
       </div>
 
       <BackgroundLibraryModal open={bgOpen} onClose={() => setBgOpen(false)} onPick={(ref) => persist({ background_ref: ref })} />
-      <EffectLibraryModal open={libOpen} onClose={() => setLibOpen(false)} onPick={addEffect} />
     </div>
   );
 }
@@ -300,7 +302,7 @@ function EffectVideo({ item }: { item: LayoutItem }) {
       muted
       loop
       playsInline
-      className="h-full w-full rounded object-cover pointer-events-none"
+      className="pointer-events-none h-full w-full object-cover"
       style={{
         mixBlendMode: def.blendMode,
         opacity: def.opacity,
@@ -311,3 +313,4 @@ function EffectVideo({ item }: { item: LayoutItem }) {
     />
   );
 }
+

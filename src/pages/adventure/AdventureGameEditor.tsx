@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SceneFrame from "@/components/adventure/editor/SceneFrame";
@@ -7,12 +7,22 @@ import ChallengeTypePicker from "@/components/adventure/editor/ChallengeTypePick
 import {
   createScene, deleteScene, getGame, listScenes, updateScene,
 } from "@/lib/adventure/api";
-import type { AdventureGame, AdventureScene, SceneKind } from "@/lib/adventure/types";
+import type { AdventureGame, AdventureScene, LayoutItem, SceneKind } from "@/lib/adventure/types";
 import { toast } from "@/hooks/use-toast";
+
+interface PickedAdventureEffectState {
+  pickedAdventureEffect?: {
+    sceneId: string;
+    src: string;
+    label: string;
+  };
+}
 
 export default function AdventureGameEditor() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const handledPickerKeyRef = useRef<string | null>(null);
   const [game, setGame] = useState<AdventureGame | null>(null);
   const [scenes, setScenes] = useState<AdventureScene[]>([]);
   const [picking, setPicking] = useState(false);
@@ -29,6 +39,43 @@ export default function AdventureGameEditor() {
       } finally { setLoading(false); }
     })();
   }, [gameId]);
+
+  useEffect(() => {
+    const picked = (location.state as PickedAdventureEffectState | null)?.pickedAdventureEffect;
+    if (loading || !picked || handledPickerKeyRef.current === location.key) return;
+
+    handledPickerKeyRef.current = location.key;
+    const targetScene = scenes.find((scene) => scene.id === picked.sceneId);
+    if (!targetScene) {
+      navigate(location.pathname, { replace: true, state: null });
+      return;
+    }
+
+    const item: LayoutItem = {
+      id: crypto.randomUUID(),
+      kind: "effect",
+      src: picked.src,
+      label: picked.label,
+      x: 35,
+      y: 30,
+      w: 30,
+      h: 30,
+    };
+    const nextLayout = { items: [...targetScene.layout_json.items, item] };
+
+    (async () => {
+      try {
+        await updateScene(targetScene.id, { layout_json: nextLayout });
+        setScenes((arr) => arr.map((scene) => (
+          scene.id === targetScene.id ? { ...scene, layout_json: nextLayout } : scene
+        )));
+      } catch (e: unknown) {
+        toast({ title: "Could not add effect", description: msg(e), variant: "destructive" });
+      } finally {
+        navigate(location.pathname, { replace: true, state: null });
+      }
+    })();
+  }, [loading, location.key, location.pathname, location.state, navigate, scenes]);
 
   const addScene = async (kind: SceneKind) => {
     if (!gameId) return;
@@ -123,3 +170,4 @@ export default function AdventureGameEditor() {
 }
 
 function msg(e: unknown) { return e instanceof Error ? e.message : String(e); }
+
