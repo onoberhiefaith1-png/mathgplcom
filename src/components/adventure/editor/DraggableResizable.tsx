@@ -10,11 +10,24 @@ interface Props {
   className?: string;
   minW?: number;
   minH?: number;
+  hideIdleOutline?: boolean;
 }
 
 /** Drag + resize child, positioned as percentages of containerRef. */
 export default function DraggableResizable({
-  x, y, w, h, selected, onChange, onSelect, containerRef, children, className, minW = 4, minH = 4,
+  x,
+  y,
+  w,
+  h,
+  selected,
+  onChange,
+  onSelect,
+  containerRef,
+  children,
+  className,
+  minW = 4,
+  minH = 4,
+  hideIdleOutline = false,
 }: Props) {
   const [drag, setDrag] = useState<null | { mode: "move" | "resize"; startX: number; startY: number; orig: { x: number; y: number; w: number; h: number } }>(null);
   const elRef = useRef<HTMLDivElement>(null);
@@ -49,6 +62,12 @@ export default function DraggableResizable({
     };
   }, [drag, containerRef, onChange, minW, minH]);
 
+  const outlineClass = selected
+    ? "ring-2 ring-primary"
+    : hideIdleOutline
+      ? "ring-0"
+      : "ring-1 ring-border/40 hover:ring-primary/60";
+
   return (
     <div
       ref={elRef}
@@ -59,7 +78,7 @@ export default function DraggableResizable({
         setDrag({ mode: "move", startX: e.clientX, startY: e.clientY, orig: { x, y, w, h } });
       }}
       style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, cursor: "move", touchAction: "none" }}
-      className={`${className ?? ""} ${selected ? "ring-2 ring-primary" : "ring-1 ring-border/40 hover:ring-primary/60"} rounded-md`}
+      className={`${className ?? ""} ${outlineClass} rounded-md`}
     >
       {children}
       {selected && (
@@ -75,6 +94,7 @@ export default function DraggableResizable({
     </div>
   );
 }
+
 
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
