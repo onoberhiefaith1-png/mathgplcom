@@ -70,15 +70,17 @@ export default function SceneFrame({ scene, index, total, onMove, onDuplicate, o
       sceneId: scene.id,
     });
 
-    navigate("/assets/effects/video-fx", {
-      search: search.toString(),
-      state: {
-        adventureVideoFxPicker: {
-          returnTo,
-          sceneId: scene.id,
+    navigate(
+      { pathname: "/assets/effects/video-fx", search: `?${search.toString()}` },
+      {
+        state: {
+          adventureVideoFxPicker: {
+            returnTo,
+            sceneId: scene.id,
+          },
         },
       },
-    });
+    );
   };
 
   const addProgress = () => {
