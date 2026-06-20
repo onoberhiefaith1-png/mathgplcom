@@ -855,91 +855,109 @@ appear in ACTIVE_QUESTION or in its valid algebraic derivations in SOLUTION.
 ║    plain "-"      →  − (proper Unicode minus)                     ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-HARD RULE #2 — A FLOATING NUMBER is a maximal sub-expression whose
-TOP LEVEL has NO visible arithmetic sign (+ − × ÷ =). Implicit
-multiplication (ab, 3x², 6ax), function/radical application over a
-sign-free body (√3, √75, log₂5), and bracket groups with no
-top-level sign all STAY GLUED into ONE floating number.
+══════════════════════════════════════════════════════════════════
+ FLOATING-NUMBER LAWS — apply in order, recursively, to every chip
+══════════════════════════════════════════════════════════════════
 
-A filler carries a leading sign ONLY when that sign actually appears
-in the source equation at that position. Concretely:
+LAW 1 — NO SYNTHETIC SIGN.
+A chip carries a leading +, −, ×, or ÷ ONLY when that exact sign is
+literally visible in the source equation at that position. Otherwise
+the chip is emitted bare (no sign prefix).
   • The FIRST chip of a line carries NO sign.
   • The chip immediately after "=" or "±" carries NO sign.
-  • The FIRST chip inside a bracket group carries NO sign.
-  • Every other chip keeps the sign that precedes it: +, −, ×, ÷.
-"=" and "±" are themselves their own filler entries ("=" / "±").
+  • The FIRST chip inside any opened container (bracket, fraction
+    numerator, fraction denominator, radicand, exponent, subscript,
+    function argument) carries NO sign.
+  • Every other chip keeps the visible sign that precedes it.
+"=" and "±" are themselves chips ("=" / "±").
+NEVER invent a "+" that is not in the source. A synthetic leading
+"+" is a BUG.
 
-NEVER prefix a leading "+" that is not in the source equation.
+LAW 2 — NO HIDDEN SIGN ANYWHERE (a±b is forbidden inside a chip).
+If the body of ANY container — bracket, fraction numerator, fraction
+denominator, radicand, exponent, subscript, log/function argument,
+absolute-value body — contains a top-level +, −, ×, or ÷, that
+container MUST be OPENED:
+  • Emit the empty SHELL as one chip: "()", "□/□", "√()", "√[n]()",
+    "()^()", "log_a()", "|()|", etc.
+  • Then emit every interior term as its own chip, with each
+    interior sign exactly as it appears (first interior chip bare).
+  • Recurse: if an interior chip is itself a container with a hidden
+    sign inside, open it too.
+The strings "a+b", "a−b", "a×b", "a÷b" must NEVER sit hidden inside
+any chip — not as a coefficient, not as an exponent, not as a base,
+not as a denominator, not as an argument.
 
-WORKED EXAMPLES — your output MUST look exactly like this style:
+LAW 3 — STAY GLUED when there is NO hidden sign AND the expression
+is not unusually long. Single chips are correct for:
+  ab, 3x², 6ax, 4ac, 3n, −2y, √3, √75, log₂5, |x|, x², sin2x,
+  5/(3n)  (denominator has no hidden sign → keep the whole fraction).
 
-  Equation:  2x + 3y = 7
+LAW 4 — LENGTH SPLIT. When an expression has no visible top-level
+sign but is unusually long (e.g. a²b²c²d²/d²a²b² — long stack of
+factors), split it using the same structural laws: open the
+container, emit each factor / sub-piece as its own chip.
+
+LAW 5 — STRUCTURE CONTAINERS. Emit one tag per structural kind that
+appears, deduped. Allowed values ONLY:
+  "fraction" | "bracket" | "radical" | "power" | "log" | "integral"
+  | "matrix" | "differential" | "abs" | "vector"
+
+══════════════════════════════════════════════════════════════════
+ WORKED EXAMPLES — your output MUST follow this style exactly
+══════════════════════════════════════════════════════════════════
+
+  2x + 3y = 7
     fillers:    ["2x", "+3y", "=", "7"]
     containers: []
 
-  Equation:  3x − 2y = 0
+  3x − 2y = 0
     fillers:    ["3x", "−2y", "=", "0"]
     containers: []
     (NEVER split "−2y" into "−2" and "y" — coefficients stay attached.)
 
-  Equation:  ax² + bx + c = 0
+  ax² + bx + c = 0
     fillers:    ["ax²", "+bx", "+c", "=", "0"]
     containers: ["power"]
 
-  Equation:  2x + 3(x + 1) = 7
-    fillers:    ["2x", "+3", "x", "+1", "=", "7"]
+  2x + 3(x + 1) = 7                     (bracket has hidden + → OPEN)
+    fillers:    ["2x", "+3", "()", "x", "+1", "=", "7"]
     containers: ["bracket"]
 
-  Equation:  √3 / (√5 − √2)
-    fillers:    ["√3", "√5", "−√2"]
-    containers: ["fraction", "radical", "bracket"]
-
-  Equation:  (√3 × √75) / √50
-    fillers:    ["√3", "×√75", "√50"]
-    containers: ["fraction", "radical", "bracket"]
-
-  Equation:  √(b² − 4ac)
-    fillers:    ["b²", "−4ac"]
+  √(b² − 4ac)                            (radicand has hidden − → OPEN)
+    fillers:    ["√()", "b²", "−4ac"]
     containers: ["radical", "power"]
 
-  Equation:  log₂5 + log₂3
-    fillers:    ["log₂5", "+log₂3"]
+  log₂(xy)                               (argument has NO hidden sign → GLUED)
+    fillers:    ["log₂()", "xy"]
+    containers: ["log"]
+    (xy has no top-level sign and is short → it stays as one chip
+     inside the opened log shell. Open the log only because the
+     log's argument is itself a container; do NOT further split xy.)
+
+  log₂(x + y)                            (argument has hidden + → OPEN inner terms)
+    fillers:    ["log₂()", "x", "+y"]
     containers: ["log"]
 
-NEVER split: ab, 3x², 6ax, 4ac, √3, √75, √50, log₂5, |x|, x².
-ALWAYS split on a top-level +, −, ×, ÷, or =.
-ALWAYS split a bracket: emit the coefficient (e.g. "+3"), then each inner
-term as its own filler (the first inner filler has NO sign).
+  5/(3n)                                 (denominator has no hidden sign → GLUED)
+    fillers:    ["□/□", "5", "3n"]
+    containers: ["fraction"]
 
-HARD RULE #3 — TRANSITION MODE (structure-aware, deduped across the beat).
-The teacher writes the board ONE LINE AT A TIME. A "structure" here means
-one of: fraction / radical / power / bracket. For EACH line after the
-first, ask: does this line introduce a structure that has NEVER appeared
-in any earlier line of this solution?
+  −23/(4(n+2))                           (denominator has hidden + → fully OPEN)
+    fillers:    ["−□/□", "23", "4", "()", "n", "+2"]
+    containers: ["fraction", "bracket"]
 
-  • FIRST APPEARANCE of a structure on this line → TRANSITION LINE.
-    For every term whose body is the result of applying ÷, ×, ^ or √
-    to a term on the PREVIOUS line together with a scalar k, emit the
-    SOURCE PIECES (the previous term AND k) as separate fillers —
-    NEVER the evaluated compound. Add the joining structure to containers.
+  −3n²(2x)^(n−4)                         (exponent has hidden − → OPEN exponent)
+    fillers:    ["−3n²", "()^()", "2x", "n", "−4"]
+    containers: ["power", "bracket"]
 
-  • The structure already appeared on an earlier line → REUSE LINE.
-    Emit the compound term as a single filler. Do NOT re-split it.
-    The teacher already built that shape once.
+  +³√((x+2)^(n+1) / (x−4))              (every inner container has hidden sign → OPEN all)
+    fillers:    ["+√[3]()", "□/□", "()^()", "x", "+2", "n", "+1", "x", "−4"]
+    containers: ["radical", "fraction", "power", "bracket"]
 
-WORKED TRANSITION EXAMPLE — quadratic by completing the square:
-  Line 1:  3x² − 10x + 5 = 0
-    fillers:    ["3x²", "−10x", "+5", "=", "0"]
-    containers: ["power"]
-  Line 2:  x² − 10x/3 + 5/3 = 0     (÷3 — fraction NEW → split)
-    fillers:    ["x²", "−10x", "+3", "+5", "+3", "=", "0"]
-    containers: ["fraction", "power"]
-  Line 3:  x² − 10x/3 = −5/3        (fraction already seen → whole)
-    fillers:    ["x²", "−10x/3", "=", "−5/3"]
-    containers: ["fraction", "power"]
-  Line 4:  (x − 5/3)² = 25/9 − 5/3  (bracket NEW → split shell)
-    fillers:    ["x", "−5/3", "=", "25/9", "−5/3"]
-    containers: ["fraction", "bracket", "power"]
+  −ⁿ√(n(n+1)²)                          (radicand has hidden +; (n+1) opens too)
+    fillers:    ["−√[n]()", "n", "()²", "n", "+1"]
+    containers: ["radical", "power", "bracket"]
 
 STRUCTURAL SYMBOLS — allowed values ONLY, one per kind, deduped:
   "fraction" | "bracket" | "radical" | "power" | "log" | "integral"
