@@ -1,59 +1,129 @@
-# Replace the backend floating-number prompt with the new laws
+## Goal
 
-## Scope (what gets touched)
+Stop the correction cycle. Floating numbers must come out of the backend **already correct against the five laws** — no chip is ever returned to the UI unless a mechanical verifier has proven it satisfies every law.
 
-Only the prompts that define **how an equation is broken into floating numbers**:
+## Strategy: deterministic generator + verifier, AI only as a fallback
 
-- `supabase/functions/notebook-ai/index.ts` → `mode: "floating"` system prompt (lines ~818–965)
-- `supabase/functions/notebook-ai/index.ts` → `mode: "floating_highlights"` system prompt (lines ~1132–1169)
+The AI is the wrong tool to do the splitting — it keeps inventing `+`, leaving `(` as a chip, missing hidden signs. Splitting an equation into chips is a **structural** operation; it can be done deterministically from the Unicode equation string. So the new pipeline is:
 
-Everything else stays untouched:
-
-- HARD RULE #1 (Unicode-only / no LaTeX / no `^{}`, `_{}`, `sqrt()`, `**`) — kept verbatim. This is the working "mathematical structure" prompt the user does not want broken.
-- `INHERITANCE_STANDARD`, `VALIDATION_DIRECTIVE`, `integrityStandard`, `pedagogyReference`, `structuralStandard`, `renderingStandard`, `unicodeMath` — all kept as-is.
-- All sanitisation code after the AI call (`hasTopLevelSign`, dirty-filler drop, leading-"+" strip, container dedup) — kept; it already enforces the new rules at runtime.
-- Frontend extractor (`src/lib/smartboard/floatingExtractor.ts`) — already updated in prior turns; not touched here.
-
-## The new laws being installed in the prompt
-
-These replace the old HARD RULE #2 / transition rules / worked examples:
-
-1. **No-Synthetic-Sign Rule** — a chip carries `+`, `−`, `×`, `÷` **only** when that sign is literally visible at that position in the source equation. First chip of a line, first chip after `=` / `±`, and first chip inside a bracket carry NO sign. Never invent a leading `+`.
-2. **No-Hidden-Sign Rule (a±b is forbidden anywhere)** — if a container's body (bracket, fraction numerator/denominator, radicand, exponent, subscript, function argument) contains a top-level `+ − × ÷`, the container must be **opened**: emit the shell as its own chip and emit each interior term as its own chip with the correct visible sign. This applies recursively. `a+b` or `a−b` must never sit hidden inside any chip — coefficient, exponent, denominator, base, anything.
-3. **Stay-Glued Rule (when no hidden sign and not too long)** — implicit multiplication (`ab`, `3x²`, `6ax`), radicals over a sign-free body (`√3`, `√75`), `log₂5`, `|x|`, `x²`, and `5/(3n)` stay as a single chip. A simple coefficient×variable like `3n` in a denominator stays attached.
-4. **Length-Split Rule** — when an expression is unusually long even without a visible sign (e.g. `a²b²c²d²/d²a²b²a²`), split it using the same structural laws as a sign-bearing expression.
-5. **Structure-Aware Containers** — emit one container tag per structural kind that appears (`fraction`, `bracket`, `radical`, `power`, `log`, `integral`, `matrix`, `differential`, `abs`, `vector`), deduped.
-6. **Unicode-Only Output** — keep HARD RULE #1 verbatim; the structural-rendering work the user is happy with is preserved.
-
-## Worked examples baked into the new prompt
-
-The prompt will include the user's reference equation broken down the agreed way:
-
-```text
-x+1/4                      → [□/□, x, +1, 4]
-+³√((x+2)^(n+1)/(x−4))     → [+√[3](), ()^(), x, +2, n, +1, x, −4]
-−ⁿ√(n(n+1)²)               → [−√[n](), n, ()², n, +1]
-+5/(3n)                    → [+□/□, 5, 3n]
-−23/(4(n+2))               → [−□/□, 23, 4, (), n, +2]
-−3n²(2x)^(n−4)             → [−3n², ()^(), 2x, n, −4]
+```
+                   ┌─ Deterministic extractor (primary) ─┐
+ACTIVE_QUESTION ──►│  parse → tree → chips per the laws  │──► verifier ──► UI
++ SOLUTION lines   └──────────────────────────────────────┘        ▲
+                                                                   │
+                          AI extractor (fallback, retried up to 2× with
+                          verifier feedback) ─────────────────────►┘
 ```
 
-Plus the simpler invariants:
+The verifier is the single source of truth. If chips fail any law it either re-runs the deterministic extractor in strict mode or asks AI to retry with the exact failures pasted into the prompt. The function never returns unverified chips.
+
+## What gets built
+
+### 1. New file `supabase/functions/notebook-ai/floatingExtractor.ts`
+
+A self-contained, deterministic chip extractor that runs on the edge. It mirrors the laws exactly:
+
+- **Tokeniser** — walks the Unicode equation, tracking bracket / `\frac{}{}` / `\sqrt{}` / `^{}` / `_{}` / `log_{}()` / `|...|` depth. Emits a structural tree (sign-leaf, container-node).
+- **Law 2 detector** — `hasHiddenArithmetic(body)` scans a container body, ignoring leading sign and skipping nested containers, returns true if it finds a top-level `+ − × ÷`.
+- **Chip emitter** — for each container:
+  - If body has hidden arithmetic → emit shell chip (`"()"`, `"□/□"`, `"√()"`, `"√[n]()"`, `"()^()"`, `"log₂()"`, `"|()|"`, …) then recurse on every interior term.
+  - Else → keep glued as one chip (Law 3) unless Law 4 length-split fires (configurable threshold, default ~14 chars of raw factors).
+- **Sign attachment** — every chip after the first content chip keeps its visible sign. First chip of line, chip after `=`/`±`, first chip inside any opened container is bare. No `+` ever invented.
+- **Container collector** — deduped list using the canonical 10 kinds.
+
+Output shape per line is the same `{ equation, fillers[], containers[] }` already consumed by the UI.
+
+### 2. New file `supabase/functions/notebook-ai/floatingVerifier.ts`
+
+Hard verifier with these checks. Every check returns a structured failure that can be (a) printed into an AI retry prompt or (b) thrown as 422 to the client.
+
+| Check | Rule violated if … |
+| --- | --- |
+| `NoRawOperatorChip` | A chip is exactly `"+"`, `"−"`, `"×"`, `"÷"`, `"/"`, `"*"`. |
+| `NoRawBracketChip` | A chip is exactly `"("` or `")"` (must be `"()"` shell). |
+| `NoSyntheticLeadingPlus` | First content chip starts with `+`, or chip after `=`/`±` starts with `+`. |
+| `NoHiddenSign` | Any chip body (stripped of leading sign) contains a top-level `+ − × ÷` outside a shell. |
+| `ShellPresent` | An opened container in the equation has no shell chip in `fillers` (e.g. fraction in eq but no `□/□`). |
+| `ContainerAllowed` | Containers ⊆ the canonical 10. |
+| `ContainerDedup` | No duplicate container kinds. |
+| `EquationTraceable` | Every chip's non-sign body is a substring (after normalisation) of the equation, or is a known shell. Prevents AI from inventing values. |
+| `LawCoverageMatch` (soft) | Compare against the deterministic extractor's output — if AI's chips differ structurally, prefer the deterministic version. |
+
+### 3. Pipeline change in `supabase/functions/notebook-ai/index.ts`
+
+In `mode === "floating"` and `mode === "floating_highlights"`:
+
 ```text
-2x + 3y = 7            → ["2x","+3y","=","7"]
-ax² + bx + c = 0       → ["ax²","+bx","+c","=","0"]
-2x + 3(x+1) = 7        → ["2x","+3","(",x","+1","=","7"]
-log₂(xy)               → ["log₂()","x","y"]    (xy has no hidden sign → stays glued inside)
-log₂(x+y)              → ["log₂()","x","+y"]   (hidden + → open the log shell)
+1. Run deterministicExtract(equation) for every line / highlight.
+2. Run verifier on deterministic output.
+   ├─ PASS  → return it. (This is the happy path; AI is skipped.)
+   └─ FAIL  → fall through to AI (rare: only for prose-only highlights,
+              or expressions the deterministic parser refuses).
+3. AI call → verifier.
+   ├─ PASS  → return.
+   └─ FAIL  → retry AI ONCE with the verifier failure list pasted in.
+              If still failing, fall back to deterministic output even
+              if it's partial, and tag the response with `degraded: true`.
+4. Never return unverified chips.
 ```
 
-## Edits to make (build mode)
+Logs include `[floating] verifier failures: [...]` so future regressions are visible in edge-function logs.
 
-1. In `supabase/functions/notebook-ai/index.ts`, replace the `sys` string of `mode === "floating"` (≈ lines 818–965) with the new prompt: keep HARD RULE #1 word-for-word, replace HARD RULE #2 and the transition section with the six laws above, and replace the worked-examples block with the table above.
-2. In the same file, update the `mode === "floating_highlights"` system prompt (≈ lines 1132–1169) so its "math highlight" bullet list mirrors the same six laws (one-liner each — the highlight prompt stays compact).
-3. Do not touch the post-AI sanitiser block, the inheritance directive, or any other prompt.
+### 4. Drop redundant client-side transforms in `src/pages/FloatingNumbersPage.tsx`
 
-## Verification
+Now that the backend guarantees correctness, the client no longer needs to:
+- run `sanitizeFillers` to pull macros out,
+- run `dropContextualLeadingPlus`,
+- run the pairwise `expandTransitionLine` pass.
 
-- `bunx vitest run src/test/floatingNumberLaws.test.ts` (existing 37 cases — must stay green; they already encode the new laws).
-- Deploy the edge function and spot-check one extraction call from the smartboard to confirm no synthetic `+` and no hidden-sign chips come back.
+These are kept in the file as dead code only if useful for legacy data; the active path uses chips as-is from the backend. The `arrangement` is still computed client-side.
+
+### 5. Regression tests
+
+Add `supabase/functions/notebook-ai/__tests__/floatingExtractor.test.ts` (run via `bunx vitest run` against the file directly — it has no Deno-only imports). Cover every worked example in the prompt verbatim:
+
+```text
+2x+3y=7              → ["2x","+3y","=","7"]                         []
+3x−2y=0              → ["3x","−2y","=","0"]                         []
+ax²+bx+c=0           → ["ax²","+bx","+c","=","0"]                   ["power"]
+2x+3(x+1)=7          → ["2x","+3","()","x","+1","=","7"]            ["bracket"]
+√(b²−4ac)            → ["√()","b²","−4ac"]                          ["radical","power"]
+log₂(xy)             → ["log₂()","xy"]                              ["log"]
+log₂(x+y)            → ["log₂()","x","+y"]                          ["log"]
+5/(3n)               → ["□/□","5","3n"]                             ["fraction"]
+−23/(4(n+2))         → ["−□/□","23","4","()","n","+2"]              ["fraction","bracket"]
+−3n²(2x)^(n−4)       → ["−3n²","()^()","2x","n","−4"]               ["power","bracket"]
++³√((x+2)^(n+1)/(x−4)) → ["+√[3]()","□/□","()^()","x","+2","n","+1","x","−4"]
+                                                       ["radical","fraction","power","bracket"]
+−ⁿ√(n(n+1)²)         → ["−√[n]()","n","()²","n","+1"]               ["radical","power","bracket"]
+
+# User's screenshot equation:
+(x²+2x+1)/((x²+1)(x+1)) = A/(x+1) + (Bx+C)/(x²+1)
+→ ["□/□","x²","+2x","+1","(","x²","+1",")","(","x","+1",")",       # numerator stays glued, denom opens
+   "=","□/□","A","(","x","+1",")",
+   "+□/□","(","Bx","+C",")","(","x²","+1",")"]
+```
+
+(Exact expected chips will be encoded as Unicode strings in the test fixtures. The verifier runs on each expected output too — it must pass for all of them, otherwise the rules themselves are inconsistent and need refining before code lands.)
+
+### 6. Verifier also runs in build CI
+
+The new `floatingVerifier` is exported so the existing frontend test suite `src/test/floatingNumberLaws.test.ts` can import and assert it. This means a future regression on the frontend extractor (still used for instant pre-AI previews) is caught too.
+
+## What is NOT touched
+
+- HARD RULE #1 (Unicode-only) — kept verbatim.
+- `INHERITANCE_STANDARD`, `VALIDATION_DIRECTIVE`, `integrityStandard`, `pedagogyReference`, `structuralStandard`, `renderingStandard`, `unicodeMath` — untouched.
+- DB schema, RLS, storage — untouched.
+- Notebook renderer (`\frac{a}{b}` in the equation field still rendered as stacked fraction).
+
+## Verification before declaring done
+
+1. `bunx vitest run` — new extractor + verifier suites must all be green (≈ 50 cases).
+2. Deploy edge function, then hit `/lesson-notes/.../floating/...` → Generate. Confirm:
+   - No chip is bare `/`, `(`, `)`, or `+`.
+   - Every fraction has a `□/□` chip.
+   - Every bracket with hidden sign has an `()` chip and opens its interior.
+   - No synthetic leading `+`.
+   - User's screenshot equation produces the chip list above.
+3. Inspect `notebook-ai` edge-function logs — they should show `verifier: pass` for each line.

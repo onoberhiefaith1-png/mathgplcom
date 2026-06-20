@@ -16,6 +16,8 @@ import {
   hardStripMath,
   type ValidationKind,
 } from "./validator.ts";
+import { extractLine as deterministicExtractLine } from "./floatingExtractor.ts";
+import { verifyLine as verifyFloatingLine } from "./floatingVerifier.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -1034,58 +1036,23 @@ Return the JSON.`;
       const lines = out.lines.map((l: any) => {
         // Equation: do NOT run through toUnicodeMath — it would strip the
         // braces around \frac{a}{b} and break stacked-fraction rendering.
-        // The notebook renderer handles \frac, \sqrt, ^{...}, _{...} natively.
-        // Just strip $…$ delimiters and trim.
         const equation = hardStripMath(String(l?.equation ?? "").replace(/\$+/g, "").trim());
-        const rawFillers: string[] = Array.isArray(l?.fillers)
-          ? l.fillers.map((x: any) => toUnicodeMath(String(x).trim())).filter(Boolean)
-          : [];
-        const derived = new Set<string>();
-        const cleanFillers: string[] = [];
-        for (const t of rawFillers) {
-          if (isStillDirty(t)) {
-            console.warn("[floating] dropping dirty filler:", t);
-            continue;
-          }
-          for (const k of detectStructuresU(t)) derived.add(k);
-          // Drop only if this filler still lumps multiple terms (top-level sign).
-          if (hasTopLevelSign(t)) {
-            console.warn("[floating] dropping compound filler:", t);
-            continue;
-          }
-          cleanFillers.push(t);
+        if (!equation) return { equation: "", fillers: [] as string[], containers: [] as string[] };
+
+        // DETERMINISTIC EXTRACTION — the AI's fillers/containers are
+        // discarded. The chip split is a structural operation derived
+        // mechanically from the equation, not a creative task. This
+        // guarantees the five floating-number laws are obeyed.
+        const det = deterministicExtractLine(equation);
+
+        // HARD VERIFIER GATE — every chip must pass every law.
+        const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
+        if (!v.ok) {
+          console.warn("[floating] verifier failures for line:", equation, JSON.stringify(v.failures));
         }
-        // Safety net for the new sign rule: a chip carries "+" ONLY when the
-        // source equation shows it at that position. Strip a leading "+" from
-        // the first content chip of the line and from any chip that follows
-        // "=" or "±" — the AI sometimes forgets to do this itself.
-        const normFillers: string[] = [];
-        let seenContent = false;
-        for (const t of cleanFillers) {
-          if (t === "=" || t === "±") {
-            normFillers.push(t);
-            seenContent = false;
-            continue;
-          }
-          const prev = normFillers.length > 0 ? normFillers[normFillers.length - 1] : "";
-          const afterSplitter = prev === "=" || prev === "±";
-          if ((!seenContent || afterSplitter) && t[0] === "+") {
-            normFillers.push(t.slice(1));
-          } else {
-            normFillers.push(t);
-          }
-          seenContent = true;
-        }
-        const rawContainers: string[] = Array.isArray(l?.containers)
-          ? l.containers.map((x: any) => String(x).toLowerCase().trim()).filter((x: string) => allowed.has(x))
-          : [];
-        const seen = new Set<string>();
-        const containers: string[] = [];
-        for (const c of [...rawContainers, ...derived]) {
-          if (!seen.has(c)) { seen.add(c); containers.push(c); }
-        }
-        return { equation, fillers: normFillers, containers };
+        return { equation, fillers: det.fillers, containers: det.containers };
       }).filter((l: any) => l.equation);
+
 
       return new Response(JSON.stringify({ lines }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1229,60 +1196,27 @@ Return the JSON.`;
 
         const isProse = !hasMath(payload);
 
-        // Prose fallback — always derive fillers locally for prose so we
-        // do not depend on the model splitting words correctly.
+        // Prose highlight → derive fillers locally (word split), no AI trust.
         if (isProse) {
           const words = payload.split(/\s+/).filter(Boolean);
           return { equation: payload, fillers: words, containers: [] as string[] };
         }
 
-        const rawFillers: string[] = Array.isArray(raw?.fillers)
-          ? raw.fillers.map((x: any) => toUnicodeMath(String(x).trim())).filter(Boolean)
-          : [];
-
-        const derived = new Set<string>();
-        const cleanFillers: string[] = [];
-        for (const t of rawFillers) {
-          if (isStillDirty(t)) continue;
-          for (const k of detectStructuresU(t)) derived.add(k);
-          if (hasTopLevelSign(t)) continue;
-          cleanFillers.push(t);
+        // Math highlight → run the deterministic extractor on the equation.
+        // AI's fillers/containers are discarded; the chip split must be
+        // structural and law-compliant. Gate the result through the verifier.
+        const det = deterministicExtractLine(equation);
+        const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
+        if (!v.ok) {
+          console.warn("[floating_highlights] verifier failures:", equation, JSON.stringify(v.failures));
         }
-        // Leading-"+" normalisation (matches floating mode behaviour).
-        const normFillers: string[] = [];
-        let seenContent = false;
-        for (const t of cleanFillers) {
-          if (t === "=" || t === "±") {
-            normFillers.push(t);
-            seenContent = false;
-            continue;
-          }
-          const prev = normFillers.length > 0 ? normFillers[normFillers.length - 1] : "";
-          const afterSplitter = prev === "=" || prev === "±";
-          if ((!seenContent || afterSplitter) && t[0] === "+") {
-            normFillers.push(t.slice(1));
-          } else {
-            normFillers.push(t);
-          }
-          seenContent = true;
-        }
-        const rawContainers: string[] = Array.isArray(raw?.containers)
-          ? raw.containers.map((x: any) => String(x).toLowerCase().trim()).filter((x: string) => allowed.has(x))
-          : [];
-        for (const k of detectStructuresU(equation)) derived.add(k);
-        const seen = new Set<string>();
-        const containers: string[] = [];
-        for (const c of [...rawContainers, ...derived]) {
-          if (!seen.has(c)) { seen.add(c); containers.push(c); }
-        }
-        // If the AI produced nothing usable, fall back to one chip per
-        // whitespace-separated token from the payload.
-        if (normFillers.length === 0) {
+        if (det.fillers.length === 0) {
           const toks = payload.split(/\s+/).filter(Boolean);
-          return { equation, fillers: toks, containers };
+          return { equation, fillers: toks, containers: det.containers };
         }
-        return { equation, fillers: normFillers, containers };
+        return { equation, fillers: det.fillers, containers: det.containers };
       });
+
 
       return new Response(JSON.stringify({ lines }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
