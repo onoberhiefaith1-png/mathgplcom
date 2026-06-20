@@ -503,12 +503,11 @@ export interface ExtractedLine {
 export const extractLine = (rawEquation: string): ExtractedLine => {
   const equation = String(rawEquation ?? "").trim();
   if (!equation) return { equation, fillers: [], containers: [] };
-  // Normalise the source for chip extraction (Unicode math). Equation field
-  // itself is left intact so the notebook renderer can draw \frac stacked.
-  const normalised = toUnicodeMath(equation);
-  const terms = extractTermsFromAscii(normalised);
+  // Do NOT pre-process via toUnicodeMath — that folds "^(n−4)" into Unicode
+  // superscripts and destroys the bracket structure the chip splitter needs.
+  const terms = extractTermsFromAscii(equation);
   const fillers = termsToChips(terms).filter((c) => c.length > 0);
-  const containers = detectContainers(normalised);
+  const containers = detectContainers(equation);
   return { equation, fillers, containers };
 };
 
