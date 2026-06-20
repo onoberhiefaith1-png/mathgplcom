@@ -1196,60 +1196,27 @@ Return the JSON.`;
 
         const isProse = !hasMath(payload);
 
-        // Prose fallback — always derive fillers locally for prose so we
-        // do not depend on the model splitting words correctly.
+        // Prose highlight → derive fillers locally (word split), no AI trust.
         if (isProse) {
           const words = payload.split(/\s+/).filter(Boolean);
           return { equation: payload, fillers: words, containers: [] as string[] };
         }
 
-        const rawFillers: string[] = Array.isArray(raw?.fillers)
-          ? raw.fillers.map((x: any) => toUnicodeMath(String(x).trim())).filter(Boolean)
-          : [];
-
-        const derived = new Set<string>();
-        const cleanFillers: string[] = [];
-        for (const t of rawFillers) {
-          if (isStillDirty(t)) continue;
-          for (const k of detectStructuresU(t)) derived.add(k);
-          if (hasTopLevelSign(t)) continue;
-          cleanFillers.push(t);
+        // Math highlight → run the deterministic extractor on the equation.
+        // AI's fillers/containers are discarded; the chip split must be
+        // structural and law-compliant. Gate the result through the verifier.
+        const det = deterministicExtractLine(equation);
+        const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
+        if (!v.ok) {
+          console.warn("[floating_highlights] verifier failures:", equation, JSON.stringify(v.failures));
         }
-        // Leading-"+" normalisation (matches floating mode behaviour).
-        const normFillers: string[] = [];
-        let seenContent = false;
-        for (const t of cleanFillers) {
-          if (t === "=" || t === "±") {
-            normFillers.push(t);
-            seenContent = false;
-            continue;
-          }
-          const prev = normFillers.length > 0 ? normFillers[normFillers.length - 1] : "";
-          const afterSplitter = prev === "=" || prev === "±";
-          if ((!seenContent || afterSplitter) && t[0] === "+") {
-            normFillers.push(t.slice(1));
-          } else {
-            normFillers.push(t);
-          }
-          seenContent = true;
-        }
-        const rawContainers: string[] = Array.isArray(raw?.containers)
-          ? raw.containers.map((x: any) => String(x).toLowerCase().trim()).filter((x: string) => allowed.has(x))
-          : [];
-        for (const k of detectStructuresU(equation)) derived.add(k);
-        const seen = new Set<string>();
-        const containers: string[] = [];
-        for (const c of [...rawContainers, ...derived]) {
-          if (!seen.has(c)) { seen.add(c); containers.push(c); }
-        }
-        // If the AI produced nothing usable, fall back to one chip per
-        // whitespace-separated token from the payload.
-        if (normFillers.length === 0) {
+        if (det.fillers.length === 0) {
           const toks = payload.split(/\s+/).filter(Boolean);
-          return { equation, fillers: toks, containers };
+          return { equation, fillers: toks, containers: det.containers };
         }
-        return { equation, fillers: normFillers, containers };
+        return { equation, fillers: det.fillers, containers: det.containers };
       });
+
 
       return new Response(JSON.stringify({ lines }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
