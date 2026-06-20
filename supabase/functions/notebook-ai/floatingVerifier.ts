@@ -100,7 +100,7 @@ export const verifyLine = (line: { fillers: string[]; containers: string[] }): V
     // Hidden-sign check — skip if chip IS a recognized shell (shells are
     // empty placeholders and never carry interior arithmetic).
     const body = stripLeadingSign(chip);
-    if (!isShellChip(chip) && hasHiddenArithmetic(body)) {
+    if (!isShellChip(chip) && hasAnyHiddenArithmetic(body)) {
       failures.push({ code: "NoHiddenSign", chip, index: i });
     }
     seenContent = true;
