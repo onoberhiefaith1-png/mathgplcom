@@ -172,11 +172,21 @@ const normaliseSign = (c: string): TermSign | null => {
   }
 };
 
-const mkTerm = (sign: TermSign, body: string, synthetic = false): FloatingTerm => ({
-  sign, body, synthetic,
-  display: sign === "=" || sign === "±" ? PRETTY_SIGN[sign] : `${PRETTY_SIGN[sign]}${body}`,
-  ascii:   sign === "=" || sign === "±" ? ASCII_SIGN[sign]  : `${ASCII_SIGN[sign]}${body}`,
-});
+const mkTerm = (sign: TermSign, body: string, synthetic = false): FloatingTerm => {
+  // A synthetic "+" came from an implicit position in the source equation
+  // (start of expression, inside a shell, factor-split continuation). Teachers
+  // never typed a "+" there, so the chip must not show one either.
+  const showSign = !(sign === "+" && synthetic);
+  return {
+    sign, body, synthetic,
+    display: sign === "=" || sign === "±"
+      ? PRETTY_SIGN[sign]
+      : showSign ? `${PRETTY_SIGN[sign]}${body}` : body,
+    ascii: sign === "=" || sign === "±"
+      ? ASCII_SIGN[sign]
+      : showSign ? `${ASCII_SIGN[sign]}${body}` : body,
+  };
+};
 
 /** Render rule: hide leading "+" if synthetic, or if term is first / right after "=". */
 export const renderTermLabel = (
