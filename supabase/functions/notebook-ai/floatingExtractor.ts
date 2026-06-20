@@ -369,11 +369,14 @@ const emitSegmentTerms = (
   const frac = readFractionBody(body);
   if (frac) {
     // Strict rule: ALWAYS open fractions to shell + numerator + denominator.
+    // Strip outer parens off numerator/denominator (they belong to the
+    // fraction's structural grouping, not to a content bracket).
     out.push(mkTerm(sign, "□/□", synthetic));
-    out.push(...extractTermsFromAscii(frac.numerator));
-    out.push(...extractTermsFromAscii(frac.denominator));
+    out.push(...extractTermsFromAscii(stripOuterParens(frac.numerator)));
+    out.push(...extractTermsFromAscii(stripOuterParens(frac.denominator)));
     return;
   }
+
 
   const sqrt = readSqrtBody(body);
   if (sqrt) {
