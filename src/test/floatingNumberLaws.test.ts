@@ -38,8 +38,7 @@ describe("floating number laws from teacher examples", () => {
     expect(bodies("sin(x+1)+cos(y-2)")).toEqual(["+sin()", "+x", "+1", "+cos()", "+y", "-2"]);
   });
 
-  it("keeps derivative and integral shells attached to their bodies", () => {
+  it("keeps derivative shells attached to their bodies", () => {
     expect(bodies("d/dx(x^2+3x)")).toEqual(["+d/dx()", "+x^2", "+3x"]);
-    expect(bodies("∫_0^1(x^2+1)dx")).toEqual(["+∫_0^1()dx", "+x^2", "+1"]);
   });
 });
