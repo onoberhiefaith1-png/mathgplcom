@@ -436,6 +436,14 @@ const readFunctionBody = (src: string): { shell: string; arg: string } | null =>
     if (grp && grp.end === arg.length) return { shell: `log_${latexLog[1]}()`, arg: grp.inner };
     if (arg) return { shell: `log_${latexLog[1]}()`, arg };
   }
+  const asciiLog = src.match(/^log_(?:\{([^{}]+)\}|([a-zA-Z0-9]))(.*)$/);
+  if (asciiLog) {
+    const sub = asciiLog[1] ?? asciiLog[2];
+    const arg = asciiLog[3];
+    const grp = arg && (arg[0] === "(" || arg[0] === "{") ? readGrouped(arg, 0) : null;
+    if (grp && grp.end === arg.length) return { shell: `log_${sub}()`, arg: grp.inner };
+    if (arg) return { shell: `log_${sub}()`, arg };
+  }
   const uniLog = src.match(/^(log[₀₁₂₃₄₅₆₇₈₉]+)(.*)$/);
   if (uniLog) {
     const arg = uniLog[2];
