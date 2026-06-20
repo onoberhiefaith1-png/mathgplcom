@@ -1,63 +1,59 @@
-# Plan: Complex-Factor Split Rule + 10 Structure-Heavy Examples
+# Replace the backend floating-number prompt with the new laws
 
-## The refined law (what you just taught)
+## Scope (what gets touched)
 
-An implicit-multiplication run (no visible +, −, ×, ÷, =) stays as ONE floating chip **only if every factor in it is in *simple form***. The moment any factor carries a **coefficient, power, or subscript**, the run is split at that boundary.
+Only the prompts that define **how an equation is broken into floating numbers**:
 
-**Simple form** = a bare letter, a bare number, or a bare function-of-a-bare-letter (e.g. `x`, `5`, `sinx`, `log₂b`, `lnx`).
+- `supabase/functions/notebook-ai/index.ts` → `mode: "floating"` system prompt (lines ~818–965)
+- `supabase/functions/notebook-ai/index.ts` → `mode: "floating_highlights"` system prompt (lines ~1132–1169)
 
-**Not simple** = anything with a coefficient (`2x`, `3y`), a power (`x²`, `sin²θ`), a subscript (`x₁`, `aₙ`), or a complex function argument (`sin(2x)`, `log(x+1)`).
+Everything else stays untouched:
 
-### Examples of the rule
-| Expression | Chips | Why |
-|---|---|---|
-| `xsin2y` | `[ +xsin2y ]` | `x` simple, `sin2y` is one function unit → whole thing simple |
-| `3x²sin2x` | `[ +3x² , +sin2x ]` | `3x²` has coefficient AND power → split before `sin2x` |
-| `3x²sinx` | `[ +3x² , +sinx ]` | `3x²` not simple → split |
-| `xsinx` | `[ +xsinx ]` | both factors simple → whole |
-| `log_a(x²y)` | `[ +log_a() , +x² , +y ]` | argument contains non-simple `x²` → open the shell |
-| `log_a(xy)` | `[ +log_a(xy) ]` | argument is product of simples → keep whole |
-| `2xy` | `[ +2xy ]` | coefficient + two simple vars, no third factor → stays (this is the rule you gave earlier) |
-| `2xyz` | `[ +2xy , +z ]` | (your earlier rule for 3-var case) |
+- HARD RULE #1 (Unicode-only / no LaTeX / no `^{}`, `_{}`, `sqrt()`, `**`) — kept verbatim. This is the working "mathematical structure" prompt the user does not want broken.
+- `INHERITANCE_STANDARD`, `VALIDATION_DIRECTIVE`, `integrityStandard`, `pedagogyReference`, `structuralStandard`, `renderingStandard`, `unicodeMath` — all kept as-is.
+- All sanitisation code after the AI call (`hasTopLevelSign`, dirty-filler drop, leading-"+" strip, container dedup) — kept; it already enforces the new rules at runtime.
+- Frontend extractor (`src/lib/smartboard/floatingExtractor.ts`) — already updated in prior turns; not touched here.
 
-So the splitter cascade is:
+## The new laws being installed in the prompt
 
-1. Top-level visible-sign split (already correct).
-2. Inside a run of implicit multiplication, walk factor-by-factor; if any factor is "not simple" AND the run has ≥2 factors after combining the coefficient with the first variable group, cut between non-simple factor and the next factor.
-3. Recurse into shells (`()`, `√()`, `log_a()`, `^()`, etc.) the same way.
+These replace the old HARD RULE #2 / transition rules / worked examples:
 
-## Code changes
+1. **No-Synthetic-Sign Rule** — a chip carries `+`, `−`, `×`, `÷` **only** when that sign is literally visible at that position in the source equation. First chip of a line, first chip after `=` / `±`, and first chip inside a bracket carry NO sign. Never invent a leading `+`.
+2. **No-Hidden-Sign Rule (a±b is forbidden anywhere)** — if a container's body (bracket, fraction numerator/denominator, radicand, exponent, subscript, function argument) contains a top-level `+ − × ÷`, the container must be **opened**: emit the shell as its own chip and emit each interior term as its own chip with the correct visible sign. This applies recursively. `a+b` or `a−b` must never sit hidden inside any chip — coefficient, exponent, denominator, base, anything.
+3. **Stay-Glued Rule (when no hidden sign and not too long)** — implicit multiplication (`ab`, `3x²`, `6ax`), radicals over a sign-free body (`√3`, `√75`), `log₂5`, `|x|`, `x²`, and `5/(3n)` stay as a single chip. A simple coefficient×variable like `3n` in a denominator stays attached.
+4. **Length-Split Rule** — when an expression is unusually long even without a visible sign (e.g. `a²b²c²d²/d²a²b²a²`), split it using the same structural laws as a sign-bearing expression.
+5. **Structure-Aware Containers** — emit one container tag per structural kind that appears (`fraction`, `bracket`, `radical`, `power`, `log`, `integral`, `matrix`, `differential`, `abs`, `vector`), deduped.
+6. **Unicode-Only Output** — keep HARD RULE #1 verbatim; the structural-rendering work the user is happy with is preserved.
 
-Single source of truth: `src/lib/smartboard/floatingExtractor.ts`.
+## Worked examples baked into the new prompt
 
-1. Add `isSimpleFactor(token)` helper:
-   - true for: bare letter, bare number, bare-coefficient×bare-letter pair already merged (`2x`), `sin x` / `cos x` / `log_a x` / `ln x` where the argument is a single bare letter.
-   - false for: anything containing `^`, `²`, `³`, `_`, `()`, `√`, `/`, or a numeric coefficient combined with anything that itself isn't simple.
-2. After the existing implicit-multiplication tokenizer produces a factor list for a run, post-process:
-   - If the run has only one factor → keep as one chip.
-   - Else walk left→right; whenever the *current* factor is not simple, emit it as its own chip and start a fresh chip for the rest. Re-check the rest the same way.
-3. Mirror the same logic on the server in `supabase/functions/notebook-ai/structuralStandard.ts` so the AI prompt teaches the new rule and the post-generation lock check accepts it.
-4. Tests in `src/test/floatingNumberLaws.test.ts`:
-   - `3x²sin2x` → `["+3x²","+sin2x"]`
-   - `3x²sinx` → `["+3x²","+sinx"]`
-   - `xsinx` → `["+xsinx"]`
-   - `xsin2y` → `["+xsin2y]` (the `x` is simple, `sin2y` is one function unit)
-   - `2xy` → `["+2xy"]`
-   - `2xyz` → `["+2xy","+z"]`
-   - `log_a(x²y)` → `["+log_a()","+x²","+y"]`
-   - `log_a(xy)` → `["+log_a(xy)"]`
+The prompt will include the user's reference equation broken down the agreed way:
 
-## Corrected version of example #1
+```text
+x+1/4                      → [□/□, x, +1, 4]
++³√((x+2)^(n+1)/(x−4))     → [+√[3](), ()^(), x, +2, n, +1, x, −4]
+−ⁿ√(n(n+1)²)               → [−√[n](), n, ()², n, +1]
++5/(3n)                    → [+□/□, 5, 3n]
+−23/(4(n+2))               → [−□/□, 23, 4, (), n, +2]
+−3n²(2x)^(n−4)             → [−3n², ()^(), 2x, n, −4]
+```
 
-`∫₀^π (3x²·sin(2x) + 5x) dx = K`
-→ `[ ∫₀^π()dx , +3x² , +sin(2x) , +5x , = , K ]`
+Plus the simpler invariants:
+```text
+2x + 3y = 7            → ["2x","+3y","=","7"]
+ax² + bx + c = 0       → ["ax²","+bx","+c","=","0"]
+2x + 3(x+1) = 7        → ["2x","+3","(",x","+1","=","7"]
+log₂(xy)               → ["log₂()","x","y"]    (xy has no hidden sign → stays glued inside)
+log₂(x+y)              → ["log₂()","x","+y"]   (hidden + → open the log shell)
+```
 
-(Old version had `+3x²sin(2x)` as one chip — wrong under the new rule.)
-Example #5 `log_a(x²y) = 2 log_a x + log_a y` becomes
-→ `[ log_a() , +x² , +y , = , 2log_a x , + , log_a y ]`
+## Edits to make (build mode)
 
-## Then: 10 new STRUCTURE-HEAVY expressions
+1. In `supabase/functions/notebook-ai/index.ts`, replace the `sys` string of `mode === "floating"` (≈ lines 818–965) with the new prompt: keep HARD RULE #1 word-for-word, replace HARD RULE #2 and the transition section with the six laws above, and replace the worked-examples block with the table above.
+2. In the same file, update the `mode === "floating_highlights"` system prompt (≈ lines 1132–1169) so its "math highlight" bullet list mirrors the same six laws (one-liner each — the highlight prompt stays compact).
+3. Do not touch the post-AI sanitiser block, the inheritance directive, or any other prompt.
 
-After the rule lands I'll present 10 new ones built around nested structures (fractions inside roots inside powers, matrices, integrals with limits as fractions, summations with fractional bounds, partial-fraction decompositions, vector/abs combos, piecewise, etc.) — for your review before any further code.
+## Verification
 
-Say **go** to implement the rule + tests, or tell me to tweak the "simple form" definition first.
+- `bunx vitest run src/test/floatingNumberLaws.test.ts` (existing 37 cases — must stay green; they already encode the new laws).
+- Deploy the edge function and spot-check one extraction call from the smartboard to confirm no synthetic `+` and no hidden-sign chips come back.
