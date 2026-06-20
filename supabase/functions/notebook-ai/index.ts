@@ -110,6 +110,35 @@ async function callAI(messages: any[], model = "google/gemini-2.5-flash") {
   return json.choices?.[0]?.message?.content ?? "";
 }
 
+// Rich call that also surfaces finish_reason so we can detect truncation
+// (max_tokens / length) and retry. Used by the floating-number pipelines.
+async function callAIRich(
+  messages: any[],
+  opts: { model?: string; maxTokens?: number } = {},
+): Promise<{ content: string; finishReason: string }> {
+  const model = opts.model ?? "google/gemini-2.5-flash";
+  const body: any = { model, messages };
+  if (opts.maxTokens) body.max_tokens = opts.maxTokens;
+  const res = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`AI gateway ${res.status}: ${text}`);
+  }
+  const json = await res.json();
+  const choice = json.choices?.[0] ?? {};
+  return {
+    content: choice.message?.content ?? "",
+    finishReason: String(choice.finish_reason ?? choice.finishReason ?? "stop"),
+  };
+}
+
 /**
  * MathGPL Pre-Publication Validation Engine — staged pipeline.
  *
