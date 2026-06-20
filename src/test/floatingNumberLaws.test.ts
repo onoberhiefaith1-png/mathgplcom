@@ -41,4 +41,17 @@ describe("floating number laws from teacher examples", () => {
   it("keeps derivative shells attached to their bodies", () => {
     expect(bodies("d/dx(x^2+3x)")).toEqual(["+d/dx()", "+x^2", "+3x"]);
   });
+
+  it("splits implicit multiplication when any factor carries a power or subscript", () => {
+    // simple multiplicative runs stay whole
+    expect(bodies("xsinx")).toEqual(["+xsinx"]);
+    expect(bodies("xsin2y")).toEqual(["+xsin2y"]);
+    expect(bodies("2xy")).toEqual(["+2xy"]);
+    // a factor with a power forces a split at factor boundaries
+    expect(bodies("3x²sinx")).toEqual(["+3x²", "+sinx"]);
+    expect(bodies("3x²sin2x")).toEqual(["+3x²", "+sin2x"]);
+    // power inside a log argument opens the log shell
+    expect(bodies("log_a(x²y)")).toEqual(["+log_a()", "+x²", "+y"]);
+    expect(bodies("log_a(xy)")).toEqual(["+log_a(xy)"]);
+  });
 });
