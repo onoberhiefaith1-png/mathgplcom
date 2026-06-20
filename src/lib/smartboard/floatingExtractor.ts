@@ -540,8 +540,8 @@ const emitSegmentTerms = (
 
   const frac = readFractionBody(body);
   if (frac) {
-    const simpleNumerator = !hasComplexInner(frac.numerator);
-    const simpleDenominator = !hasComplexInner(frac.denominator);
+    const simpleNumerator = !hasComplexInner(frac.numerator) && !needsFactorSplit(frac.numerator);
+    const simpleDenominator = !hasComplexInner(frac.denominator) && !needsFactorSplit(frac.denominator);
     if (simpleNumerator && simpleDenominator) {
       out.push(mkTerm(sign, `\\frac{${frac.numerator}}{${frac.denominator}}`, synthetic));
     } else {
@@ -557,7 +557,7 @@ const emitSegmentTerms = (
 
   const sqrt = readSqrtBody(body);
   if (sqrt) {
-    if (!hasComplexInner(sqrt.radicand) && !readFractionBody(sqrt.radicand)) {
+    if (!hasComplexInner(sqrt.radicand) && !readFractionBody(sqrt.radicand) && !needsFactorSplit(sqrt.radicand)) {
       const prefix = sqrt.index ? `√[${sqrt.index}]` : "√";
       out.push(mkTerm(sign, `${prefix}${sqrt.radicand}`, synthetic));
     } else {
@@ -570,7 +570,7 @@ const emitSegmentTerms = (
 
   const fn = readFunctionBody(body);
   if (fn) {
-    if (!hasComplexInner(fn.arg) && !readFractionBody(fn.arg)) {
+    if (!hasComplexInner(fn.arg) && !readFractionBody(fn.arg) && !needsFactorSplit(fn.arg)) {
       const compactShell = fn.shell.endsWith("()") ? fn.shell.slice(0, -2) : fn.shell;
       out.push(mkTerm(sign, `${compactShell}${fn.arg}`, synthetic));
     } else {
@@ -578,6 +578,20 @@ const emitSegmentTerms = (
       out.push(...extractTermsFromAscii(fn.arg));
     }
     return;
+  }
+
+  // Implicit-multiplication factor split — last resort. If the body is a
+  // run of multiplied factors and any factor carries a power/subscript, cut
+  // at factor boundaries; otherwise keep the run whole (e.g. "2xy", "xsinx").
+  if (needsFactorSplit(body)) {
+    const toks = tokenizeImplicitFactors(body);
+    if (toks.length > 1) {
+      out.push(mkTerm(sign, toks[0], synthetic));
+      for (let k = 1; k < toks.length; k++) {
+        out.push(mkTerm("+", toks[k], true));
+      }
+      return;
+    }
   }
 
   out.push(mkTerm(sign, body, synthetic));
