@@ -1163,18 +1163,27 @@ word in order, preserving punctuation attached to the word, with
 containers = []. Example highlight "let the value of x be" →
   fillers: ["let","the","value","of","x","be"], containers: []
 
-If the highlight is math, follow the SAME extraction rules as the
-classroom floating-number standard:
-  • Split on top-level + − × ÷ =. "=" and "±" are their own fillers.
-  • Implicit multiplication (ab, 3x², 6ax), radicals over a sign-free
-    body (√3, √75), log₂5, |x|, x² stay GLUED.
-  • Bracket coefficient stays attached (e.g. "+3"); inner terms split.
-  • For fractions, emit numerator and denominator as separate fillers
-    and add "fraction" to containers. NEVER emit "a/b" as one filler.
+If the highlight is math, follow the SAME floating-number laws as the
+classroom standard:
+  • LAW 1 — NO SYNTHETIC SIGN. A chip carries +, −, ×, ÷ ONLY when
+    that sign is literally visible in the source at that position.
+    First chip of the highlight, first chip after "=" / "±", and
+    first chip inside any opened container are BARE. Never invent "+".
+  • LAW 2 — NO HIDDEN SIGN. If a bracket, fraction numerator,
+    fraction denominator, radicand, exponent, subscript, log/function
+    argument, or |·| body contains a top-level + − × ÷, OPEN that
+    container: emit its empty shell ("()", "□/□", "√()", "√[n]()",
+    "()^()", "log_a()", "|()|") then emit each interior term as its
+    own chip. Recurse for nested hidden signs. "a+b" / "a−b" must
+    never sit hidden inside any chip.
+  • LAW 3 — STAY GLUED when there is no hidden sign and the piece is
+    short: ab, 3x², 6ax, −2y, 3n, √3, √75, log₂5, |x|, x², 5/(3n).
+  • LAW 4 — LENGTH SPLIT. If an expression is unusually long even
+    without a visible sign, split it using the same structural opens.
+  • "=" and "±" are their own chips.
   • Use ONLY Unicode classroom math in fillers (no \\frac, \\sqrt, ^{}, _{}, sqrt(), **).
   • The "equation" field MAY keep \\frac{a}{b} so the notebook renderer
     can stack it.
-  • The FIRST chip carries NO sign. A chip right after "=" or "±" carries NO sign.
 
 Allowed container values (one per kind, deduped):
   "fraction" | "bracket" | "radical" | "power" | "log" | "integral"
