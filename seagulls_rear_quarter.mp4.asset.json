@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "94efe344-9337-495d-a16c-9128eceb2dd8",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/94efe344-9337-495d-a16c-9128eceb2dd8/seagulls_rear_quarter.mp4",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/94efe344-9337-495d-a16c-9128eceb2dd8/seagulls_rear_quarter.mp4",
-  "original_filename": "seagulls_rear_quarter.mp4",
-  "size": 7564841,
   "content_type": "video/mp4",
-  "created_at": "2026-06-14T08:15:30Z"
+  "created_at": "2026-06-14T08:15:30Z",
+  "original_filename": "seagulls_rear_quarter.mp4",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/94efe344-9337-495d-a16c-9128eceb2dd8/seagulls_rear_quarter.mp4",
+  "size": 7564841,
+  "url": "/__l5e/assets-v1/94efe344-9337-495d-a16c-9128eceb2dd8/seagulls_rear_quarter.mp4",
+  "version": 1
 }

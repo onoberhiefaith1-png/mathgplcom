@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "1bb0adf0-b214-4d2e-8eac-46db9d511a55",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/1bb0adf0-b214-4d2e-8eac-46db9d511a55/drippy_transition_spiral.mov",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/1bb0adf0-b214-4d2e-8eac-46db9d511a55/drippy_transition_spiral.mov",
-  "original_filename": "drippy_transition_spiral.mov",
-  "size": 18183561,
   "content_type": "video/quicktime",
-  "created_at": "2026-06-14T07:49:59Z"
+  "created_at": "2026-06-14T07:49:59Z",
+  "original_filename": "drippy_transition_spiral.mov",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/1bb0adf0-b214-4d2e-8eac-46db9d511a55/drippy_transition_spiral.mov",
+  "size": 18183561,
+  "url": "/__l5e/assets-v1/1bb0adf0-b214-4d2e-8eac-46db9d511a55/drippy_transition_spiral.mov",
+  "version": 1
 }

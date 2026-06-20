@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "9a777144-a478-4bc1-a2be-8643927eda25",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/9a777144-a478-4bc1-a2be-8643927eda25/fire_explosion_boxed.mp4",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/9a777144-a478-4bc1-a2be-8643927eda25/fire_explosion_boxed.mp4",
-  "original_filename": "fire_explosion_boxed.mp4",
-  "size": 98097494,
   "content_type": "video/mp4",
-  "created_at": "2026-06-14T08:24:42Z"
+  "created_at": "2026-06-14T08:24:42Z",
+  "original_filename": "fire_explosion_boxed.mp4",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/9a777144-a478-4bc1-a2be-8643927eda25/fire_explosion_boxed.mp4",
+  "size": 98097494,
+  "url": "/__l5e/assets-v1/9a777144-a478-4bc1-a2be-8643927eda25/fire_explosion_boxed.mp4",
+  "version": 1
 }

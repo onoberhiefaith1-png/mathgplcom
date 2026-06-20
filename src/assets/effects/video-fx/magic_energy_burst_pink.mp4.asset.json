@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "e44faa62-9865-4b9c-8e1b-a06c351d51b5",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/e44faa62-9865-4b9c-8e1b-a06c351d51b5/magic_energy_burst_pink.mp4",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/e44faa62-9865-4b9c-8e1b-a06c351d51b5/magic_energy_burst_pink.mp4",
-  "original_filename": "magic_energy_burst_pink.mp4",
-  "size": 9147392,
   "content_type": "video/mp4",
-  "created_at": "2026-06-11T21:12:35Z"
+  "created_at": "2026-06-11T21:12:35Z",
+  "original_filename": "magic_energy_burst_pink.mp4",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/e44faa62-9865-4b9c-8e1b-a06c351d51b5/magic_energy_burst_pink.mp4",
+  "size": 9147392,
+  "url": "/__l5e/assets-v1/e44faa62-9865-4b9c-8e1b-a06c351d51b5/magic_energy_burst_pink.mp4",
+  "version": 1
 }

@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "555533d7-f657-4068-b2f7-16b6926ebeaf",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/555533d7-f657-4068-b2f7-16b6926ebeaf/mathgpl-celestial-observatory.png",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/555533d7-f657-4068-b2f7-16b6926ebeaf/mathgpl-celestial-observatory.png",
-  "original_filename": "mathgpl-celestial-observatory.png",
-  "size": 2313736,
   "content_type": "image/png",
-  "created_at": "2026-06-14T22:11:19Z"
+  "created_at": "2026-06-14T22:11:19Z",
+  "original_filename": "mathgpl-celestial-observatory.png",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/555533d7-f657-4068-b2f7-16b6926ebeaf/mathgpl-celestial-observatory.png",
+  "size": 2313736,
+  "url": "/__l5e/assets-v1/555533d7-f657-4068-b2f7-16b6926ebeaf/mathgpl-celestial-observatory.png",
+  "version": 1
 }

@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "9def34d9-06c9-4a77-8401-0ad6344fb3e1",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/9def34d9-06c9-4a77-8401-0ad6344fb3e1/low_thick_mist.mp4",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/9def34d9-06c9-4a77-8401-0ad6344fb3e1/low_thick_mist.mp4",
-  "original_filename": "low_thick_mist.mp4",
-  "size": 15995422,
   "content_type": "video/mp4",
-  "created_at": "2026-06-14T08:45:21Z"
+  "created_at": "2026-06-14T08:45:21Z",
+  "original_filename": "low_thick_mist.mp4",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/9def34d9-06c9-4a77-8401-0ad6344fb3e1/low_thick_mist.mp4",
+  "size": 15995422,
+  "url": "/__l5e/assets-v1/9def34d9-06c9-4a77-8401-0ad6344fb3e1/low_thick_mist.mp4",
+  "version": 1
 }

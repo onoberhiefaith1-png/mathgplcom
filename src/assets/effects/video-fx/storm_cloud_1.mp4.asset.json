@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "123cb4e0-650c-4454-ae2e-9efd9d8b1769",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/123cb4e0-650c-4454-ae2e-9efd9d8b1769/storm_cloud_1.mp4",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/123cb4e0-650c-4454-ae2e-9efd9d8b1769/storm_cloud_1.mp4",
-  "original_filename": "storm_cloud_1.mp4",
-  "size": 23721364,
   "content_type": "video/mp4",
-  "created_at": "2026-06-14T08:40:25Z"
+  "created_at": "2026-06-14T08:40:25Z",
+  "original_filename": "storm_cloud_1.mp4",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/123cb4e0-650c-4454-ae2e-9efd9d8b1769/storm_cloud_1.mp4",
+  "size": 23721364,
+  "url": "/__l5e/assets-v1/123cb4e0-650c-4454-ae2e-9efd9d8b1769/storm_cloud_1.mp4",
+  "version": 1
 }

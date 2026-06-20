@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "dc53ecb4-44f8-4be5-a1b7-071eb9e5a520",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/dc53ecb4-44f8-4be5-a1b7-071eb9e5a520/magic_beam_tesla.mp4",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/dc53ecb4-44f8-4be5-a1b7-071eb9e5a520/magic_beam_tesla.mp4",
-  "original_filename": "magic_beam_tesla.mp4",
-  "size": 11462616,
   "content_type": "video/mp4",
-  "created_at": "2026-06-11T21:36:31Z"
+  "created_at": "2026-06-11T21:36:31Z",
+  "original_filename": "magic_beam_tesla.mp4",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/dc53ecb4-44f8-4be5-a1b7-071eb9e5a520/magic_beam_tesla.mp4",
+  "size": 11462616,
+  "url": "/__l5e/assets-v1/dc53ecb4-44f8-4be5-a1b7-071eb9e5a520/magic_beam_tesla.mp4",
+  "version": 1
 }

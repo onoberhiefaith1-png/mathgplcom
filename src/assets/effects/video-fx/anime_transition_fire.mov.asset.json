@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "39f6999e-065d-4e39-88ef-4767d57fc8b1",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/39f6999e-065d-4e39-88ef-4767d57fc8b1/anime_transition_fire.mov",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/39f6999e-065d-4e39-88ef-4767d57fc8b1/anime_transition_fire.mov",
-  "original_filename": "anime_transition_fire.mov",
-  "size": 34056500,
   "content_type": "video/quicktime",
-  "created_at": "2026-06-14T08:46:18Z"
+  "created_at": "2026-06-14T08:46:18Z",
+  "original_filename": "anime_transition_fire.mov",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/39f6999e-065d-4e39-88ef-4767d57fc8b1/anime_transition_fire.mov",
+  "size": 34056500,
+  "url": "/__l5e/assets-v1/39f6999e-065d-4e39-88ef-4767d57fc8b1/anime_transition_fire.mov",
+  "version": 1
 }

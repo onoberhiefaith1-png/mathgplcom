@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "eede6a38-cad7-4c41-946c-5eab265faff5",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/eede6a38-cad7-4c41-946c-5eab265faff5/mathgpl-geometry-sanctum.png",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/eede6a38-cad7-4c41-946c-5eab265faff5/mathgpl-geometry-sanctum.png",
-  "original_filename": "mathgpl-geometry-sanctum.png",
-  "size": 2319351,
   "content_type": "image/png",
-  "created_at": "2026-06-14T22:11:14Z"
+  "created_at": "2026-06-14T22:11:14Z",
+  "original_filename": "mathgpl-geometry-sanctum.png",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/eede6a38-cad7-4c41-946c-5eab265faff5/mathgpl-geometry-sanctum.png",
+  "size": 2319351,
+  "url": "/__l5e/assets-v1/eede6a38-cad7-4c41-946c-5eab265faff5/mathgpl-geometry-sanctum.png",
+  "version": 1
 }

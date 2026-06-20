@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "52f97edb-c18c-4114-a8d3-7183b07d1530",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/52f97edb-c18c-4114-a8d3-7183b07d1530/mathgpl-academy-banner-hall.png",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/52f97edb-c18c-4114-a8d3-7183b07d1530/mathgpl-academy-banner-hall.png",
-  "original_filename": "mathgpl-academy-banner-hall.png",
-  "size": 2327726,
   "content_type": "image/png",
-  "created_at": "2026-06-14T22:08:07Z"
+  "created_at": "2026-06-14T22:08:07Z",
+  "original_filename": "mathgpl-academy-banner-hall.png",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/52f97edb-c18c-4114-a8d3-7183b07d1530/mathgpl-academy-banner-hall.png",
+  "size": 2327726,
+  "url": "/__l5e/assets-v1/52f97edb-c18c-4114-a8d3-7183b07d1530/mathgpl-academy-banner-hall.png",
+  "version": 1
 }

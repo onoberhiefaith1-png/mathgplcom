@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "86a4b446-7315-422b-9931-21012565d186",
-  "project_id": "fdf8a06e-74a1-4ce0-a195-8560bcc9ca79",
-  "url": "/__l5e/assets-v1/86a4b446-7315-422b-9931-21012565d186/large_waterfall_1.mov",
-  "r2_key": "a/v1/fdf8a06e-74a1-4ce0-a195-8560bcc9ca79/86a4b446-7315-422b-9931-21012565d186/large_waterfall_1.mov",
-  "original_filename": "large_waterfall_1.mov",
-  "size": 25626097,
   "content_type": "video/quicktime",
-  "created_at": "2026-06-14T08:42:02Z"
+  "created_at": "2026-06-14T08:42:02Z",
+  "original_filename": "large_waterfall_1.mov",
+  "project_id": "d51b8834-54d6-458a-9ad4-37ada93c8e9d",
+  "r2_key": "a/v1/d51b8834-54d6-458a-9ad4-37ada93c8e9d/86a4b446-7315-422b-9931-21012565d186/large_waterfall_1.mov",
+  "size": 25626097,
+  "url": "/__l5e/assets-v1/86a4b446-7315-422b-9931-21012565d186/large_waterfall_1.mov",
+  "version": 1
 }
