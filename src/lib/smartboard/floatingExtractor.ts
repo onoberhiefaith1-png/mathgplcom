@@ -580,7 +580,10 @@ const emitSegmentTerms = (
   if (fn) {
     if (!hasComplexInner(fn.arg) && !readFractionBody(fn.arg) && !needsFactorSplit(fn.arg)) {
       const compactShell = fn.shell.endsWith("()") ? fn.shell.slice(0, -2) : fn.shell;
-      out.push(mkTerm(sign, `${compactShell}${fn.arg}`, synthetic));
+      // Keep parentheses for subscripted logs (log_a, log_{2}) so the
+      // subscript can't visually fuse with the argument.
+      const arg = /_/.test(compactShell) && fn.arg.length > 1 ? `(${fn.arg})` : fn.arg;
+      out.push(mkTerm(sign, `${compactShell}${arg}`, synthetic));
     } else {
       out.push(mkTerm(sign, fn.shell, synthetic));
       out.push(...extractTermsFromAscii(fn.arg));
