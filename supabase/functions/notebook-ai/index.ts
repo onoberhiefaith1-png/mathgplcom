@@ -1224,7 +1224,13 @@ OUTPUT — STRICT JSON only, no fences, no prose:
 { "lines": [ { "equation": "...", "fillers": ["..."], "containers": ["..."] } ] }
 
 The "lines" array MUST have EXACTLY ${hs.length} entries, in the same
-order as the highlights below. Never merge or drop a highlight.`;
+order as the highlights below. Never merge or drop a highlight.
+
+COMPLETENESS: every variable, number, function, bracket, exponent,
+fraction bar, "=", and "±" present in a highlight MUST appear in that
+highlight's entry. Re-scan each highlight before returning. If you
+cannot fit everything, DROP prose first — never drop an equation.
+Return STRICT JSON only.`;
 
       const user = `Subject: ${b.subject || "Mathematics"} | Subtopic: ${b.subtopic || "—"} | Section: ${b.sectionKind || "example"}
 PROBLEM (context only — do NOT extract from this):
@@ -1235,17 +1241,37 @@ ${hs.map((h, i) => `[${i + 1}] ${String(h.payload ?? "").trim()}`).join("\n")}
 
 Return the JSON.`;
 
-      const raw = await callAI([
-        { role: "system", content: sys },
-        { role: "user", content: user },
-      ]);
-      const cleaned = stripFences(raw).replace(/^```json\s*|\s*```$/g, "");
       let parsedLines: any[] = [];
-      try {
-        const parsed = JSON.parse(cleaned);
-        if (Array.isArray(parsed?.lines)) parsedLines = parsed.lines;
-      } catch {
-        parsedLines = [];
+      let attempt = 0;
+      let retryNote = "";
+      while (attempt < 2) {
+        attempt++;
+        const messages: any[] = [
+          { role: "system", content: sys },
+          { role: "user", content: user + (retryNote ? `\n\nRETRY NOTE:\n${retryNote}` : "") },
+        ];
+        let rich: { content: string; finishReason: string };
+        try {
+          rich = await callAIRich(messages, { maxTokens: 8192 });
+        } catch (err) {
+          console.warn("[floating_highlights] AI gateway error", String(err));
+          break;
+        }
+        if (rich.finishReason === "length" || rich.finishReason === "MAX_TOKENS") {
+          retryNote = "Previous attempt was TRUNCATED. Return ONLY the JSON object, no prose.";
+          console.warn("[floating_highlights] truncated, retrying");
+          continue;
+        }
+        const cleaned = stripFences(rich.content).replace(/^```json\s*|\s*```$/g, "");
+        try {
+          const parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed?.lines) && parsed.lines.length > 0) {
+            parsedLines = parsed.lines;
+            break;
+          }
+        } catch {/* fall through */}
+        retryNote = "Previous attempt returned no parseable JSON. Return STRICT JSON only: { \"lines\": [...] }.";
+        console.warn("[floating_highlights] empty/invalid JSON, retrying");
       }
 
       // Map results 1-to-1 onto highlights. If the AI missed an item or
