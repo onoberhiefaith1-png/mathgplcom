@@ -11,7 +11,7 @@
 //   LAW 4 — LENGTH SPLIT for long sign-free runs (factor split).
 //   LAW 5 — STRUCTURE CONTAINERS deduped to the canonical 10 kinds.
 
-import { toUnicodeMath, isStillDirty } from "./unicodeMath.ts";
+// (No toUnicodeMath import — see extractLine() for why we skip that pass.)
 
 export type TermSign = "+" | "−" | "×" | "÷" | "=" | "±" | "<" | ">" | "≤" | "≥";
 
