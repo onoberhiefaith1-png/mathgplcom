@@ -240,15 +240,9 @@ function stage3Benchmark(text: string, kind: ValidationKind): Violation[] {
 }
 
 function stage5Structural(text: string): Violation[] {
-  // We can only check what the string-level evidence reveals: any \sqrt or
-  // \frac with an obviously truncated radicand was already caught in Stage 4.
-  // Add: bare √ followed by a multi-character body without braces (e.g.
-  // "√x^2 + 4x + 7" should be "\sqrt{x^2 + 4x + 7}").
   const v: Violation[] = [];
   const m = text.match(/√[^\s{(][^=\n]{2,}/g);
   if (m && m.length) {
-    // Heuristic: only flag if the body contains a + or − (so the radicand
-    // is ambiguous about its end).
     const bad = m.filter((s) => /[+\-−]/.test(s.slice(1)));
     if (bad.length) {
       v.push({
@@ -257,6 +251,20 @@ function stage5Structural(text: string): Violation[] {
         detail: `ambiguous radical body — wrap in braces: ${bad.slice(0, 3).join(", ")}`,
       });
     }
+  }
+  if (/\^[{(][^)}]*[+\-−×÷=][^)}]*[})]/.test(text)) {
+    v.push({
+      phase: 5,
+      rule: "complex-exponent-must-be-shell",
+      detail: "a power with +, −, ×, ÷, or = inside the exponent must be emitted as a shell with separate floating pieces",
+    });
+  }
+  if (/_[{(][^)}]*[+\-−×÷=][^)}]*[})]/.test(text)) {
+    v.push({
+      phase: 5,
+      rule: "complex-subscript-must-be-shell",
+      detail: "a subscript with +, −, ×, ÷, or = inside it must be emitted as a shell with separate floating pieces",
+    });
   }
   return v;
 }
