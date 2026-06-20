@@ -1043,68 +1043,82 @@ ${b.solution.trim()}
 
 Return the JSON.`;
 
-      const raw = await callAI([
-        { role: "system", content: sys },
-        { role: "user", content: user },
-      ]);
-      const cleaned = stripFences(raw).replace(/^```json\s*|\s*```$/g, "");
-      let out: { lines: any[] } = { lines: [] };
-      try {
-        const parsed = JSON.parse(cleaned);
-        if (Array.isArray(parsed?.lines)) out.lines = parsed.lines;
-      } catch {
-        out.lines = [];
-      }
-      // Sanitize. Normalize to Unicode first, then detect structures
-      // (from Unicode markers), then drop anything still containing code syntax.
-      const allowed = new Set(["fraction","bracket","radical","power","log","integral","matrix","differential","abs","vector"]);
-      const detectStructuresU = (t: string): string[] => {
-        const out: string[] = [];
-        if (/√/.test(t)) out.push("radical");
-        if (/[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ⁺⁻⁽⁾]/.test(t)) out.push("power");
-        if (/\blog[₀₁₂₃₄₅₆₇₈₉]/.test(t)) out.push("log");
-        if (/\|[^|]+\|/.test(t)) out.push("abs");
-        return out;
+      // ── Generate with retry + completeness gate ──
+      const parseLines = (txt: string): any[] => {
+        const cleaned = stripFences(txt).replace(/^```json\s*|\s*```$/g, "");
+        try {
+          const p = JSON.parse(cleaned);
+          return Array.isArray(p?.lines) ? p.lines : [];
+        } catch { return []; }
       };
-      // Visible top-level arithmetic sign detector (ignores leading sign and
-      // anything inside (), [], {}).
-      const hasTopLevelSign = (src: string): boolean => {
-        if (!src) return false;
-        const s = src.replace(/\s+/g, "");
-        let depth = 0;
-        for (let i = 0; i < s.length; i++) {
-          const c = s[i];
-          if (c === "(" || c === "[" || c === "{") { depth++; continue; }
-          if (c === ")" || c === "]" || c === "}") { depth = Math.max(0, depth - 1); continue; }
-          if (depth !== 0) continue;
-          if (i === 0) continue;
-          if (c === "+" || c === "-" || c === "−" || c === "–" ||
-              c === "×" || c === "·" || c === "÷" || c === "=") return true;
+
+      let parsedLines: any[] = [];
+      let attempt = 0;
+      let lastReason = "";
+      let retryNote = "";
+      while (attempt < 2) {
+        attempt++;
+        const messages: any[] = [
+          { role: "system", content: sys },
+          { role: "user", content: user + (retryNote ? `\n\nRETRY NOTE:\n${retryNote}\nReturn ONLY the JSON object.` : "") },
+        ];
+        let rich: { content: string; finishReason: string };
+        try {
+          rich = await callAIRich(messages, { maxTokens: 8192 });
+        } catch (err) {
+          console.warn("[floating] AI gateway error attempt", attempt, String(err));
+          break;
         }
-        return false;
-      };
-      const lines = out.lines.map((l: any) => {
-        // Equation: do NOT run through toUnicodeMath — it would strip the
-        // braces around \frac{a}{b} and break stacked-fraction rendering.
+        if (rich.finishReason === "length" || rich.finishReason === "MAX_TOKENS") {
+          lastReason = "truncated";
+          retryNote = "Previous attempt was TRUNCATED. Drop ALL prose, return ONLY the JSON object with every equation line.";
+          console.warn("[floating] truncated, retrying");
+          continue;
+        }
+        const got = parseLines(rich.content);
+        if (got.length === 0) {
+          lastReason = "invalid_json_or_empty";
+          retryNote = "Previous attempt returned no parseable JSON lines. Return STRICT JSON only: { \"lines\": [...] }.";
+          console.warn("[floating] empty/invalid JSON, retrying");
+          continue;
+        }
+        // Completeness check
+        const joined = got.map((l: any) => String(l?.equation ?? "")).join("\n");
+        const comp = verifyCompleteness(b.solution, joined);
+        if (!comp.ok && attempt < 2) {
+          lastReason = "incomplete";
+          retryNote = `Previous attempt was MISSING elements from SOLUTION — ${summariseMissing(comp)}. Include EVERY equation line. Return only JSON.`;
+          console.warn("[floating] incomplete:", summariseMissing(comp));
+          parsedLines = got; // keep as fallback
+          continue;
+        }
+        parsedLines = got;
+        break;
+      }
+
+      let degraded = false;
+      // Hard fallback: if AI failed completely, deterministically extract
+      // chips from the solution text itself, line by line.
+      if (parsedLines.length === 0) {
+        degraded = true;
+        console.warn("[floating] falling back to deterministic extraction of SOLUTION");
+        parsedLines = splitSolutionLines(b.solution).map((eq) => ({ equation: eq }));
+      }
+
+      const lines = parsedLines.map((l: any) => {
         const equation = hardStripMath(String(l?.equation ?? "").replace(/\$+/g, "").trim());
         if (!equation) return { equation: "", fillers: [] as string[], containers: [] as string[] };
-
-        // DETERMINISTIC EXTRACTION — the AI's fillers/containers are
-        // discarded. The chip split is a structural operation derived
-        // mechanically from the equation, not a creative task. This
-        // guarantees the five floating-number laws are obeyed.
         const det = deterministicExtractLine(equation);
-
-        // HARD VERIFIER GATE — every chip must pass every law.
         const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
         if (!v.ok) {
           console.warn("[floating] verifier failures for line:", equation, JSON.stringify(v.failures));
         }
         return { equation, fillers: det.fillers, containers: det.containers };
-      }).filter((l: any) => l.equation);
+      }).filter((l: any) => l.equation && l.fillers.length > 0);
 
+      console.log(`[floating] outcome=${degraded ? "degraded" : "ok"} lines=${lines.length} lastReason=${lastReason || "none"}`);
 
-      return new Response(JSON.stringify({ lines }), {
+      return new Response(JSON.stringify({ lines, degraded }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
