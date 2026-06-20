@@ -300,6 +300,96 @@ const splitTopLevelTerms = (src: string): Array<{ sign: TermSign; body: string; 
 
 const hasComplexInner = (src: string): boolean => hasTopLevelSign(src);
 
+// ── Implicit-multiplication "complex factor" split ──────────────────────
+// Rule (from teacher): an implicit-multiplication run stays as ONE chip ONLY
+// when every factor is in simple form. The moment any factor carries a
+// POWER (², ³, ^…) or SUBSCRIPT (_…), the run is cut at factor boundaries.
+// A leading numeric coefficient binds with the immediately following
+// variable/function group ("3" + "x²" → "3x²"); other coefficient rules
+// (e.g. 2xy whole / 2xyz split) are handled elsewhere and are not affected.
+const FACTOR_POWER_RE = /[²³⁴⁵⁶⁷⁸⁹⁰¹]|\^|_/;
+
+const tokenizeImplicitFactors = (s: string): string[] => {
+  if (!s) return [];
+  const tokens: string[] = [];
+  let i = 0;
+  const consumeOptionalScript = (start: number): number => {
+    let end = start;
+    while (end < s.length && /[²³⁴⁵⁶⁷⁸⁹⁰¹]/.test(s[end])) end++;
+    while (end < s.length && (s[end] === "^" || s[end] === "_")) {
+      end++;
+      if (s[end] === "{" || s[end] === "(") {
+        const g = readGrouped(s, end);
+        end = g ? g.end : end + 1;
+      } else if (end < s.length) {
+        end++;
+      }
+    }
+    return end;
+  };
+  while (i < s.length) {
+    const start = i;
+    // bracketed group (with optional ^ tail)
+    if (s[i] === "(" || s[i] === "[" || s[i] === "{") {
+      const g = readGrouped(s, i);
+      if (!g) return [s];
+      let end = g.end;
+      end = consumeOptionalScript(end);
+      tokens.push(s.slice(start, end));
+      i = end;
+      continue;
+    }
+    // numeric coefficient
+    if (/[0-9]/.test(s[i])) {
+      while (i < s.length && /[0-9.]/.test(s[i])) i++;
+      tokens.push(s.slice(start, i));
+      continue;
+    }
+    // function name (sin/cos/tan/sec/csc/cot/ln/log[subscript])
+    const rest = s.slice(i);
+    const fnMatch = rest.match(/^(sin|cos|tan|sec|csc|cot|ln|log)([₀₁₂₃₄₅₆₇₈₉ₐ-ₜ]*|_\{[^}]+\}|_[a-zA-Z0-9])?/i);
+    if (fnMatch) {
+      let end = i + fnMatch[0].length;
+      end = consumeOptionalScript(end); // sin²θ etc
+      // argument: bracketed OR next factor unit (coef + letter + script)
+      if (s[end] === "(" || s[end] === "{" || s[end] === "[") {
+        const g = readGrouped(s, end);
+        end = g ? g.end : end + 1;
+      } else {
+        while (end < s.length && /[0-9.]/.test(s[end])) end++;
+        if (end < s.length && /[a-zA-Zθφπα-ω]/.test(s[end])) {
+          end++;
+          end = consumeOptionalScript(end);
+        }
+      }
+      tokens.push(s.slice(start, end));
+      i = end;
+      continue;
+    }
+    // letter + optional script
+    if (/[a-zA-Zθφπα-ω]/.test(s[i])) {
+      i++;
+      i = consumeOptionalScript(i);
+      tokens.push(s.slice(start, i));
+      continue;
+    }
+    // unknown character — bail
+    return [s];
+  }
+  // Merge leading numeric coefficient with the next factor group.
+  if (tokens.length >= 2 && /^[0-9]+(\.[0-9]+)?$/.test(tokens[0])) {
+    tokens[0] = tokens[0] + tokens[1];
+    tokens.splice(1, 1);
+  }
+  return tokens;
+};
+
+const needsFactorSplit = (s: string): boolean => {
+  if (!s || !FACTOR_POWER_RE.test(s)) return false;
+  const toks = tokenizeImplicitFactors(s);
+  return toks.length > 1;
+};
+
 const readFractionBody = (src: string): { numerator: string; denominator: string } | null => {
   const frac = src.match(/^\\(?:d|t)?frac\{([\s\S]+)\}\{([\s\S]+)\}$/);
   if (frac) return { numerator: frac[1], denominator: frac[2] };
