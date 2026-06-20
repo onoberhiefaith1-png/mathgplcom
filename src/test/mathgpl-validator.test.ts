@@ -74,6 +74,18 @@ describe("MathGPL validator", () => {
     expect(r.ok).toBe(false);
     expect(r.violations.some((v) => v.rule === "fractions-must-be-stacked")).toBe(true);
   });
+
+  it("flags complex exponents that should become shells", () => {
+    const r = validateMathOutput("x^{2+1}", "floating");
+    expect(r.ok).toBe(false);
+    expect(r.violations.some((v) => v.rule === "complex-exponent-must-be-shell")).toBe(true);
+  });
+
+  it("flags complex subscripts that should become shells", () => {
+    const r = validateMathOutput("a_{n+2}", "floating");
+    expect(r.ok).toBe(false);
+    expect(r.violations.some((v) => v.rule === "complex-subscript-must-be-shell")).toBe(true);
+  });
 });
 
 describe("MathGPL hard-strip", () => {
