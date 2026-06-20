@@ -310,6 +310,22 @@ const splitTopLevelTerms = (src: string): Array<{ sign: TermSign; body: string; 
 
 const hasComplexInner = (src: string): boolean => hasTopLevelSign(src);
 
+/** Hard rule: any +, −, ×, ÷ ANYWHERE inside the body (including nested
+ *  brackets) is a "red flag" — the chip must split. A leading sign on the
+ *  whole body belongs to the term itself and is ignored. */
+const hasHiddenArithmetic = (src: string): boolean => {
+  if (!src) return false;
+  const s = src.replace(/\s+/g, "");
+  for (let i = 0; i < s.length; i++) {
+    if (i === 0) continue;
+    const c = s[i];
+    if (c === "+" || c === "-" || c === "−" || c === "–" ||
+        c === "*" || c === "×" || c === "·" ||
+        c === "÷") return true;
+  }
+  return false;
+};
+
 // ── Implicit-multiplication "complex factor" split ──────────────────────
 // Rule (from teacher): an implicit-multiplication run stays as ONE chip ONLY
 // when every factor is in simple form. The moment any factor carries a
@@ -386,16 +402,23 @@ const tokenizeImplicitFactors = (s: string): string[] => {
     // unknown character — bail
     return [s];
   }
-  // Merge leading numeric coefficient with the next factor group.
+  // Merge leading numeric coefficient with the next factor group — UNLESS the
+  // next factor is a bracket whose interior hides an arithmetic sign (then
+  // the bracket must open on its own, and the coefficient stays separate).
   if (tokens.length >= 2 && /^[0-9]+(\.[0-9]+)?$/.test(tokens[0])) {
-    tokens[0] = tokens[0] + tokens[1];
-    tokens.splice(1, 1);
+    const next = tokens[1];
+    const nextOpensSign = /^[(\[{]/.test(next) && hasHiddenArithmetic(next);
+    if (!nextOpensSign) {
+      tokens[0] = tokens[0] + tokens[1];
+      tokens.splice(1, 1);
+    }
   }
   return tokens;
 };
 
 const needsFactorSplit = (s: string): boolean => {
-  if (!s || !FACTOR_POWER_RE.test(s)) return false;
+  if (!s) return false;
+  if (!FACTOR_POWER_RE.test(s) && !hasHiddenArithmetic(s)) return false;
   const toks = tokenizeImplicitFactors(s);
   return toks.length > 1;
 };
