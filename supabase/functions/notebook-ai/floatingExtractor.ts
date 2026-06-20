@@ -227,9 +227,17 @@ const tokenizeImplicitFactors = (s: string): string[] => {
 
 const needsFactorSplit = (s: string): boolean => {
   if (!s) return false;
-  if (!FACTOR_POWER_RE.test(s) && !hasHiddenArithmetic(s)) return false;
   const toks = tokenizeImplicitFactors(s);
-  return toks.length > 1;
+  if (toks.length <= 1) return false;
+  // Trigger when: any factor hides arithmetic OR any factor is a bracket
+  // (which would otherwise smuggle a structural shell into the chip) OR
+  // there are 3+ factors (length split per LAW 4).
+  for (const t of toks) {
+    if (hasHiddenArithmetic(t)) return true;
+    if (/^[(\[{]/.test(t)) return true;
+  }
+  if (toks.length >= 3) return true;
+  return false;
 };
 
 const readFractionBody = (src: string): { numerator: string; denominator: string } | null => {
