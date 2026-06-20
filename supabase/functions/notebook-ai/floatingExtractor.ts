@@ -214,10 +214,14 @@ const tokenizeImplicitFactors = (s: string): string[] => {
   }
   // Merge leading numeric coefficient with the next factor group UNLESS the
   // next factor is a bracket whose interior hides an arithmetic sign.
+  // Merge a leading numeric coefficient with the next factor group ONLY when
+  // that next factor is NOT a bracket structure. Coefficients glue to
+  // variables/functions (3·x² → 3x², 4·ac → 4ac) but never to a bracket
+  // shell (3·(x+1) stays split so the bracket can open its interior).
   if (tokens.length >= 2 && /^[0-9]+(\.[0-9]+)?$/.test(tokens[0])) {
     const next = tokens[1];
-    const nextOpensSign = /^[(\[{]/.test(next) && hasHiddenArithmetic(next);
-    if (!nextOpensSign) {
+    const nextIsBracket = /^[(\[{]/.test(next);
+    if (!nextIsBracket) {
       tokens[0] = tokens[0] + tokens[1];
       tokens.splice(1, 1);
     }
