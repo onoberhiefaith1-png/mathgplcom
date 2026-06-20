@@ -60,7 +60,7 @@ describe("floating number laws from teacher examples", () => {
     // 4(n+2) → coefficient stays, bracket opens, sign appears as its own chip
     expect(bodies("4(n+2)")).toEqual(["4", "()", "n", "+2"]);
     // fraction denominator with a hidden-sign bracket opens the fraction
-    expect(bodies("\\frac{23}{4(n+2)}")).toEqual(["□/□", "23", "4", "()", "n", "+2"]);
+    expect(bodies("\\frac{23}{4(n+2)}")).toEqual(["23", "4", "()", "n", "+2"]);
     // simple coefficient×variable denominator (no hidden sign) stays whole
     expect(bodies("\\frac{5}{3n}")).toEqual(["\\frac{5}{3n}"]);
   });
