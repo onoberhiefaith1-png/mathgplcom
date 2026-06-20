@@ -400,7 +400,10 @@ const emitSegmentTerms = (
     const simpleArg = !hasHiddenArithmetic(fn.arg) && !readFractionBody(fn.arg) && !needsFactorSplit(fn.arg);
     if (simpleArg) {
       const compactShell = fn.shell.endsWith("()") ? fn.shell.slice(0, -2) : fn.shell;
-      const arg = /_/.test(compactShell) && fn.arg.length > 1 ? `(${fn.arg})` : fn.arg;
+      // Keep parentheses for subscripted logs so the subscript can't visually
+      // fuse with the argument (covers ASCII "log_a", Unicode "log₂", etc.).
+      const hasSubscript = /[₀₁₂₃₄₅₆₇₈₉_]/.test(compactShell);
+      const arg = hasSubscript && fn.arg.length > 1 ? `(${fn.arg})` : fn.arg;
       out.push(mkTerm(sign, `${compactShell}${arg}`, synthetic));
     } else {
       out.push(mkTerm(sign, fn.shell, synthetic));
