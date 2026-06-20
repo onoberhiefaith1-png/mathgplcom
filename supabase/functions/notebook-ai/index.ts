@@ -16,8 +16,9 @@ import {
   hardStripMath,
   type ValidationKind,
 } from "./validator.ts";
-import { extractLine as deterministicExtractLine } from "./floatingExtractor.ts";
+import { extractLine as deterministicExtractLine, splitSolutionLines } from "./floatingExtractor.ts";
 import { verifyLine as verifyFloatingLine } from "./floatingVerifier.ts";
+import { verifyCompleteness, summariseMissing } from "./completenessVerifier.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -108,6 +109,35 @@ async function callAI(messages: any[], model = "google/gemini-2.5-flash") {
   }
   const json = await res.json();
   return json.choices?.[0]?.message?.content ?? "";
+}
+
+// Rich call that also surfaces finish_reason so we can detect truncation
+// (max_tokens / length) and retry. Used by the floating-number pipelines.
+async function callAIRich(
+  messages: any[],
+  opts: { model?: string; maxTokens?: number } = {},
+): Promise<{ content: string; finishReason: string }> {
+  const model = opts.model ?? "google/gemini-2.5-flash";
+  const body: any = { model, messages };
+  if (opts.maxTokens) body.max_tokens = opts.maxTokens;
+  const res = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`AI gateway ${res.status}: ${text}`);
+  }
+  const json = await res.json();
+  const choice = json.choices?.[0] ?? {};
+  return {
+    content: choice.message?.content ?? "",
+    finishReason: String(choice.finish_reason ?? choice.finishReason ?? "stop"),
+  };
 }
 
 /**
@@ -982,7 +1012,27 @@ SELF-CHECK before emitting: re-read every "equation" and every
 "fillers" entry. If you see a backslash (other than \\frac in the
 equation field), "sqrt(", "^{", "_{", or "**" ANYWHERE, REWRITE IT TO
 UNICODE first. A response containing any forbidden substring is
-invalid and will be rejected.`;
+invalid and will be rejected.
+
+══════════════════════════════════════════════════════════════════
+ COMPLETENESS — NON-NEGOTIABLE
+══════════════════════════════════════════════════════════════════
+You MUST emit ONE entry in "lines" for EVERY equation line that
+appears in SOLUTION. Do NOT skip, summarise, paraphrase, merge, or
+stop early. Prose lines (English sentences with no math) are dropped.
+Math lines — including intermediate working — are ALL kept.
+
+Before you return, re-scan the SOLUTION and confirm that every
+variable, every numeric literal, every function name (sin, cos, tan,
+log, ln, ∫, √, d/dx, …), every bracket pair, every exponent, every
+fraction bar, and every "=" appears somewhere in your output. If
+anything is missing, regenerate the missing line(s) before returning.
+
+If the response would otherwise exceed your output budget, DROP
+explanatory prose first — NEVER drop or truncate an equation line.
+
+Return STRICT JSON only. No code fences. No commentary. No trailing
+text. If you cannot comply, return { "lines": [] } and nothing else.`;
 
       const user = `Subject: ${b.subject || "Mathematics"} | Subtopic: ${b.subtopic || "—"} | Section: ${b.sectionKind || "example"}
 PROBLEM:
@@ -993,68 +1043,82 @@ ${b.solution.trim()}
 
 Return the JSON.`;
 
-      const raw = await callAI([
-        { role: "system", content: sys },
-        { role: "user", content: user },
-      ]);
-      const cleaned = stripFences(raw).replace(/^```json\s*|\s*```$/g, "");
-      let out: { lines: any[] } = { lines: [] };
-      try {
-        const parsed = JSON.parse(cleaned);
-        if (Array.isArray(parsed?.lines)) out.lines = parsed.lines;
-      } catch {
-        out.lines = [];
-      }
-      // Sanitize. Normalize to Unicode first, then detect structures
-      // (from Unicode markers), then drop anything still containing code syntax.
-      const allowed = new Set(["fraction","bracket","radical","power","log","integral","matrix","differential","abs","vector"]);
-      const detectStructuresU = (t: string): string[] => {
-        const out: string[] = [];
-        if (/√/.test(t)) out.push("radical");
-        if (/[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ⁺⁻⁽⁾]/.test(t)) out.push("power");
-        if (/\blog[₀₁₂₃₄₅₆₇₈₉]/.test(t)) out.push("log");
-        if (/\|[^|]+\|/.test(t)) out.push("abs");
-        return out;
+      // ── Generate with retry + completeness gate ──
+      const parseLines = (txt: string): any[] => {
+        const cleaned = stripFences(txt).replace(/^```json\s*|\s*```$/g, "");
+        try {
+          const p = JSON.parse(cleaned);
+          return Array.isArray(p?.lines) ? p.lines : [];
+        } catch { return []; }
       };
-      // Visible top-level arithmetic sign detector (ignores leading sign and
-      // anything inside (), [], {}).
-      const hasTopLevelSign = (src: string): boolean => {
-        if (!src) return false;
-        const s = src.replace(/\s+/g, "");
-        let depth = 0;
-        for (let i = 0; i < s.length; i++) {
-          const c = s[i];
-          if (c === "(" || c === "[" || c === "{") { depth++; continue; }
-          if (c === ")" || c === "]" || c === "}") { depth = Math.max(0, depth - 1); continue; }
-          if (depth !== 0) continue;
-          if (i === 0) continue;
-          if (c === "+" || c === "-" || c === "−" || c === "–" ||
-              c === "×" || c === "·" || c === "÷" || c === "=") return true;
+
+      let parsedLines: any[] = [];
+      let attempt = 0;
+      let lastReason = "";
+      let retryNote = "";
+      while (attempt < 2) {
+        attempt++;
+        const messages: any[] = [
+          { role: "system", content: sys },
+          { role: "user", content: user + (retryNote ? `\n\nRETRY NOTE:\n${retryNote}\nReturn ONLY the JSON object.` : "") },
+        ];
+        let rich: { content: string; finishReason: string };
+        try {
+          rich = await callAIRich(messages, { maxTokens: 8192 });
+        } catch (err) {
+          console.warn("[floating] AI gateway error attempt", attempt, String(err));
+          break;
         }
-        return false;
-      };
-      const lines = out.lines.map((l: any) => {
-        // Equation: do NOT run through toUnicodeMath — it would strip the
-        // braces around \frac{a}{b} and break stacked-fraction rendering.
+        if (rich.finishReason === "length" || rich.finishReason === "MAX_TOKENS") {
+          lastReason = "truncated";
+          retryNote = "Previous attempt was TRUNCATED. Drop ALL prose, return ONLY the JSON object with every equation line.";
+          console.warn("[floating] truncated, retrying");
+          continue;
+        }
+        const got = parseLines(rich.content);
+        if (got.length === 0) {
+          lastReason = "invalid_json_or_empty";
+          retryNote = "Previous attempt returned no parseable JSON lines. Return STRICT JSON only: { \"lines\": [...] }.";
+          console.warn("[floating] empty/invalid JSON, retrying");
+          continue;
+        }
+        // Completeness check
+        const joined = got.map((l: any) => String(l?.equation ?? "")).join("\n");
+        const comp = verifyCompleteness(b.solution, joined);
+        if (!comp.ok && attempt < 2) {
+          lastReason = "incomplete";
+          retryNote = `Previous attempt was MISSING elements from SOLUTION — ${summariseMissing(comp)}. Include EVERY equation line. Return only JSON.`;
+          console.warn("[floating] incomplete:", summariseMissing(comp));
+          parsedLines = got; // keep as fallback
+          continue;
+        }
+        parsedLines = got;
+        break;
+      }
+
+      let degraded = false;
+      // Hard fallback: if AI failed completely, deterministically extract
+      // chips from the solution text itself, line by line.
+      if (parsedLines.length === 0) {
+        degraded = true;
+        console.warn("[floating] falling back to deterministic extraction of SOLUTION");
+        parsedLines = splitSolutionLines(b.solution).map((eq) => ({ equation: eq }));
+      }
+
+      const lines = parsedLines.map((l: any) => {
         const equation = hardStripMath(String(l?.equation ?? "").replace(/\$+/g, "").trim());
         if (!equation) return { equation: "", fillers: [] as string[], containers: [] as string[] };
-
-        // DETERMINISTIC EXTRACTION — the AI's fillers/containers are
-        // discarded. The chip split is a structural operation derived
-        // mechanically from the equation, not a creative task. This
-        // guarantees the five floating-number laws are obeyed.
         const det = deterministicExtractLine(equation);
-
-        // HARD VERIFIER GATE — every chip must pass every law.
         const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
         if (!v.ok) {
           console.warn("[floating] verifier failures for line:", equation, JSON.stringify(v.failures));
         }
         return { equation, fillers: det.fillers, containers: det.containers };
-      }).filter((l: any) => l.equation);
+      }).filter((l: any) => l.equation && l.fillers.length > 0);
 
+      console.log(`[floating] outcome=${degraded ? "degraded" : "ok"} lines=${lines.length} lastReason=${lastReason || "none"}`);
 
-      return new Response(JSON.stringify({ lines }), {
+      return new Response(JSON.stringify({ lines, degraded }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -1160,7 +1224,13 @@ OUTPUT — STRICT JSON only, no fences, no prose:
 { "lines": [ { "equation": "...", "fillers": ["..."], "containers": ["..."] } ] }
 
 The "lines" array MUST have EXACTLY ${hs.length} entries, in the same
-order as the highlights below. Never merge or drop a highlight.`;
+order as the highlights below. Never merge or drop a highlight.
+
+COMPLETENESS: every variable, number, function, bracket, exponent,
+fraction bar, "=", and "±" present in a highlight MUST appear in that
+highlight's entry. Re-scan each highlight before returning. If you
+cannot fit everything, DROP prose first — never drop an equation.
+Return STRICT JSON only.`;
 
       const user = `Subject: ${b.subject || "Mathematics"} | Subtopic: ${b.subtopic || "—"} | Section: ${b.sectionKind || "example"}
 PROBLEM (context only — do NOT extract from this):
@@ -1171,17 +1241,37 @@ ${hs.map((h, i) => `[${i + 1}] ${String(h.payload ?? "").trim()}`).join("\n")}
 
 Return the JSON.`;
 
-      const raw = await callAI([
-        { role: "system", content: sys },
-        { role: "user", content: user },
-      ]);
-      const cleaned = stripFences(raw).replace(/^```json\s*|\s*```$/g, "");
       let parsedLines: any[] = [];
-      try {
-        const parsed = JSON.parse(cleaned);
-        if (Array.isArray(parsed?.lines)) parsedLines = parsed.lines;
-      } catch {
-        parsedLines = [];
+      let attempt = 0;
+      let retryNote = "";
+      while (attempt < 2) {
+        attempt++;
+        const messages: any[] = [
+          { role: "system", content: sys },
+          { role: "user", content: user + (retryNote ? `\n\nRETRY NOTE:\n${retryNote}` : "") },
+        ];
+        let rich: { content: string; finishReason: string };
+        try {
+          rich = await callAIRich(messages, { maxTokens: 8192 });
+        } catch (err) {
+          console.warn("[floating_highlights] AI gateway error", String(err));
+          break;
+        }
+        if (rich.finishReason === "length" || rich.finishReason === "MAX_TOKENS") {
+          retryNote = "Previous attempt was TRUNCATED. Return ONLY the JSON object, no prose.";
+          console.warn("[floating_highlights] truncated, retrying");
+          continue;
+        }
+        const cleaned = stripFences(rich.content).replace(/^```json\s*|\s*```$/g, "");
+        try {
+          const parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed?.lines) && parsed.lines.length > 0) {
+            parsedLines = parsed.lines;
+            break;
+          }
+        } catch {/* fall through */}
+        retryNote = "Previous attempt returned no parseable JSON. Return STRICT JSON only: { \"lines\": [...] }.";
+        console.warn("[floating_highlights] empty/invalid JSON, retrying");
       }
 
       // Map results 1-to-1 onto highlights. If the AI missed an item or
