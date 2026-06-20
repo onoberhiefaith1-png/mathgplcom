@@ -218,14 +218,291 @@ export const dropContextualLeadingPlus = (fillers: string[]): string[] => {
   return out;
 };
 
+const readGrouped = (src: string, start: number): { inner: string; end: number; open: string; close: string } | null => {
+  const open = src[start];
+  const close = open === "(" ? ")" : open === "[" ? "]" : open === "{" ? "}" : "";
+  if (!close) return null;
+  let depth = 1;
+  let i = start + 1;
+  while (i < src.length && depth > 0) {
+    if (src[i] === open) depth++;
+    else if (src[i] === close) depth--;
+    if (depth) i++;
+  }
+  if (depth !== 0) return null;
+  return { inner: src.slice(start + 1, i), end: i + 1, open, close };
+};
+
+const readCommandName = (src: string, start: number): { name: string; end: number } | null => {
+  if (src[start] !== "\\") return null;
+  let i = start + 1;
+  while (i < src.length && /[A-Za-z]/.test(src[i])) i++;
+  if (i === start + 1) return null;
+  return { name: src.slice(start + 1, i), end: i };
+};
+
+const splitTopLevelTerms = (src: string): Array<{ sign: TermSign; body: string; synthetic: boolean }> => {
+  const s = src.replace(/\s+/g, "");
+  const out: Array<{ sign: TermSign; body: string; synthetic: boolean }> = [];
+  let depth = 0;
+  let last = 0;
+  let pendingSign: TermSign = "+";
+  let pendingSynthetic = true;
+
+  const pushBody = (body: string) => {
+    if (!body) return;
+    out.push({ sign: pendingSign, body, synthetic: pendingSynthetic });
+    pendingSign = "+";
+    pendingSynthetic = true;
+  };
+
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === "\\") {
+      const cmd = readCommandName(s, i);
+      if (cmd) {
+        i = cmd.end - 1;
+        continue;
+      }
+    }
+    if (c === "(" || c === "[" || c === "{") { depth++; continue; }
+    if (c === ")" || c === "]" || c === "}") { depth = Math.max(0, depth - 1); continue; }
+    if (depth !== 0) continue;
+    if (c === "=") {
+      pushBody(s.slice(last, i));
+      out.push({ sign: "=", body: "", synthetic: false });
+      last = i + 1;
+      continue;
+    }
+    if (c === "±") {
+      pushBody(s.slice(last, i));
+      out.push({ sign: "±", body: "", synthetic: false });
+      last = i + 1;
+      continue;
+    }
+    const sig = normaliseSign(c);
+    if (sig && (sig === "+" || sig === "−" || sig === "×" || sig === "÷")) {
+      if (i === last) {
+        pendingSign = sig;
+        pendingSynthetic = false;
+        last = i + 1;
+        continue;
+      }
+      pushBody(s.slice(last, i));
+      pendingSign = sig;
+      pendingSynthetic = false;
+      last = i + 1;
+    }
+  }
+  pushBody(s.slice(last));
+  return out;
+};
+
+const hasComplexInner = (src: string): boolean => hasTopLevelSign(src);
+
+const readFractionBody = (src: string): { numerator: string; denominator: string } | null => {
+  const frac = src.match(/^\\(?:d|t)?frac\{([\s\S]+)\}\{([\s\S]+)\}$/);
+  if (frac) return { numerator: frac[1], denominator: frac[2] };
+
+  let depth = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth = Math.max(0, depth - 1);
+    else if (depth === 0 && c === "/") {
+      const numerator = src.slice(0, i);
+      const denominator = src.slice(i + 1);
+      if (numerator && denominator) return { numerator, denominator };
+    }
+  }
+  return null;
+};
+
+const readSqrtBody = (src: string): { index: string; radicand: string } | null => {
+  if (src.startsWith("\\sqrt")) {
+    let p = 5;
+    let index = "";
+    if (src[p] === "[") {
+      const close = src.indexOf("]", p + 1);
+      if (close > 0) {
+        index = src.slice(p + 1, close);
+        p = close + 1;
+      }
+    }
+    const group = src[p] ? readGrouped(src, p) : null;
+    if (group && group.end === src.length) return { index, radicand: group.inner };
+  }
+  if (src.startsWith("√")) {
+    return { index: "", radicand: src.slice(1).replace(/^\((.*)\)$/s, "$1") };
+  }
+  return null;
+};
+
+const readFunctionBody = (src: string): { shell: string; arg: string } | null => {
+  const latexLog = src.match(/^\\log_\{([^{}]+)\}(.*)$/);
+  if (latexLog) {
+    const arg = latexLog[2];
+    const grp = arg[0] === "(" || arg[0] === "{" ? readGrouped(arg, 0) : null;
+    if (grp && grp.end === arg.length) return { shell: `log_${latexLog[1]}()`, arg: grp.inner };
+    if (arg) return { shell: `log_${latexLog[1]}()`, arg };
+  }
+  const uniLog = src.match(/^(log[₀₁₂₃₄₅₆₇₈₉]+)(.*)$/);
+  if (uniLog) {
+    const arg = uniLog[2];
+    const grp = arg[0] === "(" || arg[0] === "{" ? readGrouped(arg, 0) : null;
+    if (grp && grp.end === arg.length) return { shell: `${uniLog[1]}()`, arg: grp.inner };
+    if (arg) return { shell: `${uniLog[1]}()`, arg };
+  }
+  const fn = src.match(/^(sin|cos|tan|ln|log)(.*)$/i);
+  if (!fn) return null;
+  const arg = fn[2];
+  if (!arg) return null;
+  const grp = arg[0] === "(" || arg[0] === "{" ? readGrouped(arg, 0) : null;
+  if (grp && grp.end === arg.length) return { shell: `${fn[1]}()`, arg: grp.inner };
+  return { shell: `${fn[1]}`, arg };
+};
+
+const readIntegralBody = (src: string): { shell: string; body: string } | null => {
+  const trimmed = src.replace(/\\int/g, "∫");
+  if (!trimmed.startsWith("∫")) return null;
+  const dx = trimmed.match(/^(.*?)(d[a-zA-Z])$/);
+  if (!dx) return null;
+  const full = dx[1];
+  const diff = dx[2];
+  let i = 1;
+  while (i < full.length && !(/[A-Za-z0-9√(\\]/.test(full[i]))) i++;
+  const head = full.slice(0, i);
+  const body = full.slice(i);
+  if (!body) return null;
+  return { shell: `∫${head}()${diff}`, body };
+};
+
+const readDerivativeBody = (src: string): { shell: string; body: string } | null => {
+  const latex = src.match(/^\\frac\{d\}\{d([a-zA-Z]+)\}(.*)$/);
+  if (latex) {
+    const arg = latex[2];
+    const grp = arg[0] === "(" || arg[0] === "{" ? readGrouped(arg, 0) : null;
+    if (grp && grp.end === arg.length) return { shell: `d/d${latex[1]}()`, body: grp.inner };
+    if (arg) return { shell: `d/d${latex[1]}()`, body: arg };
+  }
+  const uni = src.match(/^d\/d([a-zA-Z]+)(.*)$/);
+  if (uni) {
+    const arg = uni[2];
+    const grp = arg[0] === "(" || arg[0] === "{" ? readGrouped(arg, 0) : null;
+    if (grp && grp.end === arg.length) return { shell: `d/d${uni[1]}()`, body: grp.inner };
+    if (arg) return { shell: `d/d${uni[1]}()`, body: arg };
+  }
+  return null;
+};
+
+const readBracketPower = (src: string): { shell: string; inner: string; exponent?: string } | null => {
+  if (!(src.startsWith("(") || src.startsWith("[") || src.startsWith("{"))) return null;
+  const grp = readGrouped(src, 0);
+  if (!grp) return null;
+  const tail = src.slice(grp.end);
+  if (!tail) return { shell: `${grp.open}${grp.close}`, inner: grp.inner };
+  if (tail.startsWith("^") && tail.length > 1) {
+    const expGroup = tail[1] === "{" || tail[1] === "(" ? readGrouped(tail, 1) : null;
+    const exponent = expGroup ? expGroup.inner : tail.slice(1);
+    if (expGroup ? expGroup.end === tail.length : true) {
+      const expoSimple = exponent && !hasComplexInner(exponent);
+      return {
+        shell: expoSimple ? `${grp.open}${grp.close}${tail}` : `${grp.open}${grp.close}^()`,
+        inner: grp.inner,
+        exponent,
+      };
+    }
+  }
+  return null;
+};
+
+const emitSegmentTerms = (
+  out: FloatingTerm[],
+  sign: TermSign,
+  body: string,
+  synthetic: boolean,
+): void => {
+  if (!body) return;
+
+  const bracketPow = readBracketPower(body);
+  if (bracketPow) {
+    out.push(mkTerm(sign, bracketPow.shell, synthetic));
+    out.push(...extractTermsFromAscii(bracketPow.inner));
+    if (bracketPow.exponent && hasComplexInner(bracketPow.exponent)) {
+      out.push(...extractTermsFromAscii(bracketPow.exponent));
+    }
+    return;
+  }
+
+  const frac = readFractionBody(body);
+  if (frac) {
+    const simpleNumerator = !hasComplexInner(frac.numerator);
+    const simpleDenominator = !hasComplexInner(frac.denominator);
+    if (simpleNumerator && simpleDenominator) {
+      out.push(mkTerm(sign, `\\frac{${frac.numerator}}{${frac.denominator}}`, synthetic));
+    } else {
+      const left = extractTermsFromAscii(frac.numerator);
+      if (left.length > 0) {
+        left[0] = mkTerm(sign, left[0].body, synthetic);
+        out.push(...left);
+      }
+      out.push(...extractTermsFromAscii(frac.denominator));
+    }
+    return;
+  }
+
+  const sqrt = readSqrtBody(body);
+  if (sqrt) {
+    if (!hasComplexInner(sqrt.radicand) && !readFractionBody(sqrt.radicand)) {
+      const prefix = sqrt.index ? `√[${sqrt.index}]` : "√";
+      out.push(mkTerm(sign, `${prefix}${sqrt.radicand}`, synthetic));
+    } else {
+      const prefix = sqrt.index ? `√[${sqrt.index}]()` : "√()";
+      out.push(mkTerm(sign, prefix, synthetic));
+      out.push(...extractTermsFromAscii(sqrt.radicand));
+    }
+    return;
+  }
+
+  const deriv = readDerivativeBody(body);
+  if (deriv) {
+    out.push(mkTerm(sign, deriv.shell, synthetic));
+    out.push(...extractTermsFromAscii(deriv.body));
+    return;
+  }
+
+  const integral = readIntegralBody(body);
+  if (integral) {
+    out.push(mkTerm(sign, integral.shell, synthetic));
+    out.push(...extractTermsFromAscii(integral.body));
+    return;
+  }
+
+  const fn = readFunctionBody(body);
+  if (fn) {
+    if (!hasComplexInner(fn.arg) && !readFractionBody(fn.arg)) {
+      const compactShell = fn.shell.endsWith("()") ? fn.shell.slice(0, -2) : fn.shell;
+      out.push(mkTerm(sign, `${compactShell}${fn.arg}`, synthetic));
+    } else {
+      out.push(mkTerm(sign, fn.shell, synthetic));
+      out.push(...extractTermsFromAscii(fn.arg));
+    }
+    return;
+  }
+
+  out.push(mkTerm(sign, body, synthetic));
+};
+
 /**
- * Extract floating terms from a flat ascii / friendly-math string, IGNORING the
- * inside of any structural shell (parens, frac, root, log argument …). Those
- * insides are recursed into separately so each becomes its own term group.
+ * Extract floating terms from a flat ascii / friendly-math string, using the
+ * classroom floating-number rules:
+ * - visible top-level signs split
+ * - simple fractions / radicals / logs stay whole
+ * - complex structure contents become their own floating stream while the
+ *   shell stays attached to the owning structure.
  */
 export const extractTermsFromAscii = (src: string): FloatingTerm[] => {
   if (!src) return [];
-  // Normalise common math glyphs to ascii operators (but keep ², ³ as part of body).
   const s = src
     .replace(/\s+/g, "")
     .replace(/×/g, "*")
@@ -233,64 +510,13 @@ export const extractTermsFromAscii = (src: string): FloatingTerm[] => {
     .replace(/–|—|−/g, "-");
 
   const out: FloatingTerm[] = [];
-  let i = 0;
-  let pendingSign: TermSign = "+"; // synthetic leading + for first term
-  let pendingSynthetic = true;
-
-  const flushBody = (body: string) => {
-    if (!body) return;
-    out.push(mkTerm(pendingSign, body, pendingSynthetic));
-  };
-
-  while (i < s.length) {
-    const c = s[i];
-
-    // Standalone splitters that are also their own term.
-    if (c === "=") { out.push(mkTerm("=", "")); pendingSign = "+"; pendingSynthetic = true; i++; continue; }
-    if (c === "±") { out.push(mkTerm("±", "")); pendingSign = "+"; pendingSynthetic = true; i++; continue; }
-
-    // Arithmetic sign → starts the next term.
-    const sig = normaliseSign(c);
-    if (sig && (sig === "+" || sig === "−" || sig === "×" || sig === "÷")) {
-      pendingSign = sig;
-      pendingSynthetic = false;
-      i++;
+  for (const part of splitTopLevelTerms(s)) {
+    if (part.sign === "=" || part.sign === "±") {
+      out.push(mkTerm(part.sign, ""));
       continue;
     }
-
-    // Bracket / structure skip — descend so inner terms come out separately.
-    if (c === "(" || c === "[" || c === "{") {
-      const close = c === "(" ? ")" : c === "[" ? "]" : "}";
-      let depth = 1, j = i + 1;
-      while (j < s.length && depth > 0) {
-        if (s[j] === c) depth++;
-        else if (s[j] === close) depth--;
-        if (depth) j++;
-      }
-      const inner = s.slice(i + 1, j);
-      out.push(...extractTermsFromAscii(inner));
-      i = j + 1;
-      pendingSign = "+";
-      pendingSynthetic = true;
-      continue;
-    }
-
-    // Otherwise, accumulate a body until the next splitter.
-    let j = i;
-    while (j < s.length) {
-      const cj = s[j];
-      if (cj === "=" || cj === "±") break;
-      if (cj === "(" || cj === "[" || cj === "{") break;
-      const ns = normaliseSign(cj);
-      if (ns && (ns === "+" || ns === "−" || ns === "×" || ns === "÷")) break;
-      j++;
-    }
-    flushBody(s.slice(i, j));
-    i = j;
-    pendingSign = "+";
-    pendingSynthetic = true;
+    emitSegmentTerms(out, part.sign, part.body, part.synthetic);
   }
-
   return out;
 };
 
