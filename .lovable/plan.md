@@ -1,108 +1,63 @@
-# Adventure Effect System & Motion Engine
+# Plan: Complex-Factor Split Rule + 10 Structure-Heavy Examples
 
-Turn the current "drop a video on a scene" flow into a lightweight game-editor inspired effect engine. All customization happens in a visual Property Panel on the right side of the selected scene — zero AI generation.
+## The refined law (what you just taught)
 
-## Scope
+An implicit-multiplication run (no visible +, −, ×, ÷, =) stays as ONE floating chip **only if every factor in it is in *simple form***. The moment any factor carries a **coefficient, power, or subscript**, the run is split at that boundary.
 
-Everything below is frontend + scene JSON only. No new AI calls, no new edge functions. Effect library reuses the existing `Assets → Video Effects` catalog plus teacher uploads.
+**Simple form** = a bare letter, a bare number, or a bare function-of-a-bare-letter (e.g. `x`, `5`, `sinx`, `log₂b`, `lnx`).
 
-## Data model (extend `LayoutItem` for `kind: "effect"`)
+**Not simple** = anything with a coefficient (`2x`, `3y`), a power (`x²`, `sin²θ`), a subscript (`x₁`, `aₙ`), or a complex function argument (`sin(2x)`, `log(x+1)`).
 
-Stored inside `scene.layout_json.items[*]` (already a JSONB blob in `notebook_blocks`/`adventure_scenes`, so no migration needed):
+### Examples of the rule
+| Expression | Chips | Why |
+|---|---|---|
+| `xsin2y` | `[ +xsin2y ]` | `x` simple, `sin2y` is one function unit → whole thing simple |
+| `3x²sin2x` | `[ +3x² , +sin2x ]` | `3x²` has coefficient AND power → split before `sin2x` |
+| `3x²sinx` | `[ +3x² , +sinx ]` | `3x²` not simple → split |
+| `xsinx` | `[ +xsinx ]` | both factors simple → whole |
+| `log_a(x²y)` | `[ +log_a() , +x² , +y ]` | argument contains non-simple `x²` → open the shell |
+| `log_a(xy)` | `[ +log_a(xy) ]` | argument is product of simples → keep whole |
+| `2xy` | `[ +2xy ]` | coefficient + two simple vars, no third factor → stays (this is the rule you gave earlier) |
+| `2xyz` | `[ +2xy , +z ]` | (your earlier rule for 3-var case) |
 
-```text
-effect item {
-  id, kind:"effect", src, label, x, y, w, h,    // existing
-  rotation:    0-360                            // deg
-  opacity:     0-1
-  zIndex:      number                           // layer order
-  blendMode:   "screen" | "normal" | "multiply" | "lighten"
-  motion: {
-    type: "static"|"left"|"right"|"up"|"down"|"circle"|"figure8"|"random"|"path"
-    speed: 0.25..8                              // multiplier
-    amplitude: number                           // px / % for built-ins
-    path?: [{x,y}, ...]                         // for "path"
-  }
-  playback: {
-    direction: "forward"|"reverse"|"pingpong"
-    speed: 0.25..4
-    loopMode: "forever"|"once"|"count"
-    loopCount?: number
-    enterEnd?: number      // seconds — end of ENTER state
-    activeStart?: number   // seconds — loop start
-    activeEnd?: number     // seconds — loop end
-    exitStart?: number     // seconds — start of EXIT state
-    freezeLastFrame: boolean
-  }
-  trigger: {
-    start: "always"|"sceneStart"|"questionSolved"|"obstacleCleared"
-         |"doorOpened"|"vaultOpened"|"sceneComplete"|"custom"
-    delay: number                               // seconds
-    exitOn?: same enum
-    exitBehavior: "instant"|"fade"|"shrink"|"explode"|"playExit"|"custom"
-  }
-}
-```
+So the splitter cascade is:
 
-Scene-level additions (stored in `scene.config`):
-```text
-camera { startX, startY, endX, endY, speed, zoomStart, zoomEnd }
-```
+1. Top-level visible-sign split (already correct).
+2. Inside a run of implicit multiplication, walk factor-by-factor; if any factor is "not simple" AND the run has ≥2 factors after combining the coefficient with the first variable group, cut between non-simple factor and the next factor.
+3. Recurse into shells (`()`, `√()`, `log_a()`, `^()`, etc.) the same way.
 
-All fields are optional with sensible defaults so existing scenes keep working.
+## Code changes
 
-## UI changes
+Single source of truth: `src/lib/smartboard/floatingExtractor.ts`.
 
-### 1. Property Panel (new) — `EffectPropertyPanel.tsx`
-Slides in from the right of `SceneFrame` when an `effect` item is selected. Replaces the current bare drag/resize-only UX. Sections (collapsible):
+1. Add `isSimpleFactor(token)` helper:
+   - true for: bare letter, bare number, bare-coefficient×bare-letter pair already merged (`2x`), `sin x` / `cos x` / `log_a x` / `ln x` where the argument is a single bare letter.
+   - false for: anything containing `^`, `²`, `³`, `_`, `()`, `√`, `/`, or a numeric coefficient combined with anything that itself isn't simple.
+2. After the existing implicit-multiplication tokenizer produces a factor list for a run, post-process:
+   - If the run has only one factor → keep as one chip.
+   - Else walk left→right; whenever the *current* factor is not simple, emit it as its own chip and start a fresh chip for the rest. Re-check the rest the same way.
+3. Mirror the same logic on the server in `supabase/functions/notebook-ai/structuralStandard.ts` so the AI prompt teaches the new rule and the post-generation lock check accepts it.
+4. Tests in `src/test/floatingNumberLaws.test.ts`:
+   - `3x²sin2x` → `["+3x²","+sin2x"]`
+   - `3x²sinx` → `["+3x²","+sinx"]`
+   - `xsinx` → `["+xsinx"]`
+   - `xsin2y` → `["+xsin2y]` (the `x` is simple, `sin2y` is one function unit)
+   - `2xy` → `["+2xy"]`
+   - `2xyz` → `["+2xy","+z"]`
+   - `log_a(x²y)` → `["+log_a()","+x²","+y"]`
+   - `log_a(xy)` → `["+log_a(xy)"]`
 
-- **Transform** — X, Y, Width, Height sliders + numeric inputs; Rotation slider with 0/90/180/270 quick-buttons; Opacity slider; Scale preset chips (50/100/150/200/300%).
-- **Layer** — Bring Forward / To Front / Send Backward / To Back buttons (mutate zIndex).
-- **Motion** — Type dropdown; Speed slider (0.5×/1×/2×/4× chips); Amplitude slider (where relevant); `Edit Path` button enabling on-canvas path mode (click to add A→B→C→D points; drag to adjust; right-click to remove).
-- **Playback / Timeline** — Mini timeline scrubber bound to the `<video>` `duration`. Four draggable handles: `enterEnd`, `activeStart`, `activeEnd`, `exitStart` carving the clip into Enter / Active (loop) / Exit segments. Direction (Forward/Reverse/Ping-Pong) + Loop mode (Forever / Once / X times) + Freeze Last Frame toggle + Speed.
-- **Trigger** — Start trigger dropdown, Delay (0/1/2/5/10 s chips + custom), Exit trigger dropdown, Exit behavior dropdown.
+## Corrected version of example #1
 
-### 2. Effect Library modal — `EffectLibraryModal.tsx`
-Replaces today's tiny `EffectMenu` popover. Browses `ADVENTURE_EFFECTS` (already auto-pulls from `src/assets/effects/video-fx/`) grouped by category, with thumbnail preview, search, and a "Upload custom" button (asset upload via existing pipeline).
+`∫₀^π (3x²·sin(2x) + 5x) dx = K`
+→ `[ ∫₀^π()dx , +3x² , +sin(2x) , +5x , = , K ]`
 
-### 3. Camera panel — `SceneCameraPanel.tsx`
-Floating panel per scene. Two draggable markers on the scene frame for Start and End, plus Speed and Zoom sliders. Preview button animates the frame using a CSS `transform` to demo the move.
+(Old version had `+3x²sin(2x)` as one chip — wrong under the new rule.)
+Example #5 `log_a(x²y) = 2 log_a x + log_a y` becomes
+→ `[ log_a() , +x² , +y , = , 2log_a x , + , log_a y ]`
 
-### 4. Runtime renderer — extend `ItemBody` in `SceneFrame.tsx` (editor) and the player counterpart
-- Wrap effect video in a positioned div applying `transform: translate · rotate · scale`, `opacity`, `zIndex`, `mixBlendMode`.
-- Motion: a single `requestAnimationFrame` loop drives `x/y` offset based on `motion.type` (static = noop, directions = linear, circle/figure8 = parametric, random = perlin-ish jitter, path = lerp through points).
-- Timeline state machine: `enter → active(loop activeStart→activeEnd, honoring direction/pingpong) → exit`. Implemented by listening to `timeupdate` and using `video.currentTime` setters; on `loopMode:"once"` skip the active loop.
-- Triggers wired through a tiny `SceneEventBus` (in-memory) so gameplay events (`questionSolved`, `doorOpened`, etc.) can flip an effect from `enter` to `exit`.
+## Then: 10 new STRUCTURE-HEAVY expressions
 
-## Files
+After the rule lands I'll present 10 new ones built around nested structures (fractions inside roots inside powers, matrices, integrals with limits as fractions, summations with fractional bounds, partial-fraction decompositions, vector/abs combos, piecewise, etc.) — for your review before any further code.
 
-New:
-- `src/lib/adventure/effectDefaults.ts` — defaults + helpers (`withEffectDefaults`, `clampTimeline`).
-- `src/lib/adventure/motionEngine.ts` — `useEffectMotion` hook (rAF loop, returns transform).
-- `src/lib/adventure/timelineEngine.ts` — `useEffectTimeline` hook (Enter/Active/Exit state machine on the `<video>`).
-- `src/lib/adventure/sceneEvents.ts` — pub/sub for triggers.
-- `src/components/adventure/editor/EffectPropertyPanel.tsx`
-- `src/components/adventure/editor/EffectTimelineEditor.tsx`
-- `src/components/adventure/editor/EffectPathEditor.tsx`
-- `src/components/adventure/editor/EffectLibraryModal.tsx`
-- `src/components/adventure/editor/SceneCameraPanel.tsx`
-
-Edited:
-- `src/lib/adventure/types.ts` — extend `LayoutItem` and `AdventureScene.config` typing as above (all new fields optional).
-- `src/components/adventure/editor/SceneFrame.tsx` — show panel on selection, render with new transform/motion/timeline hooks, replace `EffectMenu` with `EffectLibraryModal`, mount `SceneCameraPanel`.
-- `src/components/adventure/editor/DraggableResizable.tsx` — accept `rotation`, render rotated bounding box and rotated resize handle.
-
-No DB migration: everything lives in the existing JSONB `layout_json` / `config` columns.
-
-## Out of scope (intentionally)
-- Multi-effect timeline orchestration UI (we ship per-effect timeline now; cross-effect cinematic sequencing can be a v2).
-- AI-driven motion suggestions.
-- Server-side video re-encoding.
-
-## Build order
-1. Types + defaults + sceneEvents.
-2. Motion engine + timeline engine hooks (with stub UI).
-3. Property Panel + Path Editor + Timeline Editor.
-4. Effect Library Modal (replaces old popover).
-5. Scene Camera Panel.
-6. Wire trigger events from existing gameplay buttons (question solved / door opened / vault claimed).
+Say **go** to implement the rule + tests, or tell me to tweak the "simple form" definition first.
