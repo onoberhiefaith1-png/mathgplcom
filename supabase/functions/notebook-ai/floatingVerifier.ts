@@ -12,18 +12,15 @@ const RAW_BRACKET_CHIPS = new Set(["(", ")", "[", "]", "{", "}"]);
 
 const SHELL_CHIP_RE = /^[−+]?(□\/□|\(\)|\[\]|√(\[[^\]]+\])?\(\)|\(\)\^\(\)|\(\)\^[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ]+|\(\)[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ]+|log[₀₁₂₃₄₅₆₇₈₉_a-zA-Z0-9]*\(\)|log_[a-zA-Z0-9]+\(\)|\|\(\)\||d\/d[a-zA-Z]+\(\)|∫[^()]*\(\)d[a-zA-Z])$/;
 
-/** Top-level arithmetic sign detector — same definition used by the
- *  extractor. Leading sign is ignored; signs inside (), [], {} are ignored. */
-const hasHiddenArithmetic = (src: string): boolean => {
+/** Deep-scan for any arithmetic sign anywhere in the chip body, including
+ *  inside nested (), [], {}. Leading sign on the whole chip is ignored —
+ *  that's the chip's own sign. */
+const hasAnyHiddenArithmetic = (src: string): boolean => {
   if (!src) return false;
   const s = src.replace(/\s+/g, "");
-  let depth = 0;
   for (let i = 0; i < s.length; i++) {
-    const c = s[i];
-    if (c === "(" || c === "[" || c === "{") { depth++; continue; }
-    if (c === ")" || c === "]" || c === "}") { depth = Math.max(0, depth - 1); continue; }
-    if (depth !== 0) continue;
     if (i === 0) continue;
+    const c = s[i];
     if (c === "+" || c === "-" || c === "−" || c === "–" ||
         c === "*" || c === "×" || c === "·" || c === "÷") return true;
   }
