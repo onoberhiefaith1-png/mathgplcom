@@ -1012,7 +1012,27 @@ SELF-CHECK before emitting: re-read every "equation" and every
 "fillers" entry. If you see a backslash (other than \\frac in the
 equation field), "sqrt(", "^{", "_{", or "**" ANYWHERE, REWRITE IT TO
 UNICODE first. A response containing any forbidden substring is
-invalid and will be rejected.`;
+invalid and will be rejected.
+
+══════════════════════════════════════════════════════════════════
+ COMPLETENESS — NON-NEGOTIABLE
+══════════════════════════════════════════════════════════════════
+You MUST emit ONE entry in "lines" for EVERY equation line that
+appears in SOLUTION. Do NOT skip, summarise, paraphrase, merge, or
+stop early. Prose lines (English sentences with no math) are dropped.
+Math lines — including intermediate working — are ALL kept.
+
+Before you return, re-scan the SOLUTION and confirm that every
+variable, every numeric literal, every function name (sin, cos, tan,
+log, ln, ∫, √, d/dx, …), every bracket pair, every exponent, every
+fraction bar, and every "=" appears somewhere in your output. If
+anything is missing, regenerate the missing line(s) before returning.
+
+If the response would otherwise exceed your output budget, DROP
+explanatory prose first — NEVER drop or truncate an equation line.
+
+Return STRICT JSON only. No code fences. No commentary. No trailing
+text. If you cannot comply, return { "lines": [] } and nothing else.`;
 
       const user = `Subject: ${b.subject || "Mathematics"} | Subtopic: ${b.subtopic || "—"} | Section: ${b.sectionKind || "example"}
 PROBLEM:
