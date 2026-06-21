@@ -150,68 +150,87 @@ export function AiEditPanel({
         )}
 
         {proposed == null ? (
-          <div className="flex-1 overflow-auto p-4 space-y-3">
-            <textarea
-              ref={inputRef}
-              value={instruction}
-              onChange={(e) => setInstruction(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  handleGenerate();
-                }
-              }}
-              placeholder="Tell AI what you want to do…"
-              rows={4}
-              className="w-full text-sm bg-transparent border border-foreground/15 rounded-md p-2 outline-none focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
-            />
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={voice.listening ? voice.stop : voice.start}
-                className={cn(
-                  "p-1.5 rounded hover:bg-foreground/5 transition",
-                  voice.listening && "text-red-500 animate-pulse bg-red-500/10",
-                )}
-                title={voice.listening ? "Stop voice" : "Speak"}
-              >
-                <Mic className="h-4 w-4" />
-              </button>
-              <span className="text-[10px] uppercase tracking-wider text-foreground/55">
-                {voice.listening ? "listening…" : "type or speak"}
-              </span>
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={busy}
-                className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                Generate
-              </button>
-            </div>
-
-            {showSuggestions && !busy && suggestions.length > 0 && (
-              <div className="pt-2 border-t border-foreground/10 space-y-1.5">
-                <p className="text-[10px] uppercase tracking-wider text-foreground/55">
-                  Suggestions for {SELECTION_KIND_LABELS[target!.kind]}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {suggestions.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => handlePickSuggestion(s)}
-                      className="text-xs px-2 py-1 rounded border border-foreground/15 hover:bg-foreground/10"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+          simpleMode ? (
+            <div className="flex-1 overflow-auto p-4 space-y-3">
+              <p className="text-sm text-foreground/70">
+                {simpleCaption ?? "Click Generate and AI will regenerate this line for you."}
+              </p>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={busy}
+                  className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {generateLabel ?? "Generate"}
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-auto p-4 space-y-3">
+              <textarea
+                ref={inputRef}
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleGenerate();
+                  }
+                }}
+                placeholder="Tell AI what you want to do…"
+                rows={4}
+                className="w-full text-sm bg-transparent border border-foreground/15 rounded-md p-2 outline-none focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
+              />
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={voice.listening ? voice.stop : voice.start}
+                  className={cn(
+                    "p-1.5 rounded hover:bg-foreground/5 transition",
+                    voice.listening && "text-red-500 animate-pulse bg-red-500/10",
+                  )}
+                  title={voice.listening ? "Stop voice" : "Speak"}
+                >
+                  <Mic className="h-4 w-4" />
+                </button>
+                <span className="text-[10px] uppercase tracking-wider text-foreground/55">
+                  {voice.listening ? "listening…" : "type or speak"}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={busy}
+                  className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {generateLabel ?? "Generate"}
+                </button>
+              </div>
+
+              {showSuggestions && !busy && suggestions.length > 0 && (
+                <div className="pt-2 border-t border-foreground/10 space-y-1.5">
+                  <p className="text-[10px] uppercase tracking-wider text-foreground/55">
+                    Suggestions for {SELECTION_KIND_LABELS[target!.kind]}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => handlePickSuggestion(s)}
+                        className="text-xs px-2 py-1 rounded border border-foreground/15 hover:bg-foreground/10"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
         ) : (
           <div className="flex-1 overflow-auto p-4 space-y-3">
             <p className="text-[10px] uppercase tracking-wider text-foreground/55">Preview changes</p>
@@ -225,9 +244,23 @@ export function AiEditPanel({
               <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
                 <p className="text-[10px] uppercase tracking-wider text-primary mb-1">Proposed</p>
                 <div className="text-sm whitespace-pre-wrap break-words">
-                  {renderPreview ? renderPreview(proposed) : proposed}
+                  {renderProposed ? renderProposed(proposed) :
+                    renderPreview ? renderPreview(proposed) : proposed}
                 </div>
               </div>
+              {simpleMode && (
+                <div className="flex">
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={busy}
+                    className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-foreground/20 hover:bg-foreground/5 disabled:opacity-50"
+                  >
+                    {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    Regenerate
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
