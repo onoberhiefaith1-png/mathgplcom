@@ -64,10 +64,6 @@ export interface AiEditDiagnostics {
 
 export function AiEditPanel({
   open, target, onGenerate, onApply, onClose, renderPreview,
-  simpleMode = false, simpleCaption, generateLabel, renderProposed,
-}: Props) {
-export function AiEditPanel({
-  open, target, onGenerate, onApply, onClose, renderPreview,
   simpleMode = false, simpleCaption, generateLabel, renderProposed, getDiagnostics,
 }: Props) {
   const [instruction, setInstruction] = useState("");
