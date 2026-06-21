@@ -483,8 +483,9 @@ const tokenizeImplicitFactors = (s: string): string[] => {
 
 const needsFactorSplit = (s: string): boolean => {
   if (!s) return false;
-  if (!FACTOR_POWER_RE.test(s) && !hasHiddenArithmetic(s)) return false;
   const toks = tokenizeImplicitFactors(s);
+  if (toks.some(isStructuralFactor)) return toks.length > 1;
+  if (!FACTOR_POWER_RE.test(s) && !hasHiddenArithmetic(s)) return false;
   return toks.length > 1;
 };
 
