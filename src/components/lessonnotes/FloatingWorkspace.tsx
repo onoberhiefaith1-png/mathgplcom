@@ -183,30 +183,86 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
   }); // re-bind every render so commitHighlightAsChip closes over latest state
 
 
-  const commitHighlightAsChip = () => {
-    const text = pendingText.trim();
-    if (!text) return;
+  /* ─── Helpers shared by commit + glow ─── */
+  const stripSign = (x: string) => x.replace(/^[+\-−]\s*/, "").trim();
 
-    // Use the line.equation source to find before/after context for the
-    // promoter. If the selection isn't found verbatim, fall back to a
-    // verbatim chip with no structural attachment.
+  // Try to recover real source markup (e.g. \frac{dy}{dx}) from a plain-text
+  // DOM selection like "dydx". Falls back to plain selection handling.
+  const recoverFraction = (eq: string, plain: string): { src: string; container: ContainerKind; label: string } | null => {
+    if (!plain) return null;
+    const re = /\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g;
+    let m: RegExpExecArray | null;
+    const compact = plain.replace(/\s+/g, "");
+    while ((m = re.exec(eq))) {
+      const num = m[1], den = m[2];
+      const variants = [num + den, num + "/" + den, `${num}${den}`.replace(/\s+/g, "")];
+      if (variants.includes(plain) || variants.map((v) => v.replace(/\s+/g, "")).includes(compact)) {
+        return { src: m[0], container: "fraction", label: "Added stacked fraction" };
+      }
+    }
+    return null;
+  };
+
+  const computePayload = (text: string): { cleaned: string; container?: ContainerKind; label: string } | null => {
+    if (!text) return null;
     const eq = line.equation ?? "";
+    const frac = recoverFraction(eq, text);
+    if (frac) {
+      const cleaned = toUnicodeMath(frac.src);
+      if (cleaned && !isStillDirty(cleaned)) {
+        return { cleaned, container: frac.container, label: frac.label };
+      }
+    }
     const idx = eq.indexOf(text);
     const before = idx >= 0 ? eq.slice(0, idx) : "";
     const after  = idx >= 0 ? eq.slice(idx + text.length) : "";
     const result = promoteSelection(text, before, after);
-
     const cleaned = toUnicodeMath(result.payload);
-    if (!cleaned || isStillDirty(cleaned)) {
+    if (!cleaned || isStillDirty(cleaned)) return null;
+    return { cleaned, container: result.container as ContainerKind | undefined, label: result.label };
+  };
+
+  // For glow: existing fillers that overlap the pending selection.
+  const pendingPayload = pendingText ? computePayload(pendingText) : null;
+  const pendingCleaned = pendingPayload?.cleaned ?? "";
+  const overlapsPending = (originalIdx: number): boolean => {
+    if (!pendingCleaned) return false;
+    const fc = toUnicodeMath(line.fillers[originalIdx] ?? "");
+    if (!fc) return false;
+    const a = stripSign(pendingCleaned);
+    const b = stripSign(fc);
+    if (!a || !b) return false;
+    return a === b || a.includes(b) || b.includes(a);
+  };
+
+  const commitHighlightAsChip = () => {
+    const text = pendingText.trim();
+    if (!text) return;
+    const payload = computePayload(text);
+    if (!payload) {
       toast({ title: "Could not add chip", description: "Selection produced invalid math.", variant: "destructive" });
       return;
     }
-    const nextFillers = [...line.fillers, cleaned];
-    const nextFillersSel = [...padSel(line.fillersSelected, line.fillers.length), false];
-    const containers = result.container && !line.containers.includes(result.container)
-      ? [...line.containers, result.container as ContainerKind]
+    const { cleaned, container, label } = payload;
+
+    // OVERRIDE: drop any existing filler that is sub/superstring of the new
+    // chip. Collapses scattered AI chips into the teacher's grouped chip, or
+    // splits an over-grouped AI chip down to exactly what was highlighted.
+    const a = stripSign(cleaned);
+    const removeIdx = new Set<number>();
+    line.fillers.forEach((f, i) => {
+      const b = stripSign(toUnicodeMath(f) || "");
+      if (a && b && (a === b || a.includes(b) || b.includes(a))) removeIdx.add(i);
+    });
+    const keptFillers = line.fillers.filter((_, i) => !removeIdx.has(i));
+    const keptSel = padSel(line.fillersSelected, line.fillers.length).filter((_, i) => !removeIdx.has(i));
+
+    const nextFillers = [...keptFillers, cleaned];
+    const nextFillersSel = [...keptSel, false];
+    const containers = container && !line.containers.includes(container)
+      ? [...line.containers, container as ContainerKind]
       : line.containers;
-    const containersSel = result.container && !line.containers.includes(result.container)
+    const containersSel = container && !line.containers.includes(container)
       ? [...padSel(line.containersSelected, line.containers.length), false]
       : padSel(line.containersSelected, line.containers.length);
 
@@ -220,7 +276,12 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     });
     window.getSelection()?.removeAllRanges();
     setPendingText("");
-    toast({ title: result.label, duration: 1500 });
+    const removed = removeIdx.size;
+    toast({
+      title: label,
+      description: removed > 0 ? `Replaced ${removed} existing chip${removed === 1 ? "" : "s"}.` : undefined,
+      duration: 1600,
+    });
   };
 
   return (
@@ -303,7 +364,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
               displayLabel={label}
               displayKey={`fc-${line.lineId}-${i}`}
               lineNo={lineNo}
-              selected={!!fillersSelected[originalIdx]}
+              selected={!!fillersSelected[originalIdx] || overlapsPending(originalIdx)}
               onToggleSelected={() => toggleFiller(i)}
               onCommit={(v) => updateFiller(i, v)}
               onRemove={() => removeFiller(i)}
