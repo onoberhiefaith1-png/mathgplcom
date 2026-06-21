@@ -92,6 +92,71 @@ const FloatingNumbersPage = () => {
   const [highlightsData, setHighlightsData] = useState<{ groupId: number; payload: string }[]>([]);
   const [scoring, setScoring] = useState<FloatingScoring>(DEFAULT_SCORING);
 
+  /* ---------- Per-line AI Edit panel ---------- */
+  const [aiEditLineIndex, setAiEditLineIndex] = useState<number | null>(null);
+  const [aiEditOpen, setAiEditOpen] = useState(false);
+  const aiEditTarget: AiEditTarget | null =
+    aiEditLineIndex != null && lines[aiEditLineIndex]
+      ? { text: lines[aiEditLineIndex].equation, kind: "equation" }
+      : null;
+
+  const openAiEdit = (i: number) => {
+    setAiEditLineIndex(i);
+    setAiEditOpen(true);
+  };
+  const closeAiEdit = () => {
+    setAiEditOpen(false);
+    setAiEditLineIndex(null);
+  };
+
+  const runAiEditForLine = useCallback(async (instruction: string, target: AiEditTarget): Promise<string> => {
+    if (!info) return target.text;
+    const { data, error } = await supabase.functions.invoke("notebook-ai", {
+      body: {
+        mode: "floating_line_edit",
+        problem: info.problem,
+        equation: target.text,
+        instruction,
+        subject: info.subject,
+        subtopic: info.subtopic,
+        sectionKind: info.sectionKind,
+      },
+    });
+    if (error) throw error;
+    const d = data as { equation?: string; fillers?: string[]; containers?: ContainerKind[] } | null;
+    if (!d || !Array.isArray(d.fillers)) throw new Error("AI returned no line");
+    // Cache the structured result so applyAiEdit can install it without re-calling.
+    aiEditResultRef.current = {
+      equation: String(d.equation ?? target.text),
+      fillers: d.fillers.map(String),
+      containers: Array.isArray(d.containers) ? d.containers as ContainerKind[] : [],
+    };
+    return String(d.equation ?? target.text);
+  }, [info]);
+
+  const aiEditResultRef = useRef<{ equation: string; fillers: string[]; containers: ContainerKind[] } | null>(null);
+
+  const applyAiEdit = useCallback((_proposed: string) => {
+    const i = aiEditLineIndex;
+    const result = aiEditResultRef.current;
+    if (i == null || !result) return;
+    setLines((prev) => prev.map((p, idx) => {
+      if (idx !== i) return p;
+      return {
+        ...p,
+        equation: result.equation,
+        fillers: result.fillers,
+        containers: result.containers,
+        arrangement: identityArrangement(result.fillers.length),
+        fillersSelected: result.fillers.map(() => false),
+        containersSelected: result.containers.map(() => false),
+      };
+    }));
+    dirtyRef.current = true;
+    aiEditResultRef.current = null;
+  }, [aiEditLineIndex]);
+
+
   useEffect(() => {
     (async () => {
       if (!subsectionId || !notebookId) return;
