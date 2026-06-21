@@ -81,6 +81,8 @@ export function AiEditPanel({
     setInstruction("");
     setProposed(null);
     setShowSuggestions(false);
+    setDiag(null);
+    setRevealedCount(0);
     // Autofocus the input.
     setTimeout(() => inputRef.current?.focus(), 50);
   }, [open, target?.text]);
@@ -90,12 +92,26 @@ export function AiEditPanel({
     [target],
   );
 
+  // Reveal diagnostic rows one at a time for a "check, check, check" feel.
+  useEffect(() => {
+    if (!diag) return;
+    if (revealedCount >= diag.items.length) return;
+    const t = window.setTimeout(() => setRevealedCount((c) => c + 1), 280);
+    return () => window.clearTimeout(t);
+  }, [diag, revealedCount]);
+
   const runWith = async (text: string) => {
     if (!target) return;
     setBusy(true);
+    setDiag(null);
+    setRevealedCount(0);
     try {
       const result = await onGenerate(text, target);
       setProposed(result);
+      const d = getDiagnostics?.() ?? null;
+      setDiag(d);
+      // Start reveal immediately with first row visible.
+      if (d && d.items.length > 0) setRevealedCount(1);
     } finally {
       setBusy(false);
     }
