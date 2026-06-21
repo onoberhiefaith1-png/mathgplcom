@@ -7,7 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import Character3DBillboard from "@/components/Character3DBillboard";
 import MusicGenerator from "@/components/MusicGenerator";
+import GenerativeVideoStudio from "@/components/GenerativeVideoStudio";
 import GlbViewer from "@/components/GlbViewer";
+
 
 type AssetCardItem = { name: string; src: string };
 type PickerState = {
@@ -32,7 +34,9 @@ const AssetSubcategory = () => {
   const is3DEnabled =
     cat.slug === "characters" && ["player", "additional-players", "enemy", "npc", "creatures"].includes(sub.slug);
   const isMusicGenerator = cat.slug === "audio" && sub.slug === "music";
+  const isGenerativeVideo = cat.slug === "effects" && sub.slug === "generative-video";
   const isVideoFx = cat.slug === "effects" && sub.slug === "video-fx";
+
   const urlParams = new URLSearchParams(location.search);
   const queryPickerState =
     urlParams.get("adventurePicker") === "video-fx" && urlParams.get("returnTo") && urlParams.get("sceneId")
