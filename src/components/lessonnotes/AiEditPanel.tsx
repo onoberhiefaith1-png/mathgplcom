@@ -252,6 +252,51 @@ export function AiEditPanel({
           </div>
         ) : (
           <div className="flex-1 overflow-auto p-4 space-y-3">
+            {diag && diag.items.length > 0 && (
+              <div className="rounded-md border border-foreground/15 p-3 space-y-1.5 bg-foreground/[0.02]">
+                <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">
+                  Smart check
+                </p>
+                {diag.items.slice(0, revealedCount).map((it) => {
+                  const icon =
+                    it.status === "pass" ? "✓" :
+                    it.status === "fixed" ? "✦" : "✗";
+                  const color =
+                    it.status === "pass" ? "text-emerald-600" :
+                    it.status === "fixed" ? "text-blue-600" : "text-red-600";
+                  return (
+                    <div key={it.id} className="flex items-start gap-2 text-xs">
+                      <span className={cn("font-bold tabular-nums w-3", color)}>{icon}</span>
+                      <div className="flex-1">
+                        <span className={it.status === "fail" ? "text-foreground" : "text-foreground/80"}>
+                          {it.status === "fixed" ? `Fixed: ${it.label}` : it.label}
+                        </span>
+                        {it.detail && it.status === "fail" && (
+                          <span className="block text-[10px] text-foreground/55">{it.detail}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {revealedCount < diag.items.length && (
+                  <div className="flex items-center gap-2 text-xs text-foreground/55">
+                    <Loader2 className="h-3 w-3 animate-spin" /> checking…
+                  </div>
+                )}
+                {revealedCount >= diag.items.length && (
+                  <p className={cn(
+                    "text-[11px] pt-1 mt-1 border-t border-foreground/10",
+                    diag.status === "clean" && "text-emerald-700",
+                    diag.status === "fixed" && "text-blue-700",
+                    diag.status === "unresolved" && "text-red-700",
+                  )}>
+                    {diag.status === "clean" && "All checks passed — floating numbers are correct."}
+                    {diag.status === "fixed" && "Errors found and fixed. Review the chips below."}
+                    {diag.status === "unresolved" && "Could not fix automatically. Add an instruction and regenerate."}
+                  </p>
+                )}
+              </div>
+            )}
             <p className="text-[10px] uppercase tracking-wider text-foreground/55">Preview changes</p>
             <div className="grid grid-cols-1 gap-3">
               <div className="rounded-md border border-foreground/15 p-2">
