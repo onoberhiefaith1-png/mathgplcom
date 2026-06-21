@@ -13,12 +13,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CornerDownLeft, Eraser, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
+import { ArrowLeft, Eraser, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import { renderMathInline } from "@/lib/notebook/mathRender";
-import { promoteSelection } from "@/lib/smartboard/manualFloatingPromoter";
 import { cn } from "@/lib/utils";
 
 interface TokenRef { line: number; tok: number }
