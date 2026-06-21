@@ -1070,7 +1070,7 @@ ${instruction ? `TEACHER INSTRUCTION:\n${instruction}\n` : ""}Return JSON only.`
             const raw = stripFences(rich.content).replace(/^```json\s*|\s*```$/g, "").trim();
             const parsed = JSON.parse(raw) as { fillers?: unknown; containers?: unknown };
             const fillers = Array.isArray(parsed.fillers) ? parsed.fillers.map((x) => String(x)).filter(Boolean) : [];
-            const containers = Array.isArray(parsed.containers) ? parsed.containers.map((x) => String(x)) as ContainerKind[] : [] as ContainerKind[];
+            const containers = Array.isArray(parsed.containers) ? parsed.containers.map((x) => String(x)) : [];
             if (!fillers.length) continue;
             const v2 = verifyFloatingLine({ fillers, containers });
             const c2 = verifyCompleteness(sourceEquation, fillers.join(" "));
