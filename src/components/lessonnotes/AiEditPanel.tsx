@@ -66,10 +66,16 @@ export function AiEditPanel({
   open, target, onGenerate, onApply, onClose, renderPreview,
   simpleMode = false, simpleCaption, generateLabel, renderProposed,
 }: Props) {
+export function AiEditPanel({
+  open, target, onGenerate, onApply, onClose, renderPreview,
+  simpleMode = false, simpleCaption, generateLabel, renderProposed, getDiagnostics,
+}: Props) {
   const [instruction, setInstruction] = useState("");
   const [busy, setBusy] = useState(false);
   const [proposed, setProposed] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [diag, setDiag] = useState<AiEditDiagnostics | null>(null);
+  const [revealedCount, setRevealedCount] = useState(0);
   const voice = useVoiceInput(setInstruction as any);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
