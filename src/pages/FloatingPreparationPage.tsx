@@ -525,7 +525,6 @@ const FloatingPreparationPage = () => {
                 {toks.map((src, ti) => {
                   const key = `${li}:${ti}`;
                   const selected = selectedSet.has(key);
-                  const isPending = !!pending && pending.touched.some((t) => t.line === li && t.tok === ti);
                   return (
                     <span
                       key={ti}
@@ -534,7 +533,6 @@ const FloatingPreparationPage = () => {
                       className={cn(
                         "inline-block align-baseline px-0.5 mr-1 rounded-sm transition-colors",
                         selected && "bg-yellow-300/80 ring-1 ring-yellow-500/40",
-                        isPending && !selected && "bg-emerald-300/70 ring-1 ring-emerald-600/50",
                       )}
                     >
                       {renderMathInline(src, `fp-${li}-${ti}`)}
@@ -546,31 +544,7 @@ const FloatingPreparationPage = () => {
           </div>
         )}
 
-        {pending && !loading && (
-          <div className="mx-auto max-w-3xl mt-4">
-            <div
-              className="rounded-md p-3 flex items-center gap-3"
-              style={{ background: "hsl(150 60% 12% / 0.7)", border: "1px solid hsl(150 70% 35%)" }}
-            >
-              <span className="text-[10px] uppercase tracking-[0.3em] text-emerald-300">Pending</span>
-              <span className="flex-1 font-mono text-[12px] text-foreground/90 truncate">
-                {pending.touched.map((t) => t.src).join(" ")}
-              </span>
-              <button
-                onClick={commitPending}
-                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-emerald-500 text-emerald-950 hover:bg-emerald-400"
-              >
-                <CornerDownLeft className="h-3 w-3" /> Enter
-              </button>
-              <button
-                onClick={clearPending}
-                className="text-xs text-foreground/55 hover:text-foreground px-2 py-1"
-              >
-                cancel
-              </button>
-            </div>
-          </div>
-        )}
+
 
         {highlights.length > 0 && !loading && (
           <div className="mx-auto max-w-3xl mt-6">
