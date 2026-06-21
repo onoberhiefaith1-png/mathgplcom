@@ -3,7 +3,7 @@
 // Every chip is editable; every row always ends with an empty tagged entry box.
 
 import { useState } from "react";
-import { Shuffle, X } from "lucide-react";
+import { Shuffle, X, Sparkles } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
@@ -26,6 +26,8 @@ interface Props {
   scoreLabel?: string;
   /** "equal" renders the marks box read-only; "individual" lets it be edited. */
   scoringMode?: "equal" | "individual";
+  /** Opens the AI-Edit panel for this single line. */
+  onAiEdit?: () => void;
 }
 
 const CONTAINER_KINDS: ContainerKind[] = [
@@ -38,7 +40,7 @@ const parseContainerKind = (raw: string): ContainerKind | null => {
   return (CONTAINER_KINDS as string[]).includes(v) ? (v as ContainerKind) : null;
 };
 
-export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMode }: Props) => {
+export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMode, onAiEdit }: Props) => {
   const fillers = applyArrangement(line.fillers, line.arrangement);
   const lineNo = index + 1;
   const fillersSelected = line.fillersSelected ?? line.fillers.map(() => false);
@@ -148,29 +150,43 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
         <div className="text-[17px]" style={{ color: "hsl(220 35% 18%)" }}>
           {renderMathInline(line.equation, `eq-${line.lineId}`)}
         </div>
-        {scoreLabel && (
-          <div className="ml-auto flex items-center gap-1.5 shrink-0">
-            <input
-              type="number"
-              min={0}
-              value={Number(line.marks ?? 0)}
-              readOnly={scoringMode === "equal"}
-              onChange={(e) => {
-                const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
-                onChange({ ...line, marks: n });
-              }}
-              title={scoringMode === "equal" ? "Set in the toolbar (equal mode)" : `${scoreLabel} for this line`}
-              className="w-14 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-none"
-              style={{
-                background: scoringMode === "equal" ? "hsl(220 35% 18% / 0.05)" : "hsl(48 95% 68% / 0.25)",
-                border: "1px solid hsl(40 85% 42% / 0.5)",
-                color: "hsl(220 35% 18%)",
-              }}
-            />
-            <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">{scoreLabel}</span>
-          </div>
-        )}
+        <div className={`flex items-center gap-1.5 shrink-0 ${scoreLabel ? "ml-auto" : "ml-auto"}`}>
+          {onAiEdit && (
+            <button
+              type="button"
+              onClick={onAiEdit}
+              title="Regenerate or edit this line with AI"
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-foreground/15 hover:bg-foreground/5"
+              style={{ color: "hsl(220 35% 18%)" }}
+            >
+              <Sparkles className="h-3 w-3" /> AI Edit
+            </button>
+          )}
+          {scoreLabel && (
+            <>
+              <input
+                type="number"
+                min={0}
+                value={Number(line.marks ?? 0)}
+                readOnly={scoringMode === "equal"}
+                onChange={(e) => {
+                  const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                  onChange({ ...line, marks: n });
+                }}
+                title={scoringMode === "equal" ? "Set in the toolbar (equal mode)" : `${scoreLabel} for this line`}
+                className="w-14 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-none"
+                style={{
+                  background: scoringMode === "equal" ? "hsl(220 35% 18% / 0.05)" : "hsl(48 95% 68% / 0.25)",
+                  border: "1px solid hsl(40 85% 42% / 0.5)",
+                  color: "hsl(220 35% 18%)",
+                }}
+              />
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">{scoreLabel}</span>
+            </>
+          )}
+        </div>
       </div>
+
 
 
       {/* Fillers row — always rendered, always ends with empty entry box */}

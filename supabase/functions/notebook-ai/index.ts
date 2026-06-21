@@ -827,9 +827,10 @@ No markdown, no prose, just the JSON array.`;
 
     // ─────────────────────────────────────────────────────────────
     // MODE: floating
-    // Extract floating-number preparation pieces for the Smartboard from an
-    // already-solved subsection. Returns one entry per verified equation line:
-    //   { equation, fillers[], containers[] }
+    // Deterministic-first: split SOLUTION into equation lines and run the
+    // deterministic extractor per line. AI is bypassed entirely for chip
+    // generation — completeness and the five laws are guaranteed by
+    // construction.
     // ─────────────────────────────────────────────────────────────
     if (body.mode === "floating") {
       const b = body as {
@@ -847,288 +848,42 @@ No markdown, no prose, just the JSON array.`;
           status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const sys = `${VALIDATION_DIRECTIVE}
 
-${INHERITANCE_STANDARD}
+      const hasMath = (s: string): boolean =>
+        /[=+\-−×÷\^_√≤≥≠±]|\\frac|\\sqrt|\d/.test(s);
 
-You extract FLOATING-NUMBER PIECES for a Mathematics Smartboard.
-The mathematics is ALREADY SOLVED. Do NOT re-solve. Extract only.
-Every piece you emit must be traceable back to ACTIVE_QUESTION (the PROBLEM
-field below). Never introduce numbers, variables, or expressions that do not
-appear in ACTIVE_QUESTION or in its valid algebraic derivations in SOLUTION.
+      const lines = splitSolutionLines(b.solution)
+        .map((rawEquation) => {
+          const equation = hardStripMath(String(rawEquation).replace(/\$+/g, "").trim());
+          if (!equation) return null;
+          if (!hasMath(equation)) return null;
+          const det = deterministicExtractLine(equation);
+          const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
+          if (!v.ok) {
+            console.warn("[floating] verifier failures for line:", equation, JSON.stringify(v.failures));
+          }
+          const comp = verifyCompleteness(equation, det.fillers.join(" "));
+          if (!comp.ok) {
+            console.warn("[floating] completeness gap:", equation, summariseMissing(comp));
+          }
+          return det.fillers.length > 0
+            ? { equation, fillers: det.fillers, containers: det.containers }
+            : null;
+        })
+        .filter((l): l is { equation: string; fillers: string[]; containers: string[] } => !!l);
 
-╔══════════════════════════════════════════════════════════════════╗
-║  HARD RULE #1 — UNICODE ONLY. NEVER EMIT LATEX OR CODE SYNTAX.   ║
-╠══════════════════════════════════════════════════════════════════╣
-║  Every character in "equation" and every character in every       ║
-║  "fillers" entry MUST be Unicode classroom math. A backslash,     ║
-║  ^{...}, _{...}, sqrt(), or ** anywhere in the output is a BUG.   ║
-║                                                                   ║
-║  FORBIDDEN SUBSTRINGS — the response is INVALID if any appear:    ║
-║    \\sqrt   \\frac   \\dfrac   \\tfrac   \\log_   \\ln   \\int    ║
-║    \\sum    \\prod   \\begin{ \\end{   \\cdot   \\times   \\div   ║
-║    \\pm     \\mp     \\leq    \\geq    \\neq    \\approx          ║
-║    \\infty  \\pi     \\theta  \\,  \\!  \\;  \\\\                  ║
-║    ^{       _{       sqrt(   **                                   ║
-║    a backslash followed by ANY ASCII letter                       ║
-║                                                                   ║
-║  REQUIRED MAPPING — use the RIGHT column:                         ║
-║    \\sqrt{3}       →  √3                                          ║
-║    \\sqrt{75}      →  √75                                         ║
-║    \\sqrt{b^2-4ac} →  √(b²−4ac)                                   ║
-║    x^{2}, x^2     →  x²    (² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹ ⁰ ¹)                 ║
-║    \\log_{2}5      →  log₂5   (₀ ₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉)              ║
-║    \\frac{a}{b}    →  NEVER in fillers; emit a,b as separate       ║
-║                       fillers and add "fraction" to containers.   ║
-║    \\cdot, *       →  ×                                            ║
-║    \\div           →  ÷                                            ║
-║    \\pm            →  ±                                            ║
-║    \\leq, \\geq    →  ≤, ≥                                         ║
-║    plain "-"      →  − (proper Unicode minus)                     ║
-╚══════════════════════════════════════════════════════════════════╝
-
-══════════════════════════════════════════════════════════════════
- FLOATING-NUMBER LAWS — apply in order, recursively, to every chip
-══════════════════════════════════════════════════════════════════
-
-LAW 1 — NO SYNTHETIC SIGN.
-A chip carries a leading +, −, ×, or ÷ ONLY when that exact sign is
-literally visible in the source equation at that position. Otherwise
-the chip is emitted bare (no sign prefix).
-  • The FIRST chip of a line carries NO sign.
-  • The chip immediately after "=" or "±" carries NO sign.
-  • The FIRST chip inside any opened container (bracket, fraction
-    numerator, fraction denominator, radicand, exponent, subscript,
-    function argument) carries NO sign.
-  • Every other chip keeps the visible sign that precedes it.
-"=" and "±" are themselves chips ("=" / "±").
-NEVER invent a "+" that is not in the source. A synthetic leading
-"+" is a BUG.
-
-LAW 2 — NO HIDDEN SIGN ANYWHERE (a±b is forbidden inside a chip).
-If the body of ANY container — bracket, fraction numerator, fraction
-denominator, radicand, exponent, subscript, log/function argument,
-absolute-value body — contains a top-level +, −, ×, or ÷, that
-container MUST be OPENED:
-  • Emit the empty SHELL as one chip: "()", "□/□", "√()", "√[n]()",
-    "()^()", "log_a()", "|()|", etc.
-  • Then emit every interior term as its own chip, with each
-    interior sign exactly as it appears (first interior chip bare).
-  • Recurse: if an interior chip is itself a container with a hidden
-    sign inside, open it too.
-The strings "a+b", "a−b", "a×b", "a÷b" must NEVER sit hidden inside
-any chip — not as a coefficient, not as an exponent, not as a base,
-not as a denominator, not as an argument.
-
-LAW 3 — STAY GLUED when there is NO hidden sign AND the expression
-is not unusually long. Single chips are correct for:
-  ab, 3x², 6ax, 4ac, 3n, −2y, √3, √75, log₂5, |x|, x², sin2x,
-  5/(3n)  (denominator has no hidden sign → keep the whole fraction).
-
-LAW 4 — LENGTH SPLIT. When an expression has no visible top-level
-sign but is unusually long (e.g. a²b²c²d²/d²a²b² — long stack of
-factors), split it using the same structural laws: open the
-container, emit each factor / sub-piece as its own chip.
-
-LAW 5 — STRUCTURE CONTAINERS. Emit one tag per structural kind that
-appears, deduped. Allowed values ONLY:
-  "fraction" | "bracket" | "radical" | "power" | "log" | "integral"
-  | "matrix" | "differential" | "abs" | "vector"
-
-══════════════════════════════════════════════════════════════════
- WORKED EXAMPLES — your output MUST follow this style exactly
-══════════════════════════════════════════════════════════════════
-
-  2x + 3y = 7
-    fillers:    ["2x", "+3y", "=", "7"]
-    containers: []
-
-  3x − 2y = 0
-    fillers:    ["3x", "−2y", "=", "0"]
-    containers: []
-    (NEVER split "−2y" into "−2" and "y" — coefficients stay attached.)
-
-  ax² + bx + c = 0
-    fillers:    ["ax²", "+bx", "+c", "=", "0"]
-    containers: ["power"]
-
-  2x + 3(x + 1) = 7                     (bracket has hidden + → OPEN)
-    fillers:    ["2x", "+3", "()", "x", "+1", "=", "7"]
-    containers: ["bracket"]
-
-  √(b² − 4ac)                            (radicand has hidden − → OPEN)
-    fillers:    ["√()", "b²", "−4ac"]
-    containers: ["radical", "power"]
-
-  log₂(xy)                               (argument has NO hidden sign → GLUED)
-    fillers:    ["log₂()", "xy"]
-    containers: ["log"]
-    (xy has no top-level sign and is short → it stays as one chip
-     inside the opened log shell. Open the log only because the
-     log's argument is itself a container; do NOT further split xy.)
-
-  log₂(x + y)                            (argument has hidden + → OPEN inner terms)
-    fillers:    ["log₂()", "x", "+y"]
-    containers: ["log"]
-
-  5/(3n)                                 (denominator has no hidden sign → GLUED)
-    fillers:    ["□/□", "5", "3n"]
-    containers: ["fraction"]
-
-  −23/(4(n+2))                           (denominator has hidden + → fully OPEN)
-    fillers:    ["−□/□", "23", "4", "()", "n", "+2"]
-    containers: ["fraction", "bracket"]
-
-  −3n²(2x)^(n−4)                         (exponent has hidden − → OPEN exponent)
-    fillers:    ["−3n²", "()^()", "2x", "n", "−4"]
-    containers: ["power", "bracket"]
-
-  +³√((x+2)^(n+1) / (x−4))              (every inner container has hidden sign → OPEN all)
-    fillers:    ["+√[3]()", "□/□", "()^()", "x", "+2", "n", "+1", "x", "−4"]
-    containers: ["radical", "fraction", "power", "bracket"]
-
-  −ⁿ√(n(n+1)²)                          (radicand has hidden +; (n+1) opens too)
-    fillers:    ["−√[n]()", "n", "()²", "n", "+1"]
-    containers: ["radical", "power", "bracket"]
-
-STRUCTURAL SYMBOLS — allowed values ONLY, one per kind, deduped:
-  "fraction" | "bracket" | "radical" | "power" | "log" | "integral"
-  | "matrix" | "differential" | "abs" | "vector"
-
-
-
-OUTPUT — STRICT JSON only, no fences, no prose:
-{ "lines": [
-    { "equation": "...", "fillers": ["...","..."], "containers": ["..."] }
-] }
-
-EQUATION FIELD: keep stacked-fraction syntax \\frac{a}{b} INTACT in the
-"equation" string (the notebook renderer turns it into a real stacked
-fraction). NEVER write "a/b" inline for a true fraction. Powers may be
-written as ² ³ ⁴ … in the equation field; the fillers extract uses the
-same Unicode.
-
-SELF-CHECK before emitting: re-read every "equation" and every
-"fillers" entry. If you see a backslash (other than \\frac in the
-equation field), "sqrt(", "^{", "_{", or "**" ANYWHERE, REWRITE IT TO
-UNICODE first. A response containing any forbidden substring is
-invalid and will be rejected.
-
-══════════════════════════════════════════════════════════════════
- COMPLETENESS — NON-NEGOTIABLE
-══════════════════════════════════════════════════════════════════
-You MUST emit ONE entry in "lines" for EVERY equation line that
-appears in SOLUTION. Do NOT skip, summarise, paraphrase, merge, or
-stop early. Prose lines (English sentences with no math) are dropped.
-Math lines — including intermediate working — are ALL kept.
-
-Before you return, re-scan the SOLUTION and confirm that every
-variable, every numeric literal, every function name (sin, cos, tan,
-log, ln, ∫, √, d/dx, …), every bracket pair, every exponent, every
-fraction bar, and every "=" appears somewhere in your output. If
-anything is missing, regenerate the missing line(s) before returning.
-
-If the response would otherwise exceed your output budget, DROP
-explanatory prose first — NEVER drop or truncate an equation line.
-
-Return STRICT JSON only. No code fences. No commentary. No trailing
-text. If you cannot comply, return { "lines": [] } and nothing else.`;
-
-      const user = `Subject: ${b.subject || "Mathematics"} | Subtopic: ${b.subtopic || "—"} | Section: ${b.sectionKind || "example"}
-PROBLEM:
-${(b.problem || "").trim()}
-
-SOLUTION:
-${b.solution.trim()}
-
-Return the JSON.`;
-
-      // ── Generate with retry + completeness gate ──
-      const parseLines = (txt: string): any[] => {
-        const cleaned = stripFences(txt).replace(/^```json\s*|\s*```$/g, "");
-        try {
-          const p = JSON.parse(cleaned);
-          return Array.isArray(p?.lines) ? p.lines : [];
-        } catch { return []; }
-      };
-
-      let parsedLines: any[] = [];
-      let attempt = 0;
-      let lastReason = "";
-      let retryNote = "";
-      while (attempt < 2) {
-        attempt++;
-        const messages: any[] = [
-          { role: "system", content: sys },
-          { role: "user", content: user + (retryNote ? `\n\nRETRY NOTE:\n${retryNote}\nReturn ONLY the JSON object.` : "") },
-        ];
-        let rich: { content: string; finishReason: string };
-        try {
-          rich = await callAIRich(messages, { maxTokens: 8192 });
-        } catch (err) {
-          console.warn("[floating] AI gateway error attempt", attempt, String(err));
-          break;
-        }
-        if (rich.finishReason === "length" || rich.finishReason === "MAX_TOKENS") {
-          lastReason = "truncated";
-          retryNote = "Previous attempt was TRUNCATED. Drop ALL prose, return ONLY the JSON object with every equation line.";
-          console.warn("[floating] truncated, retrying");
-          continue;
-        }
-        const got = parseLines(rich.content);
-        if (got.length === 0) {
-          lastReason = "invalid_json_or_empty";
-          retryNote = "Previous attempt returned no parseable JSON lines. Return STRICT JSON only: { \"lines\": [...] }.";
-          console.warn("[floating] empty/invalid JSON, retrying");
-          continue;
-        }
-        // Completeness check
-        const joined = got.map((l: any) => String(l?.equation ?? "")).join("\n");
-        const comp = verifyCompleteness(b.solution, joined);
-        if (!comp.ok && attempt < 2) {
-          lastReason = "incomplete";
-          retryNote = `Previous attempt was MISSING elements from SOLUTION — ${summariseMissing(comp)}. Include EVERY equation line. Return only JSON.`;
-          console.warn("[floating] incomplete:", summariseMissing(comp));
-          parsedLines = got; // keep as fallback
-          continue;
-        }
-        parsedLines = got;
-        break;
-      }
-
-      let degraded = false;
-      // Hard fallback: if AI failed completely, deterministically extract
-      // chips from the solution text itself, line by line.
-      if (parsedLines.length === 0) {
-        degraded = true;
-        console.warn("[floating] falling back to deterministic extraction of SOLUTION");
-        parsedLines = splitSolutionLines(b.solution).map((eq) => ({ equation: eq }));
-      }
-
-      const lines = parsedLines.map((l: any) => {
-        const equation = hardStripMath(String(l?.equation ?? "").replace(/\$+/g, "").trim());
-        if (!equation) return { equation: "", fillers: [] as string[], containers: [] as string[] };
-        const det = deterministicExtractLine(equation);
-        const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
-        if (!v.ok) {
-          console.warn("[floating] verifier failures for line:", equation, JSON.stringify(v.failures));
-        }
-        return { equation, fillers: det.fillers, containers: det.containers };
-      }).filter((l: any) => l.equation && l.fillers.length > 0);
-
-      console.log(`[floating] outcome=${degraded ? "degraded" : "ok"} lines=${lines.length} lastReason=${lastReason || "none"}`);
-
-      return new Response(JSON.stringify({ lines, degraded }), {
+      console.log(`[floating] outcome=deterministic lines=${lines.length}`);
+      return new Response(JSON.stringify({ lines, degraded: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // ─────────────────────────────────────────────────────────────
     // MODE: floating_highlights
-    // Each teacher highlight becomes ONE floating-number block, independent
-    // of every other highlight. Prose-only highlights become word fillers.
-    // Math highlights use the same per-line extraction as `floating` mode.
-    // No transition / inheritance across highlights.
+    // Each teacher highlight = ONE floating-number block. The highlighted
+    // payload is the IMMUTABLE source of truth — AI never rewrites, drops, or
+    // re-solves it. Pure deterministic extraction guarantees both sides of
+    // "=" and every element survive.
     // ─────────────────────────────────────────────────────────────
     if (body.mode === "floating_highlights") {
       const b = body as {
@@ -1147,158 +902,24 @@ Return the JSON.`;
       const hasMath = (s: string): boolean =>
         /[=+\-−×÷\^_√≤≥≠±]|\\frac|\\sqrt|\d/.test(s);
 
-      const allowed = new Set([
-        "fraction","bracket","radical","power","log","integral",
-        "matrix","differential","abs","vector",
-      ]);
-      const detectStructuresU = (t: string): string[] => {
-        const out: string[] = [];
-        if (/√|\\sqrt/.test(t)) out.push("radical");
-        if (/[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ⁺⁻⁽⁾]|\^/.test(t)) out.push("power");
-        if (/\\frac|\\dfrac|\\tfrac/.test(t)) out.push("fraction");
-        if (/\blog[₀₁₂₃₄₅₆₇₈₉_]/.test(t)) out.push("log");
-        if (/\|[^|]+\|/.test(t)) out.push("abs");
-        return out;
-      };
-      const hasTopLevelSign = (src: string): boolean => {
-        if (!src) return false;
-        const s = src.replace(/\s+/g, "");
-        let depth = 0;
-        for (let i = 0; i < s.length; i++) {
-          const c = s[i];
-          if (c === "(" || c === "[" || c === "{") { depth++; continue; }
-          if (c === ")" || c === "]" || c === "}") { depth = Math.max(0, depth - 1); continue; }
-          if (depth !== 0) continue;
-          if (i === 0) continue;
-          if (c === "+" || c === "-" || c === "−" || c === "–" ||
-              c === "×" || c === "·" || c === "÷" || c === "=") return true;
-        }
-        return false;
-      };
-
-      // Build a single AI request listing all highlights — model returns
-      // one entry per highlight in the same order.
-      const sys = `${VALIDATION_DIRECTIVE}
-
-You extract FLOATING-NUMBER PIECES for a Mathematics Smartboard.
-The teacher has HIGHLIGHTED specific spans of an already-solved problem.
-Each highlight is an INDEPENDENT floating-number block — do NOT carry
-fillers, structures, or context across highlights. Do NOT re-solve
-anything. Do NOT add numbers or variables not present in the highlight.
-
-For EACH highlight you receive, emit one entry:
-  { "equation": "<the highlight text>", "fillers": [...], "containers": [...] }
-
-If the highlight is plain prose (no math symbols), emit one filler per
-word in order, preserving punctuation attached to the word, with
-containers = []. Example highlight "let the value of x be" →
-  fillers: ["let","the","value","of","x","be"], containers: []
-
-If the highlight is math, follow the SAME floating-number laws as the
-classroom standard:
-  • LAW 1 — NO SYNTHETIC SIGN. A chip carries +, −, ×, ÷ ONLY when
-    that sign is literally visible in the source at that position.
-    First chip of the highlight, first chip after "=" / "±", and
-    first chip inside any opened container are BARE. Never invent "+".
-  • LAW 2 — NO HIDDEN SIGN. If a bracket, fraction numerator,
-    fraction denominator, radicand, exponent, subscript, log/function
-    argument, or |·| body contains a top-level + − × ÷, OPEN that
-    container: emit its empty shell ("()", "□/□", "√()", "√[n]()",
-    "()^()", "log_a()", "|()|") then emit each interior term as its
-    own chip. Recurse for nested hidden signs. "a+b" / "a−b" must
-    never sit hidden inside any chip.
-  • LAW 3 — STAY GLUED when there is no hidden sign and the piece is
-    short: ab, 3x², 6ax, −2y, 3n, √3, √75, log₂5, |x|, x², 5/(3n).
-  • LAW 4 — LENGTH SPLIT. If an expression is unusually long even
-    without a visible sign, split it using the same structural opens.
-  • "=" and "±" are their own chips.
-  • Use ONLY Unicode classroom math in fillers (no \\frac, \\sqrt, ^{}, _{}, sqrt(), **).
-  • The "equation" field MAY keep \\frac{a}{b} so the notebook renderer
-    can stack it.
-
-Allowed container values (one per kind, deduped):
-  "fraction" | "bracket" | "radical" | "power" | "log" | "integral"
-  | "matrix" | "differential" | "abs" | "vector"
-
-OUTPUT — STRICT JSON only, no fences, no prose:
-{ "lines": [ { "equation": "...", "fillers": ["..."], "containers": ["..."] } ] }
-
-The "lines" array MUST have EXACTLY ${hs.length} entries, in the same
-order as the highlights below. Never merge or drop a highlight.
-
-COMPLETENESS: every variable, number, function, bracket, exponent,
-fraction bar, "=", and "±" present in a highlight MUST appear in that
-highlight's entry. Re-scan each highlight before returning. If you
-cannot fit everything, DROP prose first — never drop an equation.
-Return STRICT JSON only.`;
-
-      const user = `Subject: ${b.subject || "Mathematics"} | Subtopic: ${b.subtopic || "—"} | Section: ${b.sectionKind || "example"}
-PROBLEM (context only — do NOT extract from this):
-${(b.problem || "").trim()}
-
-HIGHLIGHTS (one entry per item, in this exact order):
-${hs.map((h, i) => `[${i + 1}] ${String(h.payload ?? "").trim()}`).join("\n")}
-
-Return the JSON.`;
-
-      let parsedLines: any[] = [];
-      let attempt = 0;
-      let retryNote = "";
-      while (attempt < 2) {
-        attempt++;
-        const messages: any[] = [
-          { role: "system", content: sys },
-          { role: "user", content: user + (retryNote ? `\n\nRETRY NOTE:\n${retryNote}` : "") },
-        ];
-        let rich: { content: string; finishReason: string };
-        try {
-          rich = await callAIRich(messages, { maxTokens: 8192 });
-        } catch (err) {
-          console.warn("[floating_highlights] AI gateway error", String(err));
-          break;
-        }
-        if (rich.finishReason === "length" || rich.finishReason === "MAX_TOKENS") {
-          retryNote = "Previous attempt was TRUNCATED. Return ONLY the JSON object, no prose.";
-          console.warn("[floating_highlights] truncated, retrying");
-          continue;
-        }
-        const cleaned = stripFences(rich.content).replace(/^```json\s*|\s*```$/g, "");
-        try {
-          const parsed = JSON.parse(cleaned);
-          if (Array.isArray(parsed?.lines) && parsed.lines.length > 0) {
-            parsedLines = parsed.lines;
-            break;
-          }
-        } catch {/* fall through */}
-        retryNote = "Previous attempt returned no parseable JSON. Return STRICT JSON only: { \"lines\": [...] }.";
-        console.warn("[floating_highlights] empty/invalid JSON, retrying");
-      }
-
-      // Map results 1-to-1 onto highlights. If the AI missed an item or
-      // returned junk, fall back to a local word/term split so the user
-      // still sees something for every highlight.
-      const lines = hs.map((h, i) => {
-        const raw = parsedLines[i] ?? {};
+      const lines = hs.map((h) => {
         const payload = String(h.payload ?? "").trim();
-        const equation = hardStripMath(
-          String(raw?.equation ?? payload).replace(/\$+/g, "").trim(),
-        ) || payload;
+        if (!payload) return { equation: "", fillers: [] as string[], containers: [] as string[] };
 
-        const isProse = !hasMath(payload);
-
-        // Prose highlight → derive fillers locally (word split), no AI trust.
-        if (isProse) {
+        if (!hasMath(payload)) {
           const words = payload.split(/\s+/).filter(Boolean);
-          return { equation: payload, fillers: words, containers: [] as string[] };
+          return { equation: payload, fillers: words, containers: [] };
         }
 
-        // Math highlight → run the deterministic extractor on the equation.
-        // AI's fillers/containers are discarded; the chip split must be
-        // structural and law-compliant. Gate the result through the verifier.
+        const equation = hardStripMath(payload.replace(/\$+/g, "").trim()) || payload;
         const det = deterministicExtractLine(equation);
         const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
         if (!v.ok) {
           console.warn("[floating_highlights] verifier failures:", equation, JSON.stringify(v.failures));
+        }
+        const comp = verifyCompleteness(equation, det.fillers.join(" "));
+        if (!comp.ok) {
+          console.warn("[floating_highlights] completeness gap:", equation, summariseMissing(comp));
         }
         if (det.fillers.length === 0) {
           const toks = payload.split(/\s+/).filter(Boolean);
@@ -1307,11 +928,96 @@ Return the JSON.`;
         return { equation, fillers: det.fillers, containers: det.containers };
       });
 
-
+      console.log(`[floating_highlights] outcome=deterministic lines=${lines.length}`);
       return new Response(JSON.stringify({ lines }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // MODE: floating_line_edit
+    // Regenerate ONE floating-number line. Optional teacher instruction
+    // rewrites the equation (e.g. "split the bracket", "use completed
+    // square"); without an instruction this is a deterministic re-extract.
+    // Returns { equation, fillers, containers } for the single line only.
+    // ─────────────────────────────────────────────────────────────
+    if (body.mode === "floating_line_edit") {
+      const b = body as {
+        mode: "floating_line_edit";
+        problem?: string;
+        equation?: string;
+        instruction?: string;
+        subject?: string; subtopic?: string; sectionKind?: string;
+      };
+      const sourceEquation = String(b.equation ?? "").trim();
+      if (!sourceEquation) {
+        return new Response(JSON.stringify({ error: "missing equation" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const instruction = String(b.instruction ?? "").trim();
+
+      let targetEquation = sourceEquation;
+
+      if (instruction) {
+        const sys = `${VALIDATION_DIRECTIVE}
+
+You rewrite a SINGLE mathematics equation line per a teacher instruction.
+
+RULES:
+- Output ONLY the rewritten equation as a single line. No prose, no
+  commentary, no fences, no "Equation:" prefix.
+- Preserve every variable, number, and structural element from the
+  source unless the instruction explicitly asks otherwise.
+- Use Unicode classroom math (² ³ √ × ÷ ± ≤ ≥ π θ …). Keep stacked
+  fractions as \\frac{a}{b} so the renderer stacks them.
+- If the instruction is unclear or impossible, return the source line
+  UNCHANGED.
+
+Return only the equation line — nothing else.`;
+        const user = `PROBLEM CONTEXT (for understanding only):
+${(b.problem || "").trim()}
+
+CURRENT EQUATION:
+${sourceEquation}
+
+TEACHER INSTRUCTION:
+${instruction}
+
+Return the rewritten equation line only.`;
+        try {
+          const rich = await callAIRich(
+            [
+              { role: "system", content: sys },
+              { role: "user", content: user },
+            ],
+            { maxTokens: 1024 },
+          );
+          const txt = stripFences(rich.content)
+            .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] ?? "";
+          if (txt) targetEquation = txt;
+        } catch (err) {
+          console.warn("[floating_line_edit] AI gateway error", String(err));
+        }
+      }
+
+      const equation = hardStripMath(targetEquation.replace(/\$+/g, "").trim()) || sourceEquation;
+      const det = deterministicExtractLine(equation);
+      const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
+      if (!v.ok) {
+        console.warn("[floating_line_edit] verifier failures:", equation, JSON.stringify(v.failures));
+      }
+      const comp = verifyCompleteness(sourceEquation, det.fillers.join(" "));
+      if (!comp.ok) {
+        console.warn("[floating_line_edit] completeness gap vs source:", sourceEquation, summariseMissing(comp));
+      }
+
+      return new Response(
+        JSON.stringify({ equation, fillers: det.fillers, containers: det.containers }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
 
     return new Response(JSON.stringify({ error: "unknown mode" }), {
       status: 400,
