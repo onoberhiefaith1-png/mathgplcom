@@ -23,6 +23,12 @@ export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
   let s = String(input);
 
+  // Preserve empty power slots as structural superscripts. If we let the
+  // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
+  // like multiplication instead of “u raised to an empty exponent box”.
+  const POWER_SLOT = "\uE000POWER_SLOT\uE000";
+  s = s.replace(/\^\{\s*□\s*\}/g, POWER_SLOT);
+
   // Strip KaTeX-style $...$ / $$...$$ delimiters.
   s = s.replace(/\$+/g, "");
 
@@ -82,6 +88,8 @@ export const toUnicodeMath = (input: string): string => {
   // Strip stray braces left behind
   s = s.replace(/[{}]/g, "");
 
+  s = s.replace(new RegExp(POWER_SLOT, "g"), "^{□}");
+
   return s.trim();
 };
 
@@ -90,7 +98,8 @@ export const isStillDirty = (s: string): boolean => {
   if (!s) return false;
   if (/\\[A-Za-z]+/.test(s)) return true;     // any \word
   if (/\\$/.test(s)) return true;             // trailing backslash
-  if (/\^\{|_\{/.test(s)) return true;        // ^{...} or _{...}
+  const withoutAllowedSlots = s.replace(/\^\{\s*□\s*\}/g, "");
+  if (/\^\{|_\{/.test(withoutAllowedSlots)) return true; // ^{...} or _{...}, except empty superscript slots
   if (/\bsqrt\s*\(/i.test(s)) return true;    // sqrt(
   if (/\*\*/.test(s)) return true;            // **
   return false;
