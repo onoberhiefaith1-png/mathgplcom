@@ -201,6 +201,8 @@ const AssetSubcategory = () => {
         const hasGroups = !!sub.groups && sub.groups.length > 0;
         const hasAssets = !!sub.assets && sub.assets.length > 0;
         if (isMusicGenerator && !hasAssets && !hasGroups) return <MusicGenerator />;
+        if (isGenerativeVideo) return <GenerativeVideoStudio />;
+
 
         if (hasGroups) {
           return (
