@@ -681,7 +681,9 @@ const emitSegmentTerms = (
   // Generic base^exp where exponent hides arithmetic: open it.
   const genPow = readGenericPower(body);
   if (genPow && hasHiddenArithmetic(genPow.exponent)) {
-    out.push(mkTerm(sign, `${genPow.base}^□`, synthetic));
+    // LaTeX form so KaTeX renders the placeholder as a real superscript
+    // (stacked top-right) instead of showing a literal "^" caret.
+    out.push(mkTerm(sign, `${genPow.base}^{□}`, synthetic));
     out.push(...extractTermsFromAscii(genPow.exponent));
     return;
   }
