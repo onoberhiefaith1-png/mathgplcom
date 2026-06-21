@@ -57,9 +57,17 @@ interface Props {
 
 export type AiEditDiagStatus = "pass" | "fail" | "fixed";
 export interface AiEditDiagItem { id: string; label: string; status: AiEditDiagStatus; detail?: string }
+export interface AiEditRecovery {
+  reason: "structure_not_decomposed" | "law_violation" | "missing_terms" | "unknown";
+  summary: string;
+  hints: string[];
+  suggestedInstructions: string[];
+  canRevert: boolean;
+}
 export interface AiEditDiagnostics {
   status: "clean" | "fixed" | "unresolved";
   items: AiEditDiagItem[];
+  recovery?: AiEditRecovery;
 }
 
 export function AiEditPanel({
@@ -288,15 +296,93 @@ export function AiEditPanel({
                     "text-[11px] pt-1 mt-1 border-t border-foreground/10",
                     diag.status === "clean" && "text-emerald-700",
                     diag.status === "fixed" && "text-blue-700",
-                    diag.status === "unresolved" && "text-red-700",
+                    diag.status === "unresolved" && "text-amber-700",
                   )}>
                     {diag.status === "clean" && "All checks passed — floating numbers are correct."}
                     {diag.status === "fixed" && "Errors found and fixed. Review the chips below."}
-                    {diag.status === "unresolved" && "Could not fix automatically. Add an instruction and regenerate."}
+                    {diag.status === "unresolved" && "Auto-fix could not resolve this line. Choose a recovery step below."}
                   </p>
                 )}
               </div>
             )}
+
+            {diag?.status === "unresolved" && diag.recovery && revealedCount >= diag.items.length && (
+              <div className="rounded-md border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/10 p-3 space-y-2">
+                <p className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">
+                  Recovery steps
+                </p>
+                <p className="text-xs text-foreground/80">{diag.recovery.summary}</p>
+                {diag.recovery.hints.length > 0 && (
+                  <ol className="list-decimal list-inside space-y-0.5 text-[11px] text-foreground/75">
+                    {diag.recovery.hints.map((h, i) => <li key={i}>{h}</li>)}
+                  </ol>
+                )}
+                {diag.recovery.suggestedInstructions.length > 0 && (
+                  <div className="pt-1 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wider text-foreground/55">
+                      Try one of these
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {diag.recovery.suggestedInstructions.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => runWith(s)}
+                          className="text-[11px] px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-100/60 dark:hover:bg-amber-800/20 disabled:opacity-50 text-left"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="pt-2 border-t border-amber-400/30 space-y-1.5">
+                  <p className="text-[10px] uppercase tracking-wider text-foreground/55">
+                    Or write your own instruction
+                  </p>
+                  <textarea
+                    value={instruction}
+                    onChange={(e) => setInstruction(e.target.value)}
+                    placeholder="Tell AI exactly what to change…"
+                    rows={2}
+                    className="w-full text-xs bg-transparent border border-foreground/15 rounded-md p-2 outline-none focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={voice.listening ? voice.stop : voice.start}
+                      className={cn(
+                        "p-1 rounded hover:bg-foreground/5 transition",
+                        voice.listening && "text-red-500 animate-pulse bg-red-500/10",
+                      )}
+                      title={voice.listening ? "Stop voice" : "Speak"}
+                    >
+                      <Mic className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || !instruction.trim()}
+                      onClick={() => runWith(instruction.trim())}
+                      className="ml-auto inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    >
+                      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      Regenerate
+                    </button>
+                  </div>
+                </div>
+                {diag.recovery.canRevert && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 hover:bg-foreground/5"
+                  >
+                    Keep current chips and close
+                  </button>
+                )}
+              </div>
+            )}
+
             <p className="text-[10px] uppercase tracking-wider text-foreground/55">Preview changes</p>
             <div className="grid grid-cols-1 gap-3">
               <div className="rounded-md border border-foreground/15 p-2">

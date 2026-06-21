@@ -1213,6 +1213,106 @@ Return the rewritten equation line only.`;
         console.warn("[floating_line_edit] still missing after repair:", auditRepaired.missing);
       }
 
+      // ── Recovery guidance — only attached when the auto-fix failed. ──
+      let recovery:
+        | {
+            reason: "structure_not_decomposed" | "law_violation" | "missing_terms" | "unknown";
+            summary: string;
+            hints: string[];
+            suggestedInstructions: string[];
+            canRevert: boolean;
+          }
+        | undefined;
+
+      if (status === "unresolved") {
+        const failedRows = diagnostics.filter((d) => d.status === "fail");
+        const hiddenSignChips = v.failures
+          .filter((f) => f.code === "NoHiddenSign")
+          .map((f) => String(f.chip ?? ""));
+        const offendingHasIntegral = hiddenSignChips.some((c) => /∫|\\int/.test(c));
+        const offendingHasSum = hiddenSignChips.some((c) => /∑|\\sum/.test(c));
+        const offendingHasFrac = hiddenSignChips.some((c) => /\\frac|□\/□|\//.test(c));
+
+        const eq = finalEquation;
+        const hasIntegral = /∫|\\int/.test(eq) || offendingHasIntegral;
+        const hasSum = /∑|\\sum/.test(eq) || offendingHasSum;
+        const missingTerms = auditRepaired.missing.length > 0;
+
+        let reason: "structure_not_decomposed" | "law_violation" | "missing_terms" | "unknown";
+        let summary: string;
+        const hints: string[] = [];
+        const suggestedInstructions: string[] = [];
+
+        if (hiddenSignChips.length > 0 && (hasIntegral || hasSum || offendingHasFrac)) {
+          reason = "structure_not_decomposed";
+          if (hasIntegral) {
+            summary =
+              "The integral could not be split into separate chips, so a single chip still hides + or − inside it.";
+            hints.push(
+              "Split the integral into one integral per term so each chip contains only one fraction or expression.",
+            );
+            hints.push("Or expand the integrand into separate fractions before integrating.");
+            hints.push("Avoid wrapping a sum of fractions inside a single ∫( … )dx.");
+            suggestedInstructions.push(
+              "Split the integral into separate integrals, one for each fraction.",
+              "Expand the integrand into a sum of separate fractions before integrating.",
+              "Combine the fractions over a common denominator first, then integrate.",
+            );
+          } else if (hasSum) {
+            summary = "A summation chip still contains hidden + or − because its body wasn't decomposed.";
+            hints.push("Rewrite the sum so each term appears on its own.");
+            suggestedInstructions.push(
+              "Split the summation into one sum per term.",
+              "Distribute the summation across the sum inside it.",
+            );
+          } else {
+            summary =
+              "A chip still contains a + or − sign inside it. Each chip must be a single atomic term.";
+            hints.push(
+              "Rewrite the line so every term is separated by a top-level + or − (not hidden inside brackets).",
+            );
+            suggestedInstructions.push(
+              "Expand the brackets so each term stands alone.",
+              "Rewrite the expression as a clean sum of separate terms.",
+            );
+          }
+        } else if (missingTerms) {
+          reason = "missing_terms";
+          summary = `Some expected terms are still missing after auto-fix: ${auditRepaired.missing
+            .slice(0, 4)
+            .join(", ")}.`;
+          hints.push("Check that the equation includes every term you expect to see as a chip.");
+          hints.push("If a term was dropped, retype the line with all terms present.");
+          suggestedInstructions.push(
+            "Rewrite the equation including every term explicitly.",
+            "Restore any missing terms before the equals sign.",
+          );
+        } else if (failedRows.length > 0) {
+          reason = "law_violation";
+          summary =
+            "Some floating-number laws are still failing. The chips look complete but don't pass all five laws.";
+          hints.push("Rewrite the line so every term is a single atomic factor or shell.");
+          hints.push("Avoid raw operator chips and synthetic leading + signs.");
+          suggestedInstructions.push(
+            "Simplify the line into clean atomic terms.",
+            "Rewrite using stacked fractions and explicit Unicode operators.",
+          );
+        } else {
+          reason = "unknown";
+          summary = "Auto-fix could not resolve this line.";
+          hints.push("Try regenerating, or describe what to change in plain language.");
+          suggestedInstructions.push("Rewrite this line so every chip is a single atomic term.");
+        }
+
+        recovery = {
+          reason,
+          summary,
+          hints,
+          suggestedInstructions,
+          canRevert: Array.isArray(currentFillers) && currentFillers.length > 0,
+        };
+      }
+
       return new Response(
         JSON.stringify({
           equation: finalEquation,
@@ -1220,6 +1320,7 @@ Return the rewritten equation line only.`;
           containers: det.containers,
           diagnostics,
           status,
+          ...(recovery ? { recovery } : {}),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
