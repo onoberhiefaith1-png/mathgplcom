@@ -2,8 +2,8 @@
 // Renders: Fillers row + Containers row, with manual editing & per-line rearrange.
 // Every chip is editable; every row always ends with an empty tagged entry box.
 
-import { useState } from "react";
-import { Shuffle, X, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Shuffle, X, Sparkles, CornerDownLeft } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
@@ -17,6 +17,8 @@ import {
   renderTermLabel,
 } from "@/lib/smartboard/floatingExtractor";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { promoteSelection } from "@/lib/smartboard/manualFloatingPromoter";
+import { toast } from "@/hooks/use-toast";
 
 interface Props {
   line: FloatingLine;
