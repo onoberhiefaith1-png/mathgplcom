@@ -111,12 +111,15 @@ const FloatingNumbersPage = () => {
 
   const runAiEditForLine = useCallback(async (instruction: string, target: AiEditTarget): Promise<string> => {
     if (!info) return target.text;
+    const currentLine = aiEditLineIndex != null ? lines[aiEditLineIndex] : null;
     const { data, error } = await supabase.functions.invoke("notebook-ai", {
       body: {
         mode: "floating_line_edit",
         problem: info.problem,
         equation: target.text,
         instruction,
+        currentFillers: currentLine?.fillers ?? [],
+        currentContainers: currentLine?.containers ?? [],
         subject: info.subject,
         subtopic: info.subtopic,
         sectionKind: info.sectionKind,
@@ -135,14 +138,20 @@ const FloatingNumbersPage = () => {
       equation: String(d.equation ?? target.text),
       fillers: d.fillers.map(String),
       containers: Array.isArray(d.containers) ? d.containers as ContainerKind[] : [],
+      status: d.status,
     };
     aiEditDiagRef.current = d.diagnostics && d.status
       ? { status: d.status, items: d.diagnostics }
       : null;
     return String(d.equation ?? target.text);
-  }, [info]);
+  }, [info, aiEditLineIndex, lines]);
 
-  const aiEditResultRef = useRef<{ equation: string; fillers: string[]; containers: ContainerKind[] } | null>(null);
+  const aiEditResultRef = useRef<{
+    equation: string;
+    fillers: string[];
+    containers: ContainerKind[];
+    status?: "clean" | "fixed" | "unresolved";
+  } | null>(null);
   const aiEditDiagRef = useRef<{
     status: "clean" | "fixed" | "unresolved";
     items: { id: string; label: string; status: "pass"|"fail"|"fixed"; detail?: string }[];
@@ -152,6 +161,10 @@ const FloatingNumbersPage = () => {
     const i = aiEditLineIndex;
     const result = aiEditResultRef.current;
     if (i == null || !result) return;
+    if (result.status === "unresolved") {
+      toast({ title: "Can't apply — issues remain", description: "Click Regenerate or add an instruction.", variant: "destructive" });
+      return;
+    }
     setLines((prev) => prev.map((p, idx) => {
       if (idx !== i) return p;
       return {
