@@ -352,6 +352,42 @@ const readBracketPower = (src: string): { shell: string; inner: string; exponent
   return null;
 };
 
+const readIntegralBody = (src: string): { shell: string; body: string } | null => {
+  const trimmed = src.replace(/\\int/g, "∫");
+  if (!trimmed.startsWith("∫")) return null;
+  // Optional sub/superscripts on the ∫ (definite integrals). Consume them
+  // greedily into the shell head so the shell renders as ∫_a^b()dx.
+  const dx = trimmed.match(/^(.*?)(d[a-zA-Z])$/);
+  if (!dx) return null;
+  const full = dx[1];
+  const diff = dx[2];
+  let i = 1;
+  // Skip over sub/sup tokens immediately after ∫ until we hit the integrand.
+  while (i < full.length && !(/[A-Za-z0-9√(\\]/.test(full[i]))) i++;
+  const head = full.slice(0, i);
+  const body = full.slice(i);
+  if (!body) return null;
+  return { shell: `∫${head}()${diff}`, body };
+};
+
+const readDerivativeBody = (src: string): { shell: string; body: string } | null => {
+  const latex = src.match(/^\\frac\{d\}\{d([a-zA-Z]+)\}(.*)$/);
+  if (latex) {
+    const arg = latex[2];
+    const grp = arg[0] === "(" || arg[0] === "{" ? readGrouped(arg, 0) : null;
+    if (grp && grp.end === arg.length) return { shell: `d/d${latex[1]}()`, body: grp.inner };
+    if (arg) return { shell: `d/d${latex[1]}()`, body: arg };
+  }
+  const uni = src.match(/^d\/d([a-zA-Z]+)(.*)$/);
+  if (uni) {
+    const arg = uni[2];
+    const grp = arg[0] === "(" || arg[0] === "{" ? readGrouped(arg, 0) : null;
+    if (grp && grp.end === arg.length) return { shell: `d/d${uni[1]}()`, body: grp.inner };
+    if (arg) return { shell: `d/d${uni[1]}()`, body: arg };
+  }
+  return null;
+};
+
 const emitSegmentTerms = (
   out: FloatingTerm[],
   sign: TermSign,
@@ -359,6 +395,24 @@ const emitSegmentTerms = (
   synthetic: boolean,
 ): void => {
   if (!body) return;
+
+  // Drill INTO integrals first so ∫(a+b)dx becomes shell + a + b chips
+  // instead of one giant chip with hidden + signs.
+  const integral = readIntegralBody(body);
+  if (integral) {
+    out.push(mkTerm(sign, integral.shell, synthetic));
+    // Strip the outer parens around the integrand so we don't add a
+    // redundant "()" container chip.
+    out.push(...extractTermsFromAscii(stripOuterParens(integral.body)));
+    return;
+  }
+
+  const deriv = readDerivativeBody(body);
+  if (deriv) {
+    out.push(mkTerm(sign, deriv.shell, synthetic));
+    out.push(...extractTermsFromAscii(stripOuterParens(deriv.body)));
+    return;
+  }
 
   const bracketPow = readBracketPower(body);
   if (bracketPow) {
@@ -369,6 +423,8 @@ const emitSegmentTerms = (
     }
     return;
   }
+
+
 
   const frac = readFractionBody(body);
   if (frac) {
