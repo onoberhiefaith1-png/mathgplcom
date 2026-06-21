@@ -642,6 +642,7 @@ const FloatingNumbersPage = () => {
                   index={i}
                   scoreLabel={scoring.label}
                   scoringMode={scoring.mode}
+                  onAiEdit={() => openAiEdit(i)}
                   onChange={(next) => {
                     dirtyRef.current = true;
                     setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
@@ -663,9 +664,19 @@ const FloatingNumbersPage = () => {
           </p>
         </div>
       </div>
+
+      <AiEditPanel
+        open={aiEditOpen}
+        target={aiEditTarget}
+        onGenerate={runAiEditForLine}
+        onApply={applyAiEdit}
+        onClose={closeAiEdit}
+        renderPreview={(text) => renderMath(text, `aie-${aiEditLineIndex ?? "x"}`)}
+      />
     </div>
   );
 };
+
 
 /* ──────────────────────────── View Session ──────────────────────────── */
 
