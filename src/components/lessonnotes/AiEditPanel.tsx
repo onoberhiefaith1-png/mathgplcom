@@ -47,6 +47,19 @@ interface Props {
   generateLabel?: string;
   /** Optional custom renderer for the proposed result (e.g. chips). */
   renderProposed?: (proposed: string) => React.ReactNode;
+  /**
+   * Optional diagnostic checklist (e.g. from floating-number AI Edit).
+   * The panel reads it via a getter so the parent can refresh it after
+   * each generation without re-creating the prop identity.
+   */
+  getDiagnostics?: () => AiEditDiagnostics | null;
+}
+
+export type AiEditDiagStatus = "pass" | "fail" | "fixed";
+export interface AiEditDiagItem { id: string; label: string; status: AiEditDiagStatus; detail?: string }
+export interface AiEditDiagnostics {
+  status: "clean" | "fixed" | "unresolved";
+  items: AiEditDiagItem[];
 }
 
 export function AiEditPanel({
