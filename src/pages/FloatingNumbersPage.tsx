@@ -712,7 +712,7 @@ const FloatingNumbersPage = () => {
         onClose={closeAiEdit}
         renderPreview={(text) => renderMath(text, `aie-${aiEditLineIndex ?? "x"}`)}
         simpleMode
-        simpleCaption="Click Generate and AI will regenerate the floating numbers for this line. The equation will not change."
+        simpleCaption="Click Generate and AI will regenerate the floating numbers for this line. Optional instructions guide the repair."
         generateLabel="Generate Floating Numbers"
         getDiagnostics={() => aiEditDiagRef.current}
         renderProposed={() => {
