@@ -206,16 +206,29 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     toast({ title: result.label, duration: 1500 });
   };
 
+  return (
     <div className="pl-6 pr-2 py-3 border-l-2 border-foreground/10 ml-2 my-2">
       {/* Equation header */}
       <div className="flex items-baseline gap-3 mb-2">
         <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/45">
           Line {lineNo}
         </span>
-        <div className="text-[17px]" style={{ color: "hsl(220 35% 18%)" }}>
+        <div ref={eqRef} className="text-[17px] select-text" style={{ color: "hsl(220 35% 18%)" }}>
           {renderMathInline(line.equation, `eq-${line.lineId}`)}
         </div>
         <div className={`flex items-center gap-1.5 shrink-0 ${scoreLabel ? "ml-auto" : "ml-auto"}`}>
+          <button
+            type="button"
+            onClick={commitHighlightAsChip}
+            disabled={!pendingText}
+            title="Highlight part of the equation, then press Enter to add it as a floating chip"
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border disabled:opacity-40"
+            style={pendingText
+              ? { background: "hsl(150 70% 45%)", color: "hsl(220 35% 12%)", borderColor: "hsl(150 70% 35%)" }
+              : { borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18% / 0.55)" }}
+          >
+            <CornerDownLeft className="h-3 w-3" /> Enter
+          </button>
           {onAiEdit && (
             <button
               type="button"
@@ -227,6 +240,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
               <Sparkles className="h-3 w-3" /> AI Edit
             </button>
           )}
+
           {scoreLabel && (
             <>
               <input
