@@ -2,8 +2,8 @@
 // Renders: Fillers row + Containers row, with manual editing & per-line rearrange.
 // Every chip is editable; every row always ends with an empty tagged entry box.
 
-import { useState } from "react";
-import { Shuffle, X, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Shuffle, X, Sparkles, CornerDownLeft } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
@@ -17,6 +17,8 @@ import {
   renderTermLabel,
 } from "@/lib/smartboard/floatingExtractor";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { promoteSelection } from "@/lib/smartboard/manualFloatingPromoter";
+import { toast } from "@/hooks/use-toast";
 
 interface Props {
   line: FloatingLine;
@@ -140,6 +142,87 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     });
   };
 
+  /* ───────── Manual highlight → Enter ───────── */
+  const eqRef = useRef<HTMLDivElement | null>(null);
+  const [pendingText, setPendingText] = useState<string>("");
+
+  // Watch for selection changes inside this line's equation, and bind Enter.
+  useEffect(() => {
+    const onSel = () => {
+      const root = eqRef.current;
+      const sel = window.getSelection();
+      if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) {
+        setPendingText("");
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      if (!root.contains(range.commonAncestorContainer)) {
+        setPendingText("");
+        return;
+      }
+      setPendingText(sel.toString().trim());
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      const root = eqRef.current;
+      const sel = window.getSelection();
+      if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (!root.contains(range.commonAncestorContainer)) return;
+      e.preventDefault();
+      commitHighlightAsChip();
+    };
+    document.addEventListener("selectionchange", onSel);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("selectionchange", onSel);
+      window.removeEventListener("keydown", onKey);
+    };
+  }); // re-bind every render so commitHighlightAsChip closes over latest state
+
+
+  const commitHighlightAsChip = () => {
+    const text = pendingText.trim();
+    if (!text) return;
+
+    // Use the line.equation source to find before/after context for the
+    // promoter. If the selection isn't found verbatim, fall back to a
+    // verbatim chip with no structural attachment.
+    const eq = line.equation ?? "";
+    const idx = eq.indexOf(text);
+    const before = idx >= 0 ? eq.slice(0, idx) : "";
+    const after  = idx >= 0 ? eq.slice(idx + text.length) : "";
+    const result = promoteSelection(text, before, after);
+
+    const cleaned = toUnicodeMath(result.payload);
+    if (!cleaned || isStillDirty(cleaned)) {
+      toast({ title: "Could not add chip", description: "Selection produced invalid math.", variant: "destructive" });
+      return;
+    }
+    const nextFillers = [...line.fillers, cleaned];
+    const nextFillersSel = [...padSel(line.fillersSelected, line.fillers.length), false];
+    const containers = result.container && !line.containers.includes(result.container)
+      ? [...line.containers, result.container as ContainerKind]
+      : line.containers;
+    const containersSel = result.container && !line.containers.includes(result.container)
+      ? [...padSel(line.containersSelected, line.containers.length), false]
+      : padSel(line.containersSelected, line.containers.length);
+
+    onChange({
+      ...line,
+      fillers: nextFillers,
+      fillersSelected: nextFillersSel,
+      containers,
+      containersSelected: containersSel,
+      arrangement: rearrangeIndices(nextFillers.length),
+    });
+    window.getSelection()?.removeAllRanges();
+    setPendingText("");
+    toast({ title: result.label, duration: 1500 });
+  };
+
   return (
     <div className="pl-6 pr-2 py-3 border-l-2 border-foreground/10 ml-2 my-2">
       {/* Equation header */}
@@ -147,10 +230,22 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
         <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/45">
           Line {lineNo}
         </span>
-        <div className="text-[17px]" style={{ color: "hsl(220 35% 18%)" }}>
+        <div ref={eqRef} className="text-[17px] select-text" style={{ color: "hsl(220 35% 18%)" }}>
           {renderMathInline(line.equation, `eq-${line.lineId}`)}
         </div>
         <div className={`flex items-center gap-1.5 shrink-0 ${scoreLabel ? "ml-auto" : "ml-auto"}`}>
+          <button
+            type="button"
+            onClick={commitHighlightAsChip}
+            disabled={!pendingText}
+            title="Highlight part of the equation, then press Enter to add it as a floating chip"
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border disabled:opacity-40"
+            style={pendingText
+              ? { background: "hsl(150 70% 45%)", color: "hsl(220 35% 12%)", borderColor: "hsl(150 70% 35%)" }
+              : { borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18% / 0.55)" }}
+          >
+            <CornerDownLeft className="h-3 w-3" /> Enter
+          </button>
           {onAiEdit && (
             <button
               type="button"
@@ -162,6 +257,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
               <Sparkles className="h-3 w-3" /> AI Edit
             </button>
           )}
+
           {scoreLabel && (
             <>
               <input
