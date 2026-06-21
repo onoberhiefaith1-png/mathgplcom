@@ -1,48 +1,55 @@
-## Plan: Manual Highlight → Enter as the primary floating-number editor
+## Goal
+Make manual Highlight → Enter on the Floating Workspace page:
+1. Always accept the teacher's selection as a floating chip (no silent rejection).
+2. Preserve the on-board math structure of what was highlighted — especially stacked fractions like u/x, radicals, powers, and bracketed function calls.
 
-### What will change
-1. **Enter works without Generate**
-   - Keep the equation lines visible as soon as the floating-number page opens.
-   - The teacher can highlight any part of an equation immediately and press **Enter**.
-   - The selection becomes a floating number even when the AI-generated filler row is empty.
+## Problem today
+- When the teacher highlights the stacked fraction u over x, `window.getSelection().toString()` returns the flat string "ux" (KaTeX renders numerator above denominator, with no slash between them). Our `recoverFraction` helper only matches when the variant equals `num+den` or `num/den` exactly; in practice it often misses because of stray characters, spacing, or because `line.equation` no longer holds the `\frac{...}{...}` source. The new chip ends up as plain "ux" / "u·x" and the stacked structure is lost.
+- When the teacher highlights f(x) and presses Enter, the chip sometimes does nothing. Today `commitHighlightAsChip` calls `computePayload`, and if `isStillDirty` flags the cleaned string the commit is silently rejected with a destructive toast. We need Enter to be unconditional.
 
-2. **Manual Enter becomes an override, not just an add button**
-   - If the selected expression is not already represented, add it as a new floating chip.
-   - If Generate already produced scattered chips that match pieces of the highlighted expression, remove those scattered chips and replace them with the teacher’s combined chip.
-   - If Generate produced one chip that is too large, and the teacher highlights only part of it, split/replace by keeping the teacher-highlighted chip and removing the oversized overlapping chip.
-   - This makes manual highlighting the teacher’s correction tool for both “too separated” and “too combined” AI output.
+## What changes
 
-3. **Glow matching generated chips while highlighting**
-   - While the teacher highlights text in the equation, existing generated chips that overlap or match the highlighted expression will glow with the same yellow highlight style.
-   - This gives immediate feedback: “these are the chips that Enter will replace/group.”
+### 1. Trust the highlight — Enter never refuses
+- Treat the teacher's selection as authoritative. If structure recovery succeeds we use the recovered markup; otherwise we fall back to the literal selection text. We never throw the chip away.
+- Remove the "Could not add chip / invalid math" rejection path. The worst case is a plain-text chip — that is still what the teacher highlighted.
+- Keep the existing override behaviour: any existing filler that is a sub/superstring of the new chip is replaced, so the teacher's manual chip wins over scattered or oversized AI chips.
 
-4. **Preserve real math structure from the highlight**
-   - Do not rely only on `selection.toString()` when the rendered equation contains structured math.
-   - Capture selection from the source equation and preserve structures such as:
-     - stacked fractions like `\frac{dy}{dx}` instead of flattening to `dy/dx`
-     - powers like `a^{x+y}` or `a^{□}` when only the base is selected
-     - paired brackets as a unit, never one bracket alone
-     - radicals, derivatives, logs, trig/function brackets, and absolute values
-   - The floating chip should render with the same classroom structure the teacher highlighted.
+### 2. Structure-aware selection capture
+Replace today's "match `\frac{a}{b}` substrings in the raw equation" approach with a DOM-walk that reads the actual rendered KaTeX nodes inside the selection range.
 
-5. **Keep the current page location**
-   - Work on the generated floating-number page (`/floating/...`), not the highlight-preparation page.
-   - Leave the first highlight-preparation page behavior alone.
+For the selected range we walk the common ancestor and rebuild source markup:
+- A `.mfrac` (or KaTeX fraction wrapper) inside the selection → emit `\frac{<numerator text>}{<denominator text>}`. Numerator and denominator come from the corresponding KaTeX subtrees, not from `toString()`.
+- A KaTeX superscript (`.msupsub`, `.vlist` with sup) → emit `<base>^{<exp>}`.
+- A KaTeX radical (`.sqrt`) → emit `\sqrt{<radicand>}`.
+- A KaTeX `\left( … \right)` group → keep the parentheses paired; never return half a bracket.
+- Plain atoms (digits, letters, operators) → emit their text content.
 
-### Technical approach
-- Update `FloatingWorkspace` so the Enter handler works for every visible equation line regardless of whether `line.fillers` is empty.
-- Improve selection mapping: use the rendered selection range plus the line’s original equation string to recover the correct source math markup, especially for fractions and other structured spans.
-- Add a small manual-override helper that:
-  - normalizes the teacher’s selected chip,
-  - detects generated fillers that are contained inside the selection,
-  - detects generated fillers that contain the selection,
-  - removes those affected fillers,
-  - inserts the teacher’s selected chip once,
-  - keeps/adds the needed structure container.
-- Extend the existing `manualFloatingPromoter` rules for bracket pairing and structured source preservation.
-- Add focused tests for:
-  - `let` remains one word, not letters,
-  - `\frac{dy}{dx}` remains a stacked fraction chip,
-  - grouping scattered `u`, `dv`, `dx` into one selected chip,
-  - replacing an oversized `3x+1` chip with selected `3x`,
-  - base-only power selection adds the power container/empty exponent shell.
+This gives us a "source-shaped" string for the selection regardless of whether `line.equation` still has the original `\frac` markup.
+
+### 3. Container inference from recovered structure
+After the source-shaped string is built we look at what it contains and add the matching container to the line if it is not already present:
+- contains `\frac{…}{…}` → add `fraction`
+- contains `\sqrt{…}` or `√` → add `radical`
+- contains `^{…}` → add `power`
+- contains paired `(…)` after a name/atom → add `bracket`
+This reuses the existing `ContainerKind` set; no schema changes.
+
+### 4. Promoter fallback only when no structure was recovered
+If the DOM walk produced a plain atom (e.g. the teacher highlighted just `2` in `2^{x+5}`), we still run `promoteSelection` on the plain text so the existing "attach empty exponent shell when ^ follows" / log / trig / bracket rules keep working. Structure recovered from the DOM always takes priority over heuristic promotion.
+
+### 5. Tests
+Add unit tests for the new DOM-to-source helper using JSDOM fixtures that mimic KaTeX output:
+- stacked fraction u over x → `\frac{u}{x}` with `fraction` container
+- `\sqrt{x+1}` selection → `\sqrt{x+1}` with `radical` container
+- base of `2^{x+5}` selected alone → plain "2" + `promoteSelection` attaches `^{□}` and `power` container
+- whole `f(x)` selected → chip is exactly `f(x)`, no rejection, Enter always commits
+- selection of one bracket only → expanded to the paired `(…)`, never half a bracket
+
+## Files to change
+- `src/components/lessonnotes/FloatingWorkspace.tsx` — replace `recoverFraction` + `computePayload` with a `recoverSelectionSource(range)` DOM walker; remove the destructive "Could not add chip" rejection; keep override + glow logic.
+- `src/lib/smartboard/manualFloatingPromoter.ts` — small tweak so when the caller already passes structured markup (containing `\frac`, `\sqrt`, `^{`) it returns it untouched plus the inferred container.
+- `src/test/manualFloatingPromoter.test.ts` — add the cases listed above (DOM cases use a tiny KaTeX-shaped fixture).
+
+## Out of scope
+- No change to the AI Generate path, the highlight-preparation page, or any backend code.
+- No new container kinds; we only attach kinds already supported by the workspace.
