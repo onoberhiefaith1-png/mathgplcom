@@ -964,6 +964,8 @@ No markdown, no prose, just the JSON array.`;
         problem?: string;
         equation?: string;
         instruction?: string;
+        currentFillers?: string[];
+        currentContainers?: string[];
         subject?: string; subtopic?: string; sectionKind?: string;
       };
       const sourceEquation = String(b.equation ?? "").trim();
@@ -973,9 +975,109 @@ No markdown, no prose, just the JSON array.`;
         });
       }
       const instruction = String(b.instruction ?? "").trim();
+      const currentFillers = Array.isArray(b.currentFillers)
+        ? b.currentFillers.map((x) => String(x))
+        : [];
 
+      // Strip leading prose words ("Let ", "Hence ", "So ", "Thus ",
+      // "Therefore ", "Then ") that the extractor would otherwise treat as
+      // variables and that frequently swallow the LHS of the equation.
+      const stripProse = (s: string): string =>
+        s.replace(/^\s*(?:let|hence|so|thus|therefore|then|given|we\s+have|implies|imply|⇒|=>)\b[:,]?\s*/i, "").trim();
+
+      type DiagStatus = "pass" | "fail" | "fixed";
+      interface Diag { id: string; label: string; status: DiagStatus; detail?: string }
+
+      // Build the expected-chip "answer key" deterministically from the
+      // source equation (after stripping prose lead-ins). This is the
+      // ground truth the audit checks against.
+      const buildExpected = (eq: string) => {
+        const cleaned = hardStripMath(stripProse(eq).replace(/\$+/g, "").trim()) || eq;
+        return deterministicExtractLine(cleaned);
+      };
+
+      // Normalise a chip for membership comparison: collapse whitespace,
+      // unify sign glyphs, lowercase letters. Leading "+" is preserved
+      // because expected chips encode it explicitly (e.g. "+5x").
+      const normChip = (c: string): string =>
+        String(c ?? "")
+          .replace(/\s+/g, "")
+          .replace(/[−–—]/g, "-")
+          .replace(/[×·*]/g, "×")
+          .replace(/[÷]/g, "÷")
+          .toLowerCase();
+
+      // Split a chip list into side groups using "=" / "±" as boundaries.
+      const splitSides = (chips: string[]): string[][] => {
+        const sides: string[][] = [[]];
+        for (const c of chips) {
+          if (c === "=" || c === "±") sides.push([]);
+          else sides[sides.length - 1].push(c);
+        }
+        return sides;
+      };
+
+      // Per-chip audit: returns one Diag per expected chip plus splitter chips.
+      const auditExpectedCoverage = (
+        expectedFillers: string[],
+        actualFillers: string[],
+      ): { items: Diag[]; missing: string[] } => {
+        const items: Diag[] = [];
+        const missing: string[] = [];
+        const expSides = splitSides(expectedFillers);
+        const actSides = splitSides(actualFillers);
+        const sideLabel = (i: number, total: number) => {
+          if (total <= 1) return "expression";
+          if (i === 0) return "before =";
+          if (i === total - 1) return "after =";
+          return `part ${i + 1}`;
+        };
+        const total = expSides.length;
+        for (let si = 0; si < total; si++) {
+          const expSide = expSides[si];
+          const actSide = (actSides[si] ?? []).map(normChip);
+          const label = sideLabel(si, total);
+          for (const chip of expSide) {
+            const ok = actSide.includes(normChip(chip));
+            items.push({
+              id: `chip-${si}-${items.length}`,
+              label: `${label}: ${chip}`,
+              status: ok ? "pass" : "fail",
+              detail: ok ? undefined : "missing from chips",
+            });
+            if (!ok) missing.push(`${label}: ${chip}`);
+          }
+          if (si < total - 1) {
+            // Check splitter chip presence (= or ± between si and si+1).
+            const splitter = expectedFillers.find((c, idx) => {
+              if (c !== "=" && c !== "±") return false;
+              const before = splitSides(expectedFillers.slice(0, idx));
+              return before.length - 1 === si;
+            }) ?? "=";
+            const splitterPresent = actualFillers.includes(splitter);
+            items.push({
+              id: `splitter-${si}`,
+              label: `${splitter === "±" ? "Plus-or-minus" : "Equals"} sign present`,
+              status: splitterPresent ? "pass" : "fail",
+              detail: splitterPresent ? undefined : `missing "${splitter}" chip`,
+            });
+            if (!splitterPresent) missing.push(`splitter ${splitter}`);
+          }
+        }
+        return { items, missing };
+      };
+
+      // The expected answer key (deterministic ground truth).
+      const expected = buildExpected(sourceEquation);
+      const expectedEquation = stripProse(sourceEquation);
+
+      // STAGE A — audit the CURRENT chips (what the teacher is looking at)
+      // against the expected chip list. Failures here become the rows that
+      // are visibly marked "missing" before repair.
+      const auditCurrent = auditExpectedCoverage(expected.fillers, currentFillers);
+
+      // Optional: AI equation rewrite when teacher gave an instruction.
       let targetEquation = sourceEquation;
-
       if (instruction) {
         const sys = `${VALIDATION_DIRECTIVE}
 
@@ -1018,159 +1120,107 @@ Return the rewritten equation line only.`;
         }
       }
 
-      const equation = hardStripMath(targetEquation.replace(/\$+/g, "").trim()) || sourceEquation;
-      let det = deterministicExtractLine(equation);
-      let v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
-      let comp = verifyCompleteness(sourceEquation, det.fillers.join(" "));
-
-      type DiagStatus = "pass" | "fail" | "fixed";
-      interface Diag { id: string; label: string; status: DiagStatus; detail?: string }
-
-      const runChecks = (
-        fillers: string[],
-        containers: string[],
-        baseline?: Record<string, DiagStatus>,
-      ): Diag[] => {
-        const vr = verifyFloatingLine({ fillers, containers });
-        const cr = verifyCompleteness(sourceEquation, fillers.join(" "));
-        const codes = new Set(vr.failures.map((f) => f.code));
-        const sides = sourceEquation.split("=").map((s) => s.trim()).filter(Boolean);
-        const fillersJoined = fillers.join(" ");
-        const sideMissing = sides.length >= 2 && sides.some((side) => {
-          const tokens = side.match(/[0-9]+|[A-Za-zα-ωΑ-Ω]+/g) || [];
-          return tokens.length > 0 && !tokens.some((t) => fillersJoined.includes(t));
-        });
-
-        const out: Diag[] = [];
-        const push = (id: string, label: string, failed: boolean, detail?: string) => {
-          let status: DiagStatus = failed ? "fail" : "pass";
-          if (!failed && baseline && baseline[id] === "fail") status = "fixed";
-          out.push({ id, label, status, detail: failed ? detail : undefined });
-        };
-
-        push(
-          "all-terms",
-          "All floating numbers present",
-          !cr.ok || sideMissing,
-          !cr.ok ? summariseMissing(cr) : sideMissing ? "term missing on one side of =" : undefined,
-        );
-        push(
-          "hidden-signs",
-          "No hidden signs inside chips",
-          codes.has("NoHiddenSign"),
-          vr.failures.filter((f) => f.code === "NoHiddenSign").map((f) => f.chip).join(", "),
-        );
-        push(
-          "atomic-terms",
-          "Atomic terms only (no raw operators)",
-          codes.has("NoRawOperatorChip") || codes.has("NoRawBracketChip") || codes.has("EmptyChip"),
-          vr.failures
-            .filter((f) => ["NoRawOperatorChip","NoRawBracketChip","EmptyChip"].includes(f.code))
-            .map((f) => f.chip || f.detail).join(", "),
-        );
-        push(
-          "leading-plus",
-          "No synthetic leading +",
-          codes.has("NoSyntheticLeadingPlus"),
-          vr.failures.filter((f) => f.code === "NoSyntheticLeadingPlus").map((f) => f.chip).join(", "),
-        );
-        push(
-          "containers",
-          "Container shells valid",
-          codes.has("ContainerAllowed") || codes.has("ContainerDedup"),
-          vr.failures.filter((f) => f.code === "ContainerAllowed" || f.code === "ContainerDedup").map((f) => f.detail).join(", "),
-        );
-        push(
-          "five-laws",
-          "Five floating-number laws satisfied",
-          !vr.ok,
-          vr.ok ? undefined : `${vr.failures.length} violation(s)`,
-        );
-        return out;
+      // STAGE B — regenerate the chips deterministically from the (possibly
+      // rewritten) target equation. This IS the repair: the extractor is
+      // the ground truth, so it cannot miss the LHS of "=".
+      const repaired = buildExpected(targetEquation);
+      let det: { fillers: string[]; containers: string[] } = {
+        fillers: repaired.fillers,
+        containers: repaired.containers as unknown as string[],
       };
 
-      let diagnostics = runChecks(det.fillers, det.containers);
-      const baseline: Record<string, DiagStatus> = {};
-      for (const d of diagnostics) baseline[d.id] = d.status;
+      // Re-audit against the equation the chips are FOR (target, not source,
+      // so that an instruction-driven rewrite is audited against itself).
+      const repairedExpected = buildExpected(targetEquation);
+      const auditRepaired = auditExpectedCoverage(repairedExpected.fillers, det.fillers);
 
-      // AI repair loop — runs when any check fails OR teacher gave an instruction.
-      const needsRepair = diagnostics.some((d) => d.status === "fail") || !!instruction;
-      if (needsRepair) {
-        const failureSummary = [
-          ...(v.ok ? [] : v.failures.map((f) => `- ${f.code}${f.chip ? ` at chip "${f.chip}"` : ""}${f.detail ? `: ${f.detail}` : ""}`)),
-          ...(comp.ok ? [] : [`- Completeness gap: ${summariseMissing(comp)}`]),
-        ].join("\n");
+      // Law checks on the repaired chips.
+      let v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
 
-        const sys = `You produce floating-number chips for ONE equation line.
-Output STRICT JSON only: {"fillers": string[], "containers": string[]}.
-RULES:
-- "fillers" are complete, atomic math terms shown to students. Never split
-  a single term across chips. Never include a chip that hides a + or − or
-  ÷ or × inside (e.g. "2x^2+5x-1" is INVALID — split into "2x^2", "+5x",
-  "-1"). Use "=" or "±" as standalone splitter chips when present.
-- For an integral like \\int f(x) dx, emit chips that cover EVERY term
-  inside the integrand (numerator AND denominator if a fraction) plus the
-  \\int symbol and the dx, never one giant chip.
-- EVERY term on BOTH sides of "=" MUST appear as a filler. Missing a term
-  before or after "=" is INVALID.
-- "containers" are allowed shell kinds only: ["fraction","bracket","radical","power","log","integral","matrix","differential","abs","vector"].
-- No prose, no fences, JSON only.`;
-
-        const repairUser = `EQUATION:
-${equation}
-
-PREVIOUS ATTEMPT FAILURES (fix these):
-${failureSummary || "(none — improve coverage and split hidden signs)"}
-
-PREVIOUS FILLERS: ${JSON.stringify(det.fillers)}
-PREVIOUS CONTAINERS: ${JSON.stringify(det.containers)}
-
-${instruction ? `TEACHER INSTRUCTION:\n${instruction}\n` : ""}Return JSON only.`;
-
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            const rich = await callAIRich(
-              [
-                { role: "system", content: sys },
-                { role: "user", content: repairUser },
-              ],
-              { maxTokens: 1024 },
-            );
-            const raw = stripFences(rich.content).replace(/^```json\s*|\s*```$/g, "").trim();
-            const parsed = JSON.parse(raw) as { fillers?: unknown; containers?: unknown };
-            const fillers = Array.isArray(parsed.fillers) ? parsed.fillers.map((x) => String(x)).filter(Boolean) : [];
-            const containers = Array.isArray(parsed.containers) ? parsed.containers.map((x) => String(x)) : [];
-            if (!fillers.length) continue;
-            const candidateDiags = runChecks(fillers, containers, baseline);
-            const candidateFails = candidateDiags.filter((d) => d.status === "fail").length;
-            const currentFails = diagnostics.filter((d) => d.status === "fail").length;
-            if (candidateFails < currentFails) {
-              det = { fillers, containers: containers as typeof det.containers };
-              diagnostics = candidateDiags;
-              v = verifyFloatingLine({ fillers, containers });
-              comp = verifyCompleteness(sourceEquation, fillers.join(" "));
-              if (candidateFails === 0) break;
-            }
-          } catch (err) {
-            console.warn("[floating_line_edit] AI repair error", String(err));
-          }
+      // Build diagnostics: per-chip rows reflect what was missing in the
+      // current chips, then law-level rows reflect the repaired chips.
+      const diagnostics: Diag[] = [];
+      // Per-chip rows: mark "fixed" when current was missing but repaired
+      // now contains it.
+      const repairedActSet = new Set(det.fillers.map(normChip));
+      for (const row of auditCurrent.items) {
+        if (row.status === "pass") {
+          diagnostics.push(row);
+          continue;
         }
+        // Was this chip recovered by repair?
+        const expectedChip = row.label.split(": ").slice(1).join(": ") || row.label;
+        const recovered = expectedChip === "Equals sign present"
+          ? det.fillers.includes("=")
+          : expectedChip === "Plus-or-minus sign present"
+          ? det.fillers.includes("±")
+          : repairedActSet.has(normChip(expectedChip));
+        diagnostics.push({
+          ...row,
+          status: recovered ? "fixed" : "fail",
+          detail: recovered ? undefined : row.detail,
+        });
       }
+
+      // Law-level rows (computed on repaired chips).
+      const codes = new Set(v.failures.map((f) => f.code));
+      const pushLaw = (id: string, label: string, failed: boolean, detail?: string) => {
+        diagnostics.push({ id, label, status: failed ? "fail" : "pass", detail: failed ? detail : undefined });
+      };
+      pushLaw(
+        "hidden-signs",
+        "No hidden signs inside chips",
+        codes.has("NoHiddenSign"),
+        v.failures.filter((f) => f.code === "NoHiddenSign").map((f) => f.chip).join(", "),
+      );
+      pushLaw(
+        "atomic-terms",
+        "Atomic terms only (no raw operators)",
+        codes.has("NoRawOperatorChip") || codes.has("NoRawBracketChip") || codes.has("EmptyChip"),
+        v.failures
+          .filter((f) => ["NoRawOperatorChip", "NoRawBracketChip", "EmptyChip"].includes(f.code))
+          .map((f) => f.chip || f.detail).join(", "),
+      );
+      pushLaw(
+        "leading-plus",
+        "No synthetic leading +",
+        codes.has("NoSyntheticLeadingPlus"),
+        v.failures.filter((f) => f.code === "NoSyntheticLeadingPlus").map((f) => f.chip).join(", "),
+      );
+      pushLaw(
+        "containers",
+        "Container shells valid",
+        codes.has("ContainerAllowed") || codes.has("ContainerDedup"),
+        v.failures.filter((f) => f.code === "ContainerAllowed" || f.code === "ContainerDedup").map((f) => f.detail).join(", "),
+      );
+      pushLaw(
+        "five-laws",
+        "Five floating-number laws satisfied",
+        !v.ok,
+        v.ok ? undefined : `${v.failures.length} violation(s)`,
+      );
 
       const remaining = diagnostics.filter((d) => d.status === "fail").length;
       const fixedCount = diagnostics.filter((d) => d.status === "fixed").length;
       const status: "clean" | "fixed" | "unresolved" =
         remaining === 0 ? (fixedCount > 0 ? "fixed" : "clean") : "unresolved";
 
+      const finalEquation = stripProse(targetEquation) || targetEquation;
       if (!v.ok) {
-        console.warn("[floating_line_edit] verifier failures:", equation, JSON.stringify(v.failures));
+        console.warn("[floating_line_edit] verifier failures:", finalEquation, JSON.stringify(v.failures));
       }
-      if (!comp.ok) {
-        console.warn("[floating_line_edit] completeness gap vs source:", sourceEquation, summariseMissing(comp));
+      if (auditRepaired.missing.length) {
+        console.warn("[floating_line_edit] still missing after repair:", auditRepaired.missing);
       }
 
       return new Response(
-        JSON.stringify({ equation, fillers: det.fillers, containers: det.containers, diagnostics, status }),
+        JSON.stringify({
+          equation: finalEquation,
+          fillers: det.fillers,
+          containers: det.containers,
+          diagnostics,
+          status,
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
