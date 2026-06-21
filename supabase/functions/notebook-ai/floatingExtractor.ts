@@ -367,7 +367,7 @@ const readIntegralBody = (src: string): { shell: string; body: string } | null =
   const head = full.slice(0, i);
   const body = full.slice(i);
   if (!body) return null;
-  return { shell: `∫${head}()${diff}`, body };
+  return { shell: `${head}()${diff}`, body };
 };
 
 const readDerivativeBody = (src: string): { shell: string; body: string } | null => {

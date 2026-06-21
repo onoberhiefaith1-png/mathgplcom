@@ -129,7 +129,7 @@ export function AiEditPanel({
     if (!target) return;
     if (simpleMode) {
       setShowSuggestions(false);
-      await runWith("");
+      await runWith(instruction.trim());
       return;
     }
     if (instruction.trim()) {
@@ -328,8 +328,11 @@ export function AiEditPanel({
                           key={i}
                           type="button"
                           disabled={busy}
-                          onClick={() => runWith(s)}
-                          className="text-[11px] px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-100/60 dark:hover:bg-amber-800/20 disabled:opacity-50 text-left"
+                          onClick={() => setInstruction(s)}
+                          className={cn(
+                            "text-[11px] px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-100/60 dark:hover:bg-amber-800/20 disabled:opacity-50 text-left",
+                            instruction.trim() === s && "bg-amber-100/80 dark:bg-amber-800/25",
+                          )}
                         >
                           {s}
                         </button>
