@@ -72,6 +72,19 @@ export function promoteSelection(
   lineBefore: string,
   lineAfter: string,
 ): PromoteResult {
+  const r = promoteSelectionCore(selection, lineBefore, lineAfter);
+  if (r.shell) {
+    const c = SHELL_TO_CONTAINER[r.shell];
+    if (c) return { ...r, container: c };
+  }
+  return r;
+}
+
+function promoteSelectionCore(
+  selection: string,
+  lineBefore: string,
+  lineAfter: string,
+): PromoteResult {
   const sel = (selection ?? "").trim();
   if (!sel) return { payload: "", label: "Empty selection" };
 
