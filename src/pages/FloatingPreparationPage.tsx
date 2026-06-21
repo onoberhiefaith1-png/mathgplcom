@@ -283,19 +283,7 @@ const FloatingPreparationPage = () => {
 
   }, [highlights]);
 
-  /* ---------- Pending selection (committed on Enter) ---------- */
-  interface PendingSelection {
-    /** Tokens covered by the selection, sorted in source order. */
-    touched: { line: number; tok: number; src: string }[];
-    /** Single-line: original line text. Multi-line: undefined. */
-    lineText?: string;
-    /** Single-line: char offset of selection START inside lineText. */
-    selStart?: number;
-    /** Single-line: char offset of selection END inside lineText. */
-    selEnd?: number;
-  }
-  const [pending, setPending] = useState<PendingSelection | null>(null);
-
+  /* ---------- Selection → immediate commit ---------- */
   const captureSelection = useCallback(() => {
     const root = docRef.current;
     if (!root) return;
@@ -321,9 +309,8 @@ const FloatingPreparationPage = () => {
     if (touched.length === 0) return;
     touched.sort((a, b) => (a.line - b.line) || (a.tok - b.tok));
 
-    // Toggle: if every touched token is already inside ONE existing
-    // highlight, remove it instead. (Selecting an already-committed chip
-    // is the user's way to undo it.)
+    // Toggle: if any touched token is already inside an existing
+    // highlight, remove that highlight (the user's way to undo it).
     const touchedKeys = new Set(touched.map((t) => `${t.line}:${t.tok}`));
     const overlapping = highlights.find((h) =>
       h.tokens.some((tk) => touchedKeys.has(`${tk.line}:${tk.tok}`)),
@@ -336,56 +323,20 @@ const FloatingPreparationPage = () => {
           .filter((h) => h.groupId !== overlapping.groupId)
           .map((h, i) => ({ ...h, groupId: i + 1 })),
       );
-      setPending(null);
       return;
     }
 
-    // Compute single-line context for the promoter (powers, brackets, …).
-    const uniqueLines = Array.from(new Set(touched.map((t) => t.line)));
-    let lineText: string | undefined;
-    let selStart: number | undefined;
-    let selEnd: number | undefined;
-    if (uniqueLines.length === 1) {
-      const li = uniqueLines[0];
-      const lineToks = rows[li] ?? [];
-      const startTok = touched[0].tok;
-      const endTok = touched[touched.length - 1].tok;
-      lineText = lineToks.join(" ");
-      // Char offset = sum of token lengths + spaces before startTok
-      selStart = lineToks.slice(0, startTok).reduce((n, s) => n + s.length + 1, 0);
-      const selLen = lineToks.slice(startTok, endTok + 1).join(" ").length;
-      selEnd = selStart + selLen;
-    }
-
-    setPending({ touched, lineText, selStart, selEnd });
-  }, [highlights, pushHistory, rows]);
-
-  const commitPending = useCallback(() => {
-    const p = pending;
-    if (!p || p.touched.length === 0) return;
-
-    // Build the literal selected text (preserves newlines for multi-line).
+    // Build literal selected text (preserves newlines for multi-line).
     const parts: string[] = [];
-    let curLine = p.touched[0].line;
+    let curLine = touched[0].line;
     let lineBuf: string[] = [];
     const flush = () => { if (lineBuf.length) parts.push(lineBuf.join(" ")); lineBuf = []; };
-    for (const t of p.touched) {
+    for (const t of touched) {
       if (t.line !== curLine) { flush(); curLine = t.line; }
       lineBuf.push(t.src);
     }
     flush();
-    const verbatim = parts.join("\n");
-
-    // Apply structural promotion only when the selection is on one line.
-    let payload = verbatim;
-    let label = "Added as floating chip";
-    if (p.lineText != null && p.selStart != null && p.selEnd != null) {
-      const before = p.lineText.slice(0, p.selStart);
-      const after = p.lineText.slice(p.selEnd);
-      const result = promoteSelection(verbatim, before, after);
-      payload = result.payload;
-      label = result.label;
-    }
+    const payload = parts.join("\n");
 
     pushHistory();
     dirtyRef.current = true;
@@ -393,15 +344,12 @@ const FloatingPreparationPage = () => {
       ...prev,
       {
         groupId: nextIdRef.current++,
-        tokens: p.touched.map(({ line, tok }) => ({ line, tok })),
+        tokens: touched.map(({ line, tok }) => ({ line, tok })),
         payload,
       },
     ]);
-    setPending(null);
-    toast({ title: label, duration: 1600 });
-  }, [pending, pushHistory]);
+  }, [highlights, pushHistory]);
 
-  const clearPending = useCallback(() => setPending(null), []);
 
 
   useEffect(() => {
