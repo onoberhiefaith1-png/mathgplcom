@@ -3,7 +3,7 @@
 // Every chip is editable; every row always ends with an empty tagged entry box.
 
 import { useState } from "react";
-import { Shuffle, X } from "lucide-react";
+import { Shuffle, X, Sparkles } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
@@ -26,6 +26,8 @@ interface Props {
   scoreLabel?: string;
   /** "equal" renders the marks box read-only; "individual" lets it be edited. */
   scoringMode?: "equal" | "individual";
+  /** Opens the AI-Edit panel for this single line. */
+  onAiEdit?: () => void;
 }
 
 const CONTAINER_KINDS: ContainerKind[] = [
