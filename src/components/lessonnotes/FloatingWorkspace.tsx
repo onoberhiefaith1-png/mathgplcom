@@ -146,7 +146,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
   const eqRef = useRef<HTMLDivElement | null>(null);
   const [pendingText, setPendingText] = useState<string>("");
 
-  // Watch for selection changes inside this line's equation.
+  // Watch for selection changes inside this line's equation, and bind Enter.
   useEffect(() => {
     const onSel = () => {
       const root = eqRef.current;
@@ -162,9 +162,26 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
       }
       setPendingText(sel.toString().trim());
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      const root = eqRef.current;
+      const sel = window.getSelection();
+      if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (!root.contains(range.commonAncestorContainer)) return;
+      e.preventDefault();
+      commitHighlightAsChip();
+    };
     document.addEventListener("selectionchange", onSel);
-    return () => document.removeEventListener("selectionchange", onSel);
-  }, []);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("selectionchange", onSel);
+      window.removeEventListener("keydown", onKey);
+    };
+  }); // re-bind every render so commitHighlightAsChip closes over latest state
+
 
   const commitHighlightAsChip = () => {
     const text = pendingText.trim();
