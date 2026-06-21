@@ -40,7 +40,7 @@ const parseContainerKind = (raw: string): ContainerKind | null => {
   return (CONTAINER_KINDS as string[]).includes(v) ? (v as ContainerKind) : null;
 };
 
-export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMode }: Props) => {
+export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMode, onAiEdit }: Props) => {
   const fillers = applyArrangement(line.fillers, line.arrangement);
   const lineNo = index + 1;
   const fillersSelected = line.fillersSelected ?? line.fillers.map(() => false);
