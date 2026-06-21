@@ -1,60 +1,52 @@
-# Plan — Manual "Highlight → Enter" floating numbers
+# Plan — Move "Highlight → Enter" to the Generating page (revert it on the Highlighting page)
 
-Pure manual workflow on the Floating Preparation page. **No backend / AI changes** in this plan — the teacher decides every floating chip by highlighting.
+I had put the Enter workflow on the wrong page. This plan moves it to the right one.
 
----
+- **Highlighting page** = `src/pages/FloatingPreparationPage.tsx` — the page that opens when the teacher first clicks "Generate Floating Numbers". This page goes back to exactly how it was before (no Enter button, no green pending-selection state).
+- **Generating page** = `src/pages/FloatingNumbersPage.tsx` — the page reached after the highlight step, where the per-line equations and the empty fillers row are shown next to the AI Edit / Generate buttons. The Enter workflow lives here.
 
-## Workflow
-
-1. Teacher highlights any span of text on a solution line (existing token-selection mechanism stays).
-2. An **Enter** button appears next to AI Edit (and the **Enter** key also fires it) while a selection is active.
-3. On press, the highlighted span becomes **one** floating chip. The system inspects what surrounds the highlight on that same line and, if a structure belongs to the highlighted atom, attaches that structure as an empty shell on the chip. The structure tokens stay in the source line so the teacher can highlight them next.
-
-The teacher never has to highlight a structural symbol. Structure follows the atom it belongs to.
+The AI "Generate" button stays on the Generating page so teachers who want AI can still use it. Manual highlight→Enter is an alternative the teacher can use line-by-line instead of (or after) AI Generate.
 
 ---
 
-## Structural attachment rules
+## What the teacher does on the Generating page
 
-When the highlight ends, look at the characters **immediately to the right** (and for `√` / `d/dx`, immediately to the left) of the highlighted span on the same equation line.
+For each equation line shown in `FloatingWorkspace`:
 
-| Highlighted span | Adjacent context detected | Chip emitted |
-|---|---|---|
-| `2` | `^…` follows (any exponent body) | `2^{□}` |
-| `a` | `_…` follows | `a_{□}` |
-| `f`, `g`, `h`, `θ`, `φ`, any single letter/Greek | `(` follows | `f(□)` |
-| `f(x)`, `θ(x+2y)` (highlighted whole) | — | one chip rendered verbatim |
-| `sin`, `cos`, `tan`, `log`, `ln` | `(` or argument follows | `sin(□)` etc. |
-| `log` | `_…` then argument | `log_{□}(□)` |
-| `√` or atom under a radical | radicand `(…)` or `{…}` follows | `√(□)` |
-| `d/dx`, `∂/∂x` | `(` or bracketed body follows | `\frac{d}{dx}(□)` |
-| `∫` | `… dx` tail on the line | `∫□ dx` |
-| `lim` | `_{x→…}` follows | `lim_{□}(□)` |
-| `|` … `|` (teacher highlighted only the inner atom) | flanked by `|` on both sides | `|□|` |
-| anything else | no recognized structure | chip = highlighted text verbatim |
+1. Teacher highlights any span inside the rendered equation (e.g. `9x²`, `+22x`, `(x+2)`, `²`).
+2. While a selection exists on that line, an **Enter** button next to AI Edit becomes active; pressing the **Enter** key also fires it.
+3. On commit, the highlighted text becomes one filler chip appended to that line's fillers row, and any structure detected from the highlight is added to that line's containers row as an empty shell.
+4. Selection clears. Teacher highlights the next piece, presses Enter, and so on until the fillers row for that line is complete.
 
-Notes:
-- The attachment **only adds an empty shell**; the original structure body (exponent tokens, bracket body, radicand, subscript) is **left in the source line** so the teacher can highlight each piece as its own chip afterwards.
-- If the teacher highlights the whole expression including the structure (e.g. `2^{x+5}`), no extra shell is added — it becomes one chip exactly as highlighted.
-- Detection is local (same line, immediate neighbours only) — no cross-line inference, no AI call.
-- Output passes through the existing `toUnicodeMath` / `isStillDirty` normalizer so chips render in classroom style (`²`, `√`, `□`, etc.) and never as raw LaTeX or `^`.
+Nothing about AI Generate, AI Edit, Shuffle, scoring, or persistence changes. The new commit just calls the existing `onChange` path that AI Generate already uses to populate `fillers` and `containers`.
 
 ---
 
-## UI changes (Floating Preparation page only)
+## Structural awareness (same intent as before, applied per highlight)
 
-- New **Enter** button placed immediately before the existing AI Edit button. Same height/style as AI Edit. Disabled (greyed) when no active selection.
-- Keyboard: pressing **Enter** while a selection exists triggers the same handler. Shift+Enter still inserts a newline if any text input is focused.
-- Toast on commit: "Added as floating chip" (or "Added with `^{□}` shell" when a structure was auto-attached, so the teacher knows what happened).
-- Undo / Redo already supported — the new commit is a single undo step.
+The teacher can either highlight the structure themselves or leave it adjacent to the atom. Detection is local to the highlighted line's plain text.
+
+| What the teacher highlights | What happens |
+|---|---|
+| Whole structure incl. body (`9x²`, `(x+2)`, `2^{x+5}`, `√(x+1)`, `f(x)`) | One chip emitted verbatim. The container kind (`power`, `bracket`, `radical`, `function`…) is added to the line's containers row. |
+| Just the atom, with `^` immediately after (`2` then `^x`) | Chip = `2`, plus a `□^{□}` empty shell added to containers. Body (`x`) stays on the equation line for the teacher to highlight next. |
+| Just the atom, with `_` immediately after | Chip = atom, `□_{□}` added to containers. |
+| `f` / `θ` / single letter / `sin` / `cos` / `log` followed by `(` | Chip = the letter, `(□)` shell added to containers. |
+| `√` alone | Chip = `√(□)`, radical added to containers. |
+| `d/dx`, `∂/∂x` | Chip = `d/dx(□)`, derivative added to containers. |
+| Inside `|…|` | Chip = `|sel|`, absolute added to containers. |
+| Brackets: highlighting one bracket alone is rejected with a toast — brackets are never single. Teacher must highlight the matching pair (the system finds the partner automatically when only one is highlighted and extends the selection). |
+| Anything else | Chip = highlighted text verbatim, no container added. |
+
+All chips pass through the existing `toUnicodeMath` / `isStillDirty` normalizer so they render in classroom style (`²`, `√`, `□`…), exactly like AI-generated chips do today.
 
 ---
 
-## Files touched
+## Files
 
-- `src/pages/FloatingPreparationPage.tsx` — add Enter button, keyboard handler, call promoter on commit.
-- `src/lib/smartboard/manualFloatingPromoter.ts` *(new)* — pure function `promote(selectionText, lineText, selStart, selEnd) → { chipMarkup, attachedShell?: "power"|"subscript"|"bracket"|"radical"|"derivative"|"integral"|"absolute"|"limit" }`. All structural detection lives here; fully unit-testable.
-- `src/lib/notebook/unicodeMath.ts` — small helper exporting the function-name list (`sin`, `cos`, `tan`, `log`, `ln`, `lim`, `∫`, `√`, `d/dx`, `∂/∂x`) shared with the promoter.
-- `src/test/manualFloatingPromoter.test.ts` *(new)* — table-driven cases for every row in the rules table above, including the "highlighted the whole thing" no-op cases.
+- `src/pages/FloatingPreparationPage.tsx` — **revert** the Enter button, the pending-selection green state, the keyboard handler, and the pending-payload preview row. Selection behaviour returns to the original immediate-commit highlight flow.
+- `src/components/lessonnotes/FloatingWorkspace.tsx` — add a small per-line Enter button next to AI Edit; capture the teacher's text selection inside the rendered equation; on commit call the existing `onChange` with `{ fillers: [...prev, chip], containers: mergeStructures(prev, detected) }`.
+- `src/lib/smartboard/manualFloatingPromoter.ts` — keep the file, but the public function now also returns the detected container kind (`power`, `bracket`, `radical`, …) so the workspace can update the containers row. No backend changes.
+- `src/test/manualFloatingPromoter.test.ts` — extend existing cases to assert the returned container kind, and add the "single bracket gets expanded to the matching pair" case.
 
-No changes to: backend edge functions, AI prompts, DB schema, routes, or other pages. AI Edit remains exactly as it is today and runs on top of the manually-created chips when the teacher wants to refine one.
+No changes to: backend edge functions, AI prompts, DB schema, routes, the highlighting page, or any other page.
