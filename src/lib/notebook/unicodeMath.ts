@@ -99,11 +99,16 @@ export const toUnicodeMath = (input: string): string => {
 /** Returns true if any forbidden code-syntax substring is still present. */
 export const isStillDirty = (s: string): boolean => {
   if (!s) return false;
-  if (/\\[A-Za-z]+/.test(s)) return true;     // any \word
-  if (/\\$/.test(s)) return true;             // trailing backslash
-  const withoutAllowedSlots = s.replace(/\^\{\s*□\s*\}/g, "");
-  if (/\^\{|_\{/.test(withoutAllowedSlots)) return true; // ^{...} or _{...}, except empty superscript slots
-  if (/\bsqrt\s*\(/i.test(s)) return true;    // sqrt(
-  if (/\*\*/.test(s)) return true;            // **
+  // Allow recognised structural macros the classroom renderer handles
+  // natively (\frac{a}{b}, \sqrt{x}, empty power slot ^{□}).
+  const probe = s
+    .replace(/\\frac\s*\{[^{}]*\}\s*\{[^{}]*\}/g, "")
+    .replace(/\\sqrt\s*\{[^{}]*\}/g, "")
+    .replace(/\^\{\s*□\s*\}/g, "");
+  if (/\\[A-Za-z]+/.test(probe)) return true;     // any \word
+  if (/\\$/.test(s)) return true;                 // trailing backslash
+  if (/\^\{|_\{/.test(probe)) return true;        // leftover ^{...} or _{...}
+  if (/\bsqrt\s*\(/i.test(s)) return true;        // sqrt(
+  if (/\*\*/.test(s)) return true;                // **
   return false;
 };
