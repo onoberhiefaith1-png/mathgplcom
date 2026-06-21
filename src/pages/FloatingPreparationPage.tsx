@@ -365,25 +365,9 @@ const FloatingPreparationPage = () => {
     };
   }, [captureSelection]);
 
-  /* ---------- Keyboard shortcuts ---------- */
+  /* ---------- Keyboard shortcuts (undo / redo) ---------- */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const inEditable = !!target && (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      );
-      if (e.key === "Enter" && !inEditable && pending) {
-        e.preventDefault();
-        commitPending();
-        return;
-      }
-      if (e.key === "Escape" && pending) {
-        e.preventDefault();
-        clearPending();
-        return;
-      }
       const meta = e.metaKey || e.ctrlKey;
       if (!meta) return;
       if (e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -393,7 +377,8 @@ const FloatingPreparationPage = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo, pending, commitPending, clearPending]);
+  }, [undo, redo]);
+
 
   const clearAll = useCallback(() => {
     if (highlights.length === 0) return;
