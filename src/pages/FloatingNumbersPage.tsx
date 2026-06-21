@@ -21,6 +21,8 @@ import {
 import { sanitizeFillers, detectStructures, extractTermsFromAscii, renderTermLabel, STRUCTURE_MARKUP, expandTransitionLine, dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
 import FloatingWorkspace from "@/components/lessonnotes/FloatingWorkspace";
 import FloatingDisplayStrip from "@/components/lessonnotes/FloatingDisplayStrip";
+import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditPanel";
+import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
