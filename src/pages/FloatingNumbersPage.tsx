@@ -672,6 +672,58 @@ const FloatingNumbersPage = () => {
         onApply={applyAiEdit}
         onClose={closeAiEdit}
         renderPreview={(text) => renderMath(text, `aie-${aiEditLineIndex ?? "x"}`)}
+        simpleMode
+        simpleCaption="Click Generate and AI will regenerate the floating numbers for this line. The equation will not change."
+        generateLabel="Generate Floating Numbers"
+        renderProposed={() => {
+          const r = aiEditResultRef.current;
+          if (!r) return null;
+          return (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {r.fillers.map((f, i) => {
+                  const cleaned = toUnicodeMath(f);
+                  if (!cleaned || isStillDirty(cleaned)) return null;
+                  const term = extractTermsFromAscii(cleaned)[0];
+                  const label = term ? renderTermLabel(term, { isFirst: false, prevWasEquals: false }) : cleaned;
+                  return (
+                    <span
+                      key={`pf-${i}`}
+                      className="inline-flex items-center px-2 py-1 rounded-md text-[13px]"
+                      style={{
+                        background: "hsl(38 38% 94%)",
+                        border: "1px solid hsl(220 15% 60% / 0.35)",
+                        color: "hsl(220 35% 18%)",
+                      }}
+                    >
+                      {renderMath(label, `pf-${aiEditLineIndex}-${i}`)}
+                    </span>
+                  );
+                })}
+              </div>
+              {r.containers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {r.containers.map((c, i) => (
+                    <span
+                      key={`pc-${i}-${c}`}
+                      className="inline-flex items-center px-2 py-1 rounded-md text-[13px]"
+                      style={{
+                        background: "hsl(220 35% 18% / 0.06)",
+                        border: "1px dashed hsl(220 35% 18% / 0.35)",
+                        color: "hsl(220 35% 18%)",
+                      }}
+                    >
+                      {renderMath(STRUCTURE_MARKUP[c], `pc-${aiEditLineIndex}-${c}`)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {r.fillers.length === 0 && r.containers.length === 0 && (
+                <p className="text-xs text-foreground/55">No floating numbers detected for this line.</p>
+              )}
+            </div>
+          );
+        }}
       />
     </div>
   );
