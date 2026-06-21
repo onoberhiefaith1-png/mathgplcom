@@ -552,6 +552,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
               "span",
               {
                 key: `${keyBase}-rn-${k++}`,
+                "data-math-kind": "radical",
+                "data-math-src": `\\sqrt[${idxStr}]{${a.inner}}`,
                 style: { display: "inline-flex", alignItems: "baseline", verticalAlign: "baseline", margin: "0 2px", lineHeight: 1 },
               },
               createElement("sup", {
@@ -581,6 +583,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             "span",
             {
               key: `${keyBase}-r-${k++}`,
+                "data-math-kind": "radical",
+                "data-math-src": `\\sqrt{${a.inner}}`,
               style: { display: "inline-flex", alignItems: "baseline", verticalAlign: "baseline", margin: "0 2px", lineHeight: 1 },
             },
             createElement("span", { key: "s", style: { fontSize: "1.35em", lineHeight: 1, marginRight: "1px" } }, "√"),
@@ -750,6 +754,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             "sup",
             {
               key: `${keyBase}-s-${k++}`,
+              "data-math-kind": "superscript",
+              "data-math-src": `^{${a.inner}}`,
               style: { fontSize: "0.7em", position: "relative", top: "-0.55em", lineHeight: 1, verticalAlign: "baseline" },
             },
             renderInner(a.inner, `${keyBase}-sb${k}`, ctx),
