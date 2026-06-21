@@ -1078,7 +1078,7 @@ ${instruction ? `TEACHER INSTRUCTION:\n${instruction}\n` : ""}Return JSON only.`
             const betterV = (v2.failures?.length ?? 0) < (v.failures?.length ?? Infinity);
             const betterC = c2.ok && !comp.ok;
             if (v2.ok || betterV || betterC) {
-              det = { fillers, containers };
+              det = { fillers, containers: containers as typeof det.containers };
               v = v2;
               comp = c2;
               if (v2.ok && c2.ok) break;
