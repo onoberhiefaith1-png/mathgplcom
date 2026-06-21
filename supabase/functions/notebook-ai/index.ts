@@ -1019,12 +1019,79 @@ Return the rewritten equation line only.`;
       }
 
       const equation = hardStripMath(targetEquation.replace(/\$+/g, "").trim()) || sourceEquation;
-      const det = deterministicExtractLine(equation);
-      const v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
+      let det = deterministicExtractLine(equation);
+      let v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
+      let comp = verifyCompleteness(sourceEquation, det.fillers.join(" "));
+
+      // AI repair loop — if the deterministic extractor or the completeness
+      // check fails, ask the AI to produce a corrected fillers/containers
+      // JSON using the failure list as feedback. This makes the "Regenerate"
+      // button actually do work: each click re-runs and self-corrects.
+      const needsRepair = !v.ok || !comp.ok || !!instruction;
+      if (needsRepair) {
+        const failureSummary = [
+          ...(v.ok ? [] : v.failures.map((f) => `- ${f.code}${f.chip ? ` at chip "${f.chip}"` : ""}${f.detail ? `: ${f.detail}` : ""}`)),
+          ...(comp.ok ? [] : [`- Completeness gap: ${summariseMissing(comp)}`]),
+        ].join("\n");
+
+        const sys = `You produce floating-number chips for ONE equation line.
+Output STRICT JSON only: {"fillers": string[], "containers": string[]}.
+RULES:
+- "fillers" are complete, atomic math terms shown to students. Never split
+  a single term across chips. Never include a chip that hides a + or − or
+  ÷ or × inside (e.g. "2x^2+5x-1" is INVALID — split into "2x^2", "+5x",
+  "-1"). Use "=" or "±" as standalone splitter chips when present.
+- For an integral like \\int f(x) dx, emit chips that cover EVERY term
+  inside the integrand (numerator AND denominator if a fraction) plus the
+  \\int symbol and the dx, never one giant chip.
+- "containers" are allowed shell kinds only: ["frac","sqrt","power","sub","abs","paren"].
+- No prose, no fences, JSON only.`;
+
+        const repairUser = `EQUATION:
+${equation}
+
+PREVIOUS ATTEMPT FAILURES (fix these):
+${failureSummary || "(none — improve coverage and split hidden signs)"}
+
+PREVIOUS FILLERS: ${JSON.stringify(det.fillers)}
+PREVIOUS CONTAINERS: ${JSON.stringify(det.containers)}
+
+${instruction ? `TEACHER INSTRUCTION:\n${instruction}\n` : ""}Return JSON only.`;
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const rich = await callAIRich(
+              [
+                { role: "system", content: sys },
+                { role: "user", content: repairUser },
+              ],
+              { maxTokens: 1024 },
+            );
+            const raw = stripFences(rich.content).replace(/^```json\s*|\s*```$/g, "").trim();
+            const parsed = JSON.parse(raw) as { fillers?: unknown; containers?: unknown };
+            const fillers = Array.isArray(parsed.fillers) ? parsed.fillers.map((x) => String(x)).filter(Boolean) : [];
+            const containers = Array.isArray(parsed.containers) ? parsed.containers.map((x) => String(x)) : [];
+            if (!fillers.length) continue;
+            const v2 = verifyFloatingLine({ fillers, containers });
+            const c2 = verifyCompleteness(sourceEquation, fillers.join(" "));
+            // Accept if strictly better than current best.
+            const betterV = (v2.failures?.length ?? 0) < (v.failures?.length ?? Infinity);
+            const betterC = c2.ok && !comp.ok;
+            if (v2.ok || betterV || betterC) {
+              det = { fillers, containers: containers as typeof det.containers };
+              v = v2;
+              comp = c2;
+              if (v2.ok && c2.ok) break;
+            }
+          } catch (err) {
+            console.warn("[floating_line_edit] AI repair error", String(err));
+          }
+        }
+      }
+
       if (!v.ok) {
         console.warn("[floating_line_edit] verifier failures:", equation, JSON.stringify(v.failures));
       }
-      const comp = verifyCompleteness(sourceEquation, det.fillers.join(" "));
       if (!comp.ok) {
         console.warn("[floating_line_edit] completeness gap vs source:", sourceEquation, summariseMissing(comp));
       }
@@ -1034,6 +1101,7 @@ Return the rewritten equation line only.`;
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
 
     return new Response(JSON.stringify({ error: "unknown mode" }), {
