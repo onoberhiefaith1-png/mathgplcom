@@ -638,7 +638,7 @@ const peelProseWord = (body: string): { word: string; rest: string } | null => {
 };
 
 // Generic base^exp split: when the exponent hides arithmetic (e.g.
-// u^(-2+1)), emit "base^□" shell chip + the exponent's interior chips.
+// u^(-2+1)), emit "base^{□}" shell chip + the exponent's interior chips.
 const readGenericPower = (src: string): { base: string; exponent: string } | null => {
   const m = src.match(/^([A-Za-z][A-Za-z0-9]*|[0-9]+(?:\.[0-9]+)?)\^(.+)$/);
   if (!m) return null;
