@@ -1,64 +1,66 @@
-## Goal
+## Plan: Smart floating-number audit and repair
 
-Make the Floating Numbers "AI Edit → Generate" button behave like a smart auditor: when a teacher clicks it, they should see a live checklist of what is being verified, what failed, what is being fixed, and the final verdict. Today the backend silently returns the same fillers when nothing improves, so the teacher sees "no change" with no explanation.
+### Goal
+Make **AI Edit** understand that clicking **Regenerate** means: the current floating numbers are wrong, so it must audit the selected equation line, find missing chips one by one, regenerate the complete chip list, then let the teacher apply it.
 
-## What changes
+### What will change
 
-### 1. Backend: `supabase/functions/notebook-ai/index.ts` — `floating_line_edit`
+1. **Replace the weak “all floating numbers present” check**
+   - Instead of checking only whether each side of `=` has *some* token, generate an exact expected-chip checklist from the original equation.
+   - Compare **expected chips vs actual chips one by one**.
+   - If the left side has `3x²`, `+5x`, `+10`, those exact chips must be found before the `=` chip.
+   - If any expected chip is missing, the diagnostic must say exactly what is missing, e.g.:
+     - `Missing before =: 3x², +5x, +10`
+     - `Missing after =: A, x, −1, Bx, +C, x², +4`
 
-Replace the current "extract → maybe repair → return chips" flow with an explicit **diagnostic pipeline** that records each check and its outcome, runs repairs, then re-checks. The response gains a `diagnostics` array.
+2. **Use deterministic extraction as the truth source**
+   - For the selected equation, the backend will compute the expected floating-number chips using the deterministic extractor.
+   - This becomes the audit answer key.
+   - AI output cannot claim “complete” unless it matches that answer key.
 
-Checks run in order on the current `{ equation, fillers, containers }`:
+3. **Add visible per-chip checking in AI Edit**
+   - The Smart Check panel will show rows like:
+     - `Checking left side: 3x² — present`
+     - `Checking left side: +5x — missing`
+     - `Checking equals sign — present`
+     - `Checking right side: A — present`
+   - Missing chips show as failed rows before repair.
+   - After regeneration fixes them, those rows show as fixed.
 
-1. **All terms present** — every term in `sourceEquation` (numbers, identifiers, signs around `=`) appears in `fillers`. Reuses `verifyCompleteness` plus a new "term-before-equals" guard that explicitly checks each side of `=` is non-empty and contains at least one filler.
-2. **No hidden signs in chips** — uses `verifyFloatingLine` `NoHiddenSign`.
-3. **Atomic terms only** — `verifyFloatingLine` `AtomicTerm` / chip-split rules.
-4. **Containers match shells** — `verifyFloatingLine` container-kind law.
-5. **Coverage of integrand / fraction parts** — `verifyFloatingLine` coverage law.
-6. **Five floating-number laws overall** — aggregate pass.
+4. **Regenerate means “repair from the error report”**
+   - When the teacher clicks **Regenerate**, the backend will:
+     1. Build the expected chip checklist.
+     2. Compare current/proposed chips against it.
+     3. Write the missing-chip report.
+     4. Regenerate using that report.
+     5. Re-check the regenerated chips.
+   - If the regenerated version still misses anything, it returns `unresolved` and lists what is still wrong.
 
-For each check the backend pushes:
-```
-{ id, label, status: "pass"|"fail"|"fixed", detail }
-```
+5. **Apply only after a correct repair**
+   - If status is `clean` or `fixed`, **Apply Changes** replaces the wrong row on the floating-number page.
+   - If status is `unresolved`, keep the teacher on AI Edit so they can click **Regenerate** again or add text/voice instruction.
 
-Flow:
-- Run all checks → if all pass, return `status:"clean"` with diagnostics (all `pass`) and unchanged chips.
-- If any fail, run the existing AI repair loop (up to 2 attempts) using the failure list as feedback. After each attempt, re-run the same checks. If a previously-failing check now passes, mark it `fixed`.
-- Always return: `{ equation, fillers, containers, diagnostics, status: "clean"|"fixed"|"unresolved" }`.
+6. **Keep teacher controls**
+   - Keep text instruction, voice input, and file/text concept controls already present in the AI Edit flow.
+   - Empty Regenerate still works as “find the error and fix it.”
 
-When `instruction` is non-empty, run the existing rewrite step first, then the diagnostic pipeline on the rewritten line.
+### Technical details
 
-### 2. Frontend: `src/components/lessonnotes/AiEditPanel.tsx`
+- Update `supabase/functions/notebook-ai/index.ts` in `floating_line_edit`:
+  - Add an expected-chip coverage function based on `deterministicExtractLine(sourceEquation)`.
+  - Compare normalized chips by side, preserving `=` boundaries.
+  - Return structured diagnostics for each expected chip plus law checks.
+  - Feed missing-chip details into the repair prompt.
+  - Final status is only `clean`/`fixed` when expected coverage and floating-number laws both pass.
 
-While generation is running and after it returns, render the diagnostics as a **live checklist** in the preview area (above the chip preview). Each row:
+- Update `src/components/lessonnotes/AiEditPanel.tsx`:
+  - Render per-chip diagnostic rows clearly.
+  - Disable or guard Apply when diagnostics are unresolved.
+  - Keep Regenerate available in preview mode.
 
-```
-✓  All floating numbers present
-✓  No hidden signs inside chips
-⟳  Checking atomic terms…
-✗  Term before "=" missing  →  fixing…
-✓  Fixed: term before "=" now present
-```
+- Update `src/pages/FloatingNumbersPage.tsx`:
+  - Pass the current line’s existing fillers/containers to the backend so AI Edit can audit what is currently wrong, not just the equation text.
+  - Store returned diagnostics/status and apply only returned fixed fillers/containers.
 
-Icons: `⟳` running, `✓` pass, `✗` fail, `✦` fixed. Footer line:
-- `status:"clean"` → "All checks passed — floating numbers are correct."
-- `status:"fixed"` → "Errors found and fixed. Review the chips below."
-- `status:"unresolved"` → "Could not fix automatically. Please add an instruction and regenerate."
-
-The list streams in by revealing rows one at a time on a short interval (cosmetic; data is already in the response) so the teacher visibly sees "check, check, check".
-
-### 3. Frontend: `src/pages/FloatingNumbersPage.tsx`
-
-- Pass through diagnostics into `AiEditPanel` via the existing `renderProposed` (or a new `diagnostics` prop on the panel).
-- Apply button stays disabled while `status:"unresolved"` unless the teacher confirms.
-
-## Out of scope
-
-- The five floating-number laws themselves, deterministic extractor internals, lesson-note AI Edit flow, equation structure, integrity/inheritance/QUESTION_LOCK rules, DB schema, RLS.
-
-## Files touched
-
-- `supabase/functions/notebook-ai/index.ts` — diagnostic pipeline + response shape.
-- `src/components/lessonnotes/AiEditPanel.tsx` — checklist UI with streaming reveal.
-- `src/pages/FloatingNumbersPage.tsx` — wire diagnostics into the panel.
+### Expected result
+When the first floating numbers before `=` are missing, AI Edit will no longer say “all floating numbers present.” It will list the missing chips, regenerate them, re-check them, and only then allow the teacher to apply the corrected floating numbers.
