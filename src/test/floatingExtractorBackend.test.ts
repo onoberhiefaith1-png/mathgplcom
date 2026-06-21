@@ -78,6 +78,15 @@ describe("backend floating extractor — worked examples", () => {
     expect(out.containers).toContain("power");
     expect(out.containers).toContain("bracket");
   });
+
+  it("splits coefficient times integral terms so denominator signs do not loop recovery", () => {
+    const out = expectValid("\\frac{1}{2} \\int \\frac{1}{x} dx + 2 \\int \\frac{1}{x - 1} dx - \\frac{1}{2} \\int \\frac{1}{x + 2} dx");
+    expect(out.fillers).toContain("∫()dx");
+    expect(out.fillers).toContain("−1");
+    expect(out.fillers).toContain("+2");
+    expect(out.containers).toContain("integral");
+    expect(out.containers).toContain("fraction");
+  });
 });
 
 describe("backend floating extractor — user's screenshot equation", () => {

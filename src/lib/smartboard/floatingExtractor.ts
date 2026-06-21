@@ -335,6 +335,52 @@ const hasHiddenArithmetic = (src: string): boolean => {
 // (e.g. 2xy whole / 2xyz split) are handled elsewhere and are not affected.
 const FACTOR_POWER_RE = /[²³⁴⁵⁶⁷⁸⁹⁰¹]|\^|_/;
 
+const readLatexFractionAt = (src: string, start: number): { numerator: string; denominator: string; end: number } | null => {
+  const cmd = src.slice(start).match(/^\\(?:d|t)?frac/);
+  if (!cmd) return null;
+  let p = start + cmd[0].length;
+  const numerator = src[p] === "{" ? readGrouped(src, p) : null;
+  if (!numerator || numerator.open !== "{") return null;
+  p = numerator.end;
+  const denominator = src[p] === "{" ? readGrouped(src, p) : null;
+  if (!denominator || denominator.open !== "{") return null;
+  return { numerator: numerator.inner, denominator: denominator.inner, end: denominator.end };
+};
+
+const readSqrtTokenAt = (src: string, start: number): number | null => {
+  if (!src.startsWith("\\sqrt", start)) return null;
+  let p = start + 5;
+  if (src[p] === "[") {
+    const idx = readGrouped(src, p);
+    if (!idx || idx.open !== "[") return null;
+    p = idx.end;
+  }
+  const body = src[p] === "{" ? readGrouped(src, p) : null;
+  return body && body.open === "{" ? body.end : null;
+};
+
+const readIntegralTokenAt = (src: string, start: number): number | null => {
+  const prefix = src.startsWith("\\int", start) ? "\\int" : src[start] === "∫" ? "∫" : "";
+  if (!prefix) return null;
+  let depth = 0;
+  let end = -1;
+  for (let i = start + prefix.length; i < src.length; i++) {
+    const c = src[i];
+    if (c === "\\") {
+      const cmd = readCommandName(src, i);
+      if (cmd) { i = cmd.end - 1; continue; }
+    }
+    if (c === "(" || c === "[" || c === "{") { depth++; continue; }
+    if (c === ")" || c === "]" || c === "}") { depth = Math.max(0, depth - 1); continue; }
+    if (depth === 0 && c === "d" && /[a-zA-Z]/.test(src[i + 1] ?? "")) end = i + 2;
+  }
+  return end > 0 ? end : src.length;
+};
+
+const isStructuralFactor = (src: string): boolean =>
+  !!readLatexFractionAt(src, 0) ||
+  /^\\int|^∫|^\\sqrt|^√|^\([^)]*\)|^\[[^\]]*\]/.test(src);
+
 const tokenizeImplicitFactors = (s: string): string[] => {
   if (!s) return [];
   const tokens: string[] = [];
@@ -355,6 +401,24 @@ const tokenizeImplicitFactors = (s: string): string[] => {
   };
   while (i < s.length) {
     const start = i;
+    const frac = readLatexFractionAt(s, i);
+    if (frac) {
+      tokens.push(s.slice(start, frac.end));
+      i = frac.end;
+      continue;
+    }
+    const integralEnd = readIntegralTokenAt(s, i);
+    if (integralEnd != null) {
+      tokens.push(s.slice(start, integralEnd));
+      i = integralEnd;
+      continue;
+    }
+    const sqrtEnd = readSqrtTokenAt(s, i);
+    if (sqrtEnd != null) {
+      tokens.push(s.slice(start, sqrtEnd));
+      i = sqrtEnd;
+      continue;
+    }
     // bracketed group (with optional ^ tail)
     if (s[i] === "(" || s[i] === "[" || s[i] === "{") {
       const g = readGrouped(s, i);
@@ -408,7 +472,8 @@ const tokenizeImplicitFactors = (s: string): string[] => {
   if (tokens.length >= 2 && /^[0-9]+(\.[0-9]+)?$/.test(tokens[0])) {
     const next = tokens[1];
     const nextOpensSign = /^[(\[{]/.test(next) && hasHiddenArithmetic(next);
-    if (!nextOpensSign) {
+    const nextIsStructural = isStructuralFactor(next);
+    if (!nextOpensSign && !nextIsStructural) {
       tokens[0] = tokens[0] + tokens[1];
       tokens.splice(1, 1);
     }
@@ -418,8 +483,9 @@ const tokenizeImplicitFactors = (s: string): string[] => {
 
 const needsFactorSplit = (s: string): boolean => {
   if (!s) return false;
-  if (!FACTOR_POWER_RE.test(s) && !hasHiddenArithmetic(s)) return false;
   const toks = tokenizeImplicitFactors(s);
+  if (toks.some(isStructuralFactor)) return toks.length > 1;
+  if (!FACTOR_POWER_RE.test(s) && !hasHiddenArithmetic(s)) return false;
   return toks.length > 1;
 };
 
