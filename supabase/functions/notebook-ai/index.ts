@@ -1077,23 +1077,34 @@ No markdown, no prose, just the JSON array.`;
       const auditCurrent = auditExpectedCoverage(expected.fillers, currentFillers);
 
       // Optional: AI equation rewrite when teacher gave an instruction.
+      // Runs up to 3 attempts, each time feeding back which chips/laws
+      // failed so the model can self-correct ("sort it out himself").
       let targetEquation = sourceEquation;
-      if (instruction) {
+      let lastFailureBrief = "";
+      const MAX_ATTEMPTS = instruction ? 3 : 0;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         const sys = `${VALIDATION_DIRECTIVE}
 
 You rewrite a SINGLE mathematics equation line per a teacher instruction.
 
+GOAL: produce an equation whose chips pass these laws:
+  1. Equals sign "=" appears as its own chip (LHS and RHS must both be present).
+  2. No chip hides "+" or "−" inside it (split sums into separate terms).
+  3. No chip is a raw operator or empty bracket.
+  4. Integrals / sums with multiple terms MUST be split: write
+       ∫(a)dx + ∫(b)dx     not     ∫(a + b)dx
+     Same for ∑.
+  5. Fractions over a common denominator that contain a "+" or "−" in the
+     numerator MUST be split into separate fractions before chip extraction.
+
 RULES:
 - Output ONLY the rewritten equation as a single line. No prose, no
   commentary, no fences, no "Equation:" prefix.
-- Preserve every variable, number, and structural element from the
-  source unless the instruction explicitly asks otherwise.
+- Preserve every variable, number, sign, and exponent from the source
+  unless the instruction explicitly asks otherwise. Never drop the LHS.
 - Use Unicode classroom math (² ³ √ × ÷ ± ≤ ≥ π θ …). Keep stacked
   fractions as \\frac{a}{b} so the renderer stacks them.
-- If the instruction is unclear or impossible, return the source line
-  UNCHANGED.
-
-Return only the equation line — nothing else.`;
+- Return only the equation line — nothing else.`;
         const user = `PROBLEM CONTEXT (for understanding only):
 ${(b.problem || "").trim()}
 
@@ -1102,6 +1113,16 @@ ${sourceEquation}
 
 TEACHER INSTRUCTION:
 ${instruction}
+${attempt > 1 ? `
+PREVIOUS ATTEMPT FAILED — fix these issues now:
+${lastFailureBrief}
+
+Your previous output was:
+${targetEquation}
+
+Try again. Apply the instruction MORE AGGRESSIVELY: actually split the
+integral/sum/fraction so no chip hides a "+" or "−". Do not return the
+source unchanged.` : ""}
 
 Return the rewritten equation line only.`;
         try {
@@ -1113,11 +1134,28 @@ Return the rewritten equation line only.`;
             { maxTokens: 1024 },
           );
           const txt = stripFences(rich.content)
-            .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] ?? "";
+            .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+            .filter((l) => !/^(equation|answer|result)\s*:/i.test(l))[0] ?? "";
           if (txt) targetEquation = txt;
         } catch (err) {
-          console.warn("[floating_line_edit] AI gateway error", String(err));
+          console.warn(`[floating_line_edit] AI gateway error (attempt ${attempt})`, String(err));
+          break;
         }
+
+        // Verify this attempt — if clean, stop retrying.
+        const tryExp = buildExpected(targetEquation);
+        const tryAudit = auditExpectedCoverage(tryExp.fillers, tryExp.fillers);
+        const tryVerify = verifyFloatingLine({ fillers: tryExp.fillers, containers: tryExp.containers as unknown as string[] });
+        if (tryVerify.ok && tryAudit.missing.length === 0) break;
+
+        // Build a concise failure brief for the next attempt.
+        const parts: string[] = [];
+        const hidden = tryVerify.failures.filter((f) => f.code === "NoHiddenSign").map((f) => f.chip).filter(Boolean);
+        if (hidden.length) parts.push(`Chips still hide + or − inside: ${hidden.join(", ")}`);
+        const rawOps = tryVerify.failures.filter((f) => ["NoRawOperatorChip", "NoRawBracketChip", "EmptyChip"].includes(f.code));
+        if (rawOps.length) parts.push(`Raw operator/empty chips: ${rawOps.map((f) => f.chip || f.detail).join(", ")}`);
+        if (tryAudit.missing.length) parts.push(`Missing terms: ${tryAudit.missing.join("; ")}`);
+        lastFailureBrief = parts.join("\n") || "Chips still violate the five floating-number laws.";
       }
 
       // STAGE B — regenerate the chips deterministically from the (possibly
