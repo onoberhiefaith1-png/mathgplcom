@@ -132,6 +132,13 @@ const FloatingNumbersPage = () => {
       containers?: ContainerKind[];
       diagnostics?: { id: string; label: string; status: "pass"|"fail"|"fixed"; detail?: string }[];
       status?: "clean" | "fixed" | "unresolved";
+      recovery?: {
+        reason: "structure_not_decomposed" | "law_violation" | "missing_terms" | "unknown";
+        summary: string;
+        hints: string[];
+        suggestedInstructions: string[];
+        canRevert: boolean;
+      };
     } | null;
     if (!d || !Array.isArray(d.fillers)) throw new Error("AI returned no line");
     aiEditResultRef.current = {
@@ -141,7 +148,7 @@ const FloatingNumbersPage = () => {
       status: d.status,
     };
     aiEditDiagRef.current = d.diagnostics && d.status
-      ? { status: d.status, items: d.diagnostics }
+      ? { status: d.status, items: d.diagnostics, recovery: d.recovery }
       : null;
     return String(d.equation ?? target.text);
   }, [info, aiEditLineIndex, lines]);
@@ -155,6 +162,13 @@ const FloatingNumbersPage = () => {
   const aiEditDiagRef = useRef<{
     status: "clean" | "fixed" | "unresolved";
     items: { id: string; label: string; status: "pass"|"fail"|"fixed"; detail?: string }[];
+    recovery?: {
+      reason: "structure_not_decomposed" | "law_violation" | "missing_terms" | "unknown";
+      summary: string;
+      hints: string[];
+      suggestedInstructions: string[];
+      canRevert: boolean;
+    };
   } | null>(null);
 
   const applyAiEdit = useCallback((_proposed: string) => {
