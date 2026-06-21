@@ -79,6 +79,13 @@ describe("backend floating extractor — worked examples", () => {
     expect(out.containers).toContain("bracket");
   });
 
+  it("u^(-2+1) keeps the empty exponent box as a true superscript shell", () => {
+    const out = expectValid("u^(-2+1)");
+    expect(out.fillers).toEqual(["u^{□}", "−2", "+1"]);
+    expect(out.fillers[0]).not.toBe("u□");
+    expect(out.containers).toContain("power");
+  });
+
   it("splits coefficient times integral terms so denominator signs do not loop recovery", () => {
     const out = expectValid("\\frac{1}{2} \\int \\frac{1}{x} dx + 2 \\int \\frac{1}{x - 1} dx - \\frac{1}{2} \\int \\frac{1}{x + 2} dx");
     expect(out.fillers).toContain("∫()dx");
