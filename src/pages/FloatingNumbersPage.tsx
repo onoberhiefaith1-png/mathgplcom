@@ -687,6 +687,7 @@ const FloatingNumbersPage = () => {
         simpleMode
         simpleCaption="Click Generate and AI will regenerate the floating numbers for this line. The equation will not change."
         generateLabel="Generate Floating Numbers"
+        getDiagnostics={() => aiEditDiagRef.current}
         renderProposed={() => {
           const r = aiEditResultRef.current;
           if (!r) return null;
