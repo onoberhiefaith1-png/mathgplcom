@@ -51,6 +51,7 @@ interface Props {
 
 export function AiEditPanel({
   open, target, onGenerate, onApply, onClose, renderPreview,
+  simpleMode = false, simpleCaption, generateLabel, renderProposed,
 }: Props) {
   const [instruction, setInstruction] = useState("");
   const [busy, setBusy] = useState(false);
