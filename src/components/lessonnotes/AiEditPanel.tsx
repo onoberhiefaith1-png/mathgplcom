@@ -57,9 +57,17 @@ interface Props {
 
 export type AiEditDiagStatus = "pass" | "fail" | "fixed";
 export interface AiEditDiagItem { id: string; label: string; status: AiEditDiagStatus; detail?: string }
+export interface AiEditRecovery {
+  reason: "structure_not_decomposed" | "law_violation" | "missing_terms" | "unknown";
+  summary: string;
+  hints: string[];
+  suggestedInstructions: string[];
+  canRevert: boolean;
+}
 export interface AiEditDiagnostics {
   status: "clean" | "fixed" | "unresolved";
   items: AiEditDiagItem[];
+  recovery?: AiEditRecovery;
 }
 
 export function AiEditPanel({
