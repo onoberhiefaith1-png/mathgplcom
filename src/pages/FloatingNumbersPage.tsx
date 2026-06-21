@@ -123,18 +123,30 @@ const FloatingNumbersPage = () => {
       },
     });
     if (error) throw error;
-    const d = data as { equation?: string; fillers?: string[]; containers?: ContainerKind[] } | null;
+    const d = data as {
+      equation?: string;
+      fillers?: string[];
+      containers?: ContainerKind[];
+      diagnostics?: { id: string; label: string; status: "pass"|"fail"|"fixed"; detail?: string }[];
+      status?: "clean" | "fixed" | "unresolved";
+    } | null;
     if (!d || !Array.isArray(d.fillers)) throw new Error("AI returned no line");
-    // Cache the structured result so applyAiEdit can install it without re-calling.
     aiEditResultRef.current = {
       equation: String(d.equation ?? target.text),
       fillers: d.fillers.map(String),
       containers: Array.isArray(d.containers) ? d.containers as ContainerKind[] : [],
     };
+    aiEditDiagRef.current = d.diagnostics && d.status
+      ? { status: d.status, items: d.diagnostics }
+      : null;
     return String(d.equation ?? target.text);
   }, [info]);
 
   const aiEditResultRef = useRef<{ equation: string; fillers: string[]; containers: ContainerKind[] } | null>(null);
+  const aiEditDiagRef = useRef<{
+    status: "clean" | "fixed" | "unresolved";
+    items: { id: string; label: string; status: "pass"|"fail"|"fixed"; detail?: string }[];
+  } | null>(null);
 
   const applyAiEdit = useCallback((_proposed: string) => {
     const i = aiEditLineIndex;
