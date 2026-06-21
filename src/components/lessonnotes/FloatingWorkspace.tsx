@@ -364,7 +364,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
               displayLabel={label}
               displayKey={`fc-${line.lineId}-${i}`}
               lineNo={lineNo}
-              selected={!!fillersSelected[originalIdx]}
+              selected={!!fillersSelected[originalIdx] || overlapsPending(originalIdx)}
               onToggleSelected={() => toggleFiller(i)}
               onCommit={(v) => updateFiller(i, v)}
               onRemove={() => removeFiller(i)}
