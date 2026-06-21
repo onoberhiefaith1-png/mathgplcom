@@ -145,6 +145,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
   /* ───────── Manual highlight → Enter ───────── */
   const eqRef = useRef<HTMLDivElement | null>(null);
   const [pendingText, setPendingText] = useState<string>("");
+  const pendingRangeRef = useRef<Range | null>(null);
 
   // Watch for selection changes inside this line's equation, and bind Enter.
   useEffect(() => {
@@ -153,24 +154,23 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
       const sel = window.getSelection();
       if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) {
         setPendingText("");
+        pendingRangeRef.current = null;
         return;
       }
       const range = sel.getRangeAt(0);
       if (!root.contains(range.commonAncestorContainer)) {
         setPendingText("");
+        pendingRangeRef.current = null;
         return;
       }
+      pendingRangeRef.current = range.cloneRange();
       setPendingText(sel.toString().trim());
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Enter") return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      const root = eqRef.current;
-      const sel = window.getSelection();
-      if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) return;
-      const range = sel.getRangeAt(0);
-      if (!root.contains(range.commonAncestorContainer)) return;
+      if (!pendingRangeRef.current && !pendingText) return;
       e.preventDefault();
       commitHighlightAsChip();
     };
@@ -186,44 +186,88 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
   /* ─── Helpers shared by commit + glow ─── */
   const stripSign = (x: string) => x.replace(/^[+\-−]\s*/, "").trim();
 
-  // Try to recover real source markup (e.g. \frac{dy}{dx}) from a plain-text
-  // DOM selection like "dydx". Falls back to plain selection handling.
-  const recoverFraction = (eq: string, plain: string): { src: string; container: ContainerKind; label: string } | null => {
-    if (!plain) return null;
-    const re = /\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g;
-    let m: RegExpExecArray | null;
-    const compact = plain.replace(/\s+/g, "");
-    while ((m = re.exec(eq))) {
-      const num = m[1], den = m[2];
-      const variants = [num + den, num + "/" + den, `${num}${den}`.replace(/\s+/g, "")];
-      if (variants.includes(plain) || variants.map((v) => v.replace(/\s+/g, "")).includes(compact)) {
-        return { src: m[0], container: "fraction", label: "Added stacked fraction" };
+  // Walk the cloned selection DOM to rebuild structured source markup
+  // (\frac{a}{b}, \sqrt{x}) from the rendered KaTeX nodes. Returns the
+  // recovered string plus any container kinds we detected.
+  const recoverSelectionSource = (range: Range): { src: string; containers: ContainerKind[] } => {
+    const frag = range.cloneContents();
+    const wrapper = document.createElement("div");
+    wrapper.appendChild(frag);
+    const containers: ContainerKind[] = [];
+
+    // Fractions: KaTeX puts denominator first, frac-line, then numerator
+    // as direct children of .vlist inside .mfrac.
+    wrapper.querySelectorAll(".mfrac").forEach((mf) => {
+      const rows = Array.from(mf.querySelectorAll(".vlist > span"))
+        .map((s) => (s.textContent || "").trim())
+        .filter((t) => t.length > 0);
+      if (rows.length >= 2) {
+        const denom = rows[0];
+        const num = rows[rows.length - 1];
+        mf.replaceWith(document.createTextNode(`\\frac{${num}}{${denom}}`));
+        if (!containers.includes("fraction")) containers.push("fraction");
       }
-    }
-    return null;
+    });
+
+    // Radicals
+    wrapper.querySelectorAll(".sqrt").forEach((sq) => {
+      const inner = sq.querySelector(".mord");
+      let body = (inner?.textContent || sq.textContent || "").replace(/^√\s*/, "").trim();
+      // Drop any leading index that KaTeX exposes
+      body = body.replace(/^\s+/, "");
+      sq.replaceWith(document.createTextNode(`\\sqrt{${body}}`));
+      if (!containers.includes("radical")) containers.push("radical");
+    });
+
+    const src = (wrapper.textContent || "").trim();
+    if (/\^\{/.test(src) && !containers.includes("power")) containers.push("power");
+    return { src, containers };
   };
 
-  const computePayload = (text: string): { cleaned: string; container?: ContainerKind; label: string } | null => {
-    if (!text) return null;
-    const eq = line.equation ?? "";
-    const frac = recoverFraction(eq, text);
-    if (frac) {
-      const cleaned = toUnicodeMath(frac.src);
-      if (cleaned && !isStillDirty(cleaned)) {
-        return { cleaned, container: frac.container, label: frac.label };
+  const buildChip = (text: string, range: Range | null): { cleaned: string; containers: ContainerKind[]; label: string } | null => {
+    const raw = (text || "").trim();
+    if (!raw && !range) return null;
+
+    let src = raw;
+    let containers: ContainerKind[] = [];
+    let label = "Added as floating chip";
+
+    if (range) {
+      const rec = recoverSelectionSource(range);
+      if (rec.src) {
+        src = rec.src;
+        containers = rec.containers;
+        if (containers.length) label = `Added with ${containers[0]}`;
       }
     }
-    const idx = eq.indexOf(text);
-    const before = idx >= 0 ? eq.slice(0, idx) : "";
-    const after  = idx >= 0 ? eq.slice(idx + text.length) : "";
-    const result = promoteSelection(text, before, after);
-    const cleaned = toUnicodeMath(result.payload);
-    if (!cleaned || isStillDirty(cleaned)) return null;
-    return { cleaned, container: result.container as ContainerKind | undefined, label: result.label };
+
+    // If no DOM-derived structure, run the heuristic promoter against the
+    // raw text + surrounding source equation (handles 2^{□}, sin(□)…).
+    if (containers.length === 0 && raw) {
+      const eq = line.equation ?? "";
+      const idx = eq.indexOf(raw);
+      const before = idx >= 0 ? eq.slice(0, idx) : "";
+      const after = idx >= 0 ? eq.slice(idx + raw.length) : "";
+      const result = promoteSelection(raw, before, after);
+      if (result.payload) src = result.payload;
+      if (result.container) containers = [result.container as ContainerKind];
+      if (result.label) label = result.label;
+    }
+
+    // Trust the highlight: if the normalised form is still "dirty", fall
+    // back to the literal text the teacher selected. Enter never refuses.
+    let cleaned = toUnicodeMath(src) || src || raw;
+    if (!cleaned || isStillDirty(cleaned)) {
+      cleaned = raw || cleaned;
+    }
+    if (!cleaned) return null;
+    return { cleaned, containers, label };
   };
 
   // For glow: existing fillers that overlap the pending selection.
-  const pendingPayload = pendingText ? computePayload(pendingText) : null;
+  const pendingPayload = pendingText || pendingRangeRef.current
+    ? buildChip(pendingText, pendingRangeRef.current)
+    : null;
   const pendingCleaned = pendingPayload?.cleaned ?? "";
   const overlapsPending = (originalIdx: number): boolean => {
     if (!pendingCleaned) return false;
@@ -236,22 +280,17 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
   };
 
   const commitHighlightAsChip = () => {
-    const text = pendingText.trim();
-    if (!text) return;
-    const payload = computePayload(text);
-    if (!payload) {
-      toast({ title: "Could not add chip", description: "Selection produced invalid math.", variant: "destructive" });
-      return;
-    }
-    const { cleaned, container, label } = payload;
+    const payload = buildChip(pendingText, pendingRangeRef.current);
+    if (!payload) return;
+    const { cleaned, containers: newContainers, label } = payload;
 
     // OVERRIDE: drop any existing filler that is sub/superstring of the new
-    // chip. Collapses scattered AI chips into the teacher's grouped chip, or
-    // splits an over-grouped AI chip down to exactly what was highlighted.
+    // chip. Collapses scattered AI chips into the teacher's grouped chip,
+    // or splits an over-grouped AI chip down to exactly what was highlighted.
     const a = stripSign(cleaned);
     const removeIdx = new Set<number>();
     line.fillers.forEach((f, i) => {
-      const b = stripSign(toUnicodeMath(f) || "");
+      const b = stripSign(toUnicodeMath(f) || f || "");
       if (a && b && (a === b || a.includes(b) || b.includes(a))) removeIdx.add(i);
     });
     const keptFillers = line.fillers.filter((_, i) => !removeIdx.has(i));
@@ -259,12 +298,15 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
 
     const nextFillers = [...keptFillers, cleaned];
     const nextFillersSel = [...keptSel, false];
-    const containers = container && !line.containers.includes(container)
-      ? [...line.containers, container as ContainerKind]
-      : line.containers;
-    const containersSel = container && !line.containers.includes(container)
-      ? [...padSel(line.containersSelected, line.containers.length), false]
-      : padSel(line.containersSelected, line.containers.length);
+
+    let containers = line.containers;
+    let containersSel = padSel(line.containersSelected, line.containers.length);
+    newContainers.forEach((c) => {
+      if (!containers.includes(c)) {
+        containers = [...containers, c];
+        containersSel = [...containersSel, false];
+      }
+    });
 
     onChange({
       ...line,
@@ -276,6 +318,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     });
     window.getSelection()?.removeAllRanges();
     setPendingText("");
+    pendingRangeRef.current = null;
     const removed = removeIdx.size;
     toast({
       title: label,
