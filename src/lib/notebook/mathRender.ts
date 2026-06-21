@@ -154,11 +154,13 @@ interface RenderCtx {
 
 /* ------------------------- structural primitives ------------------------- */
 
-function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string, withBar = true): ReactNode {
+function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string, withBar = true, source?: string): ReactNode {
   return createElement(
     "span",
     {
       key,
+      "data-math-kind": source ? "fraction" : undefined,
+      "data-math-src": source,
       style: {
         display: "inline-flex",
         flexDirection: "column",
@@ -170,9 +172,10 @@ function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string,
         transform: "translateY(-0.55em)",
       } as CSSProperties,
     },
-    createElement("span", { key: "n", style: { padding: "0 3px 2px", whiteSpace: "nowrap" } }, numerator),
+    createElement("span", { key: "n", "data-math-role": source ? "numerator" : undefined, style: { padding: "0 3px 2px", whiteSpace: "nowrap" } }, numerator),
     createElement("span", {
       key: "b",
+      "data-math-role": source ? "bar" : undefined,
       style: {
         display: "block",
         width: "100%",
@@ -180,7 +183,7 @@ function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string,
         borderTop: withBar ? "1.4px solid currentColor" : "none",
       },
     }),
-    createElement("span", { key: "d", style: { padding: "2px 3px 0", whiteSpace: "nowrap" } }, denominator),
+    createElement("span", { key: "d", "data-math-role": source ? "denominator" : undefined, style: { padding: "2px 3px 0", whiteSpace: "nowrap" } }, denominator),
   );
 }
 
@@ -485,6 +488,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             renderInner(a.inner, `${keyBase}-n${k}`, ctx),
             renderInner(b.inner, `${keyBase}-d${k}`, ctx),
             `${keyBase}-f-${k++}`,
+            true,
+            `\\frac{${a.inner}}{${b.inner}}`,
           ),
         );
         i = b.end;
