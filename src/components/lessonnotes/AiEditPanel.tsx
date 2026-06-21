@@ -47,16 +47,31 @@ interface Props {
   generateLabel?: string;
   /** Optional custom renderer for the proposed result (e.g. chips). */
   renderProposed?: (proposed: string) => React.ReactNode;
+  /**
+   * Optional diagnostic checklist (e.g. from floating-number AI Edit).
+   * The panel reads it via a getter so the parent can refresh it after
+   * each generation without re-creating the prop identity.
+   */
+  getDiagnostics?: () => AiEditDiagnostics | null;
+}
+
+export type AiEditDiagStatus = "pass" | "fail" | "fixed";
+export interface AiEditDiagItem { id: string; label: string; status: AiEditDiagStatus; detail?: string }
+export interface AiEditDiagnostics {
+  status: "clean" | "fixed" | "unresolved";
+  items: AiEditDiagItem[];
 }
 
 export function AiEditPanel({
   open, target, onGenerate, onApply, onClose, renderPreview,
-  simpleMode = false, simpleCaption, generateLabel, renderProposed,
+  simpleMode = false, simpleCaption, generateLabel, renderProposed, getDiagnostics,
 }: Props) {
   const [instruction, setInstruction] = useState("");
   const [busy, setBusy] = useState(false);
   const [proposed, setProposed] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [diag, setDiag] = useState<AiEditDiagnostics | null>(null);
+  const [revealedCount, setRevealedCount] = useState(0);
   const voice = useVoiceInput(setInstruction as any);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -66,6 +81,8 @@ export function AiEditPanel({
     setInstruction("");
     setProposed(null);
     setShowSuggestions(false);
+    setDiag(null);
+    setRevealedCount(0);
     // Autofocus the input.
     setTimeout(() => inputRef.current?.focus(), 50);
   }, [open, target?.text]);
@@ -75,12 +92,26 @@ export function AiEditPanel({
     [target],
   );
 
+  // Reveal diagnostic rows one at a time for a "check, check, check" feel.
+  useEffect(() => {
+    if (!diag) return;
+    if (revealedCount >= diag.items.length) return;
+    const t = window.setTimeout(() => setRevealedCount((c) => c + 1), 280);
+    return () => window.clearTimeout(t);
+  }, [diag, revealedCount]);
+
   const runWith = async (text: string) => {
     if (!target) return;
     setBusy(true);
+    setDiag(null);
+    setRevealedCount(0);
     try {
       const result = await onGenerate(text, target);
       setProposed(result);
+      const d = getDiagnostics?.() ?? null;
+      setDiag(d);
+      // Start reveal immediately with first row visible.
+      if (d && d.items.length > 0) setRevealedCount(1);
     } finally {
       setBusy(false);
     }
@@ -221,6 +252,51 @@ export function AiEditPanel({
           </div>
         ) : (
           <div className="flex-1 overflow-auto p-4 space-y-3">
+            {diag && diag.items.length > 0 && (
+              <div className="rounded-md border border-foreground/15 p-3 space-y-1.5 bg-foreground/[0.02]">
+                <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">
+                  Smart check
+                </p>
+                {diag.items.slice(0, revealedCount).map((it) => {
+                  const icon =
+                    it.status === "pass" ? "✓" :
+                    it.status === "fixed" ? "✦" : "✗";
+                  const color =
+                    it.status === "pass" ? "text-emerald-600" :
+                    it.status === "fixed" ? "text-blue-600" : "text-red-600";
+                  return (
+                    <div key={it.id} className="flex items-start gap-2 text-xs">
+                      <span className={cn("font-bold tabular-nums w-3", color)}>{icon}</span>
+                      <div className="flex-1">
+                        <span className={it.status === "fail" ? "text-foreground" : "text-foreground/80"}>
+                          {it.status === "fixed" ? `Fixed: ${it.label}` : it.label}
+                        </span>
+                        {it.detail && it.status === "fail" && (
+                          <span className="block text-[10px] text-foreground/55">{it.detail}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {revealedCount < diag.items.length && (
+                  <div className="flex items-center gap-2 text-xs text-foreground/55">
+                    <Loader2 className="h-3 w-3 animate-spin" /> checking…
+                  </div>
+                )}
+                {revealedCount >= diag.items.length && (
+                  <p className={cn(
+                    "text-[11px] pt-1 mt-1 border-t border-foreground/10",
+                    diag.status === "clean" && "text-emerald-700",
+                    diag.status === "fixed" && "text-blue-700",
+                    diag.status === "unresolved" && "text-red-700",
+                  )}>
+                    {diag.status === "clean" && "All checks passed — floating numbers are correct."}
+                    {diag.status === "fixed" && "Errors found and fixed. Review the chips below."}
+                    {diag.status === "unresolved" && "Could not fix automatically. Add an instruction and regenerate."}
+                  </p>
+                )}
+              </div>
+            )}
             <p className="text-[10px] uppercase tracking-wider text-foreground/55">Preview changes</p>
             <div className="grid grid-cols-1 gap-3">
               <div className="rounded-md border border-foreground/15 p-2">

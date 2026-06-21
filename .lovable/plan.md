@@ -1,38 +1,64 @@
 ## Goal
 
-On the Floating Numbers page, "AI Edit" should be a **one-click regeneration of floating numbers for a single line** — no typing, no instructions. Click AI Edit → click Generate → preview chips → click Apply → only that line's fillers/containers/arrangement update. The equation itself never changes.
+Make the Floating Numbers "AI Edit → Generate" button behave like a smart auditor: when a teacher clicks it, they should see a live checklist of what is being verified, what failed, what is being fixed, and the final verdict. Today the backend silently returns the same fillers when nothing improves, so the teacher sees "no change" with no explanation.
 
-## Changes
+## What changes
 
-### 1. `AiEditPanel` — add a "simple" mode
-- New prop: `simpleMode?: boolean` and `generateLabel?: string`.
-- When `simpleMode` is true:
-  - Hide the instruction textarea, voice button, and suggestion chips.
-  - Show a short caption: "AI will regenerate the floating numbers for this line."
-  - Primary button reads "Generate Floating Numbers" and calls `onGenerate("", target)` directly — no instruction text required.
-  - In the preview stage, add a "Regenerate" button so the teacher can re-roll without leaving the panel.
-- Lesson-note callers are untouched (default `simpleMode={false}`).
+### 1. Backend: `supabase/functions/notebook-ai/index.ts` — `floating_line_edit`
 
-### 2. `FloatingNumbersPage` — wire simple mode + protect the equation
-- Pass `simpleMode` and a custom preview renderer that shows **chips** (fillers + containers), not the equation, so the teacher sees exactly what will be applied.
-- `runAiEditForLine`: keep the existing `floating_line_edit` call but always send `instruction: ""` from this entry point. Cache `{ fillers, containers }` only.
-- `applyAiEdit`: replace **only** `fillers`, `containers`, `arrangement`, and selection arrays for that line. Do NOT overwrite `equation` — the structure stays exactly as the lesson note produced it.
+Replace the current "extract → maybe repair → return chips" flow with an explicit **diagnostic pipeline** that records each check and its outcome, runs repairs, then re-checks. The response gains a `diagnostics` array.
 
-### 3. Backend `floating_line_edit` — empty-instruction path
-- When `instruction` is empty/whitespace:
-  - Skip the AI rewrite step.
-  - Run the deterministic floating extractor + verifier directly on the existing equation, producing fresh `{ fillers, containers }`.
-  - Return `{ equation: <unchanged>, fillers, containers }`.
-- When `instruction` is non-empty, keep current behavior (teacher-directed rewrite).
-- This guarantees a result every time and makes the regenerate button instant.
+Checks run in order on the current `{ equation, fillers, containers }`:
 
-### 4. Preview chips in the panel
-- Small helper that renders the proposed fillers as chips and containers as symbol chips, matching the styling already used in `FloatingWorkspace`, so the teacher can judge the regeneration before applying.
+1. **All terms present** — every term in `sourceEquation` (numbers, identifiers, signs around `=`) appears in `fillers`. Reuses `verifyCompleteness` plus a new "term-before-equals" guard that explicitly checks each side of `=` is non-empty and contains at least one filler.
+2. **No hidden signs in chips** — uses `verifyFloatingLine` `NoHiddenSign`.
+3. **Atomic terms only** — `verifyFloatingLine` `AtomicTerm` / chip-split rules.
+4. **Containers match shells** — `verifyFloatingLine` container-kind law.
+5. **Coverage of integrand / fraction parts** — `verifyFloatingLine` coverage law.
+6. **Five floating-number laws overall** — aggregate pass.
+
+For each check the backend pushes:
+```
+{ id, label, status: "pass"|"fail"|"fixed", detail }
+```
+
+Flow:
+- Run all checks → if all pass, return `status:"clean"` with diagnostics (all `pass`) and unchanged chips.
+- If any fail, run the existing AI repair loop (up to 2 attempts) using the failure list as feedback. After each attempt, re-run the same checks. If a previously-failing check now passes, mark it `fixed`.
+- Always return: `{ equation, fillers, containers, diagnostics, status: "clean"|"fixed"|"unresolved" }`.
+
+When `instruction` is non-empty, run the existing rewrite step first, then the diagnostic pipeline on the rewritten line.
+
+### 2. Frontend: `src/components/lessonnotes/AiEditPanel.tsx`
+
+While generation is running and after it returns, render the diagnostics as a **live checklist** in the preview area (above the chip preview). Each row:
+
+```
+✓  All floating numbers present
+✓  No hidden signs inside chips
+⟳  Checking atomic terms…
+✗  Term before "=" missing  →  fixing…
+✓  Fixed: term before "=" now present
+```
+
+Icons: `⟳` running, `✓` pass, `✗` fail, `✦` fixed. Footer line:
+- `status:"clean"` → "All checks passed — floating numbers are correct."
+- `status:"fixed"` → "Errors found and fixed. Review the chips below."
+- `status:"unresolved"` → "Could not fix automatically. Please add an instruction and regenerate."
+
+The list streams in by revealing rows one at a time on a short interval (cosmetic; data is already in the response) so the teacher visibly sees "check, check, check".
+
+### 3. Frontend: `src/pages/FloatingNumbersPage.tsx`
+
+- Pass through diagnostics into `AiEditPanel` via the existing `renderProposed` (or a new `diagnostics` prop on the panel).
+- Apply button stays disabled while `status:"unresolved"` unless the teacher confirms.
 
 ## Out of scope
-- Five floating-number laws, deterministic extractor internals, lesson-note AI Edit flow, equation structure, DB schema, RLS, integrity/inheritance standards.
+
+- The five floating-number laws themselves, deterministic extractor internals, lesson-note AI Edit flow, equation structure, integrity/inheritance/QUESTION_LOCK rules, DB schema, RLS.
 
 ## Files touched
-- `src/components/lessonnotes/AiEditPanel.tsx` — add simple mode + Regenerate.
-- `src/pages/FloatingNumbersPage.tsx` — pass `simpleMode`, custom chip preview, apply only chips.
-- `supabase/functions/notebook-ai/index.ts` — empty-instruction branch in `floating_line_edit`.
+
+- `supabase/functions/notebook-ai/index.ts` — diagnostic pipeline + response shape.
+- `src/components/lessonnotes/AiEditPanel.tsx` — checklist UI with streaming reveal.
+- `src/pages/FloatingNumbersPage.tsx` — wire diagnostics into the panel.
