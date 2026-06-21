@@ -554,6 +554,17 @@ const FloatingPreparationPage = () => {
               <Eraser className="h-3.5 w-3.5" /> Clear
             </button>
             <button
+              onClick={commitPending}
+              disabled={!pending}
+              title="Commit highlighted selection as a floating chip (Enter)"
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border disabled:opacity-40"
+              style={pending
+                ? { background: "hsl(150 70% 45%)", color: "hsl(220 35% 12%)", borderColor: "hsl(150 70% 35%)" }
+                : { borderColor: "hsl(0 0% 100% / 0.2)", color: "hsl(0 0% 100% / 0.5)" }}
+            >
+              <CornerDownLeft className="h-3.5 w-3.5" /> Enter
+            </button>
+            <button
               onClick={generate}
               disabled={submitting || highlights.length === 0}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md disabled:opacity-50"
