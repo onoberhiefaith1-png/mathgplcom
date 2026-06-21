@@ -298,6 +298,7 @@ const needsFactorSplit = (s: string): boolean => {
   if (!s) return false;
   const toks = tokenizeImplicitFactors(s);
   if (toks.length <= 1) return false;
+  if (toks.some(isStructuralFactor)) return true;
   // Trigger when: any factor hides arithmetic OR any factor is a bracket
   // (which would otherwise smuggle a structural shell into the chip) OR
   // there are 3+ factors (length split per LAW 4).
