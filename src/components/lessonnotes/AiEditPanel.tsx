@@ -88,6 +88,11 @@ export function AiEditPanel({
 
   const handleGenerate = async () => {
     if (!target) return;
+    if (simpleMode) {
+      setShowSuggestions(false);
+      await runWith("");
+      return;
+    }
     if (instruction.trim()) {
       setShowSuggestions(false);
       await runWith(instruction.trim());
