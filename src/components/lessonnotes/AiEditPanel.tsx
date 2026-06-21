@@ -34,6 +34,19 @@ interface Props {
   onClose: () => void;
   /** Render a preview (current and proposed) — usually the math renderer. */
   renderPreview?: (text: string) => React.ReactNode;
+  /**
+   * One-click mode: hide the instruction textarea, voice, and suggestion
+   * chips. Generate calls onGenerate("", target) directly and the preview
+   * exposes a Regenerate button. Used by the floating-numbers page where
+   * "AI Edit" always means "regenerate floating numbers for this line".
+   */
+  simpleMode?: boolean;
+  /** Caption shown above the Generate button in simple mode. */
+  simpleCaption?: string;
+  /** Label for the primary action (defaults to "Generate"). */
+  generateLabel?: string;
+  /** Optional custom renderer for the proposed result (e.g. chips). */
+  renderProposed?: (proposed: string) => React.ReactNode;
 }
 
 export function AiEditPanel({
