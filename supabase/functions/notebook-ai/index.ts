@@ -278,13 +278,30 @@ const sanitizeMath = (s: string): string => {
 const sanitizeLines = (arr: string[]): string[] => arr.map((l) => hardStripMath(sanitizeMath(l)));
 
 // Whitespace/sign/operator-normalised compare for QUESTION_LOCK checks.
-const normaliseForLock = (s: string): string =>
-  hardStripMath(String(s ?? ""))
+// Also strips equivalent calculus phrasings ("find the integral of …  dx" ⇔
+// "\int … dx") and trailing punctuation, so the restatement is accepted when
+// the model swaps prose for the integral symbol (or vice-versa) without
+// touching any mathematics.
+const normaliseForLock = (s: string): string => {
+  let out = hardStripMath(String(s ?? ""))
     .replace(/\s+/g, "")
     .replace(/[-−–—]/g, "-")
     .replace(/[×·*]/g, "x")
     .replace(/[÷]/g, "/")
     .toLowerCase();
+  // Equivalent integral phrasings → canonical "\int".
+  out = out
+    .replace(/findtheintegralof/g, "\\int")
+    .replace(/findtheintegral/g, "\\int")
+    .replace(/evaluatetheintegralof/g, "\\int")
+    .replace(/evaluatetheintegral/g, "\\int")
+    .replace(/computetheintegralof/g, "\\int")
+    .replace(/computetheintegral/g, "\\int")
+    .replace(/integrate/g, "\\int");
+  // Trailing punctuation that carries no math meaning.
+  out = out.replace(/[.。,;:]+$/g, "");
+  return out;
+};
 
 const firstNonEmptyLine = (s: string): string => {
   for (const l of String(s ?? "").split("\n")) {
