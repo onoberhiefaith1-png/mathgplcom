@@ -187,45 +187,27 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
   const stripSign = (x: string) => x.replace(/^[+\-−]\s*/, "").trim();
 
   // Walk the cloned selection DOM to rebuild structured source markup
-  // (\frac{a}{b}, \sqrt{x}, x^{2}) from the rendered KaTeX nodes. Returns
-  // the recovered string plus any container kinds we detected.
+  // (\frac{a}{b}, \sqrt{x}, x^{2}) from the renderer's data-math-src markers.
+  // Browser selection text flattens vertical math into `ab`; these markers are
+  // the copy/paste truth for teacher-highlighted structure.
   const recoverSelectionSource = (range: Range): { src: string; containers: ContainerKind[] } => {
     const frag = range.cloneContents();
     const wrapper = document.createElement("div");
     wrapper.appendChild(frag);
     const containers: ContainerKind[] = [];
 
-    // Superscripts/subscripts FIRST so they don't get swallowed by an
-    // outer fraction/radical pass. KaTeX renders x² as
-    // <span>x</span><span class="msupsub">…2…</span>; we rewrite the
-    // msupsub node into a literal `^{2}` text node sitting right after x.
-    wrapper.querySelectorAll(".msupsub").forEach((sub) => {
-      const text = (sub.textContent || "").trim();
-      if (!text) return;
-      sub.replaceWith(document.createTextNode(`^{${text}}`));
-      if (!containers.includes("power")) containers.push("power");
-    });
+    const addContainer = (kind: ContainerKind) => {
+      if (!containers.includes(kind)) containers.push(kind);
+    };
 
-    // Fractions: KaTeX puts denominator first, frac-line, then numerator
-    // as direct children of .vlist inside .mfrac.
-    wrapper.querySelectorAll(".mfrac").forEach((mf) => {
-      const rows = Array.from(mf.querySelectorAll(".vlist > span"))
-        .map((s) => (s.textContent || "").trim())
-        .filter((t) => t.length > 0);
-      if (rows.length >= 2) {
-        const denom = rows[0];
-        const num = rows[rows.length - 1];
-        mf.replaceWith(document.createTextNode(`\\frac{${num}}{${denom}}`));
-        if (!containers.includes("fraction")) containers.push("fraction");
-      }
-    });
-
-    // Radicals
-    wrapper.querySelectorAll(".sqrt").forEach((sq) => {
-      const inner = sq.querySelector(".mord");
-      const body = (inner?.textContent || sq.textContent || "").replace(/^√\s*/, "").trim();
-      sq.replaceWith(document.createTextNode(`\\sqrt{${body}}`));
-      if (!containers.includes("radical")) containers.push("radical");
+    wrapper.querySelectorAll<HTMLElement>("[data-math-src]").forEach((el) => {
+      const src = el.dataset.mathSrc?.trim();
+      if (!src) return;
+      const kind = el.dataset.mathKind;
+      el.replaceChildren(document.createTextNode(src));
+      if (kind === "fraction") addContainer("fraction");
+      if (kind === "radical") addContainer("radical");
+      if (kind === "superscript") addContainer("power");
     });
 
     const src = (wrapper.textContent || "").trim();
