@@ -613,6 +613,45 @@ const readBracketPower = (src: string): { shell: string; inner: string; exponent
   return null;
 };
 
+// English prose words that may appear inline with equations (e.g.
+// "Let S = 5/4"). Such words must stay as a SINGLE chip — never split
+// letter-by-letter as if they were variables. A leading match is peeled
+// off and the remainder continues through the math extractor.
+const PROSE_WORDS = new Set<string>([
+  "let","where","when","if","then","so","since","given","find","solve",
+  "hence","therefore","thus","by","take","note","recall","assume","but",
+  "also","the","following","numbers","number","are","is","and","or","of",
+  "for","to","from","we","have","get","this","that","both","sides","side",
+  "with","on","in","at","into","out","up","down","here","above","below",
+  "next","step","first","second","third","finally","now","again","expand",
+  "simplify","factor","factorise","factorize","substitute","divide",
+  "multiply","add","subtract","consider","becomes","gives","equals",
+  "value","values","equation","expression","function","solution","answer",
+  "as","an","be",
+]);
+
+const peelProseWord = (body: string): { word: string; rest: string } | null => {
+  const m = body.match(/^([A-Za-z]{2,})(.*)$/);
+  if (!m) return null;
+  if (!PROSE_WORDS.has(m[1].toLowerCase())) return null;
+  return { word: m[1], rest: m[2] };
+};
+
+// Generic base^exp split: when the exponent hides arithmetic (e.g.
+// u^(-2+1)), emit "base^□" shell chip + the exponent's interior chips.
+const readGenericPower = (src: string): { base: string; exponent: string } | null => {
+  const m = src.match(/^([A-Za-z][A-Za-z0-9]*|[0-9]+(?:\.[0-9]+)?)\^(.+)$/);
+  if (!m) return null;
+  const base = m[1];
+  let exp = m[2];
+  if (exp.startsWith("{") || exp.startsWith("(")) {
+    const g = readGrouped(exp, 0);
+    if (g && g.end === exp.length) exp = g.inner;
+    else return null;
+  }
+  return { base, exponent: exp };
+};
+
 const emitSegmentTerms = (
   out: FloatingTerm[],
   sign: TermSign,
@@ -620,6 +659,14 @@ const emitSegmentTerms = (
   synthetic: boolean,
 ): void => {
   if (!body) return;
+
+  // Prose-word rule: keep known English words as single chips.
+  const prose = peelProseWord(body);
+  if (prose) {
+    out.push(mkTerm(sign, prose.word, synthetic));
+    if (prose.rest) emitSegmentTerms(out, "+", prose.rest, true);
+    return;
+  }
 
   const bracketPow = readBracketPower(body);
   if (bracketPow) {
@@ -630,6 +677,16 @@ const emitSegmentTerms = (
     }
     return;
   }
+
+  // Generic base^exp where exponent hides arithmetic: open it.
+  const genPow = readGenericPower(body);
+  if (genPow && hasHiddenArithmetic(genPow.exponent)) {
+    out.push(mkTerm(sign, `${genPow.base}^□`, synthetic));
+    out.push(...extractTermsFromAscii(genPow.exponent));
+    return;
+  }
+
+
 
   const deriv = readDerivativeBody(body);
   if (deriv) {
