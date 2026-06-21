@@ -1,32 +1,38 @@
-## Plan: make floating numbers complete and editable per line
+## Goal
 
-### 1. Fix the missing-left-side issue from the screenshot
-- Strengthen the `floating_highlights` backend prompt so each highlighted equation is treated as an indivisible source span.
-- Add an explicit equation-side rule: if a highlight contains `=`, the output must preserve and extract both the left-hand side and right-hand side; starting after `=` is invalid.
-- Add retry wording that names the exact missing side/elements when the AI omits them.
+On the Floating Numbers page, "AI Edit" should be a **one-click regeneration of floating numbers for a single line** — no typing, no instructions. Click AI Edit → click Generate → preview chips → click Apply → only that line's fillers/containers/arrangement update. The equation itself never changes.
 
-### 2. Add a hard completeness gate for every highlight
-- Run `verifyCompleteness(highlight.payload, generatedEquation)` per highlight, not just for the whole solution mode.
-- If a generated highlight is incomplete, retry once with the missing variables/numbers/structures.
-- If it is still incomplete, ignore the AI equation and deterministically extract directly from the original highlight payload so the left side, right side, fractions, brackets, powers, and equals sign are never dropped.
+## Changes
 
-### 3. Make deterministic fallback the final authority
-- For math highlights, use the original highlight payload whenever the AI output fails the completeness check or changes the expression too much.
-- Keep the existing deterministic extractor/verifier as the final chip splitter, so the five floating-number laws still govern the final fillers and containers.
+### 1. `AiEditPanel` — add a "simple" mode
+- New prop: `simpleMode?: boolean` and `generateLabel?: string`.
+- When `simpleMode` is true:
+  - Hide the instruction textarea, voice button, and suggestion chips.
+  - Show a short caption: "AI will regenerate the floating numbers for this line."
+  - Primary button reads "Generate Floating Numbers" and calls `onGenerate("", target)` directly — no instruction text required.
+  - In the preview stage, add a "Regenerate" button so the teacher can re-roll without leaving the panel.
+- Lesson-note callers are untouched (default `simpleMode={false}`).
 
-### 4. Add “AI Edit / Regenerate” for one floating line
-- Reuse the existing lesson-note `AiEditPanel` pattern on the floating-number page.
-- Add a per-line action beside each equation: `Regenerate` / `AI Edit`.
-- The panel will show the current line, let the teacher type or speak instructions, and generate only that line’s floating numbers.
-- Applying the result replaces only that one line’s fillers, containers, and arrangement; all other floating lines stay untouched.
+### 2. `FloatingNumbersPage` — wire simple mode + protect the equation
+- Pass `simpleMode` and a custom preview renderer that shows **chips** (fillers + containers), not the equation, so the teacher sees exactly what will be applied.
+- `runAiEditForLine`: keep the existing `floating_line_edit` call but always send `instruction: ""` from this entry point. Cache `{ fillers, containers }` only.
+- `applyAiEdit`: replace **only** `fillers`, `containers`, `arrangement`, and selection arrays for that line. Do NOT overwrite `equation` — the structure stays exactly as the lesson note produced it.
 
-### 5. Backend endpoint for one-line regeneration
-- Add a narrow `floating_line_edit` mode to `notebook-ai`.
-- Input: problem context, current equation/highlight payload, existing fillers/containers, and teacher instruction.
-- Output: one line only: `{ equation, fillers, containers }`.
-- Apply the same prompt rules, completeness verification, deterministic extraction, and floating verifier before returning.
+### 3. Backend `floating_line_edit` — empty-instruction path
+- When `instruction` is empty/whitespace:
+  - Skip the AI rewrite step.
+  - Run the deterministic floating extractor + verifier directly on the existing equation, producing fresh `{ fillers, containers }`.
+  - Return `{ equation: <unchanged>, fillers, containers }`.
+- When `instruction` is non-empty, keep current behavior (teacher-directed rewrite).
+- This guarantees a result every time and makes the regenerate button instant.
 
-### 6. Validation tests
-- Add tests for the screenshot-style partial-fraction equation to ensure chips include the left side before `=`.
-- Add tests for highlight completeness when the AI response starts after `=`.
-- Add tests that one-line regeneration returns a complete line and does not affect neighboring lines.
+### 4. Preview chips in the panel
+- Small helper that renders the proposed fillers as chips and containers as symbol chips, matching the styling already used in `FloatingWorkspace`, so the teacher can judge the regeneration before applying.
+
+## Out of scope
+- Five floating-number laws, deterministic extractor internals, lesson-note AI Edit flow, equation structure, DB schema, RLS, integrity/inheritance standards.
+
+## Files touched
+- `src/components/lessonnotes/AiEditPanel.tsx` — add simple mode + Regenerate.
+- `src/pages/FloatingNumbersPage.tsx` — pass `simpleMode`, custom chip preview, apply only chips.
+- `supabase/functions/notebook-ai/index.ts` — empty-instruction branch in `floating_line_edit`.
