@@ -1023,11 +1023,78 @@ Return the rewritten equation line only.`;
       let v = verifyFloatingLine({ fillers: det.fillers, containers: det.containers });
       let comp = verifyCompleteness(sourceEquation, det.fillers.join(" "));
 
-      // AI repair loop — if the deterministic extractor or the completeness
-      // check fails, ask the AI to produce a corrected fillers/containers
-      // JSON using the failure list as feedback. This makes the "Regenerate"
-      // button actually do work: each click re-runs and self-corrects.
-      const needsRepair = !v.ok || !comp.ok || !!instruction;
+      type DiagStatus = "pass" | "fail" | "fixed";
+      interface Diag { id: string; label: string; status: DiagStatus; detail?: string }
+
+      const runChecks = (
+        fillers: string[],
+        containers: string[],
+        baseline?: Record<string, DiagStatus>,
+      ): Diag[] => {
+        const vr = verifyFloatingLine({ fillers, containers });
+        const cr = verifyCompleteness(sourceEquation, fillers.join(" "));
+        const codes = new Set(vr.failures.map((f) => f.code));
+        const sides = sourceEquation.split("=").map((s) => s.trim()).filter(Boolean);
+        const fillersJoined = fillers.join(" ");
+        const sideMissing = sides.length >= 2 && sides.some((side) => {
+          const tokens = side.match(/[0-9]+|[A-Za-zα-ωΑ-Ω]+/g) || [];
+          return tokens.length > 0 && !tokens.some((t) => fillersJoined.includes(t));
+        });
+
+        const out: Diag[] = [];
+        const push = (id: string, label: string, failed: boolean, detail?: string) => {
+          let status: DiagStatus = failed ? "fail" : "pass";
+          if (!failed && baseline && baseline[id] === "fail") status = "fixed";
+          out.push({ id, label, status, detail: failed ? detail : undefined });
+        };
+
+        push(
+          "all-terms",
+          "All floating numbers present",
+          !cr.ok || sideMissing,
+          !cr.ok ? summariseMissing(cr) : sideMissing ? "term missing on one side of =" : undefined,
+        );
+        push(
+          "hidden-signs",
+          "No hidden signs inside chips",
+          codes.has("NoHiddenSign"),
+          vr.failures.filter((f) => f.code === "NoHiddenSign").map((f) => f.chip).join(", "),
+        );
+        push(
+          "atomic-terms",
+          "Atomic terms only (no raw operators)",
+          codes.has("NoRawOperatorChip") || codes.has("NoRawBracketChip") || codes.has("EmptyChip"),
+          vr.failures
+            .filter((f) => ["NoRawOperatorChip","NoRawBracketChip","EmptyChip"].includes(f.code))
+            .map((f) => f.chip || f.detail).join(", "),
+        );
+        push(
+          "leading-plus",
+          "No synthetic leading +",
+          codes.has("NoSyntheticLeadingPlus"),
+          vr.failures.filter((f) => f.code === "NoSyntheticLeadingPlus").map((f) => f.chip).join(", "),
+        );
+        push(
+          "containers",
+          "Container shells valid",
+          codes.has("ContainerAllowed") || codes.has("ContainerDedup"),
+          vr.failures.filter((f) => f.code === "ContainerAllowed" || f.code === "ContainerDedup").map((f) => f.detail).join(", "),
+        );
+        push(
+          "five-laws",
+          "Five floating-number laws satisfied",
+          !vr.ok,
+          vr.ok ? undefined : `${vr.failures.length} violation(s)`,
+        );
+        return out;
+      };
+
+      let diagnostics = runChecks(det.fillers, det.containers);
+      const baseline: Record<string, DiagStatus> = {};
+      for (const d of diagnostics) baseline[d.id] = d.status;
+
+      // AI repair loop — runs when any check fails OR teacher gave an instruction.
+      const needsRepair = diagnostics.some((d) => d.status === "fail") || !!instruction;
       if (needsRepair) {
         const failureSummary = [
           ...(v.ok ? [] : v.failures.map((f) => `- ${f.code}${f.chip ? ` at chip "${f.chip}"` : ""}${f.detail ? `: ${f.detail}` : ""}`)),
@@ -1044,7 +1111,9 @@ RULES:
 - For an integral like \\int f(x) dx, emit chips that cover EVERY term
   inside the integrand (numerator AND denominator if a fraction) plus the
   \\int symbol and the dx, never one giant chip.
-- "containers" are allowed shell kinds only: ["frac","sqrt","power","sub","abs","paren"].
+- EVERY term on BOTH sides of "=" MUST appear as a filler. Missing a term
+  before or after "=" is INVALID.
+- "containers" are allowed shell kinds only: ["fraction","bracket","radical","power","log","integral","matrix","differential","abs","vector"].
 - No prose, no fences, JSON only.`;
 
         const repairUser = `EQUATION:
@@ -1072,22 +1141,26 @@ ${instruction ? `TEACHER INSTRUCTION:\n${instruction}\n` : ""}Return JSON only.`
             const fillers = Array.isArray(parsed.fillers) ? parsed.fillers.map((x) => String(x)).filter(Boolean) : [];
             const containers = Array.isArray(parsed.containers) ? parsed.containers.map((x) => String(x)) : [];
             if (!fillers.length) continue;
-            const v2 = verifyFloatingLine({ fillers, containers });
-            const c2 = verifyCompleteness(sourceEquation, fillers.join(" "));
-            // Accept if strictly better than current best.
-            const betterV = (v2.failures?.length ?? 0) < (v.failures?.length ?? Infinity);
-            const betterC = c2.ok && !comp.ok;
-            if (v2.ok || betterV || betterC) {
+            const candidateDiags = runChecks(fillers, containers, baseline);
+            const candidateFails = candidateDiags.filter((d) => d.status === "fail").length;
+            const currentFails = diagnostics.filter((d) => d.status === "fail").length;
+            if (candidateFails < currentFails) {
               det = { fillers, containers: containers as typeof det.containers };
-              v = v2;
-              comp = c2;
-              if (v2.ok && c2.ok) break;
+              diagnostics = candidateDiags;
+              v = verifyFloatingLine({ fillers, containers });
+              comp = verifyCompleteness(sourceEquation, fillers.join(" "));
+              if (candidateFails === 0) break;
             }
           } catch (err) {
             console.warn("[floating_line_edit] AI repair error", String(err));
           }
         }
       }
+
+      const remaining = diagnostics.filter((d) => d.status === "fail").length;
+      const fixedCount = diagnostics.filter((d) => d.status === "fixed").length;
+      const status: "clean" | "fixed" | "unresolved" =
+        remaining === 0 ? (fixedCount > 0 ? "fixed" : "clean") : "unresolved";
 
       if (!v.ok) {
         console.warn("[floating_line_edit] verifier failures:", equation, JSON.stringify(v.failures));
@@ -1097,7 +1170,7 @@ ${instruction ? `TEACHER INSTRUCTION:\n${instruction}\n` : ""}Return JSON only.`
       }
 
       return new Response(
-        JSON.stringify({ equation, fillers: det.fillers, containers: det.containers }),
+        JSON.stringify({ equation, fillers: det.fillers, containers: det.containers, diagnostics, status }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
