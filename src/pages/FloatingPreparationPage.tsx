@@ -284,7 +284,19 @@ const FloatingPreparationPage = () => {
 
   }, [highlights]);
 
-  /* ---------- Capture selection on mouse/touch release ---------- */
+  /* ---------- Pending selection (committed on Enter) ---------- */
+  interface PendingSelection {
+    /** Tokens covered by the selection, sorted in source order. */
+    touched: { line: number; tok: number; src: string }[];
+    /** Single-line: original line text. Multi-line: undefined. */
+    lineText?: string;
+    /** Single-line: char offset of selection START inside lineText. */
+    selStart?: number;
+    /** Single-line: char offset of selection END inside lineText. */
+    selEnd?: number;
+  }
+  const [pending, setPending] = useState<PendingSelection | null>(null);
+
   const captureSelection = useCallback(() => {
     const root = docRef.current;
     if (!root) return;
@@ -308,9 +320,11 @@ const FloatingPreparationPage = () => {
     }
     sel.removeAllRanges();
     if (touched.length === 0) return;
+    touched.sort((a, b) => (a.line - b.line) || (a.tok - b.tok));
 
-    // Toggle: if every touched token is already inside ONE existing highlight,
-    // remove that highlight instead of stacking another on top.
+    // Toggle: if every touched token is already inside ONE existing
+    // highlight, remove it instead. (Selecting an already-committed chip
+    // is the user's way to undo it.)
     const touchedKeys = new Set(touched.map((t) => `${t.line}:${t.tok}`));
     const overlapping = highlights.find((h) =>
       h.tokens.some((tk) => touchedKeys.has(`${tk.line}:${tk.tok}`)),
@@ -323,21 +337,56 @@ const FloatingPreparationPage = () => {
           .filter((h) => h.groupId !== overlapping.groupId)
           .map((h, i) => ({ ...h, groupId: i + 1 })),
       );
+      setPending(null);
       return;
     }
 
-    // Build payload — preserve line breaks between tokens that span lines.
-    touched.sort((a, b) => (a.line - b.line) || (a.tok - b.tok));
+    // Compute single-line context for the promoter (powers, brackets, …).
+    const uniqueLines = Array.from(new Set(touched.map((t) => t.line)));
+    let lineText: string | undefined;
+    let selStart: number | undefined;
+    let selEnd: number | undefined;
+    if (uniqueLines.length === 1) {
+      const li = uniqueLines[0];
+      const lineToks = rows[li] ?? [];
+      const startTok = touched[0].tok;
+      const endTok = touched[touched.length - 1].tok;
+      lineText = lineToks.join(" ");
+      // Char offset = sum of token lengths + spaces before startTok
+      selStart = lineToks.slice(0, startTok).reduce((n, s) => n + s.length + 1, 0);
+      const selLen = lineToks.slice(startTok, endTok + 1).join(" ").length;
+      selEnd = selStart + selLen;
+    }
+
+    setPending({ touched, lineText, selStart, selEnd });
+  }, [highlights, pushHistory, rows]);
+
+  const commitPending = useCallback(() => {
+    const p = pending;
+    if (!p || p.touched.length === 0) return;
+
+    // Build the literal selected text (preserves newlines for multi-line).
     const parts: string[] = [];
-    let curLine = touched[0].line;
+    let curLine = p.touched[0].line;
     let lineBuf: string[] = [];
     const flush = () => { if (lineBuf.length) parts.push(lineBuf.join(" ")); lineBuf = []; };
-    for (const t of touched) {
+    for (const t of p.touched) {
       if (t.line !== curLine) { flush(); curLine = t.line; }
       lineBuf.push(t.src);
     }
     flush();
-    const payload = parts.join("\n");
+    const verbatim = parts.join("\n");
+
+    // Apply structural promotion only when the selection is on one line.
+    let payload = verbatim;
+    let label = "Added as floating chip";
+    if (p.lineText != null && p.selStart != null && p.selEnd != null) {
+      const before = p.lineText.slice(0, p.selStart);
+      const after = p.lineText.slice(p.selEnd);
+      const result = promoteSelection(verbatim, before, after);
+      payload = result.payload;
+      label = result.label;
+    }
 
     pushHistory();
     dirtyRef.current = true;
@@ -345,11 +394,15 @@ const FloatingPreparationPage = () => {
       ...prev,
       {
         groupId: nextIdRef.current++,
-        tokens: touched.map(({ line, tok }) => ({ line, tok })),
+        tokens: p.touched.map(({ line, tok }) => ({ line, tok })),
         payload,
       },
     ]);
-  }, [pushHistory, highlights]);
+    setPending(null);
+    toast({ title: label, duration: 1600 });
+  }, [pending, pushHistory]);
+
+  const clearPending = useCallback(() => setPending(null), []);
 
 
   useEffect(() => {
@@ -368,6 +421,22 @@ const FloatingPreparationPage = () => {
   /* ---------- Keyboard shortcuts ---------- */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inEditable = !!target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      );
+      if (e.key === "Enter" && !inEditable && pending) {
+        e.preventDefault();
+        commitPending();
+        return;
+      }
+      if (e.key === "Escape" && pending) {
+        e.preventDefault();
+        clearPending();
+        return;
+      }
       const meta = e.metaKey || e.ctrlKey;
       if (!meta) return;
       if (e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -377,7 +446,7 @@ const FloatingPreparationPage = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo]);
+  }, [undo, redo, pending, commitPending, clearPending]);
 
   const clearAll = useCallback(() => {
     if (highlights.length === 0) return;
