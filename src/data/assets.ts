@@ -850,6 +850,9 @@ export const assetCategories: Category[] = [
         },
       ]),
 
+      sub("Generative Video", "ember.png"),
+
+
       sub("Glow", "crystal.png", [
         { name: "Gold Glow", src: "/assets/effects/glow/gold_glow.png" },
         { name: "Blue Glow", src: "/assets/effects/glow/blue_glow.png" },
