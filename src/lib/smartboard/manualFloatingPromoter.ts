@@ -20,14 +20,35 @@ export type AttachedShell =
   | "absolute"
   | "limit";
 
+/** Subset of FloatingLine ContainerKind that the promoter may attach. */
+export type PromoterContainer =
+  | "fraction" | "bracket" | "radical" | "power" | "log"
+  | "integral" | "matrix" | "differential" | "abs" | "vector";
+
+const SHELL_TO_CONTAINER: Record<AttachedShell, PromoterContainer | null> = {
+  power: "power",
+  subscript: null,
+  log: "log",
+  function: "bracket",
+  bracket: "bracket",
+  radical: "radical",
+  derivative: "differential",
+  integral: "integral",
+  absolute: "abs",
+  limit: null,
+};
+
 export interface PromoteResult {
   /** Markup that becomes the floating chip equation. */
   payload: string;
   /** Which structural shell was auto-attached, if any. */
   shell?: AttachedShell;
+  /** Container kind that should be added to the line's symbols row, if any. */
+  container?: PromoterContainer;
   /** Toast-friendly description of what happened. */
   label: string;
 }
+
 
 const TRIG_FUNCS = ["sin", "cos", "tan", "csc", "sec", "cot", "sinh", "cosh", "tanh"];
 const LOG_FUNCS = ["log", "ln", "lg", "exp"];
