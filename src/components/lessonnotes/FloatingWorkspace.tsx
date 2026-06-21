@@ -142,7 +142,70 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     });
   };
 
-  return (
+  /* ───────── Manual highlight → Enter ───────── */
+  const eqRef = useRef<HTMLDivElement | null>(null);
+  const [pendingText, setPendingText] = useState<string>("");
+
+  // Watch for selection changes inside this line's equation.
+  useEffect(() => {
+    const onSel = () => {
+      const root = eqRef.current;
+      const sel = window.getSelection();
+      if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) {
+        setPendingText("");
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      if (!root.contains(range.commonAncestorContainer)) {
+        setPendingText("");
+        return;
+      }
+      setPendingText(sel.toString().trim());
+    };
+    document.addEventListener("selectionchange", onSel);
+    return () => document.removeEventListener("selectionchange", onSel);
+  }, []);
+
+  const commitHighlightAsChip = () => {
+    const text = pendingText.trim();
+    if (!text) return;
+
+    // Use the line.equation source to find before/after context for the
+    // promoter. If the selection isn't found verbatim, fall back to a
+    // verbatim chip with no structural attachment.
+    const eq = line.equation ?? "";
+    const idx = eq.indexOf(text);
+    const before = idx >= 0 ? eq.slice(0, idx) : "";
+    const after  = idx >= 0 ? eq.slice(idx + text.length) : "";
+    const result = promoteSelection(text, before, after);
+
+    const cleaned = toUnicodeMath(result.payload);
+    if (!cleaned || isStillDirty(cleaned)) {
+      toast({ title: "Could not add chip", description: "Selection produced invalid math.", variant: "destructive" });
+      return;
+    }
+    const nextFillers = [...line.fillers, cleaned];
+    const nextFillersSel = [...padSel(line.fillersSelected, line.fillers.length), false];
+    const containers = result.container && !line.containers.includes(result.container)
+      ? [...line.containers, result.container as ContainerKind]
+      : line.containers;
+    const containersSel = result.container && !line.containers.includes(result.container)
+      ? [...padSel(line.containersSelected, line.containers.length), false]
+      : padSel(line.containersSelected, line.containers.length);
+
+    onChange({
+      ...line,
+      fillers: nextFillers,
+      fillersSelected: nextFillersSel,
+      containers,
+      containersSelected: containersSel,
+      arrangement: rearrangeIndices(nextFillers.length),
+    });
+    window.getSelection()?.removeAllRanges();
+    setPendingText("");
+    toast({ title: result.label, duration: 1500 });
+  };
+
     <div className="pl-6 pr-2 py-3 border-l-2 border-foreground/10 ml-2 my-2">
       {/* Equation header */}
       <div className="flex items-baseline gap-3 mb-2">
