@@ -13,11 +13,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Eraser, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
+import { ArrowLeft, CornerDownLeft, Eraser, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { promoteSelection } from "@/lib/smartboard/manualFloatingPromoter";
 import { cn } from "@/lib/utils";
 
 interface TokenRef { line: number; tok: number }
@@ -283,7 +284,19 @@ const FloatingPreparationPage = () => {
 
   }, [highlights]);
 
-  /* ---------- Capture selection on mouse/touch release ---------- */
+  /* ---------- Pending selection (committed on Enter) ---------- */
+  interface PendingSelection {
+    /** Tokens covered by the selection, sorted in source order. */
+    touched: { line: number; tok: number; src: string }[];
+    /** Single-line: original line text. Multi-line: undefined. */
+    lineText?: string;
+    /** Single-line: char offset of selection START inside lineText. */
+    selStart?: number;
+    /** Single-line: char offset of selection END inside lineText. */
+    selEnd?: number;
+  }
+  const [pending, setPending] = useState<PendingSelection | null>(null);
+
   const captureSelection = useCallback(() => {
     const root = docRef.current;
     if (!root) return;
@@ -307,9 +320,11 @@ const FloatingPreparationPage = () => {
     }
     sel.removeAllRanges();
     if (touched.length === 0) return;
+    touched.sort((a, b) => (a.line - b.line) || (a.tok - b.tok));
 
-    // Toggle: if every touched token is already inside ONE existing highlight,
-    // remove that highlight instead of stacking another on top.
+    // Toggle: if every touched token is already inside ONE existing
+    // highlight, remove it instead. (Selecting an already-committed chip
+    // is the user's way to undo it.)
     const touchedKeys = new Set(touched.map((t) => `${t.line}:${t.tok}`));
     const overlapping = highlights.find((h) =>
       h.tokens.some((tk) => touchedKeys.has(`${tk.line}:${tk.tok}`)),
@@ -322,21 +337,56 @@ const FloatingPreparationPage = () => {
           .filter((h) => h.groupId !== overlapping.groupId)
           .map((h, i) => ({ ...h, groupId: i + 1 })),
       );
+      setPending(null);
       return;
     }
 
-    // Build payload — preserve line breaks between tokens that span lines.
-    touched.sort((a, b) => (a.line - b.line) || (a.tok - b.tok));
+    // Compute single-line context for the promoter (powers, brackets, …).
+    const uniqueLines = Array.from(new Set(touched.map((t) => t.line)));
+    let lineText: string | undefined;
+    let selStart: number | undefined;
+    let selEnd: number | undefined;
+    if (uniqueLines.length === 1) {
+      const li = uniqueLines[0];
+      const lineToks = rows[li] ?? [];
+      const startTok = touched[0].tok;
+      const endTok = touched[touched.length - 1].tok;
+      lineText = lineToks.join(" ");
+      // Char offset = sum of token lengths + spaces before startTok
+      selStart = lineToks.slice(0, startTok).reduce((n, s) => n + s.length + 1, 0);
+      const selLen = lineToks.slice(startTok, endTok + 1).join(" ").length;
+      selEnd = selStart + selLen;
+    }
+
+    setPending({ touched, lineText, selStart, selEnd });
+  }, [highlights, pushHistory, rows]);
+
+  const commitPending = useCallback(() => {
+    const p = pending;
+    if (!p || p.touched.length === 0) return;
+
+    // Build the literal selected text (preserves newlines for multi-line).
     const parts: string[] = [];
-    let curLine = touched[0].line;
+    let curLine = p.touched[0].line;
     let lineBuf: string[] = [];
     const flush = () => { if (lineBuf.length) parts.push(lineBuf.join(" ")); lineBuf = []; };
-    for (const t of touched) {
+    for (const t of p.touched) {
       if (t.line !== curLine) { flush(); curLine = t.line; }
       lineBuf.push(t.src);
     }
     flush();
-    const payload = parts.join("\n");
+    const verbatim = parts.join("\n");
+
+    // Apply structural promotion only when the selection is on one line.
+    let payload = verbatim;
+    let label = "Added as floating chip";
+    if (p.lineText != null && p.selStart != null && p.selEnd != null) {
+      const before = p.lineText.slice(0, p.selStart);
+      const after = p.lineText.slice(p.selEnd);
+      const result = promoteSelection(verbatim, before, after);
+      payload = result.payload;
+      label = result.label;
+    }
 
     pushHistory();
     dirtyRef.current = true;
@@ -344,11 +394,15 @@ const FloatingPreparationPage = () => {
       ...prev,
       {
         groupId: nextIdRef.current++,
-        tokens: touched.map(({ line, tok }) => ({ line, tok })),
+        tokens: p.touched.map(({ line, tok }) => ({ line, tok })),
         payload,
       },
     ]);
-  }, [pushHistory, highlights]);
+    setPending(null);
+    toast({ title: label, duration: 1600 });
+  }, [pending, pushHistory]);
+
+  const clearPending = useCallback(() => setPending(null), []);
 
 
   useEffect(() => {
@@ -367,6 +421,22 @@ const FloatingPreparationPage = () => {
   /* ---------- Keyboard shortcuts ---------- */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inEditable = !!target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      );
+      if (e.key === "Enter" && !inEditable && pending) {
+        e.preventDefault();
+        commitPending();
+        return;
+      }
+      if (e.key === "Escape" && pending) {
+        e.preventDefault();
+        clearPending();
+        return;
+      }
       const meta = e.metaKey || e.ctrlKey;
       if (!meta) return;
       if (e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -376,7 +446,7 @@ const FloatingPreparationPage = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo]);
+  }, [undo, redo, pending, commitPending, clearPending]);
 
   const clearAll = useCallback(() => {
     if (highlights.length === 0) return;
@@ -484,6 +554,17 @@ const FloatingPreparationPage = () => {
               <Eraser className="h-3.5 w-3.5" /> Clear
             </button>
             <button
+              onClick={commitPending}
+              disabled={!pending}
+              title="Commit highlighted selection as a floating chip (Enter)"
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border disabled:opacity-40"
+              style={pending
+                ? { background: "hsl(150 70% 45%)", color: "hsl(220 35% 12%)", borderColor: "hsl(150 70% 35%)" }
+                : { borderColor: "hsl(0 0% 100% / 0.2)", color: "hsl(0 0% 100% / 0.5)" }}
+            >
+              <CornerDownLeft className="h-3.5 w-3.5" /> Enter
+            </button>
+            <button
               onClick={generate}
               disabled={submitting || highlights.length === 0}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md disabled:opacity-50"
@@ -523,6 +604,7 @@ const FloatingPreparationPage = () => {
                 {toks.map((src, ti) => {
                   const key = `${li}:${ti}`;
                   const selected = selectedSet.has(key);
+                  const isPending = !!pending && pending.touched.some((t) => t.line === li && t.tok === ti);
                   return (
                     <span
                       key={ti}
@@ -531,6 +613,7 @@ const FloatingPreparationPage = () => {
                       className={cn(
                         "inline-block align-baseline px-0.5 mr-1 rounded-sm transition-colors",
                         selected && "bg-yellow-300/80 ring-1 ring-yellow-500/40",
+                        isPending && !selected && "bg-emerald-300/70 ring-1 ring-emerald-600/50",
                       )}
                     >
                       {renderMathInline(src, `fp-${li}-${ti}`)}
@@ -539,6 +622,32 @@ const FloatingPreparationPage = () => {
                 })}
               </div>
             ))}
+          </div>
+        )}
+
+        {pending && !loading && (
+          <div className="mx-auto max-w-3xl mt-4">
+            <div
+              className="rounded-md p-3 flex items-center gap-3"
+              style={{ background: "hsl(150 60% 12% / 0.7)", border: "1px solid hsl(150 70% 35%)" }}
+            >
+              <span className="text-[10px] uppercase tracking-[0.3em] text-emerald-300">Pending</span>
+              <span className="flex-1 font-mono text-[12px] text-foreground/90 truncate">
+                {pending.touched.map((t) => t.src).join(" ")}
+              </span>
+              <button
+                onClick={commitPending}
+                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-emerald-500 text-emerald-950 hover:bg-emerald-400"
+              >
+                <CornerDownLeft className="h-3 w-3" /> Enter
+              </button>
+              <button
+                onClick={clearPending}
+                className="text-xs text-foreground/55 hover:text-foreground px-2 py-1"
+              >
+                cancel
+              </button>
+            </div>
           </div>
         )}
 
