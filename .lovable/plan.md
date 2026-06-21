@@ -1,114 +1,60 @@
-# Plan: Make AI Edit handle hard cases (integrals) and give a clear recovery flow when it can't auto-fix
+# Plan — Manual "Highlight → Enter" floating numbers
 
-## What went wrong on this line
-
-The selected line is:
-
-```
-∫( 18/(5(x − 1)) + (−3x + 22)/(5(x² + 4)) ) dx
-```
-
-The deterministic extractor does not know how to drill INTO an integral. It treated the whole thing as a single chip, so:
-
-- "Fixed: expression" row shows the entire integral as one chip (with `\frac{...}{...}+\frac{...}{...}` inside it).
-- "No hidden signs inside chips" fails (the chip contains `+`, `−`).
-- "Five floating-number laws satisfied" fails for the same reason.
-- The repair step just re-ran the same extractor, got the same single chip, and gave up with **"Could not fix automatically. Add an instruction and regenerate."** — the teacher is left stuck with no useful next move.
-
-Two things must change:
-
-1. The extractor must know how to decompose `∫ ( … ) dx` (and a few similar wrappers) into proper chips.
-2. When auto-repair genuinely cannot resolve a line, the panel must give the teacher a concrete, guided path forward instead of a dead end.
+Pure manual workflow on the Floating Preparation page. **No backend / AI changes** in this plan — the teacher decides every floating chip by highlighting.
 
 ---
 
-## Part 1 — Teach the extractor to handle integral wrappers
+## Workflow
 
-Files: `supabase/functions/notebook-ai/floatingExtractor.ts` (and mirror the same change in `src/lib/smartboard/floatingExtractor.ts` so the smartboard stays consistent).
+1. Teacher highlights any span of text on a solution line (existing token-selection mechanism stays).
+2. An **Enter** button appears next to AI Edit (and the **Enter** key also fires it) while a selection is active.
+3. On press, the highlighted span becomes **one** floating chip. The system inspects what surrounds the highlight on that same line and, if a structure belongs to the highlighted atom, attaches that structure as an empty shell on the chip. The structure tokens stay in the source line so the teacher can highlight them next.
 
-Add an **integrand unwrap** pass that runs before term splitting:
+The teacher never has to highlight a structural symbol. Structure follows the atom it belongs to.
 
-- Detect patterns shaped like `∫( BODY ) dx`, `∫ BODY dx`, `\int( BODY ) dx`, `\int BODY \, dx`.
-- When matched:
-  - Push the integral shell `∫()dx` as a **container** chip (already a supported container kind).
-  - Recurse `extractTermsFromAscii(BODY)` so each fraction / term inside becomes its own chip:
-    `\frac{18}{5(x-1)}`, `+\frac{-3x+22}{5(x^2+4)}`.
-  - The variable of integration (`x` from `dx`) is recorded but not emitted as a chip.
+---
 
-Apply the same "drill into the body" rule to two close cousins that hit the same bug:
-- Summations `∑(BODY)` / `\sum BODY`.
-- Limits / products that wrap a body in parentheses with a trailing operator.
+## Structural attachment rules
 
-After this pass, `verifyFloatingLine` will see atomic chips (each fraction is a single shell, not a sum) and the "No hidden signs" + "Five laws" checks pass automatically.
+When the highlight ends, look at the characters **immediately to the right** (and for `√` / `d/dx`, immediately to the left) of the highlighted span on the same equation line.
 
-Add unit coverage in `src/test/floatingExtractorBackend.test.ts`:
-- `∫(18/(5(x-1)) + (-3x+22)/(5(x²+4))) dx` → 2 fraction chips + `=` if present + `∫()dx` container.
-- `∫ x² dx` → 1 power chip + `∫()dx` container.
-- Same forms with `\int` LaTeX source.
+| Highlighted span | Adjacent context detected | Chip emitted |
+|---|---|---|
+| `2` | `^…` follows (any exponent body) | `2^{□}` |
+| `a` | `_…` follows | `a_{□}` |
+| `f`, `g`, `h`, `θ`, `φ`, any single letter/Greek | `(` follows | `f(□)` |
+| `f(x)`, `θ(x+2y)` (highlighted whole) | — | one chip rendered verbatim |
+| `sin`, `cos`, `tan`, `log`, `ln` | `(` or argument follows | `sin(□)` etc. |
+| `log` | `_…` then argument | `log_{□}(□)` |
+| `√` or atom under a radical | radicand `(…)` or `{…}` follows | `√(□)` |
+| `d/dx`, `∂/∂x` | `(` or bracketed body follows | `\frac{d}{dx}(□)` |
+| `∫` | `… dx` tail on the line | `∫□ dx` |
+| `lim` | `_{x→…}` follows | `lim_{□}(□)` |
+| `|` … `|` (teacher highlighted only the inner atom) | flanked by `|` on both sides | `|□|` |
+| anything else | no recognized structure | chip = highlighted text verbatim |
 
-## Part 2 — Real recovery flow when auto-repair returns `unresolved`
+Notes:
+- The attachment **only adds an empty shell**; the original structure body (exponent tokens, bracket body, radicand, subscript) is **left in the source line** so the teacher can highlight each piece as its own chip afterwards.
+- If the teacher highlights the whole expression including the structure (e.g. `2^{x+5}`), no extra shell is added — it becomes one chip exactly as highlighted.
+- Detection is local (same line, immediate neighbours only) — no cross-line inference, no AI call.
+- Output passes through the existing `toUnicodeMath` / `isStillDirty` normalizer so chips render in classroom style (`²`, `√`, `□`, etc.) and never as raw LaTeX or `^`.
 
-Files: `supabase/functions/notebook-ai/index.ts` (response shape) and `src/components/lessonnotes/AiEditPanel.tsx` (panel UI), wired through `src/pages/FloatingNumbersPage.tsx`.
+---
 
-Today, on `status: "unresolved"` the panel shows one red line: *"Could not fix automatically. Add an instruction and regenerate."* Replace this with a structured **Recovery Steps** block that lists, in order, what the teacher can actually do.
+## UI changes (Floating Preparation page only)
 
-### Backend additions
+- New **Enter** button placed immediately before the existing AI Edit button. Same height/style as AI Edit. Disabled (greyed) when no active selection.
+- Keyboard: pressing **Enter** while a selection exists triggers the same handler. Shift+Enter still inserts a newline if any text input is focused.
+- Toast on commit: "Added as floating chip" (or "Added with `^{□}` shell" when a structure was auto-attached, so the teacher knows what happened).
+- Undo / Redo already supported — the new commit is a single undo step.
 
-Extend the `floating_line_edit` response with a `recovery` object when `status === "unresolved"`:
+---
 
-```ts
-recovery: {
-  reason: "structure_not_decomposed" | "law_violation" | "missing_terms" | "unknown",
-  summary: string,              // one human sentence, e.g.
-                                // "The integral could not be split into separate fraction chips."
-  hints: string[],              // ordered checklist the UI renders
-  suggestedInstructions: string[], // canned one-click instructions
-  canRevert: boolean,           // true when currentFillers were valid before
-}
-```
+## Files touched
 
-Reason is inferred from the diagnostic set:
-- All per-chip rows pass but laws fail with `NoHiddenSign` on a chip containing `∫`, `∑`, or `\frac` next to `+`/`−` → `structure_not_decomposed`.
-- Per-chip rows have `fail` after repair → `missing_terms`.
-- Only law rows fail → `law_violation`.
+- `src/pages/FloatingPreparationPage.tsx` — add Enter button, keyboard handler, call promoter on commit.
+- `src/lib/smartboard/manualFloatingPromoter.ts` *(new)* — pure function `promote(selectionText, lineText, selStart, selEnd) → { chipMarkup, attachedShell?: "power"|"subscript"|"bracket"|"radical"|"derivative"|"integral"|"absolute"|"limit" }`. All structural detection lives here; fully unit-testable.
+- `src/lib/notebook/unicodeMath.ts` — small helper exporting the function-name list (`sin`, `cos`, `tan`, `log`, `ln`, `lim`, `∫`, `√`, `d/dx`, `∂/∂x`) shared with the promoter.
+- `src/test/manualFloatingPromoter.test.ts` *(new)* — table-driven cases for every row in the rules table above, including the "highlighted the whole thing" no-op cases.
 
-`suggestedInstructions` are pre-written, equation-aware nudges the panel can offer as one-click chips, e.g. for an integral case:
-- *"Split the integral into two separate integrals, one per fraction."*
-- *"Expand the integrand into a sum of separate fractions before integrating."*
-- *"Combine the fractions over a common denominator first."*
-
-### Frontend changes (`AiEditPanel.tsx`)
-
-When `getDiagnostics()` returns `status === "unresolved"`:
-
-1. Keep the Smart Check checklist visible so the teacher sees exactly which row failed.
-2. Below the checklist render a **Recovery Steps** card:
-   - Step 1 — show `recovery.summary` in plain language.
-   - Step 2 — render `recovery.hints` as a numbered checklist.
-   - Step 3 — render `recovery.suggestedInstructions` as clickable chips. Clicking one fills the instruction box and immediately calls Regenerate.
-   - Step 4 — keep the existing text / voice / file-upload controls so the teacher can override with their own instruction.
-3. Disable the **Apply Changes** button (already wired) and add a secondary **Keep current chips** button when `recovery.canRevert` is true, so the teacher can bail out without losing the previous state.
-4. Add a one-line status pill at the top: *"Auto-fix could not resolve this line. Choose a recovery step below."* in amber, not red, so it reads as guidance instead of a hard error.
-
-### Page wiring (`FloatingNumbersPage.tsx`)
-
-- Capture `recovery` alongside `diagnostics` in `aiEditDiagRef`.
-- "Keep current chips" closes the panel without dispatching an update.
-- Clicking a suggested instruction calls `runAiEditForLine(line, instruction)` and re-opens the preview.
-
-## Part 3 — Documentation / pedagogy reference
-
-Add a short section to `supabase/functions/notebook-ai/pedagogyReference.ts` (PEDAGOGY_REFERENCE) describing the integral / summation decomposition rule, so when the AI rewrites the equation in Part 2 (via teacher instruction) it follows the same conventions and produces text the extractor can split.
-
-## Out of scope (explicitly not changed)
-
-- Five floating-number laws themselves.
-- `floatingVerifier.ts` logic.
-- Lesson-note AI Edit flow (only the floating-numbers path).
-- DB schema, RLS, QUESTION_LOCK, inheritance enforcement.
-
-## Acceptance
-
-- Opening AI Edit on the integral equation in the screenshot produces 2 fraction chips inside an `∫()dx` container, all five laws pass, status `clean` or `fixed`, **Apply Changes** becomes available.
-- Forcing an unresolvable case (e.g. an unsupported structure) shows the Recovery Steps card with at least one suggested instruction; clicking it regenerates without the teacher typing anything.
-- Existing passing cases keep passing — no regression in `src/test/floating*` tests.
+No changes to: backend edge functions, AI prompts, DB schema, routes, or other pages. AI Edit remains exactly as it is today and runs on top of the manually-created chips when the teacher wants to refine one.
