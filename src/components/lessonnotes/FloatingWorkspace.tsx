@@ -187,13 +187,24 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
   const stripSign = (x: string) => x.replace(/^[+\-−]\s*/, "").trim();
 
   // Walk the cloned selection DOM to rebuild structured source markup
-  // (\frac{a}{b}, \sqrt{x}) from the rendered KaTeX nodes. Returns the
-  // recovered string plus any container kinds we detected.
+  // (\frac{a}{b}, \sqrt{x}, x^{2}) from the rendered KaTeX nodes. Returns
+  // the recovered string plus any container kinds we detected.
   const recoverSelectionSource = (range: Range): { src: string; containers: ContainerKind[] } => {
     const frag = range.cloneContents();
     const wrapper = document.createElement("div");
     wrapper.appendChild(frag);
     const containers: ContainerKind[] = [];
+
+    // Superscripts/subscripts FIRST so they don't get swallowed by an
+    // outer fraction/radical pass. KaTeX renders x² as
+    // <span>x</span><span class="msupsub">…2…</span>; we rewrite the
+    // msupsub node into a literal `^{2}` text node sitting right after x.
+    wrapper.querySelectorAll(".msupsub").forEach((sub) => {
+      const text = (sub.textContent || "").trim();
+      if (!text) return;
+      sub.replaceWith(document.createTextNode(`^{${text}}`));
+      if (!containers.includes("power")) containers.push("power");
+    });
 
     // Fractions: KaTeX puts denominator first, frac-line, then numerator
     // as direct children of .vlist inside .mfrac.
@@ -212,15 +223,12 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     // Radicals
     wrapper.querySelectorAll(".sqrt").forEach((sq) => {
       const inner = sq.querySelector(".mord");
-      let body = (inner?.textContent || sq.textContent || "").replace(/^√\s*/, "").trim();
-      // Drop any leading index that KaTeX exposes
-      body = body.replace(/^\s+/, "");
+      const body = (inner?.textContent || sq.textContent || "").replace(/^√\s*/, "").trim();
       sq.replaceWith(document.createTextNode(`\\sqrt{${body}}`));
       if (!containers.includes("radical")) containers.push("radical");
     });
 
     const src = (wrapper.textContent || "").trim();
-    if (/\^\{/.test(src) && !containers.includes("power")) containers.push("power");
     return { src, containers };
   };
 
@@ -233,17 +241,16 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     let label = "Added as floating chip";
 
     if (range) {
+      // Trust the highlight verbatim. Recover real structure from the
+      // KaTeX DOM, but do NOT apply heuristic promoter rewrites — what
+      // the teacher highlighted is exactly what becomes the chip.
       const rec = recoverSelectionSource(range);
-      if (rec.src) {
-        src = rec.src;
-        containers = rec.containers;
-        if (containers.length) label = `Added with ${containers[0]}`;
-      }
-    }
-
-    // If no DOM-derived structure, run the heuristic promoter against the
-    // raw text + surrounding source equation (handles 2^{□}, sin(□)…).
-    if (containers.length === 0 && raw) {
+      src = rec.src || raw;
+      containers = rec.containers;
+      if (containers.length) label = `Added with ${containers[0]}`;
+    } else if (raw) {
+      // No DOM range (e.g. legacy callers) — fall back to the heuristic
+      // promoter so adjacency rules still attach an empty exponent shell.
       const eq = line.equation ?? "";
       const idx = eq.indexOf(raw);
       const before = idx >= 0 ? eq.slice(0, idx) : "";
@@ -254,8 +261,8 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
       if (result.label) label = result.label;
     }
 
-    // Trust the highlight: if the normalised form is still "dirty", fall
-    // back to the literal text the teacher selected. Enter never refuses.
+    // Trust the highlight: if the normalised form is "dirty", fall back
+    // to the literal text. Enter never refuses.
     let cleaned = toUnicodeMath(src) || src || raw;
     if (!cleaned || isStillDirty(cleaned)) {
       cleaned = raw || cleaned;
