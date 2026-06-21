@@ -776,6 +776,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             "sub",
             {
               key: `${keyBase}-sub-${k++}`,
+              "data-math-kind": "subscript",
+              "data-math-src": `_{${a.inner}}`,
               style: { fontSize: "0.7em", position: "relative", top: "0.3em", lineHeight: 1, verticalAlign: "baseline" },
             },
             renderInner(a.inner, `${keyBase}-sbb${k}`, ctx),
