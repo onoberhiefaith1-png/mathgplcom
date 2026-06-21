@@ -17,6 +17,8 @@ const SUB: Record<string, string> = {
 
 const toSup = (s: string) => s.split("").map((c) => SUP[c] ?? c).join("");
 const toSub = (s: string) => s.split("").map((c) => SUB[c] ?? c).join("");
+const canSup = (s: string) => s.split("").every((c) => SUP[c] !== undefined);
+const canSub = (s: string) => s.split("").every((c) => SUB[c] !== undefined);
 
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
@@ -27,6 +29,12 @@ export const toUnicodeMath = (input: string): string => {
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
   // like multiplication instead of “u raised to an empty exponent box”.
   const POWER_SLOT = "\uE000POWER_SLOT\uE000";
+  const scriptSlots: string[] = [];
+  const holdScript = (markup: string) => {
+    const token = `\uE001SCRIPT_${scriptSlots.length}\uE001`;
+    scriptSlots.push(markup);
+    return token;
+  };
   s = s.replace(/\^\{\s*□\s*\}/g, POWER_SLOT);
 
   // Strip KaTeX-style $...$ / $$...$$ delimiters.
@@ -55,13 +63,13 @@ export const toUnicodeMath = (input: string): string => {
   s = s.replace(/\\ln\b/g, "ln");
 
   // Generic subscript _{...} or _N
-  s = s.replace(/_\{([0-9+\-()]+)\}/g, (_m, x) => toSub(x));
-  s = s.replace(/_([0-9])/g, (_m, x) => toSub(x));
+  s = s.replace(/_\{([^{}]+)\}/g, (_m, x) => canSub(x) ? toSub(x) : holdScript(`_{${x}}`));
+  s = s.replace(/_([0-9A-Za-z+\-()])/g, (_m, x) => canSub(x) ? toSub(x) : holdScript(`_{${x}}`));
 
   // Powers ^{...}, ^N, **N
-  s = s.replace(/\^\{([^{}]+)\}/g, (_m, x) => toSup(x));
-  s = s.replace(/\^([0-9A-Za-z+\-()])/g, (_m, x) => toSup(x));
-  s = s.replace(/\*\*([0-9A-Za-z]+)/g, (_m, x) => toSup(x));
+  s = s.replace(/\^\{([^{}]+)\}/g, (_m, x) => canSup(x) ? toSup(x) : holdScript(`^{${x}}`));
+  s = s.replace(/\^([0-9A-Za-z+\-()])/g, (_m, x) => canSup(x) ? toSup(x) : holdScript(`^{${x}}`));
+  s = s.replace(/\*\*([0-9A-Za-z]+)/g, (_m, x) => canSup(x) ? toSup(x) : holdScript(`^{${x}}`));
 
   // operators / symbols
   s = s.replace(/\\cdot|\\times/g, "×");
@@ -88,6 +96,9 @@ export const toUnicodeMath = (input: string): string => {
   // Strip stray braces left behind
   s = s.replace(/[{}]/g, "");
 
+  scriptSlots.forEach((markup, i) => {
+    s = s.replace(`\uE001SCRIPT_${i}\uE001`, markup);
+  });
   s = s.replace(new RegExp(POWER_SLOT, "g"), "^{□}");
 
   return s.trim();
@@ -98,7 +109,10 @@ export const isStillDirty = (s: string): boolean => {
   if (!s) return false;
   if (/\\[A-Za-z]+/.test(s)) return true;     // any \word
   if (/\\$/.test(s)) return true;             // trailing backslash
-  const withoutAllowedSlots = s.replace(/\^\{\s*□\s*\}/g, "");
+  const withoutAllowedSlots = s
+    .replace(/\^\{\s*□\s*\}/g, "")
+    .replace(/\^\{[^{}]+\}/g, "")
+    .replace(/_\{[^{}]+\}/g, "");
   if (/\^\{|_\{/.test(withoutAllowedSlots)) return true; // ^{...} or _{...}, except empty superscript slots
   if (/\bsqrt\s*\(/i.test(s)) return true;    // sqrt(
   if (/\*\*/.test(s)) return true;            // **
