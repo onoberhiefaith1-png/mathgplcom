@@ -867,6 +867,18 @@ const FloatingNumbersPage = () => {
           );
         }}
       />
+      </div>
+      {/* Right: Floating Number AI Assistant — permanent panel */}
+      <aside className="hidden lg:flex w-[380px] h-screen sticky top-0">
+        <div className="w-full h-full">
+          <AssistantPanel
+            selection={selectedLine?.equation ?? null}
+            lineId={selectedLine?.lineId ?? null}
+            onApproveApply={applyChipsFromAssistant}
+            onApproveUndo={undoFromAssistant}
+          />
+        </div>
+      </aside>
     </div>
   );
 };
