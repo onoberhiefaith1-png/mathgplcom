@@ -907,10 +907,8 @@ const FloatingNumbersPage = () => {
         <div className="w-full h-full">
           <AssistantPanel
             lineId={selectedLine?.lineId ?? null}
-            selections={capturedSelections}
-            setSelections={setCapturedSelections}
-            selectionMode={selectionMode}
-            setSelectionMode={setSelectionMode}
+            activeHighlight={activeHighlight}
+            onClearHighlight={() => setActiveHighlight(null)}
             onApproveApply={applyChipsFromAssistant}
             onApproveUndo={undoFromAssistant}
             lessonContext={buildLessonContext({
