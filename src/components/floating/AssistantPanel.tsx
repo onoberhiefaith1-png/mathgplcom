@@ -242,6 +242,7 @@ export const AssistantPanel = ({
             selections: payloadSelections,
             lineId: primaryLineId,
             history,
+            lessonContext: lessonContext ?? null,
           },
         });
         if (error) throw error;
