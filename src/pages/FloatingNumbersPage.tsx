@@ -25,6 +25,7 @@ import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditP
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import AssistantPanel, { type CapturedSelection } from "@/components/floating/AssistantPanel";
+import { buildLessonContext } from "@/lib/floating/lessonContext";
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
@@ -932,6 +933,17 @@ const FloatingNumbersPage = () => {
             setSelections={setCapturedSelections}
             onApproveApply={applyChipsFromAssistant}
             onApproveUndo={undoFromAssistant}
+            lessonContext={buildLessonContext({
+              notebookId: info?.notebookId ?? null,
+              subsectionId: info?.subsectionId ?? null,
+              topic: info?.subtopic ?? null,
+              subject: info?.subject ?? null,
+              sectionKind: info?.sectionKind ?? null,
+              problem: info?.problem ?? null,
+              recentExamples: lines.slice(0, 6).map((l) => ({ lineId: l.lineId, text: l.equation })),
+              activeLineId: selectedLine?.lineId ?? null,
+              activeLineText: selectedLine?.equation ?? null,
+            })}
           />
         </div>
       </aside>

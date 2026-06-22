@@ -20,14 +20,17 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { detectElements, type MathElement } from "@/lib/floating/elementDetector";
+import type { LessonContext } from "@/lib/floating/lessonContext";
 
 export interface AssistantClientAction {
-  kind: "apply_chips" | "undo_last_change";
+  kind: "apply_chips" | "undo_last_change" | "approve_draft_law" | "reject_draft_law";
   payload: {
     line_id?: string;
     chips?: string[];
     scaffolds?: string[];
     verification_pass?: boolean;
+    draft_id?: string;
+    law_name?: string;
   };
 }
 
@@ -63,6 +66,8 @@ interface Props {
   onApproveApply: (payload: { lineId: string; chips: string[]; scaffolds?: string[] }) => void;
   /** Undo last change → restore previous chip snapshot. */
   onApproveUndo: (lineId: string) => void;
+  /** Live lesson context — topic, problem, recent worked-example lines. */
+  lessonContext?: LessonContext;
 }
 
 const newId = () =>
@@ -162,6 +167,7 @@ export const AssistantPanel = ({
   setSelections,
   onApproveApply,
   onApproveUndo,
+  lessonContext,
 }: Props) => {
   const navigate = useNavigate();
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
@@ -236,6 +242,7 @@ export const AssistantPanel = ({
             selections: payloadSelections,
             lineId: primaryLineId,
             history,
+            lessonContext: lessonContext ?? null,
           },
         });
         if (error) throw error;
@@ -263,8 +270,48 @@ export const AssistantPanel = ({
         requestAnimationFrame(() => inputRef.current?.focus());
       }
     },
-    [input, busy, messages, selections, lineId],
+    [input, busy, messages, selections, lineId, lessonContext],
   );
+
+  const approveDraftLaw = useCallback(async (draftId: string) => {
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const uid = sess.session?.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      const { data: draft, error: dErr } = await supabase
+        .from("floating_law_drafts")
+        .select("*")
+        .eq("id", draftId)
+        .maybeSingle();
+      if (dErr || !draft) throw dErr ?? new Error("Draft not found");
+      const { error: insErr } = await supabase.from("floating_law_library").insert({
+        owner_id: uid,
+        name: (draft as any).name,
+        rule: (draft as any).rule,
+        reason: (draft as any).reason,
+        conditions: (draft as any).conditions ?? {},
+        exceptions: (draft as any).exceptions ?? [],
+        examples: (draft as any).examples ?? [],
+        lesson_topics: (draft as any).lesson_topics ?? [],
+        tags: (draft as any).tags ?? [],
+        version: 1,
+      } as any);
+      if (insErr) throw insErr;
+      await supabase.from("floating_law_drafts").update({ status: "approved" } as any).eq("id", draftId);
+      toast({ title: "Law approved", description: (draft as any).name });
+    } catch (e: any) {
+      toast({ title: "Could not approve law", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  }, []);
+
+  const rejectDraftLaw = useCallback(async (draftId: string) => {
+    try {
+      await supabase.from("floating_law_drafts").update({ status: "rejected" } as any).eq("id", draftId);
+      toast({ title: "Draft law rejected" });
+    } catch (e: any) {
+      toast({ title: "Could not reject", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  }, []);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -295,6 +342,14 @@ export const AssistantPanel = ({
       const lid = String(action.payload.line_id ?? "");
       if (!lid) return;
       onApproveUndo(lid);
+    } else if (action.kind === "approve_draft_law") {
+      const did = String(action.payload.draft_id ?? "");
+      if (!did) return;
+      void approveDraftLaw(did);
+    } else if (action.kind === "reject_draft_law") {
+      const did = String(action.payload.draft_id ?? "");
+      if (!did) return;
+      void rejectDraftLaw(did);
     }
     setMessages((prev) =>
       prev.map((m) =>
@@ -342,6 +397,37 @@ export const AssistantPanel = ({
           </button>
         </div>
       </div>
+
+      {/* Lesson Context strip — topic, problem, active line */}
+      {lessonContext && (lessonContext.topic || lessonContext.problem) && (
+        <div
+          className="px-3 py-2 border-b text-[11px]"
+          style={{
+            borderColor: "hsl(220 15% 60% / 0.2)",
+            background: "hsl(168 30% 94%)",
+            color: "hsl(220 35% 18%)",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] uppercase tracking-[0.25em] font-semibold text-foreground/65">Lesson</span>
+            {lessonContext.topic && (
+              <span className="font-semibold">{lessonContext.topic}</span>
+            )}
+            {lessonContext.sectionKind && (
+              <span className="text-foreground/55">· {lessonContext.sectionKind}</span>
+            )}
+            <span className="ml-auto text-[9px] text-foreground/50 tabular-nums">
+              {lessonContext.recentExamples.length} line{lessonContext.recentExamples.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          {lessonContext.problem && (
+            <div className="mt-1 text-[11px] text-foreground/70 line-clamp-2 font-mono">
+              {lessonContext.problem}
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* Selected Context — clear, readable, multi-card */}
       <div
@@ -513,25 +599,37 @@ export const AssistantPanel = ({
 
               {m.pendingActions && m.pendingActions.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {m.pendingActions.map((a, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => approveAction(m.id, a)}
-                      className="text-[11px] px-2 py-1 rounded-md"
-                      style={{
-                        background:
-                          a.kind === "apply_chips" && a.payload.verification_pass
-                            ? "hsl(150 60% 38%)"
-                            : "hsl(220 35% 18%)",
-                        color: "hsl(38 38% 96%)",
-                      }}
-                    >
-                      {a.kind === "apply_chips"
+                  {m.pendingActions.map((a, i) => {
+                    const label =
+                      a.kind === "apply_chips"
                         ? `Approve & apply ${a.payload.chips?.length ?? 0} chips`
-                        : "Approve undo"}
-                    </button>
-                  ))}
+                        : a.kind === "undo_last_change"
+                        ? "Approve undo"
+                        : a.kind === "approve_draft_law"
+                        ? `Approve law: ${a.payload.law_name ?? "draft"}`
+                        : a.kind === "reject_draft_law"
+                        ? `Reject law: ${a.payload.law_name ?? "draft"}`
+                        : "Approve";
+                    const bg =
+                      a.kind === "apply_chips" && a.payload.verification_pass
+                        ? "hsl(150 60% 38%)"
+                        : a.kind === "approve_draft_law"
+                        ? "hsl(200 60% 38%)"
+                        : a.kind === "reject_draft_law"
+                        ? "hsl(0 60% 45%)"
+                        : "hsl(220 35% 18%)";
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => approveAction(m.id, a)}
+                        className="text-[11px] px-2 py-1 rounded-md"
+                        style={{ background: bg, color: "hsl(38 38% 96%)" }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
