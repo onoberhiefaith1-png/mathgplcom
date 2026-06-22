@@ -270,8 +270,48 @@ export const AssistantPanel = ({
         requestAnimationFrame(() => inputRef.current?.focus());
       }
     },
-    [input, busy, messages, selections, lineId],
+    [input, busy, messages, selections, lineId, lessonContext],
   );
+
+  const approveDraftLaw = useCallback(async (draftId: string) => {
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const uid = sess.session?.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      const { data: draft, error: dErr } = await supabase
+        .from("floating_law_drafts")
+        .select("*")
+        .eq("id", draftId)
+        .maybeSingle();
+      if (dErr || !draft) throw dErr ?? new Error("Draft not found");
+      const { error: insErr } = await supabase.from("floating_law_library").insert({
+        owner_id: uid,
+        name: (draft as any).name,
+        rule: (draft as any).rule,
+        reason: (draft as any).reason,
+        conditions: (draft as any).conditions ?? {},
+        exceptions: (draft as any).exceptions ?? [],
+        examples: (draft as any).examples ?? [],
+        lesson_topics: (draft as any).lesson_topics ?? [],
+        tags: (draft as any).tags ?? [],
+        version: 1,
+      } as any);
+      if (insErr) throw insErr;
+      await supabase.from("floating_law_drafts").update({ status: "approved" } as any).eq("id", draftId);
+      toast({ title: "Law approved", description: (draft as any).name });
+    } catch (e: any) {
+      toast({ title: "Could not approve law", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  }, []);
+
+  const rejectDraftLaw = useCallback(async (draftId: string) => {
+    try {
+      await supabase.from("floating_law_drafts").update({ status: "rejected" } as any).eq("id", draftId);
+      toast({ title: "Draft law rejected" });
+    } catch (e: any) {
+      toast({ title: "Could not reject", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  }, []);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
