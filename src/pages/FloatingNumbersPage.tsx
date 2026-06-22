@@ -606,7 +606,8 @@ const FloatingNumbersPage = () => {
 
 
   return (
-    <div className="min-h-screen" style={{ background: "hsl(38 35% 92%)" }}>
+    <div className="flex min-h-screen" style={{ background: "hsl(38 35% 92%)" }}>
+      <div className="flex-1 min-w-0">
       {/* Top bar */}
       <div
         className="sticky top-0 z-10 backdrop-blur"
