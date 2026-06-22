@@ -342,6 +342,14 @@ export const AssistantPanel = ({
       const lid = String(action.payload.line_id ?? "");
       if (!lid) return;
       onApproveUndo(lid);
+    } else if (action.kind === "approve_draft_law") {
+      const did = String(action.payload.draft_id ?? "");
+      if (!did) return;
+      void approveDraftLaw(did);
+    } else if (action.kind === "reject_draft_law") {
+      const did = String(action.payload.draft_id ?? "");
+      if (!did) return;
+      void rejectDraftLaw(did);
     }
     setMessages((prev) =>
       prev.map((m) =>
