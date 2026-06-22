@@ -927,8 +927,9 @@ const FloatingNumbersPage = () => {
       <aside className="hidden lg:flex w-[380px] h-screen sticky top-0">
         <div className="w-full h-full">
           <AssistantPanel
-            selection={selectedLine?.equation ?? null}
             lineId={selectedLine?.lineId ?? null}
+            selections={capturedSelections}
+            setSelections={setCapturedSelections}
             onApproveApply={applyChipsFromAssistant}
             onApproveUndo={undoFromAssistant}
           />
