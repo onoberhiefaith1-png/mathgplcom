@@ -24,7 +24,7 @@ import FloatingDisplayStrip from "@/components/lessonnotes/FloatingDisplayStrip"
 import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditPanel";
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
-import AssistantPanel from "@/components/floating/AssistantPanel";
+import AssistantPanel, { type CapturedSelection } from "@/components/floating/AssistantPanel";
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
