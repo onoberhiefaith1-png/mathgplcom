@@ -4,9 +4,9 @@
 // generate/verify/reconstruct tools.
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { detectElements } from "../floating-reason/elementDetector.ts";
-import { runLawPipeline } from "../floating-reason/laws.ts";
-import { verify } from "../floating-reason/verifier.ts";
+import { detectElements } from "./elementDetector.ts";
+import { runLawPipeline } from "./laws.ts";
+import { verify } from "./verifier.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
