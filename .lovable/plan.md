@@ -1,90 +1,120 @@
-# Floating Numbers Engine — Reasoning, Verification & Law Discovery
+## Floating Number AI Assistant — Conversational Workspace
 
-## Goal
-Convert the Floating Number Generation Page from a one‑click generator into a **reasoning + verification + law‑discovery** system. No floating chip set may be approved unless **every element of the original equation** is accounted for and the equation can be **reconstructed exactly**.
+Transform the Floating Number Generation Page from a button-driven flow (Generate / Reason & Verify / AI Edit / Enter) into a three-panel conversational workspace where a permanent AI Assistant is the primary interface. The teacher talks to the AI; the AI drives the workspace.
 
-## Pipeline (per equation line)
+### New Page Layout
 
 ```text
-Highlight → Generation Page → [Generate]
-   → Reasoning Page  (Element Detection → Law Detection → Law Application → Proposed Floating Numbers)
-   → Verification Page  (Coverage Check → Reconstruction Test → PASS/FAIL)
-   → Teacher: Approve | Regenerate | Restructure
-   → (on Approve) Law Discovery  (Draft Law Proposal → Approve | Edit | Reject)
-   → Back to Generation Page (line marked ✓)
+┌─────────────────────┬─────────────────────────┬──────────────────────────┐
+│  LEFT               │  MIDDLE                 │  RIGHT                   │
+│  Equation Lines     │  Floating Workspace     │  Floating Number AI      │
+│  (highlight source) │  (chips, scaffolds,     │  Assistant (chat)        │
+│  - lesson title     │   verification badges)  │  - context strip         │
+│  - each line click- │  - per-line status:     │  - message thread        │
+│    able to select   │    Pending / Verified ✓ │  - voice + uploads       │
+│  - selected line    │    / Failed ✗           │  - "Current selection"   │
+│    highlighted      │  - reconstruction diff  │    auto-injected         │
+│                     │    inline (no separate  │  - command results       │
+│                     │    page)                │    render in middle      │
+└─────────────────────┴─────────────────────────┴──────────────────────────┘
 ```
 
-Approve is **disabled** until Coverage = 100% AND Reconstruction = exact match.
+Removed from the UI: the per-line **Reason & Verify →**, **AI Edit**, and **⏎ Enter** buttons. Reasoning, verification, editing, and law discovery move into the AI thread and into inline middle-panel cards. The `/floating/.../reason` and `/floating/.../verify` routes are retired (existing pages kept as dead code one cycle, then removed).
 
-## What we build
+### Interaction Model
 
-### 1. Element Detector (`src/lib/floating/elementDetector.ts`)
-Tokenises the original highlight into a typed inventory:
-`number | variable | operator(+,−,×,÷,=,≠,<,>,≤,≥,±) | bracket(open/close pair) | fraction(num,den) | radical(index?,radicand) | power(base,exp) | subscript(base,sub) | integral(lo,hi,body,dvar) | summation | matrix | text | function-name`.
-Produces an ordered element list **and** a multiset fingerprint (counts per element). Used as the ground truth on both Reasoning and Verification pages.
+1. Teacher clicks an equation line on the **Left**.
+2. The AI panel's context strip updates: `Current selection: 4(a-b)=0` (auto, no copy/paste).
+3. Teacher types/speaks a command in the **Right** panel:
+   - "Generate floating numbers" → AI calls `floating-reason`, writes chips into the middle panel, posts a reasoning + verification message in chat.
+   - "Keep a and b together" → AI re-runs with a constraint, updates chips.
+   - "Verify all elements" / "Reconstruct equation" → AI re-runs verifier, posts coverage + diff card.
+   - "Apply Law 7" / "Explain this law" → AI references the Law Library.
+   - "Undo last change" → reverts to prior chip snapshot.
+4. Every AI turn that mutates the workspace produces a **diff card** in chat (before → after chips, applied laws, coverage %, exact-match status) with **Approve / Regenerate / Reject** buttons. Approve commits; coverage must be 100% and reconstruction exact, else Approve is disabled and the AI is told to retry.
+5. On Approve, if the change is not explainable by existing laws, the AI proposes a **Draft Law** card inline in the thread → Approve / Edit / Reject (writes to `floating_law_library` or `floating_law_drafts`).
 
-### 2. Law Engine (`src/lib/floating/laws/`)
-Each law is a small pure module: `{ id, name, version, detect(elements), apply(elements) → { transforms, scaffolds, explanation } }`. Initial seed = the 18 laws already described (Visible Blade, Clean/Dirty Argument, Dictionary Gate, Exponent Ecosystem, Subscript Collision, Fraction Scaffold, Function Gate, Text/Let, etc.). `runLawPipeline(elements)` returns: applied laws (with reason text), the proposed chip array, and the scaffold list.
+### Knowledge Base & Law Library (Settings tab)
 
-### 3. Verification Engine (`src/lib/floating/verifier.ts`)
-- **Coverage check**: every entry in the original fingerprint must appear in the generated chips' fingerprint (counts must match; scaffolds count as their structural element).
-- **Reconstruction test**: a deterministic `reconstruct(chips, scaffolds) → string` that re-assembles chips into a normalised canonical form, compared to the normalised original (whitespace + unicode/ascii equivalents folded; e.g. `−` ≡ `-`, `×` ≡ `*`).
-- Returns `{ coverage:%, missing:[], extra:[], reconstructed, original, exactMatch:boolean, status:'PASS'|'FAIL' }`.
+A new **AI Settings & Knowledge Base** screen (route `/lesson-notes/:id/floating/:sub/ai-settings`) with tabs:
 
-Reuses the spirit of the existing `completenessVerifier.ts` but is structure-aware (not just identifier/number fingerprints) and adds the reconstruction step.
+- **Official Laws** — approved laws (from `floating_law_library`).
+- **Draft Laws** — pending proposals (`floating_law_drafts`), Approve/Edit/Reject.
+- **Corrections** — historical teacher corrections (evidence only).
+- **Approved / Rejected Examples** — kept per teacher.
+- **Knowledge Documents** — uploads (PDF, DOCX, TXT, images, screenshots, voice notes) stored in a new `floating-knowledge` storage bucket, parsed server-side and indexed.
+- **Version History** — each law has `version`, `revisions[]`, `exceptions[]`, `superseded_by`.
 
-### 4. Reasoning Page (`src/pages/floating/ReasoningPage.tsx`)
-Read-only walkthrough rendered from the Law Engine output:
-- Step 1 Original Equation
-- Step 2 Detected Elements (numbered list + total)
-- Step 3 Applicable Laws (✓/✗ with reason)
-- Step 4 Law Application (one card per law: Reason / Action / Result)
-- Step 5 Proposed Floating Numbers (chip preview)
-Buttons: **Continue to Verification**, **Regenerate**, **Restructure**.
+The AI always retrieves from this knowledge base (per-teacher, scoped by `owner_id = auth.uid()`) before answering. No law becomes active without explicit teacher approval.
 
-### 5. Verification Page (`src/pages/floating/VerificationPage.tsx`)
-Two columns: Original Elements vs Generated Elements, each with ✓/✗. Coverage bar (e.g. `5/7 — 71%`). Reconstruction diff panel. **Approve** button enabled only when `status==='PASS' && exactMatch`. On FAIL: red banner with explicit `Missing: variable b, minus operator`.
+### Capabilities the AI Exposes (server-side tools)
 
-### 6. Restructure Panel
-Inputs supported on both Reasoning and Verification pages: typed instruction, screenshot upload, document upload, voice note, chip-region highlight, free-text comments. Payload is sent to the edge function with a `scope` field so the AI only re-reasons the selected region; untouched chips are preserved.
+Single `floating-assistant` edge function with a tool-calling loop. Tools:
 
-### 7. Law Discovery (`src/lib/floating/lawDiscovery.ts` + UI block on Verification Page)
-After teacher Approve, diff `(beforeChips, afterChips, lawTrace)`. If the teacher's correction is not explainable by any existing law, generate a **Draft Law Proposal**: `{ name, reason, rule, conditions, exceptions, examples[] }`. Render under the approved result in a "Pending Law" card with **Approve Law / Edit Law / Reject Law**. Approval assigns the next `law_number` and writes to the Law Library; rejection stores the correction as historical evidence only.
+- `generate_chips(selection, constraints?)`
+- `verify_chips(selection, chips)`
+- `reconstruct(selection, chips)`
+- `explain_law(law_id)` / `compare_laws(a,b)` / `list_applicable_laws(selection)`
+- `propose_draft_law(before, after, reason)`
+- `undo_last_change(line_id)`
+- `search_knowledge(query)` — over uploaded docs + law library
+- `apply_chips_to_workspace(line_id, chips, scaffolds)` — the only write tool; UI shows diff card requiring Approve
 
-### 8. Persistence (Lovable Cloud)
-New tables (all with GRANTs + RLS scoped by `owner_id = auth.uid()`):
-- `floating_generations` — per equation line: original, elements_json, law_trace_json, chips_json, verification_json, status (`pending|approved|rejected`), notebook_id, line_id.
-- `floating_law_library` — approved laws: `law_number, name, rule, conditions_json, exceptions_json, examples_json, source_generation_id, approved_at`.
-- `floating_law_drafts` — proposals awaiting teacher decision: same shape + `status (pending|approved|rejected)`.
-- `floating_restructure_events` — audit trail of restructure inputs (text/voice/screenshot refs in `reference-images` bucket).
+Every `apply_chips_to_workspace` runs `verify_chips` server-side first; if not PASS it returns the failing trace to the AI for retry (max 2), then surfaces FAIL to the teacher rather than silently committing.
 
-### 9. Edge function (`supabase/functions/notebook-ai/floating-reason/index.ts`)
-New action `mode: 'reason'` that returns `{elements, laws, chips, scaffolds, explanation}`. Server **re-runs the Verification Engine** before responding; if PASS fails, it retries up to 2× with stricter prompt, then returns the failing trace so the UI can show it (never silently drops elements). Reuses `unicodeMath`, `floatingExtractor`, `completenessVerifier`.
+### Inputs Supported in the Chat
 
-### 10. Generation Page integration
-- "Generate" no longer commits chips. It opens Reasoning Page for that line.
-- Lines display a status badge: `Not generated | Reasoning | Verified ✓ | Failed ✗`.
-- Only `Verified ✓` lines feed the downstream Smartboard/Floating workspace.
+Text, voice input (Web Speech API → transcript), voice output (TTS via Lovable AI), image/screenshot upload, document upload (PDF/DOCX/TXT via `document--parse_document` server-side), law upload (routed into Draft Laws extraction flow).
 
-## Technical notes
-- Pure TypeScript modules for detector/laws/verifier so they run identically in browser preview and in the edge function (shared via the existing `supabase/functions/notebook-ai/*.ts` mirror pattern).
-- Canonical normaliser: collapse whitespace, fold unicode operators to ascii, normalise implicit multiplication, sort commutative scaffold contents only for fingerprinting (never for reconstruction).
-- Tests (`src/test/floatingVerifier.test.ts`, `floatingLawEngine.test.ts`):
-  - `4(a-b)=0` → 7 elements, PASS, reconstruct exact.
-  - Missing `b` → coverage 6/7, FAIL, Approve disabled.
-  - `e^{2x+1}=10` → triggers Visible Blade + Scaffold Isolation + Dirty Exponent; reconstruction PASS.
-  - `f(x)` stays fused; `a(b+c)` fractures.
-  - `x_1` fuses; `x_{n+1}` shells.
+### Persistence Changes
 
-## Out of scope (this plan)
-- Changing the Highlighting Page or Lesson Notes flow.
-- Touching Smartboard rendering or the Floating Workspace itself — they keep consuming approved chip arrays as today.
-- Auto-approving laws; every new law requires explicit teacher approval.
+New + extended tables (migration, with GRANTs + RLS by `owner_id`):
 
-## Files to create / change
-- New: `src/lib/floating/{elementDetector,verifier,lawDiscovery}.ts`, `src/lib/floating/laws/*.ts`, `src/pages/floating/{ReasoningPage,VerificationPage}.tsx`, components for chip diff + coverage bar + law card.
-- New: `supabase/functions/notebook-ai/floating-reason/index.ts` (+ mirrored modules).
-- New migration: 4 tables above with GRANTs + RLS.
-- Edit: `src/pages/FloatingNumbersPage.tsx` — wire Generate → Reasoning, add status badges, gate downstream on `verified`.
-- Edit: `src/lib/smartboard/floatingPlan.ts` consumer path to only ingest verified chip sets.
-- Tests as listed above.
+- `floating_assistant_threads` — one per (notebook, subsection, teacher); stores message log.
+- `floating_assistant_messages` — `{thread_id, role, content, tool_calls, tool_results, attachments_json, created_at}`.
+- `floating_knowledge_documents` — `{owner_id, kind, filename, storage_path, parsed_text, indexed_at}`.
+- `floating_law_library` — add `version`, `revisions jsonb`, `exceptions jsonb`, `superseded_by uuid`.
+- `floating_chip_snapshots` — per-line history for Undo.
+- Storage bucket `floating-knowledge` (private, RLS by `owner_id`).
+
+Existing `floating_generations`, `floating_law_drafts`, `floating_restructure_events` are reused. `floating_restructure_events` is now written from chat turns rather than the old Restructure panel.
+
+### Files to Create / Change
+
+**Create**
+- `src/pages/FloatingNumbersPage.tsx` — rewrite into 3-panel layout (keeps file path; old single-column flow removed).
+- `src/components/floating/EquationLinesPanel.tsx` (left).
+- `src/components/floating/WorkspaceCanvas.tsx` (middle: chips, inline coverage bar, reconstruction diff, status badges, diff cards).
+- `src/components/floating/AssistantPanel.tsx` (right: thread, composer, voice, uploads, context strip).
+- `src/components/floating/AssistantMessage.tsx`, `DiffCard.tsx`, `DraftLawCard.tsx`, `CoverageCard.tsx`.
+- `src/hooks/useFloatingSelection.ts` — tracks active line + emits to AI context.
+- `src/hooks/useFloatingAssistant.ts` — thread state, streaming, tool-result handling.
+- `src/pages/floating/AiSettingsPage.tsx` + tab components for Official / Draft / Corrections / Examples / Knowledge / Versions.
+- `src/lib/floating/knowledgeIndex.ts` — client wrapper for knowledge search.
+- `supabase/functions/floating-assistant/index.ts` — chat + tool-calling loop (Lovable AI Gateway, `google/gemini-3-flash-preview`). Reuses existing `elementDetector.ts`, `laws.ts`, `verifier.ts` mirrors.
+- `supabase/functions/floating-knowledge-ingest/index.ts` — parses uploaded docs, stores extracted text + proposed law drafts.
+- Migration: new tables, bucket, RLS + GRANTs, extends `floating_law_library`.
+
+**Edit**
+- `src/App.tsx` — register `/ai-settings` route, drop `/reason` and `/verify` routes.
+- `src/lib/smartboard/floatingPlan.ts` — keep consuming only `verified` chip sets (unchanged contract).
+- `src/integrations/supabase/types.ts` — regenerate after migration.
+
+**Remove (after one cycle)**
+- `src/pages/floating/ReasoningPage.tsx`, `VerificationPage.tsx` — functionality fully absorbed into the chat + middle panel.
+- Old `Reason & Verify` / `AI Edit` / `Enter` buttons in the current `FloatingNumbersPage`.
+
+### Out of Scope (this plan)
+
+- Highlighting Page, Lesson Notes flow, Smartboard rendering, Floating Workspace consumer — unchanged.
+- Auto-approving laws or auto-committing AI chip changes — every mutation requires explicit teacher Approve.
+- Cross-teacher law sharing — each teacher's library stays scoped to `owner_id`.
+
+### Verification Guarantees (carried over, non-negotiable)
+
+No chip set is committed unless:
+1. Coverage = 100% over the original element fingerprint.
+2. Reconstruction is exact (canonical equality).
+3. Teacher clicks Approve on the diff card.
+
+Failure modes surface in the chat with explicit missing elements; the AI retries up to 2× server-side, then reports FAIL rather than dropping elements.
