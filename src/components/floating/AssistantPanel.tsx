@@ -1,13 +1,25 @@
-// Floating Number AI Assistant — permanent right-side chat panel.
-// Receives the teacher's CURRENT_SELECTION (highlighted equation line) and
-// drives the workspace via tool calls returned by the floating-assistant
-// edge function.
+// Floating Number AI Assistant — permanent right-side workspace copilot.
+// Captures highlighted content from the page (no copy/paste), supports
+// multiple pinned selections, shows detected mathematical elements, and
+// injects all selections into every prompt sent to the assistant.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send, Sparkles, RotateCcw, Settings } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Loader2,
+  Send,
+  Sparkles,
+  RotateCcw,
+  Settings,
+  Pin,
+  PinOff,
+  X,
+  Eraser,
+  Repeat,
+} from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { detectElements, type MathElement } from "@/lib/floating/elementDetector";
 
 export interface AssistantClientAction {
   kind: "apply_chips" | "undo_last_change";
@@ -33,9 +45,20 @@ export interface AssistantMessage {
   pendingActions?: AssistantClientAction[];
 }
 
+export interface CapturedSelection {
+  id: string;
+  text: string;
+  lineId?: string | null;
+  pinned: boolean;
+  ts: number;
+}
+
 interface Props {
-  selection: string | null;
+  /** Active equation line id (drives tool calls when teacher hasn't highlighted text). */
   lineId: string | null;
+  /** Captured highlights — managed by the parent page so selection capture stays in one place. */
+  selections: CapturedSelection[];
+  setSelections: React.Dispatch<React.SetStateAction<CapturedSelection[]>>;
   /** Approve a pending chip change → write to workspace. */
   onApproveApply: (payload: { lineId: string; chips: string[]; scaffolds?: string[] }) => void;
   /** Undo last change → restore previous chip snapshot. */
@@ -47,7 +70,99 @@ const newId = () =>
     ? (crypto as any).randomUUID()
     : `m-${Math.random().toString(36).slice(2)}`;
 
-export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUndo }: Props) => {
+const QUICK_ACTIONS: { label: string; prompt: string }[] = [
+  { label: "Explain", prompt: "Explain the selected context in plain English." },
+  { label: "Generate", prompt: "Generate floating numbers for the selected context." },
+  { label: "Verify", prompt: "Verify the current chips against the selected context — coverage and reconstruction." },
+  { label: "Restructure", prompt: "Restructure the selected context using a better-fitting law." },
+  { label: "Apply Law", prompt: "Apply the most appropriate approved law to the selected context and show your reasoning." },
+  { label: "New Law", prompt: "Propose a new draft law that would explain the selected context." },
+  { label: "Compare", prompt: "Compare the selected contexts structurally and tell me how they relate." },
+  { label: "Coverage", prompt: "Check element coverage for the selected context against the current chips." },
+];
+
+/* ─────────────────────── Detected Elements grouping ─────────────────────── */
+
+const groupElements = (els: MathElement[]) => {
+  const groups: Record<string, string[]> = {
+    Variables: [],
+    Coefficients: [],
+    Operators: [],
+    Functions: [],
+    Scaffolds: [],
+    Brackets: [],
+    Equalities: [],
+  };
+  for (const e of els) {
+    switch (e.kind) {
+      case "variable":
+        if (!groups.Variables.includes(e.value)) groups.Variables.push(e.value);
+        break;
+      case "number":
+        groups.Coefficients.push(e.value);
+        break;
+      case "operator":
+        if (!groups.Operators.includes(e.value)) groups.Operators.push(e.value);
+        break;
+      case "function-name":
+        if (!groups.Functions.includes(e.value)) groups.Functions.push(e.value);
+        break;
+      case "fraction":
+        groups.Scaffolds.push(`frac(${e.value})`);
+        break;
+      case "radical":
+        groups.Scaffolds.push(`√(${e.value})`);
+        break;
+      case "power":
+        groups.Scaffolds.push(`^(${e.value})`);
+        break;
+      case "subscript":
+        groups.Scaffolds.push(`_(${e.value})`);
+        break;
+      case "integral":
+        groups.Scaffolds.push("∫");
+        break;
+      case "summation":
+        groups.Scaffolds.push("∑");
+        break;
+      case "matrix":
+        groups.Scaffolds.push("matrix");
+        break;
+      case "bracket-open":
+      case "bracket-close":
+        groups.Brackets.push(e.value);
+        break;
+      case "equality":
+        groups.Equalities.push(e.value);
+        break;
+      default:
+        break;
+    }
+  }
+  return groups;
+};
+
+const guessStructure = (els: MathElement[]): string => {
+  const has = (k: MathElement["kind"]) => els.some((e) => e.kind === k);
+  if (has("integral")) return "Integral";
+  if (has("summation")) return "Summation";
+  if (has("matrix")) return "Matrix";
+  if (has("fraction")) return "Rational";
+  if (has("radical")) return "Radical";
+  if (has("function-name")) return "Function expression";
+  if (has("power") && has("variable")) return "Polynomial";
+  if (has("variable")) return "Algebraic";
+  if (has("number")) return "Numeric";
+  return "Expression";
+};
+
+export const AssistantPanel = ({
+  lineId,
+  selections,
+  setSelections,
+  onApproveApply,
+  onApproveUndo,
+}: Props) => {
   const navigate = useNavigate();
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
   const [messages, setMessages] = useState<AssistantMessage[]>([
@@ -55,11 +170,12 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
       id: "welcome",
       role: "assistant",
       text:
-        "Hi — I'm your Floating Number AI Assistant. Highlight any equation line on the left and tell me what to do: 'generate floating numbers', 'keep a and b together', 'verify all elements', 'explain the law'.",
+        "Hi — I'm your Floating Number AI Assistant. Highlight any equation, scaffold, or chip on the left and I'll pick it up automatically. Then tell me what to do.",
     },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [replaceMode, setReplaceMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,44 +187,84 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
     inputRef.current?.focus();
   }, []);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || busy) return;
-    const userMsg: AssistantMessage = { id: newId(), role: "user", text };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setBusy(true);
-    try {
-      const history = messages.slice(-12).map((m) => ({ role: m.role, content: m.text }));
-      const { data, error } = await supabase.functions.invoke("floating-assistant", {
-        body: {
-          message: text,
-          selection,
-          lineId,
-          history,
-        },
-      });
-      if (error) throw error;
-      const d = data as { reply: string; toolTrace?: AssistantToolTrace[]; clientActions?: AssistantClientAction[] };
-      const reply: AssistantMessage = {
-        id: newId(),
-        role: "assistant",
-        text: d.reply || "(no reply)",
-        toolTrace: d.toolTrace,
-        pendingActions: d.clientActions,
-      };
-      setMessages((prev) => [...prev, reply]);
-    } catch (e: any) {
-      toast({ title: "Assistant error", description: e?.message ?? String(e), variant: "destructive" });
-      setMessages((prev) => [
-        ...prev,
-        { id: newId(), role: "assistant", text: `⚠️ ${e?.message ?? String(e)}` },
-      ]);
-    } finally {
-      setBusy(false);
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }, [input, busy, messages, selection, lineId]);
+  /* ───────────── Context management ───────────── */
+
+  const togglePin = (id: string) =>
+    setSelections((prev) => prev.map((s) => (s.id === id ? { ...s, pinned: !s.pinned } : s)));
+
+  const removeSelection = (id: string) =>
+    setSelections((prev) => prev.filter((s) => s.id !== id));
+
+  const clearContext = () =>
+    setSelections((prev) => prev.filter((s) => s.pinned));
+
+  /* ───────────── Detected elements (most recent item) ───────────── */
+  const latest = selections[selections.length - 1];
+  const detected = useMemo(() => {
+    if (!latest) return null;
+    const els = detectElements(latest.text);
+    return { groups: groupElements(els), structure: guessStructure(els) };
+  }, [latest]);
+
+  /* ───────────── Send ───────────── */
+
+  const send = useCallback(
+    async (overrideText?: string) => {
+      const text = (overrideText ?? input).trim();
+      if (!text || busy) return;
+      const userDisplay =
+        selections.length > 0
+          ? `${text}\n\n— with ${selections.length} selection${selections.length === 1 ? "" : "s"} attached`
+          : text;
+      const userMsg: AssistantMessage = { id: newId(), role: "user", text: userDisplay };
+      setMessages((prev) => [...prev, userMsg]);
+      setInput("");
+      setBusy(true);
+      try {
+        const history = messages.slice(-12).map((m) => ({ role: m.role, content: m.text }));
+        const payloadSelections = selections.map((s) => ({
+          id: s.id,
+          text: s.text,
+          lineId: s.lineId ?? null,
+        }));
+        const primarySelection = selections[0]?.text ?? null;
+        const primaryLineId = selections[0]?.lineId ?? lineId ?? null;
+        const { data, error } = await supabase.functions.invoke("floating-assistant", {
+          body: {
+            message: text,
+            selection: primarySelection,
+            selections: payloadSelections,
+            lineId: primaryLineId,
+            history,
+          },
+        });
+        if (error) throw error;
+        const d = data as {
+          reply: string;
+          toolTrace?: AssistantToolTrace[];
+          clientActions?: AssistantClientAction[];
+        };
+        const reply: AssistantMessage = {
+          id: newId(),
+          role: "assistant",
+          text: d.reply || "(no reply)",
+          toolTrace: d.toolTrace,
+          pendingActions: d.clientActions,
+        };
+        setMessages((prev) => [...prev, reply]);
+      } catch (e: any) {
+        toast({ title: "Assistant error", description: e?.message ?? String(e), variant: "destructive" });
+        setMessages((prev) => [
+          ...prev,
+          { id: newId(), role: "assistant", text: `⚠️ ${e?.message ?? String(e)}` },
+        ]);
+      } finally {
+        setBusy(false);
+        requestAnimationFrame(() => inputRef.current?.focus());
+      }
+    },
+    [input, busy, messages, selections, lineId],
+  );
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -140,7 +296,6 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
       if (!lid) return;
       onApproveUndo(lid);
     }
-    // Mark message actions consumed
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId ? { ...m, pendingActions: m.pendingActions?.filter((a) => a !== action) } : m,
@@ -167,11 +322,7 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
             type="button"
             onClick={() =>
               setMessages([
-                {
-                  id: "welcome",
-                  role: "assistant",
-                  text: "New conversation. What should I work on?",
-                },
+                { id: "welcome", role: "assistant", text: "New conversation. What should I work on?" },
               ])
             }
             className="p-1.5 rounded hover:bg-foreground/5"
@@ -192,15 +343,122 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
         </div>
       </div>
 
-      {/* Current selection strip */}
+      {/* Selected Context — clear, readable, multi-card */}
       <div
-        className="px-4 py-2 text-[11px] border-b"
-        style={{ borderColor: "hsl(220 15% 60% / 0.15)", background: "hsl(38 38% 96% / 0.6)" }}
+        className="border-b max-h-[42vh] overflow-y-auto"
+        style={{
+          borderColor: "hsl(220 15% 60% / 0.2)",
+          background: "hsl(38 40% 98%)",
+        }}
       >
-        <span className="uppercase tracking-[0.2em] text-foreground/55">Current selection:&nbsp;</span>
-        <span className="font-mono text-foreground/85">
-          {selection ? selection : <span className="italic text-foreground/40">none — click a line on the left</span>}
-        </span>
+        <div className="px-3 pt-3 pb-1.5 flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.25em] font-semibold text-foreground/65">
+            Selected Context
+          </span>
+          <span className="text-[10px] text-foreground/45">
+            {selections.length === 0 ? "none" : `${selections.length} item${selections.length === 1 ? "" : "s"}`}
+          </span>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setReplaceMode((v) => !v)}
+              className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+              style={
+                replaceMode
+                  ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
+                  : { color: "hsl(220 35% 18%)", border: "1px solid hsl(220 15% 60% / 0.35)" }
+              }
+              title="When on, next highlight replaces the most recent unpinned item"
+            >
+              <Repeat className="h-3 w-3" /> Replace
+            </button>
+            <button
+              type="button"
+              onClick={clearContext}
+              disabled={selections.length === 0}
+              className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 disabled:opacity-30"
+              style={{ color: "hsl(220 35% 18%)", border: "1px solid hsl(220 15% 60% / 0.35)" }}
+              title="Clear all unpinned selections"
+            >
+              <Eraser className="h-3 w-3" /> Clear
+            </button>
+          </div>
+        </div>
+
+        {selections.length === 0 ? (
+          <div className="px-3 pb-3 text-[12px] italic text-foreground/45">
+            Highlight any equation, scaffold, or chip on the left to capture it here automatically.
+          </div>
+        ) : (
+          <div className="px-3 pb-3 space-y-1.5">
+            {selections.map((s, idx) => (
+              <div
+                key={s.id}
+                className="rounded-md px-2.5 py-2 flex items-start gap-2"
+                style={{
+                  background: "hsl(0 0% 100%)",
+                  border: s.pinned
+                    ? "1px solid hsl(40 85% 50%)"
+                    : "1px solid hsl(220 15% 60% / 0.35)",
+                }}
+              >
+                <span
+                  className="text-[10px] font-semibold mt-0.5 tabular-nums"
+                  style={{ color: "hsl(220 35% 40%)" }}
+                >
+                  [{idx + 1}]
+                </span>
+                <pre
+                  className="flex-1 text-[13px] whitespace-pre-wrap break-words leading-snug font-mono"
+                  style={{ color: "hsl(220 35% 18%)", margin: 0 }}
+                >
+                  {s.text}
+                </pre>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => togglePin(s.id)}
+                    className="p-1 rounded hover:bg-foreground/5"
+                    title={s.pinned ? "Unpin" : "Pin — survives Clear"}
+                  >
+                    {s.pinned ? (
+                      <PinOff className="h-3 w-3" style={{ color: "hsl(40 85% 42%)" }} />
+                    ) : (
+                      <Pin className="h-3 w-3 text-foreground/55" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeSelection(s.id)}
+                    className="p-1 rounded hover:bg-foreground/5"
+                    title="Remove"
+                  >
+                    <X className="h-3 w-3 text-foreground/55" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Detected Elements — based on the most recent item */}
+        {detected && (
+          <details className="px-3 pb-3" open>
+            <summary className="text-[10px] uppercase tracking-[0.25em] font-semibold text-foreground/65 cursor-pointer select-none">
+              Detected Elements · <span className="normal-case tracking-normal text-foreground/55">{detected.structure}</span>
+            </summary>
+            <div className="mt-2 space-y-1 text-[12px]" style={{ color: "hsl(220 35% 18%)" }}>
+              {Object.entries(detected.groups).map(([label, vals]) =>
+                vals.length === 0 ? null : (
+                  <div key={label} className="flex gap-2">
+                    <span className="text-foreground/55 w-[78px] shrink-0">{label}:</span>
+                    <span className="font-mono break-words">{vals.join(", ")}</span>
+                  </div>
+                ),
+              )}
+            </div>
+          </details>
+        )}
       </div>
 
       {/* Messages */}
@@ -208,9 +466,7 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
         {messages.map((m) => (
           <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
             <div
-              className={`max-w-[88%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
-                m.role === "user" ? "text-foreground" : "text-foreground"
-              }`}
+              className="max-w-[88%] rounded-lg px-3 py-2 text-sm leading-relaxed"
               style={
                 m.role === "user"
                   ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
@@ -293,6 +549,26 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
         )}
       </div>
 
+      {/* Quick action chips */}
+      <div
+        className="px-3 pt-2 pb-1 border-t flex flex-wrap gap-1"
+        style={{ borderColor: "hsl(220 15% 60% / 0.2)" }}
+      >
+        {QUICK_ACTIONS.map((a) => (
+          <button
+            key={a.label}
+            type="button"
+            onClick={() => send(a.prompt)}
+            disabled={busy}
+            className="text-[11px] px-2 py-0.5 rounded-md hover:bg-foreground/5 disabled:opacity-40"
+            style={{ color: "hsl(220 35% 18%)", border: "1px solid hsl(220 15% 60% / 0.3)" }}
+            title={a.prompt}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
       {/* Composer */}
       <div className="border-t p-3" style={{ borderColor: "hsl(220 15% 60% / 0.25)" }}>
         <div className="flex items-end gap-2">
@@ -301,14 +577,18 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={selection ? "Tell the AI what to do…" : "Highlight a line, then ask…"}
+            placeholder={
+              selections.length > 0
+                ? `Tell the AI what to do with the ${selections.length} selection${selections.length === 1 ? "" : "s"}…`
+                : "Highlight something on the left, then ask…"
+            }
             rows={2}
             className="flex-1 resize-none rounded-md border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
             style={{ borderColor: "hsl(220 15% 60% / 0.3)" }}
           />
           <button
             type="button"
-            onClick={send}
+            onClick={() => send()}
             disabled={!input.trim() || busy}
             className="rounded-md px-3 py-2 text-sm inline-flex items-center gap-1.5 disabled:opacity-40"
             style={{ background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }}
@@ -316,9 +596,6 @@ export const AssistantPanel = ({ selection, lineId, onApproveApply, onApproveUnd
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             Send
           </button>
-        </div>
-        <div className="mt-1.5 text-[10px] text-foreground/45">
-          Try: "generate floating numbers", "keep a and b together", "verify coverage", "undo last change"
         </div>
       </div>
     </div>
