@@ -3,7 +3,7 @@
 // Every chip is editable; every row always ends with an empty tagged entry box.
 
 import { useEffect, useRef, useState } from "react";
-import { Shuffle, X, Sparkles, CornerDownLeft } from "lucide-react";
+import { Shuffle, X } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
