@@ -398,6 +398,37 @@ export const AssistantPanel = ({
         </div>
       </div>
 
+      {/* Lesson Context strip — topic, problem, active line */}
+      {lessonContext && (lessonContext.topic || lessonContext.problem) && (
+        <div
+          className="px-3 py-2 border-b text-[11px]"
+          style={{
+            borderColor: "hsl(220 15% 60% / 0.2)",
+            background: "hsl(168 30% 94%)",
+            color: "hsl(220 35% 18%)",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] uppercase tracking-[0.25em] font-semibold text-foreground/65">Lesson</span>
+            {lessonContext.topic && (
+              <span className="font-semibold">{lessonContext.topic}</span>
+            )}
+            {lessonContext.sectionKind && (
+              <span className="text-foreground/55">· {lessonContext.sectionKind}</span>
+            )}
+            <span className="ml-auto text-[9px] text-foreground/50 tabular-nums">
+              {lessonContext.recentExamples.length} line{lessonContext.recentExamples.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          {lessonContext.problem && (
+            <div className="mt-1 text-[11px] text-foreground/70 line-clamp-2 font-mono">
+              {lessonContext.problem}
+            </div>
+          )}
+        </div>
+      )}
+
+
       {/* Selected Context — clear, readable, multi-card */}
       <div
         className="border-b max-h-[42vh] overflow-y-auto"
