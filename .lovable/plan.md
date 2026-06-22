@@ -1,121 +1,50 @@
-# Floating Number AI ↔ Lesson Note Generator Integration
+# Floating Number AI — Readability + Live Selection Sync
 
-Make the Floating Number AI a co-author of the lesson, not a side chatbot. It continuously observes the lesson the teacher is generating, shares the same knowledge base (laws, corrections, uploaded docs), and refuses to generate floating numbers until every element of the source equation is accounted for.
+Two scoped fixes to `src/components/floating/AssistantPanel.tsx` and the selection capture in `src/pages/FloatingNumbersPage.tsx`. No backend or business-logic changes.
 
-## 1. Shared Lesson Context Layer
+## 1. Readability — white background, black text
 
-Create a single source of truth that both the Lesson Note Generator and the Floating Number AI read from and write to.
+Rewrite all inline `style={{ background: ..., color: ... }}` blocks and Tailwind classes in `AssistantPanel.tsx` so every surface follows:
 
-New module `src/lib/floating/lessonContext.ts`:
-- `LessonContext` type: `{ notebookId, subsectionId, topic, objectives[], sections[], workedExamples[], activeLineId, activeStructure, lastTeacherCorrections[], availableLaws[], draftLaws[], knowledgeDocs[] }`.
-- React context provider `LessonContextProvider` mounted at `NotebookEditorPage` and `FloatingNumbersPage` (both already share `notebookId`/`subsectionId` in the route).
-- Hook `useLessonContext()` exposes the snapshot + `patchContext(partial)`.
+- Panel root, header, lesson strip, selected-context area, message list, composer, footer: `background: #FFFFFF`.
+- All primary text (selection text, AI replies, reasoning, generated floating numbers, teacher notes, detected elements, chips, labels): `color: #000000`.
+- Section labels ("Selected Context", "Lesson", "Detected Elements"): black, slightly smaller — no muted grey.
+- Borders/dividers: solid light grey (`#E5E7EB`) — visible but not decorative.
+- User vs assistant messages: both black-on-white. Differentiate with a 2px left border (user = blue `#2563EB`, assistant = neutral `#111827`) and a small role label — no colored bubbles, no translucency.
+- Buttons/chips: white background, black text, `#D1D5DB` border; hover = `#F3F4F6`. Active "Replace" toggle = black bg / white text (kept as the only inverted control).
+- Code/math snippets inside selections: black text, `#F9FAFB` background, `#E5E7EB` border, monospace.
+- Remove all `text-foreground/55`, `text-foreground/65`, `opacity-*` on text, `hsl(... / 0.x)` text colors, and gradient/translucent backgrounds inside the panel.
 
-Wiring:
-- `useNotebook` already loads notebooks/sections/subsections/blocks — extend it to publish topic/objectives/worked-example blocks into `LessonContext` on every change.
-- `FloatingWorkspace` and `FloatingNumbersPage` patch `activeLineId` / `activeStructure` when selection changes.
-- `notebook-ai` edge function streams generated example blocks; on each completion, client appends to `workedExamples[]` and notifies the AI panel.
+Audit checklist before finishing: grep the file for `foreground/`, `opacity-`, `hsl(`, `/ 0.` and confirm no text token uses transparency.
 
-## 2. Live Lesson Awareness in the AI
+## 2. Live single-selection sync (default) + Multi-Selection mode
 
-`AssistantPanel` already sends `selections` + `lineId`. Extend the payload with a compact `lessonContext` block:
+### Selection capture (`FloatingNumbersPage.tsx`)
 
-```
-{ topic, objectives, recentExamples[3], activeLine, activeStructure,
-  approvedLawIds[], draftLawIds[], knowledgeDocIds[] }
-```
+Replace the current `mouseup`-based, append/dedupe/debounce logic with a simpler `selectionchange` listener:
 
-Edge function `floating-assistant/index.ts`:
-- Accept `lessonContext` and inject a structured "LESSON STATE" section into the system prompt above the tool list.
-- On every turn, hydrate full law text + doc excerpts server-side from `floating_law_library`, `floating_law_drafts`, `floating_knowledge_documents` using the IDs (avoids bloated client payload).
-- New tools:
-  - `analyze_example({ exampleText })` → returns detected structures (fraction scaffold, polynomial num, factored denom, variables, operators, containers, existing floating elements) using the existing `elementDetector` + a structural classifier.
-  - `propose_new_law({ name, statement, rationale, examples[], counterExamples[] })` → writes to `floating_law_drafts` with `status='proposed'`. Never auto-activates.
-  - `lookup_law({ query })` → semantic-ish search over approved + draft laws.
+- Listen on `document` for `selectionchange`.
+- Read `window.getSelection()`. If collapsed → if Multi mode off, **do nothing** (keep current selection visible — fixes the "second highlight clears it" bug). If selection exists and anchor is inside `workspaceRef`:
+  - Resolve `data-line-id` from anchor's `closest`.
+  - In **single mode (default)**: replace `capturedSelections` with one entry `[{ id, text, lineId, pinned: false, ts }]` — every new highlight instantly swaps A → B → C.
+  - In **multi mode**: append (dedupe by identical text+lineId), preserving pinned items.
+- Drop the `replaceModeRef` / 400 ms debounce logic; single mode makes them unnecessary.
+- A new `selectionMode: "single" | "multi"` state lives on the page and is passed to `AssistantPanel` along with a setter.
 
-## 3. Auto-Analysis Pipeline on Lesson Generation
+### Panel changes (`AssistantPanel.tsx`)
 
-When the Lesson Note Generator (notebook-ai) emits a new worked example block:
-1. Client appends block to notebook as today.
-2. Client fires `analyzeExample(blockId, text)` → calls a new edge function `floating-analyze` (or reuses `floating-assistant` with `mode: 'analyze'`) that runs `elementDetector` + structure classifier server-side.
-3. Result stored in new table `floating_example_analyses` (see §5) and broadcast into `LessonContext.workedExamples[i].analysis`.
-4. The AssistantPanel surfaces a non-intrusive "Analyzed ✓ N structures detected" chip per example, expandable to show the breakdown.
+- Add a top "Current Selection" strip that's always visible (even when empty → shows "No selection — highlight any equation on the left").
+- Render the active selection as a clear black-on-white card with the verbatim text in monospace, line-by-line, plus the `lineId` badge.
+- Replace the existing `Replace` toggle with a `Single | Multi` segmented control bound to `selectionMode`. Pin/Clear/Remove controls only appear in Multi mode.
+- Detected Elements, Applicable Laws (existing chips), Available Commands (quick action chips), and Selected Structure recompute via the existing `useMemo` keyed on the current selection — already reactive, just confirm they read from the new live selection.
+- Keep all existing assistant features (lesson context strip, quick actions, draft-law approve/reject, apply/undo). Only styling + selection-state logic changes.
 
-This makes the analysis available to the Floating Number Generator before the teacher ever clicks into a line.
+## Files touched
 
-## 4. Unified Knowledge Base
+- `src/components/floating/AssistantPanel.tsx` — colors + selection UI (Current Selection strip, Single/Multi toggle, remove translucent text).
+- `src/pages/FloatingNumbersPage.tsx` — replace `mouseup` capture with `selectionchange`-based live sync; add `selectionMode` state.
 
-Today: `floating_law_library`, `floating_law_drafts`, `floating_knowledge_documents` are already scoped per user.
-Changes:
-- Add `lesson_topic text[]` and `tags text[]` to `floating_law_library` and `floating_law_drafts` so laws can be filtered by current topic.
-- Add `source_kind` to `floating_law_drafts` enum: `ai_proposed | teacher_authored | derived_from_correction`.
-- New table `floating_teacher_corrections` capturing every approve/undo/restructure event with: `line_id, before_chips, after_chips, reason, law_refs[], created_by`. Already partially covered by `floating_chip_snapshots` + `floating_restructure_events` — add a `reason` + `law_refs` column to `floating_restructure_events` rather than a new table.
-- `notebook-ai` (Lesson Generator) gains read access to the same law library so generated examples respect approved laws (system prompt injects "Approved laws for topic X: …").
+## Out of scope
 
-## 5. New / Changed Tables (single migration)
-
-```
-floating_example_analyses (
-  id uuid pk, user_id uuid, notebook_id uuid, subsection_id uuid,
-  block_id uuid, example_text text, structures jsonb,
-  detected_elements jsonb, created_at timestamptz
-)
-ALTER floating_law_library ADD COLUMN lesson_topics text[], tags text[];
-ALTER floating_law_drafts  ADD COLUMN lesson_topics text[], tags text[], source_kind text;
-ALTER floating_restructure_events ADD COLUMN reason text, law_refs uuid[];
-```
-
-All with the standard `GRANT` block + RLS scoped to `auth.uid()`.
-
-## 6. Hard Completeness Gate
-
-Already partially in `verifier.ts`. Promote it to a non-bypassable gate:
-- Centralize in `src/lib/floating/completenessGate.ts` and mirror in `supabase/functions/floating-assistant/verifier.ts`.
-- Checklist enforced server-side before `apply_chips` can return `verification_pass: true`:
-  variables, coefficients, operators, scaffolds, fractions, exponents, functions, matrix elements, integral/limit bounds, brackets, equalities.
-- If any element is missing, the tool result must include `missing[]` and the Approve button stays disabled (already wired in `AssistantPanel`).
-- Add a UI "Coverage Report" card rendered from the latest tool trace so the teacher sees exactly what was/wasn't accounted for.
-
-## 7. New-Law Discovery Flow
-
-When the AI cannot fully explain a structure with approved laws:
-1. `verify_chips` returns `status: 'NEEDS_NEW_LAW'` with `unknownStructure` description.
-2. Assistant auto-calls `propose_new_law` and renders a "Proposed Law" card with: name, statement, rationale, 2 examples, 1 counter-example, "Approve" / "Edit" / "Reject" buttons.
-3. Approve → moves row from `floating_law_drafts` to `floating_law_library` (status `approved`, version 1). Reject → marks draft `rejected`. Both events recorded for future learning.
-4. Approved laws immediately appear in `AiSettingsPage` and are injected into subsequent prompts.
-
-## 8. UI Changes
-
-- `AssistantPanel`: add a collapsible "Lesson Context" strip above "Selected Context" showing topic, active example, active line.
-- `AssistantPanel`: add "Coverage Report" + "Proposed Law" message cards.
-- `FloatingNumbersPage`: subscribe to lesson context; if user navigates from a lesson note line, pre-seed the active example into selections.
-- `NotebookEditorPage`: when a worked example is generated, show a tiny "AI analyzed" badge that links to the floating page with that line pre-selected.
-- `AiSettingsPage`: add tabs for Approved Laws / Draft Laws / Teacher Corrections / Knowledge Docs, all filterable by lesson topic.
-
-## 9. Files Touched
-
-New:
-- `src/lib/floating/lessonContext.tsx` (provider + hook)
-- `src/lib/floating/completenessGate.ts`
-- `src/lib/floating/structureClassifier.ts`
-- `supabase/functions/floating-assistant/lessonContext.ts` (server-side hydrator)
-- `supabase/migrations/<ts>_floating_lesson_integration.sql`
-
-Edited:
-- `src/hooks/useNotebook.ts` — publish topic/examples to context
-- `src/pages/NotebookEditorPage.tsx` — wrap in provider, emit analysis on new examples
-- `src/pages/FloatingNumbersPage.tsx` — consume provider, pre-seed selections
-- `src/components/floating/AssistantPanel.tsx` — lesson context strip, coverage + proposed-law cards, include `lessonContext` in payload
-- `src/pages/floating/AiSettingsPage.tsx` — corrections tab, topic filters
-- `supabase/functions/floating-assistant/index.ts` — accept lessonContext, hydrate KB, add `analyze_example`, `propose_new_law`, `lookup_law` tools, enforce completeness gate
-- `supabase/functions/notebook-ai/index.ts` — inject approved laws for current topic into system prompt
-
-## 10. Out of Scope (ask before adding)
-
-- Vector/semantic search over knowledge docs (currently keyword + topic filters).
-- Realtime broadcast across multiple teacher devices (single-user assumption preserved).
-- Auto-generating floating numbers from the Lesson Generator without teacher entering the Floating page.
-
----
-
-Confirm and I'll implement. Tell me if you want any of the §10 items pulled in, or if the new-law approval flow should live in the AI Settings page instead of inline in the chat.
+- Edge function, lesson context, law library, completeness gate — unchanged.
+- No new tables, no new routes.

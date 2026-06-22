@@ -1,7 +1,6 @@
 // Floating Number AI Assistant — permanent right-side workspace copilot.
-// Captures highlighted content from the page (no copy/paste), supports
-// multiple pinned selections, shows detected mathematical elements, and
-// injects all selections into every prompt sent to the assistant.
+// White background, black text. Live single-selection sync by default;
+// Multi-Selection mode lets the teacher pin and stack selections.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -14,7 +13,6 @@ import {
   PinOff,
   X,
   Eraser,
-  Repeat,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,17 +54,16 @@ export interface CapturedSelection {
   ts: number;
 }
 
+export type SelectionMode = "single" | "multi";
+
 interface Props {
-  /** Active equation line id (drives tool calls when teacher hasn't highlighted text). */
   lineId: string | null;
-  /** Captured highlights — managed by the parent page so selection capture stays in one place. */
   selections: CapturedSelection[];
   setSelections: React.Dispatch<React.SetStateAction<CapturedSelection[]>>;
-  /** Approve a pending chip change → write to workspace. */
+  selectionMode: SelectionMode;
+  setSelectionMode: React.Dispatch<React.SetStateAction<SelectionMode>>;
   onApproveApply: (payload: { lineId: string; chips: string[]; scaffolds?: string[] }) => void;
-  /** Undo last change → restore previous chip snapshot. */
   onApproveUndo: (lineId: string) => void;
-  /** Live lesson context — topic, problem, recent worked-example lines. */
   lessonContext?: LessonContext;
 }
 
@@ -161,10 +158,29 @@ const guessStructure = (els: MathElement[]): string => {
   return "Expression";
 };
 
+/* ─────────────────────── Color tokens (fixed, no transparency) ─────────────────────── */
+const C = {
+  bg: "#FFFFFF",
+  text: "#000000",
+  textSubtle: "#374151", // dark grey but still high contrast
+  border: "#E5E7EB",
+  borderStrong: "#D1D5DB",
+  hover: "#F3F4F6",
+  codeBg: "#F9FAFB",
+  userAccent: "#2563EB",
+  assistantAccent: "#111827",
+  pinned: "#B45309",
+  ok: "#047857",
+  danger: "#B91C1C",
+  info: "#1D4ED8",
+};
+
 export const AssistantPanel = ({
   lineId,
   selections,
   setSelections,
+  selectionMode,
+  setSelectionMode,
   onApproveApply,
   onApproveUndo,
   lessonContext,
@@ -181,7 +197,6 @@ export const AssistantPanel = ({
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [replaceMode, setReplaceMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -358,18 +373,20 @@ export const AssistantPanel = ({
     );
   };
 
+  const isMulti = selectionMode === "multi";
+
   return (
     <div
       className="flex flex-col h-full border-l"
-      style={{ background: "hsl(38 35% 95%)", borderColor: "hsl(220 15% 60% / 0.25)" }}
+      style={{ background: C.bg, borderColor: C.border, color: C.text }}
     >
       {/* Header */}
       <div
         className="px-4 py-3 border-b flex items-center gap-2"
-        style={{ borderColor: "hsl(220 15% 60% / 0.25)", background: "hsl(38 38% 96%)" }}
+        style={{ borderColor: C.border, background: C.bg }}
       >
-        <Sparkles className="h-4 w-4" style={{ color: "hsl(220 35% 18%)" }} />
-        <div className="text-sm font-semibold" style={{ color: "hsl(220 35% 18%)" }}>
+        <Sparkles className="h-4 w-4" style={{ color: C.text }} />
+        <div className="text-sm font-semibold" style={{ color: C.text }}>
           Floating Number AI
         </div>
         <div className="ml-auto flex items-center gap-1">
@@ -380,100 +397,118 @@ export const AssistantPanel = ({
                 { id: "welcome", role: "assistant", text: "New conversation. What should I work on?" },
               ])
             }
-            className="p-1.5 rounded hover:bg-foreground/5"
+            className="p-1.5 rounded"
+            style={{ color: C.text }}
             title="New conversation"
           >
-            <RotateCcw className="h-3.5 w-3.5 text-foreground/55" />
+            <RotateCcw className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
             onClick={() =>
               navigate(`/lesson-notes/${notebookId}/floating/${subsectionId}/ai-settings`)
             }
-            className="p-1.5 rounded hover:bg-foreground/5"
+            className="p-1.5 rounded"
+            style={{ color: C.text }}
             title="AI Settings & Knowledge Base"
           >
-            <Settings className="h-3.5 w-3.5 text-foreground/55" />
+            <Settings className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Lesson Context strip — topic, problem, active line */}
+      {/* Lesson Context strip */}
       {lessonContext && (lessonContext.topic || lessonContext.problem) && (
         <div
           className="px-3 py-2 border-b text-[11px]"
-          style={{
-            borderColor: "hsl(220 15% 60% / 0.2)",
-            background: "hsl(168 30% 94%)",
-            color: "hsl(220 35% 18%)",
-          }}
+          style={{ borderColor: C.border, background: C.bg, color: C.text }}
         >
           <div className="flex items-center gap-2">
-            <span className="text-[9px] uppercase tracking-[0.25em] font-semibold text-foreground/65">Lesson</span>
-            {lessonContext.topic && (
-              <span className="font-semibold">{lessonContext.topic}</span>
-            )}
+            <span className="text-[9px] uppercase tracking-[0.25em] font-semibold" style={{ color: C.textSubtle }}>
+              Lesson
+            </span>
+            {lessonContext.topic && <span className="font-semibold">{lessonContext.topic}</span>}
             {lessonContext.sectionKind && (
-              <span className="text-foreground/55">· {lessonContext.sectionKind}</span>
+              <span style={{ color: C.textSubtle }}>· {lessonContext.sectionKind}</span>
             )}
-            <span className="ml-auto text-[9px] text-foreground/50 tabular-nums">
-              {lessonContext.recentExamples.length} line{lessonContext.recentExamples.length === 1 ? "" : "s"}
+            <span className="ml-auto text-[9px] tabular-nums" style={{ color: C.textSubtle }}>
+              {lessonContext.recentExamples.length} line
+              {lessonContext.recentExamples.length === 1 ? "" : "s"}
             </span>
           </div>
           {lessonContext.problem && (
-            <div className="mt-1 text-[11px] text-foreground/70 line-clamp-2 font-mono">
+            <div className="mt-1 text-[11px] font-mono" style={{ color: C.text }}>
               {lessonContext.problem}
             </div>
           )}
         </div>
       )}
 
-
-      {/* Selected Context — clear, readable, multi-card */}
+      {/* Current / Selected Context */}
       <div
         className="border-b max-h-[42vh] overflow-y-auto"
-        style={{
-          borderColor: "hsl(220 15% 60% / 0.2)",
-          background: "hsl(38 40% 98%)",
-        }}
+        style={{ borderColor: C.border, background: C.bg }}
       >
-        <div className="px-3 pt-3 pb-1.5 flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.25em] font-semibold text-foreground/65">
-            Selected Context
+        <div className="px-3 pt-3 pb-1.5 flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] uppercase tracking-[0.25em] font-semibold" style={{ color: C.text }}>
+            {isMulti ? "Selected Context" : "Current Selection"}
           </span>
-          <span className="text-[10px] text-foreground/45">
-            {selections.length === 0 ? "none" : `${selections.length} item${selections.length === 1 ? "" : "s"}`}
+          <span className="text-[10px]" style={{ color: C.textSubtle }}>
+            {selections.length === 0
+              ? "none"
+              : `${selections.length} item${selections.length === 1 ? "" : "s"}`}
           </span>
           <div className="ml-auto flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setReplaceMode((v) => !v)}
-              className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"
-              style={
-                replaceMode
-                  ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
-                  : { color: "hsl(220 35% 18%)", border: "1px solid hsl(220 15% 60% / 0.35)" }
-              }
-              title="When on, next highlight replaces the most recent unpinned item"
+            {/* Single | Multi segmented control */}
+            <div
+              className="inline-flex rounded overflow-hidden"
+              style={{ border: `1px solid ${C.borderStrong}` }}
             >
-              <Repeat className="h-3 w-3" /> Replace
-            </button>
-            <button
-              type="button"
-              onClick={clearContext}
-              disabled={selections.length === 0}
-              className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 disabled:opacity-30"
-              style={{ color: "hsl(220 35% 18%)", border: "1px solid hsl(220 15% 60% / 0.35)" }}
-              title="Clear all unpinned selections"
-            >
-              <Eraser className="h-3 w-3" /> Clear
-            </button>
+              <button
+                type="button"
+                onClick={() => setSelectionMode("single")}
+                className="text-[10px] px-2 py-0.5"
+                style={
+                  !isMulti
+                    ? { background: C.text, color: C.bg }
+                    : { background: C.bg, color: C.text }
+                }
+                title="Single — every new highlight replaces the previous one"
+              >
+                Single
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectionMode("multi")}
+                className="text-[10px] px-2 py-0.5"
+                style={
+                  isMulti
+                    ? { background: C.text, color: C.bg }
+                    : { background: C.bg, color: C.text }
+                }
+                title="Multi — stack highlights; pin to keep them across changes"
+              >
+                Multi
+              </button>
+            </div>
+            {isMulti && (
+              <button
+                type="button"
+                onClick={clearContext}
+                disabled={selections.length === 0}
+                className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 disabled:opacity-40"
+                style={{ color: C.text, border: `1px solid ${C.borderStrong}`, background: C.bg }}
+                title="Clear all unpinned selections"
+              >
+                <Eraser className="h-3 w-3" /> Clear
+              </button>
+            )}
           </div>
         </div>
 
         {selections.length === 0 ? (
-          <div className="px-3 pb-3 text-[12px] italic text-foreground/45">
-            Highlight any equation, scaffold, or chip on the left to capture it here automatically.
+          <div className="px-3 pb-3 text-[12px]" style={{ color: C.textSubtle }}>
+            No selection — highlight any equation on the left and it will appear here instantly.
           </div>
         ) : (
           <div className="px-3 pb-3 space-y-1.5">
@@ -482,63 +517,81 @@ export const AssistantPanel = ({
                 key={s.id}
                 className="rounded-md px-2.5 py-2 flex items-start gap-2"
                 style={{
-                  background: "hsl(0 0% 100%)",
-                  border: s.pinned
-                    ? "1px solid hsl(40 85% 50%)"
-                    : "1px solid hsl(220 15% 60% / 0.35)",
+                  background: C.codeBg,
+                  border: s.pinned ? `1px solid ${C.pinned}` : `1px solid ${C.border}`,
+                  color: C.text,
                 }}
               >
-                <span
-                  className="text-[10px] font-semibold mt-0.5 tabular-nums"
-                  style={{ color: "hsl(220 35% 40%)" }}
-                >
-                  [{idx + 1}]
-                </span>
-                <pre
-                  className="flex-1 text-[13px] whitespace-pre-wrap break-words leading-snug font-mono"
-                  style={{ color: "hsl(220 35% 18%)", margin: 0 }}
-                >
-                  {s.text}
-                </pre>
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => togglePin(s.id)}
-                    className="p-1 rounded hover:bg-foreground/5"
-                    title={s.pinned ? "Unpin" : "Pin — survives Clear"}
+                {isMulti && (
+                  <span
+                    className="text-[10px] font-semibold mt-0.5 tabular-nums"
+                    style={{ color: C.text }}
                   >
-                    {s.pinned ? (
-                      <PinOff className="h-3 w-3" style={{ color: "hsl(40 85% 42%)" }} />
-                    ) : (
-                      <Pin className="h-3 w-3 text-foreground/55" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeSelection(s.id)}
-                    className="p-1 rounded hover:bg-foreground/5"
-                    title="Remove"
+                    [{idx + 1}]
+                  </span>
+                )}
+                <div className="flex-1 min-w-0">
+                  <pre
+                    className="text-[13px] whitespace-pre-wrap break-words leading-snug font-mono"
+                    style={{ color: C.text, margin: 0 }}
                   >
-                    <X className="h-3 w-3 text-foreground/55" />
-                  </button>
+                    {s.text}
+                  </pre>
+                  {s.lineId && (
+                    <div className="mt-1 text-[10px] font-mono" style={{ color: C.textSubtle }}>
+                      line: {s.lineId.slice(0, 8)}
+                    </div>
+                  )}
                 </div>
+                {isMulti && (
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => togglePin(s.id)}
+                      className="p-1 rounded"
+                      style={{ color: s.pinned ? C.pinned : C.text }}
+                      title={s.pinned ? "Unpin" : "Pin — survives Clear"}
+                    >
+                      {s.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeSelection(s.id)}
+                      className="p-1 rounded"
+                      style={{ color: C.text }}
+                      title="Remove"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
 
-        {/* Detected Elements — based on the most recent item */}
+        {/* Detected Elements */}
         {detected && (
           <details className="px-3 pb-3" open>
-            <summary className="text-[10px] uppercase tracking-[0.25em] font-semibold text-foreground/65 cursor-pointer select-none">
-              Detected Elements · <span className="normal-case tracking-normal text-foreground/55">{detected.structure}</span>
+            <summary
+              className="text-[10px] uppercase tracking-[0.25em] font-semibold cursor-pointer select-none"
+              style={{ color: C.text }}
+            >
+              Detected Elements ·{" "}
+              <span className="normal-case tracking-normal" style={{ color: C.textSubtle }}>
+                {detected.structure}
+              </span>
             </summary>
-            <div className="mt-2 space-y-1 text-[12px]" style={{ color: "hsl(220 35% 18%)" }}>
+            <div className="mt-2 space-y-1 text-[12px]" style={{ color: C.text }}>
               {Object.entries(detected.groups).map(([label, vals]) =>
                 vals.length === 0 ? null : (
                   <div key={label} className="flex gap-2">
-                    <span className="text-foreground/55 w-[78px] shrink-0">{label}:</span>
-                    <span className="font-mono break-words">{vals.join(", ")}</span>
+                    <span className="w-[78px] shrink-0" style={{ color: C.textSubtle }}>
+                      {label}:
+                    </span>
+                    <span className="font-mono break-words" style={{ color: C.text }}>
+                      {vals.join(", ")}
+                    </span>
                   </div>
                 ),
               )}
@@ -548,22 +601,37 @@ export const AssistantPanel = ({
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+        style={{ background: C.bg }}
+      >
         {messages.map((m) => (
-          <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+          <div key={m.id} className="flex flex-col">
             <div
-              className="max-w-[88%] rounded-lg px-3 py-2 text-sm leading-relaxed"
-              style={
-                m.role === "user"
-                  ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
-                  : { background: "hsl(38 38% 96%)", border: "1px solid hsl(220 15% 60% / 0.25)" }
-              }
+              className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-0.5"
+              style={{ color: m.role === "user" ? C.userAccent : C.assistantAccent }}
             >
-              <div className="whitespace-pre-wrap">{m.text}</div>
+              {m.role === "user" ? "You" : "Assistant"}
+            </div>
+            <div
+              className="rounded px-3 py-2 text-sm leading-relaxed"
+              style={{
+                background: C.bg,
+                color: C.text,
+                borderLeft: `2px solid ${m.role === "user" ? C.userAccent : C.assistantAccent}`,
+                border: `1px solid ${C.border}`,
+                borderLeftWidth: 2,
+                borderLeftColor: m.role === "user" ? C.userAccent : C.assistantAccent,
+              }}
+            >
+              <div className="whitespace-pre-wrap" style={{ color: C.text }}>
+                {m.text}
+              </div>
 
               {m.toolTrace && m.toolTrace.length > 0 && (
-                <details className="mt-2 text-[11px] opacity-80">
-                  <summary className="cursor-pointer select-none">
+                <details className="mt-2 text-[11px]" style={{ color: C.text }}>
+                  <summary className="cursor-pointer select-none" style={{ color: C.textSubtle }}>
                     {m.toolTrace.length} tool call{m.toolTrace.length === 1 ? "" : "s"}
                   </summary>
                   <div className="mt-1 space-y-1">
@@ -573,7 +641,7 @@ export const AssistantPanel = ({
                         <div
                           key={i}
                           className="rounded p-1.5"
-                          style={{ background: "hsl(220 15% 60% / 0.08)" }}
+                          style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}
                         >
                           <div className="font-mono">{t.name}</div>
                           {v && (
@@ -581,7 +649,9 @@ export const AssistantPanel = ({
                               {v.status === "PASS" ? "✓" : "✗"} {v.coveragePct}% coverage
                               {!v.exactMatch && " · reconstruction mismatch"}
                               {v.missing?.length > 0 && (
-                                <div className="text-rose-700">missing: {v.missing.join(", ")}</div>
+                                <div style={{ color: C.danger }}>
+                                  missing: {v.missing.join(", ")}
+                                </div>
                               )}
                             </div>
                           )}
@@ -612,19 +682,19 @@ export const AssistantPanel = ({
                         : "Approve";
                     const bg =
                       a.kind === "apply_chips" && a.payload.verification_pass
-                        ? "hsl(150 60% 38%)"
+                        ? C.ok
                         : a.kind === "approve_draft_law"
-                        ? "hsl(200 60% 38%)"
+                        ? C.info
                         : a.kind === "reject_draft_law"
-                        ? "hsl(0 60% 45%)"
-                        : "hsl(220 35% 18%)";
+                        ? C.danger
+                        : C.text;
                     return (
                       <button
                         key={i}
                         type="button"
                         onClick={() => approveAction(m.id, a)}
-                        className="text-[11px] px-2 py-1 rounded-md"
-                        style={{ background: bg, color: "hsl(38 38% 96%)" }}
+                        className="text-[11px] px-2 py-1 rounded"
+                        style={{ background: bg, color: C.bg }}
                       >
                         {label}
                       </button>
@@ -638,8 +708,8 @@ export const AssistantPanel = ({
         {busy && (
           <div className="flex justify-start">
             <div
-              className="rounded-lg px-3 py-2 text-sm inline-flex items-center gap-2"
-              style={{ background: "hsl(38 38% 96%)", border: "1px solid hsl(220 15% 60% / 0.25)" }}
+              className="rounded px-3 py-2 text-sm inline-flex items-center gap-2"
+              style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }}
             >
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
             </div>
@@ -650,7 +720,7 @@ export const AssistantPanel = ({
       {/* Quick action chips */}
       <div
         className="px-3 pt-2 pb-1 border-t flex flex-wrap gap-1"
-        style={{ borderColor: "hsl(220 15% 60% / 0.2)" }}
+        style={{ borderColor: C.border, background: C.bg }}
       >
         {QUICK_ACTIONS.map((a) => (
           <button
@@ -658,8 +728,8 @@ export const AssistantPanel = ({
             type="button"
             onClick={() => send(a.prompt)}
             disabled={busy}
-            className="text-[11px] px-2 py-0.5 rounded-md hover:bg-foreground/5 disabled:opacity-40"
-            style={{ color: "hsl(220 35% 18%)", border: "1px solid hsl(220 15% 60% / 0.3)" }}
+            className="text-[11px] px-2 py-0.5 rounded disabled:opacity-40"
+            style={{ color: C.text, border: `1px solid ${C.borderStrong}`, background: C.bg }}
             title={a.prompt}
           >
             {a.label}
@@ -668,7 +738,7 @@ export const AssistantPanel = ({
       </div>
 
       {/* Composer */}
-      <div className="border-t p-3" style={{ borderColor: "hsl(220 15% 60% / 0.25)" }}>
+      <div className="border-t p-3" style={{ borderColor: C.border, background: C.bg }}>
         <div className="flex items-end gap-2">
           <textarea
             ref={inputRef}
@@ -681,15 +751,15 @@ export const AssistantPanel = ({
                 : "Highlight something on the left, then ask…"
             }
             rows={2}
-            className="flex-1 resize-none rounded-md border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
-            style={{ borderColor: "hsl(220 15% 60% / 0.3)" }}
+            className="flex-1 resize-none rounded border px-3 py-2 text-sm focus:outline-none"
+            style={{ borderColor: C.borderStrong, background: C.bg, color: C.text }}
           />
           <button
             type="button"
             onClick={() => send()}
             disabled={!input.trim() || busy}
-            className="rounded-md px-3 py-2 text-sm inline-flex items-center gap-1.5 disabled:opacity-40"
-            style={{ background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }}
+            className="rounded px-3 py-2 text-sm inline-flex items-center gap-1.5 disabled:opacity-40"
+            style={{ background: C.text, color: C.bg }}
           >
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             Send
