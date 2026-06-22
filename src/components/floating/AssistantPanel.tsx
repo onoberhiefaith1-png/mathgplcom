@@ -66,6 +66,8 @@ interface Props {
   onApproveApply: (payload: { lineId: string; chips: string[]; scaffolds?: string[] }) => void;
   /** Undo last change → restore previous chip snapshot. */
   onApproveUndo: (lineId: string) => void;
+  /** Live lesson context — topic, problem, recent worked-example lines. */
+  lessonContext?: LessonContext;
 }
 
 const newId = () =>
