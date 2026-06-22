@@ -1,6 +1,7 @@
-// Floating Number AI Assistant — permanent right-side workspace copilot.
-// White background, black text. Live single-selection sync by default;
-// Multi-Selection mode lets the teacher pin and stack selections.
+// Floating Number AI Assistant — ChatGPT-style chat surface.
+// Inputs: typed prompt, highlighted equation from the page, voice notes,
+// and document uploads (.pdf/.docx/.txt). Approval-gated "Proposed change"
+// cards drive the page edits (apply_chips, undo, draft-law approval).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -9,15 +10,19 @@ import {
   Sparkles,
   RotateCcw,
   Settings,
-  Pin,
-  PinOff,
+  Paperclip,
+  Mic,
+  Square,
   X,
-  Eraser,
+  FileText,
+  AudioLines,
+  Eye,
+  Check,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { detectElements, type MathElement } from "@/lib/floating/elementDetector";
+import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { LessonContext } from "@/lib/floating/lessonContext";
 
 export interface AssistantClientAction {
@@ -38,30 +43,39 @@ export interface AssistantToolTrace {
   result: any;
 }
 
+export interface ActiveHighlight {
+  id: string;
+  text: string;
+  lineId?: string | null;
+}
+
+export interface AssistantAttachment {
+  id: string;
+  kind: "document" | "audio";
+  filename: string;
+  mime: string;
+  /** base64 (no data: prefix). For inline TXT we still base64-encode for uniformity. */
+  data: string;
+  /** Plain text already extracted client-side, if any (TXT). */
+  text?: string;
+  /** Audio duration in seconds, for display. */
+  durationSec?: number;
+}
+
 export interface AssistantMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  highlight?: ActiveHighlight | null;
+  attachments?: AssistantAttachment[];
   toolTrace?: AssistantToolTrace[];
   pendingActions?: AssistantClientAction[];
 }
 
-export interface CapturedSelection {
-  id: string;
-  text: string;
-  lineId?: string | null;
-  pinned: boolean;
-  ts: number;
-}
-
-export type SelectionMode = "single" | "multi";
-
 interface Props {
   lineId: string | null;
-  selections: CapturedSelection[];
-  setSelections: React.Dispatch<React.SetStateAction<CapturedSelection[]>>;
-  selectionMode: SelectionMode;
-  setSelectionMode: React.Dispatch<React.SetStateAction<SelectionMode>>;
+  activeHighlight: ActiveHighlight | null;
+  onClearHighlight: () => void;
   onApproveApply: (payload: { lineId: string; chips: string[]; scaffolds?: string[] }) => void;
   onApproveUndo: (lineId: string) => void;
   lessonContext?: LessonContext;
@@ -73,114 +87,68 @@ const newId = () =>
     : `m-${Math.random().toString(36).slice(2)}`;
 
 const QUICK_ACTIONS: { label: string; prompt: string }[] = [
-  { label: "Explain", prompt: "Explain the selected context in plain English." },
-  { label: "Generate", prompt: "Generate floating numbers for the selected context." },
-  { label: "Verify", prompt: "Verify the current chips against the selected context — coverage and reconstruction." },
-  { label: "Restructure", prompt: "Restructure the selected context using a better-fitting law." },
-  { label: "Apply Law", prompt: "Apply the most appropriate approved law to the selected context and show your reasoning." },
-  { label: "New Law", prompt: "Propose a new draft law that would explain the selected context." },
-  { label: "Compare", prompt: "Compare the selected contexts structurally and tell me how they relate." },
-  { label: "Coverage", prompt: "Check element coverage for the selected context against the current chips." },
+  { label: "Explain", prompt: "Explain the highlighted expression in plain English." },
+  { label: "Generate", prompt: "Generate floating numbers for the highlighted expression." },
+  { label: "Verify", prompt: "Verify current chips — coverage and reconstruction." },
+  { label: "Restructure", prompt: "Restructure the highlighted expression using a better-fitting law." },
+  { label: "Apply Law", prompt: "Apply the most appropriate approved law and show your reasoning." },
+  { label: "New Law", prompt: "Propose a new draft law that explains the highlighted expression." },
+  { label: "Compare", prompt: "Compare the highlighted expression with the previous example structurally." },
+  { label: "Coverage", prompt: "Check element coverage of the current chips against the highlight." },
 ];
 
-/* ─────────────────────── Detected Elements grouping ─────────────────────── */
-
-const groupElements = (els: MathElement[]) => {
-  const groups: Record<string, string[]> = {
-    Variables: [],
-    Coefficients: [],
-    Operators: [],
-    Functions: [],
-    Scaffolds: [],
-    Brackets: [],
-    Equalities: [],
-  };
-  for (const e of els) {
-    switch (e.kind) {
-      case "variable":
-        if (!groups.Variables.includes(e.value)) groups.Variables.push(e.value);
-        break;
-      case "number":
-        groups.Coefficients.push(e.value);
-        break;
-      case "operator":
-        if (!groups.Operators.includes(e.value)) groups.Operators.push(e.value);
-        break;
-      case "function-name":
-        if (!groups.Functions.includes(e.value)) groups.Functions.push(e.value);
-        break;
-      case "fraction":
-        groups.Scaffolds.push(`frac(${e.value})`);
-        break;
-      case "radical":
-        groups.Scaffolds.push(`√(${e.value})`);
-        break;
-      case "power":
-        groups.Scaffolds.push(`^(${e.value})`);
-        break;
-      case "subscript":
-        groups.Scaffolds.push(`_(${e.value})`);
-        break;
-      case "integral":
-        groups.Scaffolds.push("∫");
-        break;
-      case "summation":
-        groups.Scaffolds.push("∑");
-        break;
-      case "matrix":
-        groups.Scaffolds.push("matrix");
-        break;
-      case "bracket-open":
-      case "bracket-close":
-        groups.Brackets.push(e.value);
-        break;
-      case "equality":
-        groups.Equalities.push(e.value);
-        break;
-      default:
-        break;
-    }
-  }
-  return groups;
-};
-
-const guessStructure = (els: MathElement[]): string => {
-  const has = (k: MathElement["kind"]) => els.some((e) => e.kind === k);
-  if (has("integral")) return "Integral";
-  if (has("summation")) return "Summation";
-  if (has("matrix")) return "Matrix";
-  if (has("fraction")) return "Rational";
-  if (has("radical")) return "Radical";
-  if (has("function-name")) return "Function expression";
-  if (has("power") && has("variable")) return "Polynomial";
-  if (has("variable")) return "Algebraic";
-  if (has("number")) return "Numeric";
-  return "Expression";
-};
-
-/* ─────────────────────── Color tokens (fixed, no transparency) ─────────────────────── */
 const C = {
   bg: "#FFFFFF",
   text: "#000000",
-  textSubtle: "#374151", // dark grey but still high contrast
+  textSubtle: "#374151",
   border: "#E5E7EB",
   borderStrong: "#D1D5DB",
   hover: "#F3F4F6",
   codeBg: "#F9FAFB",
+  userBubble: "#EFF6FF",
   userAccent: "#2563EB",
   assistantAccent: "#111827",
-  pinned: "#B45309",
   ok: "#047857",
   danger: "#B91C1C",
   info: "#1D4ED8",
 };
 
+const ACCEPT_DOCS = ".pdf,.docx,.txt,.md,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(r.error);
+    r.onload = () => {
+      const s = String(r.result ?? "");
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    r.readAsDataURL(file);
+  });
+
+const blobToBase64 = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(r.error);
+    r.onload = () => {
+      const s = String(r.result ?? "");
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    r.readAsDataURL(blob);
+  });
+
+const formatDuration = (sec: number) => {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+};
+
 export const AssistantPanel = ({
   lineId,
-  selections,
-  setSelections,
-  selectionMode,
-  setSelectionMode,
+  activeHighlight,
+  onClearHighlight,
   onApproveApply,
   onApproveUndo,
   lessonContext,
@@ -192,13 +160,20 @@ export const AssistantPanel = ({
       id: "welcome",
       role: "assistant",
       text:
-        "Hi — I'm your Floating Number AI Assistant. Highlight any equation, scaffold, or chip on the left and I'll pick it up automatically. Then tell me what to do.",
+        "Hi — I'm your Floating Number AI. Type a request, highlight something on the page, record a voice note, or attach a document. I can generate, restructure, verify, and apply changes directly to the floating number page after your approval.",
     },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<AssistantAttachment[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState<Record<string, boolean>>({});
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordStartRef = useRef<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -208,56 +183,121 @@ export const AssistantPanel = ({
     inputRef.current?.focus();
   }, []);
 
-  /* ───────────── Context management ───────────── */
+  /* ───────────── Attachments ───────────── */
 
-  const togglePin = (id: string) =>
-    setSelections((prev) => prev.map((s) => (s.id === id ? { ...s, pinned: !s.pinned } : s)));
+  const onFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const out: AssistantAttachment[] = [];
+    for (const f of Array.from(list)) {
+      try {
+        const data = await fileToBase64(f);
+        const isTxt = /\.(txt|md)$/i.test(f.name) || f.type.startsWith("text/");
+        let text: string | undefined;
+        if (isTxt) {
+          try { text = await f.text(); } catch { /* ignore */ }
+        }
+        out.push({
+          id: newId(),
+          kind: "document",
+          filename: f.name,
+          mime: f.type || (isTxt ? "text/plain" : "application/octet-stream"),
+          data,
+          text,
+        });
+      } catch (e: any) {
+        toast({ title: "Could not read file", description: e?.message ?? String(e), variant: "destructive" });
+      }
+    }
+    if (out.length) setPendingAttachments((prev) => [...prev, ...out]);
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
-  const removeSelection = (id: string) =>
-    setSelections((prev) => prev.filter((s) => s.id !== id));
+  const removeAttachment = (id: string) =>
+    setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
 
-  const clearContext = () =>
-    setSelections((prev) => prev.filter((s) => s.pinned));
+  /* ───────────── Voice ───────────── */
 
-  /* ───────────── Detected elements (most recent item) ───────────── */
-  const latest = selections[selections.length - 1];
-  const detected = useMemo(() => {
-    if (!latest) return null;
-    const els = detectElements(latest.text);
-    return { groups: groupElements(els), structure: guessStructure(els) };
-  }, [latest]);
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        const data = await blobToBase64(blob);
+        const dur = (Date.now() - recordStartRef.current) / 1000;
+        setPendingAttachments((prev) => [
+          ...prev,
+          {
+            id: newId(),
+            kind: "audio",
+            filename: `voice-${new Date().toISOString().slice(11, 19)}.webm`,
+            mime: mr.mimeType || "audio/webm",
+            data,
+            durationSec: dur,
+          },
+        ]);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      recorderRef.current = mr;
+      recordStartRef.current = Date.now();
+      mr.start();
+      setRecording(true);
+    } catch (e: any) {
+      toast({ title: "Microphone unavailable", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  };
+
+  const stopRecording = () => {
+    try { recorderRef.current?.stop(); } catch { /* ignore */ }
+    setRecording(false);
+  };
 
   /* ───────────── Send ───────────── */
 
   const send = useCallback(
     async (overrideText?: string) => {
       const text = (overrideText ?? input).trim();
-      if (!text || busy) return;
-      const userDisplay =
-        selections.length > 0
-          ? `${text}\n\n— with ${selections.length} selection${selections.length === 1 ? "" : "s"} attached`
-          : text;
-      const userMsg: AssistantMessage = { id: newId(), role: "user", text: userDisplay };
+      if (!text && pendingAttachments.length === 0 && !activeHighlight) return;
+      if (busy) return;
+      const promptText = text || (activeHighlight ? "Work with this highlighted expression." : "Use the attached materials.");
+
+      const sentAttachments = pendingAttachments;
+      const sentHighlight = activeHighlight;
+
+      const userMsg: AssistantMessage = {
+        id: newId(),
+        role: "user",
+        text: promptText,
+        highlight: sentHighlight ?? null,
+        attachments: sentAttachments,
+      };
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
+      setPendingAttachments([]);
       setBusy(true);
+
       try {
         const history = messages.slice(-12).map((m) => ({ role: m.role, content: m.text }));
-        const payloadSelections = selections.map((s) => ({
-          id: s.id,
-          text: s.text,
-          lineId: s.lineId ?? null,
-        }));
-        const primarySelection = selections[0]?.text ?? null;
-        const primaryLineId = selections[0]?.lineId ?? lineId ?? null;
+        const audioAtt = sentAttachments.find((a) => a.kind === "audio");
+        const docAtts = sentAttachments.filter((a) => a.kind === "document");
         const { data, error } = await supabase.functions.invoke("floating-assistant", {
           body: {
-            message: text,
-            selection: primarySelection,
-            selections: payloadSelections,
-            lineId: primaryLineId,
+            message: promptText,
+            selection: sentHighlight?.text ?? null,
+            lineId: sentHighlight?.lineId ?? lineId ?? null,
             history,
             lessonContext: lessonContext ?? null,
+            attachments: docAtts.map((a) => ({
+              filename: a.filename,
+              mime: a.mime,
+              data: a.data,
+              text: a.text ?? null,
+            })),
+            audio: audioAtt
+              ? { filename: audioAtt.filename, mime: audioAtt.mime, data: audioAtt.data }
+              : null,
           },
         });
         if (error) throw error;
@@ -266,14 +306,18 @@ export const AssistantPanel = ({
           toolTrace?: AssistantToolTrace[];
           clientActions?: AssistantClientAction[];
         };
-        const reply: AssistantMessage = {
-          id: newId(),
-          role: "assistant",
-          text: d.reply || "(no reply)",
-          toolTrace: d.toolTrace,
-          pendingActions: d.clientActions,
-        };
-        setMessages((prev) => [...prev, reply]);
+        // Clear the highlight chip once it's been consumed by a turn.
+        if (sentHighlight) onClearHighlight();
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: newId(),
+            role: "assistant",
+            text: d.reply || "(no reply)",
+            toolTrace: d.toolTrace,
+            pendingActions: d.clientActions,
+          },
+        ]);
       } catch (e: any) {
         toast({ title: "Assistant error", description: e?.message ?? String(e), variant: "destructive" });
         setMessages((prev) => [
@@ -285,8 +329,10 @@ export const AssistantPanel = ({
         requestAnimationFrame(() => inputRef.current?.focus());
       }
     },
-    [input, busy, messages, selections, lineId, lessonContext],
+    [input, busy, messages, pendingAttachments, activeHighlight, lineId, lessonContext, onClearHighlight],
   );
+
+  /* ───────────── Draft law approve/reject ───────────── */
 
   const approveDraftLaw = useCallback(async (draftId: string) => {
     try {
@@ -294,10 +340,7 @@ export const AssistantPanel = ({
       const uid = sess.session?.user?.id;
       if (!uid) throw new Error("Not signed in");
       const { data: draft, error: dErr } = await supabase
-        .from("floating_law_drafts")
-        .select("*")
-        .eq("id", draftId)
-        .maybeSingle();
+        .from("floating_law_drafts").select("*").eq("id", draftId).maybeSingle();
       if (dErr || !draft) throw dErr ?? new Error("Draft not found");
       const { error: insErr } = await supabase.from("floating_law_library").insert({
         owner_id: uid,
@@ -352,20 +395,21 @@ export const AssistantPanel = ({
         return;
       }
       onApproveApply({ lineId: lid, chips, scaffolds: action.payload.scaffolds });
-      toast({ title: "Chips applied", description: `Line updated with ${chips.length} chips.` });
+      toast({ title: "Applied", description: `Line updated with ${chips.length} chips.` });
     } else if (action.kind === "undo_last_change") {
       const lid = String(action.payload.line_id ?? "");
-      if (!lid) return;
-      onApproveUndo(lid);
+      if (lid) onApproveUndo(lid);
     } else if (action.kind === "approve_draft_law") {
       const did = String(action.payload.draft_id ?? "");
-      if (!did) return;
-      void approveDraftLaw(did);
+      if (did) void approveDraftLaw(did);
     } else if (action.kind === "reject_draft_law") {
       const did = String(action.payload.draft_id ?? "");
-      if (!did) return;
-      void rejectDraftLaw(did);
+      if (did) void rejectDraftLaw(did);
     }
+    dismissAction(msgId, action);
+  };
+
+  const dismissAction = (msgId: string, action: AssistantClientAction) => {
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId ? { ...m, pendingActions: m.pendingActions?.filter((a) => a !== action) } : m,
@@ -373,22 +417,183 @@ export const AssistantPanel = ({
     );
   };
 
-  const isMulti = selectionMode === "multi";
+  const togglePreview = (key: string) =>
+    setPreviewOpen((p) => ({ ...p, [key]: !p[key] }));
+
+  /* ───────────── Render helpers ───────────── */
+
+  const HighlightChip = ({ h, onClose }: { h: ActiveHighlight; onClose?: () => void }) => (
+    <div
+      className="rounded-md px-2.5 py-1.5 mb-1.5 flex items-start gap-2"
+      style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}
+    >
+      <Sparkles className="h-3 w-3 mt-1 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="text-[9px] uppercase tracking-[0.25em] font-semibold" style={{ color: C.textSubtle }}>
+          Highlighted context{h.lineId ? ` · line ${h.lineId.slice(0, 6)}` : ""}
+        </div>
+        <div className="text-[14px] leading-snug mt-0.5" style={{ color: C.text }}>
+          {renderMathInline(h.text, h.id)}
+        </div>
+      </div>
+      {onClose && (
+        <button type="button" onClick={onClose} className="p-0.5 rounded" title="Remove highlight">
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+
+  const AttachmentChip = ({ a, onRemove }: { a: AssistantAttachment; onRemove?: () => void }) => (
+    <div
+      className="rounded-md px-2 py-1 inline-flex items-center gap-1.5 text-[12px]"
+      style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}
+    >
+      {a.kind === "audio" ? <AudioLines className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+      <span className="font-mono">{a.filename}</span>
+      {a.kind === "audio" && typeof a.durationSec === "number" && (
+        <span style={{ color: C.textSubtle }}>· {formatDuration(a.durationSec)}</span>
+      )}
+      {onRemove && (
+        <button type="button" onClick={onRemove} className="p-0.5 rounded" title="Remove">
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+
+  const renderProposedChange = (msgId: string, action: AssistantClientAction, idx: number) => {
+    const key = `${msgId}-${idx}`;
+    const open = !!previewOpen[key];
+    const title =
+      action.kind === "apply_chips"
+        ? `Proposed change: apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${String(action.payload.line_id ?? "").slice(0, 6)}`
+        : action.kind === "undo_last_change"
+        ? `Proposed change: undo last edit on line ${String(action.payload.line_id ?? "").slice(0, 6)}`
+        : action.kind === "approve_draft_law"
+        ? `Proposed new law: ${action.payload.law_name ?? "draft"}`
+        : `Reject draft law: ${action.payload.law_name ?? "draft"}`;
+    const approveLabel =
+      action.kind === "apply_chips" ? "Approve & Apply"
+      : action.kind === "undo_last_change" ? "Approve Undo"
+      : action.kind === "approve_draft_law" ? "Approve Law"
+      : "Confirm Reject";
+    const blocked = action.kind === "apply_chips" && action.payload.verification_pass !== true;
+    return (
+      <div
+        key={idx}
+        className="mt-2 rounded-md p-2"
+        style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text }}
+      >
+        <div className="flex items-center gap-2">
+          <div className="text-[12px] font-semibold flex-1 min-w-0 truncate">{title}</div>
+          {(action.kind === "apply_chips" || action.kind === "undo_last_change") && (
+            <button
+              type="button"
+              onClick={() => togglePreview(key)}
+              className="text-[11px] px-2 py-0.5 rounded inline-flex items-center gap-1"
+              style={{ color: C.text, border: `1px solid ${C.borderStrong}` }}
+            >
+              <Eye className="h-3 w-3" /> {open ? "Hide" : "Show"} Preview
+            </button>
+          )}
+        </div>
+        {open && action.kind === "apply_chips" && (
+          <div className="mt-2 space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {(action.payload.chips ?? []).map((c, i) => (
+                <span
+                  key={i}
+                  className="px-2 py-0.5 rounded text-[13px]"
+                  style={{ background: C.codeBg, border: `1px solid ${C.border}` }}
+                >
+                  {renderMathInline(c, `${key}-chip-${i}`)}
+                </span>
+              ))}
+            </div>
+            {action.payload.scaffolds && action.payload.scaffolds.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {action.payload.scaffolds.map((s, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-0.5 rounded text-[12px]"
+                    style={{ background: C.codeBg, border: `1px dashed ${C.borderStrong}`, color: C.textSubtle }}
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {blocked && (
+          <div className="mt-1 text-[11px]" style={{ color: C.danger }}>
+            Verification did not pass — ask the AI to restructure before approving.
+          </div>
+        )}
+        <div className="mt-2 flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => approveAction(msgId, action)}
+            disabled={blocked}
+            className="text-[12px] px-2.5 py-1 rounded inline-flex items-center gap-1 disabled:opacity-40"
+            style={{ background: C.text, color: C.bg }}
+          >
+            <Check className="h-3 w-3" /> {approveLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => dismissAction(msgId, action)}
+            className="text-[12px] px-2.5 py-1 rounded"
+            style={{ color: C.text, border: `1px solid ${C.borderStrong}`, background: C.bg }}
+          >
+            Reject
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              dismissAction(msgId, action);
+              inputRef.current?.focus();
+            }}
+            className="text-[12px] px-2.5 py-1 rounded"
+            style={{ color: C.text, border: `1px solid ${C.borderStrong}`, background: C.bg }}
+          >
+            Modify…
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  /* ───────────── Layout ───────────── */
+
+  const placeholder = useMemo(() => {
+    if (activeHighlight) return "Tell the AI what to do with the highlighted expression…";
+    if (pendingAttachments.length > 0) return "Add instructions for the attached material…";
+    return "Ask anything — generate, verify, restructure, apply laws, propose a new law…";
+  }, [activeHighlight, pendingAttachments]);
 
   return (
     <div
       className="flex flex-col h-full border-l"
       style={{ background: C.bg, borderColor: C.border, color: C.text }}
     >
-      {/* Header */}
+      {/* Top bar */}
       <div
         className="px-4 py-3 border-b flex items-center gap-2"
         style={{ borderColor: C.border, background: C.bg }}
       >
-        <Sparkles className="h-4 w-4" style={{ color: C.text }} />
-        <div className="text-sm font-semibold" style={{ color: C.text }}>
-          Floating Number AI
-        </div>
+        <Sparkles className="h-4 w-4" />
+        <div className="text-sm font-semibold">Floating Number AI</div>
+        {lessonContext?.topic && (
+          <span
+            className="ml-2 text-[10px] px-2 py-0.5 rounded-full"
+            style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}
+            title={lessonContext.problem ?? undefined}
+          >
+            {lessonContext.topic}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
@@ -417,294 +622,94 @@ export const AssistantPanel = ({
         </div>
       </div>
 
-      {/* Lesson Context strip */}
-      {lessonContext && (lessonContext.topic || lessonContext.problem) && (
-        <div
-          className="px-3 py-2 border-b text-[11px]"
-          style={{ borderColor: C.border, background: C.bg, color: C.text }}
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] uppercase tracking-[0.25em] font-semibold" style={{ color: C.textSubtle }}>
-              Lesson
-            </span>
-            {lessonContext.topic && <span className="font-semibold">{lessonContext.topic}</span>}
-            {lessonContext.sectionKind && (
-              <span style={{ color: C.textSubtle }}>· {lessonContext.sectionKind}</span>
-            )}
-            <span className="ml-auto text-[9px] tabular-nums" style={{ color: C.textSubtle }}>
-              {lessonContext.recentExamples.length} line
-              {lessonContext.recentExamples.length === 1 ? "" : "s"}
-            </span>
-          </div>
-          {lessonContext.problem && (
-            <div className="mt-1 text-[11px] font-mono" style={{ color: C.text }}>
-              {lessonContext.problem}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Current / Selected Context */}
-      <div
-        className="border-b max-h-[42vh] overflow-y-auto"
-        style={{ borderColor: C.border, background: C.bg }}
-      >
-        <div className="px-3 pt-3 pb-1.5 flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] uppercase tracking-[0.25em] font-semibold" style={{ color: C.text }}>
-            {isMulti ? "Selected Context" : "Current Selection"}
-          </span>
-          <span className="text-[10px]" style={{ color: C.textSubtle }}>
-            {selections.length === 0
-              ? "none"
-              : `${selections.length} item${selections.length === 1 ? "" : "s"}`}
-          </span>
-          <div className="ml-auto flex items-center gap-1">
-            {/* Single | Multi segmented control */}
-            <div
-              className="inline-flex rounded overflow-hidden"
-              style={{ border: `1px solid ${C.borderStrong}` }}
-            >
-              <button
-                type="button"
-                onClick={() => setSelectionMode("single")}
-                className="text-[10px] px-2 py-0.5"
-                style={
-                  !isMulti
-                    ? { background: C.text, color: C.bg }
-                    : { background: C.bg, color: C.text }
-                }
-                title="Single — every new highlight replaces the previous one"
-              >
-                Single
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectionMode("multi")}
-                className="text-[10px] px-2 py-0.5"
-                style={
-                  isMulti
-                    ? { background: C.text, color: C.bg }
-                    : { background: C.bg, color: C.text }
-                }
-                title="Multi — stack highlights; pin to keep them across changes"
-              >
-                Multi
-              </button>
-            </div>
-            {isMulti && (
-              <button
-                type="button"
-                onClick={clearContext}
-                disabled={selections.length === 0}
-                className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 disabled:opacity-40"
-                style={{ color: C.text, border: `1px solid ${C.borderStrong}`, background: C.bg }}
-                title="Clear all unpinned selections"
-              >
-                <Eraser className="h-3 w-3" /> Clear
-              </button>
-            )}
-          </div>
-        </div>
-
-        {selections.length === 0 ? (
-          <div className="px-3 pb-3 text-[12px]" style={{ color: C.textSubtle }}>
-            No selection — highlight any equation on the left and it will appear here instantly.
-          </div>
-        ) : (
-          <div className="px-3 pb-3 space-y-1.5">
-            {selections.map((s, idx) => (
-              <div
-                key={s.id}
-                className="rounded-md px-2.5 py-2 flex items-start gap-2"
-                style={{
-                  background: C.codeBg,
-                  border: s.pinned ? `1px solid ${C.pinned}` : `1px solid ${C.border}`,
-                  color: C.text,
-                }}
-              >
-                {isMulti && (
-                  <span
-                    className="text-[10px] font-semibold mt-0.5 tabular-nums"
-                    style={{ color: C.text }}
-                  >
-                    [{idx + 1}]
-                  </span>
-                )}
-                <div className="flex-1 min-w-0">
-                  <pre
-                    className="text-[13px] whitespace-pre-wrap break-words leading-snug font-mono"
-                    style={{ color: C.text, margin: 0 }}
-                  >
-                    {s.text}
-                  </pre>
-                  {s.lineId && (
-                    <div className="mt-1 text-[10px] font-mono" style={{ color: C.textSubtle }}>
-                      line: {s.lineId.slice(0, 8)}
-                    </div>
-                  )}
-                </div>
-                {isMulti && (
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => togglePin(s.id)}
-                      className="p-1 rounded"
-                      style={{ color: s.pinned ? C.pinned : C.text }}
-                      title={s.pinned ? "Unpin" : "Pin — survives Clear"}
-                    >
-                      {s.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeSelection(s.id)}
-                      className="p-1 rounded"
-                      style={{ color: C.text }}
-                      title="Remove"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Detected Elements */}
-        {detected && (
-          <details className="px-3 pb-3" open>
-            <summary
-              className="text-[10px] uppercase tracking-[0.25em] font-semibold cursor-pointer select-none"
-              style={{ color: C.text }}
-            >
-              Detected Elements ·{" "}
-              <span className="normal-case tracking-normal" style={{ color: C.textSubtle }}>
-                {detected.structure}
-              </span>
-            </summary>
-            <div className="mt-2 space-y-1 text-[12px]" style={{ color: C.text }}>
-              {Object.entries(detected.groups).map(([label, vals]) =>
-                vals.length === 0 ? null : (
-                  <div key={label} className="flex gap-2">
-                    <span className="w-[78px] shrink-0" style={{ color: C.textSubtle }}>
-                      {label}:
-                    </span>
-                    <span className="font-mono break-words" style={{ color: C.text }}>
-                      {vals.join(", ")}
-                    </span>
-                  </div>
-                ),
-              )}
-            </div>
-          </details>
-        )}
-      </div>
-
-      {/* Messages */}
+      {/* Conversation */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
         style={{ background: C.bg }}
       >
-        {messages.map((m) => (
-          <div key={m.id} className="flex flex-col">
-            <div
-              className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-0.5"
-              style={{ color: m.role === "user" ? C.userAccent : C.assistantAccent }}
-            >
-              {m.role === "user" ? "You" : "Assistant"}
-            </div>
-            <div
-              className="rounded px-3 py-2 text-sm leading-relaxed"
-              style={{
-                background: C.bg,
-                color: C.text,
-                borderLeft: `2px solid ${m.role === "user" ? C.userAccent : C.assistantAccent}`,
-                border: `1px solid ${C.border}`,
-                borderLeftWidth: 2,
-                borderLeftColor: m.role === "user" ? C.userAccent : C.assistantAccent,
-              }}
-            >
-              <div className="whitespace-pre-wrap" style={{ color: C.text }}>
-                {m.text}
+        {messages.map((m) => {
+          const isUser = m.role === "user";
+          return (
+            <div key={m.id} className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+              <div
+                className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-1"
+                style={{ color: isUser ? C.userAccent : C.assistantAccent }}
+              >
+                {isUser ? "You" : "Assistant"}
               </div>
 
-              {m.toolTrace && m.toolTrace.length > 0 && (
-                <details className="mt-2 text-[11px]" style={{ color: C.text }}>
-                  <summary className="cursor-pointer select-none" style={{ color: C.textSubtle }}>
-                    {m.toolTrace.length} tool call{m.toolTrace.length === 1 ? "" : "s"}
-                  </summary>
-                  <div className="mt-1 space-y-1">
-                    {m.toolTrace.map((t, i) => {
-                      const v = (t.result as any)?.verification;
-                      return (
-                        <div
-                          key={i}
-                          className="rounded p-1.5"
-                          style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}
-                        >
-                          <div className="font-mono">{t.name}</div>
-                          {v && (
-                            <div className="mt-0.5">
-                              {v.status === "PASS" ? "✓" : "✗"} {v.coveragePct}% coverage
-                              {!v.exactMatch && " · reconstruction mismatch"}
-                              {v.missing?.length > 0 && (
-                                <div style={{ color: C.danger }}>
-                                  missing: {v.missing.join(", ")}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {(t.result as any)?.chips && (
-                            <div className="mt-0.5 font-mono">
-                              chips: [{((t.result as any).chips as string[]).join(" | ")}]
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </details>
-              )}
-
-              {m.pendingActions && m.pendingActions.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {m.pendingActions.map((a, i) => {
-                    const label =
-                      a.kind === "apply_chips"
-                        ? `Approve & apply ${a.payload.chips?.length ?? 0} chips`
-                        : a.kind === "undo_last_change"
-                        ? "Approve undo"
-                        : a.kind === "approve_draft_law"
-                        ? `Approve law: ${a.payload.law_name ?? "draft"}`
-                        : a.kind === "reject_draft_law"
-                        ? `Reject law: ${a.payload.law_name ?? "draft"}`
-                        : "Approve";
-                    const bg =
-                      a.kind === "apply_chips" && a.payload.verification_pass
-                        ? C.ok
-                        : a.kind === "approve_draft_law"
-                        ? C.info
-                        : a.kind === "reject_draft_law"
-                        ? C.danger
-                        : C.text;
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => approveAction(m.id, a)}
-                        className="text-[11px] px-2 py-1 rounded"
-                        style={{ background: bg, color: C.bg }}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
+              {/* User: highlight + attachments above the bubble */}
+              {isUser && m.highlight && (
+                <div className="w-full max-w-[92%]">
+                  <HighlightChip h={m.highlight} />
                 </div>
               )}
+              {isUser && m.attachments && m.attachments.length > 0 && (
+                <div className="w-full max-w-[92%] mb-1.5 flex flex-wrap gap-1.5">
+                  {m.attachments.map((a) => <AttachmentChip key={a.id} a={a} />)}
+                </div>
+              )}
+
+              <div
+                className="rounded-md px-3 py-2 text-sm leading-relaxed max-w-[92%]"
+                style={{
+                  background: isUser ? C.userBubble : C.bg,
+                  color: C.text,
+                  border: `1px solid ${C.border}`,
+                  borderLeft: `3px solid ${isUser ? C.userAccent : C.assistantAccent}`,
+                }}
+              >
+                <div className="whitespace-pre-wrap">{m.text}</div>
+
+                {m.toolTrace && m.toolTrace.length > 0 && (
+                  <details className="mt-2 text-[11px]">
+                    <summary className="cursor-pointer select-none" style={{ color: C.textSubtle }}>
+                      {m.toolTrace.length} tool call{m.toolTrace.length === 1 ? "" : "s"}
+                    </summary>
+                    <div className="mt-1 space-y-1">
+                      {m.toolTrace.map((t, i) => {
+                        const v = (t.result as any)?.verification;
+                        return (
+                          <div
+                            key={i}
+                            className="rounded p-1.5"
+                            style={{ background: C.codeBg, border: `1px solid ${C.border}` }}
+                          >
+                            <div className="font-mono">{t.name}</div>
+                            {v && (
+                              <div className="mt-0.5">
+                                {v.status === "PASS" ? "✓" : "✗"} {v.coveragePct}% coverage
+                                {!v.exactMatch && " · reconstruction mismatch"}
+                                {v.missing?.length > 0 && (
+                                  <div style={{ color: C.danger }}>
+                                    missing: {v.missing.join(", ")}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {(t.result as any)?.chips && (
+                              <div className="mt-0.5 font-mono">
+                                chips: [{((t.result as any).chips as string[]).join(" | ")}]
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
+
+                {m.pendingActions && m.pendingActions.length > 0 && (
+                  <div>
+                    {m.pendingActions.map((a, i) => renderProposedChange(m.id, a, i))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+
         {busy && (
           <div className="flex justify-start">
             <div
@@ -717,53 +722,94 @@ export const AssistantPanel = ({
         )}
       </div>
 
-      {/* Quick action chips */}
-      <div
-        className="px-3 pt-2 pb-1 border-t flex flex-wrap gap-1"
-        style={{ borderColor: C.border, background: C.bg }}
-      >
-        {QUICK_ACTIONS.map((a) => (
-          <button
-            key={a.label}
-            type="button"
-            onClick={() => send(a.prompt)}
-            disabled={busy}
-            className="text-[11px] px-2 py-0.5 rounded disabled:opacity-40"
-            style={{ color: C.text, border: `1px solid ${C.borderStrong}`, background: C.bg }}
-            title={a.prompt}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
-
       {/* Composer */}
-      <div className="border-t p-3" style={{ borderColor: C.border, background: C.bg }}>
-        <div className="flex items-end gap-2">
+      <div className="border-t" style={{ borderColor: C.border, background: C.bg }}>
+        {/* Pending context preview (highlight + attachments to be sent on next turn) */}
+        {(activeHighlight || pendingAttachments.length > 0) && (
+          <div className="px-3 pt-2">
+            {activeHighlight && (
+              <HighlightChip h={activeHighlight} onClose={onClearHighlight} />
+            )}
+            {pendingAttachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {pendingAttachments.map((a) => (
+                  <AttachmentChip key={a.id} a={a} onRemove={() => removeAttachment(a.id)} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="px-3 pt-2 flex items-end gap-2">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={
-              selections.length > 0
-                ? `Tell the AI what to do with the ${selections.length} selection${selections.length === 1 ? "" : "s"}…`
-                : "Highlight something on the left, then ask…"
-            }
+            placeholder={placeholder}
             rows={2}
             className="flex-1 resize-none rounded border px-3 py-2 text-sm focus:outline-none"
             style={{ borderColor: C.borderStrong, background: C.bg, color: C.text }}
           />
-          <button
-            type="button"
-            onClick={() => send()}
-            disabled={!input.trim() || busy}
-            className="rounded px-3 py-2 text-sm inline-flex items-center gap-1.5 disabled:opacity-40"
-            style={{ background: C.text, color: C.bg }}
-          >
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-            Send
-          </button>
+          <div className="flex flex-col gap-1">
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept={ACCEPT_DOCS}
+              onChange={(e) => onFiles(e.target.files)}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="p-2 rounded"
+              style={{ color: C.text, border: `1px solid ${C.borderStrong}`, background: C.bg }}
+              title="Attach document (PDF, DOCX, TXT)"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={recording ? stopRecording : startRecording}
+              className="p-2 rounded"
+              style={{
+                color: recording ? C.bg : C.text,
+                background: recording ? C.danger : C.bg,
+                border: `1px solid ${recording ? C.danger : C.borderStrong}`,
+              }}
+              title={recording ? "Stop recording" : "Record voice note"}
+            >
+              {recording ? <Square className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => send()}
+              disabled={busy || (!input.trim() && pendingAttachments.length === 0 && !activeHighlight)}
+              className="p-2 rounded disabled:opacity-40"
+              style={{ background: C.text, color: C.bg }}
+              title="Send"
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="px-3 pt-2 pb-3 flex flex-wrap gap-1">
+          {QUICK_ACTIONS.map((a) => (
+            <button
+              key={a.label}
+              type="button"
+              onClick={() => send(a.prompt)}
+              disabled={busy}
+              className="text-[11px] px-2 py-0.5 rounded disabled:opacity-40"
+              style={{ color: C.text, border: `1px solid ${C.borderStrong}`, background: C.bg }}
+              title={a.prompt}
+            >
+              {a.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>

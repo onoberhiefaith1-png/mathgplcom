@@ -455,9 +455,25 @@ Deno.serve(async (req) => {
     const lineId: string | undefined = body.lineId;
     const history: { role: string; content: string }[] = Array.isArray(body.history) ? body.history : [];
     const lessonCtx: LessonCtx | null = body.lessonContext ?? null;
+    const attachmentsRaw: any[] = Array.isArray(body.attachments) ? body.attachments : [];
+    const attachments = attachmentsRaw
+      .map((a) => ({
+        filename: String(a?.filename ?? "file"),
+        mime: String(a?.mime ?? "application/octet-stream"),
+        data: typeof a?.data === "string" ? a.data : "",
+        text: typeof a?.text === "string" ? a.text : null,
+      }))
+      .filter((a) => a.data || a.text);
+    const audio = body.audio && typeof body.audio === "object"
+      ? {
+          filename: String(body.audio.filename ?? "voice.webm"),
+          mime: String(body.audio.mime ?? "audio/webm"),
+          data: typeof body.audio.data === "string" ? body.audio.data : "",
+        }
+      : null;
 
-    if (!userMessage) {
-      return new Response(JSON.stringify({ error: "message is required" }), {
+    if (!userMessage && attachments.length === 0 && !audio && !selection && selections.length === 0) {
+      return new Response(JSON.stringify({ error: "message, highlight, or attachment is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -492,15 +508,56 @@ Deno.serve(async (req) => {
     } else {
       contextLines.push("CURRENT_SELECTION: (none — teacher hasn't highlighted anything)");
     }
+    if (attachments.length > 0) {
+      contextLines.push("ATTACHMENTS:");
+      attachments.forEach((a, i) => contextLines.push(`  [${i + 1}] ${a.filename} (${a.mime})`));
+    }
+    if (audio) contextLines.push(`VOICE_NOTE: ${audio.filename} (${audio.mime}) — transcribe and obey.`);
     const contextBlock = contextLines.join("\n");
     const lessonStateBlock = formatLessonState(lessonCtx, kb);
+
+    // Build the user turn. If we have any non-text input (audio/file/PDF), use
+    // the multimodal content[] form so the gateway routes them through.
+    let userContent: any = userMessage || "(see attachments)";
+    const hasMultimodal = !!audio || attachments.some((a) => !a.text);
+    if (hasMultimodal) {
+      const parts: any[] = [{ type: "text", text: userMessage || "(see attachments)" }];
+      for (const a of attachments) {
+        if (a.text) {
+          parts.push({ type: "text", text: `\n\n[Attached ${a.filename}]\n${a.text.slice(0, 20000)}` });
+        } else if (a.data) {
+          parts.push({
+            type: "file",
+            file: {
+              filename: a.filename,
+              file_data: `data:${a.mime};base64,${a.data}`,
+            },
+          });
+        }
+      }
+      if (audio && audio.data) {
+        const fmt = audio.mime.includes("mp4") || audio.mime.includes("m4a") ? "m4a"
+          : audio.mime.includes("wav") ? "wav"
+          : audio.mime.includes("mp3") || audio.mime.includes("mpeg") ? "mp3"
+          : audio.mime.includes("ogg") ? "ogg"
+          : "webm";
+        parts.push({ type: "input_audio", input_audio: { data: audio.data, format: fmt } });
+      }
+      userContent = parts;
+    } else if (attachments.length > 0) {
+      // All text-only attachments: inline them into the user text.
+      const inlineDocs = attachments
+        .map((a) => `\n\n[Attached ${a.filename}]\n${(a.text ?? "").slice(0, 20000)}`)
+        .join("");
+      userContent = (userMessage || "(see attachments)") + inlineDocs;
+    }
 
     const messages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "system", content: lessonStateBlock },
       { role: "system", content: contextBlock },
       ...history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: userMessage },
+      { role: "user", content: userContent },
     ];
 
     const clientActions: PendingClientAction[] = [];
