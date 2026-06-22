@@ -24,7 +24,7 @@ import FloatingDisplayStrip from "@/components/lessonnotes/FloatingDisplayStrip"
 import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditPanel";
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
-import AssistantPanel, { type CapturedSelection } from "@/components/floating/AssistantPanel";
+import AssistantPanel, { type CapturedSelection, type SelectionMode } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
@@ -103,56 +103,57 @@ const FloatingNumbersPage = () => {
 
   /* ---------- Captured highlights for the AI Assistant ---------- */
   const [capturedSelections, setCapturedSelections] = useState<CapturedSelection[]>([]);
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>("single");
   const workspaceRef = useRef<HTMLDivElement>(null);
-  const replaceModeRef = useRef(false); // reserved for future external trigger
-  const lastCaptureAtRef = useRef(0);
-
+  const selectionModeRef = useRef<SelectionMode>("single");
   useEffect(() => {
-    const root = workspaceRef.current;
-    if (!root) return;
-    const onMouseUp = () => {
-      // Defer until selection has settled.
-      setTimeout(() => {
-        const sel = window.getSelection?.();
-        if (!sel || sel.isCollapsed) return;
-        const text = sel.toString().trim();
-        if (!text) return;
-        const anchor = sel.anchorNode;
-        if (!anchor) return;
-        const anchorEl = anchor.nodeType === 1 ? (anchor as Element) : anchor.parentElement;
-        if (!anchorEl || !root.contains(anchorEl)) return;
-        const lineEl = anchorEl.closest("[data-line-id]") as HTMLElement | null;
-        const lid = lineEl?.dataset.lineId ?? null;
+    selectionModeRef.current = selectionMode;
+  }, [selectionMode]);
 
-        setCapturedSelections((prev) => {
-          const now = Date.now();
-          const last = prev[prev.length - 1];
-          // Dedupe identical
-          if (last && last.text === text) {
-            lastCaptureAtRef.current = now;
+  // Live selection sync — every selection change inside the workspace is
+  // mirrored into the AI panel instantly. Single mode replaces; multi mode
+  // appends. Collapsing the selection (clicking elsewhere) is intentionally
+  // ignored so the current selection stays visible until a new one replaces it.
+  useEffect(() => {
+    const handler = () => {
+      const root = workspaceRef.current;
+      if (!root) return;
+      const sel = window.getSelection?.();
+      if (!sel || sel.isCollapsed) return;
+      const text = sel.toString().trim();
+      if (!text) return;
+      const anchor = sel.anchorNode;
+      if (!anchor) return;
+      const anchorEl = anchor.nodeType === 1 ? (anchor as Element) : anchor.parentElement;
+      if (!anchorEl || !root.contains(anchorEl)) return;
+      const lineEl = anchorEl.closest("[data-line-id]") as HTMLElement | null;
+      const lid = lineEl?.dataset.lineId ?? null;
+
+      const entry: CapturedSelection = {
+        id: newId(),
+        text,
+        lineId: lid,
+        pinned: false,
+        ts: Date.now(),
+      };
+
+      setCapturedSelections((prev) => {
+        if (selectionModeRef.current === "single") {
+          // Preserve pinned items if any, swap the active (last unpinned) entry.
+          const pinned = prev.filter((s) => s.pinned);
+          const lastUnpinned = [...prev].reverse().find((s) => !s.pinned);
+          if (lastUnpinned && lastUnpinned.text === text && lastUnpinned.lineId === lid) {
             return prev;
           }
-          // Debounce: replace last unpinned if it was very recent
-          const recent = now - lastCaptureAtRef.current < 400;
-          lastCaptureAtRef.current = now;
-          const entry: CapturedSelection = {
-            id: newId(),
-            text,
-            lineId: lid,
-            pinned: false,
-            ts: now,
-          };
-          if ((recent || replaceModeRef.current) && last && !last.pinned) {
-            const next = prev.slice(0, -1);
-            next.push(entry);
-            return next;
-          }
-          return [...prev, entry];
-        });
-      }, 0);
+          return [...pinned, entry];
+        }
+        // Multi mode: dedupe identical (text + lineId), otherwise append.
+        if (prev.some((s) => s.text === text && (s.lineId ?? null) === lid)) return prev;
+        return [...prev, entry];
+      });
     };
-    root.addEventListener("mouseup", onMouseUp);
-    return () => root.removeEventListener("mouseup", onMouseUp);
+    document.addEventListener("selectionchange", handler);
+    return () => document.removeEventListener("selectionchange", handler);
   }, []);
 
   /* ---------- Apply / Undo from AI Assistant ---------- */
