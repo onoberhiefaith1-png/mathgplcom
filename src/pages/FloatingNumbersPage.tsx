@@ -933,6 +933,17 @@ const FloatingNumbersPage = () => {
             setSelections={setCapturedSelections}
             onApproveApply={applyChipsFromAssistant}
             onApproveUndo={undoFromAssistant}
+            lessonContext={buildLessonContext({
+              notebookId: info?.notebookId ?? null,
+              subsectionId: info?.subsectionId ?? null,
+              topic: info?.subtopic ?? null,
+              subject: info?.subject ?? null,
+              sectionKind: info?.sectionKind ?? null,
+              problem: info?.problem ?? null,
+              recentExamples: lines.slice(0, 6).map((l) => ({ lineId: l.lineId, text: l.equation })),
+              activeLineId: selectedLine?.lineId ?? null,
+              activeLineText: selectedLine?.equation ?? null,
+            })}
           />
         </div>
       </aside>
