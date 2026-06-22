@@ -675,19 +675,31 @@ const FloatingNumbersPage = () => {
           ) : (
             <div className="space-y-1">
               {lines.map((l, i) => (
-                <FloatingWorkspace
-                  key={l.lineId}
-                  line={l}
-                  index={i}
-                  scoreLabel={scoring.label}
-                  scoringMode={scoring.mode}
-                  onAiEdit={() => openAiEdit(i)}
-                  onChange={(next) => {
-                    dirtyRef.current = true;
-                    setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
-                  }}
-                />
-
+                <div key={l.lineId}>
+                  <div className="flex justify-end mb-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const params = new URLSearchParams({ eq: l.equation, lineId: l.lineId });
+                        navigate(`/lesson-notes/${notebookId}/floating/${subsectionId}/reason?${params.toString()}`);
+                      }}
+                      className="text-xs px-2 py-1 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200"
+                    >
+                      Reason &amp; Verify →
+                    </button>
+                  </div>
+                  <FloatingWorkspace
+                    line={l}
+                    index={i}
+                    scoreLabel={scoring.label}
+                    scoringMode={scoring.mode}
+                    onAiEdit={() => openAiEdit(i)}
+                    onChange={(next) => {
+                      dirtyRef.current = true;
+                      setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
+                    }}
+                  />
+                </div>
               ))}
             </div>
           )}
