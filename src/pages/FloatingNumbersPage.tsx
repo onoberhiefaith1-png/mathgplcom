@@ -93,6 +93,95 @@ const FloatingNumbersPage = () => {
   const [highlightsData, setHighlightsData] = useState<{ groupId: number; payload: string }[]>([]);
   const [scoring, setScoring] = useState<FloatingScoring>(DEFAULT_SCORING);
 
+  /* ---------- Selected line (drives the AI Assistant context) ---------- */
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const selectedLine = useMemo(
+    () => lines.find((l) => l.lineId === selectedLineId) ?? null,
+    [lines, selectedLineId],
+  );
+
+  /* ---------- Apply / Undo from AI Assistant ---------- */
+  const applyChipsFromAssistant = useCallback(
+    ({ lineId, chips }: { lineId: string; chips: string[]; scaffolds?: string[] }) => {
+      setLines((prev) => {
+        const idx = prev.findIndex((l) => l.lineId === lineId);
+        if (idx < 0) return prev;
+        // Snapshot current state for undo before mutating.
+        const current = prev[idx];
+        const snap = {
+          chips: current.fillers,
+          scaffolds: current.containers,
+        };
+        void supabase.auth.getSession().then(({ data }) => {
+          const uid = data.session?.user?.id;
+          if (!uid || !info) return;
+          void supabase.from("floating_chip_snapshots").insert({
+            owner_id: uid,
+            subsection_id: info.subsectionId,
+            line_id: lineId,
+            chips: snap.chips as any,
+            scaffolds: snap.scaffolds as any,
+            source: "pre-assistant-apply",
+          } as any);
+        });
+        const normalised = dropContextualLeadingPlus(chips);
+        const containers = detectStructures(current.equation) as ContainerKind[];
+        const next: FloatingLine = {
+          ...current,
+          fillers: normalised,
+          containers,
+          arrangement: identityArrangement(normalised.length),
+          fillersSelected: normalised.map(() => false),
+          containersSelected: containers.map(() => false),
+        };
+        const out = [...prev];
+        out[idx] = next;
+        dirtyRef.current = true;
+        return out;
+      });
+    },
+    [info],
+  );
+
+  const undoFromAssistant = useCallback(
+    async (lineId: string) => {
+      if (!info) return;
+      const { data: snaps } = await supabase
+        .from("floating_chip_snapshots")
+        .select("*")
+        .eq("subsection_id", info.subsectionId)
+        .eq("line_id", lineId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const snap = (snaps as any[])?.[0];
+      if (!snap) {
+        toast({ title: "Nothing to undo", description: "No previous snapshot for this line." });
+        return;
+      }
+      setLines((prev) =>
+        prev.map((l) => {
+          if (l.lineId !== lineId) return l;
+          const fillers = Array.isArray(snap.chips) ? (snap.chips as string[]) : [];
+          const containers = Array.isArray(snap.scaffolds)
+            ? (snap.scaffolds as ContainerKind[])
+            : [];
+          return {
+            ...l,
+            fillers,
+            containers,
+            arrangement: identityArrangement(fillers.length),
+            fillersSelected: fillers.map(() => false),
+            containersSelected: containers.map(() => false),
+          };
+        }),
+      );
+      dirtyRef.current = true;
+      toast({ title: "Undone", description: "Line restored to previous snapshot." });
+    },
+    [info],
+  );
+
+
   /* ---------- Per-line AI Edit panel ---------- */
   const [aiEditLineIndex, setAiEditLineIndex] = useState<number | null>(null);
   const [aiEditOpen, setAiEditOpen] = useState(false);
