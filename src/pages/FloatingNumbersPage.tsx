@@ -818,12 +818,13 @@ const FloatingNumbersPage = () => {
               No solution lines yet. Generate the solution in the lesson note first.
             </div>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-1" ref={workspaceRef}>
               {lines.map((l, i) => {
                 const isSelected = l.lineId === selectedLineId;
                 return (
                   <div
                     key={l.lineId}
+                    data-line-id={l.lineId}
                     onClick={() => setSelectedLineId(l.lineId)}
                     className="rounded-md transition-colors cursor-pointer"
                     style={isSelected ? {
