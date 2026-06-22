@@ -503,6 +503,207 @@ export type Database = {
         }
         Relationships: []
       }
+      floating_generations: {
+        Row: {
+          chips: Json
+          created_at: string
+          elements: Json
+          id: string
+          law_trace: Json
+          line_id: string | null
+          notebook_id: string | null
+          original: string
+          owner_id: string
+          scaffolds: Json
+          status: string
+          subsection_id: string | null
+          updated_at: string
+          verification: Json
+        }
+        Insert: {
+          chips?: Json
+          created_at?: string
+          elements?: Json
+          id?: string
+          law_trace?: Json
+          line_id?: string | null
+          notebook_id?: string | null
+          original: string
+          owner_id?: string
+          scaffolds?: Json
+          status?: string
+          subsection_id?: string | null
+          updated_at?: string
+          verification?: Json
+        }
+        Update: {
+          chips?: Json
+          created_at?: string
+          elements?: Json
+          id?: string
+          law_trace?: Json
+          line_id?: string | null
+          notebook_id?: string | null
+          original?: string
+          owner_id?: string
+          scaffolds?: Json
+          status?: string
+          subsection_id?: string | null
+          updated_at?: string
+          verification?: Json
+        }
+        Relationships: []
+      }
+      floating_law_drafts: {
+        Row: {
+          conditions: Json
+          created_at: string
+          examples: Json
+          exceptions: Json
+          id: string
+          name: string
+          owner_id: string
+          reason: string | null
+          rule: string
+          source_generation_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          conditions?: Json
+          created_at?: string
+          examples?: Json
+          exceptions?: Json
+          id?: string
+          name: string
+          owner_id?: string
+          reason?: string | null
+          rule: string
+          source_generation_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          conditions?: Json
+          created_at?: string
+          examples?: Json
+          exceptions?: Json
+          id?: string
+          name?: string
+          owner_id?: string
+          reason?: string | null
+          rule?: string
+          source_generation_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floating_law_drafts_source_generation_id_fkey"
+            columns: ["source_generation_id"]
+            isOneToOne: false
+            referencedRelation: "floating_generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      floating_law_library: {
+        Row: {
+          approved_at: string
+          conditions: Json
+          created_at: string
+          examples: Json
+          exceptions: Json
+          id: string
+          law_number: number
+          name: string
+          owner_id: string
+          reason: string | null
+          rule: string
+          source_generation_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string
+          conditions?: Json
+          created_at?: string
+          examples?: Json
+          exceptions?: Json
+          id?: string
+          law_number: number
+          name: string
+          owner_id?: string
+          reason?: string | null
+          rule: string
+          source_generation_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string
+          conditions?: Json
+          created_at?: string
+          examples?: Json
+          exceptions?: Json
+          id?: string
+          law_number?: number
+          name?: string
+          owner_id?: string
+          reason?: string | null
+          rule?: string
+          source_generation_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floating_law_library_source_generation_id_fkey"
+            columns: ["source_generation_id"]
+            isOneToOne: false
+            referencedRelation: "floating_generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      floating_restructure_events: {
+        Row: {
+          attachments: Json
+          created_at: string
+          generation_id: string
+          id: string
+          input_kind: string
+          instruction: string | null
+          owner_id: string
+          scope: Json | null
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string
+          generation_id: string
+          id?: string
+          input_kind: string
+          instruction?: string | null
+          owner_id?: string
+          scope?: Json | null
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string
+          generation_id?: string
+          id?: string
+          input_kind?: string
+          instruction?: string | null
+          owner_id?: string
+          scope?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floating_restructure_events_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "floating_generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notebook_blocks: {
         Row: {
           content_ascii: string
