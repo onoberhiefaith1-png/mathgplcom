@@ -24,6 +24,7 @@ import FloatingDisplayStrip from "@/components/lessonnotes/FloatingDisplayStrip"
 import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditPanel";
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import AssistantPanel from "@/components/floating/AssistantPanel";
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
@@ -91,6 +92,95 @@ const FloatingNumbersPage = () => {
   const [fromHighlights, setFromHighlights] = useState(false);
   const [highlightsData, setHighlightsData] = useState<{ groupId: number; payload: string }[]>([]);
   const [scoring, setScoring] = useState<FloatingScoring>(DEFAULT_SCORING);
+
+  /* ---------- Selected line (drives the AI Assistant context) ---------- */
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const selectedLine = useMemo(
+    () => lines.find((l) => l.lineId === selectedLineId) ?? null,
+    [lines, selectedLineId],
+  );
+
+  /* ---------- Apply / Undo from AI Assistant ---------- */
+  const applyChipsFromAssistant = useCallback(
+    ({ lineId, chips }: { lineId: string; chips: string[]; scaffolds?: string[] }) => {
+      setLines((prev) => {
+        const idx = prev.findIndex((l) => l.lineId === lineId);
+        if (idx < 0) return prev;
+        // Snapshot current state for undo before mutating.
+        const current = prev[idx];
+        const snap = {
+          chips: current.fillers,
+          scaffolds: current.containers,
+        };
+        void supabase.auth.getSession().then(({ data }) => {
+          const uid = data.session?.user?.id;
+          if (!uid || !info) return;
+          void supabase.from("floating_chip_snapshots").insert({
+            owner_id: uid,
+            subsection_id: info.subsectionId,
+            line_id: lineId,
+            chips: snap.chips as any,
+            scaffolds: snap.scaffolds as any,
+            source: "pre-assistant-apply",
+          } as any);
+        });
+        const normalised = dropContextualLeadingPlus(chips);
+        const containers = detectStructures(current.equation) as ContainerKind[];
+        const next: FloatingLine = {
+          ...current,
+          fillers: normalised,
+          containers,
+          arrangement: identityArrangement(normalised.length),
+          fillersSelected: normalised.map(() => false),
+          containersSelected: containers.map(() => false),
+        };
+        const out = [...prev];
+        out[idx] = next;
+        dirtyRef.current = true;
+        return out;
+      });
+    },
+    [info],
+  );
+
+  const undoFromAssistant = useCallback(
+    async (lineId: string) => {
+      if (!info) return;
+      const { data: snaps } = await supabase
+        .from("floating_chip_snapshots")
+        .select("*")
+        .eq("subsection_id", info.subsectionId)
+        .eq("line_id", lineId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const snap = (snaps as any[])?.[0];
+      if (!snap) {
+        toast({ title: "Nothing to undo", description: "No previous snapshot for this line." });
+        return;
+      }
+      setLines((prev) =>
+        prev.map((l) => {
+          if (l.lineId !== lineId) return l;
+          const fillers = Array.isArray(snap.chips) ? (snap.chips as string[]) : [];
+          const containers = Array.isArray(snap.scaffolds)
+            ? (snap.scaffolds as ContainerKind[])
+            : [];
+          return {
+            ...l,
+            fillers,
+            containers,
+            arrangement: identityArrangement(fillers.length),
+            fillersSelected: fillers.map(() => false),
+            containersSelected: containers.map(() => false),
+          };
+        }),
+      );
+      dirtyRef.current = true;
+      toast({ title: "Undone", description: "Line restored to previous snapshot." });
+    },
+    [info],
+  );
+
 
   /* ---------- Per-line AI Edit panel ---------- */
   const [aiEditLineIndex, setAiEditLineIndex] = useState<number | null>(null);
@@ -516,7 +606,8 @@ const FloatingNumbersPage = () => {
 
 
   return (
-    <div className="min-h-screen" style={{ background: "hsl(38 35% 92%)" }}>
+    <div className="flex min-h-screen" style={{ background: "hsl(38 35% 92%)" }}>
+      <div className="flex-1 min-w-0">
       {/* Top bar */}
       <div
         className="sticky top-0 z-10 backdrop-blur"
@@ -674,33 +765,32 @@ const FloatingNumbersPage = () => {
             </div>
           ) : (
             <div className="space-y-1">
-              {lines.map((l, i) => (
-                <div key={l.lineId}>
-                  <div className="flex justify-end mb-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const params = new URLSearchParams({ eq: l.equation, lineId: l.lineId });
-                        navigate(`/lesson-notes/${notebookId}/floating/${subsectionId}/reason?${params.toString()}`);
+              {lines.map((l, i) => {
+                const isSelected = l.lineId === selectedLineId;
+                return (
+                  <div
+                    key={l.lineId}
+                    onClick={() => setSelectedLineId(l.lineId)}
+                    className="rounded-md transition-colors cursor-pointer"
+                    style={isSelected ? {
+                      background: "hsl(48 95% 88% / 0.4)",
+                      boxShadow: "inset 3px 0 0 hsl(40 85% 50%)",
+                    } : undefined}
+                    title="Click to select — the AI Assistant will operate on this line"
+                  >
+                    <FloatingWorkspace
+                      line={l}
+                      index={i}
+                      scoreLabel={scoring.label}
+                      scoringMode={scoring.mode}
+                      onChange={(next) => {
+                        dirtyRef.current = true;
+                        setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
                       }}
-                      className="text-xs px-2 py-1 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200"
-                    >
-                      Reason &amp; Verify →
-                    </button>
+                    />
                   </div>
-                  <FloatingWorkspace
-                    line={l}
-                    index={i}
-                    scoreLabel={scoring.label}
-                    scoringMode={scoring.mode}
-                    onAiEdit={() => openAiEdit(i)}
-                    onChange={(next) => {
-                      dirtyRef.current = true;
-                      setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
-                    }}
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -777,6 +867,18 @@ const FloatingNumbersPage = () => {
           );
         }}
       />
+      </div>
+      {/* Right: Floating Number AI Assistant — permanent panel */}
+      <aside className="hidden lg:flex w-[380px] h-screen sticky top-0">
+        <div className="w-full h-full">
+          <AssistantPanel
+            selection={selectedLine?.equation ?? null}
+            lineId={selectedLine?.lineId ?? null}
+            onApproveApply={applyChipsFromAssistant}
+            onApproveUndo={undoFromAssistant}
+          />
+        </div>
+      </aside>
     </div>
   );
 };

@@ -56,8 +56,7 @@ import NotebookEditorPage from "./pages/NotebookEditorPage.tsx";
 import NotebookScanMobile from "./pages/NotebookScanMobile.tsx";
 import FloatingNumbersPage from "./pages/FloatingNumbersPage.tsx";
 import FloatingPreparationPage from "./pages/FloatingPreparationPage.tsx";
-import ReasoningPage from "./pages/floating/ReasoningPage.tsx";
-import VerificationPage from "./pages/floating/VerificationPage.tsx";
+import AiSettingsPage from "./pages/floating/AiSettingsPage.tsx";
 import TeachingHub from "./pages/TeachingHub.tsx";
 import Adventure from "./pages/Adventure.tsx";
 import AdventureGamesDashboard from "./pages/adventure/AdventureGamesDashboard.tsx";
@@ -147,8 +146,7 @@ const App = () => (
           <Route path="/lesson-notes/:id" element={<NotebookEditorPage />} />
           <Route path="/lesson-notes/:notebookId/floating-prep/:subsectionId" element={<FloatingPreparationPage />} />
           <Route path="/lesson-notes/:notebookId/floating/:subsectionId" element={<FloatingNumbersPage />} />
-          <Route path="/lesson-notes/:notebookId/floating/:subsectionId/reason" element={<ReasoningPage />} />
-          <Route path="/lesson-notes/:notebookId/floating/:subsectionId/verify" element={<VerificationPage />} />
+          <Route path="/lesson-notes/:notebookId/floating/:subsectionId/ai-settings" element={<AiSettingsPage />} />
           <Route path="/notebook-scan/:code" element={<NotebookScanMobile />} />
           <Route path="/games/fraction-challenge/addition" element={<FractionAdditionHub />} />
           <Route path="/games/fraction-challenge/addition/:difficulty" element={<FractionAdditionGame />} />

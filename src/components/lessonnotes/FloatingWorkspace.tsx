@@ -3,7 +3,7 @@
 // Every chip is editable; every row always ends with an empty tagged entry box.
 
 import { useEffect, useRef, useState } from "react";
-import { Shuffle, X, Sparkles, CornerDownLeft } from "lucide-react";
+import { Shuffle, X } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
@@ -327,29 +327,10 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
           {renderMathInline(line.equation, `eq-${line.lineId}`)}
         </div>
         <div className={`flex items-center gap-1.5 shrink-0 ${scoreLabel ? "ml-auto" : "ml-auto"}`}>
-          <button
-            type="button"
-            onClick={commitHighlightAsChip}
-            disabled={!pendingText}
-            title="Highlight part of the equation, then press Enter to add it as a floating chip"
-            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border disabled:opacity-40"
-            style={pendingText
-              ? { background: "hsl(150 70% 45%)", color: "hsl(220 35% 12%)", borderColor: "hsl(150 70% 35%)" }
-              : { borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18% / 0.55)" }}
-          >
-            <CornerDownLeft className="h-3 w-3" /> Enter
-          </button>
-          {onAiEdit && (
-            <button
-              type="button"
-              onClick={onAiEdit}
-              title="Regenerate or edit this line with AI"
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-foreground/15 hover:bg-foreground/5"
-              style={{ color: "hsl(220 35% 18%)" }}
-            >
-              <Sparkles className="h-3 w-3" /> AI Edit
-            </button>
-          )}
+          {/* The Enter, AI Edit, and Reason & Verify buttons were removed in
+              favour of the always-on Floating Number AI Assistant on the
+              right. Highlighting + Enter keyboard shortcut still works
+              (see commitHighlightAsChip / Enter listener above). */}
 
           {scoreLabel && (
             <>

@@ -503,6 +503,110 @@ export type Database = {
         }
         Relationships: []
       }
+      floating_assistant_messages: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          owner_id: string
+          role: string
+          thread_id: string
+          tool_name: string | null
+          tool_payload: Json | null
+        }
+        Insert: {
+          content: Json
+          created_at?: string
+          id?: string
+          owner_id: string
+          role: string
+          thread_id: string
+          tool_name?: string | null
+          tool_payload?: Json | null
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          owner_id?: string
+          role?: string
+          thread_id?: string
+          tool_name?: string | null
+          tool_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floating_assistant_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "floating_assistant_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      floating_assistant_threads: {
+        Row: {
+          created_at: string
+          id: string
+          notebook_id: string | null
+          owner_id: string
+          subsection_id: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notebook_id?: string | null
+          owner_id: string
+          subsection_id?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notebook_id?: string | null
+          owner_id?: string
+          subsection_id?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      floating_chip_snapshots: {
+        Row: {
+          chips: Json
+          created_at: string
+          id: string
+          line_id: string
+          owner_id: string
+          scaffolds: Json | null
+          source: string | null
+          subsection_id: string
+        }
+        Insert: {
+          chips: Json
+          created_at?: string
+          id?: string
+          line_id: string
+          owner_id: string
+          scaffolds?: Json | null
+          source?: string | null
+          subsection_id: string
+        }
+        Update: {
+          chips?: Json
+          created_at?: string
+          id?: string
+          line_id?: string
+          owner_id?: string
+          scaffolds?: Json | null
+          source?: string | null
+          subsection_id?: string
+        }
+        Relationships: []
+      }
       floating_generations: {
         Row: {
           chips: Json
@@ -551,6 +655,39 @@ export type Database = {
           subsection_id?: string | null
           updated_at?: string
           verification?: Json
+        }
+        Relationships: []
+      }
+      floating_knowledge_documents: {
+        Row: {
+          created_at: string
+          filename: string
+          id: string
+          kind: string
+          metadata: Json | null
+          owner_id: string
+          parsed_text: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          created_at?: string
+          filename: string
+          id?: string
+          kind: string
+          metadata?: Json | null
+          owner_id: string
+          parsed_text?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          created_at?: string
+          filename?: string
+          id?: string
+          kind?: string
+          metadata?: Json | null
+          owner_id?: string
+          parsed_text?: string | null
+          storage_path?: string | null
         }
         Relationships: []
       }
@@ -619,9 +756,12 @@ export type Database = {
           name: string
           owner_id: string
           reason: string | null
+          revisions: Json
           rule: string
           source_generation_id: string | null
+          superseded_by: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           approved_at?: string
@@ -634,9 +774,12 @@ export type Database = {
           name: string
           owner_id?: string
           reason?: string | null
+          revisions?: Json
           rule: string
           source_generation_id?: string | null
+          superseded_by?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           approved_at?: string
@@ -649,9 +792,12 @@ export type Database = {
           name?: string
           owner_id?: string
           reason?: string | null
+          revisions?: Json
           rule?: string
           source_generation_id?: string | null
+          superseded_by?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
