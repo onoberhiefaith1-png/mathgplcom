@@ -194,6 +194,14 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const userMessage: string = String(body.message ?? "").trim();
     const selection: string | undefined = body.selection;
+    const selectionsRaw: any[] = Array.isArray(body.selections) ? body.selections : [];
+    const selections = selectionsRaw
+      .map((s) => ({
+        id: String(s?.id ?? ""),
+        text: String(s?.text ?? ""),
+        lineId: s?.lineId ? String(s.lineId) : null,
+      }))
+      .filter((s) => s.text);
     const lineId: string | undefined = body.lineId;
     const history: { role: string; content: string }[] = Array.isArray(body.history) ? body.history : [];
 
@@ -204,9 +212,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const contextBlock = selection
-      ? `CURRENT_SELECTION: ${selection}\nLINE_ID: ${lineId ?? "(none)"}`
-      : `CURRENT_SELECTION: (none — teacher hasn't selected a line)`;
+    const primaryText = selections[0]?.text ?? selection ?? "";
+    const primaryLine = selections[0]?.lineId ?? lineId ?? null;
+
+    const contextLines: string[] = [];
+    if (selections.length > 0) {
+      contextLines.push("SELECTED_CONTEXT:");
+      for (let i = 0; i < selections.length; i++) {
+        contextLines.push(`  [${i + 1}] ${selections[i].text}`);
+      }
+      contextLines.push(`PRIMARY_SELECTION: ${primaryText}`);
+      contextLines.push(`LINE_ID: ${primaryLine ?? "(none)"}`);
+    } else if (selection) {
+      contextLines.push(`CURRENT_SELECTION: ${selection}`);
+      contextLines.push(`LINE_ID: ${lineId ?? "(none)"}`);
+    } else {
+      contextLines.push("CURRENT_SELECTION: (none — teacher hasn't highlighted anything)");
+    }
+    const contextBlock = contextLines.join("\n");
 
     const messages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
