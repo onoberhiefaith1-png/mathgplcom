@@ -146,8 +146,7 @@ const App = () => (
           <Route path="/lesson-notes/:id" element={<NotebookEditorPage />} />
           <Route path="/lesson-notes/:notebookId/floating-prep/:subsectionId" element={<FloatingPreparationPage />} />
           <Route path="/lesson-notes/:notebookId/floating/:subsectionId" element={<FloatingNumbersPage />} />
-          <Route path="/lesson-notes/:notebookId/floating/:subsectionId/reason" element={<ReasoningPage />} />
-          <Route path="/lesson-notes/:notebookId/floating/:subsectionId/verify" element={<VerificationPage />} />
+          <Route path="/lesson-notes/:notebookId/floating/:subsectionId/ai-settings" element={<AiSettingsPage />} />
           <Route path="/notebook-scan/:code" element={<NotebookScanMobile />} />
           <Route path="/games/fraction-challenge/addition" element={<FractionAdditionHub />} />
           <Route path="/games/fraction-challenge/addition/:difficulty" element={<FractionAdditionGame />} />
