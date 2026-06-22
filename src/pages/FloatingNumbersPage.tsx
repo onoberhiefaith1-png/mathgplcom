@@ -24,7 +24,7 @@ import FloatingDisplayStrip from "@/components/lessonnotes/FloatingDisplayStrip"
 import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditPanel";
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
-import AssistantPanel, { type CapturedSelection, type SelectionMode } from "@/components/floating/AssistantPanel";
+import AssistantPanel, { type ActiveHighlight } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
@@ -101,19 +101,14 @@ const FloatingNumbersPage = () => {
     [lines, selectedLineId],
   );
 
-  /* ---------- Captured highlights for the AI Assistant ---------- */
-  const [capturedSelections, setCapturedSelections] = useState<CapturedSelection[]>([]);
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>("single");
+  /* ---------- Active highlight for the AI Assistant ----------
+     A single, live highlight. Every selection change inside the workspace
+     instantly replaces it; selection-collapse is ignored so the chip stays
+     visible until either a new highlight appears, the user dismisses it, or
+     it is consumed by a send. */
+  const [activeHighlight, setActiveHighlight] = useState<ActiveHighlight | null>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
-  const selectionModeRef = useRef<SelectionMode>("single");
-  useEffect(() => {
-    selectionModeRef.current = selectionMode;
-  }, [selectionMode]);
 
-  // Live selection sync — every selection change inside the workspace is
-  // mirrored into the AI panel instantly. Single mode replaces; multi mode
-  // appends. Collapsing the selection (clicking elsewhere) is intentionally
-  // ignored so the current selection stays visible until a new one replaces it.
   useEffect(() => {
     const handler = () => {
       const root = workspaceRef.current;
@@ -128,29 +123,11 @@ const FloatingNumbersPage = () => {
       if (!anchorEl || !root.contains(anchorEl)) return;
       const lineEl = anchorEl.closest("[data-line-id]") as HTMLElement | null;
       const lid = lineEl?.dataset.lineId ?? null;
-
-      const entry: CapturedSelection = {
-        id: newId(),
-        text,
-        lineId: lid,
-        pinned: false,
-        ts: Date.now(),
-      };
-
-      setCapturedSelections((prev) => {
-        if (selectionModeRef.current === "single") {
-          // Preserve pinned items if any, swap the active (last unpinned) entry.
-          const pinned = prev.filter((s) => s.pinned);
-          const lastUnpinned = [...prev].reverse().find((s) => !s.pinned);
-          if (lastUnpinned && lastUnpinned.text === text && lastUnpinned.lineId === lid) {
-            return prev;
-          }
-          return [...pinned, entry];
-        }
-        // Multi mode: dedupe identical (text + lineId), otherwise append.
-        if (prev.some((s) => s.text === text && (s.lineId ?? null) === lid)) return prev;
-        return [...prev, entry];
-      });
+      setActiveHighlight((prev) =>
+        prev && prev.text === text && (prev.lineId ?? null) === lid
+          ? prev
+          : { id: newId(), text, lineId: lid },
+      );
     };
     document.addEventListener("selectionchange", handler);
     return () => document.removeEventListener("selectionchange", handler);
