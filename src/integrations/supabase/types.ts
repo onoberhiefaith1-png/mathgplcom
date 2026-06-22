@@ -607,6 +607,48 @@ export type Database = {
         }
         Relationships: []
       }
+      floating_example_analyses: {
+        Row: {
+          block_id: string | null
+          created_at: string
+          detected_elements: Json
+          example_text: string
+          id: string
+          lesson_topic: string | null
+          notebook_id: string | null
+          structures: Json
+          subsection_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          block_id?: string | null
+          created_at?: string
+          detected_elements?: Json
+          example_text: string
+          id?: string
+          lesson_topic?: string | null
+          notebook_id?: string | null
+          structures?: Json
+          subsection_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          block_id?: string | null
+          created_at?: string
+          detected_elements?: Json
+          example_text?: string
+          id?: string
+          lesson_topic?: string | null
+          notebook_id?: string | null
+          structures?: Json
+          subsection_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       floating_generations: {
         Row: {
           chips: Json
@@ -698,12 +740,15 @@ export type Database = {
           examples: Json
           exceptions: Json
           id: string
+          lesson_topics: string[]
           name: string
           owner_id: string
           reason: string | null
           rule: string
           source_generation_id: string | null
+          source_kind: string
           status: string
+          tags: string[]
           updated_at: string
         }
         Insert: {
@@ -712,12 +757,15 @@ export type Database = {
           examples?: Json
           exceptions?: Json
           id?: string
+          lesson_topics?: string[]
           name: string
           owner_id?: string
           reason?: string | null
           rule: string
           source_generation_id?: string | null
+          source_kind?: string
           status?: string
+          tags?: string[]
           updated_at?: string
         }
         Update: {
@@ -726,12 +774,15 @@ export type Database = {
           examples?: Json
           exceptions?: Json
           id?: string
+          lesson_topics?: string[]
           name?: string
           owner_id?: string
           reason?: string | null
           rule?: string
           source_generation_id?: string | null
+          source_kind?: string
           status?: string
+          tags?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -753,6 +804,7 @@ export type Database = {
           exceptions: Json
           id: string
           law_number: number
+          lesson_topics: string[]
           name: string
           owner_id: string
           reason: string | null
@@ -760,6 +812,7 @@ export type Database = {
           rule: string
           source_generation_id: string | null
           superseded_by: string | null
+          tags: string[]
           updated_at: string
           version: number
         }
@@ -771,6 +824,7 @@ export type Database = {
           exceptions?: Json
           id?: string
           law_number: number
+          lesson_topics?: string[]
           name: string
           owner_id?: string
           reason?: string | null
@@ -778,6 +832,7 @@ export type Database = {
           rule: string
           source_generation_id?: string | null
           superseded_by?: string | null
+          tags?: string[]
           updated_at?: string
           version?: number
         }
@@ -789,6 +844,7 @@ export type Database = {
           exceptions?: Json
           id?: string
           law_number?: number
+          lesson_topics?: string[]
           name?: string
           owner_id?: string
           reason?: string | null
@@ -796,6 +852,7 @@ export type Database = {
           rule?: string
           source_generation_id?: string | null
           superseded_by?: string | null
+          tags?: string[]
           updated_at?: string
           version?: number
         }
@@ -817,7 +874,9 @@ export type Database = {
           id: string
           input_kind: string
           instruction: string | null
+          law_refs: string[]
           owner_id: string
+          reason: string | null
           scope: Json | null
         }
         Insert: {
@@ -827,7 +886,9 @@ export type Database = {
           id?: string
           input_kind: string
           instruction?: string | null
+          law_refs?: string[]
           owner_id?: string
+          reason?: string | null
           scope?: Json | null
         }
         Update: {
@@ -837,7 +898,9 @@ export type Database = {
           id?: string
           input_kind?: string
           instruction?: string | null
+          law_refs?: string[]
           owner_id?: string
+          reason?: string | null
           scope?: Json | null
         }
         Relationships: [
