@@ -932,6 +932,8 @@ const FloatingNumbersPage = () => {
             lineId={selectedLine?.lineId ?? null}
             selections={capturedSelections}
             setSelections={setCapturedSelections}
+            selectionMode={selectionMode}
+            setSelectionMode={setSelectionMode}
             onApproveApply={applyChipsFromAssistant}
             onApproveUndo={undoFromAssistant}
             lessonContext={buildLessonContext({
