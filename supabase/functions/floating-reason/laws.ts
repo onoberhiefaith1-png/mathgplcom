@@ -234,7 +234,7 @@ export const runLawPipeline = (
       }
       const bodyStr = body.map((b) => b.raw).join("");
       const prev = chips[chips.length - 1] ?? "";
-      const isFunction = /^[a-zA-Z][a-zA-Z0-9]*$/.test(prev) && prev.length > 1;
+      const isFunction = /^[a-zA-Z][a-zA-Z0-9]*$/.test(prev);
       if (containsActiveOperator(bodyStr)) {
         scaffolds.push({ kind: "bracket", label: "()" });
         const parts = splitOnTopLevelAddSub(bodyStr);
@@ -250,6 +250,13 @@ export const runLawPipeline = (
       } else if (isFunction) {
         const tail = chips.pop() ?? "";
         chips.push(`${tail}(${bodyStr})`);
+        trace.push({
+          id: "function-gate-clean",
+          name: "Function Gate — Clean Argument",
+          applies: true,
+          reason: `${tail}(…) is clean; fuse as a single function chip.`,
+          result: `${tail}(${bodyStr})`,
+        });
       } else {
         chips.push(`(${bodyStr})`);
       }
