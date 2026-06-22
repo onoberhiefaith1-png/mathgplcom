@@ -167,6 +167,7 @@ export const AssistantPanel = ({
   setSelections,
   onApproveApply,
   onApproveUndo,
+  lessonContext,
 }: Props) => {
   const navigate = useNavigate();
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
