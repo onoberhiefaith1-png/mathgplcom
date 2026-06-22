@@ -599,25 +599,37 @@ export const AssistantPanel = ({
 
               {m.pendingActions && m.pendingActions.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {m.pendingActions.map((a, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => approveAction(m.id, a)}
-                      className="text-[11px] px-2 py-1 rounded-md"
-                      style={{
-                        background:
-                          a.kind === "apply_chips" && a.payload.verification_pass
-                            ? "hsl(150 60% 38%)"
-                            : "hsl(220 35% 18%)",
-                        color: "hsl(38 38% 96%)",
-                      }}
-                    >
-                      {a.kind === "apply_chips"
+                  {m.pendingActions.map((a, i) => {
+                    const label =
+                      a.kind === "apply_chips"
                         ? `Approve & apply ${a.payload.chips?.length ?? 0} chips`
-                        : "Approve undo"}
-                    </button>
-                  ))}
+                        : a.kind === "undo_last_change"
+                        ? "Approve undo"
+                        : a.kind === "approve_draft_law"
+                        ? `Approve law: ${a.payload.law_name ?? "draft"}`
+                        : a.kind === "reject_draft_law"
+                        ? `Reject law: ${a.payload.law_name ?? "draft"}`
+                        : "Approve";
+                    const bg =
+                      a.kind === "apply_chips" && a.payload.verification_pass
+                        ? "hsl(150 60% 38%)"
+                        : a.kind === "approve_draft_law"
+                        ? "hsl(200 60% 38%)"
+                        : a.kind === "reject_draft_law"
+                        ? "hsl(0 60% 45%)"
+                        : "hsl(220 35% 18%)";
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => approveAction(m.id, a)}
+                        className="text-[11px] px-2 py-1 rounded-md"
+                        style={{ background: bg, color: "hsl(38 38% 96%)" }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
