@@ -100,6 +100,60 @@ const FloatingNumbersPage = () => {
     [lines, selectedLineId],
   );
 
+  /* ---------- Captured highlights for the AI Assistant ---------- */
+  const [capturedSelections, setCapturedSelections] = useState<CapturedSelection[]>([]);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const replaceModeRef = useRef(false); // reserved for future external trigger
+  const lastCaptureAtRef = useRef(0);
+
+  useEffect(() => {
+    const root = workspaceRef.current;
+    if (!root) return;
+    const onMouseUp = () => {
+      // Defer until selection has settled.
+      setTimeout(() => {
+        const sel = window.getSelection?.();
+        if (!sel || sel.isCollapsed) return;
+        const text = sel.toString().trim();
+        if (!text) return;
+        const anchor = sel.anchorNode;
+        if (!anchor) return;
+        const anchorEl = anchor.nodeType === 1 ? (anchor as Element) : anchor.parentElement;
+        if (!anchorEl || !root.contains(anchorEl)) return;
+        const lineEl = anchorEl.closest("[data-line-id]") as HTMLElement | null;
+        const lid = lineEl?.dataset.lineId ?? null;
+
+        setCapturedSelections((prev) => {
+          const now = Date.now();
+          const last = prev[prev.length - 1];
+          // Dedupe identical
+          if (last && last.text === text) {
+            lastCaptureAtRef.current = now;
+            return prev;
+          }
+          // Debounce: replace last unpinned if it was very recent
+          const recent = now - lastCaptureAtRef.current < 400;
+          lastCaptureAtRef.current = now;
+          const entry: CapturedSelection = {
+            id: newId(),
+            text,
+            lineId: lid,
+            pinned: false,
+            ts: now,
+          };
+          if ((recent || replaceModeRef.current) && last && !last.pinned) {
+            const next = prev.slice(0, -1);
+            next.push(entry);
+            return next;
+          }
+          return [...prev, entry];
+        });
+      }, 0);
+    };
+    root.addEventListener("mouseup", onMouseUp);
+    return () => root.removeEventListener("mouseup", onMouseUp);
+  }, []);
+
   /* ---------- Apply / Undo from AI Assistant ---------- */
   const applyChipsFromAssistant = useCallback(
     ({ lineId, chips }: { lineId: string; chips: string[]; scaffolds?: string[] }) => {
