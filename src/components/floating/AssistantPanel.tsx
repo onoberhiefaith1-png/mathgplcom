@@ -20,14 +20,17 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { detectElements, type MathElement } from "@/lib/floating/elementDetector";
+import type { LessonContext } from "@/lib/floating/lessonContext";
 
 export interface AssistantClientAction {
-  kind: "apply_chips" | "undo_last_change";
+  kind: "apply_chips" | "undo_last_change" | "approve_draft_law" | "reject_draft_law";
   payload: {
     line_id?: string;
     chips?: string[];
     scaffolds?: string[];
     verification_pass?: boolean;
+    draft_id?: string;
+    law_name?: string;
   };
 }
 
