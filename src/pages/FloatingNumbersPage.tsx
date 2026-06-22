@@ -764,33 +764,32 @@ const FloatingNumbersPage = () => {
             </div>
           ) : (
             <div className="space-y-1">
-              {lines.map((l, i) => (
-                <div key={l.lineId}>
-                  <div className="flex justify-end mb-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const params = new URLSearchParams({ eq: l.equation, lineId: l.lineId });
-                        navigate(`/lesson-notes/${notebookId}/floating/${subsectionId}/reason?${params.toString()}`);
+              {lines.map((l, i) => {
+                const isSelected = l.lineId === selectedLineId;
+                return (
+                  <div
+                    key={l.lineId}
+                    onClick={() => setSelectedLineId(l.lineId)}
+                    className="rounded-md transition-colors cursor-pointer"
+                    style={isSelected ? {
+                      background: "hsl(48 95% 88% / 0.4)",
+                      boxShadow: "inset 3px 0 0 hsl(40 85% 50%)",
+                    } : undefined}
+                    title="Click to select — the AI Assistant will operate on this line"
+                  >
+                    <FloatingWorkspace
+                      line={l}
+                      index={i}
+                      scoreLabel={scoring.label}
+                      scoringMode={scoring.mode}
+                      onChange={(next) => {
+                        dirtyRef.current = true;
+                        setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
                       }}
-                      className="text-xs px-2 py-1 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200"
-                    >
-                      Reason &amp; Verify →
-                    </button>
+                    />
                   </div>
-                  <FloatingWorkspace
-                    line={l}
-                    index={i}
-                    scoreLabel={scoring.label}
-                    scoringMode={scoring.mode}
-                    onAiEdit={() => openAiEdit(i)}
-                    onChange={(next) => {
-                      dirtyRef.current = true;
-                      setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
-                    }}
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
