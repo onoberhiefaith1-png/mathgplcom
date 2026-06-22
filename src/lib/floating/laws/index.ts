@@ -260,23 +260,6 @@ export const runLawPipeline = (
       } else {
         chips.push(`(${bodyStr})`);
       }
-        scaffolds.push({ kind: "bracket", label: "()" });
-        const parts = splitOnTopLevelAddSub(bodyStr);
-        chips.push("()", ...parts);
-        trace.push({
-          id: "dirty-bracket",
-          name: "Dirty Argument — Bracket",
-          applies: true,
-          reason: "Bracket contains an active operator.",
-          action: `Drop () shell, extract ${bodyStr}.`,
-          result: ["()", ...parts].join(" | "),
-        });
-      } else if (isFunction) {
-        const tail = chips.pop() ?? "";
-        chips.push(`${tail}(${bodyStr})`);
-      } else {
-        chips.push(`(${bodyStr})`);
-      }
       i = j;
       continue;
     }
