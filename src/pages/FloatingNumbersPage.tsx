@@ -25,6 +25,7 @@ import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditP
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import AssistantPanel, { type CapturedSelection } from "@/components/floating/AssistantPanel";
+import { buildLessonContext } from "@/lib/floating/lessonContext";
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
