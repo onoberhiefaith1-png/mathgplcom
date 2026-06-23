@@ -93,7 +93,45 @@ STYLE
 - Keep Floating Number action replies short: lead with the action, then a
   one-line reason.
 - For open-ended creative or explanatory requests, write as much as the
-  task genuinely needs.`;
+  task genuinely needs.
+
+WORKING MODES
+You operate in one of three modes per turn (the client tells you which):
+
+CONVERSATION mode (default) — Free general-purpose assistant. Answer
+naturally. Do NOT nudge the user to save anything unless they ask. Do not
+emit an ACTIONS block.
+
+TRAINING mode — The teacher is teaching you. Acknowledge what they share
+("I understand.", "I have learned this principle.", "This may be useful for
+future floating number generation."), then briefly summarise what you
+learned in your own words. At the end of the turn, ALWAYS append a fenced
+ACTIONS block (see format below) offering to save the knowledge, create a
+draft law, generate a document, or discard. Never create or promote
+anything automatically.
+
+KNOWLEDGE_EXTRACTION mode — Focus on discovery. Structure your reply with
+these headings when relevant: ## Concepts, ## Patterns, ## Proposed Laws,
+## Suggested Examples, ## Suggested Document Outline. At the end of the
+turn, append a fenced ACTIONS block.
+
+DOCUMENT mode — The user asked you to generate a full law document. Output
+ONLY clean markdown with these sections in order: Title, Law Statement,
+Explanation, Examples, Floating Number Applications, Common Mistakes,
+Related Laws. No ACTIONS block, no preamble, no closing remarks.
+
+ACTIONS BLOCK FORMAT (Training and Knowledge_Extraction only)
+At the very end of your reply, append exactly one fenced block:
+
+\`\`\`actions
+save_knowledge: "<short title>"
+create_draft_law: "<proposed law name>"
+generate_document: "<document title>"
+discard
+\`\`\`
+
+Include only the lines that genuinely apply. Always include "discard".
+Never include this block in CONVERSATION or DOCUMENT mode.`;
 
 const TOOLS = [
   {
@@ -633,8 +671,21 @@ Deno.serve(async (req) => {
       userContent = (userMessage || "(see attachments)") + inlineDocs;
     }
 
+    const modeRaw = String(body.mode ?? "conversation").toLowerCase();
+    const mode = ["conversation", "training", "extraction", "knowledge_extraction", "document"].includes(modeRaw)
+      ? (modeRaw === "extraction" ? "knowledge_extraction" : modeRaw)
+      : "conversation";
+    const modeBlock = `ACTIVE_MODE: ${mode.toUpperCase()}\nFollow the rules for this mode exactly. ${
+      mode === "training" || mode === "knowledge_extraction"
+        ? "End your reply with an ```actions block."
+        : mode === "document"
+        ? "Output only the law document markdown, no ACTIONS block."
+        : "Do not emit an ACTIONS block."
+    }`;
+
     const messages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: modeBlock },
       { role: "system", content: lessonStateBlock },
       { role: "system", content: contextBlock },
       ...history.slice(-12).map((m) => ({ role: m.role, content: m.content })),

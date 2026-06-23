@@ -60,7 +60,16 @@ interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   attachments?: { filename: string; isImage: boolean; previewUrl?: string }[];
+  actions?: ChatAction[];
+  mode?: ChatMode;
 }
+
+type ChatMode = "conversation" | "training" | "extraction";
+type ChatAction =
+  | { kind: "save_knowledge"; title: string }
+  | { kind: "create_draft_law"; name: string }
+  | { kind: "generate_document"; title: string }
+  | { kind: "discard" };
 
 /* ──────────────── style tokens ──────────────── */
 
@@ -113,6 +122,31 @@ function MathText({ text }: { text: string }) {
     </div>
   );
 }
+
+/* ──────────────── ACTIONS block parser ──────────────── */
+// Pulls a trailing ```actions ... ``` fenced block out of an assistant reply
+// and returns the clean text + parsed actions.
+function parseActions(raw: string): { text: string; actions: ChatAction[] } {
+  const re = /```actions\s*([\s\S]*?)```/i;
+  const m = raw.match(re);
+  if (!m) return { text: raw, actions: [] };
+  const block = m[1];
+  const actions: ChatAction[] = [];
+  for (const line of block.split("\n")) {
+    const l = line.trim();
+    if (!l) continue;
+    const sk = l.match(/^save_knowledge\s*:\s*"?([^"]+?)"?$/i);
+    if (sk) { actions.push({ kind: "save_knowledge", title: sk[1].trim() }); continue; }
+    const cd = l.match(/^create_draft_law\s*:\s*"?([^"]+?)"?$/i);
+    if (cd) { actions.push({ kind: "create_draft_law", name: cd[1].trim() }); continue; }
+    const gd = l.match(/^generate_document\s*:\s*"?([^"]+?)"?$/i);
+    if (gd) { actions.push({ kind: "generate_document", title: gd[1].trim() }); continue; }
+    if (/^discard\b/i.test(l)) actions.push({ kind: "discard" });
+  }
+  return { text: raw.replace(re, "").trim(), actions };
+}
+
+
 
 /* ──────────────── page ──────────────── */
 
@@ -225,7 +259,44 @@ const AiSettingsPage = () => {
     load();
   };
 
-  /* ───── filtering ───── */
+  /* ───── law document generation ───── */
+  const generateLawDocument = useCallback(async (l: Law) => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) { toast({ title: "Not signed in", variant: "destructive" }); return; }
+    toast({ title: "Generating law document…" });
+    try {
+      const { data, error } = await supabase.functions.invoke("floating-assistant", {
+        body: {
+          mode: "document",
+          workspace: "knowledge",
+          history: [],
+          attachments: [],
+          message:
+            `Generate a full law document for "${l.name}".\n\n` +
+            `Law statement: ${l.rule}\n` +
+            (l.reason ? `Reasoning: ${l.reason}\n` : "") +
+            (Array.isArray(l.lesson_topics) && l.lesson_topics.length ? `Topics: ${l.lesson_topics.join(", ")}\n` : "") +
+            `\nProduce the sections: Title, Law Statement, Explanation, Examples, Floating Number Applications, Common Mistakes, Related Laws.`,
+        },
+      });
+      if (error) throw error;
+      const reply = (data as any)?.reply ?? "";
+      const { error: insErr } = await supabase.from("floating_knowledge_documents").insert({
+        owner_id: session.user.id,
+        kind: "law_document",
+        filename: `${l.name}.md`,
+        parsed_text: reply,
+        metadata: { source: "generated", linked_law_id: l.id, law_name: l.name },
+      } as any);
+      if (insErr) throw insErr;
+      toast({ title: "Law document created", description: l.name });
+      load();
+    } catch (e: any) {
+      toast({ title: "Generation failed", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  }, [load]);
+
+
 
   const q = filter.toLowerCase().trim();
   const filteredOfficial = useMemo(
@@ -306,7 +377,11 @@ const AiSettingsPage = () => {
             borderColor: C.border,
           }}
         >
-          <KnowledgeChat handleRef={(r) => { chatRef.current = r; }} />
+          <KnowledgeChat
+            handleRef={(r) => { chatRef.current = r; }}
+            subsectionId={subsectionId}
+            onAfterAction={load}
+          />
         </aside>
 
         {/* Middle: detail panel (when selected). */}
@@ -331,6 +406,7 @@ const AiSettingsPage = () => {
               onApproveDraft={approveDraft}
               onRejectDraft={rejectDraft}
               onAskAboutLaw={(p) => chatRef.current?.askExternal(p)}
+              onGenerateLawDocument={generateLawDocument}
             />
           </main>
         )}
@@ -560,11 +636,12 @@ function EmptyHint({ text }: { text: string }) {
 /* ──────────────── Detail panel ──────────────── */
 
 function DetailPanel({
-  law, draft, doc, onApproveDraft, onRejectDraft, onAskAboutLaw,
+  law, draft, doc, onApproveDraft, onRejectDraft, onAskAboutLaw, onGenerateLawDocument,
 }: {
   law: Law | null; draft: Law | null; doc: KnowledgeDoc | null;
   onApproveDraft: (d: Law) => void; onRejectDraft: (d: Law) => void;
   onAskAboutLaw: (prompt: string) => void;
+  onGenerateLawDocument?: (l: Law) => void;
 }) {
   if (law) {
     const history = Array.isArray(law.approval_history) ? law.approval_history : [];
@@ -610,6 +687,14 @@ function DetailPanel({
             style={{ borderColor: C.borderStrong, color: C.text }}>
             <Edit3 className="h-3.5 w-3.5" /> Suggest revision
           </button>
+          {onGenerateLawDocument && (
+            <button
+              onClick={() => onGenerateLawDocument(law)}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border hover:bg-black/5"
+              style={{ borderColor: C.borderStrong, color: C.text }}>
+              <FileText className="h-3.5 w-3.5" /> Generate Law Document
+            </button>
+          )}
         </div>
       </div>
     );
@@ -715,12 +800,45 @@ function Chip({ children }: { children: React.ReactNode }) {
 
 interface ChatHandle { askExternal: (prompt: string) => void }
 
-function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => void }) {
+const MODE_LABELS: Record<ChatMode, { label: string; hint: string }> = {
+  conversation: {
+    label: "Conversation",
+    hint: "General assistant — chat about anything.",
+  },
+  training: {
+    label: "Training",
+    hint: "Teaching mode — I will learn from what you share and offer to save it.",
+  },
+  extraction: {
+    label: "Knowledge Extraction",
+    hint: "Discovery mode — I will extract concepts, patterns, and propose laws.",
+  },
+};
+
+function KnowledgeChat({
+  handleRef, subsectionId, onAfterAction,
+}: {
+  handleRef?: (r: ChatHandle | null) => void;
+  subsectionId?: string;
+  onAfterAction?: () => void;
+}) {
+  const modeStorageKey = `floating-ai-mode:${subsectionId ?? "global"}`;
+  const [mode, setMode] = useState<ChatMode>(() => {
+    try {
+      const v = localStorage.getItem(modeStorageKey);
+      if (v === "training" || v === "extraction" || v === "conversation") return v;
+    } catch { /* ignore */ }
+    return "conversation";
+  });
+  useEffect(() => {
+    try { localStorage.setItem(modeStorageKey, mode); } catch { /* ignore */ }
+  }, [mode, modeStorageKey]);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome", role: "assistant",
       text:
-        "Hi — I'm your Floating Number AI. I share the same memory, laws, and documents as the assistant on the Generation page.\n\nAsk me anything: review a law, draft a new one, scan an uploaded document, explain a structure, or generate examples. You can type, speak, drop files, or paste screenshots.",
+        "Hi — I'm your Floating Number AI. I'm a full general-purpose assistant with deep Floating Number expertise.\n\nSwitch modes beside the input: **Conversation** for free chat, **Training** to teach me, or **Knowledge Extraction** to mine documents and propose laws. Type, speak, drop files, or paste screenshots.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -788,6 +906,7 @@ function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => vo
           message: text,
           history,
           workspace: "knowledge",
+          mode,
           lessonContext: null,
           attachments: sentAttachments.map((a) => ({
             filename: a.filename, mime: a.mime, data: a.data,
@@ -809,14 +928,101 @@ function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => vo
         throw error;
       }
       const reply = (data as any)?.reply ?? "(no reply)";
-      setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: reply }]);
+      const { text: cleanText, actions } = parseActions(reply);
+      setMessages((prev) => [...prev, {
+        id: newId(), role: "assistant", text: cleanText, actions, mode,
+      }]);
     } catch (e: any) {
       setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: `⚠️ ${e?.message ?? String(e)}` }]);
     } finally {
       setBusy(false);
       setTimeout(() => taRef.current?.focus(), 0);
     }
-  }, [input, busy, messages, attachments, voice]);
+  }, [input, busy, messages, attachments, voice, mode]);
+
+  /* ───── Action button handlers ───── */
+  const runAction = useCallback(async (msgId: string, action: ChatAction) => {
+    const msg = messages.find((m) => m.id === msgId);
+    const body = msg?.text ?? "";
+    const consume = () => setMessages((prev) => prev.map((m) =>
+      m.id === msgId ? { ...m, actions: [] } : m
+    ));
+
+    if (action.kind === "discard") {
+      consume();
+      toast({ title: "Discarded" });
+      return;
+    }
+
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) { toast({ title: "Not signed in", variant: "destructive" }); return; }
+
+    if (action.kind === "save_knowledge") {
+      const { error } = await supabase.from("floating_knowledge_documents").insert({
+        owner_id: session.user.id,
+        kind: "note",
+        filename: `${action.title}.md`,
+        parsed_text: body,
+        metadata: { source: "chat", mode: msg?.mode ?? mode },
+      } as any);
+      if (error) { toast({ title: "Save failed", description: error.message, variant: "destructive" }); return; }
+      toast({ title: "Saved as Knowledge", description: action.title });
+      onAfterAction?.();
+      consume();
+      return;
+    }
+
+    if (action.kind === "create_draft_law") {
+      const { error } = await supabase.from("floating_law_drafts").insert({
+        owner_id: session.user.id,
+        name: action.name,
+        rule: body.slice(0, 400),
+        reason: `Proposed from ${msg?.mode ?? mode} session`,
+        examples: [],
+        exceptions: [],
+        status: "proposed",
+        source_kind: "ai_proposed",
+      } as any);
+      if (error) { toast({ title: "Draft failed", description: error.message, variant: "destructive" }); return; }
+      toast({ title: "Draft Law created", description: action.name });
+      onAfterAction?.();
+      consume();
+      return;
+    }
+
+    if (action.kind === "generate_document") {
+      setBusy(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("floating-assistant", {
+          body: {
+            message: `Generate a full law document titled "${action.title}" based on the following content:\n\n${body}`,
+            mode: "document",
+            workspace: "knowledge",
+            lessonContext: null,
+            history: [],
+            attachments: [],
+          },
+        });
+        if (error) throw error;
+        const reply = (data as any)?.reply ?? "";
+        const { error: insErr } = await supabase.from("floating_knowledge_documents").insert({
+          owner_id: session.user.id,
+          kind: "law_document",
+          filename: `${action.title}.md`,
+          parsed_text: reply,
+          metadata: { source: "generated", title: action.title },
+        } as any);
+        if (insErr) throw insErr;
+        toast({ title: "Document generated", description: action.title });
+        onAfterAction?.();
+        consume();
+      } catch (e: any) {
+        toast({ title: "Generate failed", description: e?.message ?? String(e), variant: "destructive" });
+      } finally {
+        setBusy(false);
+      }
+    }
+  }, [messages, mode, onAfterAction]);
 
   useEffect(() => {
     const handle: ChatHandle = { askExternal: (p: string) => { setInput(""); voice.reset(); send(p); } };
@@ -898,6 +1104,39 @@ function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => vo
                   </div>
                 )}
                 <MathText text={m.text} />
+                {m.role === "assistant" && m.actions && m.actions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t flex flex-wrap gap-1.5" style={{ borderColor: C.border }}>
+                    <div className="w-full text-[10px] uppercase tracking-wide mb-1" style={{ color: C.textMuted }}>
+                      What would you like to do with this?
+                    </div>
+                    {m.actions.map((a, i) => {
+                      const label =
+                        a.kind === "save_knowledge" ? `💾 Save as Knowledge` :
+                        a.kind === "create_draft_law" ? `📜 Create Draft Law` :
+                        a.kind === "generate_document" ? `📄 Generate Document` :
+                        `✕ Discard`;
+                      const variant = a.kind === "discard";
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => runAction(m.id, a)}
+                          disabled={busy}
+                          className="text-[11px] px-2.5 py-1 rounded-md border hover:bg-black/5 disabled:opacity-40"
+                          style={{
+                            borderColor: variant ? C.border : C.borderStrong,
+                            color: variant ? C.textMuted : C.text,
+                            background: variant ? "transparent" : C.panelBg,
+                          }}
+                        >
+                          {label}
+                          {a.kind === "save_knowledge" && `: ${a.title}`}
+                          {a.kind === "create_draft_law" && `: ${a.name}`}
+                          {a.kind === "generate_document" && `: ${a.title}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -958,6 +1197,19 @@ function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => vo
               {voice.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </button>
 
+            {/* Mode Selector */}
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as ChatMode)}
+              title={MODE_LABELS[mode].hint}
+              className="text-[11px] px-2 py-1 rounded-md border bg-transparent outline-none"
+              style={{ borderColor: C.border, color: C.textSubtle }}
+            >
+              <option value="conversation">💬 Conversation</option>
+              <option value="training">🎓 Training</option>
+              <option value="extraction">🔍 Extraction</option>
+            </select>
+
             <textarea
               ref={taRef}
               value={input}
@@ -982,10 +1234,14 @@ function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => vo
             </button>
           </div>
           <div className="text-[10px] mt-1.5 text-center" style={{ color: C.textMuted }}>
-            Drop files anywhere · paste screenshots · math renders automatically
+            <span className="font-medium" style={{ color: mode === "conversation" ? C.textMuted : C.draft }}>
+              {MODE_LABELS[mode].label} mode
+            </span>
+            {" · "}{MODE_LABELS[mode].hint}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
