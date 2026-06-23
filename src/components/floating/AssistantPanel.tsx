@@ -200,14 +200,25 @@ export const AssistantPanel = ({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<AssistantAttachment[]>([]);
-  const [recording, setRecording] = useState(false);
   const [previewOpen, setPreviewOpen] = useState<Record<string, boolean>>({});
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const recordStartRef = useRef<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Live voice dictation — browser SpeechRecognition. As the teacher speaks,
+  // interim text streams into the textarea; on stop, the final transcript is
+  // committed. Vibration gives haptic feedback on start/stop where supported.
+  const { listening: recording, start: startVoice, stop: stopVoice, reset: resetVoice } =
+    useVoiceInput(setInput as any);
+
+  const startRecording = () => {
+    try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
+    startVoice();
+  };
+  const stopRecording = () => {
+    try { (navigator as any).vibrate?.([20, 30, 20]); } catch { /* noop */ }
+    stopVoice();
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
