@@ -1146,6 +1146,19 @@ function KnowledgeChat({
               {voice.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </button>
 
+            {/* Mode Selector */}
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as ChatMode)}
+              title={MODE_LABELS[mode].hint}
+              className="text-[11px] px-2 py-1 rounded-md border bg-transparent outline-none"
+              style={{ borderColor: C.border, color: C.textSubtle }}
+            >
+              <option value="conversation">💬 Conversation</option>
+              <option value="training">🎓 Training</option>
+              <option value="extraction">🔍 Extraction</option>
+            </select>
+
             <textarea
               ref={taRef}
               value={input}
