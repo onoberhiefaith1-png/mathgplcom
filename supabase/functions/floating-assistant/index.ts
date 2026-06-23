@@ -624,6 +624,28 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
     }
   }
 
+  // Engine Knowledge — the generator's self-documentation.
+  const engineDocs = kb.knowledgeDocs.filter((d) => d.kind === "engine_principle");
+  const engineLogs = kb.knowledgeDocs.filter((d) => d.kind === "engine_generation_log");
+  if (engineDocs.length > 0) {
+    lines.push(`### Engine Principles (${engineDocs.length}) — how the generator actually decides`);
+    engineDocs.slice(0, 8).forEach((d) => {
+      const excerpt = (d.parsed_text ?? "").trim().slice(0, 500);
+      lines.push(`- ${docTag(d)} ${d.filename}`);
+      if (excerpt) lines.push(`    excerpt: ${excerpt}${(d.parsed_text?.length ?? 0) > 500 ? " …" : ""}`);
+    });
+  }
+  if (engineLogs.length > 0) {
+    lines.push(`### Engine Generation Logs (${engineLogs.length}) — the generator explaining itself`);
+    engineLogs.slice(0, 6).forEach((d) => {
+      const excerpt = (d.parsed_text ?? "").trim().slice(0, 400);
+      lines.push(`- ${docTag(d)} ${d.filename}`);
+      if (excerpt) lines.push(`    excerpt: ${excerpt}${(d.parsed_text?.length ?? 0) > 400 ? " …" : ""}`);
+    });
+    if (engineLogs.length > 6) {
+      lines.push("- Older generation logs available via lookup_document.");
+    }
+
   if (kb.exampleAnalyses.length > 0) {
     lines.push(`### Recent Example Analyses (${kb.exampleAnalyses.length})`);
     kb.exampleAnalyses.slice(0, 8).forEach((a) => {
