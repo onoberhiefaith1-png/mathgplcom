@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { LessonContext } from "@/lib/floating/lessonContext";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 
 export type LineUpdateOp =
   | "move_filler"
