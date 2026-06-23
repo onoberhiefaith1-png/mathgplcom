@@ -671,8 +671,21 @@ Deno.serve(async (req) => {
       userContent = (userMessage || "(see attachments)") + inlineDocs;
     }
 
+    const modeRaw = String(body.mode ?? "conversation").toLowerCase();
+    const mode = ["conversation", "training", "extraction", "knowledge_extraction", "document"].includes(modeRaw)
+      ? (modeRaw === "extraction" ? "knowledge_extraction" : modeRaw)
+      : "conversation";
+    const modeBlock = `ACTIVE_MODE: ${mode.toUpperCase()}\nFollow the rules for this mode exactly. ${
+      mode === "training" || mode === "knowledge_extraction"
+        ? "End your reply with an ```actions block."
+        : mode === "document"
+        ? "Output only the law document markdown, no ACTIONS block."
+        : "Do not emit an ACTIONS block."
+    }`;
+
     const messages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: modeBlock },
       { role: "system", content: lessonStateBlock },
       { role: "system", content: contextBlock },
       ...history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
