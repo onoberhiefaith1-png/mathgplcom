@@ -10,7 +10,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Loader2, Upload, Trash2, BookOpen, FileText, FlaskConical,
   RefreshCw, Send, Sparkles, Check, X, Edit3, Plus, Search, ScanLine,
-  Mic, MicOff, Paperclip, Image as ImageIcon, Phone, ChevronLeft, ChevronDown, ChevronRight,
+  Mic, MicOff, Paperclip, Image as ImageIcon, Phone, ChevronLeft, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -131,6 +131,7 @@ const AiSettingsPage = () => {
   const [openOfficial, setOpenOfficial] = useState(true);
   const [openDrafts, setOpenDrafts] = useState(true);
   const [openDocs, setOpenDocs] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [selectedLaw, setSelectedLaw] = useState<Law | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<Law | null>(null);
@@ -298,151 +299,176 @@ const AiSettingsPage = () => {
       <div className="flex flex-1 min-h-0">
         {/* Left sidebar — fixed-ish compact width; never hidden */}
         <aside
-          className="shrink-0 flex flex-col border-r"
+          className="shrink-0 flex flex-col border-r overflow-hidden transition-[width,min-width,max-width] duration-300 ease-in-out"
           style={{
-            width: hasSelection ? 260 : "30%",
-            minWidth: 260,
-            maxWidth: hasSelection ? 280 : 420,
+            width: sidebarCollapsed ? 44 : (hasSelection ? 260 : "30%"),
+            minWidth: sidebarCollapsed ? 44 : 260,
+            maxWidth: sidebarCollapsed ? 44 : (hasSelection ? 280 : 420),
             background: C.panelBg,
             borderColor: C.border,
           }}
         >
-          {/* Search */}
-          <div className="px-3 py-2.5 border-b" style={{ borderColor: C.border }}>
-            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border"
-              style={{ borderColor: C.border, background: C.hover }}>
-              <Search className="h-3.5 w-3.5" style={{ color: C.textMuted }} />
-              <input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search laws, drafts, documents…"
-                className="bg-transparent outline-none text-xs flex-1"
-                style={{ color: C.text }}
-              />
+          {sidebarCollapsed ? (
+            <div className="flex flex-col items-center pt-2 gap-2">
+              <button
+                onClick={() => setSidebarCollapsed(false)}
+                title="Expand sidebar"
+                className="p-1.5 rounded hover:bg-black/5"
+                style={{ color: C.textSubtle }}
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
+              <div className="w-px flex-1" />
             </div>
-          </div>
-
-          {/* Stacked sections */}
-          <div className="flex-1 overflow-y-auto py-2">
-            {loading ? (
-              <div className="py-10 text-center text-xs" style={{ color: C.textMuted }}>
-                <Loader2 className="h-4 w-4 animate-spin inline" />
+          ) : (
+            <>
+              {/* Header with collapse button + Search */}
+              <div className="px-3 py-2.5 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  title="Collapse sidebar"
+                  className="p-1 rounded hover:bg-black/5 shrink-0"
+                  style={{ color: C.textSubtle }}
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </button>
+                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border flex-1 min-w-0"
+                  style={{ borderColor: C.border, background: C.hover }}>
+                  <Search className="h-3.5 w-3.5 shrink-0" style={{ color: C.textMuted }} />
+                  <input
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    placeholder="Search laws, drafts, documents…"
+                    className="bg-transparent outline-none text-xs flex-1 min-w-0"
+                    style={{ color: C.text }}
+                  />
+                </div>
               </div>
-            ) : (
-              <>
-                <SidebarSection
-                  icon={BookOpen}
-                  label="Official Laws"
-                  count={filteredOfficial.length}
-                  open={openOfficial}
-                  onToggle={() => setOpenOfficial((v) => !v)}
-                >
-                  {filteredOfficial.length === 0 ? (
-                    <EmptyHint text="No approved laws yet. Ask the AI to propose one." />
-                  ) : (
-                    filteredOfficial.map((l) => (
-                      <ListRow
-                        key={l.id}
-                        active={selectedLaw?.id === l.id}
-                        onClick={() => { setSelectedLaw(l); setSelectedDraft(null); setSelectedDoc(null); }}
-                      >
-                        <div className="font-medium text-[13px] truncate">{l.name}</div>
-                        <div className="text-[11px] truncate" style={{ color: C.textMuted }}>{l.rule}</div>
-                      </ListRow>
-                    ))
-                  )}
-                </SidebarSection>
 
-                <SidebarSection
-                  icon={FlaskConical}
-                  label="Draft Laws"
-                  count={filteredDrafts.length}
-                  open={openDrafts}
-                  onToggle={() => setOpenDrafts((v) => !v)}
-                >
-                  {filteredDrafts.length === 0 ? (
-                    <EmptyHint text="No pending drafts." />
-                  ) : (
-                    filteredDrafts.map((d) => (
-                      <ListRow
-                        key={d.id}
-                        active={selectedDraft?.id === d.id}
-                        onClick={() => { setSelectedDraft(d); setSelectedLaw(null); setSelectedDoc(null); }}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded"
-                            style={{ background: "#FEF3C7", color: C.draft }}>DRAFT</span>
-                          <div className="font-medium text-[13px] truncate flex-1">{d.name}</div>
-                        </div>
-                        <div className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{d.rule}</div>
-                      </ListRow>
-                    ))
-                  )}
-                </SidebarSection>
-
-                <SidebarSection
-                  icon={FileText}
-                  label="Documents"
-                  count={filteredDocs.length}
-                  open={openDocs}
-                  onToggle={() => setOpenDocs((v) => !v)}
-                  action={
-                    <>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) uploadFile(f);
-                          if (fileInputRef.current) fileInputRef.current.value = "";
-                        }}
-                        accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp"
-                      />
-                      <button
-                        onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                        disabled={uploading}
-                        title="Upload document"
-                        className="p-1 rounded hover:bg-black/5"
-                        style={{ color: C.textSubtle }}
-                      >
-                        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                      </button>
-                    </>
-                  }
-                >
-                  {filteredDocs.length === 0 ? (
-                    <EmptyHint text="No documents yet. Upload PDFs, DOCX, or images." />
-                  ) : (
-                    filteredDocs.map((d) => (
-                      <ListRow
-                        key={d.id}
-                        active={selectedDoc?.id === d.id}
-                        onClick={() => { setSelectedDoc(d); setSelectedLaw(null); setSelectedDraft(null); }}
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-[13px] truncate">{d.filename}</div>
-                            <div className="text-[11px] truncate" style={{ color: C.textMuted }}>
-                              {d.kind} · {new Date(d.created_at).toLocaleDateString()}
-                            </div>
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); deleteDoc(d); }}
-                            className="p-1 rounded hover:bg-black/5 shrink-0"
-                            title="Delete"
+              {/* Stacked sections */}
+              <div className="flex-1 overflow-y-auto py-2">
+                {loading ? (
+                  <div className="py-10 text-center text-xs" style={{ color: C.textMuted }}>
+                    <Loader2 className="h-4 w-4 animate-spin inline" />
+                  </div>
+                ) : (
+                  <>
+                    <SidebarSection
+                      icon={BookOpen}
+                      label="Official Laws"
+                      count={filteredOfficial.length}
+                      open={openOfficial}
+                      onToggle={() => setOpenOfficial((v) => !v)}
+                    >
+                      {filteredOfficial.length === 0 ? (
+                        <EmptyHint text="No approved laws yet. Ask the AI to propose one." />
+                      ) : (
+                        filteredOfficial.map((l) => (
+                          <ListRow
+                            key={l.id}
+                            active={selectedLaw?.id === l.id}
+                            onClick={() => { setSelectedLaw(l); setSelectedDraft(null); setSelectedDoc(null); }}
                           >
-                            <Trash2 className="h-3 w-3" style={{ color: C.reject }} />
+                            <div className="font-medium text-[13px] truncate">{l.name}</div>
+                            <div className="text-[11px] truncate" style={{ color: C.textMuted }}>{l.rule}</div>
+                          </ListRow>
+                        ))
+                      )}
+                    </SidebarSection>
+
+                    <SidebarSection
+                      icon={FlaskConical}
+                      label="Draft Laws"
+                      count={filteredDrafts.length}
+                      open={openDrafts}
+                      onToggle={() => setOpenDrafts((v) => !v)}
+                    >
+                      {filteredDrafts.length === 0 ? (
+                        <EmptyHint text="No pending drafts." />
+                      ) : (
+                        filteredDrafts.map((d) => (
+                          <ListRow
+                            key={d.id}
+                            active={selectedDraft?.id === d.id}
+                            onClick={() => { setSelectedDraft(d); setSelectedLaw(null); setSelectedDoc(null); }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                style={{ background: "#FEF3C7", color: C.draft }}>DRAFT</span>
+                              <div className="font-medium text-[13px] truncate flex-1">{d.name}</div>
+                            </div>
+                            <div className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{d.rule}</div>
+                          </ListRow>
+                        ))
+                      )}
+                    </SidebarSection>
+
+                    <SidebarSection
+                      icon={FileText}
+                      label="Documents"
+                      count={filteredDocs.length}
+                      open={openDocs}
+                      onToggle={() => setOpenDocs((v) => !v)}
+                      action={
+                        <>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) uploadFile(f);
+                              if (fileInputRef.current) fileInputRef.current.value = "";
+                            }}
+                            accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp"
+                          />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                            disabled={uploading}
+                            title="Upload document"
+                            className="p-1 rounded hover:bg-black/5"
+                            style={{ color: C.textSubtle }}
+                          >
+                            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                           </button>
-                        </div>
-                      </ListRow>
-                    ))
-                  )}
-                </SidebarSection>
-              </>
-            )}
-          </div>
+                        </>
+                      }
+                    >
+                      {filteredDocs.length === 0 ? (
+                        <EmptyHint text="No documents yet. Upload PDFs, DOCX, or images." />
+                      ) : (
+                        filteredDocs.map((d) => (
+                          <ListRow
+                            key={d.id}
+                            active={selectedDoc?.id === d.id}
+                            onClick={() => { setSelectedDoc(d); setSelectedLaw(null); setSelectedDraft(null); }}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-[13px] truncate">{d.filename}</div>
+                                <div className="text-[11px] truncate" style={{ color: C.textMuted }}>
+                                  {d.kind} · {new Date(d.created_at).toLocaleDateString()}
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); deleteDoc(d); }}
+                                className="p-1 rounded hover:bg-black/5 shrink-0"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3 w-3" style={{ color: C.reject }} />
+                              </button>
+                            </div>
+                          </ListRow>
+                        ))
+                      )}
+                    </SidebarSection>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </aside>
+
 
         {/* Right area: detail (when selected) + AI chat. AI is never unmounted. */}
         <div className="flex flex-1 min-w-0">
