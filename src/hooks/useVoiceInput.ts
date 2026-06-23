@@ -34,6 +34,7 @@ export function useVoiceInput(onTranscript: Updater) {
   const restartTimerRef = useRef<number | null>(null);
   const onTranscriptRef = useRef<Updater>(onTranscript);
   const mountedRef = useRef<boolean>(true);
+  const stopRef = useRef<() => void>(() => {});
   onTranscriptRef.current = onTranscript;
 
   const clearRestartTimer = () => {
@@ -47,8 +48,6 @@ export function useVoiceInput(onTranscript: Updater) {
     if (!r || recogRef.current === r) recogRef.current = null;
     if (activeSessionStop === stopRef.current) activeSessionStop = null;
   };
-
-  const stopRef = useRef<() => void>(() => {});
 
   const pushDisplay = () => {
     const c = committedRef.current;
@@ -169,7 +168,7 @@ export function useVoiceInput(onTranscript: Updater) {
     const r = recogRef.current;
     try { r?.stop(); } catch { /* noop */ }
     releaseRecognizer(r);
-    setListening(false);
+    if (mountedRef.current) setListening(false);
   }, []);
 
   stopRef.current = stop;
