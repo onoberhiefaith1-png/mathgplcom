@@ -895,6 +895,45 @@ No markdown, no prose, just the JSON array.`;
         .filter((l): l is { equation: string; fillers: string[]; containers: string[] } => !!l);
 
       console.log(`[floating] outcome=deterministic lines=${lines.length}`);
+
+      // ─── Self-training: the engine documents its own reasoning ──────
+      // Best-effort. Seeds engine principles for this owner if needed,
+      // then writes one generation log per produced line. Never blocks
+      // the response.
+      try {
+        const ownerId = (claimData?.claims as any)?.sub as string | undefined;
+        if (ownerId && lines.length > 0) {
+          await ensureEnginePrinciples(supabaseAuth, ownerId);
+          for (const ln of lines) {
+            const fillerJoin = ln.fillers.join(" ");
+            const comp = verifyCompleteness(ln.equation, fillerJoin);
+            const v = verifyFloatingLine({ fillers: ln.fillers, containers: ln.containers });
+            const confidence = (v.ok ? 0.6 : 0.3) + (comp.ok ? 0.4 : 0);
+            await writeGenerationLog(supabaseAuth, ownerId, {
+              input_expression: ln.equation,
+              generated_structure: {
+                fillers: ln.fillers,
+                containers: ln.containers,
+              },
+              applied_principles: inferAppliedPrinciples(ln.equation),
+              generation_reasoning:
+                `Scanned "${ln.equation}" left-to-right. Sign-detection bonded each '+' / '-' to its following term, producing ${ln.fillers.length} filler(s). Container boundaries opened at every top-level term and at '='.`,
+              validation_reasoning: v.ok && comp.ok
+                ? `Coverage 100%; reconstruction exact; container count matches top-level terms.`
+                : `Validation issues: ${v.ok ? "" : "verifier=" + JSON.stringify(v.failures) + " "}${comp.ok ? "" : "completeness=" + summariseMissing(comp)}`,
+              confidence_score: Math.max(0, Math.min(1, confidence)),
+              context: {
+                subject: b.subject,
+                subtopic: b.subtopic,
+                sectionKind: b.sectionKind,
+              },
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[floating] engine self-explanation skipped:", e);
+      }
+
       return new Response(JSON.stringify({ lines, degraded: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
