@@ -607,7 +607,10 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
     });
   }
 
-  if (kb.knowledgeDocs.length > 0) {
+  const teacherDocs = kb.knowledgeDocs.filter(
+    (d) => d.kind !== "engine_principle" && d.kind !== "engine_generation_log",
+  );
+  if (teacherDocs.length > 0) {
     lines.push(`### Knowledge Documents (${kb.knowledgeDocs.length})`);
     // Token budget: per doc, include filename + ~800 chars excerpt for the 8
     // most recent docs; the rest are referenced by tag for lookup_document.
