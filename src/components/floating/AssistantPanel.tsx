@@ -83,15 +83,13 @@ export interface ActiveHighlight {
 
 export interface AssistantAttachment {
   id: string;
-  kind: "document" | "audio";
+  kind: "document";
   filename: string;
   mime: string;
   /** base64 (no data: prefix). For inline TXT we still base64-encode for uniformity. */
   data: string;
   /** Plain text already extracted client-side, if any (TXT). */
   text?: string;
-  /** Audio duration in seconds, for display. */
-  durationSec?: number;
 }
 
 export interface AssistantMessage {
@@ -133,15 +131,19 @@ const newId = () =>
     ? (crypto as any).randomUUID()
     : `m-${Math.random().toString(36).slice(2)}`;
 
+// Editor-first quick actions. The teacher highlights a chip / line, then
+// taps one of these (or speaks naturally). Generation lives at the bottom
+// as a secondary action — this AI is primarily an editing assistant.
 const QUICK_ACTIONS: { label: string; prompt: string }[] = [
-  { label: "Explain", prompt: "Explain the highlighted expression in plain English." },
+  { label: "Remove bracket", prompt: "Remove the bracket around the highlighted term." },
+  { label: "Add bracket", prompt: "Wrap the highlighted term in brackets." },
+  { label: "Move term", prompt: "Move the highlighted term to the next container." },
+  { label: "Add exponent", prompt: "Add an exponent to the highlighted term." },
+  { label: "Convert to fraction", prompt: "Convert the highlighted expression into a fraction." },
+  { label: "Split container", prompt: "Split the current container into two." },
+  { label: "Merge containers", prompt: "Merge the current container with the next one." },
+  { label: "Undo", prompt: "Undo the last change on this line." },
   { label: "Generate", prompt: "Generate floating numbers for the highlighted expression." },
-  { label: "Verify", prompt: "Verify current chips — coverage and reconstruction." },
-  { label: "Restructure", prompt: "Restructure the highlighted expression using a better-fitting law." },
-  { label: "Apply Law", prompt: "Apply the most appropriate approved law and show your reasoning." },
-  { label: "New Law", prompt: "Propose a new draft law that explains the highlighted expression." },
-  { label: "Compare", prompt: "Compare the highlighted expression with the previous example structurally." },
-  { label: "Coverage", prompt: "Check element coverage of the current chips against the highlight." },
 ];
 
 const C = {
@@ -209,7 +211,7 @@ export const AssistantPanel = ({
       id: "welcome",
       role: "assistant",
       text:
-        "Hi — I'm your Floating Number AI. I'm a full general-purpose assistant with deep expertise in the Floating Number system, mathematics, and lesson design. Ask me anything: write a story, design a game, explain a concept, brainstorm ideas, analyse an uploaded document, draft a new law, or generate and apply floating numbers to the page. Type, talk, highlight, or upload — I'll handle the rest.",
+        "Hi — I'm your editor for floating numbers. Highlight a chip or line, then tell me what to change in plain English (or just talk — the mic types for you). Try things like \"remove the bracket\", \"move 5x to the second container\", \"add an exponent\", \"convert this to a fraction\". I'll show you a preview before applying anything.",
     },
   ]);
   const [input, setInput] = useState("");
