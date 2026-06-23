@@ -120,7 +120,6 @@ const AiSettingsPage = () => {
   const navigate = useNavigate();
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
 
-  const [tab, setTab] = useState<Tab>("official");
   const [official, setOfficial] = useState<Law[]>([]);
   const [drafts, setDrafts] = useState<Law[]>([]);
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
@@ -129,9 +128,14 @@ const AiSettingsPage = () => {
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [filter, setFilter] = useState("");
 
+  const [openOfficial, setOpenOfficial] = useState(true);
+  const [openDrafts, setOpenDrafts] = useState(true);
+  const [openDocs, setOpenDocs] = useState(true);
+
   const [selectedLaw, setSelectedLaw] = useState<Law | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<Law | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<KnowledgeDoc | null>(null);
+
 
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
