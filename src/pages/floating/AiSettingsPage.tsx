@@ -43,6 +43,7 @@ interface KnowledgeDoc {
   kind: string;
   filename: string;
   storage_path: string | null;
+  parsed_text?: string | null;
   created_at: string;
 }
 
