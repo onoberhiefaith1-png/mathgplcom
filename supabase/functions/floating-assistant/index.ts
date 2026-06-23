@@ -232,6 +232,21 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "self_check_chips",
+      description: "MANDATORY pre-flight check before generate_line_structure / propose chips. Runs the same law-compliance verifier the server uses. Returns {ok, failures:[{code, chip, index}]}. Codes: NoRawOperatorChip, NoRawBracketChip, NoSyntheticLeadingPlus, NoHiddenSign, ContainerAllowed, ContainerDedup, EmptyChip. If ok=false, fix the chips and call again before proposing.",
+      parameters: {
+        type: "object",
+        properties: {
+          fillers: { type: "array", items: { type: "string" }, description: "The chip strings, with leading signs already attached (e.g. '-5x', '+2', '()', '□/□')." },
+          containers: { type: "array", items: { type: "string" }, description: "Container kinds for shells: fraction, bracket, radical, power, log, integral, matrix, differential, abs, vector." },
+        },
+        required: ["fillers"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "lookup_law",
       description: "Search the approved Law Library and draft laws by name, rule keywords, or topic tags.",
       parameters: {
