@@ -649,6 +649,14 @@ function DetailPanel({
             style={{ borderColor: C.borderStrong, color: C.text }}>
             <Edit3 className="h-3.5 w-3.5" /> Suggest revision
           </button>
+          {onGenerateLawDocument && (
+            <button
+              onClick={() => onGenerateLawDocument(law)}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border hover:bg-black/5"
+              style={{ borderColor: C.borderStrong, color: C.text }}>
+              <FileText className="h-3.5 w-3.5" /> Generate Law Document
+            </button>
+          )}
         </div>
       </div>
     );
