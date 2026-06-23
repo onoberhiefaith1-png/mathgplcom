@@ -1193,8 +1193,4 @@ function KnowledgeChat({
     </div>
   );
 }
-        </div>
-      </div>
-    </div>
-  );
-}
+
