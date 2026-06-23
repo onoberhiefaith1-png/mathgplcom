@@ -778,6 +778,7 @@ function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => vo
     const sentAttachments = attachments;
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    voice.reset();
     setAttachments([]);
     setBusy(true);
     try {
@@ -793,19 +794,32 @@ function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => vo
           })),
         },
       });
-      if (error) throw error;
+      if (error) {
+        let body: any = null;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx && typeof ctx.json === "function") body = await ctx.json();
+          else if (ctx?.body) body = typeof ctx.body === "string" ? JSON.parse(ctx.body) : ctx.body;
+        } catch { /* ignore */ }
+        const err = body?.error;
+        if (err && typeof err === "object") {
+          const tail = err.detail ? `\n\nDetails: ${err.detail}` : "";
+          throw new Error(`${err.message || "The AI couldn't process that request."}${tail}`);
+        }
+        throw error;
+      }
       const reply = (data as any)?.reply ?? "(no reply)";
       setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: reply }]);
     } catch (e: any) {
-      setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: `Error: ${e?.message ?? String(e)}` }]);
+      setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: `⚠️ ${e?.message ?? String(e)}` }]);
     } finally {
       setBusy(false);
       setTimeout(() => taRef.current?.focus(), 0);
     }
-  }, [input, busy, messages, attachments]);
+  }, [input, busy, messages, attachments, voice]);
 
   useEffect(() => {
-    const handle: ChatHandle = { askExternal: (p: string) => { setInput(""); send(p); } };
+    const handle: ChatHandle = { askExternal: (p: string) => { setInput(""); voice.reset(); send(p); } };
     handleRef?.(handle);
     return () => handleRef?.(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps

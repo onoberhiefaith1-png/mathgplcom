@@ -128,5 +128,13 @@ export function useVoiceInput(onTranscript: Updater) {
     setListening(false);
   }, []);
 
-  return { listening, start, stop };
+  // Clear internal buffers without stopping recognition. Call after the
+  // textbox is sent/cleared so the next spoken phrase starts fresh rather
+  // than re-appending the previous message.
+  const reset = useCallback(() => {
+    committedRef.current = "";
+    interimRef.current = "";
+  }, []);
+
+  return { listening, start, stop, reset };
 }
