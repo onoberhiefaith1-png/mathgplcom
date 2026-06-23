@@ -266,30 +266,37 @@ export const AssistantPanel = ({
   const removeAttachment = (id: string) =>
     setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
 
-  /* ───────────── Voice ───────────── */
+  /* ───────────── Voice → live transcription into the input box ─────────────
+   * ChatGPT-style: the teacher taps the mic, speaks, and the recognized text
+   * streams straight into the textarea so they can edit before pressing Send.
+   * Audio is never stored — we just POST the recorded blob to speech-transcribe
+   * and read SSE deltas. */
+  const recordingPrefixRef = useRef<string>("");
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      const supportedMime =
+        MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4"
+        : "";
+      const mr = supportedMime ? new MediaRecorder(stream, { mimeType: supportedMime }) : new MediaRecorder(stream);
       chunksRef.current = [];
+      // Remember whatever is already typed so we append rather than replace.
+      recordingPrefixRef.current = input ? input.replace(/\s+$/, "") + " " : "";
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
-        const data = await blobToBase64(blob);
-        const dur = (Date.now() - recordStartRef.current) / 1000;
-        setPendingAttachments((prev) => [
-          ...prev,
-          {
-            id: newId(),
-            kind: "audio",
-            filename: `voice-${new Date().toISOString().slice(11, 19)}.webm`,
-            mime: mr.mimeType || "audio/webm",
-            data,
-            durationSec: dur,
-          },
-        ]);
         stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        if (blob.size < 1024) {
+          toast({ title: "Recording too short", description: "Try again — I didn't catch any audio." });
+          return;
+        }
+        try {
+          await transcribeAndStream(blob);
+        } catch (e: any) {
+          toast({ title: "Transcription failed", description: e?.message ?? String(e), variant: "destructive" });
+        }
       };
       recorderRef.current = mr;
       recordStartRef.current = Date.now();
@@ -303,6 +310,63 @@ export const AssistantPanel = ({
   const stopRecording = () => {
     try { recorderRef.current?.stop(); } catch { /* ignore */ }
     setRecording(false);
+  };
+
+  const transcribeAndStream = async (blob: Blob) => {
+    const form = new FormData();
+    const ext = blob.type.includes("mp4") ? "mp4" : blob.type.includes("ogg") ? "ogg" : "webm";
+    form.append("file", blob, `recording.${ext}`);
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/speech-transcribe`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+      body: form,
+    });
+    if (!res.ok || !res.body) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(txt || `HTTP ${res.status}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let accumulated = "";
+    const writeInput = () => {
+      const next = recordingPrefixRef.current + accumulated;
+      setInput(next);
+      // Keep the cursor at the end of the dictated span.
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (el) { el.focus(); el.setSelectionRange(next.length, next.length); }
+      });
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const frame = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of frame.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === "[DONE]") continue;
+          try {
+            const evt = JSON.parse(data);
+            if (evt.type === "transcript.text.delta" && typeof evt.delta === "string") {
+              accumulated += evt.delta;
+              writeInput();
+            } else if (evt.type === "transcript.text.done" && typeof evt.text === "string") {
+              accumulated = evt.text;
+              writeInput();
+            }
+          } catch { /* skip non-JSON keep-alive lines */ }
+        }
+      }
+    }
   };
 
   /* ───────────── Send ───────────── */
@@ -331,8 +395,7 @@ export const AssistantPanel = ({
 
       try {
         const history = messages.slice(-12).map((m) => ({ role: m.role, content: m.text }));
-        const audioAtt = sentAttachments.find((a) => a.kind === "audio");
-        const docAtts = sentAttachments.filter((a) => a.kind === "document");
+        const docAtts = sentAttachments;
         const { data, error } = await supabase.functions.invoke("floating-assistant", {
           body: {
             message: promptText,
@@ -347,9 +410,6 @@ export const AssistantPanel = ({
               data: a.data,
               text: a.text ?? null,
             })),
-            audio: audioAtt
-              ? { filename: audioAtt.filename, mime: audioAtt.mime, data: audioAtt.data }
-              : null,
           },
         });
         if (error) {
