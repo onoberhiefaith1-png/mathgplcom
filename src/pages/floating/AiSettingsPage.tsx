@@ -822,8 +822,8 @@ const KnowledgeChat = (() => {
     // expose askExternal through the callback ref
     useEffect(() => {
       const handle: ChatHandle = { askExternal: (p: string) => { setInput(""); send(p); } };
-      props.ref?.(handle);
-      return () => props.ref?.(null);
+      props.handleRef?.(handle);
+      return () => props.handleRef?.(null);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [send]);
 
