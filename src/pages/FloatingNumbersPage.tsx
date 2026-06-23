@@ -24,8 +24,9 @@ import FloatingDisplayStrip from "@/components/lessonnotes/FloatingDisplayStrip"
 import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditPanel";
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
-import AssistantPanel, { type ActiveHighlight } from "@/components/floating/AssistantPanel";
+import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
+
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
