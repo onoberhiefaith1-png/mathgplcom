@@ -579,7 +579,7 @@ async function hydrateKnowledge(
       .from("floating_law_library")
       .select("id,law_number,name,rule,reason,lesson_topics,tags,examples")
       .order("law_number", { ascending: true })
-      .limit(100),
+      .limit(500),
     userClient
       .from("floating_law_drafts")
       .select("id,name,rule,reason,lesson_topics,tags,status,source_kind")
