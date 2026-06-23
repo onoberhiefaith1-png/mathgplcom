@@ -1067,6 +1067,13 @@ const FloatingNumbersPage = () => {
               activeLineFillers: selectedLine?.fillers ?? [],
               activeLineContainers: (selectedLine?.containers ?? []) as string[],
               activeLineArrangement: selectedLine?.arrangement ?? [],
+              lineMap: lines.map((l, idx) => ({
+                lineNumber: idx + 1,
+                lineId: l.lineId,
+                equation: l.equation,
+                fillers: (l.fillers ?? []).map((value, i) => ({ i, value })),
+                containers: (l.containers ?? []) as string[],
+              })),
             })}
 
           />
