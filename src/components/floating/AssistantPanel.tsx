@@ -284,6 +284,7 @@ export const AssistantPanel = ({
       };
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
+      resetVoice();
       setPendingAttachments([]);
       setBusy(true);
 
