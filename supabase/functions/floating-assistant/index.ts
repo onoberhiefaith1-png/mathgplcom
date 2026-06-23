@@ -641,16 +641,20 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
   lines.push("## FLOATING_KNOWLEDGE (live snapshot — cite by tag)");
 
   if (kb.approvedLaws.length > 0) {
-    lines.push(`### Approved Laws (${kb.approvedLaws.length})`);
-    kb.approvedLaws.slice(0, 30).forEach((l) => {
-      const ex = Array.isArray(l.examples) ? (l.examples as unknown[]).slice(0, 2) : [];
+    lines.push(`### Approved Laws (${kb.approvedLaws.length}) — drill each one against the user's equation BEFORE proposing`);
+    kb.approvedLaws.forEach((l) => {
+      const ex = Array.isArray(l.examples) ? (l.examples as unknown[]).slice(0, 4) : [];
       lines.push(`- ${lawTag(l)} "${l.name}" — ${l.rule}`);
       if (l.reason) lines.push(`    reason: ${l.reason}`);
-      if (ex.length) lines.push(`    examples: ${ex.map((e) => JSON.stringify(e)).join(" ; ")}`);
+      if (ex.length) {
+        lines.push(`    worked_examples (${ex.length}):`);
+        ex.forEach((e) => lines.push(`      • ${JSON.stringify(e)}`));
+      }
     });
   } else {
     lines.push("### Approved Laws: (none for this topic — consider propose_new_law)");
   }
+
 
   if (kb.draftLaws.length > 0) {
     lines.push(`### Draft Laws (${kb.draftLaws.length})`);
