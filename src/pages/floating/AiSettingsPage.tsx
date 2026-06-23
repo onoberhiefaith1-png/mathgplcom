@@ -749,12 +749,45 @@ function Chip({ children }: { children: React.ReactNode }) {
 
 interface ChatHandle { askExternal: (prompt: string) => void }
 
-function KnowledgeChat({ handleRef }: { handleRef?: (r: ChatHandle | null) => void }) {
+const MODE_LABELS: Record<ChatMode, { label: string; hint: string }> = {
+  conversation: {
+    label: "Conversation",
+    hint: "General assistant — chat about anything.",
+  },
+  training: {
+    label: "Training",
+    hint: "Teaching mode — I will learn from what you share and offer to save it.",
+  },
+  extraction: {
+    label: "Knowledge Extraction",
+    hint: "Discovery mode — I will extract concepts, patterns, and propose laws.",
+  },
+};
+
+function KnowledgeChat({
+  handleRef, subsectionId, onAfterAction,
+}: {
+  handleRef?: (r: ChatHandle | null) => void;
+  subsectionId?: string;
+  onAfterAction?: () => void;
+}) {
+  const modeStorageKey = `floating-ai-mode:${subsectionId ?? "global"}`;
+  const [mode, setMode] = useState<ChatMode>(() => {
+    try {
+      const v = localStorage.getItem(modeStorageKey);
+      if (v === "training" || v === "extraction" || v === "conversation") return v;
+    } catch { /* ignore */ }
+    return "conversation";
+  });
+  useEffect(() => {
+    try { localStorage.setItem(modeStorageKey, mode); } catch { /* ignore */ }
+  }, [mode, modeStorageKey]);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome", role: "assistant",
       text:
-        "Hi — I'm your Floating Number AI. I share the same memory, laws, and documents as the assistant on the Generation page.\n\nAsk me anything: review a law, draft a new one, scan an uploaded document, explain a structure, or generate examples. You can type, speak, drop files, or paste screenshots.",
+        "Hi — I'm your Floating Number AI. I'm a full general-purpose assistant with deep Floating Number expertise.\n\nSwitch modes beside the input: **Conversation** for free chat, **Training** to teach me, or **Knowledge Extraction** to mine documents and propose laws. Type, speak, drop files, or paste screenshots.",
     },
   ]);
   const [input, setInput] = useState("");
