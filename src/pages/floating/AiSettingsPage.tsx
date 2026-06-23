@@ -293,181 +293,196 @@ const AiSettingsPage = () => {
       {/* Body: dynamic columns */}
       <div className="flex flex-1 min-h-0">
         {/* Sidebar — 30% default, 20% when detail open */}
+      {/* Body: dynamic columns. Sidebar is always visible.
+          The detail panel, when open, eats into the AI chat's space —
+          never into the sidebar — so the AI remains continuously visible. */}
+      <div className="flex flex-1 min-h-0">
+        {/* Left sidebar — fixed-ish compact width; never hidden */}
         <aside
-          className="shrink-0 flex flex-col border-r transition-[width] duration-200"
+          className="shrink-0 flex flex-col border-r"
           style={{
-            width: hasSelection ? "20%" : "30%",
-            minWidth: hasSelection ? 220 : 280,
+            width: hasSelection ? 260 : "30%",
+            minWidth: 260,
+            maxWidth: hasSelection ? 280 : 420,
             background: C.panelBg,
             borderColor: C.border,
           }}
         >
-          {/* Tabs */}
-          <div className="flex border-b" style={{ borderColor: C.border }}>
-            {([
-              ["official", "Laws", BookOpen, official.length],
-              ["drafts", "Drafts", FlaskConical, drafts.length],
-              ["knowledge", "Docs", FileText, docs.length],
-            ] as [Tab, string, any, number][]).map(([k, label, Icon, n]) => (
-              <button
-                key={k}
-                onClick={() => setTab(k)}
-                className="flex-1 flex flex-col items-center gap-0.5 py-2 text-xs"
-                style={{
-                  borderBottom: tab === k ? `2px solid ${C.accent}` : "2px solid transparent",
-                  color: tab === k ? C.accent : C.textMuted,
-                  fontWeight: tab === k ? 600 : 400,
-                }}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{label} ({n})</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Search + Upload */}
-          <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border"
+          {/* Search */}
+          <div className="px-3 py-2.5 border-b" style={{ borderColor: C.border }}>
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border"
               style={{ borderColor: C.border, background: C.hover }}>
               <Search className="h-3.5 w-3.5" style={{ color: C.textMuted }} />
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder={`Search ${tab}…`}
+                placeholder="Search laws, drafts, documents…"
                 className="bg-transparent outline-none text-xs flex-1"
                 style={{ color: C.text }}
               />
             </div>
-            {tab === "knowledge" && (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) uploadFile(f);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="mt-2 w-full inline-flex items-center justify-center gap-1.5 text-xs px-2 py-1.5 rounded-md"
-                  style={{ background: C.accent, color: C.accentText }}
-                >
-                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  Upload document
-                </button>
-              </>
-            )}
           </div>
 
-          {/* List */}
-          <div className="flex-1 overflow-y-auto px-2 py-2">
+          {/* Stacked sections */}
+          <div className="flex-1 overflow-y-auto py-2">
             {loading ? (
               <div className="py-10 text-center text-xs" style={{ color: C.textMuted }}>
                 <Loader2 className="h-4 w-4 animate-spin inline" />
               </div>
-            ) : tab === "official" ? (
-              filteredOfficial.length === 0 ? (
-                <EmptyHint text="No approved laws yet. Ask the AI to propose one — approve to add it here." />
-              ) : (
-                <div className="space-y-1">
-                  {filteredOfficial.map((l) => (
-                    <ListRow key={l.id} active={selectedLaw?.id === l.id}
-                      onClick={() => { setSelectedLaw(l); setSelectedDraft(null); setSelectedDoc(null); }}>
-                      <div className="font-medium text-[13px] truncate">{l.name}</div>
-                      <div className="text-[11px] truncate" style={{ color: C.textMuted }}>{l.rule}</div>
-                    </ListRow>
-                  ))}
-                </div>
-              )
-            ) : tab === "drafts" ? (
-              filteredDrafts.length === 0 ? (
-                <EmptyHint text="No pending drafts. Ask the AI to draft a law from the chat on the right." />
-              ) : (
-                <div className="space-y-1">
-                  {filteredDrafts.map((d) => (
-                    <ListRow key={d.id} active={selectedDraft?.id === d.id}
-                      onClick={() => { setSelectedDraft(d); setSelectedLaw(null); setSelectedDoc(null); }}>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded"
-                          style={{ background: "#FEF3C7", color: C.draft }}>DRAFT</span>
-                        <div className="font-medium text-[13px] truncate flex-1">{d.name}</div>
-                      </div>
-                      <div className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{d.rule}</div>
-                    </ListRow>
-                  ))}
-                </div>
-              )
             ) : (
-              filteredDocs.length === 0 ? (
-                <EmptyHint text="No documents yet. Upload PDFs, DOCX, images or notes to teach the AI." />
-              ) : (
-                <div className="space-y-1">
-                  {filteredDocs.map((d) => (
-                    <ListRow key={d.id} active={selectedDoc?.id === d.id}
-                      onClick={() => { setSelectedDoc(d); setSelectedLaw(null); setSelectedDraft(null); }}>
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-[13px] truncate">{d.filename}</div>
-                          <div className="text-[11px] truncate" style={{ color: C.textMuted }}>
-                            {d.kind} · {new Date(d.created_at).toLocaleDateString()}
-                          </div>
+              <>
+                <SidebarSection
+                  icon={BookOpen}
+                  label="Official Laws"
+                  count={filteredOfficial.length}
+                  open={openOfficial}
+                  onToggle={() => setOpenOfficial((v) => !v)}
+                >
+                  {filteredOfficial.length === 0 ? (
+                    <EmptyHint text="No approved laws yet. Ask the AI to propose one." />
+                  ) : (
+                    filteredOfficial.map((l) => (
+                      <ListRow
+                        key={l.id}
+                        active={selectedLaw?.id === l.id}
+                        onClick={() => { setSelectedLaw(l); setSelectedDraft(null); setSelectedDoc(null); }}
+                      >
+                        <div className="font-medium text-[13px] truncate">{l.name}</div>
+                        <div className="text-[11px] truncate" style={{ color: C.textMuted }}>{l.rule}</div>
+                      </ListRow>
+                    ))
+                  )}
+                </SidebarSection>
+
+                <SidebarSection
+                  icon={FlaskConical}
+                  label="Draft Laws"
+                  count={filteredDrafts.length}
+                  open={openDrafts}
+                  onToggle={() => setOpenDrafts((v) => !v)}
+                >
+                  {filteredDrafts.length === 0 ? (
+                    <EmptyHint text="No pending drafts." />
+                  ) : (
+                    filteredDrafts.map((d) => (
+                      <ListRow
+                        key={d.id}
+                        active={selectedDraft?.id === d.id}
+                        onClick={() => { setSelectedDraft(d); setSelectedLaw(null); setSelectedDoc(null); }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded"
+                            style={{ background: "#FEF3C7", color: C.draft }}>DRAFT</span>
+                          <div className="font-medium text-[13px] truncate flex-1">{d.name}</div>
                         </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteDoc(d); }}
-                          className="p-1 rounded hover:bg-black/5 shrink-0"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3 w-3" style={{ color: C.reject }} />
-                        </button>
-                      </div>
-                    </ListRow>
-                  ))}
-                </div>
-              )
+                        <div className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{d.rule}</div>
+                      </ListRow>
+                    ))
+                  )}
+                </SidebarSection>
+
+                <SidebarSection
+                  icon={FileText}
+                  label="Documents"
+                  count={filteredDocs.length}
+                  open={openDocs}
+                  onToggle={() => setOpenDocs((v) => !v)}
+                  action={
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) uploadFile(f);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp"
+                      />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                        disabled={uploading}
+                        title="Upload document"
+                        className="p-1 rounded hover:bg-black/5"
+                        style={{ color: C.textSubtle }}
+                      >
+                        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      </button>
+                    </>
+                  }
+                >
+                  {filteredDocs.length === 0 ? (
+                    <EmptyHint text="No documents yet. Upload PDFs, DOCX, or images." />
+                  ) : (
+                    filteredDocs.map((d) => (
+                      <ListRow
+                        key={d.id}
+                        active={selectedDoc?.id === d.id}
+                        onClick={() => { setSelectedDoc(d); setSelectedLaw(null); setSelectedDraft(null); }}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-[13px] truncate">{d.filename}</div>
+                            <div className="text-[11px] truncate" style={{ color: C.textMuted }}>
+                              {d.kind} · {new Date(d.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteDoc(d); }}
+                            className="p-1 rounded hover:bg-black/5 shrink-0"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" style={{ color: C.reject }} />
+                          </button>
+                        </div>
+                      </ListRow>
+                    ))
+                  )}
+                </SidebarSection>
+              </>
             )}
           </div>
         </aside>
 
-        {/* Detail column — only when something is selected */}
-        {hasSelection && (
-          <main className="flex-1 min-w-0 overflow-y-auto border-r"
-            style={{ borderColor: C.border, background: C.pageBg }}>
-            <div className="p-4 pb-0 flex items-center justify-between">
-              <button
-                onClick={clearSelection}
-                className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md hover:bg-black/5"
-                style={{ color: C.textSubtle }}
-              >
-                <ChevronLeft className="h-3.5 w-3.5" /> Close
-              </button>
-            </div>
-            <DetailPanel
-              law={selectedLaw}
-              draft={selectedDraft}
-              doc={selectedDoc}
-              onApproveDraft={approveDraft}
-              onRejectDraft={rejectDraft}
-              onAskAboutLaw={(p) => chatRef.current?.askExternal(p)}
-            />
-          </main>
-        )}
+        {/* Right area: detail (when selected) + AI chat. AI is never unmounted. */}
+        <div className="flex flex-1 min-w-0">
+          {hasSelection && (
+            <main
+              className="min-w-0 overflow-y-auto border-r"
+              style={{ flex: "0 0 70%", borderColor: C.border, background: C.pageBg }}
+            >
+              <div className="p-4 pb-0 flex items-center justify-between">
+                <button
+                  onClick={clearSelection}
+                  className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md hover:bg-black/5"
+                  style={{ color: C.textSubtle }}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" /> Close
+                </button>
+              </div>
+              <DetailPanel
+                law={selectedLaw}
+                draft={selectedDraft}
+                doc={selectedDoc}
+                onApproveDraft={approveDraft}
+                onRejectDraft={rejectDraft}
+                onAskAboutLaw={(p) => chatRef.current?.askExternal(p)}
+              />
+            </main>
+          )}
 
-        {/* Chat column — 70% default, 30% when detail open */}
-        <aside
-          className="shrink-0 flex flex-col transition-[width] duration-200"
-          style={{
-            width: hasSelection ? "30%" : "70%",
-            minWidth: hasSelection ? 360 : 480,
-            background: C.panelBg,
-          }}
-        >
-          <KnowledgeChat handleRef={(r) => { chatRef.current = r; }} />
-        </aside>
+          <aside
+            className="flex flex-col min-w-0"
+            style={{
+              flex: hasSelection ? "0 0 30%" : "1 1 100%",
+              minWidth: 320,
+              background: C.panelBg,
+            }}
+          >
+            <KnowledgeChat handleRef={(r) => { chatRef.current = r; }} />
+          </aside>
+        </div>
       </div>
     </div>
   );
@@ -476,6 +491,31 @@ const AiSettingsPage = () => {
 export default AiSettingsPage;
 
 /* ──────────────── subcomponents ──────────────── */
+
+function SidebarSection({
+  icon: Icon, label, count, open, onToggle, action, children,
+}: {
+  icon: any; label: string; count: number; open: boolean;
+  onToggle: () => void; action?: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-1">
+      <div
+        onClick={onToggle}
+        className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer hover:bg-black/5 select-none"
+        style={{ color: C.textSubtle }}
+      >
+        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        <Icon className="h-3.5 w-3.5" />
+        <span className="text-[12px] font-semibold uppercase tracking-wide flex-1">{label}</span>
+        <span className="text-[10px]" style={{ color: C.textMuted }}>{count}</span>
+        {action}
+      </div>
+      {open && <div className="px-2 pb-2 space-y-1">{children}</div>}
+    </div>
+  );
+}
+
 
 function ListRow({ children, active, onClick }: { children: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
