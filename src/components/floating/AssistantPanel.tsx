@@ -135,15 +135,15 @@ const newId = () =>
 // taps one of these (or speaks naturally). Generation lives at the bottom
 // as a secondary action — this AI is primarily an editing assistant.
 const QUICK_ACTIONS: { label: string; prompt: string }[] = [
-  { label: "Remove bracket", prompt: "Remove the bracket around the highlighted term." },
-  { label: "Add bracket", prompt: "Wrap the highlighted term in brackets." },
-  { label: "Move term", prompt: "Move the highlighted term to the next container." },
-  { label: "Add exponent", prompt: "Add an exponent to the highlighted term." },
-  { label: "Convert to fraction", prompt: "Convert the highlighted expression into a fraction." },
-  { label: "Split container", prompt: "Split the current container into two." },
-  { label: "Merge containers", prompt: "Merge the current container with the next one." },
+  { label: "Change this to…", prompt: "Change the highlighted floating number to " },
+  { label: "Keep as one", prompt: "Keep the highlighted expression together as one floating number — do not split it." },
+  { label: "Remove this", prompt: "Remove the highlighted floating number." },
+  { label: "Move left", prompt: "Move the highlighted floating number one position to the left." },
+  { label: "Move right", prompt: "Move the highlighted floating number one position to the right." },
+  { label: "Remove bracket", prompt: "Remove the bracket around the highlighted expression." },
+  { label: "Add bracket", prompt: "Wrap the highlighted expression in brackets." },
   { label: "Undo", prompt: "Undo the last change on this line." },
-  { label: "Generate", prompt: "Generate floating numbers for the highlighted expression." },
+  { label: "Regenerate this line", prompt: "Regenerate the floating numbers for the active line from scratch." },
 ];
 
 const C = {
@@ -194,7 +194,7 @@ export const AssistantPanel = ({
       id: "welcome",
       role: "assistant",
       text:
-        "Hi — I'm your editor for floating numbers. Highlight a chip or line, then tell me what to change in plain English (or just talk — the mic types for you). Try things like \"remove the bracket\", \"move 5x to the second container\", \"add an exponent\", \"convert this to a fraction\". I'll show you a preview before applying anything.",
+        "I'm your floating-number editor. The generator already laid out a first pass — tell me what to fix and I'll change it for you. Address things naturally: \"on line 6, change +4 to +4x\", \"put √ as the 5th floating number on line 4\", \"keep 1/4 as one fraction\", \"remove the bracket on line 2\". You can also highlight a chip and just say \"move this left\" or \"delete this\". I'll show a preview — one tap on Apply Changes commits it.",
     },
   ]);
   const [input, setInput] = useState("");
