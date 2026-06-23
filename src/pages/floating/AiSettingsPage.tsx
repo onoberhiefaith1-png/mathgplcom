@@ -475,14 +475,11 @@ const AiSettingsPage = () => {
           className="w-[440px] shrink-0 flex flex-col border-l"
           style={{ background: C.panelBg, borderColor: C.border }}
         >
-          <KnowledgeChat ref={(r) => (chatRef.current = r)} />
+          <KnowledgeChat handleRef={(r) => (chatRef.current = r)} />
         </aside>
       </div>
     </div>
   );
-
-  // forward-ref handle to the chat so the detail panel can seed prompts
-  function chatRefDecl() {}
 };
 
 // chat ref holder (declared outside JSX scope below)
