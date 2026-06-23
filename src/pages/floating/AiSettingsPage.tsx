@@ -406,6 +406,7 @@ const AiSettingsPage = () => {
               onApproveDraft={approveDraft}
               onRejectDraft={rejectDraft}
               onAskAboutLaw={(p) => chatRef.current?.askExternal(p)}
+              onGenerateLawDocument={generateLawDocument}
             />
           </main>
         )}
