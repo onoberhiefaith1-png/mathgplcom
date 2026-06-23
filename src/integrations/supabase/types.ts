@@ -553,6 +553,7 @@ export type Database = {
           subsection_id: string | null
           title: string | null
           updated_at: string
+          workspace: string
         }
         Insert: {
           created_at?: string
@@ -562,6 +563,7 @@ export type Database = {
           subsection_id?: string | null
           title?: string | null
           updated_at?: string
+          workspace?: string
         }
         Update: {
           created_at?: string
@@ -571,6 +573,7 @@ export type Database = {
           subsection_id?: string | null
           title?: string | null
           updated_at?: string
+          workspace?: string
         }
         Relationships: []
       }
@@ -735,6 +738,7 @@ export type Database = {
       }
       floating_law_drafts: {
         Row: {
+          approval_history: Json
           conditions: Json
           created_at: string
           examples: Json
@@ -745,6 +749,7 @@ export type Database = {
           owner_id: string
           reason: string | null
           rule: string
+          source: string | null
           source_generation_id: string | null
           source_kind: string
           status: string
@@ -752,6 +757,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_history?: Json
           conditions?: Json
           created_at?: string
           examples?: Json
@@ -762,6 +768,7 @@ export type Database = {
           owner_id?: string
           reason?: string | null
           rule: string
+          source?: string | null
           source_generation_id?: string | null
           source_kind?: string
           status?: string
@@ -769,6 +776,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_history?: Json
           conditions?: Json
           created_at?: string
           examples?: Json
@@ -779,6 +787,7 @@ export type Database = {
           owner_id?: string
           reason?: string | null
           rule?: string
+          source?: string | null
           source_generation_id?: string | null
           source_kind?: string
           status?: string
@@ -797,6 +806,7 @@ export type Database = {
       }
       floating_law_library: {
         Row: {
+          approval_history: Json
           approved_at: string
           conditions: Json
           created_at: string
@@ -814,9 +824,11 @@ export type Database = {
           superseded_by: string | null
           tags: string[]
           updated_at: string
+          usage_count: number
           version: number
         }
         Insert: {
+          approval_history?: Json
           approved_at?: string
           conditions?: Json
           created_at?: string
@@ -834,9 +846,11 @@ export type Database = {
           superseded_by?: string | null
           tags?: string[]
           updated_at?: string
+          usage_count?: number
           version?: number
         }
         Update: {
+          approval_history?: Json
           approved_at?: string
           conditions?: Json
           created_at?: string
@@ -854,6 +868,7 @@ export type Database = {
           superseded_by?: string | null
           tags?: string[]
           updated_at?: string
+          usage_count?: number
           version?: number
         }
         Relationships: [
