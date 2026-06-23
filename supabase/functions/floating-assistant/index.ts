@@ -564,6 +564,11 @@ const SUPPORTED_MIMES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
   "text/markdown",
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif",
   "audio/webm",
   "audio/mp4",
   "audio/m4a",
@@ -572,6 +577,7 @@ const SUPPORTED_MIMES = [
   "audio/wav",
   "audio/ogg",
 ];
+const isImageMime = (m: string) => m.startsWith("image/");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
