@@ -537,7 +537,7 @@ async function hydrateKnowledge(
       .from("floating_knowledge_documents")
       .select("id,filename,kind,parsed_text")
       .order("created_at", { ascending: false })
-      .limit(30),
+      .limit(60),
     userClient
       .from("floating_example_analyses")
       .select("id,example_text,lesson_topic,structures,created_at")
