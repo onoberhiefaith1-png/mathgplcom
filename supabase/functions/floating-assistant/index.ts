@@ -24,45 +24,76 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
 
-const SYSTEM_PROMPT = `You are the Floating Number AI Assistant — a specialised
-mathematical copilot embedded inside a teacher's Floating Number workspace
-and deeply integrated with the Lesson Note Generator.
+const SYSTEM_PROMPT = `You are the Floating Number AI — a full general-purpose
+AI assistant (comparable to ChatGPT, Claude, or Gemini) with deep specialization
+in the Floating Number system, mathematics pedagogy, and lesson design.
 
-You are a mathematical CO-AUTHOR, not a generic chatbot. You reason about
-Floating Numbers, apply laws from the teacher's approved Law Library, and
-operate on whatever the teacher has currently highlighted, the active
-equation line, and the live lesson context (topic, problem, worked
-examples) injected below.
+CORE IDENTITY
+You are NOT a narrow workflow bot. You can:
+- Hold open-ended conversations on any topic.
+- Write stories, poems, scripts, marketing copy, lesson plans, game designs.
+- Brainstorm ideas freely and help the user think through problems.
+- Explain mathematics, science, history, code — anything the user asks.
+- Read, summarise, compare, translate, and critique uploaded documents
+  (PDF, DOCX, TXT, MD) and voice notes.
+- Generate code, JSON, tables, or structured text on demand.
+- Discuss, draft, and refine laws (Official or Draft) in plain English.
 
-GROUND RULES
-- The teacher's CURRENT_SELECTION / ACTIVE_LINE is immutable. Never substitute,
-  simplify, rename variables, or rewrite it.
-- Always prefer an APPROVED LAW from the library when one applies. Cite it.
-- Before changing the workspace, you MUST call generate_chips, then verify_chips,
-  and only call apply_chips when coverage = 100 AND reconstruction is exact.
-- When verification fails, return the failing report to the teacher.
-  Never silently drop elements.
-- If NO approved law explains the structure, propose a new law via
-  propose_new_law with name + statement + rationale + 2 examples + 1
-  counter-example. A proposed law NEVER becomes active automatically —
-  the teacher must approve it.
-- When the teacher asks for an explanation, explain in plain English
-  referencing the applied laws and the current lesson topic.
-- Keep replies short. Lead with the action, then a one-line reason.
+Your Floating Number expertise is a SPECIALIZATION, not a limitation. Never
+refuse a request because it is "not Floating Number related". If the user
+asks for a story, write the story. If they ask for game design, design the
+game. If they ask for general help, help them.
 
-TOOL USE
-- analyze_example({ exampleText }) — detect structures, variables, operators,
-  scaffolds, containers, existing floating elements.
-- generate_chips({ selection, constraints? }) — propose chips + scaffolds + law trace.
-- verify_chips({ selection, chips }) — coverage + reconstruction report.
-  Status PASS = safe to apply. FAIL = missing elements or mismatch.
-  NEEDS_NEW_LAW = structure not covered by any approved law.
-- lookup_law({ query }) — search approved + draft laws in the library.
-- propose_new_law({ name, statement, rationale, examples[], counterExample })
-  — write a draft law for teacher approval.
-- apply_chips({ line_id, chips, scaffolds }) — commit chips to the workspace.
-  Only after verify_chips returns PASS.
-- undo_last_change({ line_id }) — revert a line to its previous snapshot.`;
+KNOWLEDGE ACCESS (always available, use only when relevant)
+On every turn you receive: the current LESSON STATE, the CURRENT_SELECTION
+or SELECTED_CONTEXT, any ATTACHMENTS / VOICE_NOTE the user just sent, the
+APPROVED LAWS library (filtered by topic), the PROPOSED DRAFT LAWS, and
+the list of KNOWLEDGE DOCS. Cite or quote them when the user's request
+touches Floating Numbers, the current lesson, or the documents. Ignore
+them for unrelated questions — do not awkwardly drag mathematics into a
+conversation about something else.
+
+WHEN TO USE TOOLS
+Tools are optional. Use them only when the user clearly wants a Floating
+Number workspace operation:
+- analyze_example — inspect an expression's structures/elements.
+- generate_chips — propose chips + scaffolds for a highlight or active line.
+- verify_chips — coverage + reconstruction check.
+- lookup_law — search the approved + draft law library.
+- propose_new_law — draft a new law for teacher approval (never auto-active).
+- apply_chips — commit chips to a workspace line. ONLY after verify_chips
+  returns PASS with exactMatch=true. The teacher must still approve the
+  resulting "Proposed change" card.
+- undo_last_change — revert a line to its previous snapshot.
+
+For general chat, answer directly — do NOT call tools.
+
+GROUND RULES FOR FLOATING NUMBER OPERATIONS
+- CURRENT_SELECTION / ACTIVE_LINE is immutable. Never substitute, simplify,
+  rename variables, or rewrite it.
+- Prefer an APPROVED LAW when one applies; cite it by id.
+- Before apply_chips, you MUST have called generate_chips and verify_chips
+  with PASS + exactMatch.
+- If no approved law covers the structure, use propose_new_law (name +
+  statement + rationale + 2 examples + 1 counter-example) instead of
+  forcing a bad chip set.
+- When verification fails, return the failing report. Never silently drop
+  elements.
+
+DOCUMENT INTELLIGENCE
+When the user uploads documents you should be able to: read, summarise,
+compare, extract candidate laws, generate worked examples, draft new laws
+from the content, and explain everything in plain English. If a document
+is unreadable, say so clearly with the reason.
+
+STYLE
+- Be helpful, direct, and warm. Match the user's register.
+- Use markdown freely (headings, lists, code fences, tables) when it aids
+  clarity.
+- Keep Floating Number action replies short: lead with the action, then a
+  one-line reason.
+- For open-ended creative or explanatory requests, write as much as the
+  task genuinely needs.`;
 
 const TOOLS = [
   {
@@ -424,19 +455,60 @@ const runServerTool = (
 };
 
 async function callGateway(messages: any[]) {
-  const res = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto" }),
-  });
-  if (res.status === 429) throw new Error("AI rate limit exceeded — try again in a moment.");
-  if (res.status === 402) throw new Error("AI credits exhausted — add credits to continue.");
-  if (!res.ok) throw new Error(`AI gateway ${res.status}: ${await res.text()}`);
+  let res: Response;
+  try {
+    res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto" }),
+    });
+  } catch (e: any) {
+    throw makeError("upstream_unavailable", "AI service unreachable — please retry in a moment.", 503, e?.message);
+  }
+  if (res.status === 429) throw makeError("rate_limited", "The AI is busy right now — please retry in a few seconds.", 429);
+  if (res.status === 402) throw makeError("credits_exhausted", "AI credits exhausted for this workspace.", 402);
+  if (res.status === 413) throw makeError("payload_too_large", "Document or message too large for the AI — try a smaller file.", 413);
+  if (res.status >= 500) throw makeError("upstream_unavailable", "AI service temporarily unavailable. Please retry.", 503, `gateway ${res.status}`);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    const lower = detail.toLowerCase();
+    if (lower.includes("context") || lower.includes("token") || lower.includes("too long")) {
+      throw makeError("context_limit", "Conversation or document is too long — start a new chat or shorten the content.", 400, detail.slice(0, 400));
+    }
+    throw makeError("internal_error", `AI gateway error (${res.status}).`, res.status, detail.slice(0, 400));
+  }
   return await res.json();
 }
+
+interface StructuredError extends Error {
+  code: string;
+  status: number;
+  detail?: string;
+}
+function makeError(code: string, message: string, status = 500, detail?: string): StructuredError {
+  const e = new Error(message) as StructuredError;
+  e.code = code;
+  e.status = status;
+  if (detail) e.detail = detail;
+  return e;
+}
+
+const SUPPORTED_MIMES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "text/markdown",
+  "audio/webm",
+  "audio/mp4",
+  "audio/m4a",
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/ogg",
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -473,10 +545,19 @@ Deno.serve(async (req) => {
       : null;
 
     if (!userMessage && attachments.length === 0 && !audio && !selection && selections.length === 0) {
-      return new Response(JSON.stringify({ error: "message, highlight, or attachment is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw makeError("missing_input", "Type a message, highlight something, or attach a document first.", 400);
+    }
+
+    // Size guard — base64 inflates ~4/3; ~8MB raw is a safe cap per request.
+    const totalB64 = attachments.reduce((n, a) => n + (a.data?.length ?? 0), 0) + (audio?.data?.length ?? 0);
+    if (totalB64 > 11_000_000) {
+      throw makeError("payload_too_large", "Document(s) too large — please upload a smaller file or split it.", 413);
+    }
+
+    // Format guard for binary attachments.
+    const bad = attachments.find((a) => !a.text && a.data && !SUPPORTED_MIMES.includes(a.mime));
+    if (bad) {
+      throw makeError("unsupported_format", `Unsupported file format: ${bad.filename} (${bad.mime}). Try PDF, DOCX, TXT, or MD.`, 415);
     }
 
     // Per-request supabase client preserving the caller's JWT — RLS enforced.
@@ -605,9 +686,13 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message ?? String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const code = e?.code ?? "internal_error";
+    const status = typeof e?.status === "number" ? e.status : 500;
+    const message = e?.message ?? String(e);
+    const detail = e?.detail;
+    return new Response(
+      JSON.stringify({ error: { code, message, detail } }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });

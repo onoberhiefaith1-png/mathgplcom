@@ -160,7 +160,7 @@ export const AssistantPanel = ({
       id: "welcome",
       role: "assistant",
       text:
-        "Hi — I'm your Floating Number AI. Type a request, highlight something on the page, record a voice note, or attach a document. I can generate, restructure, verify, and apply changes directly to the floating number page after your approval.",
+        "Hi — I'm your Floating Number AI. I'm a full general-purpose assistant with deep expertise in the Floating Number system, mathematics, and lesson design. Ask me anything: write a story, design a game, explain a concept, brainstorm ideas, analyse an uploaded document, draft a new law, or generate and apply floating numbers to the page. Type, talk, highlight, or upload — I'll handle the rest.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -300,7 +300,22 @@ export const AssistantPanel = ({
               : null,
           },
         });
-        if (error) throw error;
+        if (error) {
+          // supabase-js wraps non-2xx responses; the structured body lives on context.
+          let body: any = null;
+          try {
+            const ctx: any = (error as any).context;
+            if (ctx && typeof ctx.json === "function") body = await ctx.json();
+            else if (ctx?.body) body = typeof ctx.body === "string" ? JSON.parse(ctx.body) : ctx.body;
+          } catch { /* ignore */ }
+          const err = body?.error;
+          if (err && typeof err === "object") {
+            const niceMsg = err.message || "The AI couldn't process that request.";
+            const tail = err.detail ? `\n\nDetails: ${err.detail}` : "";
+            throw new Error(`${niceMsg}${tail}`);
+          }
+          throw error;
+        }
         const d = data as {
           reply: string;
           toolTrace?: AssistantToolTrace[];
@@ -319,10 +334,11 @@ export const AssistantPanel = ({
           },
         ]);
       } catch (e: any) {
-        toast({ title: "Assistant error", description: e?.message ?? String(e), variant: "destructive" });
+        const msg = e?.message ?? String(e);
+        toast({ title: "Assistant error", description: msg, variant: "destructive" });
         setMessages((prev) => [
           ...prev,
-          { id: newId(), role: "assistant", text: `⚠️ ${e?.message ?? String(e)}` },
+          { id: newId(), role: "assistant", text: `⚠️ ${msg}` },
         ]);
       } finally {
         setBusy(false);

@@ -1,67 +1,51 @@
-# Knowledge Base AI — Layout + Voice Fixes
+## Goal
 
-Three targeted changes to `src/pages/floating/AiSettingsPage.tsx` and `src/hooks/useVoiceInput.ts`. No backend, no schema, no edge-function changes.
+Turn the Floating Number AI from a narrow tool-only assistant into a full general-purpose ChatGPT/Claude-style AI that *also* has deep Floating Number expertise — without losing law-grounding, approval-gated edits, or the existing tool pipeline.
 
-## 1. Move Laws / Drafts / Documents into the left sidebar
+## Changes
 
-```text
-┌────────────────────────┬────────────────────────────────┐
-│ LEFT SIDEBAR (30%)     │  AI CONVERSATION (70%)         │
-│  🔎 Search             │                                │
-│  ▾ Official Laws       │  [transcript + composer]       │
-│  ▾ Draft Laws          │                                │
-│  ▾ Documents (+upload) │                                │
-└────────────────────────┴────────────────────────────────┘
+### 1. Rewrite the system prompt (`supabase/functions/floating-assistant/index.ts`)
 
-When a law / draft / document is opened:
-┌──────────┬───────────────────────────┬──────────────────┐
-│ Sidebar  │  Law / Doc viewer (70%)   │  AI chat (30%)   │
-│ (auto-   │  (takes the chat's space, │  stays mounted,  │
-│ narrows) │   never the sidebar's)    │  never unmounts  │
-└──────────┴───────────────────────────┴──────────────────┘
-```
+Replace the current `SYSTEM_PROMPT` with a dual-mode prompt:
 
-- Sidebar holds one search box + three collapsible sections (Official Laws, Draft Laws, Documents) + the document upload control. This replaces the current tabbed left rail.
-- When nothing is selected: sidebar 30% / AI 70%.
-- When a law/draft/document is opened: detail panel takes ~70% of the remaining width and AI shrinks to ~30%. The sidebar stays at its compact width; the detail panel eats into the AI column, not into the sidebar. AI is never hidden.
-- AI chat component stays mounted across selection changes so messages, attachments and voice state persist.
-- Close button on the detail panel returns to the default 30/70 layout.
+- **Identity:** "You are the Floating Number AI — a full general-purpose assistant (like ChatGPT/Claude) with deep specialization in the Floating Number system, mathematics, and lesson design."
+- **Always allowed:** answer any question, write stories, brainstorm, design games, explain concepts, summarize/compare/analyze uploaded documents, discuss laws in plain English, do general math, write code, etc.
+- **Specialization triggers:** when the user asks for chip generation, verification, applying chips, restructuring an expression, or proposing a law, use the existing tools (`analyze_example`, `generate_chips`, `verify_chips`, `lookup_law`, `propose_new_law`, `apply_chips`, `undo_last_change`) and follow the QUESTION_LOCK / law-grounded rules already in place.
+- **Tools are optional:** for general conversation, answer directly without invoking tools. Never refuse a request just because it isn't Floating-Number-related.
+- **Knowledge access:** keep Official Laws, Draft Laws, Knowledge Docs, lesson context, and current selection injected on every turn (as they already are) and tell the model it may freely cite or ignore them based on what the user asked.
 
-## 2. Voice input fixes (`useVoiceInput.ts`)
+Keep `tool_choice: "auto"` (already set) so the model decides when to call tools.
 
-Current bugs come from two things in the hook:
-- `r.continuous = false` → recognition ends on the first pause, so resuming starts a new session that often re-emits the last final phrase (duplicate) and the interim-only callback path (`interim || p`) overwrites the committed text (overwrite-on-resume).
-- Interim results are written into the same state slot as the committed transcript, so a fresh interim string can replace already-committed text.
+### 2. Improve error handling
 
-Fix:
-- Switch to `r.continuous = true; r.interimResults = true`.
-- Track a `committedRef` (string) inside the hook — the stable, already-finalized transcript for the current dictation session, seeded from the composer's value when `start()` is called.
-- On each `onresult`:
-  - Append only newly-final segments (using `resultIndex`) to `committedRef`, guarding against repeats by remembering the last appended final string.
-  - Compute display = `committedRef + " " + interim` and push that via `onTranscript` as an absolute string. Interim text never erases committed text.
-- Continuous dictation: do not auto-stop on short pauses. On `onend` while the user has not pressed stop, auto-restart recognition (silent gap is normal); only stop when the user clicks the mic again or on a hard error. Add a safety idle timeout (~8s of no new results) before truly finalizing, so the session feels continuous but does not run forever.
-- On `stop()`: flush interim into committed, fully stop recognition, clear the auto-restart flag.
+**Backend (`supabase/functions/floating-assistant/index.ts`):**
+- Map gateway/runtime failures to structured errors with a `code` and friendly `message`:
+  - `rate_limited` (429) → "The AI is busy — please retry in a few seconds."
+  - `credits_exhausted` (402) → "AI credits exhausted for this workspace."
+  - `payload_too_large` (413 / body > ~8 MB) → "Document too large — please upload a smaller file or split it."
+  - `unsupported_format` (unknown mime) → "Unsupported file format. Try PDF, DOCX, TXT, or MD."
+  - `context_limit` (gateway 400 mentioning context/tokens) → "Conversation or document too long — start a new chat or shorten the document."
+  - `upstream_unavailable` (5xx) → "AI service temporarily unavailable. Please retry."
+  - `internal_error` (default) → include the raw message for diagnostics.
+- Return `{ error: { code, message, detail? } }` with the appropriate HTTP status instead of a bare string.
 
-Result:
-- One spoken sentence → one transcription (no duplication).
-- Pause → continue appends to existing text instead of overwriting it.
-- Short pauses keep the session alive.
+**Frontend (`src/components/floating/AssistantPanel.tsx`):**
+- In the `send` catch block, read `error.context?.body` / `data.error` for the structured shape and display the friendly `message` (and `detail` if present) instead of the generic "Failed to send request to Edge Function".
+- Show the same friendly text inline in the assistant bubble.
 
-No call-site changes needed — the hook's public surface (`{ listening, start, stop }` + the `onTranscript` updater contract) stays the same, so the Knowledge Base composer and any other consumers keep working.
+### 3. No schema, no DB, no UI layout changes
 
-## 3. AI-first guarantees
-
-- The AI chat column is rendered once at the top level of the page and is never conditionally unmounted.
-- The detail panel mounts/unmounts inside the right side of the layout; opening or closing it only resizes the AI column, never removes it.
-- Removed: the "Select a law, draft, or document" placeholder and any empty middle column — when nothing is selected, the AI simply fills 70%.
+- Tool definitions, lesson-context hydration, law/draft/document loading, approval cards, sidebar layout, voice input, and attachments stay exactly as they are.
+- This is a prompt + error-handling change only.
 
 ## Files touched
 
-- `src/pages/floating/AiSettingsPage.tsx` — restructure layout per section 1; move tabs/lists/upload into the left sidebar; make the detail panel share width with the AI column only.
-- `src/hooks/useVoiceInput.ts` — continuous mode + committed/interim split + auto-restart on `onend` per section 2.
+- `supabase/functions/floating-assistant/index.ts` — new system prompt; structured error responses.
+- `src/components/floating/AssistantPanel.tsx` — parse and display structured errors; update the welcome message to reflect general-purpose capability.
 
-## Out of scope
+## Verification
 
-- Edge function, DB schema, realtime channels.
-- Generation page.
-- Realtime voice ("Call AI") — stays a placeholder.
+- Ask a non-math question ("Write a short story about a triangle") → gets a real answer, no tools called.
+- Ask "Generate floating numbers for x²+5x+6" with a highlight → tool pipeline runs and proposes an approval card as before.
+- Upload a PDF and ask "Summarize this and extract any laws" → AI responds with summary + optional `propose_new_law` calls.
+- Force a failure (oversized payload) → see the friendly "Document too large" message, not a raw Edge Function error.
