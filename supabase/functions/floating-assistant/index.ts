@@ -567,6 +567,16 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
       lines.push(`    [${i + 1}] (${ex.lineId}) ${ex.text}`);
     });
   }
+  if (ctx?.lineMap && ctx.lineMap.length > 0) {
+    lines.push("");
+    lines.push("## LINE MAP (resolve 'line N' and 'Nth floating number' against this)");
+    ctx.lineMap.forEach((l) => {
+      const fillersStr = l.fillers.map((f) => `${f.i}:${f.value}`).join(" | ");
+      const containersStr = l.containers.join(", ");
+      lines.push(
+        `[${l.lineNumber}] line_id=${l.lineId} equation="${l.equation}" fillers=[${fillersStr}] containers=[${containersStr}]`,
+      );
+    });
 
   lines.push("");
   lines.push("## FLOATING_KNOWLEDGE (live snapshot — cite by tag)");
