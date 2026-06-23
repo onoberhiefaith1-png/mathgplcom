@@ -1,90 +1,103 @@
-# Floating Number AI — Unified Modes + Storage Outputs
+# Floating Number AI — Knowledge Integration & Workspace Control
 
-## Goal
+Turn the existing Floating Number AI from a side panel chatbot into the platform's intelligence layer: it ingests all Floating Number knowledge live, can analyse highlighted equations, and can directly operate the workspace through approval-gated proposals.
 
-Keep the existing single chat interface and right-hand sidebar (Official Laws, Draft Laws, Documents). Add a **Mode Selector** next to the Upload Image / Upload File / Voice buttons, and treat Draft/Official Laws + Documents purely as **storage outputs** that the AI proposes at the end of a session. The AI stays a full general-purpose assistant with Floating Number specialization.
+## 1. Knowledge synchronization (server)
 
-No new pages. No tab refactor. Existing sidebar, approval cards, voice input, and attachments stay.
+Extend `supabase/functions/floating-assistant/index.ts` so every request hydrates a fresh `FloatingKnowledgeSnapshot` for the calling user, built from:
 
-## 1. Mode Selector (frontend)
+- `floating_law_library` (Official Laws — number, name, statement, examples)
+- `floating_law_drafts` (Draft Laws)
+- `floating_knowledge_documents` (parsed_text + `law_document` type)
+- `floating_example_analyses` + `floating_chip_snapshots` (teacher corrections / approved structures)
+- `floating_generations` (recent AI generations)
+- Current lesson notebook (already via `lessonContext`)
 
-In `src/pages/floating/AiSettingsPage.tsx` composer row (next to Upload Image / Upload File / Mic):
+Snapshot is assembled per request — no manual retraining, always current. Large bodies are token-budgeted: laws and short docs go inline; longer documents are summarized with title + first N chars and become retrievable on demand via a `lookup_document` tool. Snapshot is injected into the system prompt under a `## FLOATING_KNOWLEDGE` section with stable IDs (`LAW#5`, `DOC#abc123`) so the AI can cite them ("According to Law 5 and Law 5 Document…").
 
-- Add a compact dropdown / segmented control: **Conversation**, **Training**, **Knowledge Extraction**.
-- State: `const [mode, setMode] = useState<"conversation"|"training"|"extraction">("conversation")`.
-- Persist mode in `localStorage` per subsection so it survives reload.
-- Show a small badge above the input ("Training mode — I will learn from what you share") so the user knows which mode is active.
-- Mode is sent with every `send()` call as `mode` in the request body to the edge function.
+## 2. Document auto-ingestion
 
-No changes to the sidebar layout, collapse behavior, or AI/detail/sidebar widths.
+When a document is uploaded or generated (existing `floating_knowledge_documents` insert path in `AiSettingsPage.tsx`), no extra step is required — because the snapshot is rebuilt on every AI request, new docs are immediately visible. Add:
 
-## 2. Mode behavior (backend prompt)
+- A lightweight `indexed_at` + `summary` column on `floating_knowledge_documents` (migration) populated by a one-shot summarisation call on insert, used to keep the snapshot compact.
+- Storage-fallback parsing already exists; reuse it server-side when `parsed_text` is null.
 
-In `supabase/functions/floating-assistant/index.ts`, extend the request schema with `mode` and inject a **mode-specific addendum** into the existing dual-mode system prompt. The general-purpose + Floating-Number identity from the last change stays intact.
+## 3. Analysis mode
 
-- **Conversation** (default): current behavior. Free general-purpose chat, optional tool use, no nudges to save anything unless the user asks.
-- **Training**: AI acknowledges teacher input ("I understand.", "I have learned this principle.", "This may be useful for future floating number generation."), summarizes what it learned, and at the end offers: *Create Draft Law*, *Create Document*, *Save as Knowledge*. Never auto-promotes anything.
-- **Knowledge Extraction**: AI focuses on discovery — detect concepts, patterns, principles; extract examples; propose laws; generate documentation. Output is structured (sections: Concepts / Patterns / Proposed Laws / Suggested Examples / Suggested Document Outline).
+Add a new assistant action `analyse_structure` triggered when the user highlights a line (existing highlight pipeline in `FloatingWorkspace.tsx` + `AssistantPanel.tsx` already forwards `activeHighlight`).
 
-All three modes keep tool access (`analyze_example`, `generate_chips`, `verify_chips`, `lookup_law`, `propose_new_law`, `apply_chips`, `undo_last_change`) — tools remain optional and the model decides when to call them.
-
-## 3. End-of-session storage prompt
-
-On the **last assistant turn of a Training or Extraction session** (heuristic: when the AI signals "done" or after N turns of teacher input without follow-up), the AI appends a structured action block the frontend renders as buttons:
+Server returns a structured `analysis` payload:
 
 ```
-ACTIONS:
-- save_knowledge: "<title>"
-- create_draft_law: "<proposed name>"
-- generate_document: "<draft id or proposed title>"
-- discard
+{
+  detected_terms: ["5x", "-4y", "+2y"],
+  applicable_laws: [{id, number, name, why}],
+  recommended_structure: { fillers, containers, arrangement },
+  reasoning: "According to Law 2…"
+}
 ```
 
-`AssistantPanel.tsx` parses this block and renders the four buttons. Clicking:
+The panel renders this as an Analysis card with **Accept / Modify / Reject** buttons. Accept routes through the existing `apply_chips` approval flow.
 
-- **Save as Knowledge** → inserts a row in `floating_knowledge_docs` (existing `docs` table) with `kind = 'note'`.
-- **Create Draft Law** → calls existing `propose_new_law` flow (writes into `floating_law_drafts`).
-- **Generate Document** → calls a new lightweight server route `generate-law-document` that produces a Markdown doc using the law's name/statement/examples and stores it in `floating_knowledge_docs` with `kind = 'law_document'` and `linked_law_id`.
-- **Discard** → no-op + toast.
+## 4. Full workspace control (new tools)
 
-## 4. Law-document generation
+Extend the assistant's tool/action set beyond today's `apply_chips`, `undo_last_change`, `approve_draft_law`, `reject_draft_law` with workspace operators:
 
-When a Draft Law is approved (existing `approveDraft` in `AiSettingsPage.tsx`) or a teacher clicks **Generate Law Document**, call the new edge function (or reuse `floating-assistant` with `mode = "document"`) that produces:
+| Tool | Effect on `FloatingLine` |
+|---|---|
+| `move_filler` | Reorder `arrangement` (e.g. "Move 5x to container 2") |
+| `add_filler` | Append a filler chip with optional container tag |
+| `remove_filler` | Delete a filler by value or index |
+| `add_container` / `remove_container` | Edit `containers[]` |
+| `set_arrangement` | Bulk reorder |
+| `generate_line` | Produce a complete proposed `FloatingLine` for a given equation/line id |
+| `apply_chips` | (existing) bulk apply |
+| `undo_last_change` | (existing) |
 
-```
-Title
-Law Statement
-Explanation
-Examples (1..N)
-Floating Number Applications (1..N)
-Common Mistakes
-Related Laws
-```
+Each tool resolves to a typed `ProposedAction` the panel renders as a diff card.
 
-Stored in `floating_knowledge_docs`. Documents appear in the existing Documents section of the sidebar — no UI change there.
+## 5. Approval workflow
 
-## 5. Official Law display
+All workspace-mutating tools return `needsApproval: true` proposals. The panel shows:
 
-Official Laws stay short. Approval flow already moves a Draft into `floating_law_library` with `law_number`, `name`, `statement`. The detail view in `AiSettingsPage.tsx` (the middle column when a law is selected) keeps the same fields. The auto-generated long document lives separately under Documents and is linked from the law via `linked_law_id`.
+1. Human-readable description ("Move 5x → container 2 on line 3")
+2. Before/after preview (reuse mini `FloatingWorkspace` render)
+3. **Accept & Apply** / **Reject** buttons
+4. Verification badge (blocks Accept when `verification_pass !== true`, same pattern as today)
 
-## 6. Files touched
+No tool writes to the page without an explicit Accept click.
 
-- `src/pages/floating/AiSettingsPage.tsx` — Mode Selector UI, `mode` state, pass `mode` to chat, "Generate Law Document" button on approved laws and draft cards.
-- `src/components/floating/AssistantPanel.tsx` — render ACTIONS block as buttons (Save as Knowledge / Create Draft Law / Generate Document / Discard); send `mode` in request body.
-- `supabase/functions/floating-assistant/index.ts` — accept `mode`, inject mode-specific prompt addendum, emit ACTIONS block at end of Training/Extraction turns.
-- `supabase/functions/generate-law-document/index.ts` — new edge function that produces the full Markdown law document and inserts into `floating_knowledge_docs`.
-- (Optional schema) add `linked_law_id` and `kind` columns to `floating_knowledge_docs` if they don't exist; migration only if needed.
+## 6. Two-way synchronization
 
-## 7. Out of scope
+- **Page → AI:** `lessonContext` already includes `activeLineId` / `activeLineText`. Extend it with the active line's current `fillers`, `containers`, `arrangement` so the AI always sees the latest manual edits.
+- **AI → Page:** Proposals carry a `targetLineId`. On Accept, the panel calls a single `applyProposal(action)` handler on the parent (`FloatingNumbersPage` / lesson note page) that mutates the line through the existing `onChange(line)` path used by `FloatingWorkspace`. This guarantees both manual chips and AI chips flow through the same reducer.
 
-- No new pages or routes.
-- No changes to the right-sidebar layout, collapse behavior, voice input, or attachment pipeline.
-- No changes to existing tool definitions or approval cards.
-- General-purpose identity from the previous change is preserved.
+## 7. AI role / system prompt
 
-## Verification
+Rewrite the system prompt so the AI identifies as: *Teacher Assistant · Floating Number Expert · Knowledge Manager · Law Interpreter · Structure Analyzer · Workspace Operator.* Prompt instructs it to:
 
-- Switch to Training, paste a rule → AI replies with "I understand…" + ACTIONS block; clicking *Create Draft Law* creates a draft visible in the sidebar.
-- Switch to Knowledge Extraction, upload a PDF → AI returns structured Concepts/Patterns/Proposed Laws + ACTIONS block.
-- Approve a draft → law appears in Official Laws (short form) AND a "Generate Law Document" button is offered; clicking it creates a full Markdown doc in Documents.
-- Conversation mode answers "Tell me a story" / "Explain photosynthesis" with no storage prompts.
+- Always cite laws/documents by their snapshot ID when reasoning.
+- Prefer tool calls over prose when the user requests a workspace change.
+- Never claim "Done" without emitting an approval-gated proposal first.
+
+## Technical Details
+
+**Files**
+- `supabase/functions/floating-assistant/index.ts` — snapshot builder, new tools, structured `analysis` response, updated system prompt.
+- `supabase/functions/floating-assistant/knowledgeSnapshot.ts` *(new)* — pure builder querying the tables above with a token budget.
+- `src/lib/floating/lessonContext.ts` — add `activeLineState` (fillers/containers/arrangement).
+- `src/components/floating/AssistantPanel.tsx` — new `ProposedAction` kinds, Analysis card, per-tool approval cards, `applyProposal` callback prop.
+- `src/components/lessonnotes/FloatingWorkspace.tsx` — surface active line state up + accept proposals down (small prop additions; no refactor of chip UI).
+- `src/pages/FloatingNumbersPage.tsx` / parent — wire `applyProposal` to existing `onChange`.
+
+**Migration**
+- `floating_knowledge_documents` add `summary text`, `indexed_at timestamptz`.
+
+**Out of scope**
+- No new tables for knowledge; reuse the eight existing ones.
+- No streaming refactor; keep current request/response shape.
+- No change to chip rendering, KaTeX, or the lesson note generator.
+
+**Risks**
+- Token budget on snapshot — mitigate with summaries + on-demand `lookup_document` tool.
+- Concurrent manual + AI edits — `targetLineId` + line version check before applying a proposal; stale proposals show "Line changed — re-analyse".
