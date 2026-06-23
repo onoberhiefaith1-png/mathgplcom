@@ -24,122 +24,104 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
 
-const SYSTEM_PROMPT = `You are the Floating Number AI — a full general-purpose
-AI assistant (comparable to ChatGPT, Claude, or Gemini) with deep specialization
-in the Floating Number system, mathematics pedagogy, and lesson design.
+const SYSTEM_PROMPT = `You are the Floating Number AI — the intelligence layer
+of the Floating Number platform. You wear six hats at once:
 
-CORE IDENTITY
-You are NOT a narrow workflow bot. You can:
-- Hold open-ended conversations on any topic.
-- Write stories, poems, scripts, marketing copy, lesson plans, game designs.
-- Brainstorm ideas freely and help the user think through problems.
-- Explain mathematics, science, history, code — anything the user asks.
-- Read, summarise, compare, translate, and critique uploaded documents
-  (PDF, DOCX, TXT, MD) and voice notes.
-- Generate code, JSON, tables, or structured text on demand.
-- Discuss, draft, and refine laws (Official or Draft) in plain English.
+  • Teacher Assistant
+  • Floating Number Expert
+  • Knowledge Manager
+  • Law Interpreter
+  • Structure Analyzer
+  • Workspace Operator
 
-Your Floating Number expertise is a SPECIALIZATION, not a limitation. Never
-refuse a request because it is "not Floating Number related". If the user
-asks for a story, write the story. If they ask for game design, design the
-game. If they ask for general help, help them.
+You are also a full general-purpose assistant (comparable to ChatGPT, Claude,
+or Gemini): write stories, explain anything, brainstorm, code, design games,
+critique uploaded files. Never refuse a request because it is "not Floating
+Number related".
 
-KNOWLEDGE ACCESS (always available, use only when relevant)
-On every turn you receive: the current LESSON STATE, the CURRENT_SELECTION
-or SELECTED_CONTEXT, any ATTACHMENTS / VOICE_NOTE the user just sent, the
-APPROVED LAWS library (filtered by topic), the PROPOSED DRAFT LAWS, and
-the list of KNOWLEDGE DOCS. Cite or quote them when the user's request
-touches Floating Numbers, the current lesson, or the documents. Ignore
-them for unrelated questions — do not awkwardly drag mathematics into a
-conversation about something else.
+LIVE KNOWLEDGE
+On every turn you receive a fresh FLOATING_KNOWLEDGE snapshot built from the
+teacher's data: APPROVED LAWS (cite as LAW#<number>), DRAFT LAWS
+(DRAFT#<id>), KNOWLEDGE DOCS with excerpts (DOC#<id>), recent EXAMPLE
+ANALYSES (teacher corrections) and recent GENERATIONS. This is always current
+— no manual retraining is required. When you reason about Floating Numbers,
+cite the relevant LAW#n / DRAFT#id / DOC#id. Example:
+  "According to LAW#2 the minus sign belongs to the following term, and
+  LAW#5 (see DOC#abc12345) splits this into two containers."
 
-WHEN TO USE TOOLS
-Tools are optional. Use them only when the user clearly wants a Floating
-Number workspace operation:
-- analyze_example — inspect an expression's structures/elements.
-- generate_chips — propose chips + scaffolds for a highlight or active line.
-- verify_chips — coverage + reconstruction check.
-- lookup_law — search the approved + draft law library.
-- propose_new_law — draft a new law for teacher approval (never auto-active).
-- apply_chips — commit chips to a workspace line. ONLY after verify_chips
-  returns PASS with exactMatch=true. The teacher must still approve the
-  resulting "Proposed change" card.
-- undo_last_change — revert a line to its previous snapshot.
+If a document looks relevant but isn't in the snapshot inline, call
+\`lookup_document\` to retrieve more text from it.
+
+WORKSPACE CONTROL (approval-gated)
+You can directly operate the Floating Number workspace through tools. Every
+workspace mutation returns a proposal card; the teacher clicks Accept before
+anything changes. Never claim "Done" — say "Proposed" and wait for approval.
+
+Workspace tools (use the right one — do not bundle everything into apply_chips):
+
+  • analyse_structure  — full analysis of the active line / highlighted
+    expression: detected terms, applicable laws (cited), recommended
+    floating-number structure, and reasoning. Emits an Analysis proposal
+    the teacher can Accept / Modify / Reject.
+  • move_filler        — reorder one filler within the line.
+  • add_filler         — add a single filler (optionally with a container).
+  • remove_filler      — remove a filler by value or index.
+  • add_container      — add a structure container (fraction, bracket, …).
+  • remove_container   — remove a container.
+  • set_arrangement    — bulk re-permute the fillers.
+  • generate_line_structure — propose a complete {fillers, containers,
+    arrangement} for the active line.
+  • apply_chips        — legacy bulk apply; prefer the targeted tools above.
+  • undo_last_change   — revert a line to its previous snapshot.
+
+Reasoning / library tools:
+  • analyze_example    — detect structures/elements in an expression.
+  • generate_chips     — propose chips + verification for a highlight.
+  • verify_chips       — coverage + reconstruction check.
+  • lookup_law         — search the law library.
+  • lookup_document    — fetch a larger excerpt of a knowledge document.
+  • propose_new_law    — draft a new law for teacher approval.
 
 For general chat, answer directly — do NOT call tools.
 
-GROUND RULES FOR FLOATING NUMBER OPERATIONS
-- CURRENT_SELECTION / ACTIVE_LINE is immutable. Never substitute, simplify,
-  rename variables, or rewrite it.
-- Prefer an APPROVED LAW when one applies; cite it by id.
-- Before apply_chips, you MUST have called generate_chips and verify_chips
-  with PASS + exactMatch.
-- If no approved law covers the structure, use propose_new_law (name +
-  statement + rationale + 2 examples + 1 counter-example) instead of
-  forcing a bad chip set.
-- When verification fails, return the failing report. Never silently drop
-  elements.
-
-DOCUMENT INTELLIGENCE
-When the user uploads documents you should be able to: read, summarise,
-compare, extract candidate laws, generate worked examples, draft new laws
-from the content, and explain everything in plain English. If a document
-is unreadable, say so clearly with the reason.
+GROUND RULES
+- The user's selection / active line text is immutable. Never rewrite it.
+- Prefer an APPROVED LAW when one applies; cite it.
+- Before apply_chips you MUST have called generate_chips + verify_chips
+  with PASS + exactMatch. For targeted tools (move/add/remove) this is
+  not required — the teacher's approval is the gate.
+- If no approved law covers a structure, call propose_new_law instead
+  of forcing a bad chip set.
 
 STYLE
-- Be helpful, direct, and warm. Match the user's register.
-- Use markdown freely (headings, lists, code fences, tables) when it aids
-  clarity.
-- Keep Floating Number action replies short: lead with the action, then a
-  one-line reason.
-- For open-ended creative or explanatory requests, write as much as the
-  task genuinely needs.
+- Helpful, direct, warm. Match the user's register.
+- Use markdown freely. Keep workspace-action replies short: lead with the
+  action, then a one-line reason citing LAW#n / DOC#id where relevant.
 
 WORKING MODES
-You operate in one of three modes per turn (the client tells you which):
+You operate in one of four modes per turn (the client tells you which):
 
 CONVERSATION mode (default) — Free general-purpose assistant. Answer
-naturally. Do NOT nudge the user to save anything unless they ask. Do not
-emit an ACTIONS block.
+naturally. Do NOT emit an ACTIONS block.
 
-TRAINING mode — The teacher is teaching you. Acknowledge what they share
-("I understand.", "I have learned this principle.", "This may be useful for
-future floating number generation."), then briefly summarise what you
-learned. End the prose with a short "## Conclusion" section (1-3 sentences
-naming the principle discovered). Then append a fenced ACTIONS block
-offering ALL applicable destinations. Never create or promote anything
-automatically — the teacher chooses which actions to run.
+TRAINING mode — The teacher is teaching you. Acknowledge, summarise what
+you learned, end with a short "## Conclusion" section, then append a fenced
+ACTIONS block with every applicable destination.
 
-KNOWLEDGE_EXTRACTION mode — Focus on discovery. Structure your reply with
-these headings when relevant: ## Concepts, ## Patterns, ## Proposed Laws,
-## Suggested Examples, ## Suggested Document Outline. End with a
-"## Conclusion" section, then append a fenced ACTIONS block.
+KNOWLEDGE_EXTRACTION mode — Discovery focus. Use ## Concepts, ## Patterns,
+## Proposed Laws, ## Suggested Examples, ## Suggested Document Outline,
+end with "## Conclusion", then append a fenced ACTIONS block.
 
-DOCUMENT mode — The user asked you to generate a COMPLETE teaching
-document for a law. Output ONLY clean markdown — no preamble, no closing
-remarks, no ACTIONS block. The document MUST be comprehensive (not a
-summary) and include every section below in order:
-
-# <Title>
-## Introduction
-## Law Statement
-## Detailed Explanation
-## Reasoning
-## Discussion Points
-## Examples  (at least 3 fully worked examples)
-## Floating Number Examples  (at least 2 worked examples)
-## Applications
-## Common Mistakes
-## Related Laws
-## Notes
-## Conclusion
-
-Include everything you have learned from the discussion. Do not abbreviate.
+DOCUMENT mode — Generate a COMPLETE teaching document for a law. Output
+ONLY clean markdown — no preamble, no ACTIONS block. Required sections in
+order: # <Title>, ## Introduction, ## Law Statement, ## Detailed
+Explanation, ## Reasoning, ## Discussion Points, ## Examples (>=3 worked),
+## Floating Number Examples (>=2 worked), ## Applications, ## Common
+Mistakes, ## Related Laws, ## Notes, ## Conclusion.
 
 ACTIONS BLOCK FORMAT (Training and Knowledge_Extraction only)
-At the very end of your reply, append exactly one fenced block. Include
-EVERY action that is genuinely applicable — the user may select multiple
-and run them all in parallel:
+At the very end of your reply, append exactly one fenced block. List every
+action that adds value — the user may select multiple and run them all:
 
 \`\`\`actions
 approve_official_law: "<final law name>"
@@ -149,14 +131,8 @@ save_knowledge: "<short title>"
 discard
 \`\`\`
 
-Rules:
-- Use approve_official_law when the principle is clear, stable, and ready
-  to be promoted directly to the Official Law Library (skips draft stage).
-- Use create_draft_law when the principle needs review first.
-- These two are NOT mutually exclusive with generate_document or
-  save_knowledge — list every action that adds value.
-- Always include "discard" as the final line.
-- Never emit this block in CONVERSATION or DOCUMENT mode.`;
+Always include "discard" as the final line. Never emit this block in
+CONVERSATION or DOCUMENT mode.`;
 
 const TOOLS = [
   {
@@ -262,7 +238,174 @@ const TOOLS = [
       },
     },
   },
+  // ── Knowledge ────────────────────────────────────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "lookup_document",
+      description: "Fetch a larger excerpt of a knowledge document by its DOC#<id> id. Returns up to ~8000 chars of parsed_text. Use when the inline snapshot is too short.",
+      parameters: {
+        type: "object",
+        properties: { doc_id: { type: "string" }, query: { type: "string" } },
+        required: ["doc_id"],
+      },
+    },
+  },
+  // ── Analysis ─────────────────────────────────────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "analyse_structure",
+      description: "Analyse the active line / highlighted expression and return a proposed Floating Number structure. Emit detected terms, applicable laws (cite LAW#<number>), recommended {fillers, containers, arrangement}, and reasoning. The teacher can Accept (apply the structure), Modify, or Reject.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          equation: { type: "string", description: "Verbatim equation text being analysed." },
+          detected_terms: { type: "array", items: { type: "string" } },
+          applicable_laws: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { id: { type: "string" }, why: { type: "string" } },
+              required: ["id"],
+            },
+          },
+          recommended: {
+            type: "object",
+            properties: {
+              fillers: { type: "array", items: { type: "string" } },
+              containers: { type: "array", items: { type: "string" } },
+              arrangement: { type: "array", items: { type: "integer" } },
+            },
+            required: ["fillers"],
+          },
+          reasoning: { type: "string" },
+        },
+        required: ["line_id", "equation", "recommended", "reasoning"],
+      },
+    },
+  },
+  // ── Targeted workspace operators (each emits an apply_line_update card) ─
+  {
+    type: "function",
+    function: {
+      name: "move_filler",
+      description: "Reorder one filler within the active line. Provide the visual from-index (0-based) and to-index.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          from_index: { type: "integer" },
+          to_index: { type: "integer" },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "from_index", "to_index"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_filler",
+      description: "Append a single filler to the active line. Optionally also add a container.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          value: { type: "string" },
+          container: { type: "string" },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "value"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_filler",
+      description: "Remove a single filler from the active line by value (preferred) or by index.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          value: { type: "string" },
+          index: { type: "integer" },
+          reason: { type: "string" },
+        },
+        required: ["line_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_container",
+      description: "Add a structure container (fraction, bracket, radical, power, log, integral, matrix, differential, abs, vector).",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          container: { type: "string" },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "container"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_container",
+      description: "Remove a structure container from the active line.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          container: { type: "string" },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "container"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_arrangement",
+      description: "Bulk re-permute the fillers of the active line. Provide an arrangement[] permutation of the current filler indices.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          arrangement: { type: "array", items: { type: "integer" } },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "arrangement"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_line_structure",
+      description: "Propose a complete {fillers, containers, arrangement} for the active line. Same shape as analyse_structure but with no analytical commentary — use when the teacher asks 'generate floating numbers for line N'.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          fillers: { type: "array", items: { type: "string" } },
+          containers: { type: "array", items: { type: "string" } },
+          arrangement: { type: "array", items: { type: "integer" } },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "fillers"],
+      },
+    },
+  },
 ];
+
 
 interface ServerToolCall {
   name: string;
@@ -270,7 +413,13 @@ interface ServerToolCall {
 }
 
 interface PendingClientAction {
-  kind: "apply_chips" | "undo_last_change" | "approve_draft_law" | "reject_draft_law";
+  kind:
+    | "apply_chips"
+    | "undo_last_change"
+    | "approve_draft_law"
+    | "reject_draft_law"
+    | "apply_line_update"
+    | "analyse_structure";
   payload: Record<string, unknown>;
 }
 
@@ -284,6 +433,9 @@ interface LessonCtx {
   recentExamples?: { lineId: string; text: string }[];
   activeLineId?: string | null;
   activeLineText?: string | null;
+  activeLineFillers?: string[];
+  activeLineContainers?: string[];
+  activeLineArrangement?: number[];
 }
 
 interface LawRow {
@@ -293,6 +445,8 @@ interface LawRow {
   reason?: string | null;
   lesson_topics?: string[] | null;
   tags?: string[] | null;
+  law_number?: number | null;
+  examples?: unknown;
 }
 
 interface DraftLawRow extends LawRow {
@@ -300,10 +454,36 @@ interface DraftLawRow extends LawRow {
   source_kind?: string | null;
 }
 
+interface KnowledgeDocRow {
+  id: string;
+  filename: string;
+  kind?: string | null;
+  parsed_text?: string | null;
+}
+
+interface ExampleAnalysisRow {
+  id: string;
+  example_text: string;
+  lesson_topic?: string | null;
+  structures?: unknown;
+  created_at?: string | null;
+}
+
+interface GenerationRow {
+  id: string;
+  original: string;
+  chips?: unknown;
+  scaffolds?: unknown;
+  status?: string | null;
+  created_at?: string | null;
+}
+
 interface KBHydration {
   approvedLaws: LawRow[];
   draftLaws: DraftLawRow[];
-  knowledgeDocs: { id: string; filename: string; kind?: string | null }[];
+  knowledgeDocs: KnowledgeDocRow[];
+  exampleAnalyses: ExampleAnalysisRow[];
+  recentGenerations: GenerationRow[];
 }
 
 const topicMatches = (rowTopics: string[] | null | undefined, topic: string | null | undefined): boolean => {
@@ -313,61 +493,142 @@ const topicMatches = (rowTopics: string[] | null | undefined, topic: string | nu
   return rowTopics.some((x) => (x ?? "").toLowerCase().trim() === t);
 };
 
+const lawTag = (l: LawRow): string =>
+  typeof l.law_number === "number" && l.law_number > 0 ? `LAW#${l.law_number}` : `LAW#${l.id.slice(0, 8)}`;
+const draftTag = (l: DraftLawRow): string => `DRAFT#${l.id.slice(0, 8)}`;
+const docTag = (d: KnowledgeDocRow): string => `DOC#${d.id.slice(0, 8)}`;
+
 async function hydrateKnowledge(
   userClient: ReturnType<typeof createClient>,
   topic: string | null,
 ): Promise<KBHydration> {
-  const [{ data: laws }, { data: drafts }, { data: docs }] = await Promise.all([
-    userClient.from("floating_law_library").select("id,name,rule,reason,lesson_topics,tags").limit(100),
+  const [
+    { data: laws },
+    { data: drafts },
+    { data: docs },
+    { data: analyses },
+    { data: generations },
+  ] = await Promise.all([
+    userClient
+      .from("floating_law_library")
+      .select("id,law_number,name,rule,reason,lesson_topics,tags,examples")
+      .order("law_number", { ascending: true })
+      .limit(100),
     userClient
       .from("floating_law_drafts")
       .select("id,name,rule,reason,lesson_topics,tags,status,source_kind")
       .eq("status", "proposed")
       .limit(50),
-    userClient.from("floating_knowledge_documents").select("id,filename,kind").limit(50),
+    userClient
+      .from("floating_knowledge_documents")
+      .select("id,filename,kind,parsed_text")
+      .order("created_at", { ascending: false })
+      .limit(30),
+    userClient
+      .from("floating_example_analyses")
+      .select("id,example_text,lesson_topic,structures,created_at")
+      .order("created_at", { ascending: false })
+      .limit(20),
+    userClient
+      .from("floating_generations")
+      .select("id,original,chips,scaffolds,status,created_at")
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
   const approvedLaws = ((laws as any[]) ?? []).filter((r) => topicMatches(r.lesson_topics, topic));
   const draftLaws = ((drafts as any[]) ?? []).filter((r) => topicMatches(r.lesson_topics, topic));
   return {
     approvedLaws: approvedLaws as LawRow[],
     draftLaws: draftLaws as DraftLawRow[],
-    knowledgeDocs: ((docs as any[]) ?? []).map((d) => ({ id: d.id, filename: d.filename, kind: d.kind })),
+    knowledgeDocs: ((docs as any[]) ?? []) as KnowledgeDocRow[],
+    exampleAnalyses: ((analyses as any[]) ?? []) as ExampleAnalysisRow[],
+    recentGenerations: ((generations as any[]) ?? []) as GenerationRow[],
   };
 }
 
 function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
   const lines: string[] = [];
-  lines.push("LESSON STATE:");
-  if (ctx?.topic) lines.push(`  topic: ${ctx.topic}`);
-  if (ctx?.subject) lines.push(`  subject: ${ctx.subject}`);
-  if (ctx?.sectionKind) lines.push(`  section: ${ctx.sectionKind}`);
-  if (ctx?.problem) lines.push(`  problem: ${ctx.problem}`);
-  if (ctx?.activeLineText) lines.push(`  active_line[${ctx.activeLineId}]: ${ctx.activeLineText}`);
+  lines.push("## LESSON STATE");
+  if (ctx?.topic) lines.push(`- topic: ${ctx.topic}`);
+  if (ctx?.subject) lines.push(`- subject: ${ctx.subject}`);
+  if (ctx?.sectionKind) lines.push(`- section: ${ctx.sectionKind}`);
+  if (ctx?.problem) lines.push(`- problem: ${ctx.problem}`);
+  if (ctx?.activeLineText) {
+    lines.push(`- active_line[${ctx.activeLineId}]: ${ctx.activeLineText}`);
+    const f = ctx.activeLineFillers ?? [];
+    const c = ctx.activeLineContainers ?? [];
+    const a = ctx.activeLineArrangement ?? [];
+    if (f.length || c.length) {
+      lines.push(`  active_line.fillers (live, ${f.length}): [${f.join(" | ")}]`);
+      lines.push(`  active_line.containers: [${c.join(", ")}]`);
+      if (a.length) lines.push(`  active_line.arrangement: [${a.join(",")}]`);
+    }
+  }
   if (ctx?.recentExamples && ctx.recentExamples.length > 0) {
-    lines.push("  recent_examples:");
+    lines.push("- recent_examples:");
     ctx.recentExamples.slice(0, 6).forEach((ex, i) => {
       lines.push(`    [${i + 1}] (${ex.lineId}) ${ex.text}`);
     });
   }
+
+  lines.push("");
+  lines.push("## FLOATING_KNOWLEDGE (live snapshot — cite by tag)");
+
   if (kb.approvedLaws.length > 0) {
-    lines.push(`APPROVED LAWS (${kb.approvedLaws.length}) — cite by id:`);
-    kb.approvedLaws.slice(0, 25).forEach((l) => {
-      lines.push(`  - [${l.id}] ${l.name}: ${l.rule}`);
+    lines.push(`### Approved Laws (${kb.approvedLaws.length})`);
+    kb.approvedLaws.slice(0, 30).forEach((l) => {
+      const ex = Array.isArray(l.examples) ? (l.examples as unknown[]).slice(0, 2) : [];
+      lines.push(`- ${lawTag(l)} "${l.name}" — ${l.rule}`);
+      if (l.reason) lines.push(`    reason: ${l.reason}`);
+      if (ex.length) lines.push(`    examples: ${ex.map((e) => JSON.stringify(e)).join(" ; ")}`);
     });
   } else {
-    lines.push("APPROVED LAWS: (none for this topic — consider proposing a new law)");
+    lines.push("### Approved Laws: (none for this topic — consider propose_new_law)");
   }
+
   if (kb.draftLaws.length > 0) {
-    lines.push(`PROPOSED DRAFT LAWS (${kb.draftLaws.length}):`);
-    kb.draftLaws.slice(0, 10).forEach((l) => {
-      lines.push(`  - [${l.id}] ${l.name}: ${l.rule}`);
+    lines.push(`### Draft Laws (${kb.draftLaws.length})`);
+    kb.draftLaws.slice(0, 12).forEach((l) => {
+      lines.push(`- ${draftTag(l)} "${l.name}" — ${l.rule}`);
     });
   }
+
   if (kb.knowledgeDocs.length > 0) {
-    lines.push(`KNOWLEDGE DOCS: ${kb.knowledgeDocs.map((d) => d.filename).join(", ")}`);
+    lines.push(`### Knowledge Documents (${kb.knowledgeDocs.length})`);
+    // Token budget: per doc, include filename + ~800 chars excerpt for the 8
+    // most recent docs; the rest are referenced by tag for lookup_document.
+    kb.knowledgeDocs.slice(0, 8).forEach((d) => {
+      const excerpt = (d.parsed_text ?? "").trim().slice(0, 800);
+      lines.push(`- ${docTag(d)} ${d.filename}${d.kind ? ` (${d.kind})` : ""}`);
+      if (excerpt) lines.push(`    excerpt: ${excerpt}${(d.parsed_text?.length ?? 0) > 800 ? " …" : ""}`);
+    });
+    if (kb.knowledgeDocs.length > 8) {
+      lines.push("- More documents available — call lookup_document with the DOC#id to read them.");
+      kb.knowledgeDocs.slice(8).forEach((d) => {
+        lines.push(`  · ${docTag(d)} ${d.filename}`);
+      });
+    }
   }
+
+  if (kb.exampleAnalyses.length > 0) {
+    lines.push(`### Recent Example Analyses (${kb.exampleAnalyses.length})`);
+    kb.exampleAnalyses.slice(0, 8).forEach((a) => {
+      const structs = Array.isArray(a.structures) ? (a.structures as any[]).map((s) => String(s)).join(",") : "";
+      lines.push(`- "${a.example_text}"${structs ? ` — structures: [${structs}]` : ""}`);
+    });
+  }
+
+  if (kb.recentGenerations.length > 0) {
+    lines.push(`### Recent AI Generations (${kb.recentGenerations.length})`);
+    kb.recentGenerations.slice(0, 6).forEach((g) => {
+      const chips = Array.isArray(g.chips) ? (g.chips as any[]).map((c) => String(c)).join(" | ") : "";
+      lines.push(`- ${g.status ?? "?"} on "${g.original}" → [${chips}]`);
+    });
+  }
+
   return lines.join("\n");
 }
+
 
 const runServerTool = (
   call: ServerToolCall,
@@ -510,6 +771,170 @@ const runServerTool = (
       return Promise.resolve({
         result: { queued: true, message: "Undo queued for teacher approval." },
         clientAction: { kind: "undo_last_change", payload: args },
+      });
+    }
+    // ── Knowledge ────────────────────────────────────────────────────────
+    case "lookup_document": {
+      const rawId = String(args.doc_id ?? "").trim();
+      if (!rawId) return Promise.resolve({ result: { error: "doc_id required" } });
+      // Accept "DOC#abc12345" or a full uuid prefix.
+      const idPrefix = rawId.replace(/^DOC#/i, "").trim();
+      const match = ctx.kb.knowledgeDocs.find(
+        (d) => d.id === idPrefix || d.id.startsWith(idPrefix),
+      );
+      if (!match) return Promise.resolve({ result: { error: `doc not found: ${rawId}` } });
+      return ctx.userClient
+        .from("floating_knowledge_documents")
+        .select("id,filename,kind,parsed_text")
+        .eq("id", match.id)
+        .maybeSingle()
+        .then(({ data }: any) => {
+          const text = String(data?.parsed_text ?? "").slice(0, 8000);
+          return { result: { id: match.id, filename: match.filename, kind: data?.kind ?? null, text } };
+        });
+    }
+    // ── Analysis ─────────────────────────────────────────────────────────
+    case "analyse_structure": {
+      const line_id = String(args.line_id ?? "");
+      const equation = String(args.equation ?? "");
+      const recommended = (args.recommended ?? {}) as any;
+      const fillers = Array.isArray(recommended.fillers) ? recommended.fillers.map(String) : [];
+      const containers = Array.isArray(recommended.containers) ? recommended.containers.map(String) : [];
+      const arrangement = Array.isArray(recommended.arrangement)
+        ? recommended.arrangement.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (!line_id || fillers.length === 0) {
+        return Promise.resolve({ result: { error: "line_id and recommended.fillers required" } });
+      }
+      return Promise.resolve({
+        result: { queued: true, message: "Analysis proposal queued for teacher approval." },
+        clientAction: {
+          kind: "analyse_structure",
+          payload: {
+            line_id,
+            equation,
+            detected_terms: Array.isArray(args.detected_terms) ? args.detected_terms.map(String) : [],
+            applicable_laws: Array.isArray(args.applicable_laws) ? args.applicable_laws : [],
+            reasoning: String(args.reasoning ?? ""),
+            patch: { fillers, containers, arrangement },
+          },
+        },
+      });
+    }
+    // ── Targeted workspace operators ────────────────────────────────────
+    case "move_filler": {
+      const line_id = String(args.line_id ?? "");
+      const from_index = Number(args.from_index);
+      const to_index = Number(args.to_index);
+      if (!line_id || !Number.isFinite(from_index) || !Number.isFinite(to_index)) {
+        return Promise.resolve({ result: { error: "line_id, from_index, to_index required" } });
+      }
+      return Promise.resolve({
+        result: { queued: true, message: "Move queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: {
+            line_id,
+            op: "move_filler",
+            from_index,
+            to_index,
+            reason: String(args.reason ?? ""),
+          },
+        },
+      });
+    }
+    case "add_filler": {
+      const line_id = String(args.line_id ?? "");
+      const value = String(args.value ?? "").trim();
+      if (!line_id || !value) return Promise.resolve({ result: { error: "line_id and value required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Add filler queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: {
+            line_id,
+            op: "add_filler",
+            value,
+            container: args.container ? String(args.container) : null,
+            reason: String(args.reason ?? ""),
+          },
+        },
+      });
+    }
+    case "remove_filler": {
+      const line_id = String(args.line_id ?? "");
+      const value = args.value != null ? String(args.value) : null;
+      const index = args.index != null ? Number(args.index) : null;
+      if (!line_id || (value == null && (index == null || !Number.isFinite(index)))) {
+        return Promise.resolve({ result: { error: "line_id and (value or index) required" } });
+      }
+      return Promise.resolve({
+        result: { queued: true, message: "Remove filler queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: { line_id, op: "remove_filler", value, index, reason: String(args.reason ?? "") },
+        },
+      });
+    }
+    case "add_container": {
+      const line_id = String(args.line_id ?? "");
+      const container = String(args.container ?? "").toLowerCase().trim();
+      if (!line_id || !container) return Promise.resolve({ result: { error: "line_id and container required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Add container queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: { line_id, op: "add_container", container, reason: String(args.reason ?? "") },
+        },
+      });
+    }
+    case "remove_container": {
+      const line_id = String(args.line_id ?? "");
+      const container = String(args.container ?? "").toLowerCase().trim();
+      if (!line_id || !container) return Promise.resolve({ result: { error: "line_id and container required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Remove container queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: { line_id, op: "remove_container", container, reason: String(args.reason ?? "") },
+        },
+      });
+    }
+    case "set_arrangement": {
+      const line_id = String(args.line_id ?? "");
+      const arrangement = Array.isArray(args.arrangement)
+        ? args.arrangement.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (!line_id || arrangement.length === 0) return Promise.resolve({ result: { error: "line_id and arrangement[] required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Rearrangement queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: { line_id, op: "set_arrangement", arrangement, reason: String(args.reason ?? "") },
+        },
+      });
+    }
+    case "generate_line_structure": {
+      const line_id = String(args.line_id ?? "");
+      const fillers = Array.isArray(args.fillers) ? args.fillers.map(String) : [];
+      const containers = Array.isArray(args.containers) ? args.containers.map(String) : [];
+      const arrangement = Array.isArray(args.arrangement)
+        ? args.arrangement.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (!line_id || fillers.length === 0) return Promise.resolve({ result: { error: "line_id and fillers required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Generated structure queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: {
+            line_id,
+            op: "replace_line",
+            fillers,
+            containers,
+            arrangement,
+            reason: String(args.reason ?? ""),
+          },
+        },
       });
     }
     default:

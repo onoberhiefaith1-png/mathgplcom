@@ -25,8 +25,23 @@ import { toast } from "@/hooks/use-toast";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { LessonContext } from "@/lib/floating/lessonContext";
 
+export type LineUpdateOp =
+  | "move_filler"
+  | "add_filler"
+  | "remove_filler"
+  | "add_container"
+  | "remove_container"
+  | "set_arrangement"
+  | "replace_line";
+
 export interface AssistantClientAction {
-  kind: "apply_chips" | "undo_last_change" | "approve_draft_law" | "reject_draft_law";
+  kind:
+    | "apply_chips"
+    | "undo_last_change"
+    | "approve_draft_law"
+    | "reject_draft_law"
+    | "apply_line_update"
+    | "analyse_structure";
   payload: {
     line_id?: string;
     chips?: string[];
@@ -34,6 +49,23 @@ export interface AssistantClientAction {
     verification_pass?: boolean;
     draft_id?: string;
     law_name?: string;
+    // apply_line_update / analyse_structure
+    op?: LineUpdateOp;
+    from_index?: number;
+    to_index?: number;
+    value?: string | null;
+    index?: number | null;
+    container?: string | null;
+    arrangement?: number[];
+    fillers?: string[];
+    containers?: string[];
+    reason?: string;
+    // analyse_structure extras
+    equation?: string;
+    detected_terms?: string[];
+    applicable_laws?: { id: string; why?: string }[];
+    reasoning?: string;
+    patch?: { fillers?: string[]; containers?: string[]; arrangement?: number[] };
   };
 }
 
@@ -72,14 +104,29 @@ export interface AssistantMessage {
   pendingActions?: AssistantClientAction[];
 }
 
+export interface LineUpdatePayload {
+  lineId: string;
+  op: LineUpdateOp;
+  from_index?: number;
+  to_index?: number;
+  value?: string | null;
+  index?: number | null;
+  container?: string | null;
+  arrangement?: number[];
+  fillers?: string[];
+  containers?: string[];
+}
+
 interface Props {
   lineId: string | null;
   activeHighlight: ActiveHighlight | null;
   onClearHighlight: () => void;
   onApproveApply: (payload: { lineId: string; chips: string[]; scaffolds?: string[] }) => void;
   onApproveUndo: (lineId: string) => void;
+  onApplyLineUpdate?: (payload: LineUpdatePayload) => void;
   lessonContext?: LessonContext;
 }
+
 
 const newId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -151,8 +198,10 @@ export const AssistantPanel = ({
   onClearHighlight,
   onApproveApply,
   onApproveUndo,
+  onApplyLineUpdate,
   lessonContext,
 }: Props) => {
+
   const navigate = useNavigate();
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
   const [messages, setMessages] = useState<AssistantMessage[]>([
@@ -421,9 +470,53 @@ export const AssistantPanel = ({
     } else if (action.kind === "reject_draft_law") {
       const did = String(action.payload.draft_id ?? "");
       if (did) void rejectDraftLaw(did);
+    } else if (action.kind === "apply_line_update") {
+      const lid = String(action.payload.line_id ?? "");
+      const op = action.payload.op as LineUpdateOp | undefined;
+      if (!lid || !op) {
+        toast({ title: "Cannot apply", description: "Missing line id or op.", variant: "destructive" });
+        return;
+      }
+      if (!onApplyLineUpdate) {
+        toast({ title: "Workspace control unavailable", description: "This page can't apply targeted edits yet.", variant: "destructive" });
+        return;
+      }
+      onApplyLineUpdate({
+        lineId: lid,
+        op,
+        from_index: action.payload.from_index,
+        to_index: action.payload.to_index,
+        value: action.payload.value ?? null,
+        index: action.payload.index ?? null,
+        container: action.payload.container ?? null,
+        arrangement: action.payload.arrangement,
+        fillers: action.payload.fillers,
+        containers: action.payload.containers,
+      });
+      toast({ title: "Applied", description: `Line ${lid.slice(0, 6)} updated (${op}).` });
+    } else if (action.kind === "analyse_structure") {
+      const lid = String(action.payload.line_id ?? "");
+      const patch = action.payload.patch ?? {};
+      if (!lid || !patch.fillers?.length) {
+        toast({ title: "Nothing to apply", description: "Analysis had no recommended structure.", variant: "destructive" });
+        return;
+      }
+      if (!onApplyLineUpdate) {
+        toast({ title: "Workspace control unavailable", variant: "destructive" });
+        return;
+      }
+      onApplyLineUpdate({
+        lineId: lid,
+        op: "replace_line",
+        fillers: patch.fillers,
+        containers: patch.containers ?? [],
+        arrangement: patch.arrangement ?? [],
+      });
+      toast({ title: "Analysis applied", description: `Line ${lid.slice(0, 6)} restructured.` });
     }
     dismissAction(msgId, action);
   };
+
 
   const dismissAction = (msgId: string, action: AssistantClientAction) => {
     setMessages((prev) =>
@@ -481,19 +574,39 @@ export const AssistantPanel = ({
   const renderProposedChange = (msgId: string, action: AssistantClientAction, idx: number) => {
     const key = `${msgId}-${idx}`;
     const open = !!previewOpen[key];
+    const lineTag = String(action.payload.line_id ?? "").slice(0, 6);
+    const opLabel = (op?: string): string => {
+      switch (op) {
+        case "move_filler": return `move filler ${action.payload.from_index} → ${action.payload.to_index}`;
+        case "add_filler": return `add filler "${action.payload.value ?? ""}"${action.payload.container ? ` + container ${action.payload.container}` : ""}`;
+        case "remove_filler": return `remove filler ${action.payload.value != null ? `"${action.payload.value}"` : `#${action.payload.index ?? "?"}`}`;
+        case "add_container": return `add container ${action.payload.container ?? ""}`;
+        case "remove_container": return `remove container ${action.payload.container ?? ""}`;
+        case "set_arrangement": return `set arrangement [${(action.payload.arrangement ?? []).join(",")}]`;
+        case "replace_line": return `replace line with ${(action.payload.fillers ?? []).length} fillers`;
+        default: return op ?? "update";
+      }
+    };
     const title =
       action.kind === "apply_chips"
-        ? `Proposed change: apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${String(action.payload.line_id ?? "").slice(0, 6)}`
+        ? `Proposed change: apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${lineTag}`
         : action.kind === "undo_last_change"
-        ? `Proposed change: undo last edit on line ${String(action.payload.line_id ?? "").slice(0, 6)}`
+        ? `Proposed change: undo last edit on line ${lineTag}`
         : action.kind === "approve_draft_law"
         ? `Proposed new law: ${action.payload.law_name ?? "draft"}`
-        : `Reject draft law: ${action.payload.law_name ?? "draft"}`;
+        : action.kind === "reject_draft_law"
+        ? `Reject draft law: ${action.payload.law_name ?? "draft"}`
+        : action.kind === "apply_line_update"
+        ? `Proposed: ${opLabel(action.payload.op)} on line ${lineTag}`
+        : `Analysis: line ${lineTag} — ${(action.payload.applicable_laws ?? []).map((l) => l.id).join(", ") || "no laws cited"}`;
     const approveLabel =
       action.kind === "apply_chips" ? "Approve & Apply"
       : action.kind === "undo_last_change" ? "Approve Undo"
       : action.kind === "approve_draft_law" ? "Approve Law"
-      : "Confirm Reject";
+      : action.kind === "reject_draft_law" ? "Confirm Reject"
+      : action.kind === "apply_line_update" ? "Accept"
+      : "Accept Analysis";
+
     const blocked = action.kind === "apply_chips" && action.payload.verification_pass !== true;
     return (
       <div
@@ -503,7 +616,10 @@ export const AssistantPanel = ({
       >
         <div className="flex items-center gap-2">
           <div className="text-[12px] font-semibold flex-1 min-w-0 truncate">{title}</div>
-          {(action.kind === "apply_chips" || action.kind === "undo_last_change") && (
+          {(action.kind === "apply_chips" ||
+            action.kind === "undo_last_change" ||
+            action.kind === "apply_line_update" ||
+            action.kind === "analyse_structure") && (
             <button
               type="button"
               onClick={() => togglePreview(key)}
@@ -542,6 +658,69 @@ export const AssistantPanel = ({
             )}
           </div>
         )}
+        {open && action.kind === "apply_line_update" && (
+          <div className="mt-2 text-[12px] space-y-1" style={{ color: C.textSubtle }}>
+            <div><span className="font-semibold">op:</span> {action.payload.op}</div>
+            {action.payload.reason && <div><span className="font-semibold">reason:</span> {action.payload.reason}</div>}
+            {action.payload.fillers && action.payload.fillers.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {action.payload.fillers.map((c, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded text-[13px]" style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}>
+                    {renderMathInline(c, `${key}-lu-${i}`)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {action.payload.containers && action.payload.containers.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {action.payload.containers.map((c, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded text-[12px]" style={{ background: C.codeBg, border: `1px dashed ${C.borderStrong}` }}>
+                    {c}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {open && action.kind === "analyse_structure" && (
+          <div className="mt-2 text-[12px] space-y-1.5" style={{ color: C.text }}>
+            {action.payload.equation && (
+              <div><span className="font-semibold">equation:</span> {renderMathInline(action.payload.equation, `${key}-eq`)}</div>
+            )}
+            {action.payload.detected_terms && action.payload.detected_terms.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                <span className="font-semibold mr-1">terms:</span>
+                {action.payload.detected_terms.map((t, i) => (
+                  <span key={i} className="px-1.5 py-0.5 rounded text-[12px]" style={{ background: C.codeBg, border: `1px solid ${C.border}` }}>
+                    {renderMathInline(t, `${key}-t-${i}`)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {action.payload.applicable_laws && action.payload.applicable_laws.length > 0 && (
+              <div>
+                <span className="font-semibold">laws:</span>{" "}
+                {action.payload.applicable_laws.map((l, i) => (
+                  <span key={i} className="mr-1.5">{l.id}{l.why ? ` (${l.why})` : ""}</span>
+                ))}
+              </div>
+            )}
+            {action.payload.patch?.fillers && action.payload.patch.fillers.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                <span className="font-semibold mr-1">recommended:</span>
+                {action.payload.patch.fillers.map((c, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded text-[13px]" style={{ background: C.codeBg, border: `1px solid ${C.border}` }}>
+                    {renderMathInline(c, `${key}-rec-${i}`)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {action.payload.reasoning && (
+              <div className="text-[12px]" style={{ color: C.textSubtle }}>{action.payload.reasoning}</div>
+            )}
+          </div>
+        )}
+
         {blocked && (
           <div className="mt-1 text-[11px]" style={{ color: C.danger }}>
             Verification did not pass — ask the AI to restructure before approving.
