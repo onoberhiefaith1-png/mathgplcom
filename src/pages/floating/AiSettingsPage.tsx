@@ -1183,8 +1183,16 @@ function KnowledgeChat({
             </button>
           </div>
           <div className="text-[10px] mt-1.5 text-center" style={{ color: C.textMuted }}>
-            Drop files anywhere · paste screenshots · math renders automatically
+            <span className="font-medium" style={{ color: mode === "conversation" ? C.textMuted : C.draft }}>
+              {MODE_LABELS[mode].label} mode
+            </span>
+            {" · "}{MODE_LABELS[mode].hint}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
         </div>
       </div>
     </div>
