@@ -1053,6 +1053,7 @@ const FloatingNumbersPage = () => {
             onClearHighlight={() => setActiveHighlight(null)}
             onApproveApply={applyChipsFromAssistant}
             onApproveUndo={undoFromAssistant}
+            onApplyLineUpdate={applyLineUpdateFromAssistant}
             lessonContext={buildLessonContext({
               notebookId: info?.notebookId ?? null,
               subsectionId: info?.subsectionId ?? null,
@@ -1063,7 +1064,11 @@ const FloatingNumbersPage = () => {
               recentExamples: lines.slice(0, 6).map((l) => ({ lineId: l.lineId, text: l.equation })),
               activeLineId: selectedLine?.lineId ?? null,
               activeLineText: selectedLine?.equation ?? null,
+              activeLineFillers: selectedLine?.fillers ?? [],
+              activeLineContainers: (selectedLine?.containers ?? []) as string[],
+              activeLineArrangement: selectedLine?.arrangement ?? [],
             })}
+
           />
         </div>
       </aside>
