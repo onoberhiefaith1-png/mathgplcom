@@ -621,11 +621,8 @@ export const AssistantPanel = ({
       className="rounded-md px-2 py-1 inline-flex items-center gap-1.5 text-[12px]"
       style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}
     >
-      {a.kind === "audio" ? <AudioLines className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+      <FileText className="h-3 w-3" />
       <span className="font-mono">{a.filename}</span>
-      {a.kind === "audio" && typeof a.durationSec === "number" && (
-        <span style={{ color: C.textSubtle }}>· {formatDuration(a.durationSec)}</span>
-      )}
       {onRemove && (
         <button type="button" onClick={onRemove} className="p-0.5 rounded" title="Remove">
           <X className="h-3 w-3" />
