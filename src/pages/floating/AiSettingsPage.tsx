@@ -144,6 +144,9 @@ function parseActions(raw: string): { text: string; actions: ChatAction[] } {
     if (/^discard\b/i.test(l)) actions.push({ kind: "discard" });
   }
   return { text: raw.replace(re, "").trim(), actions };
+}
+
+
 
 /* ──────────────── page ──────────────── */
 
