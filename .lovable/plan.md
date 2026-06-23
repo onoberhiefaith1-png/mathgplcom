@@ -1,51 +1,90 @@
+# Floating Number AI — Unified Modes + Storage Outputs
+
 ## Goal
 
-Turn the Floating Number AI from a narrow tool-only assistant into a full general-purpose ChatGPT/Claude-style AI that *also* has deep Floating Number expertise — without losing law-grounding, approval-gated edits, or the existing tool pipeline.
+Keep the existing single chat interface and right-hand sidebar (Official Laws, Draft Laws, Documents). Add a **Mode Selector** next to the Upload Image / Upload File / Voice buttons, and treat Draft/Official Laws + Documents purely as **storage outputs** that the AI proposes at the end of a session. The AI stays a full general-purpose assistant with Floating Number specialization.
 
-## Changes
+No new pages. No tab refactor. Existing sidebar, approval cards, voice input, and attachments stay.
 
-### 1. Rewrite the system prompt (`supabase/functions/floating-assistant/index.ts`)
+## 1. Mode Selector (frontend)
 
-Replace the current `SYSTEM_PROMPT` with a dual-mode prompt:
+In `src/pages/floating/AiSettingsPage.tsx` composer row (next to Upload Image / Upload File / Mic):
 
-- **Identity:** "You are the Floating Number AI — a full general-purpose assistant (like ChatGPT/Claude) with deep specialization in the Floating Number system, mathematics, and lesson design."
-- **Always allowed:** answer any question, write stories, brainstorm, design games, explain concepts, summarize/compare/analyze uploaded documents, discuss laws in plain English, do general math, write code, etc.
-- **Specialization triggers:** when the user asks for chip generation, verification, applying chips, restructuring an expression, or proposing a law, use the existing tools (`analyze_example`, `generate_chips`, `verify_chips`, `lookup_law`, `propose_new_law`, `apply_chips`, `undo_last_change`) and follow the QUESTION_LOCK / law-grounded rules already in place.
-- **Tools are optional:** for general conversation, answer directly without invoking tools. Never refuse a request just because it isn't Floating-Number-related.
-- **Knowledge access:** keep Official Laws, Draft Laws, Knowledge Docs, lesson context, and current selection injected on every turn (as they already are) and tell the model it may freely cite or ignore them based on what the user asked.
+- Add a compact dropdown / segmented control: **Conversation**, **Training**, **Knowledge Extraction**.
+- State: `const [mode, setMode] = useState<"conversation"|"training"|"extraction">("conversation")`.
+- Persist mode in `localStorage` per subsection so it survives reload.
+- Show a small badge above the input ("Training mode — I will learn from what you share") so the user knows which mode is active.
+- Mode is sent with every `send()` call as `mode` in the request body to the edge function.
 
-Keep `tool_choice: "auto"` (already set) so the model decides when to call tools.
+No changes to the sidebar layout, collapse behavior, or AI/detail/sidebar widths.
 
-### 2. Improve error handling
+## 2. Mode behavior (backend prompt)
 
-**Backend (`supabase/functions/floating-assistant/index.ts`):**
-- Map gateway/runtime failures to structured errors with a `code` and friendly `message`:
-  - `rate_limited` (429) → "The AI is busy — please retry in a few seconds."
-  - `credits_exhausted` (402) → "AI credits exhausted for this workspace."
-  - `payload_too_large` (413 / body > ~8 MB) → "Document too large — please upload a smaller file or split it."
-  - `unsupported_format` (unknown mime) → "Unsupported file format. Try PDF, DOCX, TXT, or MD."
-  - `context_limit` (gateway 400 mentioning context/tokens) → "Conversation or document too long — start a new chat or shorten the document."
-  - `upstream_unavailable` (5xx) → "AI service temporarily unavailable. Please retry."
-  - `internal_error` (default) → include the raw message for diagnostics.
-- Return `{ error: { code, message, detail? } }` with the appropriate HTTP status instead of a bare string.
+In `supabase/functions/floating-assistant/index.ts`, extend the request schema with `mode` and inject a **mode-specific addendum** into the existing dual-mode system prompt. The general-purpose + Floating-Number identity from the last change stays intact.
 
-**Frontend (`src/components/floating/AssistantPanel.tsx`):**
-- In the `send` catch block, read `error.context?.body` / `data.error` for the structured shape and display the friendly `message` (and `detail` if present) instead of the generic "Failed to send request to Edge Function".
-- Show the same friendly text inline in the assistant bubble.
+- **Conversation** (default): current behavior. Free general-purpose chat, optional tool use, no nudges to save anything unless the user asks.
+- **Training**: AI acknowledges teacher input ("I understand.", "I have learned this principle.", "This may be useful for future floating number generation."), summarizes what it learned, and at the end offers: *Create Draft Law*, *Create Document*, *Save as Knowledge*. Never auto-promotes anything.
+- **Knowledge Extraction**: AI focuses on discovery — detect concepts, patterns, principles; extract examples; propose laws; generate documentation. Output is structured (sections: Concepts / Patterns / Proposed Laws / Suggested Examples / Suggested Document Outline).
 
-### 3. No schema, no DB, no UI layout changes
+All three modes keep tool access (`analyze_example`, `generate_chips`, `verify_chips`, `lookup_law`, `propose_new_law`, `apply_chips`, `undo_last_change`) — tools remain optional and the model decides when to call them.
 
-- Tool definitions, lesson-context hydration, law/draft/document loading, approval cards, sidebar layout, voice input, and attachments stay exactly as they are.
-- This is a prompt + error-handling change only.
+## 3. End-of-session storage prompt
 
-## Files touched
+On the **last assistant turn of a Training or Extraction session** (heuristic: when the AI signals "done" or after N turns of teacher input without follow-up), the AI appends a structured action block the frontend renders as buttons:
 
-- `supabase/functions/floating-assistant/index.ts` — new system prompt; structured error responses.
-- `src/components/floating/AssistantPanel.tsx` — parse and display structured errors; update the welcome message to reflect general-purpose capability.
+```
+ACTIONS:
+- save_knowledge: "<title>"
+- create_draft_law: "<proposed name>"
+- generate_document: "<draft id or proposed title>"
+- discard
+```
+
+`AssistantPanel.tsx` parses this block and renders the four buttons. Clicking:
+
+- **Save as Knowledge** → inserts a row in `floating_knowledge_docs` (existing `docs` table) with `kind = 'note'`.
+- **Create Draft Law** → calls existing `propose_new_law` flow (writes into `floating_law_drafts`).
+- **Generate Document** → calls a new lightweight server route `generate-law-document` that produces a Markdown doc using the law's name/statement/examples and stores it in `floating_knowledge_docs` with `kind = 'law_document'` and `linked_law_id`.
+- **Discard** → no-op + toast.
+
+## 4. Law-document generation
+
+When a Draft Law is approved (existing `approveDraft` in `AiSettingsPage.tsx`) or a teacher clicks **Generate Law Document**, call the new edge function (or reuse `floating-assistant` with `mode = "document"`) that produces:
+
+```
+Title
+Law Statement
+Explanation
+Examples (1..N)
+Floating Number Applications (1..N)
+Common Mistakes
+Related Laws
+```
+
+Stored in `floating_knowledge_docs`. Documents appear in the existing Documents section of the sidebar — no UI change there.
+
+## 5. Official Law display
+
+Official Laws stay short. Approval flow already moves a Draft into `floating_law_library` with `law_number`, `name`, `statement`. The detail view in `AiSettingsPage.tsx` (the middle column when a law is selected) keeps the same fields. The auto-generated long document lives separately under Documents and is linked from the law via `linked_law_id`.
+
+## 6. Files touched
+
+- `src/pages/floating/AiSettingsPage.tsx` — Mode Selector UI, `mode` state, pass `mode` to chat, "Generate Law Document" button on approved laws and draft cards.
+- `src/components/floating/AssistantPanel.tsx` — render ACTIONS block as buttons (Save as Knowledge / Create Draft Law / Generate Document / Discard); send `mode` in request body.
+- `supabase/functions/floating-assistant/index.ts` — accept `mode`, inject mode-specific prompt addendum, emit ACTIONS block at end of Training/Extraction turns.
+- `supabase/functions/generate-law-document/index.ts` — new edge function that produces the full Markdown law document and inserts into `floating_knowledge_docs`.
+- (Optional schema) add `linked_law_id` and `kind` columns to `floating_knowledge_docs` if they don't exist; migration only if needed.
+
+## 7. Out of scope
+
+- No new pages or routes.
+- No changes to the right-sidebar layout, collapse behavior, voice input, or attachment pipeline.
+- No changes to existing tool definitions or approval cards.
+- General-purpose identity from the previous change is preserved.
 
 ## Verification
 
-- Ask a non-math question ("Write a short story about a triangle") → gets a real answer, no tools called.
-- Ask "Generate floating numbers for x²+5x+6" with a highlight → tool pipeline runs and proposes an approval card as before.
-- Upload a PDF and ask "Summarize this and extract any laws" → AI responds with summary + optional `propose_new_law` calls.
-- Force a failure (oversized payload) → see the friendly "Document too large" message, not a raw Edge Function error.
+- Switch to Training, paste a rule → AI replies with "I understand…" + ACTIONS block; clicking *Create Draft Law* creates a draft visible in the sidebar.
+- Switch to Knowledge Extraction, upload a PDF → AI returns structured Concepts/Patterns/Proposed Laws + ACTIONS block.
+- Approve a draft → law appears in Official Laws (short form) AND a "Generate Law Document" button is offered; clicking it creates a full Markdown doc in Documents.
+- Conversation mode answers "Tell me a story" / "Explain photosynthesis" with no storage prompts.
