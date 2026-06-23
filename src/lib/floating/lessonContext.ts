@@ -22,6 +22,11 @@ export interface LessonContext {
   /** The line the teacher is actively working on. */
   activeLineId: string | null;
   activeLineText: string | null;
+  /** Live workspace state of the active line, so the AI sees the latest
+   *  manual edits and can propose targeted patches (move/add/remove). */
+  activeLineFillers: string[];
+  activeLineContainers: string[];
+  activeLineArrangement: number[];
 }
 
 export const emptyLessonContext = (): LessonContext => ({
@@ -34,6 +39,9 @@ export const emptyLessonContext = (): LessonContext => ({
   recentExamples: [],
   activeLineId: null,
   activeLineText: null,
+  activeLineFillers: [],
+  activeLineContainers: [],
+  activeLineArrangement: [],
 });
 
 export const buildLessonContext = (input: Partial<LessonContext>): LessonContext => ({
