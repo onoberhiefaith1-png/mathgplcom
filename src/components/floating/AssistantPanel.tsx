@@ -25,8 +25,23 @@ import { toast } from "@/hooks/use-toast";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { LessonContext } from "@/lib/floating/lessonContext";
 
+export type LineUpdateOp =
+  | "move_filler"
+  | "add_filler"
+  | "remove_filler"
+  | "add_container"
+  | "remove_container"
+  | "set_arrangement"
+  | "replace_line";
+
 export interface AssistantClientAction {
-  kind: "apply_chips" | "undo_last_change" | "approve_draft_law" | "reject_draft_law";
+  kind:
+    | "apply_chips"
+    | "undo_last_change"
+    | "approve_draft_law"
+    | "reject_draft_law"
+    | "apply_line_update"
+    | "analyse_structure";
   payload: {
     line_id?: string;
     chips?: string[];
@@ -34,6 +49,23 @@ export interface AssistantClientAction {
     verification_pass?: boolean;
     draft_id?: string;
     law_name?: string;
+    // apply_line_update / analyse_structure
+    op?: LineUpdateOp;
+    from_index?: number;
+    to_index?: number;
+    value?: string | null;
+    index?: number | null;
+    container?: string | null;
+    arrangement?: number[];
+    fillers?: string[];
+    containers?: string[];
+    reason?: string;
+    // analyse_structure extras
+    equation?: string;
+    detected_terms?: string[];
+    applicable_laws?: { id: string; why?: string }[];
+    reasoning?: string;
+    patch?: { fillers?: string[]; containers?: string[]; arrangement?: number[] };
   };
 }
 
@@ -72,14 +104,29 @@ export interface AssistantMessage {
   pendingActions?: AssistantClientAction[];
 }
 
+export interface LineUpdatePayload {
+  lineId: string;
+  op: LineUpdateOp;
+  from_index?: number;
+  to_index?: number;
+  value?: string | null;
+  index?: number | null;
+  container?: string | null;
+  arrangement?: number[];
+  fillers?: string[];
+  containers?: string[];
+}
+
 interface Props {
   lineId: string | null;
   activeHighlight: ActiveHighlight | null;
   onClearHighlight: () => void;
   onApproveApply: (payload: { lineId: string; chips: string[]; scaffolds?: string[] }) => void;
   onApproveUndo: (lineId: string) => void;
+  onApplyLineUpdate?: (payload: LineUpdatePayload) => void;
   lessonContext?: LessonContext;
 }
+
 
 const newId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
