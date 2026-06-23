@@ -677,6 +677,64 @@ const AiSettingsPage = () => {
                         ))
                       )}
                     </SidebarSection>
+
+                    <SidebarSection
+                      icon={Cpu}
+                      label="Engine Principles"
+                      count={filteredEnginePrinciples.length}
+                      open={openEnginePrinciples}
+                      onToggle={() => setOpenEnginePrinciples((v) => !v)}
+                    >
+                      {filteredEnginePrinciples.length === 0 ? (
+                        <EmptyHint text="No engine principles yet. They appear after the first floating-number generation." />
+                      ) : (
+                        filteredEnginePrinciples.map((d) => (
+                          <ListRow
+                            key={d.id}
+                            active={selectedDoc?.id === d.id}
+                            onClick={() => { setSelectedDoc(d); setSelectedLaw(null); setSelectedDraft(null); }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                style={{ background: "#E0F2FE", color: "#0369A1" }}>ENGINE</span>
+                              <div className="font-medium text-[13px] truncate flex-1">{d.filename}</div>
+                            </div>
+                            <div className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>
+                              How the generator decides
+                            </div>
+                          </ListRow>
+                        ))
+                      )}
+                    </SidebarSection>
+
+                    <SidebarSection
+                      icon={Activity}
+                      label="Generation Logs"
+                      count={filteredEngineLogs.length}
+                      open={openEngineLogs}
+                      onToggle={() => setOpenEngineLogs((v) => !v)}
+                    >
+                      {filteredEngineLogs.length === 0 ? (
+                        <EmptyHint text="No generation logs yet. Generate a floating number to see the engine explain itself." />
+                      ) : (
+                        filteredEngineLogs.slice(0, 50).map((d) => (
+                          <ListRow
+                            key={d.id}
+                            active={selectedDoc?.id === d.id}
+                            onClick={() => { setSelectedDoc(d); setSelectedLaw(null); setSelectedDraft(null); }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                style={{ background: "#ECFCCB", color: "#3F6212" }}>LOG</span>
+                              <div className="font-medium text-[13px] truncate flex-1">{d.filename}</div>
+                            </div>
+                            <div className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>
+                              {new Date(d.created_at).toLocaleString()}
+                            </div>
+                          </ListRow>
+                        ))
+                      )}
+                    </SidebarSection>
                   </>
                 )}
               </div>
