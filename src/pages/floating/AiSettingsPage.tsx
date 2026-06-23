@@ -150,6 +150,67 @@ function parseActions(raw: string): { text: string; actions: ChatAction[] } {
   return { text: raw.replace(re, "").trim(), actions };
 }
 
+/* ──────────────── Multi-select action picker ──────────────── */
+function ActionPicker({
+  actions, busy, onRun,
+}: { actions: ChatAction[]; busy: boolean; onRun: (sel: ChatAction[]) => void }) {
+  const runnable = actions.filter((a) => a.kind !== "discard");
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const toggle = (i: number) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i); else next.add(i);
+      return next;
+    });
+  };
+  const labelFor = (a: ChatAction) => {
+    if (a.kind === "approve_official_law") return `✅ Approve as Official Law: ${a.name}`;
+    if (a.kind === "create_draft_law") return `📜 Create Draft Law: ${a.name}`;
+    if (a.kind === "generate_document") return `📄 Generate Document: ${a.title}`;
+    if (a.kind === "save_knowledge") return `💾 Save to Knowledge Base: ${a.title}`;
+    return "Discard";
+  };
+  return (
+    <div className="mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[10px] uppercase tracking-wide mb-2" style={{ color: C.textMuted }}>
+        Select one or more actions:
+      </div>
+      <div className="flex flex-col gap-1.5 mb-2">
+        {runnable.map((a, i) => (
+          <label key={i} className="flex items-start gap-2 text-[13px] cursor-pointer select-none"
+            style={{ color: C.text }}>
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={picked.has(i)}
+              onChange={() => toggle(i)}
+              disabled={busy}
+            />
+            <span>{labelFor(a)}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => onRun(Array.from(picked).map((i) => runnable[i]))}
+          disabled={busy || picked.size === 0}
+          className="text-[12px] px-3 py-1.5 rounded-md disabled:opacity-40"
+          style={{ background: C.accent, color: C.accentText }}
+        >
+          {busy ? "Running…" : `Execute Selected (${picked.size})`}
+        </button>
+        <button
+          onClick={() => onRun([{ kind: "discard" }])}
+          disabled={busy}
+          className="text-[12px] px-3 py-1.5 rounded-md border hover:bg-black/5"
+          style={{ borderColor: C.border, color: C.textMuted }}
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
 
 
 /* ──────────────── page ──────────────── */
