@@ -1,79 +1,67 @@
-# Knowledge Base → AI Collaboration Workspace
+# Knowledge Base AI — Layout + Voice Fixes
 
-Transform `AiSettingsPage.tsx` from a 3-column document manager into an AI-first workspace where the Floating Number AI is always the center of the experience.
+Three targeted changes to `src/pages/floating/AiSettingsPage.tsx` and `src/hooks/useVoiceInput.ts`. No backend, no schema, no edge-function changes.
 
-## New Layout
+## 1. Move Laws / Drafts / Documents into the left sidebar
 
 ```text
-┌──────────────┬───────────────────────────────────────────┐
-│ Sidebar 30%  │  Floating Number AI (70%)                 │
-│              │                                           │
-│ Search       │  [conversation transcript]                │
-│ Official Laws│  [math rendered via renderMathInline]     │
-│ Draft Laws   │  [composer: text · voice · file · image]  │
-│ Documents    │                                           │
-└──────────────┴───────────────────────────────────────────┘
+┌────────────────────────┬────────────────────────────────┐
+│ LEFT SIDEBAR (30%)     │  AI CONVERSATION (70%)         │
+│  🔎 Search             │                                │
+│  ▾ Official Laws       │  [transcript + composer]       │
+│  ▾ Draft Laws          │                                │
+│  ▾ Documents (+upload) │                                │
+└────────────────────────┴────────────────────────────────┘
 
 When a law / draft / document is opened:
-┌──────────────┬──────────────────────────┬────────────────┐
-│ Sidebar 20%  │  Selected item (50%)     │  AI (30%)      │
-└──────────────┴──────────────────────────┴────────────────┘
+┌──────────┬───────────────────────────┬──────────────────┐
+│ Sidebar  │  Law / Doc viewer (70%)   │  AI chat (30%)   │
+│ (auto-   │  (takes the chat's space, │  stays mounted,  │
+│ narrows) │   never the sidebar's)    │  never unmounts  │
+└──────────┴───────────────────────────┴──────────────────┘
 ```
 
-- Default: no selection → AI = 70%, Sidebar = 30%, no center panel.
-- On selection → item detail mounts in the middle, AI shrinks to ~30% but stays mounted (no remount, no message loss).
-- Closing the detail returns to default. AI is never unmounted.
+- Sidebar holds one search box + three collapsible sections (Official Laws, Draft Laws, Documents) + the document upload control. This replaces the current tabbed left rail.
+- When nothing is selected: sidebar 30% / AI 70%.
+- When a law/draft/document is opened: detail panel takes ~70% of the remaining width and AI shrinks to ~30%. The sidebar stays at its compact width; the detail panel eats into the AI column, not into the sidebar. AI is never hidden.
+- AI chat component stays mounted across selection changes so messages, attachments and voice state persist.
+- Close button on the detail panel returns to the default 30/70 layout.
 
-## Sidebar (left)
+## 2. Voice input fixes (`useVoiceInput.ts`)
 
-- One search box filtering across Laws / Drafts / Documents.
-- Three collapsible sections: Official Laws, Draft Laws, Documents.
-- Clicking a row opens it immediately in the middle panel — no placeholder screen.
-- Document upload (PDF / DOCX / TXT / images) stays here.
+Current bugs come from two things in the hook:
+- `r.continuous = false` → recognition ends on the first pause, so resuming starts a new session that often re-emits the last final phrase (duplicate) and the interim-only callback path (`interim || p`) overwrites the committed text (overwrite-on-resume).
+- Interim results are written into the same state slot as the committed transcript, so a fresh interim string can replace already-committed text.
 
-## Removed
+Fix:
+- Switch to `r.continuous = true; r.interimResults = true`.
+- Track a `committedRef` (string) inside the hook — the stable, already-finalized transcript for the current dictation session, seeded from the composer's value when `start()` is called.
+- On each `onresult`:
+  - Append only newly-final segments (using `resultIndex`) to `committedRef`, guarding against repeats by remembering the last appended final string.
+  - Compute display = `committedRef + " " + interim` and push that via `onTranscript` as an absolute string. Interim text never erases committed text.
+- Continuous dictation: do not auto-stop on short pauses. On `onend` while the user has not pressed stop, auto-restart recognition (silent gap is normal); only stop when the user clicks the mic again or on a hard error. Add a safety idle timeout (~8s of no new results) before truly finalizing, so the session feels continuous but does not run forever.
+- On `stop()`: flush interim into committed, fully stop recognition, clear the auto-restart flag.
 
-- The "Select a law, draft, or document" placeholder card.
-- "Review recent law", "Compare laws", "List approved laws", quick-prompt buttons.
-- Any middle-column empty state. The AI fills that space instead.
+Result:
+- One spoken sentence → one transcription (no duplication).
+- Pause → continue appends to existing text instead of overwriting it.
+- Short pauses keep the session alive.
 
-## Floating Number AI (primary workspace)
+No call-site changes needed — the hook's public surface (`{ listening, start, stop }` + the `onTranscript` updater contract) stays the same, so the Knowledge Base composer and any other consumers keep working.
 
-Reuses the existing `floating-assistant` edge function with `workspace: "knowledge"` so memory, laws, drafts, and documents are shared with the Generation page (already wired in prior turn).
+## 3. AI-first guarantees
 
-Composer affordances:
-- Text input (multi-line, Enter to send).
-- Voice input via existing `useVoiceInput` hook (SpeechRecognition → transcript into composer).
-- File upload: PDF, DOCX, TXT (sent as base64 `file` parts to the edge function — already supported).
-- Image / screenshot upload: sent as `image_url` parts (base64 data URL).
-- Drag-and-drop onto the conversation area routes into the same attachment pipeline.
-
-Conversation surface:
-- Scrollable transcript, persistent across navigation within the page.
-- Messages render math via the existing `renderMathInline` / `MathTreeRender` pipeline (same engine Lesson Notes uses). A small post-processor runs `toUnicodeMath` + `renderMathInline` on every assistant chunk so fractions, roots, exponents, Σ, ∫, matrices appear properly stacked — never as raw `\frac` or `x^2`.
-- Approval cards for AI-proposed law drafts ("I have created Draft Law 19") remain; on approve the draft is inserted into `floating_law_drafts` and the sidebar list updates via the existing realtime sync.
-
-Real-time voice ("Call AI"): out of scope for this change. Add a disabled "Call AI" button with a tooltip "Coming soon" and leave a `// TODO: realtime voice` hook so the architecture is ready, but do not wire OpenAI Realtime here.
-
-## Law authoring via chat
-
-The AI already has `propose_new_law` / draft tools from the previous turn. Surface them inline in the transcript as action cards (Approve / Edit / Reject). Approval writes to `floating_law_drafts` or promotes to `floating_law_library`, and the sidebar updates immediately through the existing Supabase realtime channel.
-
-## Shared brain
-
-No new tables. The Generation page and Knowledge page both call `floating-assistant` and both read the same `floating_law_library`, `floating_law_drafts`, `floating_knowledge_documents`. The `workspace` field only switches transcript scope; knowledge is global.
+- The AI chat column is rendered once at the top level of the page and is never conditionally unmounted.
+- The detail panel mounts/unmounts inside the right side of the layout; opening or closing it only resizes the AI column, never removes it.
+- Removed: the "Select a law, draft, or document" placeholder and any empty middle column — when nothing is selected, the AI simply fills 70%.
 
 ## Files touched
 
-- `src/pages/floating/AiSettingsPage.tsx` — restructure to the two-mode layout described above; delete the placeholder card and the quick-action buttons.
-- `src/components/floating/KnowledgeChat.tsx` (new, extracted from current inline chat) — owns transcript, composer, attachments, math rendering, draft-approval cards. Persists across selection changes so opening a law does not reset the conversation.
-- `src/components/floating/KnowledgeSidebar.tsx` (new) — search + the three sections + upload control.
-- `src/components/floating/KnowledgeDetail.tsx` (new) — renders a Law / Draft / Document detail when one is selected; close button collapses back to AI-only mode.
-
-No edge-function changes. No migration. No business-logic changes beyond moving UI.
+- `src/pages/floating/AiSettingsPage.tsx` — restructure layout per section 1; move tabs/lists/upload into the left sidebar; make the detail panel share width with the AI column only.
+- `src/hooks/useVoiceInput.ts` — continuous mode + committed/interim split + auto-restart on `onend` per section 2.
 
 ## Out of scope
 
-- Realtime voice conversation (button is placeholder).
-- New schema fields.
-- Changes to the Generation page.
+- Edge function, DB schema, realtime channels.
+- Generation page.
+- Realtime voice ("Call AI") — stays a placeholder.
