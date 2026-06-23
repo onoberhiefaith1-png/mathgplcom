@@ -259,7 +259,44 @@ const AiSettingsPage = () => {
     load();
   };
 
-  /* ───── filtering ───── */
+  /* ───── law document generation ───── */
+  const generateLawDocument = useCallback(async (l: Law) => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) { toast({ title: "Not signed in", variant: "destructive" }); return; }
+    toast({ title: "Generating law document…" });
+    try {
+      const { data, error } = await supabase.functions.invoke("floating-assistant", {
+        body: {
+          mode: "document",
+          workspace: "knowledge",
+          history: [],
+          attachments: [],
+          message:
+            `Generate a full law document for "${l.name}".\n\n` +
+            `Law statement: ${l.rule}\n` +
+            (l.reason ? `Reasoning: ${l.reason}\n` : "") +
+            (Array.isArray(l.lesson_topics) && l.lesson_topics.length ? `Topics: ${l.lesson_topics.join(", ")}\n` : "") +
+            `\nProduce the sections: Title, Law Statement, Explanation, Examples, Floating Number Applications, Common Mistakes, Related Laws.`,
+        },
+      });
+      if (error) throw error;
+      const reply = (data as any)?.reply ?? "";
+      const { error: insErr } = await supabase.from("floating_knowledge_documents").insert({
+        owner_id: session.user.id,
+        kind: "law_document",
+        filename: `${l.name}.md`,
+        parsed_text: reply,
+        metadata: { source: "generated", linked_law_id: l.id, law_name: l.name },
+      } as any);
+      if (insErr) throw insErr;
+      toast({ title: "Law document created", description: l.name });
+      load();
+    } catch (e: any) {
+      toast({ title: "Generation failed", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  }, [load]);
+
+
 
   const q = filter.toLowerCase().trim();
   const filteredOfficial = useMemo(
