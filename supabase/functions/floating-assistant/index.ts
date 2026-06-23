@@ -704,6 +704,7 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
     if (engineLogs.length > 6) {
       lines.push("- Older generation logs available via lookup_document.");
     }
+  }
 
   if (kb.exampleAnalyses.length > 0) {
     lines.push(`### Recent Example Analyses (${kb.exampleAnalyses.length})`);
