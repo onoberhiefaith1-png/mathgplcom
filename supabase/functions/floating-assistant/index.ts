@@ -773,6 +773,170 @@ const runServerTool = (
         clientAction: { kind: "undo_last_change", payload: args },
       });
     }
+    // ── Knowledge ────────────────────────────────────────────────────────
+    case "lookup_document": {
+      const rawId = String(args.doc_id ?? "").trim();
+      if (!rawId) return Promise.resolve({ result: { error: "doc_id required" } });
+      // Accept "DOC#abc12345" or a full uuid prefix.
+      const idPrefix = rawId.replace(/^DOC#/i, "").trim();
+      const match = ctx.kb.knowledgeDocs.find(
+        (d) => d.id === idPrefix || d.id.startsWith(idPrefix),
+      );
+      if (!match) return Promise.resolve({ result: { error: `doc not found: ${rawId}` } });
+      return ctx.userClient
+        .from("floating_knowledge_documents")
+        .select("id,filename,kind,parsed_text")
+        .eq("id", match.id)
+        .maybeSingle()
+        .then(({ data }: any) => {
+          const text = String(data?.parsed_text ?? "").slice(0, 8000);
+          return { result: { id: match.id, filename: match.filename, kind: data?.kind ?? null, text } };
+        });
+    }
+    // ── Analysis ─────────────────────────────────────────────────────────
+    case "analyse_structure": {
+      const line_id = String(args.line_id ?? "");
+      const equation = String(args.equation ?? "");
+      const recommended = (args.recommended ?? {}) as any;
+      const fillers = Array.isArray(recommended.fillers) ? recommended.fillers.map(String) : [];
+      const containers = Array.isArray(recommended.containers) ? recommended.containers.map(String) : [];
+      const arrangement = Array.isArray(recommended.arrangement)
+        ? recommended.arrangement.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (!line_id || fillers.length === 0) {
+        return Promise.resolve({ result: { error: "line_id and recommended.fillers required" } });
+      }
+      return Promise.resolve({
+        result: { queued: true, message: "Analysis proposal queued for teacher approval." },
+        clientAction: {
+          kind: "analyse_structure",
+          payload: {
+            line_id,
+            equation,
+            detected_terms: Array.isArray(args.detected_terms) ? args.detected_terms.map(String) : [],
+            applicable_laws: Array.isArray(args.applicable_laws) ? args.applicable_laws : [],
+            reasoning: String(args.reasoning ?? ""),
+            patch: { fillers, containers, arrangement },
+          },
+        },
+      });
+    }
+    // ── Targeted workspace operators ────────────────────────────────────
+    case "move_filler": {
+      const line_id = String(args.line_id ?? "");
+      const from_index = Number(args.from_index);
+      const to_index = Number(args.to_index);
+      if (!line_id || !Number.isFinite(from_index) || !Number.isFinite(to_index)) {
+        return Promise.resolve({ result: { error: "line_id, from_index, to_index required" } });
+      }
+      return Promise.resolve({
+        result: { queued: true, message: "Move queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: {
+            line_id,
+            op: "move_filler",
+            from_index,
+            to_index,
+            reason: String(args.reason ?? ""),
+          },
+        },
+      });
+    }
+    case "add_filler": {
+      const line_id = String(args.line_id ?? "");
+      const value = String(args.value ?? "").trim();
+      if (!line_id || !value) return Promise.resolve({ result: { error: "line_id and value required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Add filler queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: {
+            line_id,
+            op: "add_filler",
+            value,
+            container: args.container ? String(args.container) : null,
+            reason: String(args.reason ?? ""),
+          },
+        },
+      });
+    }
+    case "remove_filler": {
+      const line_id = String(args.line_id ?? "");
+      const value = args.value != null ? String(args.value) : null;
+      const index = args.index != null ? Number(args.index) : null;
+      if (!line_id || (value == null && (index == null || !Number.isFinite(index)))) {
+        return Promise.resolve({ result: { error: "line_id and (value or index) required" } });
+      }
+      return Promise.resolve({
+        result: { queued: true, message: "Remove filler queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: { line_id, op: "remove_filler", value, index, reason: String(args.reason ?? "") },
+        },
+      });
+    }
+    case "add_container": {
+      const line_id = String(args.line_id ?? "");
+      const container = String(args.container ?? "").toLowerCase().trim();
+      if (!line_id || !container) return Promise.resolve({ result: { error: "line_id and container required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Add container queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: { line_id, op: "add_container", container, reason: String(args.reason ?? "") },
+        },
+      });
+    }
+    case "remove_container": {
+      const line_id = String(args.line_id ?? "");
+      const container = String(args.container ?? "").toLowerCase().trim();
+      if (!line_id || !container) return Promise.resolve({ result: { error: "line_id and container required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Remove container queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: { line_id, op: "remove_container", container, reason: String(args.reason ?? "") },
+        },
+      });
+    }
+    case "set_arrangement": {
+      const line_id = String(args.line_id ?? "");
+      const arrangement = Array.isArray(args.arrangement)
+        ? args.arrangement.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (!line_id || arrangement.length === 0) return Promise.resolve({ result: { error: "line_id and arrangement[] required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Rearrangement queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: { line_id, op: "set_arrangement", arrangement, reason: String(args.reason ?? "") },
+        },
+      });
+    }
+    case "generate_line_structure": {
+      const line_id = String(args.line_id ?? "");
+      const fillers = Array.isArray(args.fillers) ? args.fillers.map(String) : [];
+      const containers = Array.isArray(args.containers) ? args.containers.map(String) : [];
+      const arrangement = Array.isArray(args.arrangement)
+        ? args.arrangement.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (!line_id || fillers.length === 0) return Promise.resolve({ result: { error: "line_id and fillers required" } });
+      return Promise.resolve({
+        result: { queued: true, message: "Generated structure queued for teacher approval." },
+        clientAction: {
+          kind: "apply_line_update",
+          payload: {
+            line_id,
+            op: "replace_line",
+            fillers,
+            containers,
+            arrangement,
+            reason: String(args.reason ?? ""),
+          },
+        },
+      });
+    }
     default:
       return Promise.resolve({ result: { error: `Unknown tool: ${call.name}` } });
   }
