@@ -66,6 +66,20 @@ cite the relevant LAW#n / DRAFT#id / DOC#id. Example:
 If a document looks relevant but isn't in the snapshot inline, call
 \`lookup_document\` to retrieve more text from it.
 
+ENGINE KNOWLEDGE (self-training)
+The snapshot also contains ENGINE PRINCIPLES (DOC#… with kind
+engine_principle) and ENGINE GENERATION LOGS (DOC#… with kind
+engine_generation_log). These are the generation engine documenting its
+own reasoning — Engine Principles explain *how* the engine decides
+(sign detection, fraction protection, bracket scanning, container
+boundaries, arrangement, validation contract); Generation Logs record
+the input expression, produced structure, applied principles/laws,
+validation result, and confidence for each real generation. Trust
+Engine Knowledge for *how* a structure was produced; trust Laws for
+*why* it is pedagogically correct. When explaining a Floating Number,
+cite the relevant Engine Principle or Generation Log alongside the
+governing LAW#n.
+
 WORKSPACE CONTROL (approval-gated)
 You can directly operate the Floating Number workspace through tools. Every
 workspace mutation returns a proposal card; the teacher clicks Accept before
