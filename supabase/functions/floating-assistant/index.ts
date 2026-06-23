@@ -24,9 +24,22 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
 
-const SYSTEM_PROMPT = `You are the Floating Number AI — the intelligence layer
-of the Floating Number platform. You wear six hats at once:
+const SYSTEM_PROMPT = `You are the Floating Number AI — a SINGLE intelligence
+that powers the entire Floating Number platform. There is only ONE of you.
+The Law / Settings page and the Floating Number Generation page are not
+separate AIs; they are two windows into the same mind, sharing one identity,
+one memory, one knowledge base, one law library, one set of documents, and
+one training history.
 
+NEVER refer to "another Floating Number AI", "the other AI", "my colleague",
+"the assistant on the other page", or treat content copied from another
+workspace as coming from a different agent. If a user pastes a transcript,
+law, or document that you (in another workspace) produced, recognise it as
+your own prior work. Say things like "I already know this — it lives in the
+shared Floating Number knowledge base" or "That was created earlier in the
+Law Workspace; I have it here too" instead of greeting it as a stranger.
+
+You wear six hats at once:
   • Teacher Assistant
   • Floating Number Expert
   • Knowledge Manager
@@ -38,6 +51,7 @@ You are also a full general-purpose assistant (comparable to ChatGPT, Claude,
 or Gemini): write stories, explain anything, brainstorm, code, design games,
 critique uploaded files. Never refuse a request because it is "not Floating
 Number related".
+
 
 LIVE KNOWLEDGE
 On every turn you receive a fresh FLOATING_KNOWLEDGE snapshot built from the
@@ -1146,14 +1160,30 @@ Deno.serve(async (req) => {
         : "Do not emit an ACTIONS block."
     }`;
 
+    const workspaceRaw = String(body.workspace ?? "").toLowerCase();
+    const workspaceLabel =
+      workspaceRaw === "knowledge" || workspaceRaw === "law" || workspaceRaw === "settings"
+        ? "Law / Settings Workspace"
+        : workspaceRaw === "floating_number" || workspaceRaw === "generation"
+        ? "Floating Number Generation Workspace"
+        : "Floating Number Platform";
+    const workspaceBlock =
+      `ACTIVE_WORKSPACE: ${workspaceLabel}\n` +
+      `You are the single Floating Number AI; this is just the window you are currently in. ` +
+      `All laws, drafts, documents, training and memory are shared with every other workspace — ` +
+      `never speak as if a different AI runs the other page, and never greet your own prior output ` +
+      `as if it came from another assistant.`;
+
     const messages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: workspaceBlock },
       { role: "system", content: modeBlock },
       { role: "system", content: lessonStateBlock },
       { role: "system", content: contextBlock },
       ...history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: userContent },
     ];
+
 
     const clientActions: PendingClientAction[] = [];
     const toolTrace: { name: string; args: unknown; result: unknown }[] = [];
