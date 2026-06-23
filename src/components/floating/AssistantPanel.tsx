@@ -616,7 +616,10 @@ export const AssistantPanel = ({
       >
         <div className="flex items-center gap-2">
           <div className="text-[12px] font-semibold flex-1 min-w-0 truncate">{title}</div>
-          {(action.kind === "apply_chips" || action.kind === "undo_last_change") && (
+          {(action.kind === "apply_chips" ||
+            action.kind === "undo_last_change" ||
+            action.kind === "apply_line_update" ||
+            action.kind === "analyse_structure") && (
             <button
               type="button"
               onClick={() => togglePreview(key)}
@@ -655,6 +658,69 @@ export const AssistantPanel = ({
             )}
           </div>
         )}
+        {open && action.kind === "apply_line_update" && (
+          <div className="mt-2 text-[12px] space-y-1" style={{ color: C.textSubtle }}>
+            <div><span className="font-semibold">op:</span> {action.payload.op}</div>
+            {action.payload.reason && <div><span className="font-semibold">reason:</span> {action.payload.reason}</div>}
+            {action.payload.fillers && action.payload.fillers.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {action.payload.fillers.map((c, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded text-[13px]" style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}>
+                    {renderMathInline(c, `${key}-lu-${i}`)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {action.payload.containers && action.payload.containers.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {action.payload.containers.map((c, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded text-[12px]" style={{ background: C.codeBg, border: `1px dashed ${C.borderStrong}` }}>
+                    {c}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {open && action.kind === "analyse_structure" && (
+          <div className="mt-2 text-[12px] space-y-1.5" style={{ color: C.text }}>
+            {action.payload.equation && (
+              <div><span className="font-semibold">equation:</span> {renderMathInline(action.payload.equation, `${key}-eq`)}</div>
+            )}
+            {action.payload.detected_terms && action.payload.detected_terms.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                <span className="font-semibold mr-1">terms:</span>
+                {action.payload.detected_terms.map((t, i) => (
+                  <span key={i} className="px-1.5 py-0.5 rounded text-[12px]" style={{ background: C.codeBg, border: `1px solid ${C.border}` }}>
+                    {renderMathInline(t, `${key}-t-${i}`)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {action.payload.applicable_laws && action.payload.applicable_laws.length > 0 && (
+              <div>
+                <span className="font-semibold">laws:</span>{" "}
+                {action.payload.applicable_laws.map((l, i) => (
+                  <span key={i} className="mr-1.5">{l.id}{l.why ? ` (${l.why})` : ""}</span>
+                ))}
+              </div>
+            )}
+            {action.payload.patch?.fillers && action.payload.patch.fillers.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                <span className="font-semibold mr-1">recommended:</span>
+                {action.payload.patch.fillers.map((c, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded text-[13px]" style={{ background: C.codeBg, border: `1px solid ${C.border}` }}>
+                    {renderMathInline(c, `${key}-rec-${i}`)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {action.payload.reasoning && (
+              <div className="text-[12px]" style={{ color: C.textSubtle }}>{action.payload.reasoning}</div>
+            )}
+          </div>
+        )}
+
         {blocked && (
           <div className="mt-1 text-[11px]" style={{ color: C.danger }}>
             Verification did not pass — ask the AI to restructure before approving.
