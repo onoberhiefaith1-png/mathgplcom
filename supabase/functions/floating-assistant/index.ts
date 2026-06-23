@@ -788,6 +788,20 @@ const runServerTool = (
         },
       });
     }
+    case "self_check_chips": {
+      const fillers = Array.isArray(args.fillers) ? (args.fillers as unknown[]).map(String) : [];
+      const containers = Array.isArray(args.containers) ? (args.containers as unknown[]).map(String) : [];
+      const r = verifyLine({ fillers, containers });
+      return Promise.resolve({
+        result: {
+          ok: r.ok,
+          failures: r.failures,
+          hint: r.ok
+            ? "All chips comply with the laws. You may now call generate_line_structure."
+            : "Fix the chips per the failures and call self_check_chips again before proposing.",
+        },
+      });
+    }
     case "lookup_law": {
       const q = String(args.query ?? "").toLowerCase().trim();
       const match = (l: LawRow) =>
