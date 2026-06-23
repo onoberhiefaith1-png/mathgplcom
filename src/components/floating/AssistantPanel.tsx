@@ -542,25 +542,26 @@ export const AssistantPanel = ({
         default: return op ?? "update";
       }
     };
+    const reason = String(action.payload.reason ?? "").trim();
     const title =
       action.kind === "apply_chips"
-        ? `Proposed change: apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${lineTag}`
+        ? (reason || `Apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${lineTag}`)
         : action.kind === "undo_last_change"
-        ? `Proposed change: undo last edit on line ${lineTag}`
+        ? (reason || `Undo last edit on line ${lineTag}`)
         : action.kind === "approve_draft_law"
         ? `Proposed new law: ${action.payload.law_name ?? "draft"}`
         : action.kind === "reject_draft_law"
         ? `Reject draft law: ${action.payload.law_name ?? "draft"}`
         : action.kind === "apply_line_update"
-        ? `Proposed: ${opLabel(action.payload.op)} on line ${lineTag}`
-        : `Analysis: line ${lineTag} — ${(action.payload.applicable_laws ?? []).map((l) => l.id).join(", ") || "no laws cited"}`;
+        ? (reason || `${opLabel(action.payload.op)} on line ${lineTag}`)
+        : (reason || `Analysis: line ${lineTag}`);
     const approveLabel =
-      action.kind === "apply_chips" ? "Approve & Apply"
-      : action.kind === "undo_last_change" ? "Approve Undo"
+      action.kind === "apply_chips" ? "Apply Changes"
+      : action.kind === "undo_last_change" ? "Apply Undo"
       : action.kind === "approve_draft_law" ? "Approve Law"
       : action.kind === "reject_draft_law" ? "Confirm Reject"
-      : action.kind === "apply_line_update" ? "Accept"
-      : "Accept Analysis";
+      : action.kind === "apply_line_update" ? "Apply Changes"
+      : "Apply Analysis";
 
     const blocked = action.kind === "apply_chips" && action.payload.verification_pass !== true;
     return (
