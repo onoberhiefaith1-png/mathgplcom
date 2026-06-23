@@ -826,6 +826,38 @@ function DetailPanel({
             </div>
           </Section>
         )}
+        {Array.isArray((law as any).examples) && (law as any).examples.length > 0 && (
+          <Section title="Worked examples (AI training)">
+            <div className="space-y-2">
+              {((law as any).examples as any[]).map((ex, i) => {
+                const fillers: string[] = Array.isArray(ex?.fillers) ? ex.fillers : [];
+                const containers: string[] = Array.isArray(ex?.containers) ? ex.containers : [];
+                const input: string = String(ex?.input ?? "");
+                const why: string = String(ex?.why ?? "");
+                return (
+                  <div key={i} className="rounded-md border p-2.5 text-xs"
+                    style={{ borderColor: C.border, background: C.panelBg }}>
+                    <div className="font-mono text-[11px] mb-1" style={{ color: C.textMuted }}>input</div>
+                    <div className="font-mono text-sm mb-2" style={{ color: C.text }}>{input}</div>
+                    <div className="font-mono text-[11px] mb-1" style={{ color: C.textMuted }}>expected chips</div>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {fillers.map((f, j) => (
+                        <span key={j} className="px-1.5 py-0.5 rounded font-mono text-[12px]"
+                          style={{ background: C.accent + "22", color: C.text, border: `1px solid ${C.border}` }}>{f}</span>
+                      ))}
+                    </div>
+                    {containers.length > 0 && (
+                      <div className="text-[11px] mb-1" style={{ color: C.textMuted }}>
+                        containers: <span className="font-mono" style={{ color: C.text }}>{containers.join(", ")}</span>
+                      </div>
+                    )}
+                    {why && <div className="text-[12px] leading-snug" style={{ color: C.textSubtle }}>{why}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+        )}
         <Section title="Stats">
           <div className="grid grid-cols-3 gap-3">
             <Stat label="Times applied" value={String(law.usage_count ?? 0)} />

@@ -17,6 +17,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { detectElements } from "./elementDetector.ts";
 import { runLawPipeline } from "./laws.ts";
 import { verify } from "./verifier.ts";
+import { verifyLine } from "./floatingVerifier.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -121,6 +122,28 @@ GROUND RULES
 - If no approved law covers a structure, call propose_new_law instead
   of forcing a bad chip set.
 
+LAW DRILL — MANDATORY before any chip proposal
+When the teacher gives you an equation, BEFORE you call
+generate_line_structure / propose chips:
+  1. Mentally walk every Approved Law in the FLOATING_KNOWLEDGE block in
+     order. Each law has worked examples (input → chips → containers).
+     If the equation matches an example pattern, your output MUST follow
+     the same shape as that example.
+  2. Apply Law 1 (Visible Blade) FIRST: split on every top-level + / − /
+     = that is not shielded inside (), [], a fraction, root, or power.
+     A chip like "(x+1)(x²+x+1)" is FORBIDDEN — it hides + signs inside.
+     Brackets become an empty "()" shell with container=bracket, and the
+     interior is split again by Law 1.
+  3. NEVER emit a chip that contains a non-leading + − × ÷ * sign.
+     NEVER emit a chip that starts with a synthetic "+" after =, ±, or
+     at the very start of a line.
+  4. Call self_check_chips with your proposed {fillers, containers}
+     BEFORE generate_line_structure. If self_check returns failures,
+     fix the chips and check again. Only proceed when ok=true.
+  5. The server runs the same verifier on submission; non-compliant
+     proposals are rejected and you will be asked to retry.
+
+
 STYLE
 - Helpful, direct, warm. Match the user's register.
 - Use markdown freely. Keep workspace-action replies short: lead with the
@@ -203,6 +226,21 @@ const TOOLS = [
           appliedLawIds: { type: "array", items: { type: "string" } },
         },
         required: ["selection", "chips"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "self_check_chips",
+      description: "MANDATORY pre-flight check before generate_line_structure / propose chips. Runs the same law-compliance verifier the server uses. Returns {ok, failures:[{code, chip, index}]}. Codes: NoRawOperatorChip, NoRawBracketChip, NoSyntheticLeadingPlus, NoHiddenSign, ContainerAllowed, ContainerDedup, EmptyChip. If ok=false, fix the chips and call again before proposing.",
+      parameters: {
+        type: "object",
+        properties: {
+          fillers: { type: "array", items: { type: "string" }, description: "The chip strings, with leading signs already attached (e.g. '-5x', '+2', '()', '□/□')." },
+          containers: { type: "array", items: { type: "string" }, description: "Container kinds for shells: fraction, bracket, radical, power, log, integral, matrix, differential, abs, vector." },
+        },
+        required: ["fillers"],
       },
     },
   },
@@ -541,7 +579,7 @@ async function hydrateKnowledge(
       .from("floating_law_library")
       .select("id,law_number,name,rule,reason,lesson_topics,tags,examples")
       .order("law_number", { ascending: true })
-      .limit(100),
+      .limit(500),
     userClient
       .from("floating_law_drafts")
       .select("id,name,rule,reason,lesson_topics,tags,status,source_kind")
@@ -603,16 +641,20 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
   lines.push("## FLOATING_KNOWLEDGE (live snapshot — cite by tag)");
 
   if (kb.approvedLaws.length > 0) {
-    lines.push(`### Approved Laws (${kb.approvedLaws.length})`);
-    kb.approvedLaws.slice(0, 30).forEach((l) => {
-      const ex = Array.isArray(l.examples) ? (l.examples as unknown[]).slice(0, 2) : [];
+    lines.push(`### Approved Laws (${kb.approvedLaws.length}) — drill each one against the user's equation BEFORE proposing`);
+    kb.approvedLaws.forEach((l) => {
+      const ex = Array.isArray(l.examples) ? (l.examples as unknown[]).slice(0, 4) : [];
       lines.push(`- ${lawTag(l)} "${l.name}" — ${l.rule}`);
       if (l.reason) lines.push(`    reason: ${l.reason}`);
-      if (ex.length) lines.push(`    examples: ${ex.map((e) => JSON.stringify(e)).join(" ; ")}`);
+      if (ex.length) {
+        lines.push(`    worked_examples (${ex.length}):`);
+        ex.forEach((e) => lines.push(`      • ${JSON.stringify(e)}`));
+      }
     });
   } else {
     lines.push("### Approved Laws: (none for this topic — consider propose_new_law)");
   }
+
 
   if (kb.draftLaws.length > 0) {
     lines.push(`### Draft Laws (${kb.draftLaws.length})`);
@@ -662,6 +704,7 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
     if (engineLogs.length > 6) {
       lines.push("- Older generation logs available via lookup_document.");
     }
+  }
 
   if (kb.exampleAnalyses.length > 0) {
     lines.push(`### Recent Example Analyses (${kb.exampleAnalyses.length})`);
@@ -747,6 +790,20 @@ const runServerTool = (
           extra: v.extra.map((m: any) => m.label),
           appliedLawIds,
           needsNewLaw,
+        },
+      });
+    }
+    case "self_check_chips": {
+      const fillers = Array.isArray(args.fillers) ? (args.fillers as unknown[]).map(String) : [];
+      const containers = Array.isArray(args.containers) ? (args.containers as unknown[]).map(String) : [];
+      const r = verifyLine({ fillers, containers });
+      return Promise.resolve({
+        result: {
+          ok: r.ok,
+          failures: r.failures,
+          hint: r.ok
+            ? "All chips comply with the laws. You may now call generate_line_structure."
+            : "Fix the chips per the failures and call self_check_chips again before proposing.",
         },
       });
     }
@@ -975,6 +1032,20 @@ const runServerTool = (
         ? args.arrangement.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n))
         : [];
       if (!line_id || fillers.length === 0) return Promise.resolve({ result: { error: "line_id and fillers required" } });
+      // Server-side law-compliance gate — refuse to queue proposals that
+      // would emit raw operators, hidden signs, synthetic leading +, or
+      // unknown containers. The AI must call self_check_chips first; this
+      // is the belt-and-braces enforcement.
+      const v = verifyLine({ fillers, containers });
+      if (!v.ok) {
+        return Promise.resolve({
+          result: {
+            error: "law_violation",
+            message: "Proposal rejected — chips violate the Floating Number laws. Call self_check_chips, fix the failures, then retry.",
+            failures: v.failures,
+          },
+        });
+      }
       return Promise.resolve({
         result: { queued: true, message: "Generated structure queued for teacher approval." },
         clientAction: {
