@@ -17,6 +17,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { detectElements } from "./elementDetector.ts";
 import { runLawPipeline } from "./laws.ts";
 import { verify } from "./verifier.ts";
+import { verifyLine } from "./floatingVerifier.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
