@@ -1,83 +1,64 @@
-
 ## Goal
 
-Stop trying to make the AI generate perfect floating numbers. Reframe it as the **fastest way to correct** the structures the generator already produces. The teacher speaks, edits the text, hits send, sees a preview, applies.
+Reposition the Floating Number AI from a **generator** to a **precision editor** that obeys the teacher's instructions literally. The generator on the page already produces a first pass; this AI's job is to make targeted fixes — "change the +4 on line 6 to +4x", "put a square root on line 4 as the 5th floating number", "1/4 is one fraction, don't split it" — and apply them through the existing preview → Apply Changes flow.
 
----
+## Problems observed
+
+1. The assistant still treats requests as generation tasks (proposes whole new chip sets, asks for verification, walks through reasoning) instead of just doing the edit.
+2. Fractions like `1/4` get torn apart into separate chips — the AI doesn't honor the teacher's intent to keep a unit together.
+3. No clear "line 6, 5th floating number" addressing — the AI can't reliably target a specific filler position without a highlight.
+4. The preview → Apply flow exists (`apply_line_update`, `apply_chips`, `replace_line`) but isn't surfaced consistently; some edits should land as a single visible diff card the teacher confirms with one click.
 
 ## Plan
 
-### 1. Voice → live editable text (ChatGPT-style)
+### 1. Rewrite the AI's role (system prompt in `supabase/functions/floating-assistant/index.ts`)
 
-Replace the current WhatsApp-style "record → attach audio blob" flow with live streaming dictation that fills the input box.
+- New top-of-prompt section: **"YOU ARE A FLOATING-NUMBER EDITOR, NOT A GENERATOR."**
+  - The page's generator already runs first. The AI only modifies what already exists.
+  - Default action for any instruction: pick the smallest targeted tool (`move_filler`, `add_filler`, `remove_filler`, `add_container`, `remove_container`, `set_arrangement`) — never `generate_line_structure` or `apply_chips` unless the teacher explicitly says "regenerate the whole line".
+  - "Follow the instruction literally. Do not re-derive, do not re-verify, do not reason out loud about laws unless asked." Skip the LAW#/DOC# citations on simple edits.
+  - Fraction integrity rule: `a/b`, `\frac{a}{b}`, and any expression the teacher refers to as a single unit must stay as one filler. Never split a fraction across chips.
 
-- **Backend**: new edge function `speech-transcribe` that proxies to Lovable AI `openai/gpt-4o-mini-transcribe` with `stream: "true"` (per the `ai-speech-to-text` knowledge). Returns SSE.
-- **Frontend (`AssistantPanel.tsx`)**:
-  - Replace `MediaRecorder → blob → base64 attachment` with chunked recording that streams to `speech-transcribe`.
-  - As `transcript.text.delta` events arrive, append into the `input` textarea live. On `transcript.text.done`, leave the cursor at the end so the teacher can edit before pressing Send.
-  - Mic button toggles record/stop; stop finalises whatever is in the box.
-  - Drop the audio-attachment chip UI and the `audio: {...}` field in the `floating-assistant` invoke body. **No audio is stored.**
-- Remove the audio-handling branch in `supabase/functions/floating-assistant/index.ts` (text-only from now on).
+### 2. Teach the AI line + position addressing
 
-### 2. Selection-aware editing
+- Pass a compact **line map** in `lessonContext` for every request: `[{ lineIndex, lineId, equation, fillers: [{i, value}], containers }]`.
+- Prompt rules:
+  - "line 6" → resolve to `lineIndex === 5` (1-based for humans).
+  - "the 5th floating number" / "5th position" → `from_index`/`to_index`/`index` = 4.
+  - "the +4" / "the square root" → match by value first, fall back to position.
+  - If both a highlight and a verbal address are given, the highlight wins.
 
-The assistant already receives `selection` and `lineId` via `activeHighlight`. Make this first-class:
+### 3. Make the edit flow one click: instruction → diff card → Apply
 
-- In `AssistantPanel`, when a chip is highlighted, show a persistent "Editing: `5x` in line 3" badge above the input.
-- In the system prompt (floating-assistant), add: *"When the user says 'this', 'that', 'it', 'here', resolve to the current selection chip and line. Never ask the user to repeat what they highlighted."*
-- Pass the chip's container/position index along with the text, so the model can target a specific filler instead of guessing by substring.
+Inside `AssistantPanel.tsx`:
 
-### 3. Natural-language edit command vocabulary
+- Render every `apply_line_update` / `apply_chips` / `replace_line` action as a compact **diff card**:
+  - Title: a one-line plain-English summary (the AI's `reason`, e.g. *"Change `+4` to `+4x` on line 6, position 5"*).
+  - Body: before → after of the affected filler(s) only, rendered with `renderMathInline`.
+  - Single primary button: **Apply Changes**. Secondary: Dismiss.
+- Drop the verification-pass requirement for targeted edits (move/add/remove/replace one filler). Keep it only for full `apply_chips` regenerations.
+- When the AI returns multiple small actions for one instruction, stack them in one card with a single Apply button that runs them in order.
 
-The model already has `apply_line_update` with ops `move_filler | add_filler | remove_filler | add_container | remove_container | set_arrangement | replace_line`. Wire the vocabulary to it.
+### 4. Force `reason` on every tool call
 
-- **System prompt addition** in `floating-assistant/index.ts`: an "EDITOR MODE" section listing the teacher phrases and the op each maps to:
-  - "remove bracket / delete container" → `remove_container`
-  - "add bracket / wrap in brackets" → `add_container`
-  - "move 5x to container 2 / move this left/right" → `move_filler` (with `from_index`/`to_index`)
-  - "insert empty box / add filler" → `add_filler`
-  - "merge containers" / "split container" → `set_arrangement`
-  - "add exponent / add square root / convert to fraction / numerator / denominator" → `replace_line` with the rebuilt structure
-  - "delete this / remove this term" → `remove_filler`
-- Forbid the model from regenerating the whole line when a targeted op suffices. Prefer the smallest op that satisfies the request.
+- Add `reason` as a required tool parameter on `move_filler`, `add_filler`, `remove_filler`, `add_container`, `remove_container`, `set_arrangement`, `replace_line`. The frontend uses this as the diff card title — no `reason`, no card.
 
-### 4. Preview-before-apply card
+### 5. Honor "keep this together" intents
 
-The pending-action card exists but currently approves blindly. Upgrade it:
+- In `applyLineUpdateFromAssistant` (FloatingNumbersPage.tsx), stop running `dropContextualLeadingPlus` / re-detecting structures on `apply_line_update`. Apply the AI's filler value verbatim. Re-detection only runs on full regeneration.
+- Backend prompt: when the teacher says "this is one fraction", "keep together", "don't split", emit a single `replace_line` (or single `add_filler`) preserving the unit literally.
 
-- For every `apply_line_update` / `apply_chips`, render:
-  - **Proposed Change** — one-line summary the model returns (`payload.reason`).
-  - **Before** — current chips/containers (read from the page state already in scope).
-  - **After** — chips/containers post-op, computed client-side by applying the op to the current line.
-  - Three buttons: **Apply**, **Cancel**, **Modify** (Modify re-opens the input pre-filled with the previous prompt + "make it …").
-- Compute the "After" preview in a new pure helper `src/lib/floating/previewOp.ts` so the teacher always sees the exact resulting structure, not just the op name.
+### 6. Welcome message + quick actions
 
-### 5. Reframe the welcome + quick actions
-
-- Change the welcome copy to lead with editing: *"I'm your editor for floating numbers. Highlight a chip, tell me what to change, and I'll show you a preview before applying."*
-- Replace `QUICK_ACTIONS` with editor-first chips: *Remove bracket · Add bracket · Move term · Add exponent · Convert to fraction · Split container · Merge containers · Undo*.
-- Keep "Generate" available but demoted — it's a secondary action, not the headline.
-
-### 6. Trim the now-unused audio path
-
-- Remove `recorderRef`, `chunksRef`, `blobToBase64`, `audio` attachment UI, and the `audio` branch in the edge function.
-- Keep document attachments (`.pdf`, `.docx`, `.txt`) as-is — those are separate.
-
----
+- Update the welcome message to: *"I'm your floating-number editor. Tell me what to change — by line, position, or value — and I'll show you the diff. Examples: 'on line 6, change +4 to +4x', 'put √ as the 5th floating number on line 4', 'keep 1/4 as one fraction'."*
+- Replace the "Generate" quick action with "Regenerate this line" (only active when a line is selected) and add "Fix line 6…" style prompt templates.
 
 ## Technical details
 
-**Files touched**
-- `supabase/functions/speech-transcribe/index.ts` — new SSE proxy (per `ai-speech-to-text` knowledge).
-- `supabase/functions/floating-assistant/index.ts` — drop audio handling; add EDITOR MODE prompt block; tighten selection resolution rules.
-- `src/components/floating/AssistantPanel.tsx` — live STT into the input box, selection badge, new welcome + quick actions, preview card wiring, remove audio UI.
-- `src/lib/floating/previewOp.ts` (new) — pure function `applyOp(currentLine, op) → nextLine` for the preview card.
-
-**Non-goals**
-- No new DB tables. No schema changes. No model fine-tuning.
-- Generator code is untouched — this is purely the assistant surface.
-- The existing `propose_line` / law-drill / verifier work from the previous thread stays in place; we are layering an editor mode on top, not replacing it.
-
-**Risk**
-- Streaming STT needs mic permission to be re-prompted per session in some browsers. Mitigation: show a clear permission toast and fall back to one-shot transcription if streaming fails.
-- Live transcript can land mid-typing. Mitigation: when recording starts, append at the current cursor position; when it stops, place the cursor at the end of the dictated span.
+- Files touched:
+  - `supabase/functions/floating-assistant/index.ts` — system prompt rewrite, tool schemas gain required `reason`, line-map in context, fraction-integrity rule.
+  - `src/components/floating/AssistantPanel.tsx` — diff card rendering, drop verification gate on targeted edits, welcome + quick actions.
+  - `src/pages/FloatingNumbersPage.tsx` — stop post-processing filler values on `apply_line_update`; build and pass the line map into `lessonContext`.
+  - `src/lib/floating/lessonContext.ts` — extend `LessonContext` type with `lineMap`.
+- No DB migrations. No new tables. Existing `floating_chip_snapshots` undo continues to work.
+- Out of scope: changing the generator itself, retraining laws, voice recording (already working).
