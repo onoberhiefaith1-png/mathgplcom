@@ -238,7 +238,174 @@ const TOOLS = [
       },
     },
   },
+  // ── Knowledge ────────────────────────────────────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "lookup_document",
+      description: "Fetch a larger excerpt of a knowledge document by its DOC#<id> id. Returns up to ~8000 chars of parsed_text. Use when the inline snapshot is too short.",
+      parameters: {
+        type: "object",
+        properties: { doc_id: { type: "string" }, query: { type: "string" } },
+        required: ["doc_id"],
+      },
+    },
+  },
+  // ── Analysis ─────────────────────────────────────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "analyse_structure",
+      description: "Analyse the active line / highlighted expression and return a proposed Floating Number structure. Emit detected terms, applicable laws (cite LAW#<number>), recommended {fillers, containers, arrangement}, and reasoning. The teacher can Accept (apply the structure), Modify, or Reject.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          equation: { type: "string", description: "Verbatim equation text being analysed." },
+          detected_terms: { type: "array", items: { type: "string" } },
+          applicable_laws: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { id: { type: "string" }, why: { type: "string" } },
+              required: ["id"],
+            },
+          },
+          recommended: {
+            type: "object",
+            properties: {
+              fillers: { type: "array", items: { type: "string" } },
+              containers: { type: "array", items: { type: "string" } },
+              arrangement: { type: "array", items: { type: "integer" } },
+            },
+            required: ["fillers"],
+          },
+          reasoning: { type: "string" },
+        },
+        required: ["line_id", "equation", "recommended", "reasoning"],
+      },
+    },
+  },
+  // ── Targeted workspace operators (each emits an apply_line_update card) ─
+  {
+    type: "function",
+    function: {
+      name: "move_filler",
+      description: "Reorder one filler within the active line. Provide the visual from-index (0-based) and to-index.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          from_index: { type: "integer" },
+          to_index: { type: "integer" },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "from_index", "to_index"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_filler",
+      description: "Append a single filler to the active line. Optionally also add a container.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          value: { type: "string" },
+          container: { type: "string" },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "value"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_filler",
+      description: "Remove a single filler from the active line by value (preferred) or by index.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          value: { type: "string" },
+          index: { type: "integer" },
+          reason: { type: "string" },
+        },
+        required: ["line_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_container",
+      description: "Add a structure container (fraction, bracket, radical, power, log, integral, matrix, differential, abs, vector).",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          container: { type: "string" },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "container"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_container",
+      description: "Remove a structure container from the active line.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          container: { type: "string" },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "container"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_arrangement",
+      description: "Bulk re-permute the fillers of the active line. Provide an arrangement[] permutation of the current filler indices.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          arrangement: { type: "array", items: { type: "integer" } },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "arrangement"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_line_structure",
+      description: "Propose a complete {fillers, containers, arrangement} for the active line. Same shape as analyse_structure but with no analytical commentary — use when the teacher asks 'generate floating numbers for line N'.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: { type: "string" },
+          fillers: { type: "array", items: { type: "string" } },
+          containers: { type: "array", items: { type: "string" } },
+          arrangement: { type: "array", items: { type: "integer" } },
+          reason: { type: "string" },
+        },
+        required: ["line_id", "fillers"],
+      },
+    },
+  },
 ];
+
 
 interface ServerToolCall {
   name: string;
