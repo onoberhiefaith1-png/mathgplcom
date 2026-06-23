@@ -175,23 +175,6 @@ const fileToBase64 = (file: File): Promise<string> =>
     r.readAsDataURL(file);
   });
 
-const blobToBase64 = (blob: Blob): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onerror = () => reject(r.error);
-    r.onload = () => {
-      const s = String(r.result ?? "");
-      const i = s.indexOf(",");
-      resolve(i >= 0 ? s.slice(i + 1) : s);
-    };
-    r.readAsDataURL(blob);
-  });
-
-const formatDuration = (sec: number) => {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
-};
 
 export const AssistantPanel = ({
   lineId,
