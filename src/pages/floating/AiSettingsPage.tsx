@@ -739,35 +739,174 @@ function DetailPanel({
   }
 
   if (doc) {
-    return (
-      <div className="p-6 max-w-3xl">
-        <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: C.textMuted }}>
-          Knowledge document
-        </div>
-        <h2 className="text-xl font-semibold mb-2 break-all" style={{ color: C.text }}>{doc.filename}</h2>
-        <div className="text-xs mb-4" style={{ color: C.textMuted }}>
-          {doc.kind} · uploaded {new Date(doc.created_at).toLocaleString()}
-        </div>
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={() => onAskAboutLaw(
-              `Scan "${doc.filename}" and extract laws, definitions, rules, or exceptions. Propose each as a draft law I can approve.`,
-            )}
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-md"
-            style={{ background: C.accent, color: C.accentText }}>
-            <ScanLine className="h-4 w-4" /> Scan for laws
-          </button>
-          <button onClick={() => onAskAboutLaw(`Summarise "${doc.filename}".`)}
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border hover:bg-black/5"
-            style={{ borderColor: C.borderStrong, color: C.text }}>
-            <FileText className="h-4 w-4" /> Summarise
-          </button>
-        </div>
-      </div>
-    );
+    return <DocumentViewer doc={doc} onAskAboutLaw={onAskAboutLaw} />;
   }
 
   return null;
+}
+
+/* ──────────────── Document viewer ──────────────── */
+
+function DocumentViewer({
+  doc,
+  onAskAboutLaw,
+}: {
+  doc: KnowledgeDoc;
+  onAskAboutLaw: (prompt: string) => void;
+}) {
+  const [content, setContent] = useState<string | null>(doc.parsed_text ?? null);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+
+  const isTextLike = useMemo(() => {
+    const name = doc.filename.toLowerCase();
+    const kind = (doc.kind || "").toLowerCase();
+    return (
+      kind.startsWith("text/") ||
+      kind.includes("markdown") ||
+      kind.includes("json") ||
+      /\.(md|markdown|txt|json|csv|log|html?)$/i.test(name)
+    );
+  }, [doc.filename, doc.kind]);
+
+  const isImage = useMemo(
+    () => (doc.kind || "").toLowerCase().startsWith("image/") ||
+      /\.(png|jpe?g|gif|webp|svg)$/i.test(doc.filename),
+    [doc.filename, doc.kind],
+  );
+
+  useEffect(() => {
+    setContent(doc.parsed_text ?? null);
+    setLoadError(null);
+    setDownloadUrl(null);
+    if (!doc.storage_path) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .storage.from("floating-knowledge")
+          .createSignedUrl(doc.storage_path!, 3600);
+        if (!cancelled && !error && data?.signedUrl) setDownloadUrl(data.signedUrl);
+      } catch { /* ignore */ }
+    })();
+    if (!doc.parsed_text && isTextLike) {
+      setLoading(true);
+      (async () => {
+        try {
+          const { data, error } = await supabase
+            .storage.from("floating-knowledge")
+            .download(doc.storage_path!);
+          if (error) throw error;
+          const text = await data.text();
+          if (!cancelled) setContent(text);
+        } catch (e: any) {
+          if (!cancelled) setLoadError(e?.message ?? "Could not load document content.");
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+    }
+    return () => { cancelled = true; };
+  }, [doc.id, doc.parsed_text, doc.storage_path, isTextLike]);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-8 pt-6 pb-4 border-b" style={{ borderColor: C.border, background: C.panelBg }}>
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-start gap-2">
+            <FileText className="h-5 w-5 mt-0.5 shrink-0" style={{ color: C.textMuted }} />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-semibold break-words" style={{ color: C.text }}>
+                {doc.filename}
+              </h1>
+              <div className="text-xs mt-1" style={{ color: C.textMuted }}>
+                {doc.kind} · Uploaded {new Date(doc.created_at).toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto" style={{ background: C.pageBg }}>
+        <div className="max-w-3xl mx-auto px-8 py-8">
+          <article
+            className="rounded-lg border p-8 shadow-sm"
+            style={{ background: C.panelBg, borderColor: C.border, color: C.text }}
+          >
+            {loading && (
+              <div className="flex items-center gap-2 text-sm" style={{ color: C.textMuted }}>
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading document…
+              </div>
+            )}
+            {!loading && content && (
+              <div
+                className="whitespace-pre-wrap leading-relaxed text-[15px]"
+                style={{ color: C.text, fontFamily: "'Source Serif Pro', Georgia, serif" }}
+              >
+                {content}
+              </div>
+            )}
+            {!loading && !content && isImage && downloadUrl && (
+              <img src={downloadUrl} alt={doc.filename} className="max-w-full h-auto rounded" />
+            )}
+            {!loading && !content && !isImage && (
+              <div className="text-sm" style={{ color: C.textMuted }}>
+                {loadError
+                  ? `Preview unavailable: ${loadError}`
+                  : `Preview not available for this file type (${doc.kind || "unknown"}). Use Export to download and view the original.`}
+              </div>
+            )}
+          </article>
+
+          {/* Actions — below the content */}
+          <div className="mt-8">
+            <div className="text-[11px] uppercase tracking-wide mb-3" style={{ color: C.textMuted }}>
+              Actions
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => onAskAboutLaw(
+                  content
+                    ? `Scan the following document "${doc.filename}" and extract laws, definitions, rules, or exceptions. Propose each as a draft law I can approve.\n\n---\n${content}\n---`
+                    : `Scan "${doc.filename}" and extract laws, definitions, rules, or exceptions. Propose each as a draft law I can approve.`,
+                )}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-md"
+                style={{ background: C.accent, color: C.accentText }}
+              >
+                <ScanLine className="h-4 w-4" /> Scan for Laws
+              </button>
+              <button
+                onClick={() => onAskAboutLaw(
+                  content
+                    ? `Summarise the following document "${doc.filename}" into a clear structured summary with key points.\n\n---\n${content}\n---`
+                    : `Summarise "${doc.filename}".`,
+                )}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border hover:bg-black/5"
+                style={{ borderColor: C.borderStrong, color: C.text }}
+              >
+                <FileText className="h-4 w-4" /> Summarise
+              </button>
+              {downloadUrl && (
+                <a
+                  href={downloadUrl}
+                  download={doc.filename}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border hover:bg-black/5"
+                  style={{ borderColor: C.borderStrong, color: C.text }}
+                >
+                  <Download className="h-4 w-4" /> Export
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
