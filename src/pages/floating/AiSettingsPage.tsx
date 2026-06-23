@@ -141,6 +141,8 @@ function parseActions(raw: string): { text: string; actions: ChatAction[] } {
     if (sk) { actions.push({ kind: "save_knowledge", title: sk[1].trim() }); continue; }
     const cd = l.match(/^create_draft_law\s*:\s*"?([^"]+?)"?$/i);
     if (cd) { actions.push({ kind: "create_draft_law", name: cd[1].trim() }); continue; }
+    const ap = l.match(/^approve_official_law\s*:\s*"?([^"]+?)"?$/i);
+    if (ap) { actions.push({ kind: "approve_official_law", name: ap[1].trim() }); continue; }
     const gd = l.match(/^generate_document\s*:\s*"?([^"]+?)"?$/i);
     if (gd) { actions.push({ kind: "generate_document", title: gd[1].trim() }); continue; }
     if (/^discard\b/i.test(l)) actions.push({ kind: "discard" });
