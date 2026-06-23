@@ -545,10 +545,19 @@ Deno.serve(async (req) => {
       : null;
 
     if (!userMessage && attachments.length === 0 && !audio && !selection && selections.length === 0) {
-      return new Response(JSON.stringify({ error: "message, highlight, or attachment is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw makeError("missing_input", "Type a message, highlight something, or attach a document first.", 400);
+    }
+
+    // Size guard — base64 inflates ~4/3; ~8MB raw is a safe cap per request.
+    const totalB64 = attachments.reduce((n, a) => n + (a.data?.length ?? 0), 0) + (audio?.data?.length ?? 0);
+    if (totalB64 > 11_000_000) {
+      throw makeError("payload_too_large", "Document(s) too large — please upload a smaller file or split it.", 413);
+    }
+
+    // Format guard for binary attachments.
+    const bad = attachments.find((a) => !a.text && a.data && !SUPPORTED_MIMES.includes(a.mime));
+    if (bad) {
+      throw makeError("unsupported_format", `Unsupported file format: ${bad.filename} (${bad.mime}). Try PDF, DOCX, TXT, or MD.`, 415);
     }
 
     // Per-request supabase client preserving the caller's JWT — RLS enforced.
