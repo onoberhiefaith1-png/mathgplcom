@@ -15,7 +15,6 @@ import {
   Square,
   X,
   FileText,
-  AudioLines,
   Eye,
   Check,
 } from "lucide-react";
@@ -83,15 +82,13 @@ export interface ActiveHighlight {
 
 export interface AssistantAttachment {
   id: string;
-  kind: "document" | "audio";
+  kind: "document";
   filename: string;
   mime: string;
   /** base64 (no data: prefix). For inline TXT we still base64-encode for uniformity. */
   data: string;
   /** Plain text already extracted client-side, if any (TXT). */
   text?: string;
-  /** Audio duration in seconds, for display. */
-  durationSec?: number;
 }
 
 export interface AssistantMessage {
@@ -133,15 +130,19 @@ const newId = () =>
     ? (crypto as any).randomUUID()
     : `m-${Math.random().toString(36).slice(2)}`;
 
+// Editor-first quick actions. The teacher highlights a chip / line, then
+// taps one of these (or speaks naturally). Generation lives at the bottom
+// as a secondary action — this AI is primarily an editing assistant.
 const QUICK_ACTIONS: { label: string; prompt: string }[] = [
-  { label: "Explain", prompt: "Explain the highlighted expression in plain English." },
+  { label: "Remove bracket", prompt: "Remove the bracket around the highlighted term." },
+  { label: "Add bracket", prompt: "Wrap the highlighted term in brackets." },
+  { label: "Move term", prompt: "Move the highlighted term to the next container." },
+  { label: "Add exponent", prompt: "Add an exponent to the highlighted term." },
+  { label: "Convert to fraction", prompt: "Convert the highlighted expression into a fraction." },
+  { label: "Split container", prompt: "Split the current container into two." },
+  { label: "Merge containers", prompt: "Merge the current container with the next one." },
+  { label: "Undo", prompt: "Undo the last change on this line." },
   { label: "Generate", prompt: "Generate floating numbers for the highlighted expression." },
-  { label: "Verify", prompt: "Verify current chips — coverage and reconstruction." },
-  { label: "Restructure", prompt: "Restructure the highlighted expression using a better-fitting law." },
-  { label: "Apply Law", prompt: "Apply the most appropriate approved law and show your reasoning." },
-  { label: "New Law", prompt: "Propose a new draft law that explains the highlighted expression." },
-  { label: "Compare", prompt: "Compare the highlighted expression with the previous example structurally." },
-  { label: "Coverage", prompt: "Check element coverage of the current chips against the highlight." },
 ];
 
 const C = {
@@ -174,23 +175,6 @@ const fileToBase64 = (file: File): Promise<string> =>
     r.readAsDataURL(file);
   });
 
-const blobToBase64 = (blob: Blob): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onerror = () => reject(r.error);
-    r.onload = () => {
-      const s = String(r.result ?? "");
-      const i = s.indexOf(",");
-      resolve(i >= 0 ? s.slice(i + 1) : s);
-    };
-    r.readAsDataURL(blob);
-  });
-
-const formatDuration = (sec: number) => {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
-};
 
 export const AssistantPanel = ({
   lineId,
@@ -209,7 +193,7 @@ export const AssistantPanel = ({
       id: "welcome",
       role: "assistant",
       text:
-        "Hi — I'm your Floating Number AI. I'm a full general-purpose assistant with deep expertise in the Floating Number system, mathematics, and lesson design. Ask me anything: write a story, design a game, explain a concept, brainstorm ideas, analyse an uploaded document, draft a new law, or generate and apply floating numbers to the page. Type, talk, highlight, or upload — I'll handle the rest.",
+        "Hi — I'm your editor for floating numbers. Highlight a chip or line, then tell me what to change in plain English (or just talk — the mic types for you). Try things like \"remove the bracket\", \"move 5x to the second container\", \"add an exponent\", \"convert this to a fraction\". I'll show you a preview before applying anything.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -264,30 +248,37 @@ export const AssistantPanel = ({
   const removeAttachment = (id: string) =>
     setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
 
-  /* ───────────── Voice ───────────── */
+  /* ───────────── Voice → live transcription into the input box ─────────────
+   * ChatGPT-style: the teacher taps the mic, speaks, and the recognized text
+   * streams straight into the textarea so they can edit before pressing Send.
+   * Audio is never stored — we just POST the recorded blob to speech-transcribe
+   * and read SSE deltas. */
+  const recordingPrefixRef = useRef<string>("");
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      const supportedMime =
+        MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4"
+        : "";
+      const mr = supportedMime ? new MediaRecorder(stream, { mimeType: supportedMime }) : new MediaRecorder(stream);
       chunksRef.current = [];
+      // Remember whatever is already typed so we append rather than replace.
+      recordingPrefixRef.current = input ? input.replace(/\s+$/, "") + " " : "";
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
-        const data = await blobToBase64(blob);
-        const dur = (Date.now() - recordStartRef.current) / 1000;
-        setPendingAttachments((prev) => [
-          ...prev,
-          {
-            id: newId(),
-            kind: "audio",
-            filename: `voice-${new Date().toISOString().slice(11, 19)}.webm`,
-            mime: mr.mimeType || "audio/webm",
-            data,
-            durationSec: dur,
-          },
-        ]);
         stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        if (blob.size < 1024) {
+          toast({ title: "Recording too short", description: "Try again — I didn't catch any audio." });
+          return;
+        }
+        try {
+          await transcribeAndStream(blob);
+        } catch (e: any) {
+          toast({ title: "Transcription failed", description: e?.message ?? String(e), variant: "destructive" });
+        }
       };
       recorderRef.current = mr;
       recordStartRef.current = Date.now();
@@ -301,6 +292,63 @@ export const AssistantPanel = ({
   const stopRecording = () => {
     try { recorderRef.current?.stop(); } catch { /* ignore */ }
     setRecording(false);
+  };
+
+  const transcribeAndStream = async (blob: Blob) => {
+    const form = new FormData();
+    const ext = blob.type.includes("mp4") ? "mp4" : blob.type.includes("ogg") ? "ogg" : "webm";
+    form.append("file", blob, `recording.${ext}`);
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/speech-transcribe`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+      body: form,
+    });
+    if (!res.ok || !res.body) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(txt || `HTTP ${res.status}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let accumulated = "";
+    const writeInput = () => {
+      const next = recordingPrefixRef.current + accumulated;
+      setInput(next);
+      // Keep the cursor at the end of the dictated span.
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (el) { el.focus(); el.setSelectionRange(next.length, next.length); }
+      });
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const frame = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of frame.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === "[DONE]") continue;
+          try {
+            const evt = JSON.parse(data);
+            if (evt.type === "transcript.text.delta" && typeof evt.delta === "string") {
+              accumulated += evt.delta;
+              writeInput();
+            } else if (evt.type === "transcript.text.done" && typeof evt.text === "string") {
+              accumulated = evt.text;
+              writeInput();
+            }
+          } catch { /* skip non-JSON keep-alive lines */ }
+        }
+      }
+    }
   };
 
   /* ───────────── Send ───────────── */
@@ -329,8 +377,7 @@ export const AssistantPanel = ({
 
       try {
         const history = messages.slice(-12).map((m) => ({ role: m.role, content: m.text }));
-        const audioAtt = sentAttachments.find((a) => a.kind === "audio");
-        const docAtts = sentAttachments.filter((a) => a.kind === "document");
+        const docAtts = sentAttachments;
         const { data, error } = await supabase.functions.invoke("floating-assistant", {
           body: {
             message: promptText,
@@ -345,9 +392,6 @@ export const AssistantPanel = ({
               data: a.data,
               text: a.text ?? null,
             })),
-            audio: audioAtt
-              ? { filename: audioAtt.filename, mime: audioAtt.mime, data: audioAtt.data }
-              : null,
           },
         });
         if (error) {
@@ -559,11 +603,8 @@ export const AssistantPanel = ({
       className="rounded-md px-2 py-1 inline-flex items-center gap-1.5 text-[12px]"
       style={{ background: C.codeBg, border: `1px solid ${C.border}`, color: C.text }}
     >
-      {a.kind === "audio" ? <AudioLines className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+      <FileText className="h-3 w-3" />
       <span className="font-mono">{a.filename}</span>
-      {a.kind === "audio" && typeof a.durationSec === "number" && (
-        <span style={{ color: C.textSubtle }}>· {formatDuration(a.durationSec)}</span>
-      )}
       {onRemove && (
         <button type="button" onClick={onRemove} className="p-0.5 rounded" title="Remove">
           <X className="h-3 w-3" />

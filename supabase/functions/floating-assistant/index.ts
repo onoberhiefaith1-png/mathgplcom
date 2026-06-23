@@ -143,6 +143,48 @@ generate_line_structure / propose chips:
   5. The server runs the same verifier on submission; non-compliant
      proposals are rejected and you will be asked to retry.
 
+EDITOR MODE — the AI's primary purpose
+You are first and foremost an EDITING ASSISTANT for floating numbers, not a
+generator. The structure generator already produces most lines; your job is
+to let the teacher correct them by voice or natural language faster than
+clicking through symbol palettes. Always prefer the smallest targeted edit
+that satisfies the request. Never regenerate the whole line if a single
+move/add/remove will do.
+
+Selection resolution — when the user says "this", "that", "it", "here",
+"the highlighted one", they mean the chip / line in CURRENT_SELECTION +
+LINE_ID. Never ask them to repeat what they highlighted. If no selection
+is present, fall back to the active line; only ask for clarification if
+both are missing.
+
+Natural-language → tool mapping (use the smallest matching op):
+  • "remove the bracket / delete this container / drop the parens"
+        → remove_container
+  • "add a bracket / wrap this in brackets / put parens around it"
+        → add_container (container: "bracket")
+  • "move 5x to the second container / move this left / move it after 3x²"
+        → move_filler (with from_index + to_index)
+  • "add an empty box / insert a filler / leave a slot"
+        → add_filler
+  • "delete this term / remove 5x / drop the constant"
+        → remove_filler (prefer matching by value)
+  • "merge these two containers / split this container in two"
+        → set_arrangement
+  • "add an exponent / square this / add a square root /
+     convert to a fraction / make this the numerator /
+     make this the denominator"
+        → replace_line with the rebuilt {fillers, containers, arrangement}
+  • "undo / undo last change / revert"
+        → undo_last_change
+  • "generate floating numbers for this"
+        → generate_line_structure (this is the SECONDARY mode)
+
+Every workspace edit you propose must include a short \`reason\` in the
+payload that the teacher will see on the preview card — one plain-English
+sentence such as "Removed the bracket around (x+1)" or "Moved 5x to
+container 2".
+
+
 
 STYLE
 - Helpful, direct, warm. Match the user's register.
@@ -1154,20 +1196,16 @@ Deno.serve(async (req) => {
         text: typeof a?.text === "string" ? a.text : null,
       }))
       .filter((a) => a.data || a.text);
-    const audio = body.audio && typeof body.audio === "object"
-      ? {
-          filename: String(body.audio.filename ?? "voice.webm"),
-          mime: String(body.audio.mime ?? "audio/webm"),
-          data: typeof body.audio.data === "string" ? body.audio.data : "",
-        }
-      : null;
+    // Audio uploads are no longer accepted — the client now does live STT
+    // and sends the transcript as `message`. Any legacy `audio` field is
+    // silently ignored.
 
-    if (!userMessage && attachments.length === 0 && !audio && !selection && selections.length === 0) {
+    if (!userMessage && attachments.length === 0 && !selection && selections.length === 0) {
       throw makeError("missing_input", "Type a message, highlight something, or attach a document first.", 400);
     }
 
     // Size guard — base64 inflates ~4/3; ~8MB raw is a safe cap per request.
-    const totalB64 = attachments.reduce((n, a) => n + (a.data?.length ?? 0), 0) + (audio?.data?.length ?? 0);
+    const totalB64 = attachments.reduce((n, a) => n + (a.data?.length ?? 0), 0);
     if (totalB64 > 11_000_000) {
       throw makeError("payload_too_large", "Document(s) too large — please upload a smaller file or split it.", 413);
     }
@@ -1211,14 +1249,13 @@ Deno.serve(async (req) => {
       contextLines.push("ATTACHMENTS:");
       attachments.forEach((a, i) => contextLines.push(`  [${i + 1}] ${a.filename} (${a.mime})`));
     }
-    if (audio) contextLines.push(`VOICE_NOTE: ${audio.filename} (${audio.mime}) — transcribe and obey.`);
     const contextBlock = contextLines.join("\n");
     const lessonStateBlock = formatLessonState(lessonCtx, kb);
 
-    // Build the user turn. If we have any non-text input (audio/file/PDF), use
-    // the multimodal content[] form so the gateway routes them through.
+    // Build the user turn. If we have binary file attachments, use the
+    // multimodal content[] form so the gateway routes them through.
     let userContent: any = userMessage || "(see attachments)";
-    const hasMultimodal = !!audio || attachments.some((a) => !a.text);
+    const hasMultimodal = attachments.some((a) => !a.text);
     if (hasMultimodal) {
       const parts: any[] = [{ type: "text", text: userMessage || "(see attachments)" }];
       for (const a of attachments) {
@@ -1240,14 +1277,6 @@ Deno.serve(async (req) => {
             });
           }
         }
-      }
-      if (audio && audio.data) {
-        const fmt = audio.mime.includes("mp4") || audio.mime.includes("m4a") ? "m4a"
-          : audio.mime.includes("wav") ? "wav"
-          : audio.mime.includes("mp3") || audio.mime.includes("mpeg") ? "mp3"
-          : audio.mime.includes("ogg") ? "ogg"
-          : "webm";
-        parts.push({ type: "input_audio", input_audio: { data: audio.data, format: fmt } });
       }
       userContent = parts;
     } else if (attachments.length > 0) {
