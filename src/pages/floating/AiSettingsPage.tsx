@@ -811,10 +811,26 @@ function DocumentViewer({
   }, [doc.id, doc.parsed_text, doc.storage_path, isTextLike]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       {/* Header */}
-      <div className="px-8 pt-6 pb-4 border-b" style={{ borderColor: C.border, background: C.panelBg }}>
+      <div className="px-8 pt-6 pb-4 border-b sticky top-0 z-10" style={{ borderColor: C.border, background: C.panelBg }}>
         <div className="max-w-3xl mx-auto">
+          <div className="flex items-start gap-2">
+            <FileText className="h-5 w-5 mt-0.5 shrink-0" style={{ color: C.textMuted }} />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-semibold break-words" style={{ color: C.text }}>
+                {doc.filename}
+              </h1>
+              <div className="text-xs mt-1" style={{ color: C.textMuted }}>
+                {doc.kind} · Uploaded {new Date(doc.created_at).toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1" style={{ background: C.pageBg }}>
           <div className="flex items-start gap-2">
             <FileText className="h-5 w-5 mt-0.5 shrink-0" style={{ color: C.textMuted }} />
             <div className="min-w-0 flex-1">
