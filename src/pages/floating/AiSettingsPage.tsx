@@ -340,7 +340,11 @@ const AiSettingsPage = () => {
             borderColor: C.border,
           }}
         >
-          <KnowledgeChat handleRef={(r) => { chatRef.current = r; }} />
+          <KnowledgeChat
+            handleRef={(r) => { chatRef.current = r; }}
+            subsectionId={subsectionId}
+            onAfterAction={load}
+          />
         </aside>
 
         {/* Middle: detail panel (when selected). */}
