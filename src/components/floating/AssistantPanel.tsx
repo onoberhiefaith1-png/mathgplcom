@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { LessonContext } from "@/lib/floating/lessonContext";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 
 export type LineUpdateOp =
   | "move_filler"
@@ -199,14 +200,25 @@ export const AssistantPanel = ({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<AssistantAttachment[]>([]);
-  const [recording, setRecording] = useState(false);
   const [previewOpen, setPreviewOpen] = useState<Record<string, boolean>>({});
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const recordStartRef = useRef<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Live voice dictation — browser SpeechRecognition. As the teacher speaks,
+  // interim text streams into the textarea; on stop, the final transcript is
+  // committed. Vibration gives haptic feedback on start/stop where supported.
+  const { listening: recording, start: startVoice, stop: stopVoice, reset: resetVoice } =
+    useVoiceInput(setInput as any);
+
+  const startRecording = () => {
+    try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
+    startVoice();
+  };
+  const stopRecording = () => {
+    try { (navigator as any).vibrate?.([20, 30, 20]); } catch { /* noop */ }
+    stopVoice();
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -248,108 +260,8 @@ export const AssistantPanel = ({
   const removeAttachment = (id: string) =>
     setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
 
-  /* ───────────── Voice → live transcription into the input box ─────────────
-   * ChatGPT-style: the teacher taps the mic, speaks, and the recognized text
-   * streams straight into the textarea so they can edit before pressing Send.
-   * Audio is never stored — we just POST the recorded blob to speech-transcribe
-   * and read SSE deltas. */
-  const recordingPrefixRef = useRef<string>("");
+  /* Voice dictation lives in useVoiceInput above (browser SpeechRecognition). */
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const supportedMime =
-        MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
-        : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4"
-        : "";
-      const mr = supportedMime ? new MediaRecorder(stream, { mimeType: supportedMime }) : new MediaRecorder(stream);
-      chunksRef.current = [];
-      // Remember whatever is already typed so we append rather than replace.
-      recordingPrefixRef.current = input ? input.replace(/\s+$/, "") + " " : "";
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
-        if (blob.size < 1024) {
-          toast({ title: "Recording too short", description: "Try again — I didn't catch any audio." });
-          return;
-        }
-        try {
-          await transcribeAndStream(blob);
-        } catch (e: any) {
-          toast({ title: "Transcription failed", description: e?.message ?? String(e), variant: "destructive" });
-        }
-      };
-      recorderRef.current = mr;
-      recordStartRef.current = Date.now();
-      mr.start();
-      setRecording(true);
-    } catch (e: any) {
-      toast({ title: "Microphone unavailable", description: e?.message ?? String(e), variant: "destructive" });
-    }
-  };
-
-  const stopRecording = () => {
-    try { recorderRef.current?.stop(); } catch { /* ignore */ }
-    setRecording(false);
-  };
-
-  const transcribeAndStream = async (blob: Blob) => {
-    const form = new FormData();
-    const ext = blob.type.includes("mp4") ? "mp4" : blob.type.includes("ogg") ? "ogg" : "webm";
-    form.append("file", blob, `recording.${ext}`);
-
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/speech-transcribe`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-      body: form,
-    });
-    if (!res.ok || !res.body) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(txt || `HTTP ${res.status}`);
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    let accumulated = "";
-    const writeInput = () => {
-      const next = recordingPrefixRef.current + accumulated;
-      setInput(next);
-      // Keep the cursor at the end of the dictated span.
-      requestAnimationFrame(() => {
-        const el = inputRef.current;
-        if (el) { el.focus(); el.setSelectionRange(next.length, next.length); }
-      });
-    };
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = buf.indexOf("\n\n")) >= 0) {
-        const frame = buf.slice(0, idx);
-        buf = buf.slice(idx + 2);
-        for (const line of frame.split("\n")) {
-          if (!line.startsWith("data:")) continue;
-          const data = line.slice(5).trim();
-          if (!data || data === "[DONE]") continue;
-          try {
-            const evt = JSON.parse(data);
-            if (evt.type === "transcript.text.delta" && typeof evt.delta === "string") {
-              accumulated += evt.delta;
-              writeInput();
-            } else if (evt.type === "transcript.text.done" && typeof evt.text === "string") {
-              accumulated = evt.text;
-              writeInput();
-            }
-          } catch { /* skip non-JSON keep-alive lines */ }
-        }
-      }
-    }
-  };
 
   /* ───────────── Send ───────────── */
 
@@ -372,6 +284,7 @@ export const AssistantPanel = ({
       };
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
+      resetVoice();
       setPendingAttachments([]);
       setBusy(true);
 
@@ -1009,13 +922,14 @@ export const AssistantPanel = ({
             <button
               type="button"
               onClick={recording ? stopRecording : startRecording}
-              className="p-2 rounded"
+              className={`p-2 rounded ${recording ? "animate-pulse" : ""}`}
               style={{
                 color: recording ? C.bg : C.text,
                 background: recording ? C.danger : C.bg,
                 border: `1px solid ${recording ? C.danger : C.borderStrong}`,
+                boxShadow: recording ? `0 0 0 4px rgba(185,28,28,0.18)` : undefined,
               }}
-              title={recording ? "Stop recording" : "Record voice note"}
+              title={recording ? "Listening… tap to stop" : "Tap to speak"}
             >
               {recording ? <Square className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
             </button>
