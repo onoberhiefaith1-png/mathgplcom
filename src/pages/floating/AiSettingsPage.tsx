@@ -1095,15 +1095,16 @@ function KnowledgeChat({
     }
   }, [input, busy, messages, attachments, voice, mode]);
 
-  /* ───── Action button handlers ───── */
-  const runAction = useCallback(async (msgId: string, action: ChatAction) => {
+  /* ───── Action button handlers (multi-select) ───── */
+  const runActions = useCallback(async (msgId: string, selected: ChatAction[]) => {
     const msg = messages.find((m) => m.id === msgId);
     const body = msg?.text ?? "";
     const consume = () => setMessages((prev) => prev.map((m) =>
       m.id === msgId ? { ...m, actions: [] } : m
     ));
 
-    if (action.kind === "discard") {
+    if (selected.length === 0) return;
+    if (selected.length === 1 && selected[0].kind === "discard") {
       consume();
       toast({ title: "Discarded" });
       return;
@@ -1112,71 +1113,94 @@ function KnowledgeChat({
     const session = (await supabase.auth.getSession()).data.session;
     if (!session) { toast({ title: "Not signed in", variant: "destructive" }); return; }
 
-    if (action.kind === "save_knowledge") {
-      const { error } = await supabase.from("floating_knowledge_documents").insert({
-        owner_id: session.user.id,
-        kind: "note",
-        filename: `${action.title}.md`,
-        parsed_text: body,
-        metadata: { source: "chat", mode: msg?.mode ?? mode },
-      } as any);
-      if (error) { toast({ title: "Save failed", description: error.message, variant: "destructive" }); return; }
-      toast({ title: "Saved as Knowledge", description: action.title });
-      onAfterAction?.();
-      consume();
-      return;
-    }
+    setBusy(true);
+    const results: string[] = [];
+    const failures: string[] = [];
 
-    if (action.kind === "create_draft_law") {
-      const { error } = await supabase.from("floating_law_drafts").insert({
-        owner_id: session.user.id,
-        name: action.name,
-        rule: body.slice(0, 400),
-        reason: `Proposed from ${msg?.mode ?? mode} session`,
-        examples: [],
-        exceptions: [],
-        status: "proposed",
-        source_kind: "ai_proposed",
-      } as any);
-      if (error) { toast({ title: "Draft failed", description: error.message, variant: "destructive" }); return; }
-      toast({ title: "Draft Law created", description: action.name });
-      onAfterAction?.();
-      consume();
-      return;
-    }
-
-    if (action.kind === "generate_document") {
-      setBusy(true);
+    for (const action of selected) {
       try {
-        const { data, error } = await supabase.functions.invoke("floating-assistant", {
-          body: {
-            message: `Generate a full law document titled "${action.title}" based on the following content:\n\n${body}`,
-            mode: "document",
-            workspace: "knowledge",
-            lessonContext: null,
-            history: [],
-            attachments: [],
-          },
-        });
-        if (error) throw error;
-        const reply = (data as any)?.reply ?? "";
-        const { error: insErr } = await supabase.from("floating_knowledge_documents").insert({
-          owner_id: session.user.id,
-          kind: "law_document",
-          filename: `${action.title}.md`,
-          parsed_text: reply,
-          metadata: { source: "generated", title: action.title },
-        } as any);
-        if (insErr) throw insErr;
-        toast({ title: "Document generated", description: action.title });
-        onAfterAction?.();
-        consume();
+        if (action.kind === "discard") continue;
+
+        if (action.kind === "save_knowledge") {
+          const { error } = await supabase.from("floating_knowledge_documents").insert({
+            owner_id: session.user.id,
+            kind: "note",
+            filename: `${action.title}.md`,
+            parsed_text: body,
+            metadata: { source: "chat", mode: msg?.mode ?? mode },
+          } as any);
+          if (error) throw error;
+          results.push(`Saved to Knowledge: ${action.title}`);
+        } else if (action.kind === "create_draft_law") {
+          const { error } = await supabase.from("floating_law_drafts").insert({
+            owner_id: session.user.id,
+            name: action.name,
+            rule: body.slice(0, 400),
+            reason: `Proposed from ${msg?.mode ?? mode} session`,
+            examples: [],
+            exceptions: [],
+            status: "proposed",
+            source_kind: "ai_proposed",
+          } as any);
+          if (error) throw error;
+          results.push(`Draft Law created: ${action.name}`);
+        } else if (action.kind === "approve_official_law") {
+          // find next law_number for this owner
+          const { data: nextRow } = await supabase
+            .from("floating_law_library")
+            .select("law_number")
+            .eq("owner_id", session.user.id)
+            .order("law_number", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const nextNumber = ((nextRow as any)?.law_number ?? 0) + 1;
+          const { error } = await supabase.from("floating_law_library").insert({
+            owner_id: session.user.id,
+            law_number: nextNumber,
+            name: action.name,
+            rule: body.slice(0, 600),
+            reason: `Approved directly from ${msg?.mode ?? mode} session`,
+            conditions: [],
+            exceptions: [],
+            lesson_topics: [],
+            tags: [],
+            approval_history: [{ at: new Date().toISOString(), action: "approved_from_chat" }],
+          } as any);
+          if (error) throw error;
+          results.push(`Law ${nextNumber} approved: ${action.name}`);
+        } else if (action.kind === "generate_document") {
+          const { data, error } = await supabase.functions.invoke("floating-assistant", {
+            body: {
+              message: `Generate a COMPLETE teaching document titled "${action.title}" using the entire discussion content below. Include every section listed in DOCUMENT mode. Do not abbreviate.\n\n--- DISCUSSION CONTENT ---\n${body}`,
+              mode: "document",
+              workspace: "knowledge",
+              lessonContext: null,
+              history: [],
+              attachments: [],
+            },
+          });
+          if (error) throw error;
+          const reply = (data as any)?.reply ?? "";
+          const { error: insErr } = await supabase.from("floating_knowledge_documents").insert({
+            owner_id: session.user.id,
+            kind: "law_document",
+            filename: `${action.title}.md`,
+            parsed_text: reply,
+            metadata: { source: "generated", title: action.title },
+          } as any);
+          if (insErr) throw insErr;
+          results.push(`Document generated: ${action.title}`);
+        }
       } catch (e: any) {
-        toast({ title: "Generate failed", description: e?.message ?? String(e), variant: "destructive" });
-      } finally {
-        setBusy(false);
+        failures.push(`${action.kind}: ${e?.message ?? String(e)}`);
       }
     }
+
+    setBusy(false);
+    if (results.length) toast({ title: "Actions complete", description: results.join(" • ") });
+    if (failures.length) toast({ title: "Some actions failed", description: failures.join(" • "), variant: "destructive" });
+    onAfterAction?.();
+    consume();
   }, [messages, mode, onAfterAction]);
 
   useEffect(() => {
