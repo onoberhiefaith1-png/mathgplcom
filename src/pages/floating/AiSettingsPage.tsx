@@ -1053,6 +1053,39 @@ function KnowledgeChat({
                   </div>
                 )}
                 <MathText text={m.text} />
+                {m.role === "assistant" && m.actions && m.actions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t flex flex-wrap gap-1.5" style={{ borderColor: C.border }}>
+                    <div className="w-full text-[10px] uppercase tracking-wide mb-1" style={{ color: C.textMuted }}>
+                      What would you like to do with this?
+                    </div>
+                    {m.actions.map((a, i) => {
+                      const label =
+                        a.kind === "save_knowledge" ? `💾 Save as Knowledge` :
+                        a.kind === "create_draft_law" ? `📜 Create Draft Law` :
+                        a.kind === "generate_document" ? `📄 Generate Document` :
+                        `✕ Discard`;
+                      const variant = a.kind === "discard";
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => runAction(m.id, a)}
+                          disabled={busy}
+                          className="text-[11px] px-2.5 py-1 rounded-md border hover:bg-black/5 disabled:opacity-40"
+                          style={{
+                            borderColor: variant ? C.border : C.borderStrong,
+                            color: variant ? C.textMuted : C.text,
+                            background: variant ? "transparent" : C.panelBg,
+                          }}
+                        >
+                          {label}
+                          {a.kind === "save_knowledge" && `: ${a.title}`}
+                          {a.kind === "create_draft_law" && `: ${a.name}`}
+                          {a.kind === "generate_document" && `: ${a.title}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ))}
