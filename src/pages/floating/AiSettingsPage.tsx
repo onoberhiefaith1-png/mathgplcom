@@ -1,6 +1,6 @@
 // Floating Number Intelligence Center — AI-first workspace.
-// Default: sidebar (30%) + AI chat (70%). When a law/draft/document is
-// selected, layout shifts to sidebar (20%) + detail (50%) + AI (30%).
+// Default: AI chat (70%) + sidebar (30%). When a law/draft/document is
+// selected, layout shifts to AI (30%) + detail (50%) + sidebar (20%).
 // The AI conversation is never unmounted, so memory persists across
 // selection changes. Same edge function & shared knowledge as the
 // Floating Number Generation page.
@@ -10,7 +10,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Loader2, Upload, Trash2, BookOpen, FileText, FlaskConical,
   RefreshCw, Send, Sparkles, Check, X, Edit3, Plus, Search, ScanLine,
-  Mic, MicOff, Paperclip, Image as ImageIcon, Phone, ChevronLeft, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen,
+  Mic, MicOff, Paperclip, Image as ImageIcon, Phone, ChevronLeft, ChevronDown, ChevronRight, PanelRightClose, PanelRightOpen,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
