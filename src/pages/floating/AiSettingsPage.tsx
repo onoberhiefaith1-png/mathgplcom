@@ -131,6 +131,7 @@ const AiSettingsPage = () => {
   const [openOfficial, setOpenOfficial] = useState(true);
   const [openDrafts, setOpenDrafts] = useState(true);
   const [openDocs, setOpenDocs] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [selectedLaw, setSelectedLaw] = useState<Law | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<Law | null>(null);
