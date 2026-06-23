@@ -198,8 +198,10 @@ export const AssistantPanel = ({
   onClearHighlight,
   onApproveApply,
   onApproveUndo,
+  onApplyLineUpdate,
   lessonContext,
 }: Props) => {
+
   const navigate = useNavigate();
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
   const [messages, setMessages] = useState<AssistantMessage[]>([
