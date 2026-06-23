@@ -1,6 +1,6 @@
 // Floating Number Intelligence Center — AI-first workspace.
-// Default: sidebar (30%) + AI chat (70%). When a law/draft/document is
-// selected, layout shifts to sidebar (20%) + detail (50%) + AI (30%).
+// Default: AI chat (70%) + sidebar (30%). When a law/draft/document is
+// selected, layout shifts to AI (30%) + detail (50%) + sidebar (20%).
 // The AI conversation is never unmounted, so memory persists across
 // selection changes. Same edge function & shared knowledge as the
 // Floating Number Generation page.
@@ -10,7 +10,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Loader2, Upload, Trash2, BookOpen, FileText, FlaskConical,
   RefreshCw, Send, Sparkles, Check, X, Edit3, Plus, Search, ScanLine,
-  Mic, MicOff, Paperclip, Image as ImageIcon, Phone, ChevronLeft, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen,
+  Mic, MicOff, Paperclip, Image as ImageIcon, Phone, ChevronLeft, ChevronDown, ChevronRight, PanelRightClose, PanelRightOpen,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -292,14 +292,52 @@ const AiSettingsPage = () => {
       </div>
 
 
-      {/* Body: dynamic columns. Sidebar is always visible.
-          The detail panel, when open, eats into the AI chat's space —
-          never into the sidebar — so the AI remains continuously visible. */}
+      {/* Body: AI on the left, detail in the middle when selected, sidebar on the right.
+          The AI conversation is never unmounted. */}
 
       <div className="flex flex-1 min-h-0">
-        {/* Left sidebar — fixed-ish compact width; never hidden */}
+        {/* Left: AI chat — the primary workspace. */}
         <aside
-          className="shrink-0 flex flex-col border-r overflow-hidden transition-[width,min-width,max-width] duration-300 ease-in-out"
+          className="flex flex-col min-w-0 border-r"
+          style={{
+            flex: hasSelection ? "0 0 30%" : "1 1 100%",
+            minWidth: 320,
+            background: C.panelBg,
+            borderColor: C.border,
+          }}
+        >
+          <KnowledgeChat handleRef={(r) => { chatRef.current = r; }} />
+        </aside>
+
+        {/* Middle: detail panel (when selected). */}
+        {hasSelection && (
+          <main
+            className="min-w-0 overflow-y-auto border-r"
+            style={{ flex: "0 0 50%", borderColor: C.border, background: C.pageBg }}
+          >
+            <div className="p-4 pb-0 flex items-center justify-between">
+              <button
+                onClick={clearSelection}
+                className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md hover:bg-black/5"
+                style={{ color: C.textSubtle }}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Close
+              </button>
+            </div>
+            <DetailPanel
+              law={selectedLaw}
+              draft={selectedDraft}
+              doc={selectedDoc}
+              onApproveDraft={approveDraft}
+              onRejectDraft={rejectDraft}
+              onAskAboutLaw={(p) => chatRef.current?.askExternal(p)}
+            />
+          </main>
+        )}
+
+        {/* Right sidebar — collapsible resource panel. */}
+        <aside
+          className="shrink-0 flex flex-col border-l overflow-hidden transition-[width,min-width,max-width] duration-300 ease-in-out"
           style={{
             width: sidebarCollapsed ? 44 : (hasSelection ? 260 : "30%"),
             minWidth: sidebarCollapsed ? 44 : 260,
@@ -316,7 +354,7 @@ const AiSettingsPage = () => {
                 className="p-1.5 rounded hover:bg-black/5"
                 style={{ color: C.textSubtle }}
               >
-                <PanelLeftOpen className="h-4 w-4" />
+                <PanelRightOpen className="h-4 w-4" />
               </button>
               <div className="w-px flex-1" />
             </div>
@@ -330,7 +368,7 @@ const AiSettingsPage = () => {
                   className="p-1 rounded hover:bg-black/5 shrink-0"
                   style={{ color: C.textSubtle }}
                 >
-                  <PanelLeftClose className="h-4 w-4" />
+                  <PanelRightClose className="h-4 w-4" />
                 </button>
                 <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border flex-1 min-w-0"
                   style={{ borderColor: C.border, background: C.hover }}>
@@ -468,46 +506,6 @@ const AiSettingsPage = () => {
             </>
           )}
         </aside>
-
-
-        {/* Right area: detail (when selected) + AI chat. AI is never unmounted. */}
-        <div className="flex flex-1 min-w-0">
-          {hasSelection && (
-            <main
-              className="min-w-0 overflow-y-auto border-r"
-              style={{ flex: "0 0 70%", borderColor: C.border, background: C.pageBg }}
-            >
-              <div className="p-4 pb-0 flex items-center justify-between">
-                <button
-                  onClick={clearSelection}
-                  className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md hover:bg-black/5"
-                  style={{ color: C.textSubtle }}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Close
-                </button>
-              </div>
-              <DetailPanel
-                law={selectedLaw}
-                draft={selectedDraft}
-                doc={selectedDoc}
-                onApproveDraft={approveDraft}
-                onRejectDraft={rejectDraft}
-                onAskAboutLaw={(p) => chatRef.current?.askExternal(p)}
-              />
-            </main>
-          )}
-
-          <aside
-            className="flex flex-col min-w-0"
-            style={{
-              flex: hasSelection ? "0 0 30%" : "1 1 100%",
-              minWidth: 320,
-              background: C.panelBg,
-            }}
-          >
-            <KnowledgeChat handleRef={(r) => { chatRef.current = r; }} />
-          </aside>
-        </div>
       </div>
     </div>
   );
