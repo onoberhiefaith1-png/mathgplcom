@@ -215,6 +215,147 @@ const FloatingNumbersPage = () => {
     [info],
   );
 
+  /* ---------- Targeted line patches from AI Assistant (move/add/remove/etc) ---------- */
+  const applyLineUpdateFromAssistant = useCallback(
+    (p: LineUpdatePayload) => {
+      setLines((prev) => {
+        const idx = prev.findIndex((l) => l.lineId === p.lineId);
+        if (idx < 0) {
+          toast({ title: "Line not found", description: `No line ${p.lineId.slice(0, 6)} in workspace.`, variant: "destructive" });
+          return prev;
+        }
+        const current = prev[idx];
+        const fillers = [...current.fillers];
+        const containers = [...current.containers];
+        let arrangement = current.arrangement.length === fillers.length
+          ? [...current.arrangement]
+          : identityArrangement(fillers.length);
+
+        const snapForUndo = { chips: current.fillers, scaffolds: current.containers };
+
+        switch (p.op) {
+          case "move_filler": {
+            const from = Number(p.from_index);
+            const to = Number(p.to_index);
+            if (!Number.isFinite(from) || !Number.isFinite(to)) return prev;
+            // Operate on the visual order via arrangement.
+            const order = arrangement.length === fillers.length ? arrangement : identityArrangement(fillers.length);
+            if (from < 0 || from >= order.length || to < 0 || to >= order.length) return prev;
+            const moved = order.splice(from, 1)[0];
+            order.splice(to, 0, moved);
+            arrangement = order;
+            break;
+          }
+          case "add_filler": {
+            const v = (p.value ?? "").trim();
+            if (!v) return prev;
+            fillers.push(v);
+            arrangement = identityArrangement(fillers.length);
+            if (p.container) {
+              const c = String(p.container).toLowerCase() as ContainerKind;
+              if (!containers.includes(c)) containers.push(c);
+            }
+            break;
+          }
+          case "remove_filler": {
+            let removeIdx = -1;
+            if (p.value != null) {
+              const v = String(p.value).trim();
+              removeIdx = fillers.findIndex((f) => f.trim() === v);
+            }
+            if (removeIdx < 0 && p.index != null && Number.isFinite(p.index)) {
+              removeIdx = Number(p.index);
+            }
+            if (removeIdx < 0 || removeIdx >= fillers.length) return prev;
+            fillers.splice(removeIdx, 1);
+            arrangement = identityArrangement(fillers.length);
+            break;
+          }
+          case "add_container": {
+            const c = String(p.container ?? "").toLowerCase() as ContainerKind;
+            if (!c || containers.includes(c)) return prev;
+            containers.push(c);
+            break;
+          }
+          case "remove_container": {
+            const c = String(p.container ?? "").toLowerCase() as ContainerKind;
+            const ci = containers.indexOf(c);
+            if (ci < 0) return prev;
+            containers.splice(ci, 1);
+            break;
+          }
+          case "set_arrangement": {
+            const arr = Array.isArray(p.arrangement) ? p.arrangement.slice() : [];
+            if (arr.length !== fillers.length) return prev;
+            arrangement = arr;
+            break;
+          }
+          case "replace_line": {
+            const nextFillers = (p.fillers ?? []).map((f) => String(f));
+            const nextContainers = (p.containers ?? []).map((c) => String(c).toLowerCase() as ContainerKind);
+            const nextArrangement = Array.isArray(p.arrangement) && p.arrangement.length === nextFillers.length
+              ? p.arrangement.slice()
+              : identityArrangement(nextFillers.length);
+            // Snapshot for undo, then full replace.
+            void supabase.auth.getSession().then(({ data }) => {
+              const uid = data.session?.user?.id;
+              if (!uid || !info) return;
+              void supabase.from("floating_chip_snapshots").insert({
+                owner_id: uid,
+                subsection_id: info.subsectionId,
+                line_id: p.lineId,
+                chips: snapForUndo.chips as any,
+                scaffolds: snapForUndo.scaffolds as any,
+                source: "pre-assistant-line-update",
+              } as any);
+            });
+            const out = [...prev];
+            out[idx] = {
+              ...current,
+              fillers: nextFillers,
+              containers: nextContainers,
+              arrangement: nextArrangement,
+              fillersSelected: nextFillers.map(() => false),
+              containersSelected: nextContainers.map(() => false),
+            };
+            dirtyRef.current = true;
+            return out;
+          }
+          default:
+            return prev;
+        }
+
+        // Snapshot for undo on small-edits too.
+        void supabase.auth.getSession().then(({ data }) => {
+          const uid = data.session?.user?.id;
+          if (!uid || !info) return;
+          void supabase.from("floating_chip_snapshots").insert({
+            owner_id: uid,
+            subsection_id: info.subsectionId,
+            line_id: p.lineId,
+            chips: snapForUndo.chips as any,
+            scaffolds: snapForUndo.scaffolds as any,
+            source: `pre-assistant-${p.op}`,
+          } as any);
+        });
+
+        const out = [...prev];
+        out[idx] = {
+          ...current,
+          fillers,
+          containers,
+          arrangement,
+          fillersSelected: fillers.map(() => false),
+          containersSelected: containers.map(() => false),
+        };
+        dirtyRef.current = true;
+        return out;
+      });
+    },
+    [info],
+  );
+
+
 
   /* ---------- Per-line AI Edit panel ---------- */
   const [aiEditLineIndex, setAiEditLineIndex] = useState<number | null>(null);
