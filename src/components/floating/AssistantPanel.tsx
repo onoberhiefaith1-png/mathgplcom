@@ -470,9 +470,53 @@ export const AssistantPanel = ({
     } else if (action.kind === "reject_draft_law") {
       const did = String(action.payload.draft_id ?? "");
       if (did) void rejectDraftLaw(did);
+    } else if (action.kind === "apply_line_update") {
+      const lid = String(action.payload.line_id ?? "");
+      const op = action.payload.op as LineUpdateOp | undefined;
+      if (!lid || !op) {
+        toast({ title: "Cannot apply", description: "Missing line id or op.", variant: "destructive" });
+        return;
+      }
+      if (!onApplyLineUpdate) {
+        toast({ title: "Workspace control unavailable", description: "This page can't apply targeted edits yet.", variant: "destructive" });
+        return;
+      }
+      onApplyLineUpdate({
+        lineId: lid,
+        op,
+        from_index: action.payload.from_index,
+        to_index: action.payload.to_index,
+        value: action.payload.value ?? null,
+        index: action.payload.index ?? null,
+        container: action.payload.container ?? null,
+        arrangement: action.payload.arrangement,
+        fillers: action.payload.fillers,
+        containers: action.payload.containers,
+      });
+      toast({ title: "Applied", description: `Line ${lid.slice(0, 6)} updated (${op}).` });
+    } else if (action.kind === "analyse_structure") {
+      const lid = String(action.payload.line_id ?? "");
+      const patch = action.payload.patch ?? {};
+      if (!lid || !patch.fillers?.length) {
+        toast({ title: "Nothing to apply", description: "Analysis had no recommended structure.", variant: "destructive" });
+        return;
+      }
+      if (!onApplyLineUpdate) {
+        toast({ title: "Workspace control unavailable", variant: "destructive" });
+        return;
+      }
+      onApplyLineUpdate({
+        lineId: lid,
+        op: "replace_line",
+        fillers: patch.fillers,
+        containers: patch.containers ?? [],
+        arrangement: patch.arrangement ?? [],
+      });
+      toast({ title: "Analysis applied", description: `Line ${lid.slice(0, 6)} restructured.` });
     }
     dismissAction(msgId, action);
   };
+
 
   const dismissAction = (msgId: string, action: AssistantClientAction) => {
     setMessages((prev) =>
