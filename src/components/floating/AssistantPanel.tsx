@@ -922,13 +922,14 @@ export const AssistantPanel = ({
             <button
               type="button"
               onClick={recording ? stopRecording : startRecording}
-              className="p-2 rounded"
+              className={`p-2 rounded ${recording ? "animate-pulse" : ""}`}
               style={{
                 color: recording ? C.bg : C.text,
                 background: recording ? C.danger : C.bg,
                 border: `1px solid ${recording ? C.danger : C.borderStrong}`,
+                boxShadow: recording ? `0 0 0 4px rgba(185,28,28,0.18)` : undefined,
               }}
-              title={recording ? "Stop recording" : "Record voice note"}
+              title={recording ? "Listening… tap to stop" : "Tap to speak"}
             >
               {recording ? <Square className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
             </button>
