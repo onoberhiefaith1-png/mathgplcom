@@ -69,6 +69,7 @@ type ChatMode = "conversation" | "training" | "extraction";
 type ChatAction =
   | { kind: "save_knowledge"; title: string }
   | { kind: "create_draft_law"; name: string }
+  | { kind: "approve_official_law"; name: string }
   | { kind: "generate_document"; title: string }
   | { kind: "discard" };
 
