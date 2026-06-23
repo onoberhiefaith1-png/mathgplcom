@@ -135,15 +135,15 @@ const newId = () =>
 // taps one of these (or speaks naturally). Generation lives at the bottom
 // as a secondary action — this AI is primarily an editing assistant.
 const QUICK_ACTIONS: { label: string; prompt: string }[] = [
-  { label: "Remove bracket", prompt: "Remove the bracket around the highlighted term." },
-  { label: "Add bracket", prompt: "Wrap the highlighted term in brackets." },
-  { label: "Move term", prompt: "Move the highlighted term to the next container." },
-  { label: "Add exponent", prompt: "Add an exponent to the highlighted term." },
-  { label: "Convert to fraction", prompt: "Convert the highlighted expression into a fraction." },
-  { label: "Split container", prompt: "Split the current container into two." },
-  { label: "Merge containers", prompt: "Merge the current container with the next one." },
+  { label: "Change this to…", prompt: "Change the highlighted floating number to " },
+  { label: "Keep as one", prompt: "Keep the highlighted expression together as one floating number — do not split it." },
+  { label: "Remove this", prompt: "Remove the highlighted floating number." },
+  { label: "Move left", prompt: "Move the highlighted floating number one position to the left." },
+  { label: "Move right", prompt: "Move the highlighted floating number one position to the right." },
+  { label: "Remove bracket", prompt: "Remove the bracket around the highlighted expression." },
+  { label: "Add bracket", prompt: "Wrap the highlighted expression in brackets." },
   { label: "Undo", prompt: "Undo the last change on this line." },
-  { label: "Generate", prompt: "Generate floating numbers for the highlighted expression." },
+  { label: "Regenerate this line", prompt: "Regenerate the floating numbers for the active line from scratch." },
 ];
 
 const C = {
@@ -194,7 +194,7 @@ export const AssistantPanel = ({
       id: "welcome",
       role: "assistant",
       text:
-        "Hi — I'm your editor for floating numbers. Highlight a chip or line, then tell me what to change in plain English (or just talk — the mic types for you). Try things like \"remove the bracket\", \"move 5x to the second container\", \"add an exponent\", \"convert this to a fraction\". I'll show you a preview before applying anything.",
+        "I'm your floating-number editor. The generator already laid out a first pass — tell me what to fix and I'll change it for you. Address things naturally: \"on line 6, change +4 to +4x\", \"put √ as the 5th floating number on line 4\", \"keep 1/4 as one fraction\", \"remove the bracket on line 2\". You can also highlight a chip and just say \"move this left\" or \"delete this\". I'll show a preview — one tap on Apply Changes commits it.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -542,25 +542,26 @@ export const AssistantPanel = ({
         default: return op ?? "update";
       }
     };
+    const reason = String(action.payload.reason ?? "").trim();
     const title =
       action.kind === "apply_chips"
-        ? `Proposed change: apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${lineTag}`
+        ? (reason || `Apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${lineTag}`)
         : action.kind === "undo_last_change"
-        ? `Proposed change: undo last edit on line ${lineTag}`
+        ? (reason || `Undo last edit on line ${lineTag}`)
         : action.kind === "approve_draft_law"
         ? `Proposed new law: ${action.payload.law_name ?? "draft"}`
         : action.kind === "reject_draft_law"
         ? `Reject draft law: ${action.payload.law_name ?? "draft"}`
         : action.kind === "apply_line_update"
-        ? `Proposed: ${opLabel(action.payload.op)} on line ${lineTag}`
-        : `Analysis: line ${lineTag} — ${(action.payload.applicable_laws ?? []).map((l) => l.id).join(", ") || "no laws cited"}`;
+        ? (reason || `${opLabel(action.payload.op)} on line ${lineTag}`)
+        : (reason || `Analysis: line ${lineTag}`);
     const approveLabel =
-      action.kind === "apply_chips" ? "Approve & Apply"
-      : action.kind === "undo_last_change" ? "Approve Undo"
+      action.kind === "apply_chips" ? "Apply Changes"
+      : action.kind === "undo_last_change" ? "Apply Undo"
       : action.kind === "approve_draft_law" ? "Approve Law"
       : action.kind === "reject_draft_law" ? "Confirm Reject"
-      : action.kind === "apply_line_update" ? "Accept"
-      : "Accept Analysis";
+      : action.kind === "apply_line_update" ? "Apply Changes"
+      : "Apply Analysis";
 
     const blocked = action.kind === "apply_chips" && action.payload.verification_pass !== true;
     return (
