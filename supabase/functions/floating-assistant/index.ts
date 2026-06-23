@@ -611,17 +611,17 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
     (d) => d.kind !== "engine_principle" && d.kind !== "engine_generation_log",
   );
   if (teacherDocs.length > 0) {
-    lines.push(`### Knowledge Documents (${kb.knowledgeDocs.length})`);
+    lines.push(`### Knowledge Documents (${teacherDocs.length})`);
     // Token budget: per doc, include filename + ~800 chars excerpt for the 8
     // most recent docs; the rest are referenced by tag for lookup_document.
-    kb.knowledgeDocs.slice(0, 8).forEach((d) => {
+    teacherDocs.slice(0, 8).forEach((d) => {
       const excerpt = (d.parsed_text ?? "").trim().slice(0, 800);
       lines.push(`- ${docTag(d)} ${d.filename}${d.kind ? ` (${d.kind})` : ""}`);
       if (excerpt) lines.push(`    excerpt: ${excerpt}${(d.parsed_text?.length ?? 0) > 800 ? " …" : ""}`);
     });
-    if (kb.knowledgeDocs.length > 8) {
+    if (teacherDocs.length > 8) {
       lines.push("- More documents available — call lookup_document with the DOC#id to read them.");
-      kb.knowledgeDocs.slice(8).forEach((d) => {
+      teacherDocs.slice(8).forEach((d) => {
         lines.push(`  · ${docTag(d)} ${d.filename}`);
       });
     }
