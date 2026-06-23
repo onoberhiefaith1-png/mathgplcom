@@ -1027,6 +1027,20 @@ const runServerTool = (
         ? args.arrangement.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n))
         : [];
       if (!line_id || fillers.length === 0) return Promise.resolve({ result: { error: "line_id and fillers required" } });
+      // Server-side law-compliance gate — refuse to queue proposals that
+      // would emit raw operators, hidden signs, synthetic leading +, or
+      // unknown containers. The AI must call self_check_chips first; this
+      // is the belt-and-braces enforcement.
+      const v = verifyLine({ fillers, containers });
+      if (!v.ok) {
+        return Promise.resolve({
+          result: {
+            error: "law_violation",
+            message: "Proposal rejected — chips violate the Floating Number laws. Call self_check_chips, fix the failures, then retry.",
+            failures: v.failures,
+          },
+        });
+      }
       return Promise.resolve({
         result: { queued: true, message: "Generated structure queued for teacher approval." },
         clientAction: {
