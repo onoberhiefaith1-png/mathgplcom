@@ -676,13 +676,20 @@ Deno.serve(async (req) => {
         if (a.text) {
           parts.push({ type: "text", text: `\n\n[Attached ${a.filename}]\n${a.text.slice(0, 20000)}` });
         } else if (a.data) {
-          parts.push({
-            type: "file",
-            file: {
-              filename: a.filename,
-              file_data: `data:${a.mime};base64,${a.data}`,
-            },
-          });
+          if (isImageMime(a.mime)) {
+            parts.push({
+              type: "image_url",
+              image_url: { url: `data:${a.mime};base64,${a.data}` },
+            });
+          } else {
+            parts.push({
+              type: "file",
+              file: {
+                filename: a.filename,
+                file_data: `data:${a.mime};base64,${a.data}`,
+              },
+            });
+          }
         }
       }
       if (audio && audio.data) {
