@@ -334,6 +334,7 @@ export const AssistantPanel = ({
         const { data, error } = await supabase.functions.invoke("floating-assistant", {
           body: {
             message: promptText,
+            workspace: "floating_number",
             selection: sentHighlight?.text ?? null,
             lineId: sentHighlight?.lineId ?? lineId ?? null,
             history,
