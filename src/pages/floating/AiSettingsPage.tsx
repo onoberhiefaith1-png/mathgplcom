@@ -768,7 +768,7 @@ interface ChatHandle { askExternal: (prompt: string) => void }
 
 const KnowledgeChat = (() => {
   // We use a normal function component but expose an imperative handle through a callback ref.
-  const Component = (props: { ref?: (r: ChatHandle | null) => void }) => {
+  const Component = (props: { handleRef?: (r: ChatHandle | null) => void }) => {
     const [messages, setMessages] = useState<ChatMessage[]>([
       {
         id: "welcome",
