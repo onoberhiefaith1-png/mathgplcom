@@ -290,10 +290,8 @@ const AiSettingsPage = () => {
         </div>
       </div>
 
-      {/* Body: dynamic columns */}
-      <div className="flex flex-1 min-h-0">
-        {/* Sidebar — 30% default, 20% when detail open */}
-      {/* Body: dynamic columns. Sidebar is always visible.
+
+
           The detail panel, when open, eats into the AI chat's space —
           never into the sidebar — so the AI remains continuously visible. */}
       <div className="flex flex-1 min-h-0">
