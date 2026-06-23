@@ -389,9 +389,31 @@ const AiSettingsPage = () => {
       l.name.toLowerCase().includes(q) || (l.rule ?? "").toLowerCase().includes(q)),
     [drafts, q],
   );
+  const teacherDocsAll = useMemo(
+    () => docs.filter((d) => d.kind !== "engine_principle" && d.kind !== "engine_generation_log"),
+    [docs],
+  );
+  const enginePrinciplesAll = useMemo(
+    () => docs.filter((d) => d.kind === "engine_principle"),
+    [docs],
+  );
+  const engineLogsAll = useMemo(
+    () => docs.filter((d) => d.kind === "engine_generation_log"),
+    [docs],
+  );
   const filteredDocs = useMemo(
-    () => !q ? docs : docs.filter((d) => d.filename.toLowerCase().includes(q)),
-    [docs, q],
+    () => !q ? teacherDocsAll : teacherDocsAll.filter((d) => d.filename.toLowerCase().includes(q)),
+    [teacherDocsAll, q],
+  );
+  const filteredEnginePrinciples = useMemo(
+    () => !q ? enginePrinciplesAll : enginePrinciplesAll.filter((d) =>
+      d.filename.toLowerCase().includes(q) || (d.parsed_text ?? "").toLowerCase().includes(q)),
+    [enginePrinciplesAll, q],
+  );
+  const filteredEngineLogs = useMemo(
+    () => !q ? engineLogsAll : engineLogsAll.filter((d) =>
+      d.filename.toLowerCase().includes(q) || (d.parsed_text ?? "").toLowerCase().includes(q)),
+    [engineLogsAll, q],
   );
 
   const hasSelection = !!(selectedLaw || selectedDraft || selectedDoc);
