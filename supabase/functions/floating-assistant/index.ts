@@ -1160,14 +1160,30 @@ Deno.serve(async (req) => {
         : "Do not emit an ACTIONS block."
     }`;
 
+    const workspaceRaw = String(body.workspace ?? "").toLowerCase();
+    const workspaceLabel =
+      workspaceRaw === "knowledge" || workspaceRaw === "law" || workspaceRaw === "settings"
+        ? "Law / Settings Workspace"
+        : workspaceRaw === "floating_number" || workspaceRaw === "generation"
+        ? "Floating Number Generation Workspace"
+        : "Floating Number Platform";
+    const workspaceBlock =
+      `ACTIVE_WORKSPACE: ${workspaceLabel}\n` +
+      `You are the single Floating Number AI; this is just the window you are currently in. ` +
+      `All laws, drafts, documents, training and memory are shared with every other workspace — ` +
+      `never speak as if a different AI runs the other page, and never greet your own prior output ` +
+      `as if it came from another assistant.`;
+
     const messages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: workspaceBlock },
       { role: "system", content: modeBlock },
       { role: "system", content: lessonStateBlock },
       { role: "system", content: contextBlock },
       ...history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: userContent },
     ];
+
 
     const clientActions: PendingClientAction[] = [];
     const toolTrace: { name: string; args: unknown; result: unknown }[] = [];
