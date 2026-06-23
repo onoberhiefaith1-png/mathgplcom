@@ -60,7 +60,16 @@ interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   attachments?: { filename: string; isImage: boolean; previewUrl?: string }[];
+  actions?: ChatAction[];
+  mode?: ChatMode;
 }
+
+type ChatMode = "conversation" | "training" | "extraction";
+type ChatAction =
+  | { kind: "save_knowledge"; title: string }
+  | { kind: "create_draft_law"; name: string }
+  | { kind: "generate_document"; title: string }
+  | { kind: "discard" };
 
 /* ──────────────── style tokens ──────────────── */
 
