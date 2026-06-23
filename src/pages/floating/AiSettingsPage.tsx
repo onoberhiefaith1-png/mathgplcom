@@ -855,6 +855,7 @@ function KnowledgeChat({
           message: text,
           history,
           workspace: "knowledge",
+          mode,
           lessonContext: null,
           attachments: sentAttachments.map((a) => ({
             filename: a.filename, mime: a.mime, data: a.data,
@@ -876,14 +877,101 @@ function KnowledgeChat({
         throw error;
       }
       const reply = (data as any)?.reply ?? "(no reply)";
-      setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: reply }]);
+      const { text: cleanText, actions } = parseActions(reply);
+      setMessages((prev) => [...prev, {
+        id: newId(), role: "assistant", text: cleanText, actions, mode,
+      }]);
     } catch (e: any) {
       setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: `⚠️ ${e?.message ?? String(e)}` }]);
     } finally {
       setBusy(false);
       setTimeout(() => taRef.current?.focus(), 0);
     }
-  }, [input, busy, messages, attachments, voice]);
+  }, [input, busy, messages, attachments, voice, mode]);
+
+  /* ───── Action button handlers ───── */
+  const runAction = useCallback(async (msgId: string, action: ChatAction) => {
+    const msg = messages.find((m) => m.id === msgId);
+    const body = msg?.text ?? "";
+    const consume = () => setMessages((prev) => prev.map((m) =>
+      m.id === msgId ? { ...m, actions: [] } : m
+    ));
+
+    if (action.kind === "discard") {
+      consume();
+      toast({ title: "Discarded" });
+      return;
+    }
+
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) { toast({ title: "Not signed in", variant: "destructive" }); return; }
+
+    if (action.kind === "save_knowledge") {
+      const { error } = await supabase.from("floating_knowledge_documents").insert({
+        owner_id: session.user.id,
+        kind: "note",
+        filename: `${action.title}.md`,
+        parsed_text: body,
+        metadata: { source: "chat", mode: msg?.mode ?? mode },
+      } as any);
+      if (error) { toast({ title: "Save failed", description: error.message, variant: "destructive" }); return; }
+      toast({ title: "Saved as Knowledge", description: action.title });
+      onAfterAction?.();
+      consume();
+      return;
+    }
+
+    if (action.kind === "create_draft_law") {
+      const { error } = await supabase.from("floating_law_drafts").insert({
+        owner_id: session.user.id,
+        name: action.name,
+        rule: body.slice(0, 400),
+        reason: `Proposed from ${msg?.mode ?? mode} session`,
+        examples: [],
+        exceptions: [],
+        status: "proposed",
+        source_kind: "ai_proposed",
+      } as any);
+      if (error) { toast({ title: "Draft failed", description: error.message, variant: "destructive" }); return; }
+      toast({ title: "Draft Law created", description: action.name });
+      onAfterAction?.();
+      consume();
+      return;
+    }
+
+    if (action.kind === "generate_document") {
+      setBusy(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("floating-assistant", {
+          body: {
+            message: `Generate a full law document titled "${action.title}" based on the following content:\n\n${body}`,
+            mode: "document",
+            workspace: "knowledge",
+            lessonContext: null,
+            history: [],
+            attachments: [],
+          },
+        });
+        if (error) throw error;
+        const reply = (data as any)?.reply ?? "";
+        const { error: insErr } = await supabase.from("floating_knowledge_documents").insert({
+          owner_id: session.user.id,
+          kind: "law_document",
+          filename: `${action.title}.md`,
+          parsed_text: reply,
+          metadata: { source: "generated", title: action.title },
+        } as any);
+        if (insErr) throw insErr;
+        toast({ title: "Document generated", description: action.title });
+        onAfterAction?.();
+        consume();
+      } catch (e: any) {
+        toast({ title: "Generate failed", description: e?.message ?? String(e), variant: "destructive" });
+      } finally {
+        setBusy(false);
+      }
+    }
+  }, [messages, mode, onAfterAction]);
 
   useEffect(() => {
     const handle: ChatHandle = { askExternal: (p: string) => { setInput(""); voice.reset(); send(p); } };
