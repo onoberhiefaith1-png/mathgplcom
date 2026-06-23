@@ -455,19 +455,60 @@ const runServerTool = (
 };
 
 async function callGateway(messages: any[]) {
-  const res = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto" }),
-  });
-  if (res.status === 429) throw new Error("AI rate limit exceeded — try again in a moment.");
-  if (res.status === 402) throw new Error("AI credits exhausted — add credits to continue.");
-  if (!res.ok) throw new Error(`AI gateway ${res.status}: ${await res.text()}`);
+  let res: Response;
+  try {
+    res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto" }),
+    });
+  } catch (e: any) {
+    throw makeError("upstream_unavailable", "AI service unreachable — please retry in a moment.", 503, e?.message);
+  }
+  if (res.status === 429) throw makeError("rate_limited", "The AI is busy right now — please retry in a few seconds.", 429);
+  if (res.status === 402) throw makeError("credits_exhausted", "AI credits exhausted for this workspace.", 402);
+  if (res.status === 413) throw makeError("payload_too_large", "Document or message too large for the AI — try a smaller file.", 413);
+  if (res.status >= 500) throw makeError("upstream_unavailable", "AI service temporarily unavailable. Please retry.", 503, `gateway ${res.status}`);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    const lower = detail.toLowerCase();
+    if (lower.includes("context") || lower.includes("token") || lower.includes("too long")) {
+      throw makeError("context_limit", "Conversation or document is too long — start a new chat or shorten the content.", 400, detail.slice(0, 400));
+    }
+    throw makeError("internal_error", `AI gateway error (${res.status}).`, res.status, detail.slice(0, 400));
+  }
   return await res.json();
 }
+
+interface StructuredError extends Error {
+  code: string;
+  status: number;
+  detail?: string;
+}
+function makeError(code: string, message: string, status = 500, detail?: string): StructuredError {
+  const e = new Error(message) as StructuredError;
+  e.code = code;
+  e.status = status;
+  if (detail) e.detail = detail;
+  return e;
+}
+
+const SUPPORTED_MIMES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "text/markdown",
+  "audio/webm",
+  "audio/mp4",
+  "audio/m4a",
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/ogg",
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
