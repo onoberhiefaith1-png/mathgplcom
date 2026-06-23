@@ -215,7 +215,19 @@ const AiSettingsPage = () => {
   /* ───── draft actions ───── */
 
   const approveDraft = async (d: Law) => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) { toast({ title: "Not signed in", variant: "destructive" }); return; }
+    const { data: nextRow } = await supabase
+      .from("floating_law_library")
+      .select("law_number")
+      .eq("owner_id", session.user.id)
+      .order("law_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextNumber = ((nextRow as any)?.law_number ?? 0) + 1;
     const { error } = await supabase.from("floating_law_library").insert({
+      owner_id: session.user.id,
+      law_number: nextNumber,
       name: d.name, rule: d.rule, reason: d.reason ?? null,
       conditions: d.conditions ?? [], exceptions: d.exceptions ?? [],
       lesson_topics: d.lesson_topics ?? [], tags: d.tags ?? [],
@@ -223,7 +235,7 @@ const AiSettingsPage = () => {
     } as any);
     if (error) { toast({ title: "Approve failed", description: error.message, variant: "destructive" }); return; }
     await supabase.from("floating_law_drafts").update({ status: "approved" } as any).eq("id", d.id);
-    toast({ title: "Law approved", description: d.name });
+    toast({ title: `Law ${nextNumber} approved`, description: d.name });
     setSelectedDraft(null);
     load();
   };
