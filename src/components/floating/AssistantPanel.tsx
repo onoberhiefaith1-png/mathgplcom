@@ -15,7 +15,6 @@ import {
   Square,
   X,
   FileText,
-  AudioLines,
   Eye,
   Check,
 } from "lucide-react";
