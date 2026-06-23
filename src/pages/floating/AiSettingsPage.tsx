@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Loader2, Upload, Trash2, BookOpen, FileText, FlaskConical,
-  RefreshCw, Send, Sparkles, Check, X, Edit3, Plus, Search, ScanLine,
+  RefreshCw, Send, Sparkles, Check, X, Edit3, Plus, Search, ScanLine, Cpu, Activity,
   Mic, MicOff, Paperclip, Image as ImageIcon, Phone, ChevronLeft, ChevronDown, ChevronRight, PanelRightClose, PanelRightOpen, Download,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
