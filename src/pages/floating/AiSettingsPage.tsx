@@ -598,11 +598,12 @@ function EmptyHint({ text }: { text: string }) {
 /* ──────────────── Detail panel ──────────────── */
 
 function DetailPanel({
-  law, draft, doc, onApproveDraft, onRejectDraft, onAskAboutLaw,
+  law, draft, doc, onApproveDraft, onRejectDraft, onAskAboutLaw, onGenerateLawDocument,
 }: {
   law: Law | null; draft: Law | null; doc: KnowledgeDoc | null;
   onApproveDraft: (d: Law) => void; onRejectDraft: (d: Law) => void;
   onAskAboutLaw: (prompt: string) => void;
+  onGenerateLawDocument?: (l: Law) => void;
 }) {
   if (law) {
     const history = Array.isArray(law.approval_history) ? law.approval_history : [];
