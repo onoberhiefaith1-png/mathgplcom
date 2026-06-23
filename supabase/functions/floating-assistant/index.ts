@@ -413,7 +413,13 @@ interface ServerToolCall {
 }
 
 interface PendingClientAction {
-  kind: "apply_chips" | "undo_last_change" | "approve_draft_law" | "reject_draft_law";
+  kind:
+    | "apply_chips"
+    | "undo_last_change"
+    | "approve_draft_law"
+    | "reject_draft_law"
+    | "apply_line_update"
+    | "analyse_structure";
   payload: Record<string, unknown>;
 }
 
@@ -427,6 +433,9 @@ interface LessonCtx {
   recentExamples?: { lineId: string; text: string }[];
   activeLineId?: string | null;
   activeLineText?: string | null;
+  activeLineFillers?: string[];
+  activeLineContainers?: string[];
+  activeLineArrangement?: number[];
 }
 
 interface LawRow {
@@ -436,6 +445,8 @@ interface LawRow {
   reason?: string | null;
   lesson_topics?: string[] | null;
   tags?: string[] | null;
+  law_number?: number | null;
+  examples?: unknown;
 }
 
 interface DraftLawRow extends LawRow {
@@ -443,10 +454,36 @@ interface DraftLawRow extends LawRow {
   source_kind?: string | null;
 }
 
+interface KnowledgeDocRow {
+  id: string;
+  filename: string;
+  kind?: string | null;
+  parsed_text?: string | null;
+}
+
+interface ExampleAnalysisRow {
+  id: string;
+  example_text: string;
+  lesson_topic?: string | null;
+  structures?: unknown;
+  created_at?: string | null;
+}
+
+interface GenerationRow {
+  id: string;
+  original: string;
+  chips?: unknown;
+  scaffolds?: unknown;
+  status?: string | null;
+  created_at?: string | null;
+}
+
 interface KBHydration {
   approvedLaws: LawRow[];
   draftLaws: DraftLawRow[];
-  knowledgeDocs: { id: string; filename: string; kind?: string | null }[];
+  knowledgeDocs: KnowledgeDocRow[];
+  exampleAnalyses: ExampleAnalysisRow[];
+  recentGenerations: GenerationRow[];
 }
 
 const topicMatches = (rowTopics: string[] | null | undefined, topic: string | null | undefined): boolean => {
@@ -456,61 +493,142 @@ const topicMatches = (rowTopics: string[] | null | undefined, topic: string | nu
   return rowTopics.some((x) => (x ?? "").toLowerCase().trim() === t);
 };
 
+const lawTag = (l: LawRow): string =>
+  typeof l.law_number === "number" && l.law_number > 0 ? `LAW#${l.law_number}` : `LAW#${l.id.slice(0, 8)}`;
+const draftTag = (l: DraftLawRow): string => `DRAFT#${l.id.slice(0, 8)}`;
+const docTag = (d: KnowledgeDocRow): string => `DOC#${d.id.slice(0, 8)}`;
+
 async function hydrateKnowledge(
   userClient: ReturnType<typeof createClient>,
   topic: string | null,
 ): Promise<KBHydration> {
-  const [{ data: laws }, { data: drafts }, { data: docs }] = await Promise.all([
-    userClient.from("floating_law_library").select("id,name,rule,reason,lesson_topics,tags").limit(100),
+  const [
+    { data: laws },
+    { data: drafts },
+    { data: docs },
+    { data: analyses },
+    { data: generations },
+  ] = await Promise.all([
+    userClient
+      .from("floating_law_library")
+      .select("id,law_number,name,rule,reason,lesson_topics,tags,examples")
+      .order("law_number", { ascending: true })
+      .limit(100),
     userClient
       .from("floating_law_drafts")
       .select("id,name,rule,reason,lesson_topics,tags,status,source_kind")
       .eq("status", "proposed")
       .limit(50),
-    userClient.from("floating_knowledge_documents").select("id,filename,kind").limit(50),
+    userClient
+      .from("floating_knowledge_documents")
+      .select("id,filename,kind,parsed_text")
+      .order("created_at", { ascending: false })
+      .limit(30),
+    userClient
+      .from("floating_example_analyses")
+      .select("id,example_text,lesson_topic,structures,created_at")
+      .order("created_at", { ascending: false })
+      .limit(20),
+    userClient
+      .from("floating_generations")
+      .select("id,original,chips,scaffolds,status,created_at")
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
   const approvedLaws = ((laws as any[]) ?? []).filter((r) => topicMatches(r.lesson_topics, topic));
   const draftLaws = ((drafts as any[]) ?? []).filter((r) => topicMatches(r.lesson_topics, topic));
   return {
     approvedLaws: approvedLaws as LawRow[],
     draftLaws: draftLaws as DraftLawRow[],
-    knowledgeDocs: ((docs as any[]) ?? []).map((d) => ({ id: d.id, filename: d.filename, kind: d.kind })),
+    knowledgeDocs: ((docs as any[]) ?? []) as KnowledgeDocRow[],
+    exampleAnalyses: ((analyses as any[]) ?? []) as ExampleAnalysisRow[],
+    recentGenerations: ((generations as any[]) ?? []) as GenerationRow[],
   };
 }
 
 function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
   const lines: string[] = [];
-  lines.push("LESSON STATE:");
-  if (ctx?.topic) lines.push(`  topic: ${ctx.topic}`);
-  if (ctx?.subject) lines.push(`  subject: ${ctx.subject}`);
-  if (ctx?.sectionKind) lines.push(`  section: ${ctx.sectionKind}`);
-  if (ctx?.problem) lines.push(`  problem: ${ctx.problem}`);
-  if (ctx?.activeLineText) lines.push(`  active_line[${ctx.activeLineId}]: ${ctx.activeLineText}`);
+  lines.push("## LESSON STATE");
+  if (ctx?.topic) lines.push(`- topic: ${ctx.topic}`);
+  if (ctx?.subject) lines.push(`- subject: ${ctx.subject}`);
+  if (ctx?.sectionKind) lines.push(`- section: ${ctx.sectionKind}`);
+  if (ctx?.problem) lines.push(`- problem: ${ctx.problem}`);
+  if (ctx?.activeLineText) {
+    lines.push(`- active_line[${ctx.activeLineId}]: ${ctx.activeLineText}`);
+    const f = ctx.activeLineFillers ?? [];
+    const c = ctx.activeLineContainers ?? [];
+    const a = ctx.activeLineArrangement ?? [];
+    if (f.length || c.length) {
+      lines.push(`  active_line.fillers (live, ${f.length}): [${f.join(" | ")}]`);
+      lines.push(`  active_line.containers: [${c.join(", ")}]`);
+      if (a.length) lines.push(`  active_line.arrangement: [${a.join(",")}]`);
+    }
+  }
   if (ctx?.recentExamples && ctx.recentExamples.length > 0) {
-    lines.push("  recent_examples:");
+    lines.push("- recent_examples:");
     ctx.recentExamples.slice(0, 6).forEach((ex, i) => {
       lines.push(`    [${i + 1}] (${ex.lineId}) ${ex.text}`);
     });
   }
+
+  lines.push("");
+  lines.push("## FLOATING_KNOWLEDGE (live snapshot — cite by tag)");
+
   if (kb.approvedLaws.length > 0) {
-    lines.push(`APPROVED LAWS (${kb.approvedLaws.length}) — cite by id:`);
-    kb.approvedLaws.slice(0, 25).forEach((l) => {
-      lines.push(`  - [${l.id}] ${l.name}: ${l.rule}`);
+    lines.push(`### Approved Laws (${kb.approvedLaws.length})`);
+    kb.approvedLaws.slice(0, 30).forEach((l) => {
+      const ex = Array.isArray(l.examples) ? (l.examples as unknown[]).slice(0, 2) : [];
+      lines.push(`- ${lawTag(l)} "${l.name}" — ${l.rule}`);
+      if (l.reason) lines.push(`    reason: ${l.reason}`);
+      if (ex.length) lines.push(`    examples: ${ex.map((e) => JSON.stringify(e)).join(" ; ")}`);
     });
   } else {
-    lines.push("APPROVED LAWS: (none for this topic — consider proposing a new law)");
+    lines.push("### Approved Laws: (none for this topic — consider propose_new_law)");
   }
+
   if (kb.draftLaws.length > 0) {
-    lines.push(`PROPOSED DRAFT LAWS (${kb.draftLaws.length}):`);
-    kb.draftLaws.slice(0, 10).forEach((l) => {
-      lines.push(`  - [${l.id}] ${l.name}: ${l.rule}`);
+    lines.push(`### Draft Laws (${kb.draftLaws.length})`);
+    kb.draftLaws.slice(0, 12).forEach((l) => {
+      lines.push(`- ${draftTag(l)} "${l.name}" — ${l.rule}`);
     });
   }
+
   if (kb.knowledgeDocs.length > 0) {
-    lines.push(`KNOWLEDGE DOCS: ${kb.knowledgeDocs.map((d) => d.filename).join(", ")}`);
+    lines.push(`### Knowledge Documents (${kb.knowledgeDocs.length})`);
+    // Token budget: per doc, include filename + ~800 chars excerpt for the 8
+    // most recent docs; the rest are referenced by tag for lookup_document.
+    kb.knowledgeDocs.slice(0, 8).forEach((d) => {
+      const excerpt = (d.parsed_text ?? "").trim().slice(0, 800);
+      lines.push(`- ${docTag(d)} ${d.filename}${d.kind ? ` (${d.kind})` : ""}`);
+      if (excerpt) lines.push(`    excerpt: ${excerpt}${(d.parsed_text?.length ?? 0) > 800 ? " …" : ""}`);
+    });
+    if (kb.knowledgeDocs.length > 8) {
+      lines.push("- More documents available — call lookup_document with the DOC#id to read them.");
+      kb.knowledgeDocs.slice(8).forEach((d) => {
+        lines.push(`  · ${docTag(d)} ${d.filename}`);
+      });
+    }
   }
+
+  if (kb.exampleAnalyses.length > 0) {
+    lines.push(`### Recent Example Analyses (${kb.exampleAnalyses.length})`);
+    kb.exampleAnalyses.slice(0, 8).forEach((a) => {
+      const structs = Array.isArray(a.structures) ? (a.structures as any[]).map((s) => String(s)).join(",") : "";
+      lines.push(`- "${a.example_text}"${structs ? ` — structures: [${structs}]` : ""}`);
+    });
+  }
+
+  if (kb.recentGenerations.length > 0) {
+    lines.push(`### Recent AI Generations (${kb.recentGenerations.length})`);
+    kb.recentGenerations.slice(0, 6).forEach((g) => {
+      const chips = Array.isArray(g.chips) ? (g.chips as any[]).map((c) => String(c)).join(" | ") : "";
+      lines.push(`- ${g.status ?? "?"} on "${g.original}" → [${chips}]`);
+    });
+  }
+
   return lines.join("\n");
 }
+
 
 const runServerTool = (
   call: ServerToolCall,
