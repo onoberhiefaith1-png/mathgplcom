@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Loader2, Upload, Trash2, BookOpen, FileText, FlaskConical,
-  RefreshCw, Send, Sparkles, Check, X, Edit3, Plus, Search, ScanLine,
+  RefreshCw, Send, Sparkles, Check, X, Edit3, Plus, Search, ScanLine, Cpu, Activity,
   Mic, MicOff, Paperclip, Image as ImageIcon, Phone, ChevronLeft, ChevronDown, ChevronRight, PanelRightClose, PanelRightOpen, Download,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -230,6 +230,8 @@ const AiSettingsPage = () => {
   const [openOfficial, setOpenOfficial] = useState(true);
   const [openDrafts, setOpenDrafts] = useState(true);
   const [openDocs, setOpenDocs] = useState(true);
+  const [openEnginePrinciples, setOpenEnginePrinciples] = useState(false);
+  const [openEngineLogs, setOpenEngineLogs] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [selectedLaw, setSelectedLaw] = useState<Law | null>(null);
@@ -387,9 +389,31 @@ const AiSettingsPage = () => {
       l.name.toLowerCase().includes(q) || (l.rule ?? "").toLowerCase().includes(q)),
     [drafts, q],
   );
+  const teacherDocsAll = useMemo(
+    () => docs.filter((d) => d.kind !== "engine_principle" && d.kind !== "engine_generation_log"),
+    [docs],
+  );
+  const enginePrinciplesAll = useMemo(
+    () => docs.filter((d) => d.kind === "engine_principle"),
+    [docs],
+  );
+  const engineLogsAll = useMemo(
+    () => docs.filter((d) => d.kind === "engine_generation_log"),
+    [docs],
+  );
   const filteredDocs = useMemo(
-    () => !q ? docs : docs.filter((d) => d.filename.toLowerCase().includes(q)),
-    [docs, q],
+    () => !q ? teacherDocsAll : teacherDocsAll.filter((d) => d.filename.toLowerCase().includes(q)),
+    [teacherDocsAll, q],
+  );
+  const filteredEnginePrinciples = useMemo(
+    () => !q ? enginePrinciplesAll : enginePrinciplesAll.filter((d) =>
+      d.filename.toLowerCase().includes(q) || (d.parsed_text ?? "").toLowerCase().includes(q)),
+    [enginePrinciplesAll, q],
+  );
+  const filteredEngineLogs = useMemo(
+    () => !q ? engineLogsAll : engineLogsAll.filter((d) =>
+      d.filename.toLowerCase().includes(q) || (d.parsed_text ?? "").toLowerCase().includes(q)),
+    [engineLogsAll, q],
   );
 
   const hasSelection = !!(selectedLaw || selectedDraft || selectedDoc);
@@ -648,6 +672,64 @@ const AiSettingsPage = () => {
                               >
                                 <Trash2 className="h-3 w-3" style={{ color: C.reject }} />
                               </button>
+                            </div>
+                          </ListRow>
+                        ))
+                      )}
+                    </SidebarSection>
+
+                    <SidebarSection
+                      icon={Cpu}
+                      label="Engine Principles"
+                      count={filteredEnginePrinciples.length}
+                      open={openEnginePrinciples}
+                      onToggle={() => setOpenEnginePrinciples((v) => !v)}
+                    >
+                      {filteredEnginePrinciples.length === 0 ? (
+                        <EmptyHint text="No engine principles yet. They appear after the first floating-number generation." />
+                      ) : (
+                        filteredEnginePrinciples.map((d) => (
+                          <ListRow
+                            key={d.id}
+                            active={selectedDoc?.id === d.id}
+                            onClick={() => { setSelectedDoc(d); setSelectedLaw(null); setSelectedDraft(null); }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                style={{ background: "#E0F2FE", color: "#0369A1" }}>ENGINE</span>
+                              <div className="font-medium text-[13px] truncate flex-1">{d.filename}</div>
+                            </div>
+                            <div className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>
+                              How the generator decides
+                            </div>
+                          </ListRow>
+                        ))
+                      )}
+                    </SidebarSection>
+
+                    <SidebarSection
+                      icon={Activity}
+                      label="Generation Logs"
+                      count={filteredEngineLogs.length}
+                      open={openEngineLogs}
+                      onToggle={() => setOpenEngineLogs((v) => !v)}
+                    >
+                      {filteredEngineLogs.length === 0 ? (
+                        <EmptyHint text="No generation logs yet. Generate a floating number to see the engine explain itself." />
+                      ) : (
+                        filteredEngineLogs.slice(0, 50).map((d) => (
+                          <ListRow
+                            key={d.id}
+                            active={selectedDoc?.id === d.id}
+                            onClick={() => { setSelectedDoc(d); setSelectedLaw(null); setSelectedDraft(null); }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                style={{ background: "#ECFCCB", color: "#3F6212" }}>LOG</span>
+                              <div className="font-medium text-[13px] truncate flex-1">{d.filename}</div>
+                            </div>
+                            <div className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>
+                              {new Date(d.created_at).toLocaleString()}
                             </div>
                           </ListRow>
                         ))

@@ -1,103 +1,82 @@
-# Floating Number AI — Knowledge Integration & Workspace Control
+# Self-Training Floating Number AI — Engine Knowledge Pipeline
 
-Turn the existing Floating Number AI from a side panel chatbot into the platform's intelligence layer: it ingests all Floating Number knowledge live, can analyse highlighted equations, and can directly operate the workspace through approval-gated proposals.
+Make the generation engine document its own reasoning. Every successful Floating Number generation writes an explanation that becomes a visible "Engine Knowledge" document, and the Floating Number AI reads those documents alongside teacher laws.
 
-## 1. Knowledge synchronization (server)
+## 1. Engine Knowledge as a document category
 
-Extend `supabase/functions/floating-assistant/index.ts` so every request hydrates a fresh `FloatingKnowledgeSnapshot` for the calling user, built from:
+Reuse `floating_knowledge_documents` (already used for teacher docs). Add two new `kind` values used everywhere:
 
-- `floating_law_library` (Official Laws — number, name, statement, examples)
-- `floating_law_drafts` (Draft Laws)
-- `floating_knowledge_documents` (parsed_text + `law_document` type)
-- `floating_example_analyses` + `floating_chip_snapshots` (teacher corrections / approved structures)
-- `floating_generations` (recent AI generations)
-- Current lesson notebook (already via `lessonContext`)
+- `engine_principle` — static, hand-seeded primers (sign detection, fraction protection, bracket scanning, container boundary rules). Seeded once via migration so the teacher can immediately open and edit them.
+- `engine_generation_log` — auto-written per successful generation, contains the structured self-explanation.
 
-Snapshot is assembled per request — no manual retraining, always current. Large bodies are token-budgeted: laws and short docs go inline; longer documents are summarized with title + first N chars and become retrievable on demand via a `lookup_document` tool. Snapshot is injected into the system prompt under a `## FLOATING_KNOWLEDGE` section with stable IDs (`LAW#5`, `DOC#abc123`) so the AI can cite them ("According to Law 5 and Law 5 Document…").
+No new table. Filter and label in the UI by `kind`.
 
-## 2. Document auto-ingestion
+## 2. Auto self-explanation on every generation
 
-When a document is uploaded or generated (existing `floating_knowledge_documents` insert path in `AiSettingsPage.tsx`), no extra step is required — because the snapshot is rebuilt on every AI request, new docs are immediately visible. Add:
-
-- A lightweight `indexed_at` + `summary` column on `floating_knowledge_documents` (migration) populated by a one-shot summarisation call on insert, used to keep the snapshot compact.
-- Storage-fallback parsing already exists; reuse it server-side when `parsed_text` is null.
-
-## 3. Analysis mode
-
-Add a new assistant action `analyse_structure` triggered when the user highlights a line (existing highlight pipeline in `FloatingWorkspace.tsx` + `AssistantPanel.tsx` already forwards `activeHighlight`).
-
-Server returns a structured `analysis` payload:
+Hook into the existing floating generation path (`supabase/functions/notebook-ai` `mode: "floating"` + `floating-reason`). After a successful generate-and-verify, the edge function writes one `engine_generation_log` row containing:
 
 ```
 {
-  detected_terms: ["5x", "-4y", "+2y"],
-  applicable_laws: [{id, number, name, why}],
-  recommended_structure: { fillers, containers, arrangement },
-  reasoning: "According to Law 2…"
+  input_expression,
+  generated_structure: { fillers, containers, arrangement },
+  applied_laws: [{id, number, name}],
+  generation_reasoning: "Scanned left to right. '+' bonded to next term. Three containers created.",
+  validation_reasoning: "Coverage 100%, reconstruction exact.",
+  confidence_score,
+  rejected_alternatives?: [...]
 }
 ```
 
-The panel renders this as an Analysis card with **Accept / Modify / Reject** buttons. Accept routes through the existing `apply_chips` approval flow.
+Stored as `parsed_text` (human-readable rendered version, so the teacher reads it like a doc) + `metadata` (the JSON above). `filename` auto-titled e.g. `Generation Log — 3x²+5x+1 — 2026-06-22`.
 
-## 4. Full workspace control (new tools)
+Writes are best-effort and non-blocking: a failure never blocks the generation response.
 
-Extend the assistant's tool/action set beyond today's `apply_chips`, `undo_last_change`, `approve_draft_law`, `reject_draft_law` with workspace operators:
+## 3. Seed Engine Principle documents
 
-| Tool | Effect on `FloatingLine` |
-|---|---|
-| `move_filler` | Reorder `arrangement` (e.g. "Move 5x to container 2") |
-| `add_filler` | Append a filler chip with optional container tag |
-| `remove_filler` | Delete a filler by value or index |
-| `add_container` / `remove_container` | Edit `containers[]` |
-| `set_arrangement` | Bulk reorder |
-| `generate_line` | Produce a complete proposed `FloatingLine` for a given equation/line id |
-| `apply_chips` | (existing) bulk apply |
-| `undo_last_change` | (existing) |
+Migration inserts ~6 starter `engine_principle` docs, one per core engine rule the generator actually uses (sign detection, fraction protection, bracket scanning, container boundary, arrangement ordering, validation contract). Body is plain markdown describing what the engine code does today. Teacher can edit them like any other doc.
 
-Each tool resolves to a typed `ProposedAction` the panel renders as a diff card.
+## 4. Teacher visibility (AI Settings → Knowledge)
 
-## 5. Approval workflow
+In `src/pages/floating/AiSettingsPage.tsx`, add a "Source" filter / section grouping with three tabs or section headers:
 
-All workspace-mutating tools return `needsApproval: true` proposals. The panel shows:
+- Teacher Documents (`kind = law_document` and existing teacher kinds)
+- Engine Principles (`kind = engine_principle`)
+- Generation Logs (`kind = engine_generation_log`, newest first, searchable by input expression)
 
-1. Human-readable description ("Move 5x → container 2 on line 3")
-2. Before/after preview (reuse mini `FloatingWorkspace` render)
-3. **Accept & Apply** / **Reject** buttons
-4. Verification badge (blocks Accept when `verification_pass !== true`, same pattern as today)
+Each opens in the existing document viewer (the Notion-style viewer added earlier). Generation logs render the structured fields as labeled sections.
 
-No tool writes to the page without an explicit Accept click.
+## 5. Floating Number AI ingests Engine Knowledge
 
-## 6. Two-way synchronization
+In `floating-assistant/index.ts` `hydrateKnowledge`, extend the snapshot:
 
-- **Page → AI:** `lessonContext` already includes `activeLineId` / `activeLineText`. Extend it with the active line's current `fillers`, `containers`, `arrangement` so the AI always sees the latest manual edits.
-- **AI → Page:** Proposals carry a `targetLineId`. On Accept, the panel calls a single `applyProposal(action)` handler on the parent (`FloatingNumbersPage` / lesson note page) that mutates the line through the existing `onChange(line)` path used by `FloatingWorkspace`. This guarantees both manual chips and AI chips flow through the same reducer.
+- Existing: Laws + Drafts + teacher documents + example analyses + recent generations.
+- Add: latest N `engine_principle` docs (inline, small) and a token-budgeted window of the most relevant `engine_generation_log` rows — relevance = same topic / similar input expression to the current `lessonContext.activeLineText`.
+- The existing `lookup_document` tool already handles on-demand retrieval of any doc id, so older logs stay reachable without bloating every prompt.
 
-## 7. AI role / system prompt
+System prompt update: "Engine Knowledge is the generator explaining itself. Trust it for *how* a structure was produced; trust Laws for *why* a structure is correct."
 
-Rewrite the system prompt so the AI identifies as: *Teacher Assistant · Floating Number Expert · Knowledge Manager · Law Interpreter · Structure Analyzer · Workspace Operator.* Prompt instructs it to:
+## 6. Continuous loop, no manual retraining
 
-- Always cite laws/documents by their snapshot ID when reasoning.
-- Prefer tool calls over prose when the user requests a workspace change.
-- Never claim "Done" without emitting an approval-gated proposal first.
+Because the snapshot is rebuilt per request, every new generation log is immediately part of the AI's context on the very next message. No retraining job, no embeddings step in this pass.
 
-## Technical Details
+## Technical details
 
 **Files**
-- `supabase/functions/floating-assistant/index.ts` — snapshot builder, new tools, structured `analysis` response, updated system prompt.
-- `supabase/functions/floating-assistant/knowledgeSnapshot.ts` *(new)* — pure builder querying the tables above with a token budget.
-- `src/lib/floating/lessonContext.ts` — add `activeLineState` (fillers/containers/arrangement).
-- `src/components/floating/AssistantPanel.tsx` — new `ProposedAction` kinds, Analysis card, per-tool approval cards, `applyProposal` callback prop.
-- `src/components/lessonnotes/FloatingWorkspace.tsx` — surface active line state up + accept proposals down (small prop additions; no refactor of chip UI).
-- `src/pages/FloatingNumbersPage.tsx` / parent — wire `applyProposal` to existing `onChange`.
+- `supabase/functions/notebook-ai/index.ts` (and/or `floating-reason/index.ts`) — after successful floating generation, build self-explanation and insert into `floating_knowledge_documents` with `kind = 'engine_generation_log'`. Wrap in try/catch.
+- `supabase/functions/floating-assistant/index.ts` — extend `hydrateKnowledge` to pull `engine_principle` + relevant `engine_generation_log`; update system prompt section.
+- `src/pages/floating/AiSettingsPage.tsx` — add filter/section for `engine_principle` and `engine_generation_log`; structured renderer for generation logs.
+- Migration — seed initial Engine Principle docs (system-owned rows, or per-user on first visit; simplest: seed per user lazily from a constants file in the edge function on first generation).
 
-**Migration**
-- `floating_knowledge_documents` add `summary text`, `indexed_at timestamptz`.
+**Schema**
+- No new tables. Reuse `floating_knowledge_documents`. New `kind` values: `engine_principle`, `engine_generation_log`.
+- Optional index: `CREATE INDEX floating_knowledge_documents_owner_kind_idx ON public.floating_knowledge_documents(owner_id, kind, created_at DESC);` for fast filtering.
 
 **Out of scope**
-- No new tables for knowledge; reuse the eight existing ones.
-- No streaming refactor; keep current request/response shape.
-- No change to chip rendering, KaTeX, or the lesson note generator.
+- No embeddings / vector search yet (relevance is by topic + recency).
+- No retroactive backfill of past generations.
+- No changes to the generator's actual logic — only its self-documentation.
+- No new auth, no new buckets.
 
 **Risks**
-- Token budget on snapshot — mitigate with summaries + on-demand `lookup_document` tool.
-- Concurrent manual + AI edits — `targetLineId` + line version check before applying a proposal; stale proposals show "Line changed — re-analyse".
+- Log volume growth → mitigated by listing newest-first with pagination, and AI snapshot using a small relevance window.
+- Self-explanation drifting from real engine behavior → keep the explanation generated from the same code path that produced the structure (same function pass), not a separate model call.

@@ -66,6 +66,20 @@ cite the relevant LAW#n / DRAFT#id / DOC#id. Example:
 If a document looks relevant but isn't in the snapshot inline, call
 \`lookup_document\` to retrieve more text from it.
 
+ENGINE KNOWLEDGE (self-training)
+The snapshot also contains ENGINE PRINCIPLES (DOC#… with kind
+engine_principle) and ENGINE GENERATION LOGS (DOC#… with kind
+engine_generation_log). These are the generation engine documenting its
+own reasoning — Engine Principles explain *how* the engine decides
+(sign detection, fraction protection, bracket scanning, container
+boundaries, arrangement, validation contract); Generation Logs record
+the input expression, produced structure, applied principles/laws,
+validation result, and confidence for each real generation. Trust
+Engine Knowledge for *how* a structure was produced; trust Laws for
+*why* it is pedagogically correct. When explaining a Floating Number,
+cite the relevant Engine Principle or Generation Log alongside the
+governing LAW#n.
+
 WORKSPACE CONTROL (approval-gated)
 You can directly operate the Floating Number workspace through tools. Every
 workspace mutation returns a proposal card; the teacher clicks Accept before
@@ -537,7 +551,7 @@ async function hydrateKnowledge(
       .from("floating_knowledge_documents")
       .select("id,filename,kind,parsed_text")
       .order("created_at", { ascending: false })
-      .limit(30),
+      .limit(60),
     userClient
       .from("floating_example_analyses")
       .select("id,example_text,lesson_topic,structures,created_at")
@@ -607,22 +621,47 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
     });
   }
 
-  if (kb.knowledgeDocs.length > 0) {
-    lines.push(`### Knowledge Documents (${kb.knowledgeDocs.length})`);
+  const teacherDocs = kb.knowledgeDocs.filter(
+    (d) => d.kind !== "engine_principle" && d.kind !== "engine_generation_log",
+  );
+  if (teacherDocs.length > 0) {
+    lines.push(`### Knowledge Documents (${teacherDocs.length})`);
     // Token budget: per doc, include filename + ~800 chars excerpt for the 8
     // most recent docs; the rest are referenced by tag for lookup_document.
-    kb.knowledgeDocs.slice(0, 8).forEach((d) => {
+    teacherDocs.slice(0, 8).forEach((d) => {
       const excerpt = (d.parsed_text ?? "").trim().slice(0, 800);
       lines.push(`- ${docTag(d)} ${d.filename}${d.kind ? ` (${d.kind})` : ""}`);
       if (excerpt) lines.push(`    excerpt: ${excerpt}${(d.parsed_text?.length ?? 0) > 800 ? " …" : ""}`);
     });
-    if (kb.knowledgeDocs.length > 8) {
+    if (teacherDocs.length > 8) {
       lines.push("- More documents available — call lookup_document with the DOC#id to read them.");
-      kb.knowledgeDocs.slice(8).forEach((d) => {
+      teacherDocs.slice(8).forEach((d) => {
         lines.push(`  · ${docTag(d)} ${d.filename}`);
       });
     }
   }
+
+  // Engine Knowledge — the generator's self-documentation.
+  const engineDocs = kb.knowledgeDocs.filter((d) => d.kind === "engine_principle");
+  const engineLogs = kb.knowledgeDocs.filter((d) => d.kind === "engine_generation_log");
+  if (engineDocs.length > 0) {
+    lines.push(`### Engine Principles (${engineDocs.length}) — how the generator actually decides`);
+    engineDocs.slice(0, 8).forEach((d) => {
+      const excerpt = (d.parsed_text ?? "").trim().slice(0, 500);
+      lines.push(`- ${docTag(d)} ${d.filename}`);
+      if (excerpt) lines.push(`    excerpt: ${excerpt}${(d.parsed_text?.length ?? 0) > 500 ? " …" : ""}`);
+    });
+  }
+  if (engineLogs.length > 0) {
+    lines.push(`### Engine Generation Logs (${engineLogs.length}) — the generator explaining itself`);
+    engineLogs.slice(0, 6).forEach((d) => {
+      const excerpt = (d.parsed_text ?? "").trim().slice(0, 400);
+      lines.push(`- ${docTag(d)} ${d.filename}`);
+      if (excerpt) lines.push(`    excerpt: ${excerpt}${(d.parsed_text?.length ?? 0) > 400 ? " …" : ""}`);
+    });
+    if (engineLogs.length > 6) {
+      lines.push("- Older generation logs available via lookup_document.");
+    }
 
   if (kb.exampleAnalyses.length > 0) {
     lines.push(`### Recent Example Analyses (${kb.exampleAnalyses.length})`);
