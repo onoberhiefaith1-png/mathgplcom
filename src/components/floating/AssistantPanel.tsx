@@ -574,19 +574,39 @@ export const AssistantPanel = ({
   const renderProposedChange = (msgId: string, action: AssistantClientAction, idx: number) => {
     const key = `${msgId}-${idx}`;
     const open = !!previewOpen[key];
+    const lineTag = String(action.payload.line_id ?? "").slice(0, 6);
+    const opLabel = (op?: string): string => {
+      switch (op) {
+        case "move_filler": return `move filler ${action.payload.from_index} → ${action.payload.to_index}`;
+        case "add_filler": return `add filler "${action.payload.value ?? ""}"${action.payload.container ? ` + container ${action.payload.container}` : ""}`;
+        case "remove_filler": return `remove filler ${action.payload.value != null ? `"${action.payload.value}"` : `#${action.payload.index ?? "?"}`}`;
+        case "add_container": return `add container ${action.payload.container ?? ""}`;
+        case "remove_container": return `remove container ${action.payload.container ?? ""}`;
+        case "set_arrangement": return `set arrangement [${(action.payload.arrangement ?? []).join(",")}]`;
+        case "replace_line": return `replace line with ${(action.payload.fillers ?? []).length} fillers`;
+        default: return op ?? "update";
+      }
+    };
     const title =
       action.kind === "apply_chips"
-        ? `Proposed change: apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${String(action.payload.line_id ?? "").slice(0, 6)}`
+        ? `Proposed change: apply ${action.payload.chips?.length ?? 0} chip${(action.payload.chips?.length ?? 0) === 1 ? "" : "s"} to line ${lineTag}`
         : action.kind === "undo_last_change"
-        ? `Proposed change: undo last edit on line ${String(action.payload.line_id ?? "").slice(0, 6)}`
+        ? `Proposed change: undo last edit on line ${lineTag}`
         : action.kind === "approve_draft_law"
         ? `Proposed new law: ${action.payload.law_name ?? "draft"}`
-        : `Reject draft law: ${action.payload.law_name ?? "draft"}`;
+        : action.kind === "reject_draft_law"
+        ? `Reject draft law: ${action.payload.law_name ?? "draft"}`
+        : action.kind === "apply_line_update"
+        ? `Proposed: ${opLabel(action.payload.op)} on line ${lineTag}`
+        : `Analysis: line ${lineTag} — ${(action.payload.applicable_laws ?? []).map((l) => l.id).join(", ") || "no laws cited"}`;
     const approveLabel =
       action.kind === "apply_chips" ? "Approve & Apply"
       : action.kind === "undo_last_change" ? "Approve Undo"
       : action.kind === "approve_draft_law" ? "Approve Law"
-      : "Confirm Reject";
+      : action.kind === "reject_draft_law" ? "Confirm Reject"
+      : action.kind === "apply_line_update" ? "Accept"
+      : "Accept Analysis";
+
     const blocked = action.kind === "apply_chips" && action.payload.verification_pass !== true;
     return (
       <div
