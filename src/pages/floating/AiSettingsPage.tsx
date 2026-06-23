@@ -831,22 +831,6 @@ function DocumentViewer({
 
       {/* Body */}
       <div className="flex-1" style={{ background: C.pageBg }}>
-          <div className="flex items-start gap-2">
-            <FileText className="h-5 w-5 mt-0.5 shrink-0" style={{ color: C.textMuted }} />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-semibold break-words" style={{ color: C.text }}>
-                {doc.filename}
-              </h1>
-              <div className="text-xs mt-1" style={{ color: C.textMuted }}>
-                {doc.kind} · Uploaded {new Date(doc.created_at).toLocaleString()}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto" style={{ background: C.pageBg }}>
         <div className="max-w-3xl mx-auto px-8 py-8">
           <article
             className="rounded-lg border p-8 shadow-sm"
