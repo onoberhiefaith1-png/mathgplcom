@@ -426,6 +426,13 @@ interface LessonCtx {
   activeLineFillers?: string[];
   activeLineContainers?: string[];
   activeLineArrangement?: number[];
+  lineMap?: {
+    lineNumber: number;
+    lineId: string;
+    equation: string;
+    fillers: { i: number; value: string }[];
+    containers: string[];
+  }[];
 }
 
 interface LawRow {
