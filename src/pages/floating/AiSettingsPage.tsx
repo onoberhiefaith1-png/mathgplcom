@@ -123,6 +123,28 @@ function MathText({ text }: { text: string }) {
   );
 }
 
+/* ──────────────── ACTIONS block parser ──────────────── */
+// Pulls a trailing ```actions ... ``` fenced block out of an assistant reply
+// and returns the clean text + parsed actions.
+function parseActions(raw: string): { text: string; actions: ChatAction[] } {
+  const re = /```actions\s*([\s\S]*?)```/i;
+  const m = raw.match(re);
+  if (!m) return { text: raw, actions: [] };
+  const block = m[1];
+  const actions: ChatAction[] = [];
+  for (const line of block.split("\n")) {
+    const l = line.trim();
+    if (!l) continue;
+    const sk = l.match(/^save_knowledge\s*:\s*"?([^"]+?)"?$/i);
+    if (sk) { actions.push({ kind: "save_knowledge", title: sk[1].trim() }); continue; }
+    const cd = l.match(/^create_draft_law\s*:\s*"?([^"]+?)"?$/i);
+    if (cd) { actions.push({ kind: "create_draft_law", name: cd[1].trim() }); continue; }
+    const gd = l.match(/^generate_document\s*:\s*"?([^"]+?)"?$/i);
+    if (gd) { actions.push({ kind: "generate_document", title: gd[1].trim() }); continue; }
+    if (/^discard\b/i.test(l)) actions.push({ kind: "discard" });
+  }
+  return { text: raw.replace(re, "").trim(), actions };
+
 /* ──────────────── page ──────────────── */
 
 const AiSettingsPage = () => {
