@@ -89,6 +89,8 @@ interface FracBarProps {
 }
 
 const FracBar = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: FracBarProps) => (
+  // Visible bar stays at its true mathematical thickness; an invisible padded
+  // wrapper enlarges the click target by ~6px above and below.
   <span
     data-atom-id={atom.id}
     onClick={(e) => { e.stopPropagation(); toggle(atom.id); focus(); }}
@@ -97,18 +99,27 @@ const FracBar = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: Frac
     style={{
       display: "block",
       width: "100%",
-      height: isSelected ? 2.5 : 1.5,
-      background: isSelected
-        ? "hsl(40 85% 42%)"
-        : isRingHover
-          ? "hsl(40 85% 50%)"
-          : "currentColor",
-      margin: "1px 0",
-      borderRadius: 1,
+      padding: "6px 0",
+      margin: "-5px 0",
       cursor: "pointer",
+      background: "transparent",
     }}
     title="fraction bar"
-  />
+  >
+    <span
+      style={{
+        display: "block",
+        width: "100%",
+        height: isSelected ? 2.5 : 1.5,
+        background: isSelected
+          ? "hsl(40 85% 42%)"
+          : isRingHover
+            ? "hsl(40 85% 50%)"
+            : "currentColor",
+        borderRadius: 1,
+      }}
+    />
+  </span>
 );
 
 export const EquationAtoms = ({
