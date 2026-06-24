@@ -34,7 +34,8 @@ export interface Atom {
 export type Node =
   | { kind: "leaf"; atom: Atom }
   | { kind: "frac"; bar: Atom; num: Node[]; den: Node[] }
-  | { kind: "sqrt"; sign: Atom; radicand: Node[]; degree?: Node[] };
+  | { kind: "sqrt"; sign: Atom; radicand: Node[]; degree?: Node[] }
+  | { kind: "bracket"; open: Atom; close: Atom; body: Node[] };
 
 /* ───────── Unicode tables ───────── */
 
@@ -118,11 +119,12 @@ class Parser {
 
   parseRoot(): Node[] { return this.parseSequence(null); }
 
-  parseSequence(stopChar: string | null): Node[] {
+  /** stopChars: any single char in this string ends the sequence. */
+  parseSequence(stopChars: string | null): Node[] {
     const out: Node[] = [];
     while (this.i < this.s.length) {
       const c = this.s[this.i];
-      if (stopChar && c === stopChar) break;
+      if (stopChars && stopChars.includes(c)) break;
       if (/\s/.test(c)) { this.i++; continue; }
 
       if (c === "\\") { this.parseCommand(out); continue; }
@@ -179,12 +181,29 @@ class Parser {
         this.i++; continue;
       }
 
-      // Brackets
+      // Brackets — pair them into a single `bracket` node so the highlight
+      // engine's Structure Rule can keep them together.
       if (c === "(" || c === "[") {
-        out.push({ kind: "leaf", atom: this.atom(c, "bracket-open") });
-        this.i++; continue;
+        const openChar = c;
+        const closeChar = openChar === "(" ? ")" : "]";
+        const open = this.atom(openChar, "bracket-open");
+        this.i++;
+        // Append closeChar to current stopChars so nested parsing terminates.
+        const innerStop = (stopChars ?? "") + closeChar;
+        const body = this.parseSequence(innerStop);
+        if (this.s[this.i] === closeChar) {
+          const close = this.atom(closeChar, "bracket-close");
+          this.i++;
+          out.push({ kind: "bracket", open, close, body });
+        } else {
+          // Unmatched opener — fall back to a plain leaf.
+          out.push({ kind: "leaf", atom: open });
+          out.push(...body);
+        }
+        continue;
       }
       if (c === ")" || c === "]") {
+        // Unmatched closer at top level — emit as leaf so it's still visible.
         out.push({ kind: "leaf", atom: this.atom(c, "bracket-close") });
         this.i++; continue;
       }
@@ -250,21 +269,15 @@ class Parser {
   /** {…} group OR single next atom — used for bare √x. */
   parseGroupOrNext(): Node[] {
     if (this.s[this.i] === "{") return this.parseGroup();
-    // Parse a single non-whitespace token by capturing then trimming.
-    const startCounter = this.counter;
-    const before = this.i;
-    // crude: take one character through parseSequence by limiting to next 1
     const oneChar = this.s[this.i] ?? "";
     if (!oneChar) return [];
-    // Temporarily clip input to a single char so parseSequence consumes it.
     const saved = this.s;
+    const before = this.i;
     this.s = oneChar;
     this.i = 0;
     const nodes = this.parseSequence(null);
     this.s = saved;
     this.i = before + 1;
-    // counter already advanced
-    void startCounter;
     return nodes;
   }
 
@@ -275,20 +288,11 @@ class Parser {
       name += this.s[this.i]; this.i++;
     }
     if (!name) {
-      // Backslash followed by punctuation/space — treat as skip command.
       const c = this.s[this.i] ?? "";
       if (CMD_SKIP.has(c)) this.i++;
       return;
     }
-    if (name === "frac") {
-      const num = this.parseGroup();
-      const den = this.parseGroup();
-      const bar = this.atom("/", "fraction-bar");
-      out.push({ kind: "frac", bar, num, den });
-      return;
-    }
-    if (name === "dfrac" || name === "tfrac") {
-      // Same shape as \frac for rendering.
+    if (name === "frac" || name === "dfrac" || name === "tfrac") {
       const num = this.parseGroup();
       const den = this.parseGroup();
       const bar = this.atom("/", "fraction-bar");
@@ -308,8 +312,6 @@ class Parser {
       return;
     }
     if (name === "left" || name === "right") {
-      // The delimiter that follows will be parsed as a normal bracket atom
-      // (or skipped if it's the `.` empty delimiter).
       if (this.s[this.i] === ".") this.i++;
       return;
     }
@@ -328,7 +330,6 @@ class Parser {
       return;
     }
     if (CMD_SKIP.has(name)) return;
-    // Unknown command — drop silently. We never echo `\name` to the screen.
     return;
   }
 }
@@ -339,7 +340,7 @@ export const parseNodes = (equation: string, lineId: string): Node[] =>
   new Parser(String(equation ?? ""), lineId).parseRoot();
 
 /** DFS in visual reading order: num, bar, den for fractions; sign, degree,
- *  radicand for roots. */
+ *  radicand for roots; open, body, close for brackets. */
 export const flattenAtoms = (nodes: Node[]): Atom[] => {
   const out: Atom[] = [];
   const walk = (ns: Node[]) => {
@@ -353,6 +354,10 @@ export const flattenAtoms = (nodes: Node[]): Atom[] => {
         out.push(n.sign);
         if (n.degree) walk(n.degree);
         walk(n.radicand);
+      } else if (n.kind === "bracket") {
+        out.push(n.open);
+        walk(n.body);
+        out.push(n.close);
       }
     }
   };
