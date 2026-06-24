@@ -1,8 +1,9 @@
 // One Floating Workspace = one verified equation line.
-// Renders: Fillers row + Containers row, with manual editing & per-line rearrange.
-// Every chip is editable; every row always ends with an empty tagged entry box.
+// Highlight Mode = TEACHER INTENT ONLY. The Floating Number Laws are NOT
+// applied here — they belong to AI Generation Mode. Whatever the teacher
+// selects in the equation becomes the chip(s) verbatim.
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Shuffle, X } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
@@ -17,12 +18,10 @@ import {
   renderTermLabel,
 } from "@/lib/smartboard/floatingExtractor";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
-import { promoteSelection } from "@/lib/smartboard/manualFloatingPromoter";
 import { toast } from "@/hooks/use-toast";
 import EquationAtoms from "@/components/floating/EquationAtoms";
-import { parseAtoms } from "@/lib/floating/atoms";
-import { applySelection as engineApply, buildChip as buildAtomChip, type Chip } from "@/lib/floating/highlightEngine";
-import { reconstructAtomIds } from "@/lib/floating/atoms";
+import { parseAtoms, reconstructAtomIds } from "@/lib/floating/atoms";
+import { buildChip as buildAtomChip, swapChips, type Chip } from "@/lib/floating/highlightEngine";
 
 interface Props {
   line: FloatingLine;
