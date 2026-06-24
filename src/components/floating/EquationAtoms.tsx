@@ -1,12 +1,11 @@
 // Clickable equation row for the Floating Number Highlight Generation system.
 //
 // Renders the parsed node tree as REAL mathematics — stacked fractions, real
-// radicals, raised exponents, lowered subscripts. Raw LaTeX commands (\frac,
-// \sqrt, ^, _, \left, \right …) MUST NEVER reach the screen.
+// radicals, raised exponents, lowered subscripts, paired brackets. Raw LaTeX
+// commands (\frac, \sqrt, ^, _, \left, \right …) MUST NEVER reach the screen.
 //
-// Each leaf atom is an independently clickable span with a stable id, so the
-// highlight engine still operates on the flat atom list (see atoms.ts and
-// highlightEngine.ts). Pressing Enter merges the current selection into chips.
+// Each leaf atom is an independently clickable span with a stable id. Bracket
+// pairs are a single structural unit — clicking either side selects the pair.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CornerDownLeft } from "lucide-react";
@@ -62,8 +61,6 @@ const Leaf = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: LeafPro
       atom.kind === "variable" && atom.value.length === 1 && /[a-z]/i.test(atom.value)
         ? "italic"
         : undefined,
-    fontFamily:
-      atom.kind === "function-name" ? "inherit" : undefined,
   };
   return (
     <span
@@ -89,8 +86,6 @@ interface FracBarProps {
 }
 
 const FracBar = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: FracBarProps) => (
-  // Visible bar stays at its true mathematical thickness; an invisible padded
-  // wrapper enlarges the click target by ~6px above and below.
   <span
     data-atom-id={atom.id}
     onClick={(e) => { e.stopPropagation(); toggle(atom.id); focus(); }}
@@ -122,6 +117,56 @@ const FracBar = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: Frac
   </span>
 );
 
+/** Paired bracket glyph — clicking either side selects BOTH atoms. */
+interface PairedBracketProps {
+  open: Atom;
+  close: Atom;
+  isSelected: boolean;
+  isRingHover: boolean;
+  togglePair: () => void;
+  onHover?: (id: string | null) => void;
+  focus: () => void;
+  hasStructure: boolean;
+  side: "open" | "close";
+}
+
+const PairedBracket = ({ open, close, isSelected, isRingHover, togglePair, onHover, focus, hasStructure, side }: PairedBracketProps) => {
+  const atom = side === "open" ? open : close;
+  const partnerId = side === "open" ? close.id : open.id;
+  return (
+    <span
+      data-atom-id={atom.id}
+      onClick={(e) => { e.stopPropagation(); togglePair(); focus(); }}
+      onMouseEnter={() => { onHover?.(atom.id); onHover?.(partnerId); }}
+      onMouseLeave={() => onHover?.(null)}
+      style={{
+        display: "inline-flex",
+        alignItems: "stretch",
+        cursor: "pointer",
+        padding: "0 2px",
+        borderRadius: 4,
+        background: isSelected ? "hsl(48 95% 70%)" : isRingHover ? "hsl(48 95% 88%)" : "transparent",
+        outline: isSelected ? "1px solid hsl(40 85% 42%)" : "none",
+        transition: "background 80ms",
+      }}
+      title={`bracket pair · ${atom.value}`}
+    >
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          fontSize: hasStructure ? "1.5em" : "1em",
+          fontFamily: "Cambria Math, STIX Two Math, serif",
+          lineHeight: 1,
+          fontWeight: 300,
+        }}
+      >
+        {atom.value}
+      </span>
+    </span>
+  );
+};
+
 export const EquationAtoms = ({
   equation,
   lineId,
@@ -147,21 +192,30 @@ export const EquationAtoms = ({
     });
   }, []);
 
+  const togglePair = useCallback((idA: string, idB: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const on = next.has(idA) || next.has(idB);
+      if (on) { next.delete(idA); next.delete(idB); }
+      else { next.add(idA); next.add(idB); }
+      return next;
+    });
+  }, []);
+
   const focus = useCallback(() => { containerRef.current?.focus(); }, []);
 
   const commit = useCallback(() => {
     if (selected.size === 0) return;
-    const next = applySelection(atoms, chips, selected);
+    const next = applySelection(tree, atoms, chips, selected);
     onApply(next, atoms);
     setSelected(new Set());
-  }, [atoms, chips, selected, onApply]);
+  }, [tree, atoms, chips, selected, onApply]);
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter") { e.preventDefault(); commit(); }
     else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); }
   }, [commit]);
 
-  // Global Enter when this row is the active focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!focused.current) return;
@@ -172,15 +226,10 @@ export const EquationAtoms = ({
     return () => window.removeEventListener("keydown", onKey);
   }, [commit]);
 
-  // Map atom id → owning chip index, for hover-ring synchronization.
-  const atomChipIndex = useMemo(() => {
-    const m = new Map<string, number>();
-    chips.forEach((c, i) => c.atomIds.forEach((id) => m.set(id, i)));
-    return m;
-  }, [chips]);
+  const ringFor = (id: string) => highlightedAtomIds?.has(id) === true;
 
-  const ringFor = (id: string) =>
-    highlightedAtomIds?.has(id) === true;
+  const hasStructureNodes = (nodes: Node[]): boolean =>
+    nodes.some((n) => n.kind !== "leaf");
 
   const renderNodes = (nodes: Node[]): React.ReactNode =>
     nodes.map((n, i) => renderNode(n, i));
@@ -192,7 +241,7 @@ export const EquationAtoms = ({
           key={n.atom.id}
           atom={n.atom}
           isSelected={selected.has(n.atom.id)}
-          isRingHover={ringFor(n.atom.id) || atomChipIndex.has(n.atom.id) === false ? ringFor(n.atom.id) : ringFor(n.atom.id)}
+          isRingHover={ringFor(n.atom.id)}
           toggle={toggle}
           onHover={onAtomHover}
           focus={focus}
@@ -254,6 +303,44 @@ export const EquationAtoms = ({
           >
             {renderNodes(n.radicand)}
           </span>
+        </span>
+      );
+    }
+    if (n.kind === "bracket") {
+      const pairSelected = selected.has(n.open.id) || selected.has(n.close.id);
+      const pairHover = ringFor(n.open.id) || ringFor(n.close.id);
+      const tall = hasStructureNodes(n.body);
+      return (
+        <span
+          key={`b-${key}-${n.open.id}`}
+          className="inline-flex items-stretch align-middle"
+          style={{ margin: "0 0" }}
+        >
+          <PairedBracket
+            open={n.open}
+            close={n.close}
+            side="open"
+            isSelected={pairSelected}
+            isRingHover={pairHover}
+            togglePair={() => togglePair(n.open.id, n.close.id)}
+            onHover={onAtomHover}
+            focus={focus}
+            hasStructure={tall}
+          />
+          <span className="inline-flex items-center" style={{ padding: "0 1px" }}>
+            {renderNodes(n.body)}
+          </span>
+          <PairedBracket
+            open={n.open}
+            close={n.close}
+            side="close"
+            isSelected={pairSelected}
+            isRingHover={pairHover}
+            togglePair={() => togglePair(n.open.id, n.close.id)}
+            onHover={onAtomHover}
+            focus={focus}
+            hasStructure={tall}
+          />
         </span>
       );
     }
