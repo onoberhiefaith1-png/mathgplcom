@@ -237,18 +237,18 @@ export const applySelection = (
   atoms.forEach((a, i) => indexOf.set(a.id, i));
   const byId = new Map<string, Atom>(atoms.map((a) => [a.id, a]));
 
-  byIdGlobal = byId;
-  bracketPartnerOf = new Map<string, string>();
-  collectBracketPartners(tree, bracketPartnerOf);
-
-  // Auto-pair brackets: selecting one side always implies the partner. The
-  // UI already does this on click, but enforce it here too so programmatic
-  // callers can't desync a pair.
+  // Auto-pair brackets: selecting one side always implies the partner.
+  const partners = new Map<string, string>();
+  collectBracketPartners(tree, partners);
   const expanded = new Set(selected);
   for (const id of selected) {
-    const partner = bracketPartnerOf.get(id);
-    if (partner) expanded.add(partner);
+    const p = partners.get(id);
+    if (p) expanded.add(p);
   }
+
+  // "Covered" atoms include the bodies of any selected structural node, so
+  // their unselected children don't count as gaps when splitting runs.
+  const covered = coverageOf(tree, expanded);
 
   // Drop any prior chip the new selection touches.
   const surviving = chips.filter(
@@ -256,23 +256,24 @@ export const applySelection = (
   );
 
   // Split into maximal consecutive runs in flat equation order.
-  const runs = consecutiveRuns(atoms, expanded);
-
+  const runs = consecutiveRuns(atoms, covered);
 
   // Build one chip per run — structural if the run contains a structural
-  // atom, plain otherwise.
+  // atom (per the teacher's *original* selection, not the coverage set).
   const newChips: Chip[] = runs.map((run) => {
-    const runSet = new Set(run);
-    if (hasStructural(run, byId)) {
-      const built = buildSlot(tree, runSet);
+    const runSelected = new Set(run.filter((id) => expanded.has(id)));
+    const structuralIds = run.filter((id) => expanded.has(id));
+    if (hasStructural(structuralIds, byId)) {
+      const built = buildSlot(tree, runSelected);
       return {
         atomIds: collectAtomIds(built),
         value: nodesToLatex(built),
         structure: built,
       };
     }
-    return buildChip(byId, run);
+    return buildChip(byId, [...runSelected]);
   }).filter((c) => c.atomIds.length > 0 || c.value);
+
 
   const all = [...surviving, ...newChips];
   all.sort((a, b) => {
