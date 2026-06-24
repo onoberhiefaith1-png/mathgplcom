@@ -19,6 +19,10 @@ import {
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { promoteSelection } from "@/lib/smartboard/manualFloatingPromoter";
 import { toast } from "@/hooks/use-toast";
+import EquationAtoms from "@/components/floating/EquationAtoms";
+import { parseAtoms } from "@/lib/floating/atoms";
+import { applySelection as engineApply, buildChip, type Chip } from "@/lib/floating/highlightEngine";
+import { reconstructAtomIds } from "@/lib/floating/atoms";
 
 interface Props {
   line: FloatingLine;
