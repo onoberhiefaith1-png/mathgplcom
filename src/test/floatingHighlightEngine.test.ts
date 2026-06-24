@@ -119,3 +119,58 @@ describe("highlightEngine — no duplicates rule", () => {
     expect(out).toHaveLength(1);
   });
 });
+
+describe("atoms parser — LaTeX rendering regression", () => {
+  it("never leaks raw LaTeX commands as atom values", () => {
+    const atoms = parseAtoms("\\frac{x+2}{x^{2}(x^{2}+4)}", "Lfrac");
+    const values = atoms.map((a) => a.value).join("");
+    expect(values).not.toMatch(/\\/);
+    expect(values).not.toMatch(/\^/);
+    expect(values).not.toMatch(/frac/);
+    // The fraction bar atom uses "/", but no caret/backslash leaks.
+    expect(atoms.some((a) => a.kind === "fraction-bar")).toBe(true);
+  });
+
+  it("converts ^{2} into a single ² exponent atom", () => {
+    const atoms = parseAtoms("Ax^{2}+Bx+C", "Lexp");
+    const sup = atoms.filter((a) => a.kind === "exponent");
+    expect(sup).toHaveLength(1);
+    expect(sup[0].value).toBe("²");
+    expect(sup[0].attachment).toBe(true);
+  });
+
+  it("Ax^{2}+Bx+C: selecting A, x, ² collapses to [Ax²]", () => {
+    const atoms = parseAtoms("Ax^{2}+Bx+C", "Lcollapse");
+    const sel = new Set(idsByValues(atoms, ["A", "x", "²"]));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["Ax²"]);
+  });
+
+  it("Ax^{2}+Bx+C: disconnected Ax² + C → two chips", () => {
+    const atoms = parseAtoms("Ax^{2}+Bx+C", "Ldisc");
+    const sel = new Set([
+      ...idsByValues(atoms, ["A", "x", "²"]),
+      ...idsByValues(atoms, ["C"]),
+    ]);
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["Ax²", "C"]);
+  });
+
+  it("\\frac numerator atoms only → chip value is the numerator", () => {
+    const atoms = parseAtoms("\\frac{x+2}{x^{2}(x^{2}+4)}", "Lnum");
+    // Atoms order: num leaves, bar, den leaves. Numerator = first three (x, +, 2).
+    const sel = new Set(atoms.slice(0, 3).map((a) => a.id));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["x+2"]);
+  });
+
+  it("\\sqrt and greek/cdot commands never leak as text", () => {
+    const atoms = parseAtoms("\\sqrt{x}+\\pi\\cdot r^{2}", "Lmix");
+    const values = atoms.map((a) => a.value);
+    expect(values).toContain("√");
+    expect(values).toContain("π");
+    expect(values).toContain("·");
+    expect(values).toContain("²");
+    expect(values.join("")).not.toMatch(/\\|sqrt|cdot|pi/);
+  });
+});
