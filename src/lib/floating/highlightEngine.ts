@@ -77,7 +77,7 @@ const nodesToLatex = (nodes: ChipNode[]): string => {
   for (const n of nodes) {
     if (n.kind === "atom") s += n.atom.value;
     else if (n.kind === "slot") s += "□";
-
+    else if (n.kind === "frac") {
       s += `\\frac{${nodesToLatex(n.num)}}{${nodesToLatex(n.den)}}`;
     } else if (n.kind === "sqrt") {
       const deg = n.degree && n.degree.length ? `[${nodesToLatex(n.degree)}]` : "";
@@ -85,6 +85,7 @@ const nodesToLatex = (nodes: ChipNode[]): string => {
     } else if (n.kind === "bracket") {
       s += n.open.value + nodesToLatex(n.body) + n.close.value;
     }
+
   }
   return s;
 };
