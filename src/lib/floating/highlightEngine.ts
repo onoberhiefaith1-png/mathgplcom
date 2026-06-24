@@ -217,13 +217,23 @@ export const applySelection = (
   bracketPartnerOf = new Map<string, string>();
   collectBracketPartners(tree, bracketPartnerOf);
 
+  // Auto-pair brackets: selecting one side always implies the partner. The
+  // UI already does this on click, but enforce it here too so programmatic
+  // callers can't desync a pair.
+  const expanded = new Set(selected);
+  for (const id of selected) {
+    const partner = bracketPartnerOf.get(id);
+    if (partner) expanded.add(partner);
+  }
+
   // Drop any prior chip the new selection touches.
   const surviving = chips.filter(
-    (c) => !c.atomIds.some((id) => selected.has(id)),
+    (c) => !c.atomIds.some((id) => expanded.has(id)),
   );
 
   // Split into maximal consecutive runs in flat equation order.
-  const runs = consecutiveRuns(atoms, selected);
+  const runs = consecutiveRuns(atoms, expanded);
+
 
   // Build one chip per run — structural if the run contains a structural
   // atom, plain otherwise.
