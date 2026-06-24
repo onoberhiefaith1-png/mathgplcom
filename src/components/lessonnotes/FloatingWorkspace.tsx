@@ -295,13 +295,12 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
           const isStructural = /\\frac|\\sqrt/.test(f) || /□/.test(f);
           const cleaned = isStructural ? f : toUnicodeMath(f);
           if (!isStructural && isStillDirty(cleaned)) return null;
-          let label: string;
-          if (isStructural) {
-            label = cleaned;
-          } else {
-            const term = extractTermsFromAscii(cleaned)[0];
-            label = term ? renderTermLabel(term, { isFirst: false, prevWasEquals: false }) : cleaned;
-          }
+          // Multi-term chips (e.g. "Ax²+Bx+C") must show the WHOLE expression,
+          // not just the first term. extractTermsFromAscii returns one entry
+          // per +/− term, and the old code rendered only [0], which silently
+          // truncated polynomial chips to their leading term.
+          const label = cleaned;
+
           const originalIdx = line.arrangement[i] ?? i;
           return (
             <EditableChip

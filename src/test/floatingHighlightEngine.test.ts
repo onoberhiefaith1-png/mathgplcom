@@ -31,42 +31,42 @@ describe("highlightEngine — One Apply = One Chip", () => {
     expect(valuesOf(out)).toEqual(["x"]);
   });
 
-  it("two variables skipping the operator → still ONE chip (teacher decides)", () => {
+  it("two variables with a gap (operator unselected) → TWO chips", () => {
     const { tree, atoms } = parsePair("x+y", "L2");
     const sel = new Set(idsByValues(atoms, ["x", "y"]));
     const out = applySelection(tree, atoms, [], sel);
-    expect(valuesOf(out)).toEqual(["xy"]);
+    expect(valuesOf(out)).toEqual(["x", "y"]);
   });
 
-  it("connected expression x + y → 1 chip", () => {
+  it("connected expression x + y (all atoms) → ONE chip", () => {
     const { tree, atoms } = parsePair("x+y", "L3");
     const sel = new Set(atoms.map((a) => a.id));
     const out = applySelection(tree, atoms, [], sel);
     expect(valuesOf(out)).toEqual(["x+y"]);
   });
 
-  it("exponent inclusion: Ax² selected → [Ax²]", () => {
+  it("Ax²+Bx fully connected → [Ax²+Bx]", () => {
     const { tree, atoms } = parsePair("Ax²+Bx", "L5");
-    const sel = new Set(idsByValues(atoms, ["A", "x", "²"]));
+    const sel = new Set(atoms.map((a) => a.id));
     const out = applySelection(tree, atoms, [], sel);
-    expect(valuesOf(out)).toEqual(["Ax²"]);
+    expect(valuesOf(out)).toEqual(["Ax²+Bx"]);
   });
 
-  it("x²+4x+7 fully selected → ONE chip", () => {
+  it("x²+4x+7 fully selected → ONE chip (no truncation to first term)", () => {
     const { tree, atoms } = parsePair("x²+4x+7", "L_xy");
     const sel = new Set(atoms.map((a) => a.id));
     const out = applySelection(tree, atoms, [], sel);
     expect(valuesOf(out)).toEqual(["x²+4x+7"]);
   });
 
-  it("disconnected pieces still collapse to ONE chip", () => {
+  it("Ax²+Bx+C with a gap (skip Bx) → TWO chips [Ax²] [C]", () => {
     const { tree, atoms } = parsePair("Ax²+Bx+C", "L9");
     const sel = new Set([
       ...idsByValues(atoms, ["A", "x", "²"]),
       ...idsByValues(atoms, ["C"]),
     ]);
     const out = applySelection(tree, atoms, [], sel);
-    expect(valuesOf(out)).toEqual(["Ax²C"]);
+    expect(valuesOf(out)).toEqual(["Ax²", "C"]);
   });
 });
 
@@ -90,6 +90,7 @@ describe("highlightEngine — overlap replaces", () => {
     expect(valuesOf(out).sort()).toEqual(["Ax²", "C"].sort());
   });
 });
+
 
 describe("atoms parser — LaTeX rendering regression", () => {
   it("never leaks raw LaTeX commands as atom values", () => {
@@ -137,11 +138,11 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     expect(out[0].value).toBe("\\frac{A}{B}");
   });
 
-  it("only A and B selected (no bar) → ONE plain chip 'AB'", () => {
+  it("only A and B selected (no bar = gap) → TWO chips [A] [B]", () => {
     const { tree, atoms } = parsePair("\\frac{A}{B}", "Ls3");
     const sel = new Set(idsByValues(atoms, ["A", "B"]));
     const out = applySelection(tree, atoms, [], sel);
-    expect(valuesOf(out)).toEqual(["AB"]);
+    expect(valuesOf(out)).toEqual(["A", "B"]);
   });
 
   it("bracket pair only → 1 chip (□)", () => {
@@ -163,14 +164,16 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     expect(out[0].value).toBe("\\sqrt{\\frac{□}{□}}");
   });
 
-  it("fraction bar + x outside → ONE combined structural chip", () => {
+  it("fraction bar + x with a gap between them → TWO chips", () => {
     const { tree, atoms } = parsePair("\\frac{A}{B}+x", "Ls7");
     const bar = atoms.find((a) => a.kind === "fraction-bar")!;
     const x = atoms.find((a) => a.value === "x" && a.kind === "variable")!;
     const out = applySelection(tree, atoms, [], new Set([bar.id, x.id]));
-    expect(out).toHaveLength(1);
-    expect(out[0].value).toBe("\\frac{□}{□}x");
+    expect(out).toHaveLength(2);
+    expect(out[0].value).toBe("\\frac{□}{□}");
+    expect(out[1].value).toBe("x");
   });
+
 
   it("fraction-bar alone never produces / as the chip text", () => {
     const { tree, atoms } = parsePair("\\frac{A}{B}", "Ls8");
