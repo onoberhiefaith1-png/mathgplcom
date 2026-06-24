@@ -1,43 +1,130 @@
 // Clickable equation row for the Floating Number Highlight Generation system.
-// Renders every atom of an equation as an individually-selectable span. The
-// teacher taps atoms, then presses Enter (or the inline "Apply" button) to
-// merge/split the line's Floating Numbers via the highlight engine.
+//
+// Renders the parsed node tree as REAL mathematics — stacked fractions, real
+// radicals, raised exponents, lowered subscripts. Raw LaTeX commands (\frac,
+// \sqrt, ^, _, \left, \right …) MUST NEVER reach the screen.
+//
+// Each leaf atom is an independently clickable span with a stable id, so the
+// highlight engine still operates on the flat atom list (see atoms.ts and
+// highlightEngine.ts). Pressing Enter merges the current selection into chips.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CornerDownLeft } from "lucide-react";
-import { type Atom, parseAtoms } from "@/lib/floating/atoms";
+import {
+  type Atom,
+  type Node,
+  flattenAtoms,
+  parseNodes,
+} from "@/lib/floating/atoms";
 import { type Chip, applySelection } from "@/lib/floating/highlightEngine";
 
 interface Props {
   equation: string;
   lineId: string;
-  /** Current chips for this line, derived from atoms + persisted fillers. */
+  /** Current chips for this line. */
   chips: Chip[];
-  /** Called after Enter/Apply with the next chip set. */
+  /** Called after Enter / Apply with the next chip set. */
   onApply: (nextChips: Chip[], atoms: Atom[]) => void;
-  /** Optional: highlight ring for atoms whose chips the user is hovering. */
+  /** Optional: external chip-hover index — atoms of that chip get a ring. */
   hoveredChipIndex?: number | null;
-  /** Optional: notify parent which chip an atom belongs to (for chip→atom hover). */
   onAtomHover?: (atomId: string | null) => void;
-  /** Atoms whose chip should be ringed (driven by chip hover). */
   highlightedAtomIds?: Set<string>;
 }
+
+interface LeafProps {
+  atom: Atom;
+  isSelected: boolean;
+  isRingHover: boolean;
+  toggle: (id: string) => void;
+  onHover?: (id: string | null) => void;
+  focus: () => void;
+}
+
+const Leaf = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: LeafProps) => {
+  const style: React.CSSProperties = {
+    padding: atom.attachment ? "0 1px" : "0 2px",
+    borderRadius: 4,
+    cursor: "pointer",
+    background: isSelected
+      ? "hsl(48 95% 70%)"
+      : isRingHover
+        ? "hsl(48 95% 88%)"
+        : "transparent",
+    outline: isSelected ? "1px solid hsl(40 85% 42%)" : "none",
+    fontSize: atom.attachment ? "0.72em" : undefined,
+    verticalAlign:
+      atom.kind === "exponent" ? "super" :
+      atom.kind === "subscript" ? "sub" :
+      "baseline",
+    lineHeight: 1,
+    transition: "background 80ms",
+    fontStyle:
+      atom.kind === "variable" && atom.value.length === 1 && /[a-z]/i.test(atom.value)
+        ? "italic"
+        : undefined,
+    fontFamily:
+      atom.kind === "function-name" ? "inherit" : undefined,
+  };
+  return (
+    <span
+      data-atom-id={atom.id}
+      onClick={(e) => { e.stopPropagation(); toggle(atom.id); focus(); }}
+      onMouseEnter={() => onHover?.(atom.id)}
+      onMouseLeave={() => onHover?.(null)}
+      style={style}
+      title={`${atom.kind} · ${atom.value}`}
+    >
+      {atom.value}
+    </span>
+  );
+};
+
+interface FracBarProps {
+  atom: Atom;
+  isSelected: boolean;
+  isRingHover: boolean;
+  toggle: (id: string) => void;
+  onHover?: (id: string | null) => void;
+  focus: () => void;
+}
+
+const FracBar = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: FracBarProps) => (
+  <span
+    data-atom-id={atom.id}
+    onClick={(e) => { e.stopPropagation(); toggle(atom.id); focus(); }}
+    onMouseEnter={() => onHover?.(atom.id)}
+    onMouseLeave={() => onHover?.(null)}
+    style={{
+      display: "block",
+      width: "100%",
+      height: isSelected ? 2.5 : 1.5,
+      background: isSelected
+        ? "hsl(40 85% 42%)"
+        : isRingHover
+          ? "hsl(40 85% 50%)"
+          : "currentColor",
+      margin: "1px 0",
+      borderRadius: 1,
+      cursor: "pointer",
+    }}
+    title="fraction bar"
+  />
+);
 
 export const EquationAtoms = ({
   equation,
   lineId,
   chips,
   onApply,
-  hoveredChipIndex,
   onAtomHover,
   highlightedAtomIds,
 }: Props) => {
-  const atoms = useMemo(() => parseAtoms(equation, lineId), [equation, lineId]);
+  const tree = useMemo(() => parseNodes(equation, lineId), [equation, lineId]);
+  const atoms = useMemo(() => flattenAtoms(tree), [tree]);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const focused = useRef(false);
 
-  // Reset selection when the equation changes.
   useEffect(() => { setSelected(new Set()); }, [equation, lineId]);
 
   const toggle = useCallback((id: string) => {
@@ -48,6 +135,8 @@ export const EquationAtoms = ({
       return next;
     });
   }, []);
+
+  const focus = useCallback(() => { containerRef.current?.focus(); }, []);
 
   const commit = useCallback(() => {
     if (selected.size === 0) return;
@@ -61,7 +150,7 @@ export const EquationAtoms = ({
     else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); }
   }, [commit]);
 
-  // Global Enter: only when this row is the active focus.
+  // Global Enter when this row is the active focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!focused.current) return;
@@ -72,12 +161,93 @@ export const EquationAtoms = ({
     return () => window.removeEventListener("keydown", onKey);
   }, [commit]);
 
-  // Which chip does each atom belong to? (for chip-hover ring)
+  // Map atom id → owning chip index, for hover-ring synchronization.
   const atomChipIndex = useMemo(() => {
     const m = new Map<string, number>();
     chips.forEach((c, i) => c.atomIds.forEach((id) => m.set(id, i)));
     return m;
   }, [chips]);
+
+  const ringFor = (id: string) =>
+    highlightedAtomIds?.has(id) === true;
+
+  const renderNodes = (nodes: Node[]): React.ReactNode =>
+    nodes.map((n, i) => renderNode(n, i));
+
+  const renderNode = (n: Node, key: number): React.ReactNode => {
+    if (n.kind === "leaf") {
+      return (
+        <Leaf
+          key={n.atom.id}
+          atom={n.atom}
+          isSelected={selected.has(n.atom.id)}
+          isRingHover={ringFor(n.atom.id) || atomChipIndex.has(n.atom.id) === false ? ringFor(n.atom.id) : ringFor(n.atom.id)}
+          toggle={toggle}
+          onHover={onAtomHover}
+          focus={focus}
+        />
+      );
+    }
+    if (n.kind === "frac") {
+      return (
+        <span
+          key={`f-${key}-${n.bar.id}`}
+          className="inline-flex flex-col items-center align-middle"
+          style={{ margin: "0 2px", lineHeight: 1, verticalAlign: "middle" }}
+        >
+          <span className="inline-flex items-center" style={{ padding: "0 4px 1px" }}>
+            {renderNodes(n.num)}
+          </span>
+          <FracBar
+            atom={n.bar}
+            isSelected={selected.has(n.bar.id)}
+            isRingHover={ringFor(n.bar.id)}
+            toggle={toggle}
+            onHover={onAtomHover}
+            focus={focus}
+          />
+          <span className="inline-flex items-center" style={{ padding: "1px 4px 0" }}>
+            {renderNodes(n.den)}
+          </span>
+        </span>
+      );
+    }
+    if (n.kind === "sqrt") {
+      return (
+        <span
+          key={`r-${key}-${n.sign.id}`}
+          className="inline-flex items-stretch align-middle"
+          style={{ margin: "0 1px" }}
+        >
+          {n.degree && (
+            <span style={{ fontSize: "0.6em", alignSelf: "flex-start", marginRight: -3 }}>
+              {renderNodes(n.degree)}
+            </span>
+          )}
+          <Leaf
+            atom={n.sign}
+            isSelected={selected.has(n.sign.id)}
+            isRingHover={ringFor(n.sign.id)}
+            toggle={toggle}
+            onHover={onAtomHover}
+            focus={focus}
+          />
+          <span
+            className="inline-flex items-center"
+            style={{
+              borderTop: "1.5px solid currentColor",
+              paddingTop: 1,
+              paddingLeft: 2,
+              paddingRight: 2,
+            }}
+          >
+            {renderNodes(n.radicand)}
+          </span>
+        </span>
+      );
+    }
+    return null;
+  };
 
   return (
     <div
@@ -89,39 +259,7 @@ export const EquationAtoms = ({
       className="inline-flex items-center flex-wrap gap-[1px] outline-none"
       style={{ color: "hsl(220 35% 18%)" }}
     >
-      {atoms.map((a) => {
-        const isSel = selected.has(a.id);
-        const inHoveredChip = hoveredChipIndex != null && atomChipIndex.get(a.id) === hoveredChipIndex;
-        const ringByChip = highlightedAtomIds?.has(a.id) ?? false;
-        const style: React.CSSProperties = {
-          padding: a.attachment ? "0 1px" : "0 2px",
-          borderRadius: 4,
-          cursor: "pointer",
-          background: isSel
-            ? "hsl(48 95% 70%)"
-            : inHoveredChip || ringByChip
-              ? "hsl(48 95% 88%)"
-              : "transparent",
-          outline: isSel ? "1px solid hsl(40 85% 42%)" : "none",
-          fontSize: a.attachment ? "0.78em" : "1em",
-          verticalAlign: a.kind === "exponent" ? "super" : a.kind === "subscript" ? "sub" : "baseline",
-          lineHeight: 1,
-          transition: "background 80ms",
-        };
-        return (
-          <span
-            key={a.id}
-            data-atom-id={a.id}
-            onClick={(e) => { e.stopPropagation(); toggle(a.id); containerRef.current?.focus(); }}
-            onMouseEnter={() => onAtomHover?.(a.id)}
-            onMouseLeave={() => onAtomHover?.(null)}
-            style={style}
-            title={`${a.kind} · ${a.value}`}
-          >
-            {a.value}
-          </span>
-        );
-      })}
+      {renderNodes(tree)}
 
       {selected.size > 0 && (
         <button

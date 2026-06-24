@@ -1,9 +1,13 @@
-// Equation → atom list parser for Highlight Generation.
+// Equation → node tree + flat atom list for the Highlight Generation system.
 //
-// An "atom" is the smallest selectable unit in an equation, with a stable id
-// so chips can be linked back to the exact characters they came from. The
-// teacher clicks atoms in the equation; pressing Enter merges contiguous runs
-// into chips (Floating Numbers). See src/lib/floating/highlightEngine.ts.
+// The parser understands LaTeX-style structures (\frac, \sqrt, ^{...}, _{...},
+// \left/\right, \cdot, \times, \pi, ...) and turns them into a small node tree
+// that the renderer can draw as REAL mathematics (stacked fractions, radicals,
+// superscripts). Raw LaTeX commands MUST NEVER reach the screen.
+//
+// At the same time it exposes a flat list of selectable leaf atoms with stable
+// ids. The Highlight Generation engine (highlightEngine.ts) works on that flat
+// list — its contract is unchanged.
 
 export type AtomKind =
   | "number"
@@ -12,10 +16,10 @@ export type AtomKind =
   | "equality"
   | "bracket-open"
   | "bracket-close"
-  | "exponent"      // attachment — preserves visual form (², ^{n})
-  | "subscript"     // attachment
-  | "fraction-bar"  // container marker
-  | "root-sign"     // container marker
+  | "exponent"      // attachment — renders as superscript
+  | "subscript"     // attachment — renders as subscript
+  | "fraction-bar"  // container marker (the rule between num and den)
+  | "root-sign"     // container marker (the √)
   | "function-name"
   | "symbol";
 
@@ -23,120 +27,347 @@ export interface Atom {
   id: string;
   value: string;
   kind: AtomKind;
-  /** True for attachments (exponent/subscript) — they render visually attached
-   *  to the preceding base when displayed as a chip. */
+  /** True for exponent/subscript — render small + raised/lowered. */
   attachment?: boolean;
 }
 
-const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ⁿⁱ";
-const SUB = "₀₁₂₃₄₅₆₇₈₉₊₋₌";
+export type Node =
+  | { kind: "leaf"; atom: Atom }
+  | { kind: "frac"; bar: Atom; num: Node[]; den: Node[] }
+  | { kind: "sqrt"; sign: Atom; radicand: Node[]; degree?: Node[] };
+
+/* ───────── Unicode tables ───────── */
+
+const SUP_MAP: Record<string, string> = {
+  "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+  "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+  "+": "⁺", "-": "⁻", "−": "⁻", "=": "⁼",
+  "(": "⁽", ")": "⁾", "n": "ⁿ", "i": "ⁱ",
+};
+const SUB_MAP: Record<string, string> = {
+  "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄",
+  "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉",
+  "+": "₊", "-": "₋", "−": "₋", "=": "₌",
+};
+const SUP_CHARS = "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ";
+const SUB_CHARS = "₀₁₂₃₄₅₆₇₈₉₊₋₌";
+
+const toSuperStr = (s: string): string | null => {
+  if (!s) return null;
+  const out: string[] = [];
+  for (const ch of s) {
+    const m = SUP_MAP[ch];
+    if (!m) return null;
+    out.push(m);
+  }
+  return out.join("");
+};
+const toSubStr = (s: string): string | null => {
+  if (!s) return null;
+  const out: string[] = [];
+  for (const ch of s) {
+    const m = SUB_MAP[ch];
+    if (!m) return null;
+    out.push(m);
+  }
+  return out.join("");
+};
+
+const CMD_LETTERS: Record<string, [string, AtomKind]> = {
+  alpha: ["α", "variable"], beta: ["β", "variable"], gamma: ["γ", "variable"],
+  delta: ["δ", "variable"], epsilon: ["ε", "variable"], zeta: ["ζ", "variable"],
+  eta: ["η", "variable"], theta: ["θ", "variable"], iota: ["ι", "variable"],
+  kappa: ["κ", "variable"], lambda: ["λ", "variable"], mu: ["μ", "variable"],
+  nu: ["ν", "variable"], xi: ["ξ", "variable"], pi: ["π", "variable"],
+  rho: ["ρ", "variable"], sigma: ["σ", "variable"], tau: ["τ", "variable"],
+  upsilon: ["υ", "variable"], phi: ["φ", "variable"], chi: ["χ", "variable"],
+  psi: ["ψ", "variable"], omega: ["ω", "variable"],
+  Alpha: ["Α", "variable"], Beta: ["Β", "variable"], Gamma: ["Γ", "variable"],
+  Delta: ["Δ", "variable"], Theta: ["Θ", "variable"], Lambda: ["Λ", "variable"],
+  Pi: ["Π", "variable"], Sigma: ["Σ", "variable"], Phi: ["Φ", "variable"],
+  Omega: ["Ω", "variable"],
+  infty: ["∞", "symbol"],
+};
+const CMD_OPS: Record<string, [string, AtomKind]> = {
+  cdot: ["·", "operator"], times: ["×", "operator"], div: ["÷", "operator"],
+  pm: ["±", "operator"], mp: ["∓", "operator"],
+  leq: ["≤", "equality"], geq: ["≥", "equality"], neq: ["≠", "equality"],
+  approx: ["≈", "equality"], to: ["→", "operator"],
+};
+const CMD_FUNCS = new Set([
+  "sin", "cos", "tan", "csc", "sec", "cot",
+  "arcsin", "arccos", "arctan",
+  "log", "ln", "exp", "lim", "max", "min", "gcd", "lcm",
+]);
+// LaTeX spacing / formatting commands — silently dropped.
+const CMD_SKIP = new Set([",", ";", ":", "!", "quad", "qquad", "displaystyle", "textstyle"]);
 
 const isDigit = (c: string) => c >= "0" && c <= "9";
-const isAlpha = (c: string) => /[A-Za-zα-ωΑ-Ω]/.test(c);
+const isAlpha = (c: string) => /[A-Za-z]/.test(c);
 
-export const parseAtoms = (equation: string, lineId: string): Atom[] => {
-  const out: Atom[] = [];
-  const s = String(equation ?? "");
-  let i = 0;
-  const push = (value: string, kind: AtomKind, attachment = false) => {
-    out.push({ id: `${lineId}:a${out.length}`, value, kind, attachment });
-  };
-  while (i < s.length) {
-    const c = s[i];
-    if (/\s/.test(c)) { i++; continue; }
+/* ───────── Parser ───────── */
 
-    // Multi-digit number
-    if (isDigit(c) || (c === "." && isDigit(s[i + 1] ?? ""))) {
-      let j = i;
-      while (j < s.length && (isDigit(s[j]) || s[j] === ".")) j++;
-      push(s.slice(i, j), "number");
-      i = j; continue;
-    }
+class Parser {
+  i = 0;
+  counter = 0;
+  constructor(public s: string, public lineId: string) {}
 
-    // Unicode superscript / subscript run → exponent / subscript atom
-    if (SUP.includes(c)) {
-      let j = i;
-      while (j < s.length && SUP.includes(s[j])) j++;
-      push(s.slice(i, j), "exponent", true);
-      i = j; continue;
-    }
-    if (SUB.includes(c)) {
-      let j = i;
-      while (j < s.length && SUB.includes(s[j])) j++;
-      push(s.slice(i, j), "subscript", true);
-      i = j; continue;
-    }
-
-    // ^ → exponent (capture {…} or single char)
-    if (c === "^") {
-      let j = i + 1;
-      let body = "";
-      if (s[j] === "{") {
-        let depth = 0;
-        for (; j < s.length; j++) {
-          if (s[j] === "{") { depth++; if (depth === 1) continue; }
-          else if (s[j] === "}") { depth--; if (depth === 0) { j++; break; } }
-          body += s[j];
-        }
-      } else if (j < s.length) { body = s[j]; j++; }
-      push(`^${body}`, "exponent", true);
-      i = j; continue;
-    }
-    if (c === "_") {
-      let j = i + 1;
-      let body = "";
-      if (s[j] === "{") {
-        let depth = 0;
-        for (; j < s.length; j++) {
-          if (s[j] === "{") { depth++; if (depth === 1) continue; }
-          else if (s[j] === "}") { depth--; if (depth === 0) { j++; break; } }
-          body += s[j];
-        }
-      } else if (j < s.length) { body = s[j]; j++; }
-      push(`_${body}`, "subscript", true);
-      i = j; continue;
-    }
-
-    // Letter run → single-letter variables (algebra convention so Ax² → A, x, ²)
-    if (isAlpha(c)) {
-      push(c, "variable");
-      i++; continue;
-    }
-
-    if (c === "(" || c === "[" || c === "{") { push(c, "bracket-open"); i++; continue; }
-    if (c === ")" || c === "]" || c === "}") { push(c, "bracket-close"); i++; continue; }
-
-    if (c === "=") { push("=", "equality"); i++; continue; }
-    if (c === "<" || c === ">" || c === "≤" || c === "≥" || c === "≠") {
-      push(c, "equality"); i++; continue;
-    }
-
-    if ("+-−–±×·÷*".includes(c)) {
-      const norm =
-        c === "*" ? "×" :
-        c === "-" || c === "–" ? "−" :
-        c;
-      push(norm, "operator"); i++; continue;
-    }
-
-    if (c === "/") { push("/", "fraction-bar"); i++; continue; }
-    if (c === "√") { push("√", "root-sign"); i++; continue; }
-
-    // Anything else — keep as a generic symbol so it remains selectable.
-    push(c, "symbol"); i++;
+  atom(value: string, kind: AtomKind, attachment = false): Atom {
+    return { id: `${this.lineId}:a${this.counter++}`, value, kind, attachment };
   }
+
+  parseRoot(): Node[] { return this.parseSequence(null); }
+
+  parseSequence(stopChar: string | null): Node[] {
+    const out: Node[] = [];
+    while (this.i < this.s.length) {
+      const c = this.s[this.i];
+      if (stopChar && c === stopChar) break;
+      if (/\s/.test(c)) { this.i++; continue; }
+
+      if (c === "\\") { this.parseCommand(out); continue; }
+
+      // Stray { → treat the group as a transparent container.
+      if (c === "{") {
+        this.i++;
+        const inner = this.parseSequence("}");
+        if (this.s[this.i] === "}") this.i++;
+        out.push(...inner);
+        continue;
+      }
+      if (c === "}") { this.i++; continue; }
+
+      // ^ / _ — convert to unicode super/sub when possible, otherwise keep
+      // body as a single attachment atom (renders raised/lowered, never as ^).
+      if (c === "^" || c === "_") {
+        const isExp = c === "^";
+        this.i++;
+        const body = this.readBraceOrChar();
+        const conv = isExp ? toSuperStr(body) : toSubStr(body);
+        const val = conv ?? body;
+        if (val) {
+          out.push({ kind: "leaf", atom: this.atom(val, isExp ? "exponent" : "subscript", true) });
+        }
+        continue;
+      }
+
+      // Unicode superscript / subscript run
+      if (SUP_CHARS.includes(c)) {
+        let j = this.i;
+        while (j < this.s.length && SUP_CHARS.includes(this.s[j])) j++;
+        out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, j), "exponent", true) });
+        this.i = j; continue;
+      }
+      if (SUB_CHARS.includes(c)) {
+        let j = this.i;
+        while (j < this.s.length && SUB_CHARS.includes(this.s[j])) j++;
+        out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, j), "subscript", true) });
+        this.i = j; continue;
+      }
+
+      // Numbers
+      if (isDigit(c) || (c === "." && isDigit(this.s[this.i + 1] ?? ""))) {
+        let j = this.i;
+        while (j < this.s.length && (isDigit(this.s[j]) || this.s[j] === ".")) j++;
+        out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, j), "number") });
+        this.i = j; continue;
+      }
+
+      // Letters (single-letter variables — algebra convention)
+      if (isAlpha(c)) {
+        out.push({ kind: "leaf", atom: this.atom(c, "variable") });
+        this.i++; continue;
+      }
+
+      // Brackets
+      if (c === "(" || c === "[") {
+        out.push({ kind: "leaf", atom: this.atom(c, "bracket-open") });
+        this.i++; continue;
+      }
+      if (c === ")" || c === "]") {
+        out.push({ kind: "leaf", atom: this.atom(c, "bracket-close") });
+        this.i++; continue;
+      }
+
+      if (c === "=" || c === "<" || c === ">" || c === "≤" || c === "≥" || c === "≠") {
+        out.push({ kind: "leaf", atom: this.atom(c, "equality") });
+        this.i++; continue;
+      }
+
+      if ("+-−–±×·÷*".includes(c)) {
+        const norm =
+          c === "*" ? "×" :
+          (c === "-" || c === "–") ? "−" :
+          c;
+        out.push({ kind: "leaf", atom: this.atom(norm, "operator") });
+        this.i++; continue;
+      }
+
+      if (c === "/") {
+        out.push({ kind: "leaf", atom: this.atom("/", "fraction-bar") });
+        this.i++; continue;
+      }
+      if (c === "√") {
+        const sign = this.atom("√", "root-sign");
+        this.i++;
+        const radicand = this.parseGroupOrNext();
+        out.push({ kind: "sqrt", sign, radicand });
+        continue;
+      }
+
+      out.push({ kind: "leaf", atom: this.atom(c, "symbol") });
+      this.i++;
+    }
+    return out;
+  }
+
+  readBraceOrChar(): string {
+    if (this.s[this.i] === "{") {
+      let depth = 0, j = this.i, body = "";
+      for (; j < this.s.length; j++) {
+        const ch = this.s[j];
+        if (ch === "{") { depth++; if (depth === 1) continue; }
+        else if (ch === "}") { depth--; if (depth === 0) { j++; break; } }
+        body += ch;
+      }
+      this.i = j;
+      return body;
+    }
+    if (this.i < this.s.length) {
+      const c = this.s[this.i]; this.i++; return c;
+    }
+    return "";
+  }
+
+  parseGroup(): Node[] {
+    if (this.s[this.i] !== "{") return [];
+    this.i++;
+    const body = this.parseSequence("}");
+    if (this.s[this.i] === "}") this.i++;
+    return body;
+  }
+
+  /** {…} group OR single next atom — used for bare √x. */
+  parseGroupOrNext(): Node[] {
+    if (this.s[this.i] === "{") return this.parseGroup();
+    // Parse a single non-whitespace token by capturing then trimming.
+    const startCounter = this.counter;
+    const before = this.i;
+    // crude: take one character through parseSequence by limiting to next 1
+    const oneChar = this.s[this.i] ?? "";
+    if (!oneChar) return [];
+    // Temporarily clip input to a single char so parseSequence consumes it.
+    const saved = this.s;
+    this.s = oneChar;
+    this.i = 0;
+    const nodes = this.parseSequence(null);
+    this.s = saved;
+    this.i = before + 1;
+    // counter already advanced
+    void startCounter;
+    return nodes;
+  }
+
+  parseCommand(out: Node[]) {
+    this.i++; // consume backslash
+    let name = "";
+    while (this.i < this.s.length && /[A-Za-z]/.test(this.s[this.i])) {
+      name += this.s[this.i]; this.i++;
+    }
+    if (!name) {
+      // Backslash followed by punctuation/space — treat as skip command.
+      const c = this.s[this.i] ?? "";
+      if (CMD_SKIP.has(c)) this.i++;
+      return;
+    }
+    if (name === "frac") {
+      const num = this.parseGroup();
+      const den = this.parseGroup();
+      const bar = this.atom("/", "fraction-bar");
+      out.push({ kind: "frac", bar, num, den });
+      return;
+    }
+    if (name === "dfrac" || name === "tfrac") {
+      // Same shape as \frac for rendering.
+      const num = this.parseGroup();
+      const den = this.parseGroup();
+      const bar = this.atom("/", "fraction-bar");
+      out.push({ kind: "frac", bar, num, den });
+      return;
+    }
+    if (name === "sqrt") {
+      let degree: Node[] | undefined;
+      if (this.s[this.i] === "[") {
+        this.i++;
+        degree = this.parseSequence("]");
+        if (this.s[this.i] === "]") this.i++;
+      }
+      const sign = this.atom("√", "root-sign");
+      const radicand = this.parseGroup();
+      out.push({ kind: "sqrt", sign, radicand, degree });
+      return;
+    }
+    if (name === "left" || name === "right") {
+      // The delimiter that follows will be parsed as a normal bracket atom
+      // (or skipped if it's the `.` empty delimiter).
+      if (this.s[this.i] === ".") this.i++;
+      return;
+    }
+    if (CMD_OPS[name]) {
+      const [v, k] = CMD_OPS[name];
+      out.push({ kind: "leaf", atom: this.atom(v, k) });
+      return;
+    }
+    if (CMD_LETTERS[name]) {
+      const [v, k] = CMD_LETTERS[name];
+      out.push({ kind: "leaf", atom: this.atom(v, k) });
+      return;
+    }
+    if (CMD_FUNCS.has(name)) {
+      out.push({ kind: "leaf", atom: this.atom(name, "function-name") });
+      return;
+    }
+    if (CMD_SKIP.has(name)) return;
+    // Unknown command — drop silently. We never echo `\name` to the screen.
+    return;
+  }
+}
+
+/* ───────── Public API ───────── */
+
+export const parseNodes = (equation: string, lineId: string): Node[] =>
+  new Parser(String(equation ?? ""), lineId).parseRoot();
+
+/** DFS in visual reading order: num, bar, den for fractions; sign, degree,
+ *  radicand for roots. */
+export const flattenAtoms = (nodes: Node[]): Atom[] => {
+  const out: Atom[] = [];
+  const walk = (ns: Node[]) => {
+    for (const n of ns) {
+      if (n.kind === "leaf") out.push(n.atom);
+      else if (n.kind === "frac") {
+        walk(n.num);
+        out.push(n.bar);
+        walk(n.den);
+      } else if (n.kind === "sqrt") {
+        out.push(n.sign);
+        if (n.degree) walk(n.degree);
+        walk(n.radicand);
+      }
+    }
+  };
+  walk(nodes);
   return out;
 };
 
-/** Concatenate atom values to form the visible chip text. Attachments are
- *  joined directly to the previous atom; everything else is also joined
- *  directly — operators carry their own sign. */
+export const parseAtoms = (equation: string, lineId: string): Atom[] =>
+  flattenAtoms(parseNodes(equation, lineId));
+
 export const atomsToText = (atoms: Atom[]): string =>
   atoms.map((a) => a.value).join("");
 
-/** Best-effort: given the parsed atoms of an equation and the existing
- *  filler strings (legacy data without atomIds), greedily match each filler
- *  to a contiguous run of atoms whose concatenation equals the filler. */
+/** Best-effort: greedily match legacy filler strings against contiguous runs
+ *  of atoms so chip→atom hover rings still work for old data. */
 export const reconstructAtomIds = (atoms: Atom[], fillers: string[]): string[][] => {
   const out: string[][] = [];
   const strip = (s: string) => s.replace(/\s+/g, "");
