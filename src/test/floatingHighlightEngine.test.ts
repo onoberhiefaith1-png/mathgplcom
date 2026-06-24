@@ -174,3 +174,80 @@ describe("atoms parser — LaTeX rendering regression", () => {
     expect(values.join("")).not.toMatch(/\\|sqrt|cdot|pi/);
   });
 });
+
+describe("highlightEngine — connectivity rule (Teacher Highlight Mode)", () => {
+  it("A + B, selecting A and B only (no +) → two chips", () => {
+    const atoms = parseAtoms("A+B", "Lc1");
+    const sel = new Set(idsByValues(atoms, ["A", "B"]));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["A", "B"]);
+  });
+
+  it("A + B, selecting A, +, B → one chip [A+B]", () => {
+    const atoms = parseAtoms("A+B", "Lc2");
+    const sel = new Set(atoms.map((a) => a.id));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["A+B"]);
+  });
+
+  it("Ax²+Bx+C, selecting Ax² and Bx with middle + → one connected chip", () => {
+    const atoms = parseAtoms("Ax²+Bx+C", "Lc3");
+    const sel = new Set(idsByValues(atoms, ["A", "x", "²", "+", "B", "x"]));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["Ax²+Bx"]);
+  });
+
+  it("Ax²+Bx+C, selecting Ax² and Bx without middle + → two chips", () => {
+    const atoms = parseAtoms("Ax²+Bx+C", "Lc4");
+    const sel = new Set(idsByValues(atoms, ["A", "x", "²", "B", "x"]));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["Ax²", "Bx"]);
+  });
+
+  it("Ax²+Bx+C=0, selecting everything → one chip", () => {
+    const atoms = parseAtoms("Ax²+Bx+C=0", "Lc5");
+    const sel = new Set(atoms.map((a) => a.id));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["Ax²+Bx+C=0"]);
+  });
+
+  it("Ax²+Bx+C=0, selecting Ax² and 0 only → two chips (no bridging)", () => {
+    const atoms = parseAtoms("Ax²+Bx+C=0", "Lc6");
+    const sel = new Set([
+      ...idsByValues(atoms, ["A", "x", "²"]),
+      ...idsByValues(atoms, ["0"]),
+    ]);
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["Ax²", "0"]);
+  });
+
+  it("\\frac{A}{B}, selecting A, bar, B → one connected fraction chip", () => {
+    const atoms = parseAtoms("\\frac{A}{B}", "Lc7");
+    const sel = new Set(atoms.map((a) => a.id));
+    const out = applySelection(atoms, [], sel);
+    expect(out).toHaveLength(1);
+    expect(out[0].atomIds).toHaveLength(3);
+  });
+
+  it("\\frac{A}{B}, selecting A and B only (no bar) → two chips", () => {
+    const atoms = parseAtoms("\\frac{A}{B}", "Lc8");
+    const sel = new Set(idsByValues(atoms, ["A", "B"]));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["A", "B"]);
+  });
+
+  it("(A+B), selecting only ( and ) → two chips (interior breaks connection)", () => {
+    const atoms = parseAtoms("(A+B)", "Lc9");
+    const sel = new Set(idsByValues(atoms, ["(", ")"]));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["(", ")"]);
+  });
+
+  it("x², selecting ² only → single [²] attachment chip", () => {
+    const atoms = parseAtoms("x²", "Lc10");
+    const sel = new Set(idsByValues(atoms, ["²"]));
+    const out = applySelection(atoms, [], sel);
+    expect(valuesOf(out)).toEqual(["²"]);
+  });
+});
+
