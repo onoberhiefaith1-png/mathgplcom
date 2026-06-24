@@ -2,10 +2,10 @@
 // Each test maps to a numbered example in the specification.
 
 import { describe, it, expect } from "vitest";
-import { parseAtoms, parseNodes } from "@/lib/floating/atoms";
+import { parseAtoms, parseNodes, flattenAtoms, type Atom } from "@/lib/floating/atoms";
 import { applySelection, buildChip, type Chip } from "@/lib/floating/highlightEngine";
 
-const idsByValues = (atoms: ReturnType<typeof parseAtoms>, values: string[]) => {
+const idsByValues = (atoms: Atom[], values: string[]) => {
   const used = new Set<number>();
   const out: string[] = [];
   for (const v of values) {
@@ -17,28 +17,14 @@ const idsByValues = (atoms: ReturnType<typeof parseAtoms>, values: string[]) => 
 
 const valuesOf = (chips: Chip[]) => chips.map((c) => c.value);
 
-const setup = (equation: string, lineId: string) => {
-  const tree = parseNodes(equation, lineId);
-  const atoms = parseAtoms(equation, lineId);
-  // parseAtoms creates a fresh parse with its own ids — share ids by using the
-  // tree's flat atoms instead.
-  const treeAtoms = parseAtoms(equation, lineId);
-  void treeAtoms;
-  return { tree, atoms };
-};
-
-// Helper: parseAtoms() and parseNodes() each instantiate a Parser with its own
-// counter, so their atom ids do NOT match. Use this helper that returns a
-// matched tree+atoms pair derived from the same parse.
+// parseAtoms() and parseNodes() each create their own Parser, so atom ids
+// don't match. Use the same tree's flat atoms for both selection and engine.
 const parsePair = (equation: string, lineId: string) => {
   const tree = parseNodes(equation, lineId);
-  // flattenAtoms from atoms.ts walks the tree in visual reading order.
-  // Re-import locally to avoid a cycle.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { flattenAtoms } = require("@/lib/floating/atoms");
   const atoms = flattenAtoms(tree);
   return { tree, atoms };
 };
+
 
 describe("highlightEngine — manual generation (Workflow 1)", () => {
   it("Ex 1: single variable", () => {
