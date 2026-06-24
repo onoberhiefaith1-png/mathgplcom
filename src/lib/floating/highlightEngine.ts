@@ -1,13 +1,16 @@
-// Highlight Generation engine — the one rule that powers manual generation,
-// AI correction, merge, and split. Given the current atom list of an equation,
-// the current chips, and a selected set of atom ids, returns the next chips:
+// TEACHER HIGHLIGHT MODE engine.
 //
-//   1. Remove every existing chip that overlaps the selected atoms.
-//   2. Build new chips from the selection by splitting at contiguity gaps in
-//      the original equation order (disconnected selection → multiple chips).
-//   3. Return the remaining + new chips in equation order. No duplicates.
+// IMPORTANT: this engine is for the Teacher Highlight workflow ONLY.
+// It deliberately does NOT apply the Floating Number Laws (those laws live in
+// the AI Generation pipeline). Teacher intent is the truth here:
+//   - whatever the teacher selects becomes the Floating Number(s)
+//   - connected selection  → one chip
+//   - disconnected selection → multiple chips
+//   - structures-only selection (brackets, fraction-bar, root-sign, exponent,
+//     subscript) → merged into ONE chip even when non-contiguous, so
+//     selecting `(` and `)` in `(A+B)` yields a single `( )` Floating Number
 
-import type { Atom } from "./atoms";
+import type { Atom, AtomKind } from "./atoms";
 
 export interface Chip {
   /** Atom ids this chip was built from, in equation order. */
@@ -21,6 +24,10 @@ export const buildChip = (atomsById: Map<string, Atom>, ids: string[]): Chip => 
   value: ids.map((id) => atomsById.get(id)?.value ?? "").join(""),
 });
 
+const STRUCTURE_KINDS = new Set<AtomKind>([
+  "bracket-open", "bracket-close", "fraction-bar", "root-sign", "exponent", "subscript",
+]);
+
 export const applySelection = (
   atoms: Atom[],
   chips: Chip[],
@@ -31,25 +38,31 @@ export const applySelection = (
   atoms.forEach((a, i) => indexOf.set(a.id, i));
   const byId = new Map<string, Atom>(atoms.map((a) => [a.id, a]));
 
-  // 1. Contiguous runs of selected atoms in equation order.
-  const runs: string[][] = [];
-  let cur: string[] = [];
-  for (const a of atoms) {
-    if (selected.has(a.id)) cur.push(a.id);
-    else if (cur.length) { runs.push(cur); cur = []; }
-  }
-  if (cur.length) runs.push(cur);
+  const selectedOrdered = atoms.filter((a) => selected.has(a.id));
+  const allStructures =
+    selectedOrdered.length > 1 &&
+    selectedOrdered.every((a) => STRUCTURE_KINDS.has(a.kind));
 
-  // 2. Drop existing chips that overlap selection (split/merge happens here).
-  //    Also collect their atoms that the teacher did NOT select — those must
-  //    survive as residual chips so a partial split keeps the remainder
-  //    (e.g. [Ax²] + select "A" → [A] + [x²]).
+  // 1. Group selection by contiguity (or merge if all-structures).
+  const runs: string[][] = [];
+  if (allStructures) {
+    runs.push(selectedOrdered.map((a) => a.id));
+  } else {
+    let cur: string[] = [];
+    for (const a of atoms) {
+      if (selected.has(a.id)) cur.push(a.id);
+      else if (cur.length) { runs.push(cur); cur = []; }
+    }
+    if (cur.length) runs.push(cur);
+  }
+
+  // 2. Drop existing chips that overlap; surviving unselected atoms of split
+  //    chips become residual chips.
   const residualRuns: string[][] = [];
   const surviving: Chip[] = [];
   for (const ch of chips) {
     const overlaps = ch.atomIds.some((id) => selected.has(id));
     if (!overlaps) { surviving.push(ch); continue; }
-    // Split the chip's atoms on the boundary between selected and unselected.
     let buf: string[] = [];
     for (const id of ch.atomIds) {
       if (selected.has(id)) {
@@ -61,10 +74,10 @@ export const applySelection = (
     if (buf.length) residualRuns.push(buf);
   }
 
-  // 3. Build new chips from selection runs + residual runs.
+  // 3. New chips.
   const newChips: Chip[] = [...runs, ...residualRuns].map((ids) => buildChip(byId, ids));
 
-  // 4. Order everything by first-atom index in the equation.
+  // 4. Order by first-atom index.
   const all = [...surviving, ...newChips];
   all.sort((a, b) => {
     const ai = a.atomIds.length ? (indexOf.get(a.atomIds[0]) ?? 1e9) : 1e9;
@@ -72,7 +85,7 @@ export const applySelection = (
     return ai - bi;
   });
 
-  // 5. Defensive dedupe: identical atomIds signature → keep first.
+  // 5. Dedupe.
   const seen = new Set<string>();
   const out: Chip[] = [];
   for (const c of all) {
@@ -82,4 +95,12 @@ export const applySelection = (
     out.push(c);
   }
   return out;
+};
+
+/** Teacher reorder: swap two chips by index. */
+export const swapChips = <T,>(chips: T[], a: number, b: number): T[] => {
+  if (a === b || a < 0 || b < 0 || a >= chips.length || b >= chips.length) return chips;
+  const next = chips.slice();
+  [next[a], next[b]] = [next[b], next[a]];
+  return next;
 };
