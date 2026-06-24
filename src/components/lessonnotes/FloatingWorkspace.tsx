@@ -431,8 +431,10 @@ const EditableChip = ({
       className="group relative inline-flex items-center gap-1 px-2.5 py-1 rounded-md overflow-hidden cursor-pointer"
       style={chipStyle}
       onClick={() => onToggleSelected?.()}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
       onDoubleClick={(e) => { e.preventDefault(); startEdit(); }}
-      title={selected ? "Click to unhighlight · double-click to edit" : "Click to highlight · double-click to edit"}
+      title={selected ? "Click again to deselect · double-click to edit · click another chip to swap" : "Click to pick · click another chip to swap · double-click to edit"}
     >
       <TagBadge n={lineNo} />
       <span className="text-[15px]">{renderMathInline(displayLabel, displayKey)}</span>
