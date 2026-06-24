@@ -233,7 +233,7 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     const out = applySelection(tree, atoms, [], new Set([bar.id]));
     expect(out).toHaveLength(1);
     expect(out[0].structure).toBeDefined();
-    expect(out[0].value).toBe("\\frac{\\sl{}}{\\sl{}}");
+    expect(out[0].value).toBe("\\frac{□}{□}");
     // Bar is the only consumed atom.
     expect(out[0].atomIds).toEqual([bar.id]);
   });
@@ -260,7 +260,7 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     const close = atoms.find((a) => a.kind === "bracket-close")!;
     const out = applySelection(tree, atoms, [], new Set([bar.id, open.id, close.id]));
     expect(out).toHaveLength(1);
-    expect(out[0].value).toBe("\\frac{\\sl{}}{(\\sl{})}");
+    expect(out[0].value).toBe("\\frac{□}{(□)}");
   });
 
   it("(x+2), selecting ( only → 1 chip (□) — pair implied", () => {
@@ -269,7 +269,7 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     const close = atoms.find((a) => a.kind === "bracket-close")!;
     const out = applySelection(tree, atoms, [], new Set([open.id]));
     expect(out).toHaveLength(1);
-    expect(out[0].value).toBe("(\\sl{})");
+    expect(out[0].value).toBe("(□)");
     expect(out[0].atomIds).toEqual([open.id, close.id]);
   });
 
@@ -279,7 +279,7 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     const bar = atoms.find((a) => a.kind === "fraction-bar")!;
     const out = applySelection(tree, atoms, [], new Set([sign.id, bar.id]));
     expect(out).toHaveLength(1);
-    expect(out[0].value).toBe("\\sqrt{\\frac{\\sl{}}{\\sl{}}}");
+    expect(out[0].value).toBe("\\sqrt{\\frac{□}{□}}");
   });
 
   it("\\frac{A}{B}+x, selecting bar + x → 2 chips: [□/□] + [x]", () => {
@@ -288,7 +288,7 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     const x = atoms.find((a) => a.value === "x" && a.kind === "variable")!;
     const out = applySelection(tree, atoms, [], new Set([bar.id, x.id]));
     expect(out).toHaveLength(2);
-    expect(out[0].value).toBe("\\frac{\\sl{}}{\\sl{}}");
+    expect(out[0].value).toBe("\\frac{□}{□}");
     expect(out[1].value).toBe("x");
   });
 
