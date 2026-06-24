@@ -148,40 +148,6 @@ const hasStructural = (ids: string[], byId: Map<string, Atom>): boolean =>
     return !!a && STRUCTURAL_KINDS.has(a.kind);
   });
 
-/** Split selected atoms into maximal runs of consecutive selected atoms in
- *  the flat equation order. A run break = a gap = a new Floating Number. */
-const consecutiveRuns = (atoms: Atom[], selected: Set<string>): string[][] => {
-  const runs: string[][] = [];
-  let cur: string[] = [];
-  for (const a of atoms) {
-    if (selected.has(a.id)) cur.push(a.id);
-    else if (cur.length) { runs.push(cur); cur = []; }
-  }
-  if (cur.length) runs.push(cur);
-
-  // Bracket pairing safety net: a bracket atom's partner must travel in the
-  // same run. If only one side made it in (e.g. the partner sits across a
-  // gap), drop the unmatched side from the run so the structural builder
-  // doesn't emit half a bracket.
-  return runs.map((run) => {
-    const set = new Set(run);
-    return run.filter((id) => {
-      const a = byIdGlobal.get(id);
-      if (!a) return true;
-      if (a.kind === "bracket-open" || a.kind === "bracket-close") {
-        const partner = bracketPartnerOf.get(id);
-        if (partner && !set.has(partner)) return false;
-      }
-      return true;
-    });
-  }).filter((r) => r.length > 0);
-};
-
-/* Module-scope maps populated per applySelection call so the run splitter can
- * see bracket partnership without changing its signature. */
-let byIdGlobal: Map<string, Atom> = new Map();
-let bracketPartnerOf: Map<string, string> = new Map();
-
 const collectBracketPartners = (nodes: Node[], out: Map<string, string>): void => {
   for (const n of nodes) {
     if (n.kind === "bracket") {
@@ -197,6 +163,64 @@ const collectBracketPartners = (nodes: Node[], out: Map<string, string>): void =
     }
   }
 };
+
+const flatten = (nodes: Node[]): Atom[] => {
+  const out: Atom[] = [];
+  const walk = (ns: Node[]) => {
+    for (const n of ns) {
+      if (n.kind === "leaf") out.push(n.atom);
+      else if (n.kind === "frac") { walk(n.num); out.push(n.bar); walk(n.den); }
+      else if (n.kind === "sqrt") { out.push(n.sign); if (n.degree) walk(n.degree); walk(n.radicand); }
+      else if (n.kind === "bracket") { out.push(n.open); walk(n.body); out.push(n.close); }
+    }
+  };
+  walk(nodes);
+  return out;
+};
+
+/** "Covered" = atoms that should NOT count as gaps when splitting into runs.
+ *  An atom is covered if it's selected, OR it sits inside a structural node
+ *  whose structural marker (bar / sign / either bracket) is selected. This
+ *  lets the teacher pick the bar of a/b without forcing them to also pick A
+ *  and B just to keep the run together. */
+const coverageOf = (
+  tree: Node[],
+  selected: Set<string>,
+): Set<string> => {
+  const out = new Set(selected);
+  const addAll = (ns: Node[]) => flatten(ns).forEach((a) => out.add(a.id));
+  const walk = (nodes: Node[]) => {
+    for (const n of nodes) {
+      if (n.kind === "frac") {
+        if (selected.has(n.bar.id)) { out.add(n.bar.id); addAll(n.num); addAll(n.den); }
+        walk(n.num); walk(n.den);
+      } else if (n.kind === "sqrt") {
+        if (selected.has(n.sign.id)) { out.add(n.sign.id); addAll(n.radicand); if (n.degree) addAll(n.degree); }
+        walk(n.radicand); if (n.degree) walk(n.degree);
+      } else if (n.kind === "bracket") {
+        if (selected.has(n.open.id) || selected.has(n.close.id)) {
+          out.add(n.open.id); out.add(n.close.id); addAll(n.body);
+        }
+        walk(n.body);
+      }
+    }
+  };
+  walk(tree);
+  return out;
+};
+
+/** Maximal runs of consecutive covered atoms in flat equation order. */
+const consecutiveRuns = (atoms: Atom[], covered: Set<string>): string[][] => {
+  const runs: string[][] = [];
+  let cur: string[] = [];
+  for (const a of atoms) {
+    if (covered.has(a.id)) cur.push(a.id);
+    else if (cur.length) { runs.push(cur); cur = []; }
+  }
+  if (cur.length) runs.push(cur);
+  return runs;
+};
+
 
 
 /* ───────── Public API ───────── */
