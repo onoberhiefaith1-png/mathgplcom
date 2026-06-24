@@ -145,181 +145,19 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     });
   };
 
-  /* ───────── Manual highlight → Enter ───────── */
-  const eqRef = useRef<HTMLDivElement | null>(null);
-  const [pendingText, setPendingText] = useState<string>("");
-  const pendingRangeRef = useRef<Range | null>(null);
+  /* ───────── Highlight Mode (Teacher Intent) ─────────
+   * The legacy DOM-selection + promoteSelection pipeline has been removed.
+   * EquationAtoms is now the single source of truth for chip generation. */
 
-  // Watch for selection changes inside this line's equation, and bind Enter.
-  useEffect(() => {
-    const onSel = () => {
-      const root = eqRef.current;
-      const sel = window.getSelection();
-      if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) {
-        setPendingText("");
-        pendingRangeRef.current = null;
-        return;
-      }
-      const range = sel.getRangeAt(0);
-      if (!root.contains(range.commonAncestorContainer)) {
-        setPendingText("");
-        pendingRangeRef.current = null;
-        return;
-      }
-      pendingRangeRef.current = range.cloneRange();
-      setPendingText(sel.toString().trim());
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter") return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      if (!pendingRangeRef.current && !pendingText) return;
-      e.preventDefault();
-      commitHighlightAsChip();
-    };
-    document.addEventListener("selectionchange", onSel);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("selectionchange", onSel);
-      window.removeEventListener("keydown", onKey);
-    };
-  }); // re-bind every render so commitHighlightAsChip closes over latest state
+  // Hover/click sync: when teacher interacts with a chip, glow the atoms it
+  // owns in the equation. When teacher hovers an atom in the equation, glow
+  // the chip that owns it (handled by the selected styling on the chip).
+  const [hoveredChipIndex, setHoveredChipIndex] = useState<number | null>(null);
+  const [hoveredAtomId, setHoveredAtomId] = useState<string | null>(null);
+  // Swap mode: first chip click picks; second chip click swaps positions.
+  const [swapPickIndex, setSwapPickIndex] = useState<number | null>(null);
 
-
-  /* ─── Helpers shared by commit + glow ─── */
-  const stripSign = (x: string) => x.replace(/^[+\-−]\s*/, "").trim();
-
-  // Walk the cloned selection DOM to rebuild structured source markup
-  // (\frac{a}{b}, \sqrt{x}, x^{2}) from the renderer's data-math-src markers.
-  // Browser selection text flattens vertical math into `ab`; these markers are
-  // the copy/paste truth for teacher-highlighted structure.
-  const recoverSelectionSource = (range: Range): { src: string; containers: ContainerKind[] } => {
-    const frag = range.cloneContents();
-    const wrapper = document.createElement("div");
-    wrapper.appendChild(frag);
-    const containers: ContainerKind[] = [];
-
-    const addContainer = (kind: ContainerKind) => {
-      if (!containers.includes(kind)) containers.push(kind);
-    };
-
-    wrapper.querySelectorAll<HTMLElement>("[data-math-src]").forEach((el) => {
-      const src = el.dataset.mathSrc?.trim();
-      if (!src) return;
-      const kind = el.dataset.mathKind;
-      el.replaceChildren(document.createTextNode(src));
-      if (kind === "fraction") addContainer("fraction");
-      if (kind === "radical") addContainer("radical");
-      if (kind === "superscript") addContainer("power");
-    });
-
-    const src = (wrapper.textContent || "").trim();
-    return { src, containers };
-  };
-
-  const buildChip = (text: string, range: Range | null): { cleaned: string; containers: ContainerKind[]; label: string } | null => {
-    const raw = (text || "").trim();
-    if (!raw && !range) return null;
-
-    let src = raw;
-    let containers: ContainerKind[] = [];
-    let label = "Added as floating chip";
-
-    if (range) {
-      // Trust the highlight verbatim. Recover real structure from the
-      // KaTeX DOM, but do NOT apply heuristic promoter rewrites — what
-      // the teacher highlighted is exactly what becomes the chip.
-      const rec = recoverSelectionSource(range);
-      src = rec.src || raw;
-      containers = rec.containers;
-      if (containers.length) label = `Added with ${containers[0]}`;
-    } else if (raw) {
-      // No DOM range (e.g. legacy callers) — fall back to the heuristic
-      // promoter so adjacency rules still attach an empty exponent shell.
-      const eq = line.equation ?? "";
-      const idx = eq.indexOf(raw);
-      const before = idx >= 0 ? eq.slice(0, idx) : "";
-      const after = idx >= 0 ? eq.slice(idx + raw.length) : "";
-      const result = promoteSelection(raw, before, after);
-      if (result.payload) src = result.payload;
-      if (result.container) containers = [result.container as ContainerKind];
-      if (result.label) label = result.label;
-    }
-
-    // Trust the highlight: if the normalised form is "dirty", fall back
-    // to the literal text. Enter never refuses.
-    let cleaned = toUnicodeMath(src) || src || raw;
-    if (!cleaned || isStillDirty(cleaned)) {
-      cleaned = raw || cleaned;
-    }
-    if (!cleaned) return null;
-    return { cleaned, containers, label };
-  };
-
-  // For glow: existing fillers that overlap the pending selection.
-  const pendingPayload = pendingText || pendingRangeRef.current
-    ? buildChip(pendingText, pendingRangeRef.current)
-    : null;
-  const pendingCleaned = pendingPayload?.cleaned ?? "";
-  const overlapsPending = (originalIdx: number): boolean => {
-    if (!pendingCleaned) return false;
-    const fc = toUnicodeMath(line.fillers[originalIdx] ?? "");
-    if (!fc) return false;
-    const a = stripSign(pendingCleaned);
-    const b = stripSign(fc);
-    if (!a || !b) return false;
-    return a === b || a.includes(b) || b.includes(a);
-  };
-
-  const commitHighlightAsChip = () => {
-    const payload = buildChip(pendingText, pendingRangeRef.current);
-    if (!payload) return;
-    const { cleaned, containers: newContainers, label } = payload;
-
-    // OVERRIDE: drop any existing filler that is sub/superstring of the new
-    // chip. Collapses scattered AI chips into the teacher's grouped chip,
-    // or splits an over-grouped AI chip down to exactly what was highlighted.
-    const a = stripSign(cleaned);
-    const removeIdx = new Set<number>();
-    line.fillers.forEach((f, i) => {
-      const b = stripSign(toUnicodeMath(f) || f || "");
-      if (a && b && (a === b || a.includes(b) || b.includes(a))) removeIdx.add(i);
-    });
-    const keptFillers = line.fillers.filter((_, i) => !removeIdx.has(i));
-    const keptSel = padSel(line.fillersSelected, line.fillers.length).filter((_, i) => !removeIdx.has(i));
-
-    const nextFillers = [...keptFillers, cleaned];
-    const nextFillersSel = [...keptSel, false];
-
-    let containers = line.containers;
-    let containersSel = padSel(line.containersSelected, line.containers.length);
-    newContainers.forEach((c) => {
-      if (!containers.includes(c)) {
-        containers = [...containers, c];
-        containersSel = [...containersSel, false];
-      }
-    });
-
-    onChange({
-      ...line,
-      fillers: nextFillers,
-      fillersSelected: nextFillersSel,
-      containers,
-      containersSelected: containersSel,
-      arrangement: rearrangeIndices(nextFillers.length),
-    });
-    window.getSelection()?.removeAllRanges();
-    setPendingText("");
-    pendingRangeRef.current = null;
-    const removed = removeIdx.size;
-    toast({
-      title: label,
-      description: removed > 0 ? `Replaced ${removed} existing chip${removed === 1 ? "" : "s"}.` : undefined,
-      duration: 1600,
-    });
-  };
-
-  /* ── Highlight Generation: clickable atoms in the equation ── */
+  /* ── Build atom-backed chips so EquationAtoms can split/merge correctly ── */
   const atomsForLine = parseAtoms(line.equation, line.lineId);
   const atomsById = new Map(atomsForLine.map((a) => [a.id, a] as const));
   const reconstructed = reconstructAtomIds(atomsForLine, line.fillers);
@@ -327,6 +165,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     const ids = reconstructed[i] ?? [];
     return ids.length ? buildAtomChip(atomsById, ids) : { atomIds: [], value };
   });
+
   const onAtomApply = (nextChips: Chip[]) => {
     const nextFillers = nextChips.map((c) => c.value).filter(Boolean);
     onChange({
@@ -335,8 +174,63 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
       fillersSelected: nextFillers.map(() => false),
       arrangement: rearrangeIndices(nextFillers.length),
     });
-    toast({ title: "Floating Numbers updated", description: `${nextFillers.length} chip${nextFillers.length === 1 ? "" : "s"}.`, duration: 1400 });
+    setSwapPickIndex(null);
+    toast({
+      title: "Floating Numbers updated",
+      description: `${nextFillers.length} chip${nextFillers.length === 1 ? "" : "s"}.`,
+      duration: 1400,
+    });
   };
+
+  // Compute which atoms in the equation should glow based on chip hover.
+  const highlightedAtomIds = (() => {
+    const ids = new Set<string>();
+    if (hoveredChipIndex != null) {
+      const visualIdx = hoveredChipIndex;
+      const originalIdx = line.arrangement[visualIdx] ?? visualIdx;
+      (reconstructed[originalIdx] ?? []).forEach((id) => ids.add(id));
+    }
+    return ids;
+  })();
+
+  // Reverse: when teacher hovers an atom, which chip owns it?
+  const chipIndexForAtom = (atomId: string | null): number | null => {
+    if (!atomId) return null;
+    const originalIdx = reconstructed.findIndex((ids) => ids.includes(atomId));
+    if (originalIdx < 0) return null;
+    // Translate to visual index via arrangement.
+    const visualIdx = line.arrangement.findIndex((o) => o === originalIdx);
+    return visualIdx >= 0 ? visualIdx : originalIdx;
+  };
+  const atomDrivenChipIndex = chipIndexForAtom(hoveredAtomId);
+
+  // Click-handler for the Fillers chips: implements TEACHER SWAP RULE.
+  // First click selects a chip; second click swaps with it. Clicking the
+  // same chip again deselects.
+  const onChipClickSwap = (visualIdx: number) => {
+    if (swapPickIndex == null) {
+      setSwapPickIndex(visualIdx);
+      return;
+    }
+    if (swapPickIndex === visualIdx) {
+      setSwapPickIndex(null);
+      return;
+    }
+    const a = line.arrangement[swapPickIndex] ?? swapPickIndex;
+    const b = line.arrangement[visualIdx] ?? visualIdx;
+    const nextFillers = swapChips(line.fillers, a, b);
+    const nextSel = swapChips(padSel(line.fillersSelected, line.fillers.length), a, b);
+    onChange({
+      ...line,
+      fillers: nextFillers,
+      fillersSelected: nextSel,
+      arrangement: rearrangeIndices(nextFillers.length),
+    });
+    setSwapPickIndex(null);
+    toast({ title: "Swapped Floating Numbers", duration: 1200 });
+  };
+
+
 
   return (
     <div className="pl-6 pr-2 py-3 border-l-2 border-foreground/10 ml-2 my-2">
