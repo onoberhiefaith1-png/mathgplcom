@@ -31,42 +31,42 @@ describe("highlightEngine — One Apply = One Chip", () => {
     expect(valuesOf(out)).toEqual(["x"]);
   });
 
-  it("two variables skipping the operator → still ONE chip (teacher decides)", () => {
+  it("two variables with a gap (operator unselected) → TWO chips", () => {
     const { tree, atoms } = parsePair("x+y", "L2");
     const sel = new Set(idsByValues(atoms, ["x", "y"]));
     const out = applySelection(tree, atoms, [], sel);
-    expect(valuesOf(out)).toEqual(["xy"]);
+    expect(valuesOf(out)).toEqual(["x", "y"]);
   });
 
-  it("connected expression x + y → 1 chip", () => {
+  it("connected expression x + y (all atoms) → ONE chip", () => {
     const { tree, atoms } = parsePair("x+y", "L3");
     const sel = new Set(atoms.map((a) => a.id));
     const out = applySelection(tree, atoms, [], sel);
     expect(valuesOf(out)).toEqual(["x+y"]);
   });
 
-  it("exponent inclusion: Ax² selected → [Ax²]", () => {
+  it("Ax²+Bx fully connected → [Ax²+Bx]", () => {
     const { tree, atoms } = parsePair("Ax²+Bx", "L5");
-    const sel = new Set(idsByValues(atoms, ["A", "x", "²"]));
+    const sel = new Set(atoms.map((a) => a.id));
     const out = applySelection(tree, atoms, [], sel);
-    expect(valuesOf(out)).toEqual(["Ax²"]);
+    expect(valuesOf(out)).toEqual(["Ax²+Bx"]);
   });
 
-  it("x²+4x+7 fully selected → ONE chip", () => {
+  it("x²+4x+7 fully selected → ONE chip (no truncation to first term)", () => {
     const { tree, atoms } = parsePair("x²+4x+7", "L_xy");
     const sel = new Set(atoms.map((a) => a.id));
     const out = applySelection(tree, atoms, [], sel);
     expect(valuesOf(out)).toEqual(["x²+4x+7"]);
   });
 
-  it("disconnected pieces still collapse to ONE chip", () => {
+  it("Ax²+Bx+C with a gap (skip Bx) → TWO chips [Ax²] [C]", () => {
     const { tree, atoms } = parsePair("Ax²+Bx+C", "L9");
     const sel = new Set([
       ...idsByValues(atoms, ["A", "x", "²"]),
       ...idsByValues(atoms, ["C"]),
     ]);
     const out = applySelection(tree, atoms, [], sel);
-    expect(valuesOf(out)).toEqual(["Ax²C"]);
+    expect(valuesOf(out)).toEqual(["Ax²", "C"]);
   });
 });
 
@@ -90,6 +90,7 @@ describe("highlightEngine — overlap replaces", () => {
     expect(valuesOf(out).sort()).toEqual(["Ax²", "C"].sort());
   });
 });
+
 
 describe("atoms parser — LaTeX rendering regression", () => {
   it("never leaks raw LaTeX commands as atom values", () => {
