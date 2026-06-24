@@ -300,8 +300,13 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
               displayLabel={label}
               displayKey={`fc-${line.lineId}-${i}`}
               lineNo={lineNo}
-              selected={!!fillersSelected[originalIdx] || overlapsPending(originalIdx)}
-              onToggleSelected={() => toggleFiller(i)}
+              selected={
+                !!fillersSelected[originalIdx] ||
+                atomDrivenChipIndex === i ||
+                swapPickIndex === i
+              }
+              onToggleSelected={() => onChipClickSwap(i)}
+              onHover={(h) => setHoveredChipIndex(h ? i : null)}
               onCommit={(v) => updateFiller(i, v)}
               onRemove={() => removeFiller(i)}
             />
