@@ -10,7 +10,7 @@
 //     subscript) → merged into ONE chip even when non-contiguous, so
 //     selecting `(` and `)` in `(A+B)` yields a single `( )` Floating Number
 
-import type { Atom, AtomKind } from "./atoms";
+import type { Atom } from "./atoms";
 
 export interface Chip {
   /** Atom ids this chip was built from, in equation order. */
@@ -24,10 +24,6 @@ export const buildChip = (atomsById: Map<string, Atom>, ids: string[]): Chip => 
   value: ids.map((id) => atomsById.get(id)?.value ?? "").join(""),
 });
 
-const STRUCTURE_KINDS = new Set<AtomKind>([
-  "bracket-open", "bracket-close", "fraction-bar", "root-sign", "exponent", "subscript",
-]);
-
 export const applySelection = (
   atoms: Atom[],
   chips: Chip[],
@@ -38,22 +34,31 @@ export const applySelection = (
   atoms.forEach((a, i) => indexOf.set(a.id, i));
   const byId = new Map<string, Atom>(atoms.map((a) => [a.id, a]));
 
-  const selectedOrdered = atoms.filter((a) => selected.has(a.id));
-  const allStructures =
-    selectedOrdered.length > 1 &&
-    selectedOrdered.every((a) => STRUCTURE_KINDS.has(a.kind));
+  // CONNECTIVITY RULE (Teacher Highlight Mode):
+  //   Two selected atoms are connected iff every atom strictly between them is
+  //   also selected. If the full span between the first and last selected atom
+  //   is fully selected → ONE chip spanning that range. Otherwise → split into
+  //   maximal runs of consecutive selected atoms (each unselected atom breaks
+  //   the chain). No bridging, no Floating Number Laws.
+  const selectedIdx: number[] = [];
+  atoms.forEach((a, i) => { if (selected.has(a.id)) selectedIdx.push(i); });
 
-  // 1. Group selection by contiguity (or merge if all-structures).
   const runs: string[][] = [];
-  if (allStructures) {
-    runs.push(selectedOrdered.map((a) => a.id));
-  } else {
-    let cur: string[] = [];
-    for (const a of atoms) {
-      if (selected.has(a.id)) cur.push(a.id);
-      else if (cur.length) { runs.push(cur); cur = []; }
+  if (selectedIdx.length > 0) {
+    const first = selectedIdx[0];
+    const last = selectedIdx[selectedIdx.length - 1];
+    const span = atoms.slice(first, last + 1);
+    const fullyConnected = span.every((a) => selected.has(a.id));
+    if (fullyConnected) {
+      runs.push(span.map((a) => a.id));
+    } else {
+      let cur: string[] = [];
+      for (const a of atoms) {
+        if (selected.has(a.id)) cur.push(a.id);
+        else if (cur.length) { runs.push(cur); cur = []; }
+      }
+      if (cur.length) runs.push(cur);
     }
-    if (cur.length) runs.push(cur);
   }
 
   // 2. Drop existing chips that overlap; surviving unselected atoms of split
