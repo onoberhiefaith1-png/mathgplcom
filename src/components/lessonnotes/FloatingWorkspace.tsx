@@ -239,12 +239,14 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
         <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/45">
           Line {lineNo}
         </span>
-        <div ref={eqRef} className="text-[17px] select-text" style={{ color: "hsl(220 35% 18%)" }}>
+        <div className="text-[17px]" style={{ color: "hsl(220 35% 18%)" }}>
           <EquationAtoms
             equation={line.equation}
             lineId={line.lineId}
             chips={chipsForLine}
             onApply={onAtomApply}
+            highlightedAtomIds={highlightedAtomIds}
+            onAtomHover={setHoveredAtomId}
           />
         </div>
         <div className={`flex items-center gap-1.5 shrink-0 ${scoreLabel ? "ml-auto" : "ml-auto"}`}>
