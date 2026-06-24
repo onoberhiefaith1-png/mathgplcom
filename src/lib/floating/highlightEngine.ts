@@ -1,22 +1,20 @@
 // TEACHER HIGHLIGHT MODE — Editor, not AI.
 //
-// THE ONLY RULE:
-//   Whatever the teacher selects becomes ONE Floating Number.
+// THE RULE: connectivity over the flat atom sequence.
+//   • Consecutive selected atoms → one Floating Number.
+//   • A gap in the selection → a new Floating Number.
+//   • Whatever the teacher selects + presses Enter is a Floating Number;
+//     the system only decides which clicks belong together (= no gap between
+//     them in the source equation).
 //
-// One Apply  →  one chip.
-// No connectivity splitting. No residual fragments. No Floating Number Laws.
-// (Those laws belong to AI Generation Mode and DO NOT apply here.)
+// Structures are atoms too. If the teacher's run includes the fraction bar,
+// the root sign, or a bracket, the chip is rebuilt as the real mathematical
+// object (\frac, \sqrt, paired brackets) with □ for any slot the teacher
+// didn't fill. If the teacher selects A and B but skips the bar, the bar is
+// the gap — two plain chips [A] and [B], not a fraction.
 //
-// Structural reconstruction:
-//   When the selection includes any structural atom (fraction bar, root sign,
-//   bracket) we walk the original parsed Node tree and rebuild the structural
-//   sub-tree so the chip renders as real mathematics. Empty slots stay as □.
-//   Selected leaves inside an unselected structural node simply flatten out
-//   into the chip in equation order — they keep their values but lose the
-//   surrounding structure (because the teacher didn't click it).
-//
-// When the selection contains zero structural atoms, the chip is just the
-// selected leaves joined in equation order. e.g. selecting x, ², +, 4, x → "x²+4x".
+// No Floating Number Laws here — those belong to AI Generation Mode.
+
 
 import type { Atom, Node } from "./atoms";
 
