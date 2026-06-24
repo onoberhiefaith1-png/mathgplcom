@@ -21,7 +21,7 @@ import { promoteSelection } from "@/lib/smartboard/manualFloatingPromoter";
 import { toast } from "@/hooks/use-toast";
 import EquationAtoms from "@/components/floating/EquationAtoms";
 import { parseAtoms } from "@/lib/floating/atoms";
-import { applySelection as engineApply, buildChip, type Chip } from "@/lib/floating/highlightEngine";
+import { applySelection as engineApply, buildChip as buildAtomChip, type Chip } from "@/lib/floating/highlightEngine";
 import { reconstructAtomIds } from "@/lib/floating/atoms";
 
 interface Props {
@@ -326,7 +326,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
   const reconstructed = reconstructAtomIds(atomsForLine, line.fillers);
   const chipsForLine: Chip[] = line.fillers.map((value, i) => {
     const ids = reconstructed[i] ?? [];
-    return ids.length ? buildChip(atomsById, ids) : { atomIds: [], value };
+    return ids.length ? buildAtomChip(atomsById, ids) : { atomIds: [], value };
   });
   const onAtomApply = (nextChips: Chip[]) => {
     const nextFillers = nextChips.map((c) => c.value).filter(Boolean);
