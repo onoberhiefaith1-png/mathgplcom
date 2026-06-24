@@ -19,6 +19,10 @@ import {
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { promoteSelection } from "@/lib/smartboard/manualFloatingPromoter";
 import { toast } from "@/hooks/use-toast";
+import EquationAtoms from "@/components/floating/EquationAtoms";
+import { parseAtoms } from "@/lib/floating/atoms";
+import { applySelection as engineApply, buildChip as buildAtomChip, type Chip } from "@/lib/floating/highlightEngine";
+import { reconstructAtomIds } from "@/lib/floating/atoms";
 
 interface Props {
   line: FloatingLine;
@@ -316,6 +320,25 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
     });
   };
 
+  /* ── Highlight Generation: clickable atoms in the equation ── */
+  const atomsForLine = parseAtoms(line.equation, line.lineId);
+  const atomsById = new Map(atomsForLine.map((a) => [a.id, a] as const));
+  const reconstructed = reconstructAtomIds(atomsForLine, line.fillers);
+  const chipsForLine: Chip[] = line.fillers.map((value, i) => {
+    const ids = reconstructed[i] ?? [];
+    return ids.length ? buildAtomChip(atomsById, ids) : { atomIds: [], value };
+  });
+  const onAtomApply = (nextChips: Chip[]) => {
+    const nextFillers = nextChips.map((c) => c.value).filter(Boolean);
+    onChange({
+      ...line,
+      fillers: nextFillers,
+      fillersSelected: nextFillers.map(() => false),
+      arrangement: rearrangeIndices(nextFillers.length),
+    });
+    toast({ title: "Floating Numbers updated", description: `${nextFillers.length} chip${nextFillers.length === 1 ? "" : "s"}.`, duration: 1400 });
+  };
+
   return (
     <div className="pl-6 pr-2 py-3 border-l-2 border-foreground/10 ml-2 my-2">
       {/* Equation header */}
@@ -324,7 +347,12 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
           Line {lineNo}
         </span>
         <div ref={eqRef} className="text-[17px] select-text" style={{ color: "hsl(220 35% 18%)" }}>
-          {renderMathInline(line.equation, `eq-${line.lineId}`)}
+          <EquationAtoms
+            equation={line.equation}
+            lineId={line.lineId}
+            chips={chipsForLine}
+            onApply={onAtomApply}
+          />
         </div>
         <div className={`flex items-center gap-1.5 shrink-0 ${scoreLabel ? "ml-auto" : "ml-auto"}`}>
           {/* The Enter, AI Edit, and Reason & Verify buttons were removed in
