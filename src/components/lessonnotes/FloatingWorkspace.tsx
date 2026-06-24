@@ -362,7 +362,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
 
 const EditableChip = ({
   value, displayLabel, displayKey, lineNo, onCommit, onRemove, variant = "filler",
-  selected = false, onToggleSelected,
+  selected = false, onToggleSelected, onHover,
 }: {
   value: string;
   displayLabel: string;
@@ -373,6 +373,7 @@ const EditableChip = ({
   variant?: "filler" | "symbol";
   selected?: boolean;
   onToggleSelected?: () => void;
+  onHover?: (hovered: boolean) => void;
 }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
