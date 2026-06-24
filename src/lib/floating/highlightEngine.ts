@@ -142,53 +142,62 @@ const buildSlot = (nodes: Node[], selected: Set<string>): ChipNode[] => {
 const emptyToSlot = (nodes: ChipNode[]): ChipNode[] =>
   nodes.length === 0 ? [{ kind: "slot" }] : nodes;
 
-const hasStructural = (atoms: Atom[], selected: Set<string>): boolean =>
-  atoms.some((a) => selected.has(a.id) && STRUCTURAL_KINDS.has(a.kind));
-
-/* ───────── Public API ───────── */
-
-export const applySelection = (
-  tree: Node[],
-  atoms: Atom[],
-  chips: Chip[],
-  selected: Set<string>,
-): Chip[] => {
-  if (selected.size === 0) return chips;
-
-  const indexOf = new Map<string, number>();
-  atoms.forEach((a, i) => indexOf.set(a.id, i));
-  const byId = new Map<string, Atom>(atoms.map((a) => [a.id, a]));
-
-  // Build the single new chip — structural or plain.
-  let newChip: Chip;
-  if (hasStructural(atoms, selected)) {
-    const built = buildSlot(tree, selected);
-    newChip = {
-      atomIds: collectAtomIds(built),
-      value: nodesToLatex(built),
-      structure: built,
-    };
-  } else {
-    const ids: string[] = [];
-    for (const a of atoms) if (selected.has(a.id)) ids.push(a.id);
-    newChip = buildChip(byId, ids);
-  }
-  if (newChip.atomIds.length === 0 && !newChip.value) return chips;
-
-  // Drop any prior chip the new selection overlaps — the teacher just
-  // re-claimed those atoms for a new Floating Number.
-  const surviving = chips.filter(
-    (c) => !c.atomIds.some((id) => selected.has(id)),
-  );
-
-  const all = [...surviving, newChip];
-  all.sort((a, b) => {
-    const ai = a.atomIds.length ? (indexOf.get(a.atomIds[0]) ?? 1e9) : 1e9;
-    const bi = b.atomIds.length ? (indexOf.get(b.atomIds[0]) ?? 1e9) : 1e9;
-    return ai - bi;
+const hasStructural = (ids: string[], byId: Map<string, Atom>): boolean =>
+  ids.some((id) => {
+    const a = byId.get(id);
+    return !!a && STRUCTURAL_KINDS.has(a.kind);
   });
-  return all;
+
+/** Split selected atoms into maximal runs of consecutive selected atoms in
+ *  the flat equation order. A run break = a gap = a new Floating Number. */
+const consecutiveRuns = (atoms: Atom[], selected: Set<string>): string[][] => {
+  const runs: string[][] = [];
+  let cur: string[] = [];
+  for (const a of atoms) {
+    if (selected.has(a.id)) cur.push(a.id);
+    else if (cur.length) { runs.push(cur); cur = []; }
+  }
+  if (cur.length) runs.push(cur);
+
+  // Bracket pairing safety net: a bracket atom's partner must travel in the
+  // same run. If only one side made it in (e.g. the partner sits across a
+  // gap), drop the unmatched side from the run so the structural builder
+  // doesn't emit half a bracket.
+  return runs.map((run) => {
+    const set = new Set(run);
+    return run.filter((id) => {
+      const a = byIdGlobal.get(id);
+      if (!a) return true;
+      if (a.kind === "bracket-open" || a.kind === "bracket-close") {
+        const partner = bracketPartnerOf.get(id);
+        if (partner && !set.has(partner)) return false;
+      }
+      return true;
+    });
+  }).filter((r) => r.length > 0);
 };
+
+/* Module-scope maps populated per applySelection call so the run splitter can
+ * see bracket partnership without changing its signature. */
+let byIdGlobal: Map<string, Atom> = new Map();
+let bracketPartnerOf: Map<string, string> = new Map();
+
+const collectBracketPartners = (nodes: Node[], out: Map<string, string>): void => {
+  for (const n of nodes) {
+    if (n.kind === "bracket") {
+      out.set(n.open.id, n.close.id);
+      out.set(n.close.id, n.open.id);
+      collectBracketPartners(n.body, out);
+    } else if (n.kind === "frac") {
+      collectBracketPartners(n.num, out);
+      collectBracketPartners(n.den, out);
+    } else if (n.kind === "sqrt") {
+      collectBracketPartners(n.radicand, out);
+      if (n.degree) collectBracketPartners(n.degree, out);
+    }
+  }
+};
+
 
 /** Teacher reorder: swap two chips by index. */
 export const swapChips = <T,>(chips: T[], a: number, b: number): T[] => {
