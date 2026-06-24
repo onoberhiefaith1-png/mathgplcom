@@ -138,11 +138,11 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     expect(out[0].value).toBe("\\frac{A}{B}");
   });
 
-  it("only A and B selected (no bar) → ONE plain chip 'AB'", () => {
+  it("only A and B selected (no bar = gap) → TWO chips [A] [B]", () => {
     const { tree, atoms } = parsePair("\\frac{A}{B}", "Ls3");
     const sel = new Set(idsByValues(atoms, ["A", "B"]));
     const out = applySelection(tree, atoms, [], sel);
-    expect(valuesOf(out)).toEqual(["AB"]);
+    expect(valuesOf(out)).toEqual(["A", "B"]);
   });
 
   it("bracket pair only → 1 chip (□)", () => {
@@ -164,14 +164,16 @@ describe("highlightEngine — Rule 2: structure reconstruction", () => {
     expect(out[0].value).toBe("\\sqrt{\\frac{□}{□}}");
   });
 
-  it("fraction bar + x outside → ONE combined structural chip", () => {
+  it("fraction bar + x with a gap between them → TWO chips", () => {
     const { tree, atoms } = parsePair("\\frac{A}{B}+x", "Ls7");
     const bar = atoms.find((a) => a.kind === "fraction-bar")!;
     const x = atoms.find((a) => a.value === "x" && a.kind === "variable")!;
     const out = applySelection(tree, atoms, [], new Set([bar.id, x.id]));
-    expect(out).toHaveLength(1);
-    expect(out[0].value).toBe("\\frac{□}{□}x");
+    expect(out).toHaveLength(2);
+    expect(out[0].value).toBe("\\frac{□}{□}");
+    expect(out[1].value).toBe("x");
   });
+
 
   it("fraction-bar alone never produces / as the chip text", () => {
     const { tree, atoms } = parsePair("\\frac{A}{B}", "Ls8");
