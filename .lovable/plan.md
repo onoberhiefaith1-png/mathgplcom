@@ -1,78 +1,88 @@
-# Floating Number Editor — Rendering Regression Fix
+## Highlight Mode — Connectivity Rule + Selectable Structures
 
-## The regression
+Two focused fixes, both confined to the Teacher Highlight Mode pipeline. AI Generation Mode is untouched.
 
-The equation row in `FloatingWorkspace.tsx` now renders through `EquationAtoms`, which walks a flat character-level atom list and prints each atom as a `<span>`. That parser (`src/lib/floating/atoms.ts`) does not understand LaTeX structures — `\frac`, `\sqrt`, `^{...}`, `_{...}`, `\left/\right` — so they leak to the screen as raw source:
+### 1. Replace contiguity logic with a true connectivity rule
 
+**File:** `src/lib/floating/highlightEngine.ts`
+
+Current behaviour groups selected atoms into runs based on contiguity (a single unselected atom breaks the run into two chips). Replace this with the connectivity rule the teacher defined:
+
+> Two selected atoms are connected **iff every atom strictly between them is also selected**.
+
+Implementation:
+
+1. Sort selected atoms by their equation index.
+2. Walk the atom list from the first selected index to the last selected index.
+3. If every atom in that span is selected → emit **one chip** containing all of them.
+4. If any atom in the span is unselected → split at every unselected atom and emit one chip per maximal run of consecutive selected atoms.
+
+This single rule replaces both the old contiguity logic and the special-case `allStructures` merge — it naturally handles every example in the spec:
+
+| Equation | Selection | Result |
+|---|---|---|
+| `A + B` | `A`, `B` (no `+`) | `[A] [B]` |
+| `A + B` | `A`, `+`, `B` | `[A+B]` |
+| `Ax²+Bx+C` | `Ax²`, `Bx` (no middle `+`) | `[Ax²] [Bx]` |
+| `Ax²+Bx+C=0` | everything | `[Ax²+Bx+C=0]` |
+| `Ax²+Bx+C=0` | `Ax²`, `0` only | `[Ax²] [0]` |
+| `A/B` fraction | `A`, bar, `B` | one fraction chip |
+| `A/B` fraction | `A`, `B` (no bar) | `[A] [B]` |
+| `(A+B)` | `(`, `)` only | `[(] [)]` (disconnected — `A+B` not selected) |
+| `x²` | `x`, `²` | `[x²]` |
+| `x²` | `²` only | `[²]` |
+
+Note on brackets: the previous "all-structures merge" rule that produced a single `()` chip from just the open + close bracket is **removed**, because under the connectivity rule the unselected interior breaks the connection. This matches the teacher's clarification — no bridging, ever.
+
+The existing residual-chip logic (atoms of an overlapped chip that the teacher did not re-select survive as their own chip) is preserved.
+
+### 2. Make thin mathematical structures easy to click
+
+**File:** `src/components/floating/EquationAtoms.tsx`
+
+Keep all visible mathematics at its true size — no thicker bars, no handles. Add an **invisible enlarged hit area** around thin structures so clicks register naturally.
+
+- **Fraction bar (`FracBar`)**: wrap the 1.5 px visible line in a transparent span that is ~12 px tall (≈6 px padding top + 6 px bottom) and full width. Click/hover events bind to the wrapper; the visible line remains exactly as drawn today.
+- **Root sign / radicand overline**: extend the clickable region of the `√` glyph and the overline by ~6 px vertically using transparent padding.
+- Apply the same wrapper pattern preventively to any future thin glyphs (we have just bar + root today; the helper will be reusable).
+
+Visual output is pixel-identical for the teacher; only the pointer-event target grows.
+
+### 3. Tests
+
+**File:** `src/test/floatingHighlightEngine.test.ts`
+
+Replace the old "structures merge non-contiguously" test (Ex: `(` + `)` → `()`) and add connectivity-rule cases:
+
+- `A + B`, select `A` + `B` only → `[A] [B]`
+- `Ax²+Bx+C`, select `Ax²` + `Bx` (no `+`) → `[Ax²] [Bx]`
+- `Ax²+Bx+C=0`, select everything → `[Ax²+Bx+C=0]`
+- `Ax²+Bx+C=0`, select `Ax²` + `0` → `[Ax²] [0]`
+- Fraction `\frac{A}{B}` with bar selected → one chip; without bar → two chips
+- `x²`, select `²` only → `[²]` (single attachment chip)
+- `(A+B)`, select only `(` + `)` → two chips (regression for removed all-structures merge)
+
+### Out of scope
+
+- AI Generation Mode (`floating-assistant` edge function, Floating Number Laws) — untouched.
+- Bidirectional highlighting (chip → equation, equation → chip) and chip swap — already implemented in the previous turn and confirmed working.
+- Auto-expanding container structures — already handled by the recursive renderer.
+
+### Technical summary
+
+```ts
+// highlightEngine.ts — new core
+const selectedIdx = atoms
+  .map((a, i) => (selected.has(a.id) ? i : -1))
+  .filter((i) => i >= 0);
+const first = selectedIdx[0], last = selectedIdx[selectedIdx.length - 1];
+const allBetweenSelected = atoms
+  .slice(first, last + 1)
+  .every((a) => selected.has(a.id));
+
+if (allBetweenSelected) {
+  runs.push(atoms.slice(first, last + 1).map((a) => a.id));   // ONE chip
+} else {
+  // split at every unselected atom -> maximal selected runs
+}
 ```
-\frac{x+2}{x^2(x^2+4)}
-```
-
-Before the highlight-generation work the row went through `renderMathInline` (KaTeX), which produced proper stacked fractions, roots, exponents and brackets. The fix is to bring that visual renderer back without losing the per-atom click + Enter workflow.
-
-## Goal
-
-1. The equation always renders as proper mathematics (stacked fractions, real radicals, superscript exponents, subscript indices, real brackets). No LaTeX command, `^`, `_`, `\left`, `\right` is ever visible.
-2. Each visible leaf (number, variable, operator, exponent, bracket, fraction numerator/denominator atom, radicand atom…) is independently clickable and has a stable id.
-3. Clicking leaves + Enter still routes through `highlightEngine.applySelection` to create / merge / split chips. Connected selections collapse to one chip; disconnected selections produce multiple chips; selections that overlap existing chips replace them (correction rule).
-4. One-to-one chip ↔ atom highlight: hovering a chip rings only its own atoms; clicking an `x` selects only that `x`, not every `x` in the equation.
-
-## Implementation
-
-### 1. `src/lib/floating/atoms.ts` — structured parser
-
-Extend the parser so it produces a small tree of nodes, not a flat list, while still exposing a flat list of selectable leaf atoms with stable ids.
-
-New node kinds:
-- `frac { num: Node[]; den: Node[] }`
-- `sqrt { radicand: Node[]; degree?: Node[] }`
-- `sup  { base: Node[]; exp: Node[] }`  (from `^{...}` or unicode ⁿ run)
-- `sub  { base: Node[]; idx: Node[] }`
-- `bracket { shape: "(" | "[" | "{"; body: Node[] }`
-- leaf `atom` (current `Atom` shape, kept for the engine)
-
-Parser additions:
-- Recognise `\frac{a}{b}`, `\sqrt{x}`, `\sqrt[n]{x}`, `^{...}`, `_{...}`, `\left(` / `\right)`, `\cdot`, `\times`, `\div`, `\pm`, common `\alpha … \omega`.
-- Strip `\left` / `\right` and unknown spacing commands.
-- Every leaf still gets `id = ${lineId}:a${counter}` so the engine and chip storage keep working unchanged.
-
-Helpers:
-- `flattenAtoms(tree): Atom[]` — used by `highlightEngine.applySelection` and `reconstructAtomIds`. The engine already operates on the flat list and that contract does not change.
-- `nodesToText(tree): string` — only for hidden labels/toasts, never for display.
-
-### 2. `src/components/floating/EquationAtoms.tsx` — visual renderer
-
-Replace the current flat `atoms.map(...)` with a recursive renderer over the node tree:
-
-- `frac` → flex column with numerator slot, a `1px` rule, denominator slot.
-- `sqrt` → radical sign + top bar over the radicand slot; optional small degree top-left.
-- `sup` / `sub` → base then a smaller, raised / lowered slot. Never print `^` or `_`.
-- `bracket` → real `(` `[` `{` glyphs around the body.
-- Leaf atom → same clickable span as today (selection state, hover ring, `onAtomHover`).
-
-Selection / Enter behaviour is unchanged: clicks toggle `selected: Set<atomId>`, Enter calls `applySelection(flatAtoms, chips, selected)`. Because leaf ids are still globally unique per equation, the one-to-one chip↔atom highlight already works.
-
-### 3. `src/components/lessonnotes/FloatingWorkspace.tsx`
-
-- Keep `EquationAtoms` as the equation row (no KaTeX fallback needed once the parser handles structures).
-- `reconstructAtomIds` keeps working on the flat atom list, so legacy chips persisted as strings still bind to atoms.
-- Remove the now-unused `renderMathInline` import from this file if it's no longer referenced.
-
-### 4. Tests
-
-Extend `src/test/floatingHighlightEngine.test.ts` with cases that feed equations containing `\frac`, `\sqrt`, `^{...}` and assert:
-- No raw `\`, `^`, `_` token reaches the rendered text (snapshot of leaf atom values).
-- Selecting `A`, `x`, `²` in `Ax^{2}+Bx+C` and pressing Enter produces a single `[Ax²]` chip.
-- Selecting `A`, `x`, `²` and `C` produces two chips `[Ax²]`, `[C]`.
-- Selecting the numerator atoms of `\frac{x+2}{x^2(x^2+4)}` produces a chip whose value is `x+2`, leaving the denominator untouched.
-
-### 5. Out of scope
-
-- AI prompt / `floating-assistant` edge function — already pivoted to atom-id selections.
-- Chip row UI, undo/redo, persistence — untouched.
-
-## What the teacher will see after the fix
-
-- `\frac{x+2}{x^2(x^2+4)}` renders as a real stacked fraction with `x²(x²+4)` in the denominator.
-- Clicking `x` in the numerator highlights only that `x`; pressing Enter produces `[x]` and leaves every other `x` in the equation alone.
-- No `\frac`, `\sqrt`, `^`, `_`, `\left`, `\right` ever appears on screen.
