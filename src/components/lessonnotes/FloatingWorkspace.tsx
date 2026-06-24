@@ -288,10 +288,20 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
           Fillers
         </span>
         {fillers.map((f, i) => {
-          const cleaned = toUnicodeMath(f);
-          if (isStillDirty(cleaned)) return null;
-          const term = extractTermsFromAscii(cleaned)[0];
-          const label = term ? renderTermLabel(term, { isFirst: false, prevWasEquals: false }) : cleaned;
+          // Highlight-Mode chips may carry LaTeX structures (\frac{□}{□},
+          // \sqrt{□}, paired brackets with □ slots). Pass those straight to
+          // the math renderer — DO NOT run them through isStillDirty, which
+          // is meant for AI-generated free-form strings.
+          const isStructural = /\\frac|\\sqrt/.test(f) || /□/.test(f);
+          const cleaned = isStructural ? f : toUnicodeMath(f);
+          if (!isStructural && isStillDirty(cleaned)) return null;
+          let label: string;
+          if (isStructural) {
+            label = cleaned;
+          } else {
+            const term = extractTermsFromAscii(cleaned)[0];
+            label = term ? renderTermLabel(term, { isFirst: false, prevWasEquals: false }) : cleaned;
+          }
           const originalIdx = line.arrangement[i] ?? i;
           return (
             <EditableChip
@@ -312,6 +322,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
             />
           );
         })}
+
         <EmptyEntryBox
           lineNo={lineNo}
           placeholder="value"
