@@ -322,7 +322,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
 
   /* ── Highlight Generation: clickable atoms in the equation ── */
   const atomsForLine = parseAtoms(line.equation, line.lineId);
-  const atomsById = new Map(atomsForLine.map((a) => [a.id, a]));
+  const atomsById = new Map(atomsForLine.map((a) => [a.id, a] as const));
   const reconstructed = reconstructAtomIds(atomsForLine, line.fillers);
   const chipsForLine: Chip[] = line.fillers.map((value, i) => {
     const ids = reconstructed[i] ?? [];
