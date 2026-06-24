@@ -199,7 +199,57 @@ const collectBracketPartners = (nodes: Node[], out: Map<string, string>): void =
 };
 
 
-/** Teacher reorder: swap two chips by index. */
+/* ───────── Public API ───────── */
+
+export const applySelection = (
+  tree: Node[],
+  atoms: Atom[],
+  chips: Chip[],
+  selected: Set<string>,
+): Chip[] => {
+  if (selected.size === 0) return chips;
+
+  const indexOf = new Map<string, number>();
+  atoms.forEach((a, i) => indexOf.set(a.id, i));
+  const byId = new Map<string, Atom>(atoms.map((a) => [a.id, a]));
+
+  byIdGlobal = byId;
+  bracketPartnerOf = new Map<string, string>();
+  collectBracketPartners(tree, bracketPartnerOf);
+
+  // Drop any prior chip the new selection touches.
+  const surviving = chips.filter(
+    (c) => !c.atomIds.some((id) => selected.has(id)),
+  );
+
+  // Split into maximal consecutive runs in flat equation order.
+  const runs = consecutiveRuns(atoms, selected);
+
+  // Build one chip per run — structural if the run contains a structural
+  // atom, plain otherwise.
+  const newChips: Chip[] = runs.map((run) => {
+    const runSet = new Set(run);
+    if (hasStructural(run, byId)) {
+      const built = buildSlot(tree, runSet);
+      return {
+        atomIds: collectAtomIds(built),
+        value: nodesToLatex(built),
+        structure: built,
+      };
+    }
+    return buildChip(byId, run);
+  }).filter((c) => c.atomIds.length > 0 || c.value);
+
+  const all = [...surviving, ...newChips];
+  all.sort((a, b) => {
+    const ai = a.atomIds.length ? (indexOf.get(a.atomIds[0]) ?? 1e9) : 1e9;
+    const bi = b.atomIds.length ? (indexOf.get(b.atomIds[0]) ?? 1e9) : 1e9;
+    return ai - bi;
+  });
+  return all;
+};
+
+
 export const swapChips = <T,>(chips: T[], a: number, b: number): T[] => {
   if (a === b || a < 0 || b < 0 || a >= chips.length || b >= chips.length) return chips;
   const next = chips.slice();
