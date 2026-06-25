@@ -27,11 +27,18 @@ export const toUnicodeMath = (input: string): string => {
 
   // Preserve empty power slots as structural superscripts. If we let the
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
-  // like multiplication instead of “u raised to an empty exponent box”.
-  const POWER_SLOT = "\uE000POWER_SLOT\uE000";
+  // like multiplication instead of "u raised to an empty exponent box".
+  //
+  // SENTINELS MUST BE PURE PRIVATE-USE CHARS — never ASCII. An earlier
+  // version used "\uE000POWER_SLOT\uE000" / "\uE001SCRIPT_n\uE001"; if any
+  // downstream pass stripped PUA characters, the literal ASCII payload
+  // leaked into chip labels as readable debug words ("POWER", "SCRIPT",
+  // "SLOT"). Pure-PUA tokens cannot leak readable text.
+  const POWER_SLOT = "\uE000\uE010\uE000";
   const scriptSlots: string[] = [];
   const holdScript = (markup: string) => {
-    const token = `\uE001SCRIPT_${scriptSlots.length}\uE001`;
+    const idx = scriptSlots.length;
+    const token = `\uE001${String.fromCharCode(0xE100 + idx)}\uE001`;
     scriptSlots.push(markup);
     return token;
   };
