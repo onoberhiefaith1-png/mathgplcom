@@ -107,9 +107,15 @@ export const toUnicodeMath = (input: string): string => {
   s = s.replace(/[{}]/g, "");
 
   scriptSlots.forEach((markup, i) => {
-    s = s.replace(`\uE001SCRIPT_${i}\uE001`, markup);
+    const token = `\uE001${String.fromCharCode(0xE100 + i)}\uE001`;
+    s = s.split(token).join(markup);
   });
-  s = s.replace(new RegExp(POWER_SLOT, "g"), "^{□}");
+  s = s.split(POWER_SLOT).join("^{□}");
+
+  // Defence in depth: any leftover private-use sentinel must never reach the
+  // DOM. If something earlier swallowed half a sentinel, drop the remnants
+  // so teachers see clean math instead of debug glyphs.
+  s = s.replace(/[\uE000-\uE0FF]/g, "");
 
   return s.trim();
 };
