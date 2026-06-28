@@ -1441,6 +1441,35 @@ function DocumentEditorInner({
         >
           <Calculator className="h-4 w-4" /> Calc
         </button>
+        <button
+          type="button"
+          onClick={() => setObjectsOpen(true)}
+          title="Insert a math object (cars, apples, dice, coins…)"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <Boxes className="h-4 w-4" /> Objects
+        </button>
+        <button
+          type="button"
+          onClick={() => setAnimateMode((v) => !v)}
+          title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
+          className={cn(
+            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+            animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+          )}
+        >
+          <Film className="h-4 w-4" /> Animate
+        </button>
+        {animateMode && (
+          <button
+            type="button"
+            onClick={captureStep}
+            title="Capture the current selection (or current block) as a new animation frame"
+            className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
+          >
+            <Camera className="h-4 w-4" /> Capture Step
+          </button>
+        )}
         <GlobalAiButton onGenerate={handleGlobalAi} />
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
         <Divider />
