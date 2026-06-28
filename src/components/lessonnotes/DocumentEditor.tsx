@@ -748,6 +748,24 @@ function DocumentEditorInner({
     editor.view.dispatch(tr);
   }, [editor]);
 
+  const locateGeometryNearPos = useCallback((docPos: number): number | null => {
+    if (!editor) return null;
+    let exact: number | null = null;
+    let before: number | null = null;
+    let after: number | null = null;
+    editor.state.doc.descendants((node, nodePos) => {
+      if (node.type.name !== "geometryDiagram") return true;
+      if (docPos >= nodePos && docPos <= nodePos + node.nodeSize) {
+        exact = nodePos;
+        return false;
+      }
+      if (nodePos < docPos) before = nodePos;
+      else if (after == null && nodePos > docPos) after = nodePos;
+      return true;
+    });
+    return exact ?? after ?? before;
+  }, [editor]);
+
   const findGeometryAtDomPoint = useCallback((clientX: number, clientY: number): number | null => {
     const el = document.elementFromPoint(clientX, clientY) as Element | null;
     const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
@@ -767,22 +785,14 @@ function DocumentEditorInner({
     const coords = view.posAtCoords({ left: clientX, top: clientY });
     let pos = coords?.pos ?? editor.state.selection.to;
     pos = Math.max(0, Math.min(pos, editor.state.doc.content.size));
+    const beforeSize = editor.state.doc.content.size;
     editor.chain().focus().insertContentAt(pos, {
       type: "geometryDiagram",
       attrs: { scene: EMPTY_SCENE },
     }).run();
-    let best: number | null = null;
-    editor.state.doc.descendants((node, nodePos) => {
-      if (node.type.name !== "geometryDiagram") return true;
-      if (nodePos >= pos && best == null) {
-        best = nodePos;
-        return false;
-      }
-      best = nodePos;
-      return true;
-    });
-    return best;
-  }, [editor]);
+    const mappedPos = Math.min(pos, beforeSize);
+    return locateGeometryNearPos(mappedPos);
+  }, [editor, locateGeometryNearPos]);
 
   const applyQuickGeometryTool = useCallback((scene: GeometryScene, tool: ToolId, x: number, y: number, pendingIds: string[]) => {
     const sn = snap(scene, x, y);
