@@ -496,9 +496,11 @@ export function DocumentEditor({
       ? [...aiTextToNodes(content), ...solutionPlaceholderNodes()]
       : aiTextToNodes(content);
 
-    // REGENERATE: replace the section body. Otherwise append at section end.
+    // REGENERATE (and in-place EDIT): replace the section body, strictly
+    // bounded by this section's range. Otherwise append at section end.
+    const replaceBody = info.action === "regenerate" || isInPlaceEdit(info, prompt);
     let insertFrom: number;
-    if (info.action === "regenerate") {
+    if (replaceBody) {
       const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
       const start = info.headingPos + headingNodeSize;
       insertFrom = start;
