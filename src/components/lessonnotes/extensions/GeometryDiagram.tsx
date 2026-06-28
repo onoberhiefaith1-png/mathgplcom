@@ -91,10 +91,9 @@ function GeometryDiagramView({
     if (selected) {
       setActiveFrameId(sessionIdRef.current);
       if (!mode) setMode(true);
-    } else if (sessionIdRef.current) {
-      // do not flip mode off; just relinquish active frame if it was us.
-      setActiveFrameId((prev) => (prev === sessionIdRef.current ? null : prev));
     }
+    // We don't clear activeFrameId on deselect — the toolbox stays
+    // ready and another frame's select will overwrite it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
