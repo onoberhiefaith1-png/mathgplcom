@@ -66,6 +66,7 @@ export const SmartGraphNode = Node.create({
       yLabel: { default: DEFAULT_GRAPH.yLabel },
       points: { default: DEFAULT_GRAPH.points },
       connect: { default: DEFAULT_GRAPH.connect },
+      shapes: { default: DEFAULT_GRAPH.shapes },
     };
   },
 
