@@ -67,6 +67,20 @@ function GeometryDiagramView({ node, updateAttributes, deleteNode }: NodeViewPro
         <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
           <button
             type="button"
+            onClick={() =>
+              openGeometryEditor({
+                scene,
+                topic,
+                onApply: (next) => updateAttributes({ scene: next }),
+              })
+            }
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-background border border-foreground/20 text-foreground shadow"
+            title="Edit this diagram"
+          >
+            <Pencil className="h-3 w-3" /> Edit
+          </button>
+          <button
+            type="button"
             onClick={handleAiEdit}
             className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-primary text-primary-foreground shadow"
             title="AI edit this diagram"
