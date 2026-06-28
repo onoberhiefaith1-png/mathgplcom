@@ -398,10 +398,14 @@ export function DocumentEditor({
               `"""${prompt}"""\n\n` +
               `Output ONLY the full revised ${label}. Keep everything not mentioned in the instruction exactly as-is. ` +
               `Do NOT add section headings (no "Introduction", "Explanation", "Example", "Summary" titles). ` +
-              `Do NOT generate any other section. Return just the body text of this ${label}.`,
+              `Do NOT generate any other section. Return just the body text of this ${label}.\n\n` +
+              `DIAGRAM OWNERSHIP: This section may contain a geometry diagram that the editor preserves automatically. ` +
+              `Do NOT mention the diagram, do NOT say it was removed/replaced/moved, and do NOT add "(see diagram)" placeholders. ` +
+              `Only describe the diagram differently if the teacher's instruction explicitly asks to change it.`,
             currentContent: opts.sectionText,
           };
         }
+
         if (isQuestionSectionKind(opts.kind)) {
           return { prompt: prompt || `Generate one ${label} question only. Do not write the solution.`, currentContent: "" };
         }
@@ -502,22 +506,71 @@ export function DocumentEditor({
     // REGENERATE (and in-place EDIT): replace the section body, strictly
     // bounded by this section's range. Otherwise append at section end.
     const replaceBody = info.action === "regenerate" || isInPlaceEdit(info, prompt);
+
+    /** Re-resolve the live end of this section, so we never delete across
+     *  the next heading even if the doc mutated since `info` was captured. */
+    const liveSectionEnd = (headingPos: number): number => {
+      const doc = editor.state.doc;
+      const headingNode = doc.nodeAt(headingPos);
+      if (!headingNode || headingNode.type.name !== "heading") return headingPos;
+      const level = headingNode.attrs?.level ?? 2;
+      let endPos = doc.content.size;
+      doc.descendants((n, p) => {
+        if (p <= headingPos) return true;
+        if (n.type.name === "heading" && (n.attrs.level ?? 6) <= level) {
+          if (endPos === doc.content.size) endPos = p;
+          return false;
+        }
+        return true;
+      });
+      return endPos;
+    };
+
+    /** Collect every geometryDiagram node attrs found in [from, to). */
+    const collectDiagrams = (from: number, to: number) => {
+      const found: Array<{ scene: unknown; topic: unknown }> = [];
+      if (to <= from) return found;
+      editor.state.doc.nodesBetween(from, to, (n) => {
+        if (n.type.name === "geometryDiagram") {
+          found.push({ scene: n.attrs?.scene, topic: n.attrs?.topic });
+        }
+        return true;
+      });
+      return found;
+    };
+
     let insertFrom: number;
     // Position immediately AFTER the question body — this is where the
     // geometry diagram for the question must be inserted.
     let questionBodyEnd: number;
+    // Diagrams preserved from the section before we wiped it; re-inserted
+    // after the new body so they remain part of this section forever.
+    let preservedDiagrams: Array<{ scene: unknown; topic: unknown }> = [];
     if (replaceBody) {
       const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
       const start = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
       insertFrom = start;
-      // Clear the existing body first, then insert the question content and
-      // measure the doc-size delta to find the exact end of the question body.
+      // Clamp the delete range to the LIVE next-heading position so we
+      // can never spill into the following section.
+      const liveEnd = Math.min(liveSectionEnd(info.headingPos), info.sectionEndPos);
+      // Preserve diagrams BEFORE we wipe.
+      preservedDiagrams = collectDiagrams(start, liveEnd);
       editor.chain().focus()
-        .deleteRange({ from: start, to: info.sectionEndPos })
+        .deleteRange({ from: start, to: liveEnd })
         .run();
       const sizeBefore = editor.state.doc.content.size;
       editor.chain().focus().insertContentAt(start, questionBodyNodes).run();
       questionBodyEnd = start + (editor.state.doc.content.size - sizeBefore);
+      // Re-insert preserved diagrams at the end of the new question body.
+      for (const d of preservedDiagrams) {
+        const insertAt = Math.min(questionBodyEnd, editor.state.doc.content.size);
+        const before = editor.state.doc.content.size;
+        editor.chain().focus().insertContentAt(insertAt, {
+          type: "geometryDiagram",
+          attrs: { scene: d.scene, topic: d.topic },
+        }).run();
+        questionBodyEnd += editor.state.doc.content.size - before;
+      }
       if (trailingNodes.length) {
         editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
       }
@@ -531,17 +584,28 @@ export function DocumentEditor({
       }
     }
 
-    // Capture the question body end position via a relative mapping marker
-    // so it stays correct even if the document mutates while the geometry
-    // pass is in flight.
-    const geometryAnchor = questionBodyEnd;
+    // Whether the teacher explicitly asked for a new diagram. When they did
+    // NOT and we already preserved one, skip the async geometry pass to
+    // avoid silently replacing a teacher-tuned diagram.
+    const promptAsksForDiagram = (() => {
+      const p = (prompt || "").toLowerCase();
+      if (!p) return false;
+      return /\b(diagram|figure|redraw|sketch|draw|triangle|circle|polygon|angle|tangent|chord|arc|sector|parallel|perpendicular)\b/.test(p);
+    })();
+    const skipGeometryPass = replaceBody && preservedDiagrams.length > 0 && !promptAsksForDiagram;
+
+    // Capture the heading position so we can re-resolve the section end at
+    // the moment the async geometry pass returns — surviving any doc
+    // mutations that happen in the meantime.
+    const anchorHeadingPos = info.headingPos;
 
     // Automatic geometry diagram pass. Fire-and-forget: if the section is
     // geometric, this returns a GeometryScene which we insert IMMEDIATELY
     // BELOW the question body (and above the Solution heading, when present).
     // If the section isn't geometric, the backend returns null and we do
     // nothing. Errors here are non-fatal.
-    void (async () => {
+    if (!skipGeometryPass) void (async () => {
+
       try {
         const topic = ctxRef.current?.topic || notebookContext?.topic;
         const subtopic = ctxRef.current?.subtopic || notebookContext?.subtopic;
@@ -556,9 +620,30 @@ export function DocumentEditor({
         if (error) return;
         const scene = sanitizeScene((data as any)?.scene);
         if (!scene || scene.objects.length === 0) return;
-        // Insert the diagram at the END of the question body. Clamp to the
-        // current doc size in case the document shrank since we computed it.
-        const insertAt = Math.min(geometryAnchor, editor.state.doc.content.size);
+        // Re-resolve the question body end on the LIVE doc, scoped to the
+        // original section heading. If the heading no longer exists (section
+        // deleted), skip the insertion.
+        const liveDoc = editor.state.doc;
+        const headingNode = liveDoc.nodeAt(anchorHeadingPos);
+        if (!headingNode || headingNode.type.name !== "heading") return;
+        const sectionEnd = liveSectionEnd(anchorHeadingPos);
+        // Insert right before any trailing Solution heading (i.e. at the
+        // very end of the question body within this section).
+        let insertAt = sectionEnd;
+        // If there's already a geometryDiagram in this section, skip — the
+        // section already owns its diagram and we don't want to duplicate.
+        const existing = collectDiagrams(anchorHeadingPos, sectionEnd);
+        if (existing.length > 0) return;
+        // Walk backwards from sectionEnd to skip the inserted Solution
+        // placeholder block so the diagram sits ABOVE Solution heading.
+        liveDoc.nodesBetween(anchorHeadingPos, sectionEnd, (n, p) => {
+          if (n.type.name === "heading" && p > anchorHeadingPos) {
+            insertAt = Math.min(insertAt, p);
+            return false;
+          }
+          return true;
+        });
+        insertAt = Math.min(insertAt, editor.state.doc.content.size);
         editor
           .chain()
           .focus()
@@ -571,6 +656,7 @@ export function DocumentEditor({
         console.warn("[geometry] auto-diagram skipped:", err);
       }
     })();
+
 
     if (isQuestionSectionKind(info.kind)) return;
 

@@ -32,7 +32,20 @@ automatically alongside the text.
 
 Do NOT write "(see diagram)" placeholder text. Do NOT draw any pseudo-figure
 with slashes, underscores, dashes, or pipes. Just write the mathematics.
+
+DIAGRAM OWNERSHIP RULE
+- A geometry diagram inserted under a section belongs to that section forever.
+- It sits between the section heading and the next heading. Treat it as part
+  of the question/explanation it illustrates.
+- When editing a section that already has a diagram, you are editing the PROSE
+  only. Do not describe the diagram as removed, replaced, or moved.
+- Never write "the diagram has been removed" or "see new diagram" — the
+  diagram node is preserved automatically by the editor.
+- When a NEW section is added below a section with a diagram, that new section
+  must appear BELOW the existing diagram. Never produce content that implies
+  the previous diagram should be discarded.
 `.trim();
+
 
 export const GEOMETRY_SCENE_SCHEMA = `
 GeometryScene = {
