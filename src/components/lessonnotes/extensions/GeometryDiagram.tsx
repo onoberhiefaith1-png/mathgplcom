@@ -16,12 +16,17 @@ import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
+import { SmartGeometryProvider } from "@/components/lessonnotes/geometry-editor/SmartGeometryContext";
+import { SmartOverlay } from "@/components/lessonnotes/geometry-editor/SmartOverlay";
+import { RelationshipPanel } from "@/components/lessonnotes/geometry-editor/RelationshipPanel";
 import {
   type GeometryScene,
   sanitizeScene,
   EMPTY_SCENE,
 } from "@/lib/geometry/scene";
 import { cn } from "@/lib/utils";
+
+const PAD = 24;
 
 const OPEN_EVENT = "geometry-ai-edit:open";
 
