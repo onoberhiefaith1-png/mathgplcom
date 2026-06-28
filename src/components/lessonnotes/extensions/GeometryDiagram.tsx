@@ -5,8 +5,9 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Sparkles, Trash2 } from "lucide-react";
+import { Sparkles, Trash2, Pencil } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import { openGeometryEditor } from "@/components/lessonnotes/geometry-editor/GeometryEditorPanel";
 import {
   type GeometryScene,
   sanitizeScene,
@@ -64,6 +65,20 @@ function GeometryDiagramView({ node, updateAttributes, deleteNode }: NodeViewPro
           </p>
         )}
         <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+          <button
+            type="button"
+            onClick={() =>
+              openGeometryEditor({
+                scene,
+                topic,
+                onApply: (next) => updateAttributes({ scene: next }),
+              })
+            }
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-background border border-foreground/20 text-foreground shadow"
+            title="Edit this diagram"
+          >
+            <Pencil className="h-3 w-3" /> Edit
+          </button>
           <button
             type="button"
             onClick={handleAiEdit}

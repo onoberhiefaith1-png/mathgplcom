@@ -21,7 +21,12 @@ export interface GeoSegment {
   a: GeoId; // point id
   b: GeoId; // point id
   label?: string;
-  marks?: "tick" | "double" | "triple" | "right" | null;
+  /** Optional measurement text shown along the segment (e.g. "5 cm"). */
+  length?: string;
+  marks?:
+    | "tick" | "double" | "triple" | "right"
+    | "parallel" | "double-parallel" | "triple-parallel"
+    | null;
   dashed?: boolean;
 }
 export interface GeoLine {

@@ -20,7 +20,8 @@ import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionR
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
-import { sanitizeScene } from "@/lib/geometry/scene";
+import { GeometryEditorPanel, openGeometryEditor } from "./geometry-editor/GeometryEditorPanel";
+import { EMPTY_SCENE, sanitizeScene } from "@/lib/geometry/scene";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
 import { MathSymbolPanel } from "./MathSymbolPanel";
@@ -37,7 +38,7 @@ import {
   Undo2, Redo2, Sigma, Minus, Plus, Heading1, Heading2,
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Shapes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -1013,6 +1014,80 @@ export function DocumentEditor({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="p-1.5 rounded hover:bg-foreground/10 inline-flex items-center gap-1 text-xs" title="Diagram">
+              <Shapes className="h-4 w-4" /> Diagram
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuLabel>Geometry</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                if (!editor) return;
+                editor
+                  .chain()
+                  .focus()
+                  .insertContent({
+                    type: "geometryDiagram",
+                    attrs: { scene: EMPTY_SCENE },
+                  })
+                  .run();
+                // Open the manual editor for the just-inserted blank diagram.
+                setTimeout(() => {
+                  openGeometryEditor({
+                    scene: EMPTY_SCENE,
+                    onApply: (next) => {
+                      // Update the most-recently-inserted diagram in place.
+                      const e = editor;
+                      if (!e) return;
+                      let lastPos: number | null = null;
+                      e.state.doc.descendants((node, pos) => {
+                        if (node.type.name === "geometryDiagram") lastPos = pos;
+                      });
+                      if (lastPos != null) {
+                        e.chain().focus().setNodeSelection(lastPos).updateAttributes("geometryDiagram", { scene: next }).run();
+                      }
+                    },
+                  });
+                }, 0);
+              }}
+            >
+              Insert blank diagram
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const e = editor;
+                if (!e) return;
+                // Find a selected geometryDiagram node, otherwise the nearest.
+                const { from } = e.state.selection;
+                let foundPos: number | null = null;
+                let foundNode: any = null;
+                e.state.doc.descendants((node, pos) => {
+                  if (node.type.name === "geometryDiagram" && pos <= from && pos + node.nodeSize >= from) {
+                    foundPos = pos;
+                    foundNode = node;
+                  }
+                });
+                if (!foundNode) {
+                  toast({ title: "Place the cursor on a diagram first" });
+                  return;
+                }
+                const scene = sanitizeScene(foundNode.attrs.scene) ?? EMPTY_SCENE;
+                openGeometryEditor({
+                  scene,
+                  topic: foundNode.attrs.topic ?? undefined,
+                  onApply: (next) => {
+                    e.chain().focus().setNodeSelection(foundPos!).updateAttributes("geometryDiagram", { scene: next }).run();
+                  },
+                });
+              }}
+            >
+              Edit selected diagram
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <GlobalAiButton onGenerate={handleGlobalAi} />
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
         <Divider />
@@ -1116,6 +1191,7 @@ export function DocumentEditor({
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
       <GeometryAiPanel />
+      <GeometryEditorPanel />
     </div>
   );
 }

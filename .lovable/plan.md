@@ -1,76 +1,113 @@
+
+# MathGPL Geometry Editor — Implementation Plan
+
 ## Goal
 
-Make geometry diagrams behave as a permanent part of the section that owns them. A diagram inserted under a question (or any section) must:
+Keep the Lesson Note Generator exactly as it is. Add a full **Geometry Editing System** that opens in a floating panel from a new **Diagram** toolbar button, edits the currently selected diagram in place, and works side-by-side with the existing AI Edit panel. Teacher never leaves the lesson note page.
 
-1. Never be deleted when that section is regenerated, edited in-place, or when a new section is generated below it.
-2. Always remain BETWEEN the section heading it belongs to and the next heading (typically Solution).
-3. Be treated by the AI as part of the question — the AI must not rewrite, describe away, or signal removal of the diagram.
+## Foundations we reuse (no rewrites)
 
-## Root cause of the current bug
+- `src/lib/geometry/scene.ts` — `GeometryScene` JSON is already the single source of truth (points, segments, lines, rays, circles, arcs, angles, polygons, labels). All new tools edit this JSON.
+- `src/components/lessonnotes/GeometryDiagram.tsx` — SVG renderer.
+- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — TipTap node + `openGeometryAiEdit`.
+- `src/components/lessonnotes/GeometryAiPanel.tsx` + `supabase/functions/geometry-edit` — AI Edit stays unchanged and lives next to the new manual editor.
+- Smartboard arc / polygon math in `src/lib/smartboard/` is reused for arcs and polygons.
 
-`handleSectionAi` in `src/components/lessonnotes/DocumentEditor.tsx` does this on regenerate / in-place edit:
+## New surface
 
-```ts
-editor.chain().focus()
-  .deleteRange({ from: start, to: info.sectionEndPos })   // wipes EVERYTHING in the section
-  .run();
+```text
+Lesson Note Toolbar
+  └─ Diagram ▾
+       ├─ Insert blank diagram
+       └─ Edit selected diagram   →  opens Geometry Editor Panel (floating, draggable)
+                                     [AI Edit] button in the same panel opens the existing AI side panel
 ```
 
-`info.sectionEndPos` is the position of the next equal-or-higher heading (computed by `computeSection` in `extensions/SectionHeading.tsx`). Any `geometryDiagram` node living between the section heading and the next heading is included in that range and gets deleted along with the prose. Then the async geometry pass either re-generates a different scene or, if the user's edit didn't trigger a new geometry pass at the right moment, simply leaves the section without a diagram.
+The Geometry Editor Panel is a floating, non-modal overlay anchored to the selected `geometryDiagram` node. The lesson note stays visible and scrollable behind it.
 
-A secondary edge case: the fire-and-forget geometry pass captures `geometryAnchor` as a static number. If the user creates another heading before the pass resolves, the anchor can land in the wrong section.
+## Architecture
 
-## Fix (frontend only, no backend changes required for the structural fix)
+### 1. Scene model extensions (`src/lib/geometry/scene.ts`)
+Additive only — existing fields keep working.
+- `GeoSegment.length?: string` (e.g. `"5 cm"`, `"AB"`) for the Measurement tool.
+- `GeoAngle.value` already exists; add `GeoAngle.locked?: boolean` for constraint-fixed angles.
+- New marker kinds on `GeoSegment.marks`: `"parallel"|"double-parallel"|"triple-parallel"` for the Parallel tool.
+- New object: `GeoConstructionArc` (compass arc; same shape as `GeoArc` with `kind:"construction"`).
+- New optional `scene.style` block: `{ font?: string; strokeWidth?: number }` so the renderer stays themable.
+- All additions are optional → existing scenes & the AI edge function keep validating.
 
-All changes in `src/components/lessonnotes/DocumentEditor.tsx`.
+### 2. Editor state (`src/lib/geometry/editor/`)
+New folder, pure logic, no UI:
+- `tools.ts` — `ToolId = "select"|"point"|"line"|"arc"|"circle"|"polygon"|"angle"|"label"|"measure"|"equalMark"|"parallel"|"perpendicular"|"rightAngle"|"midpoint"|"compass"|"move"|"erase"|"constraint"|"rotate"|"sketch"`.
+- `sceneOps.ts` — pure functions that take a `GeometryScene` + intent and return the next scene (`addPoint`, `addSegmentChain`, `addArcThrough3`, `addCircleByRadius`, `closePolygon`, `markEqual`, `markParallel`, `markPerpendicular`, `placeRightAngle`, `midpointOf`, `eraseObject`, `moveObject`, `rotateScene`, `applyConstraint`). Every op returns `{ scene, addedIds, changedIds }` so we can show the same diff highlighting the AI panel already uses.
+- `snap.ts` — Smart Snap: nearest point / midpoint / intersection / on-circle / on-line within a pixel threshold; returns a snap target + visual hint.
+- `history.ts` — undo/redo stack scoped to the open editor session.
+- `labels.ts` — auto-label generator (A, B, C…, skipping used letters).
+- `constraints.ts` — `make-parallel`, `make-perpendicular`, `make-equal`, `make-tangent`, `make-isosceles`, `make-equilateral`, `make-circle` solvers operating on selected ids.
 
-### 1. Preserve geometry diagrams across section body replacement
+### 3. UI components (`src/components/lessonnotes/geometry-editor/`)
+- `GeometryEditorPanel.tsx` — floating panel (draggable header, resize, close). Hosts the toolbar, the live canvas, the selection inspector, undo/redo, and an `AI Edit` button that defers to `openGeometryAiEdit` (already wired).
+- `GeometryToolbar.tsx` — grouped tool buttons matching the 21 tools in the spec, with tooltips and keyboard shortcuts (P, L, A, C, G, N, T, M, E, ∥, ⟂, □, ·, ⊙, V, Del, K, R, S).
+- `GeometryCanvas.tsx` — SVG canvas that renders the same scene as `GeometryDiagram` plus an interaction layer: hover snap dots, in-progress preview (rubber-band line/arc/circle), selection halos, drag handles.
+- `SelectionInspector.tsx` — right-rail strip inside the panel for editing the selected object's label, length, angle value, dashed/solid, marks.
+- `SketchLayer.tsx` — freehand capture (mouse/stylus/touch) used by the Convert Sketch tool.
+- `useGeometryEditor.ts` — hook that wires scene + tool + history + snap and exposes `commit(nextScene)` which calls the TipTap node's `updateAttributes({ scene })`.
 
-Before the `deleteRange` in both the `replaceBody` branch and the "clear" branch, walk the range `[start, info.sectionEndPos)` and collect every `geometryDiagram` node's `attrs` (`scene`, `topic`) in document order. After the new body is inserted (and any trailing Solution placeholder is inserted), re-insert each preserved diagram at `questionBodyEnd` — keeping the invariant "diagrams sit between question body and Solution heading".
+### 4. Tool behavior map (all driven by `sceneOps`)
+1. **Point** — click → `addPoint` with auto label.
+2. **Straight Line** — click points sequentially → `addSegmentChain`; Esc/Enter ends; reuses smartboard segment helpers.
+3. **Arc (3-point)** — three clicks → `addArcThrough3` (uses smartboard arc math).
+4. **Circle** — drag from center, or click-center-then-click-radius-point → `addCircleByRadius`.
+5. **Polygon** — click points, Enter closes → `closePolygon` (auto segments + polygon object).
+6. **Angle** — click arm1 → vertex → arm2 → `addAngleMark`, default `marker:"arc"`.
+7. **Label** — click object, inline text input; writes `label`/`value`/`text`.
+8. **Measurement** — click side/angle → editable text bound to `length` / `value`.
+9. **Equal Mark** — click two sides (or two angles) → sets matching `marks` (single/double/triple cycles on repeat).
+10. **Parallel** — click two lines → matching parallel arrows on both.
+11. **Perpendicular** — click two intersecting lines → places right-angle square at intersection.
+12. **Right Angle Marker** — click any angle → sets `marker:"right"`.
+13. **Midpoint** — click segment → new point at midpoint with auto label `M`.
+14. **Compass / Construction Arc** — click center, click radius point → dashed construction arc.
+15. **Move** — drag points (dependent geometry follows because everything references point ids).
+16. **Eraser** — click object → `eraseObject` cascading only to orphan dependents.
+17. **Constraint** — multi-select + choose constraint → `constraints.ts` solver.
+18. **Convert Sketch** — `SketchLayer` records strokes, posts to a new edge function `geometry-sketch` that returns a `GeometryScene`; teacher gets the same Apply / Regenerate preview as AI Edit.
+19. **Rotate** — rotate selected ids or whole scene; renderer keeps labels upright (labels are rendered as separate text nodes with their own transform reset).
+20. **Smart Snap** — global behavior, threshold ~8px, visualized as a small ring.
+21. **AI Edit Integration** — unchanged: panel exposes the existing AI Edit button; manual + AI edits commit to the same scene; AI preview/apply flow stays as-is.
 
-If the section is being regenerated AND the async geometry pass returns a new scene, prefer the freshly generated scene only when the teacher explicitly asked for a new diagram (heuristic: the prompt contains words like "diagram", "figure", "redraw", "triangle", "circle", etc., or the section had no diagram before). Otherwise keep the preserved one — re-running text generation must not silently replace a teacher-tuned diagram.
+### 5. Backend (Lovable Cloud edge functions)
+- **No change** to `geometry-edit`.
+- **New** `supabase/functions/geometry-sketch/index.ts` for Convert Sketch:
+  - Input: `{ strokes: Array<{x:number,y:number}[]>, bounds, topic? }`.
+  - Uses Lovable AI Gateway (`google/gemini-2.5-flash`, vision-capable) with a rasterized PNG of the strokes + a system prompt reusing `GEOMETRY_SCENE_SCHEMA` from `notebook-ai/geometryStandard.ts`.
+  - Output: `{ scene: GeometryScene }`, same shape as `geometry-edit` so the panel can reuse the preview/apply UI.
 
-For the "clear" action, also preserve diagrams by default; only wipe them if the prompt explicitly says so (out of scope for this plan — keep current clear behavior but document it).
+### 6. TipTap integration
+- Extend the `geometryDiagram` NodeView with an extra hover action **Edit** (pencil icon), beside the existing **AI Edit** and **Delete**.
+- `Edit` dispatches a new `geometry-editor:open` window event (mirror of `openGeometryAiEdit`). `DocumentEditor` listens and mounts `GeometryEditorPanel` for that node, passing `onApply: (scene) => updateAttributes({ scene })`.
+- Toolbar gets a `Diagram` dropdown: **Insert blank diagram** (inserts an empty `geometryDiagram` node + opens editor) and **Edit selected diagram** (enabled when a `geometryDiagram` node is selected).
 
-### 2. Anchor the async geometry pass to a stable position
+### 7. Tests (`src/test/`)
+- `geometryScene.ops.test.ts` — sceneOps for each tool: add point, chain segments, polygon close, arc-through-3, circle by radius, midpoint, equal/parallel/perpendicular marks, erase cascades.
+- `geometryConstraints.test.ts` — make-parallel, make-perpendicular, make-isosceles, make-equilateral, make-tangent.
+- `geometrySnap.test.ts` — snap-to-point/midpoint/intersection thresholds.
 
-Replace the raw `questionBodyEnd` number with a TipTap relative position. Use the editor's `state.tr.mapping` (or store the node id by inserting an empty hidden marker that we then resolve) so that if the document mutates while the geometry request is in flight, the diagram still lands at the end of the correct question body rather than at a stale absolute offset.
+## Out of scope (kept for later)
+- Theorem scaffolding & relationship highlighting (spec lists these as future Smart Diagram features).
+- Multi-diagram linking.
+- Persistent per-teacher tool preferences.
 
-Simpler alternative that's good enough: re-resolve the section's end position by scanning the document for the original heading node (matched by `headingPos` mapped through `editor.state.tr.mapping` since insertion) just before inserting the diagram. If the heading no longer exists (section deleted), skip the insertion.
+## File touch list
+New:
+- `src/lib/geometry/editor/{tools,sceneOps,snap,history,labels,constraints}.ts`
+- `src/components/lessonnotes/geometry-editor/{GeometryEditorPanel,GeometryToolbar,GeometryCanvas,SelectionInspector,SketchLayer,useGeometryEditor}.tsx`
+- `supabase/functions/geometry-sketch/index.ts`
+- `src/test/geometryScene.ops.test.ts`, `geometryConstraints.test.ts`, `geometrySnap.test.ts`
 
-### 3. Defense: never delete across section boundaries
+Edited (additive):
+- `src/lib/geometry/scene.ts` — optional fields only.
+- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — add **Edit** action + `openGeometryEditor` event helper.
+- `src/components/lessonnotes/DocumentEditor.tsx` — toolbar **Diagram** menu, mount `GeometryEditorPanel` on event.
 
-Add an assertion in `handleSectionAi`'s replace branch: re-run `computeSection`-equivalent logic against the live doc immediately before `deleteRange`, and clamp `info.sectionEndPos` to the current next-heading position. This prevents stale `sectionEndPos` values (computed before async work) from ever reaching into the next section and deleting its diagram.
-
-### 4. Strengthen the AI prompt
-
-In `supabase/functions/notebook-ai/geometryStandard.ts` (append to `GEOMETRY_STANDARD`) and in the section-edit prompt builder inside `DocumentEditor.tsx` (`buildPrompt`, edit branch), add these rules verbatim:
-
-```
-DIAGRAM OWNERSHIP RULE
-- A geometry diagram inserted under a section belongs to that section forever.
-- It sits between the section heading and the next heading. Treat it as part of
-  the question/explanation it illustrates.
-- When editing a section that already has a diagram, you are editing the PROSE
-  only. Do not describe the diagram as removed, replaced, or moved.
-- Never write "the diagram has been removed" or "see new diagram" — the diagram
-  node is preserved automatically by the editor.
-- When a NEW section is added below a section with a diagram, that new section
-  must appear BELOW the existing diagram. Never produce content that implies
-  the previous diagram should be discarded.
-```
-
-And in `buildPrompt` for the in-place-edit branch, append:
-"The section may contain a geometry diagram which the editor preserves automatically. Do not mention the diagram in your output unless the teacher asked you to change it."
-
-## Files touched
-
-- `src/components/lessonnotes/DocumentEditor.tsx` — preserve diagrams across body replacement, stabilize geometry anchor, clamp delete range, extend the in-place-edit prompt.
-- `supabase/functions/notebook-ai/geometryStandard.ts` — append the Diagram Ownership Rule block so every geometry-aware generation enforces it.
-
-## Out of scope
-
-- Visual rendering of `GeometryDiagram` (unchanged).
-- Per-section AI scoping logic (already correct from the previous plan).
-- Solution inheritance / QUESTION_LOCK rules (untouched).
-- The global ribbon ("whole lesson") flow.
+Unchanged: `GeometryDiagram.tsx` renderer, `GeometryAiPanel.tsx`, `geometry-edit` function, lesson-note generation pipeline.

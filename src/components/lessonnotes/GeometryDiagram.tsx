@@ -140,6 +140,24 @@ function renderObject(
           />,
         );
       }
+      if (o.marks === "parallel" || o.marks === "double-parallel" || o.marks === "triple-parallel") {
+        const count = o.marks === "parallel" ? 1 : o.marks === "double-parallel" ? 2 : 3;
+        const ux = dx / len, uy = dy / len;
+        const spacing = 4;
+        for (let i = 0; i < count; i++) {
+          const offset = (i - (count - 1) / 2) * spacing;
+          const cx = mx + nx * offset;
+          const cy = my + ny * offset;
+          // small chevron pointing along the segment direction
+          marks.push(
+            <polyline
+              key={`pa${i}`}
+              points={`${cx - ux * 4 - nx * 3},${cy - uy * 4 - ny * 3} ${cx + ux * 4},${cy + uy * 4} ${cx - ux * 4 + nx * 3},${cy - uy * 4 + ny * 3}`}
+              fill="none" stroke={stroke} strokeWidth={sw}
+            />,
+          );
+        }
+      }
       return (
         <g key={o.id}>
           <line
