@@ -1093,9 +1093,16 @@ function DocumentEditorInner({
     if (e.button !== 0) return;
     if (isEditorControlTarget(e.target)) return;
 
+    const el = eventTargetElement(e.target);
+
+    // Geometry Mode behaves like a drawing tool inside the lesson note:
+    // choose Point/Line/Midpoint, then click the page. If the click is on an
+    // existing live canvas, the canvas handles it; otherwise create/update a
+    // plain geometry node at the clicked document position.
+    if (geometryMode && !el?.closest("[data-geometry-live-canvas]") && handleGeometryPaperClick(e)) return;
+
     // If the click was inside the actual TipTap editor DOM, do nothing —
     // TipTap will place the caret precisely on its own.
-    const el = eventTargetElement(e.target);
     const editorDom = editor?.view.dom;
     if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
 
