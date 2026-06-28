@@ -42,6 +42,56 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const [connect, setConnect] = useState<ConnectStyle>(a.connect ?? "straight");
   useEffect(() => { if (a.connect && a.connect !== connect) setConnect(a.connect); }, [a.connect]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---- AI generation under the scale row -----------------------------------
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const runAi = async () => {
+    const prompt = aiPrompt.trim();
+    if (!prompt || aiBusy) return;
+    setAiBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-graph", {
+        body: {
+          prompt,
+          unitsPerSquareX: a.unitsPerSquareX,
+          unitsPerSquareY: a.unitsPerSquareY,
+          squaresX: a.squaresX, squaresY: a.squaresY,
+          originSquareX: a.originSquareX, originSquareY: a.originSquareY,
+          xLabel: a.xLabel, yLabel: a.yLabel,
+        },
+      });
+      if (error) throw error;
+      const d = data as { points?: GraphPoint[]; connect?: ConnectStyle; xLabel?: string; yLabel?: string; error?: string };
+      if (d?.error) throw new Error(d.error);
+      const patch: Partial<SmartGraphAttrs> = {};
+      if (Array.isArray(d.points) && d.points.length) patch.points = d.points;
+      if (d.connect) { patch.connect = d.connect; setConnect(d.connect); }
+      if (d.xLabel) patch.xLabel = d.xLabel;
+      if (d.yLabel) patch.yLabel = d.yLabel;
+      if (Object.keys(patch).length) update(patch);
+      toast({ title: "Graph generated", description: `${d.points?.length ?? 0} point(s) plotted.` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: "AI generation failed", description: msg, variant: "destructive" });
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  // ---- Geometry-inside-graph -----------------------------------------------
+  // When the document-wide Geometry Mode is active, clicks inside the graph
+  // canvas place geometry shapes (point / line / circle / arc / polygon)
+  // instead of plotting data points. Shapes are stored on the node attrs.
+  const geo = useGeometryMode();
+  const geomActive = geo.mode && ["point", "line", "circle", "arc", "polygon"].includes(geo.tool);
+  const [geomDraft, setGeomDraft] = useState<Array<{ x: number; y: number }>>([]);
+  useEffect(() => { setGeomDraft([]); }, [geo.tool, geo.mode]);
+
+  const setShapes = (shapes: GraphShape[]) => update({ shapes });
+  const addShape = (kind: GraphShape["kind"], pts: Array<{ x: number; y: number }>) =>
+    setShapes([...(a.shapes ?? []), { id: `s${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, kind, pts }]);
+
+
   // ---- Manual scale entry --------------------------------------------------
   // The teacher writes the comparison freely; we parse "N cm = M units".
   const [scaleXText, setScaleXText] = useState(`1 cm = ${a.unitsPerSquareX} unit${a.unitsPerSquareX === 1 ? "" : "s"}`);
