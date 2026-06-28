@@ -95,6 +95,28 @@ export function addCircleAt(scene: GeometryScene, cx: number, cy: number, r: num
   return ok(withObjects(scene, [...scene.objects, center, circ]), [cid, id]);
 }
 
+/* ─── Circle through three existing points (circumcircle) ───────────── */
+export function addCircleThrough3(
+  scene: GeometryScene,
+  aId: GeoId, mId: GeoId, bId: GeoId,
+): OpResult {
+  const a = pointById(scene, aId);
+  const m = pointById(scene, mId);
+  const b = pointById(scene, bId);
+  if (!a || !m || !b) return ok(scene);
+  const c = circumcenter(a, m, b);
+  if (!c) {
+    // Collinear: degrade to a segment a→b.
+    return addSegment(scene, aId, bId);
+  }
+  const r = Math.hypot(a.x - c.x, a.y - c.y);
+  const cId = newId("p", scene);
+  const center: GeoPoint = { id: cId, type: "point", x: c.x, y: c.y, hidden: true };
+  const id = newId("c", { ...scene, objects: [...scene.objects, center] });
+  const circ: GeoCircle = { id, type: "circle", center: cId, r };
+  return ok(withObjects(scene, [...scene.objects, center, circ]), [cId, id]);
+}
+
 /* ─── Arc through 3 points ─────────────────────────────────────────── */
 export function addArcThrough3(
   scene: GeometryScene,
