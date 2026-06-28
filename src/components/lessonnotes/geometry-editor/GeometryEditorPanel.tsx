@@ -167,10 +167,7 @@ function PanelBody({
       <button
         type="button"
         onClick={() => {
-          editor.apply(
-            // closePolygon imported lazily to avoid a top circular reference
-            require("@/lib/geometry/editor/sceneOps").closePolygon(editor.scene, editor.pendingIds),
-          );
+          editor.apply(closePolygon(editor.scene, editor.pendingIds));
           editor.setPendingIds([]);
         }}
         className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 text-white text-[11px]"
