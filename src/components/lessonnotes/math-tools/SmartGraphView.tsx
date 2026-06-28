@@ -20,12 +20,10 @@ import type { NodeViewProps } from "@tiptap/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move, Sparkles, Loader2,
+  Plus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move, Sparkles,
 } from "lucide-react";
 import type { GraphPoint, ConnectStyle, GraphShape, SmartGraphAttrs } from "@/components/lessonnotes/extensions/SmartGraph";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 
 const SQ = 28; // pixels per square — kept generous so the grid never feels cramped.
@@ -42,41 +40,70 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const [connect, setConnect] = useState<ConnectStyle>(a.connect ?? "straight");
   useEffect(() => { if (a.connect && a.connect !== connect) setConnect(a.connect); }, [a.connect]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- AI generation under the scale row -----------------------------------
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
-  const runAi = async () => {
-    const prompt = aiPrompt.trim();
-    if (!prompt || aiBusy) return;
-    setAiBusy(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("smart-graph", {
-        body: {
-          prompt,
-          unitsPerSquareX: a.unitsPerSquareX,
-          unitsPerSquareY: a.unitsPerSquareY,
-          squaresX: a.squaresX, squaresY: a.squaresY,
-          originSquareX: a.originSquareX, originSquareY: a.originSquareY,
-          xLabel: a.xLabel, yLabel: a.yLabel,
-        },
-      });
-      if (error) throw error;
-      const d = data as { points?: GraphPoint[]; connect?: ConnectStyle; xLabel?: string; yLabel?: string; error?: string };
-      if (d?.error) throw new Error(d.error);
-      const patch: Partial<SmartGraphAttrs> = {};
-      if (Array.isArray(d.points) && d.points.length) patch.points = d.points;
-      if (d.connect) { patch.connect = d.connect; setConnect(d.connect); }
-      if (d.xLabel) patch.xLabel = d.xLabel;
-      if (d.yLabel) patch.yLabel = d.yLabel;
-      if (Object.keys(patch).length) update(patch);
-      toast({ title: "Graph generated", description: `${d.points?.length ?? 0} point(s) plotted.` });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: "AI generation failed", description: msg, variant: "destructive" });
-    } finally {
-      setAiBusy(false);
+  // ---- Smart Scale assistant ----------------------------------------------
+  // Watches the data range + current scale and proposes a better cm-per-unit
+  // when the points overflow the page or look cramped. No equation generation,
+  // no "Generate" button — the scale fields themselves already update live.
+  const scaleSuggestion = useMemo(() => {
+    const pts = a.points ?? [];
+    if (pts.length === 0) return null;
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    const xMin = Math.min(0, ...xs), xMax = Math.max(0, ...xs);
+    const yMin = Math.min(0, ...ys), yMax = Math.max(0, ...ys);
+    const xRange = Math.max(1e-6, xMax - xMin);
+    const yRange = Math.max(1e-6, yMax - yMin);
+
+    // "Nice" step from a target raw step (1, 2, 5, 10 family).
+    const nice = (raw: number) => {
+      if (raw <= 0) return 1;
+      const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+      const f = raw / pow;
+      const m = f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10;
+      return m * pow;
+    };
+
+    // Aim for ~10 squares across the data range on each axis so the graph
+    // breathes without leaving the page.
+    const targetSquaresX = Math.max(8, Math.min(a.squaresX - 2, 14));
+    const targetSquaresY = Math.max(6, Math.min(a.squaresY - 2, 10));
+    const sx = nice(xRange / targetSquaresX);
+    const sy = nice(yRange / targetSquaresY);
+
+    // What the current scale produces.
+    const currentSpanX = a.squaresX * a.unitsPerSquareX;
+    const currentSpanY = a.squaresY * a.unitsPerSquareY;
+    const overflowX = xRange > currentSpanX * 0.95;
+    const overflowY = yRange > currentSpanY * 0.95;
+    const crampedX = xRange < currentSpanX * 0.15;
+    const crampedY = yRange < currentSpanY * 0.15;
+
+    const changeX = Math.abs(sx - a.unitsPerSquareX) / a.unitsPerSquareX > 0.25;
+    const changeY = Math.abs(sy - a.unitsPerSquareY) / a.unitsPerSquareY > 0.25;
+    if (!changeX && !changeY) return null;
+
+    let reason: string;
+    if (overflowX || overflowY) {
+      reason = "Current scale is too small — some plotted points fall off the page.";
+    } else if (crampedX || crampedY) {
+      reason = "Current scale is too large — the graph looks cramped near the origin.";
+    } else {
+      reason = "This scale fits all plotted points neatly on the page.";
     }
+    return { sx, sy, reason };
+  }, [a.points, a.unitsPerSquareX, a.unitsPerSquareY, a.squaresX, a.squaresY]);
+
+  const applyScaleSuggestion = () => {
+    if (!scaleSuggestion) return;
+    update({ unitsPerSquareX: scaleSuggestion.sx, unitsPerSquareY: scaleSuggestion.sy });
+    setScaleXText(`1 cm = ${scaleSuggestion.sx} unit${scaleSuggestion.sx === 1 ? "" : "s"}`);
+    setScaleYText(`1 cm = ${scaleSuggestion.sy} unit${scaleSuggestion.sy === 1 ? "" : "s"}`);
   };
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  // A fresh suggestion (different reason/values) un-dismisses itself.
+  useEffect(() => { setSuggestionDismissed(false); }, [scaleSuggestion?.sx, scaleSuggestion?.sy, scaleSuggestion?.reason]);
+
+
 
   // ---- Geometry-inside-graph -----------------------------------------------
   // When the document-wide Geometry Mode is active, clicks inside the graph
@@ -320,32 +347,36 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         <span className="text-neutral-400 text-[11px]">Tip: select <em>Move X</em> or <em>Move Y</em>, then drag the axis.</span>
       </div>
 
-      {/* AI generate row — describe a graph in words; AI fills the data table */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
-        <Sparkles className="h-3.5 w-3.5 text-yellow-600" />
-        <span className="text-neutral-500">AI</span>
-        <Input
-          value={aiPrompt}
-          onChange={(e) => setAiPrompt(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runAi(); } }}
-          placeholder='e.g. "y = 2x + 1", "sine curve from -180° to 360°", "x² - 4"'
-          className="h-7 flex-1 min-w-[200px] text-[12px] bg-white"
-          disabled={aiBusy}
-        />
-        <Button
-          type="button" size="sm" onClick={runAi} disabled={aiBusy || !aiPrompt.trim()}
-          className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400"
-        >
-          {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          Generate
-        </Button>
-        {geo.mode && (
-          <span className="text-[11px] text-yellow-700 ml-2">
-            Diagram mode: click in graph to draw <strong>{geo.tool}</strong>
-            {geomDraft.length > 0 && ` (${geomDraft.length} pt${geomDraft.length === 1 ? "" : "s"})`}
+      {/* Smart Scale — live scale recommendations based on plotted points.
+          No equation generation; the AI here is purely a layout assistant. */}
+      {scaleSuggestion && !suggestionDismissed && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-yellow-50/50 text-[12px]">
+          <Sparkles className="h-3.5 w-3.5 text-yellow-600 shrink-0" />
+          <span className="text-neutral-700 font-medium">Smart Scale</span>
+          <span className="text-neutral-600">
+            Suggested: <strong>1 cm = {scaleSuggestion.sx} unit{scaleSuggestion.sx === 1 ? "" : "s"}</strong> (X),
+            <strong> 1 cm = {scaleSuggestion.sy} unit{scaleSuggestion.sy === 1 ? "" : "s"}</strong> (Y).
           </span>
-        )}
-      </div>
+          <span className="text-neutral-500 italic">{scaleSuggestion.reason}</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button
+              type="button" size="sm" onClick={applyScaleSuggestion}
+              className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400"
+            >Accept</Button>
+            <button
+              type="button" onClick={() => setSuggestionDismissed(true)}
+              className="h-7 px-2 text-[11px] text-neutral-500 hover:text-neutral-700"
+            >Ignore</button>
+          </div>
+        </div>
+      )}
+      {geo.mode && (
+        <div className="px-3 py-1.5 border-b border-neutral-200 bg-white text-[11px] text-yellow-700">
+          Diagram mode: click in graph to draw <strong>{geo.tool}</strong>
+          {geomDraft.length > 0 && ` (${geomDraft.length} pt${geomDraft.length === 1 ? "" : "s"})`}
+        </div>
+      )}
+
 
 
       {/* More — advanced grid + axis settings */}
