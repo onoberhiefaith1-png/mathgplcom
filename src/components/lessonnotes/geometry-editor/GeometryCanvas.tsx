@@ -9,8 +9,8 @@ import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, type SnapTarget } from "@/lib/geometry/editor/snap";
 import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
-  closePolygon, addAngle, midpointOfSegment, eraseObject, movePoint,
-  cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
+  addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
+  movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
@@ -127,18 +127,16 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "circle": {
-        // Method 1: drag from center. Method 2: click center then radius point.
-        if (pendingIds.length === 0 && !hitId) {
-          // Start drag
-          setCircleDrag({ cx: sn.x, cy: sn.y, r: 0 });
-        } else if (pendingIds.length === 1) {
-          const { id, scene: s1 } = ensurePoint(p.x, p.y);
-          apply(addCircleByRadius(s1, pendingIds[0], id));
+        // 3-click circle: pick 3 points the circle should pass through.
+        // (Points 1 & 3 lie on the circle; point 2 forces the direction it
+        // passes through.) Falls back to drag-from-center when the teacher
+        // presses and drags on empty space without snapping.
+        const next = [...pendingIds, ensurePoint(p.x, p.y).id];
+        if (next.length === 3) {
+          apply(addCircleThrough3(scene, next[0], next[1], next[2]));
           setPendingIds([]);
         } else {
-          // Click center as a point
-          const { id } = ensurePoint(p.x, p.y);
-          setPendingIds([id]);
+          setPendingIds(next);
         }
         break;
       }
