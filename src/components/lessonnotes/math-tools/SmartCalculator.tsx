@@ -144,7 +144,7 @@ export function SmartCalculator({ open, onOpenChange, onInsertWorking }: Props) 
               className="font-mono text-sm"
               placeholder="Type or tap…"
             />
-            <div className="font-mono text-right text-lg min-h-[1.5em] px-1 text-black/80">
+            <div className="font-mono text-right text-lg min-h-[1.5em] px-1 text-neutral-800">
               {result}
             </div>
             <div className="text-[10px] uppercase tracking-wide text-right text-muted-foreground">
@@ -157,7 +157,7 @@ export function SmartCalculator({ open, onOpenChange, onInsertWorking }: Props) 
                   type="button"
                   onClick={() => tap(b)}
                   className={cn(
-                    "h-9 text-[12px] rounded border border-black/10 bg-white hover:bg-muted text-black",
+                    "h-9 text-[12px] rounded border border-neutral-200 bg-white hover:bg-muted text-black",
                     (b.action === "=" || b.label === "=") && "bg-yellow-400 hover:bg-yellow-300 border-yellow-500 font-semibold",
                   )}
                 >{b.label}</button>
@@ -178,11 +178,11 @@ export function SmartCalculator({ open, onOpenChange, onInsertWorking }: Props) 
               Show working
             </Button>
             {smart && (
-              <div className="rounded border p-3 text-[12px] font-mono space-y-1.5 bg-black/[0.02]">
-                {smart.formula && <div><span className="text-black/50 uppercase text-[10px] tracking-wide mr-2">formula</span>{smart.formula}</div>}
-                {smart.substitution && <div><span className="text-black/50 uppercase text-[10px] tracking-wide mr-2">subst.</span>{smart.substitution}</div>}
+              <div className="rounded border p-3 text-[12px] font-mono space-y-1.5 bg-neutral-50">
+                {smart.formula && <div><span className="text-neutral-500 uppercase text-[10px] tracking-wide mr-2">formula</span>{smart.formula}</div>}
+                {smart.substitution && <div><span className="text-neutral-500 uppercase text-[10px] tracking-wide mr-2">subst.</span>{smart.substitution}</div>}
                 {smart.steps.map((s, i) => (
-                  <div key={i} className="pl-4 text-black/80">= {s}</div>
+                  <div key={i} className="pl-4 text-neutral-800">= {s}</div>
                 ))}
                 {smart.answer && <div className="pt-1 font-semibold">∴ {smart.answer}</div>}
                 <Button

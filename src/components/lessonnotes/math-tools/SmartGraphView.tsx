@@ -1,33 +1,107 @@
-// Smart Graph NodeView — a self-contained graph workspace embedded in
-// the lesson note. The teacher chooses a scale, plots points by
-// clicking, and chooses how to connect them. The data table is sticky
-// at the top of the workspace; the SVG grid scrolls underneath.
+// Smart Graph NodeView — a clean, classroom-friendly graph workspace
+// embedded directly in the lesson note.
+//
+// Design goals (June 2026 refinement):
+//   - White surface, dark text, light-grey borders, yellow only for the
+//     active tool. Inputs look like plain text boxes.
+//   - Manual scale entry. The teacher types whatever comparison they
+//     want (e.g. "1 cm = 2 units" or "5 cm = 3 units"). No dropdowns.
+//   - Fully movable axes. Drag the X-axis up/down and the Y-axis
+//     left/right. Numbering, ticks and labels re-derive automatically
+//     from origin position + scale.
+//   - Cleaner toolbar: essentials in the top row, advanced settings
+//     tucked behind a "More" disclosure.
+//   - Spreadsheet-style data table fixed at the top; graph scrolls
+//     underneath. Inline undo / redo / clear.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Plus, Trash2, RefreshCw, Move } from "lucide-react";
+  Plus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move,
+} from "lucide-react";
 import type { GraphPoint, ConnectStyle, SmartGraphAttrs } from "@/components/lessonnotes/extensions/SmartGraph";
 import { cn } from "@/lib/utils";
 
-const SQ = 28; // pixels per square (kept generous so the graph never feels cramped)
+const SQ = 28; // pixels per square — kept generous so the grid never feels cramped.
+
+type Mode = "plot" | "moveX" | "moveY";
 
 export function SmartGraphView({ node, updateAttributes, deleteNode, selected }: NodeViewProps) {
   const a = node.attrs as unknown as SmartGraphAttrs;
   const update = (patch: Partial<SmartGraphAttrs>) => updateAttributes(patch as Record<string, unknown>);
-  const [mode, setMode] = useState<"plot" | "pan">("plot");
 
+  // ---- Local interaction state ---------------------------------------------
+  const [mode, setMode] = useState<Mode>("plot");
+  const [showMore, setShowMore] = useState(false);
+  const [connect, setConnect] = useState<ConnectStyle>(a.connect ?? "straight");
+  useEffect(() => { if (a.connect && a.connect !== connect) setConnect(a.connect); }, [a.connect]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- Manual scale entry --------------------------------------------------
+  // The teacher writes the comparison freely; we parse "N cm = M units".
+  const [scaleXText, setScaleXText] = useState(`1 cm = ${a.unitsPerSquareX} unit${a.unitsPerSquareX === 1 ? "" : "s"}`);
+  const [scaleYText, setScaleYText] = useState(`1 cm = ${a.unitsPerSquareY} unit${a.unitsPerSquareY === 1 ? "" : "s"}`);
+
+  const parseScale = (txt: string): number | null => {
+    // accept "1 cm = 2 units", "5 cm = 3 units", "1=2", "2", etc.
+    const m = txt.match(/(-?\d*\.?\d+)\s*(?:cm)?\s*=\s*(-?\d*\.?\d+)/i);
+    if (m) {
+      const lhs = Number(m[1]); const rhs = Number(m[2]);
+      if (lhs > 0 && Number.isFinite(rhs)) return rhs / lhs;
+      return null;
+    }
+    const n = Number(txt);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const commitScaleX = () => {
+    const v = parseScale(scaleXText);
+    if (v && v !== a.unitsPerSquareX) update({ unitsPerSquareX: v });
+  };
+  const commitScaleY = () => {
+    const v = parseScale(scaleYText);
+    if (v && v !== a.unitsPerSquareY) update({ unitsPerSquareY: v });
+  };
+
+  // ---- Undo / Redo (local history of point arrays) -------------------------
+  const historyRef = useRef<GraphPoint[][]>([a.points ?? []]);
+  const cursorRef = useRef(0);
+  const lastPointsRef = useRef<GraphPoint[]>(a.points ?? []);
+  useEffect(() => {
+    // Track external changes (e.g. table edits) into history.
+    if (a.points !== lastPointsRef.current) {
+      lastPointsRef.current = a.points;
+      historyRef.current = historyRef.current.slice(0, cursorRef.current + 1);
+      historyRef.current.push(a.points);
+      cursorRef.current = historyRef.current.length - 1;
+    }
+  }, [a.points]);
+  const setPoints = (pts: GraphPoint[]) => { lastPointsRef.current = pts; update({ points: pts }); };
+  const undo = () => {
+    if (cursorRef.current > 0) {
+      cursorRef.current -= 1;
+      const pts = historyRef.current[cursorRef.current];
+      lastPointsRef.current = pts;
+      update({ points: pts });
+    }
+  };
+  const redo = () => {
+    if (cursorRef.current < historyRef.current.length - 1) {
+      cursorRef.current += 1;
+      const pts = historyRef.current[cursorRef.current];
+      lastPointsRef.current = pts;
+      update({ points: pts });
+    }
+  };
+
+  // ---- Geometry helpers ----------------------------------------------------
   const W = a.squaresX * SQ;
   const H = a.squaresY * SQ;
   const oxPx = a.originSquareX * SQ;
   const oyPx = a.originSquareY * SQ;
 
-  // Convert between data coords and pixel coords.
   const toPx = (p: GraphPoint) => ({
     x: oxPx + (p.x / a.unitsPerSquareX) * SQ,
     y: oyPx - (p.y / a.unitsPerSquareY) * SQ,
@@ -37,122 +111,192 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
     y: Math.round(((oyPx - py) / SQ) * a.unitsPerSquareY * 100) / 100,
   });
 
+  // ---- Canvas interactions -------------------------------------------------
   const svgRef = useRef<SVGSVGElement>(null);
+  const draggingRef = useRef<null | "x" | "y">(null);
+
   const handleSvgClick = (e: React.MouseEvent) => {
-    if (mode !== "plot" || !svgRef.current) return;
+    if (!svgRef.current || draggingRef.current) return;
+    if (mode !== "plot") return;
     const rect = svgRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    // Snap to nearest half-square (looks like a textbook plot).
     const sx = Math.round((x / SQ) * 2) / 2 * SQ;
     const sy = Math.round((y / SQ) * 2) / 2 * SQ;
-    const pt = toData(sx, sy);
-    update({ points: [...a.points, pt] });
+    setPoints([...a.points, toData(sx, sy)]);
   };
 
-  const path = useMemo(() => buildPath(a.points.map(toPx), a.connect), [a.points, a.connect, oxPx, oyPx, a.unitsPerSquareX, a.unitsPerSquareY]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onSvgMouseDown = (e: React.MouseEvent) => {
+    if (mode === "moveX") draggingRef.current = "x";
+    else if (mode === "moveY") draggingRef.current = "y";
+  };
+  const onSvgMouseMove = (e: React.MouseEvent) => {
+    if (!draggingRef.current || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    if (draggingRef.current === "x") {
+      const sq = Math.max(0, Math.min(a.squaresY, Math.round((e.clientY - rect.top) / SQ)));
+      if (sq !== a.originSquareY) update({ originSquareY: sq });
+    } else {
+      const sq = Math.max(0, Math.min(a.squaresX, Math.round((e.clientX - rect.left) / SQ)));
+      if (sq !== a.originSquareX) update({ originSquareX: sq });
+    }
+  };
+  const endDrag = () => { draggingRef.current = null; };
 
-  // Tick label every square in data units.
-  const xTicks: number[] = [];
-  for (let i = 0; i <= a.squaresX; i++) xTicks.push(i);
-  const yTicks: number[] = [];
-  for (let i = 0; i <= a.squaresY; i++) yTicks.push(i);
+  // ---- Derived render data -------------------------------------------------
+  const path = useMemo(
+    () => buildPath(a.points.map(toPx), connect),
+    [a.points, connect, oxPx, oyPx, a.unitsPerSquareX, a.unitsPerSquareY], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const xTicks = useMemo(() => Array.from({ length: a.squaresX + 1 }, (_, i) => i), [a.squaresX]);
+  const yTicks = useMemo(() => Array.from({ length: a.squaresY + 1 }, (_, i) => i), [a.squaresY]);
 
+  // ---- UI ------------------------------------------------------------------
   return (
     <NodeViewWrapper
       as="div"
-      className={cn("my-4 rounded-md border bg-white text-black", selected ? "border-yellow-400 shadow" : "border-black/10")}
+      className={cn(
+        "my-4 rounded-md border bg-white text-neutral-900",
+        selected ? "border-yellow-400 shadow-sm" : "border-neutral-200",
+      )}
       data-drag-handle
     >
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-black/10 bg-black/[0.02] text-[12px]">
-        <span className="font-semibold">Smart Graph</span>
-        <label className="text-[11px] text-black/60 ml-2">1 sq = </label>
-        <Input
-          type="number" step="0.5" value={a.unitsPerSquareX}
-          onChange={(e) => update({ unitsPerSquareX: Number(e.target.value) || 1 })}
-          className="h-7 w-16 text-[11px]"
-        />
-        <span className="text-[11px] text-black/60">unit (x)</span>
-        <Input
-          type="number" step="0.5" value={a.unitsPerSquareY}
-          onChange={(e) => update({ unitsPerSquareY: Number(e.target.value) || 1 })}
-          className="h-7 w-16 text-[11px]"
-        />
-        <span className="text-[11px] text-black/60">unit (y)</span>
+      {/* Essentials toolbar */}
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
+        <span className="font-semibold mr-1">Graph</span>
 
-        <Input
-          value={a.xLabel} onChange={(e) => update({ xLabel: e.target.value })}
-          className="h-7 w-20 text-[11px]" placeholder="x label"
-        />
-        <Input
-          value={a.yLabel} onChange={(e) => update({ yLabel: e.target.value })}
-          className="h-7 w-20 text-[11px]" placeholder="y label"
-        />
+        <ToolButton active={mode === "plot"} onClick={() => setMode("plot")} icon={<Plus className="h-3.5 w-3.5" />} label="Plot" />
+        <ToolButton active={mode === "moveX"} onClick={() => setMode("moveX")} icon={<Move className="h-3.5 w-3.5 rotate-90" />} label="Move X" />
+        <ToolButton active={mode === "moveY"} onClick={() => setMode("moveY")} icon={<Move className="h-3.5 w-3.5" />} label="Move Y" />
 
-        <Select value={a.connect} onValueChange={(v) => update({ connect: v as ConnectStyle })}>
-          <SelectTrigger className="h-7 w-32 text-[11px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="straight">Straight line</SelectItem>
-            <SelectItem value="smooth">Smooth curve</SelectItem>
-            <SelectItem value="broken">Broken line</SelectItem>
-            <SelectItem value="scatter">Scatter (no line)</SelectItem>
-          </SelectContent>
-        </Select>
+        <span className="mx-1 h-5 w-px bg-neutral-200" />
 
-        <Button size="sm" variant={mode === "plot" ? "default" : "outline"} onClick={() => setMode("plot")} className="h-7 text-[11px]">
-          <Plus className="h-3 w-3 mr-1" /> Plot
-        </Button>
-        <Button size="sm" variant={mode === "pan" ? "default" : "outline"} onClick={() => setMode("pan")} className="h-7 text-[11px]">
-          <Move className="h-3 w-3 mr-1" /> Move
-        </Button>
+        {/* Connect picker — segmented buttons, yellow when active */}
+        {[
+          { v: "straight" as const, label: "Line" },
+          { v: "smooth" as const, label: "Curve" },
+          { v: "broken" as const, label: "Broken" },
+          { v: "scatter" as const, label: "Scatter" },
+        ].map((c) => (
+          <ToolButton
+            key={c.v}
+            active={connect === c.v}
+            onClick={() => { setConnect(c.v); update({ connect: c.v }); }}
+            label={c.label}
+          />
+        ))}
+
+        <span className="mx-1 h-5 w-px bg-neutral-200" />
+
+        <IconBtn onClick={undo} title="Undo"><Undo2 className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn onClick={redo} title="Redo"><Redo2 className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn onClick={() => setPoints([])} title="Clear graph"><Eraser className="h-3.5 w-3.5" /></IconBtn>
 
         <div className="ml-auto flex items-center gap-1">
-          <Button size="sm" variant="outline" onClick={() => update({ points: [] })} className="h-7 text-[11px]">
-            <RefreshCw className="h-3 w-3 mr-1" /> Clear
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => deleteNode()} className="h-7 text-[11px] text-red-600">
-            <Trash2 className="h-3 w-3" />
-          </Button>
+          <button
+            type="button"
+            onClick={() => setShowMore((s) => !s)}
+            className="h-7 px-2 text-[11px] rounded border border-neutral-200 bg-white hover:bg-neutral-50 inline-flex items-center gap-1"
+          >
+            More {showMore ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => deleteNode()}
+            title="Remove graph"
+            className="h-7 w-7 inline-flex items-center justify-center rounded text-neutral-500 hover:bg-neutral-100 hover:text-red-600"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
-      {/* Sticky data table */}
-      <div className="border-b border-black/10 bg-white sticky top-0 z-10">
-        <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-black/50">Data</div>
+      {/* Scale row — manual entry, looks like normal text inputs */}
+      <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
+        <span className="text-neutral-500">Scale</span>
+        <label className="inline-flex items-center gap-1.5">
+          <span className="text-neutral-700">X:</span>
+          <Input
+            value={scaleXText}
+            onChange={(e) => setScaleXText(e.target.value)}
+            onBlur={commitScaleX}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }}
+            className="h-7 w-36 text-[12px] bg-white"
+            placeholder="1 cm = 2 units"
+          />
+        </label>
+        <label className="inline-flex items-center gap-1.5">
+          <span className="text-neutral-700">Y:</span>
+          <Input
+            value={scaleYText}
+            onChange={(e) => setScaleYText(e.target.value)}
+            onBlur={commitScaleY}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }}
+            className="h-7 w-36 text-[12px] bg-white"
+            placeholder="1 cm = 5 units"
+          />
+        </label>
+        <span className="text-neutral-400 text-[11px]">Tip: select <em>Move X</em> or <em>Move Y</em>, then drag the axis.</span>
+      </div>
+
+      {/* More — advanced grid + axis settings */}
+      {showMore && (
+        <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-neutral-200 bg-neutral-50 text-[11px]">
+          <NumField label="Grid columns" value={a.squaresX} onChange={(v) => update({ squaresX: Math.max(4, v) })} />
+          <NumField label="Grid rows" value={a.squaresY} onChange={(v) => update({ squaresY: Math.max(4, v) })} />
+          <NumField label="Origin X (sq)" value={a.originSquareX} onChange={(v) => update({ originSquareX: clamp(v, 0, a.squaresX) })} />
+          <NumField label="Origin Y (sq)" value={a.originSquareY} onChange={(v) => update({ originSquareY: clamp(v, 0, a.squaresY) })} />
+          <label className="inline-flex items-center gap-1.5">
+            <span className="text-neutral-600">X label</span>
+            <Input value={a.xLabel} onChange={(e) => update({ xLabel: e.target.value })} className="h-7 w-20 text-[11px] bg-white" />
+          </label>
+          <label className="inline-flex items-center gap-1.5">
+            <span className="text-neutral-600">Y label</span>
+            <Input value={a.yLabel} onChange={(e) => update({ yLabel: e.target.value })} className="h-7 w-20 text-[11px] bg-white" />
+          </label>
+        </div>
+      )}
+
+      {/* Sticky spreadsheet-style data table */}
+      <div className="border-b border-neutral-200 bg-white sticky top-0 z-10">
+        <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-neutral-500 border-b border-neutral-100">Data</div>
         <div className="overflow-x-auto max-h-40">
-          <table className="w-full text-[12px] font-mono">
-            <thead className="bg-black/[0.04]">
-              <tr>
-                <th className="px-2 py-1 text-left w-12">#</th>
-                <th className="px-2 py-1 text-left">{a.xLabel}</th>
-                <th className="px-2 py-1 text-left">{a.yLabel}</th>
-                <th className="w-10" />
+          <table className="w-full text-[12px] border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-neutral-50 text-neutral-600">
+                <th className="px-2 py-1 text-left font-medium w-10 border-b border-neutral-200">#</th>
+                <th className="px-2 py-1 text-left font-medium border-b border-l border-neutral-200">{a.xLabel}</th>
+                <th className="px-2 py-1 text-left font-medium border-b border-l border-neutral-200">{a.yLabel}</th>
+                <th className="w-8 border-b border-l border-neutral-200" />
               </tr>
             </thead>
             <tbody>
               {a.points.length === 0 && (
-                <tr><td colSpan={4} className="px-2 py-2 text-center text-black/40">Click in the graph below to plot points.</td></tr>
+                <tr><td colSpan={4} className="px-2 py-2 text-center text-neutral-400 italic">Click in the graph below to plot points.</td></tr>
               )}
               {a.points.map((p, i) => (
-                <tr key={i} className="border-t border-black/10">
-                  <td className="px-2 py-0.5 text-black/50">{i + 1}</td>
-                  <td className="px-2 py-0.5">
+                <tr key={i} className="hover:bg-yellow-50/40">
+                  <td className="px-2 py-0.5 text-neutral-400 border-b border-neutral-100">{i + 1}</td>
+                  <td className="px-1 py-0.5 border-b border-l border-neutral-100">
                     <input
                       type="number" value={p.x}
-                      onChange={(e) => update({ points: a.points.map((pp, j) => j === i ? { ...pp, x: Number(e.target.value) } : pp) })}
-                      className="w-20 bg-transparent outline-none focus:bg-yellow-50 px-1"
+                      onChange={(e) => setPoints(a.points.map((pp, j) => j === i ? { ...pp, x: Number(e.target.value) } : pp))}
+                      className="w-full bg-transparent outline-none focus:bg-yellow-50 px-1"
                     />
                   </td>
-                  <td className="px-2 py-0.5">
+                  <td className="px-1 py-0.5 border-b border-l border-neutral-100">
                     <input
                       type="number" value={p.y}
-                      onChange={(e) => update({ points: a.points.map((pp, j) => j === i ? { ...pp, y: Number(e.target.value) } : pp) })}
-                      className="w-20 bg-transparent outline-none focus:bg-yellow-50 px-1"
+                      onChange={(e) => setPoints(a.points.map((pp, j) => j === i ? { ...pp, y: Number(e.target.value) } : pp))}
+                      className="w-full bg-transparent outline-none focus:bg-yellow-50 px-1"
                     />
                   </td>
-                  <td>
-                    <button onClick={() => update({ points: a.points.filter((_, j) => j !== i) })} className="text-red-500 hover:text-red-700 text-[11px] px-1">×</button>
+                  <td className="border-b border-l border-neutral-100 text-center">
+                    <button
+                      onClick={() => setPoints(a.points.filter((_, j) => j !== i))}
+                      className="text-neutral-400 hover:text-red-600 text-[12px] px-1"
+                      title="Remove point"
+                    >×</button>
                   </td>
                 </tr>
               ))}
@@ -162,47 +306,70 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
       </div>
 
       {/* Scrolling SVG canvas */}
-      <div className="overflow-auto max-h-[500px]" data-no-drag>
+      <div className="overflow-auto max-h-[520px] bg-white" data-no-drag>
         <svg
           ref={svgRef}
           width={W} height={H}
           onClick={handleSvgClick}
-          className={cn("bg-white", mode === "plot" && "cursor-crosshair")}
+          onMouseDown={onSvgMouseDown}
+          onMouseMove={onSvgMouseMove}
+          onMouseUp={endDrag}
+          onMouseLeave={endDrag}
+          className={cn(
+            "bg-white",
+            mode === "plot" && "cursor-crosshair",
+            mode === "moveX" && "cursor-ns-resize",
+            mode === "moveY" && "cursor-ew-resize",
+          )}
         >
           {/* Minor grid */}
           {xTicks.map((i) => (
-            <line key={`vx${i}`} x1={i * SQ} y1={0} x2={i * SQ} y2={H} stroke="hsl(0 0% 90%)" strokeWidth={1} />
+            <line key={`vx${i}`} x1={i * SQ} y1={0} x2={i * SQ} y2={H} stroke="hsl(0 0% 92%)" strokeWidth={1} />
           ))}
           {yTicks.map((i) => (
-            <line key={`vy${i}`} x1={0} y1={i * SQ} x2={W} y2={i * SQ} stroke="hsl(0 0% 90%)" strokeWidth={1} />
+            <line key={`vy${i}`} x1={0} y1={i * SQ} x2={W} y2={i * SQ} stroke="hsl(0 0% 92%)" strokeWidth={1} />
           ))}
-          {/* Axes */}
-          <line x1={0} y1={oyPx} x2={W} y2={oyPx} stroke="hsl(0 0% 25%)" strokeWidth={1.5} />
-          <line x1={oxPx} y1={0} x2={oxPx} y2={H} stroke="hsl(0 0% 25%)" strokeWidth={1.5} />
-          {/* Tick labels */}
+
+          {/* Axes (highlighted yellow while their move tool is active) */}
+          <line
+            x1={0} y1={oyPx} x2={W} y2={oyPx}
+            stroke={mode === "moveX" ? "hsl(45 95% 50%)" : "hsl(0 0% 20%)"}
+            strokeWidth={mode === "moveX" ? 2 : 1.5}
+          />
+          <line
+            x1={oxPx} y1={0} x2={oxPx} y2={H}
+            stroke={mode === "moveY" ? "hsl(45 95% 50%)" : "hsl(0 0% 20%)"}
+            strokeWidth={mode === "moveY" ? 2 : 1.5}
+          />
+
+          {/* Tick labels — re-derived from origin + scale */}
           {xTicks.map((i) => {
-            const val = (i - a.originSquareX) * a.unitsPerSquareX;
+            const val = round((i - a.originSquareX) * a.unitsPerSquareX);
             if (val === 0) return null;
             return (
-              <text key={`tx${i}`} x={i * SQ} y={oyPx + 12} fontSize="9" textAnchor="middle" fill="hsl(0 0% 40%)">{val}</text>
+              <text key={`tx${i}`} x={i * SQ} y={oyPx + 12} fontSize="9.5" textAnchor="middle" fill="hsl(0 0% 35%)">{val}</text>
             );
           })}
           {yTicks.map((i) => {
-            const val = (a.originSquareY - i) * a.unitsPerSquareY;
+            const val = round((a.originSquareY - i) * a.unitsPerSquareY);
             if (val === 0) return null;
             return (
-              <text key={`ty${i}`} x={oxPx - 4} y={i * SQ + 3} fontSize="9" textAnchor="end" fill="hsl(0 0% 40%)">{val}</text>
+              <text key={`ty${i}`} x={oxPx - 4} y={i * SQ + 3} fontSize="9.5" textAnchor="end" fill="hsl(0 0% 35%)">{val}</text>
             );
           })}
-          {/* Axis labels */}
-          <text x={W - 4} y={oyPx - 4} fontSize="11" textAnchor="end" fontStyle="italic">{a.xLabel}</text>
-          <text x={oxPx + 4} y={10} fontSize="11" fontStyle="italic">{a.yLabel}</text>
-          {/* Path */}
-          {a.connect !== "scatter" && path && (
-            <path d={path} fill="none" stroke="hsl(220 90% 50%)" strokeWidth={1.75}
-              strokeDasharray={a.connect === "broken" ? "6 4" : undefined}
+
+          {/* Axis names */}
+          <text x={W - 6} y={oyPx - 6} fontSize="11" textAnchor="end" fontStyle="italic" fill="hsl(0 0% 25%)">{a.xLabel}</text>
+          <text x={oxPx + 6} y={12} fontSize="11" fontStyle="italic" fill="hsl(0 0% 25%)">{a.yLabel}</text>
+
+          {/* Connection path */}
+          {connect !== "scatter" && path && (
+            <path
+              d={path} fill="none" stroke="hsl(220 90% 50%)" strokeWidth={1.75}
+              strokeDasharray={connect === "broken" ? "6 4" : undefined}
             />
           )}
+
           {/* Points */}
           {a.points.map((p, i) => {
             const { x, y } = toPx(p);
@@ -219,12 +386,58 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   );
 }
 
+// ---------- small presentational helpers ----------------------------------
+
+function ToolButton({
+  active, onClick, icon, label,
+}: { active?: boolean; onClick: () => void; icon?: React.ReactNode; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "h-7 px-2 inline-flex items-center gap-1 rounded border text-[11px] transition-colors",
+        active
+          ? "bg-yellow-300 border-yellow-400 text-neutral-900 font-medium"
+          : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function IconBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button" onClick={onClick} title={title}
+      className="h-7 w-7 inline-flex items-center justify-center rounded border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+    >{children}</button>
+  );
+}
+
+function NumField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <label className="inline-flex items-center gap-1.5">
+      <span className="text-neutral-600">{label}</span>
+      <Input
+        type="number" value={value}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        className="h-7 w-20 text-[11px] bg-white"
+      />
+    </label>
+  );
+}
+
+function clamp(v: number, lo: number, hi: number) { return Math.min(hi, Math.max(lo, v)); }
+function round(v: number) { return Math.round(v * 100) / 100; }
+
 /** Build an SVG path from pixel-space points using the chosen connect style. */
 function buildPath(pts: { x: number; y: number }[], style: ConnectStyle): string | null {
   if (pts.length < 2) return null;
   if (style === "scatter") return null;
   if (style === "smooth" && pts.length >= 3) {
-    // Catmull-Rom → cubic Bezier
     const d: string[] = [`M ${pts[0].x} ${pts[0].y}`];
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i - 1] ?? pts[i];
@@ -239,6 +452,5 @@ function buildPath(pts: { x: number; y: number }[], style: ConnectStyle): string
     }
     return d.join(" ");
   }
-  // straight + broken
   return `M ${pts[0].x} ${pts[0].y} ` + pts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(" ");
 }

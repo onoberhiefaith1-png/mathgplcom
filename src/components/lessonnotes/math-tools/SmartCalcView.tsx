@@ -42,10 +42,10 @@ export function SmartCalcView({ node, updateAttributes, deleteNode, selected }: 
   return (
     <NodeViewWrapper
       as="div"
-      className={cn("my-4 rounded-md border bg-white text-black", selected ? "border-yellow-400 shadow" : "border-black/10")}
+      className={cn("my-4 rounded-md border bg-white text-black", selected ? "border-yellow-400 shadow" : "border-neutral-200")}
       data-drag-handle
     >
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-black/10 bg-black/[0.02] text-[12px]">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-neutral-50 text-[12px]">
         <span className="font-semibold">Smart Calculator</span>
         <div className="ml-auto flex items-center gap-1">
           <Button size="sm" variant="outline" onClick={recompute} disabled={busy} className="h-7 text-[11px]">
@@ -62,7 +62,7 @@ export function SmartCalcView({ node, updateAttributes, deleteNode, selected }: 
         <Row label="Expression" value={a.expression} onChange={(v) => update({ expression: v })} />
         <Row label="Formula" value={a.formula} onChange={(v) => update({ formula: v })} />
         <Row label="Substitute" value={a.substitution} onChange={(v) => update({ substitution: v })} />
-        <div className="text-[11px] uppercase tracking-wide text-black/50 pt-1">Steps</div>
+        <div className="text-[11px] uppercase tracking-wide text-neutral-500 pt-1">Steps</div>
         {(a.steps ?? []).map((s, i) => (
           <Textarea
             key={i} value={s}
@@ -71,7 +71,7 @@ export function SmartCalcView({ node, updateAttributes, deleteNode, selected }: 
           />
         ))}
         <div className="flex items-center gap-2 pt-1">
-          <span className="text-[11px] uppercase tracking-wide text-black/50">Answer</span>
+          <span className="text-[11px] uppercase tracking-wide text-neutral-500">Answer</span>
           <input
             value={a.answer}
             onChange={(e) => update({ answer: e.target.value })}
@@ -86,10 +86,10 @@ export function SmartCalcView({ node, updateAttributes, deleteNode, selected }: 
 function Row({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[11px] uppercase tracking-wide text-black/50 w-20">{label}</span>
+      <span className="text-[11px] uppercase tracking-wide text-neutral-500 w-20">{label}</span>
       <input
         value={value} onChange={(e) => onChange(e.target.value)}
-        className="flex-1 font-mono text-[12px] border-b border-black/10 focus:border-yellow-400 outline-none bg-transparent"
+        className="flex-1 font-mono text-[12px] border-b border-neutral-200 focus:border-yellow-400 outline-none bg-transparent"
       />
     </div>
   );
