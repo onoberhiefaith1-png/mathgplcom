@@ -136,9 +136,10 @@ export function GeometryCanvas({ editor }: Props) {
         // (Points 1 & 3 lie on the circle; point 2 forces the direction it
         // passes through.) Falls back to drag-from-center when the teacher
         // presses and drags on empty space without snapping.
-        const next = [...pendingIds, ensurePoint(p.x, p.y).id];
+        const created = ensurePoint(p.x, p.y);
+        const next = [...pendingIds, created.id];
         if (next.length === 3) {
-          apply(addCircleThrough3(scene, next[0], next[1], next[2]));
+          apply(addCircleThrough3(created.scene, next[0], next[1], next[2]));
           setPendingIds([]);
         } else {
           setPendingIds(next);
@@ -164,13 +165,13 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "arc": {
-        const { id } = ensurePoint(p.x, p.y);
+        const { id, scene: s1 } = ensurePoint(p.x, p.y);
         const next = [...pendingIds, id];
         if (next.length === 3) {
-          const a = pointById(scene, next[0]);
-          const m = pointById(scene, next[1]);
-          const b = pointById(scene, next[2]);
-          if (a && m && b) apply(addArcThrough3(scene, a, m, b));
+          const a = pointById(s1, next[0]);
+          const m = pointById(s1, next[1]);
+          const b = pointById(s1, next[2]);
+          if (a && m && b) apply(addArcThrough3(s1, a, m, b));
           setPendingIds([]);
         } else {
           setPendingIds(next);
@@ -179,10 +180,10 @@ export function GeometryCanvas({ editor }: Props) {
       }
       case "angle": {
         // Click arm1 point → vertex point → arm2 point
-        const { id } = ensurePoint(p.x, p.y);
+        const { id, scene: s1 } = ensurePoint(p.x, p.y);
         const next = [...pendingIds, id];
         if (next.length === 3) {
-          apply(addAngle(scene, next[1], next[0], next[2]));
+          apply(addAngle(s1, next[1], next[0], next[2]));
           setPendingIds([]);
         } else {
           setPendingIds(next);

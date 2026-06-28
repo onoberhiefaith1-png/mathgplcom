@@ -49,17 +49,21 @@ export function useGeometryEditor(
   const flashTimer = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  const initialJson = JSON.stringify(initial);
 
   // Sync external scene changes back in (e.g. the AI Edit panel writes
   // a new scene to the node attrs).
   useEffect(() => {
-    setScene(initial);
-    // Reset history when the underlying node changes.
-    setHistory(emptyHistory());
-    setSelectedIds([]);
-    setPendingIds([]);
+    setScene((prev) => {
+      if (JSON.stringify(prev) === initialJson) return prev;
+      // Reset history only when the underlying node really changed.
+      setHistory(emptyHistory());
+      setSelectedIds([]);
+      setPendingIds([]);
+      return initial;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial]);
+  }, [initialJson]);
 
   const commit = useCallback((next: GeometryScene) => {
     setHistory((h) => push(h, scene));
