@@ -820,8 +820,8 @@ function DocumentEditorInner({
     if (tool === "polygon") {
       const made = ensurePointLocal(scene, x, y);
       const nextIds = [...pendingIds, made.id];
-      if (nextIds.length >= 3 && pendingIds.includes(made.id)) {
-        return { scene: closePolygon(made.scene, pendingIds).scene, pendingIds: [] };
+      if (nextIds.length >= 3) {
+        return { scene: closePolygon(made.scene, nextIds).scene, pendingIds: [] };
       }
       return { scene: made.scene, pendingIds: nextIds };
     }
