@@ -899,13 +899,25 @@ function DocumentEditorInner({
     const isGeometryTarget = Boolean(targetEl?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
     if (!editor || !geometryMode || e.button !== 0 || (isEditorControlTarget(e.target) && !isGeometryTarget)) return false;
     const tool = geometryToolRef.current;
+
+    const existingGeometry = findGeometryAtDomPoint(e.clientX, e.clientY);
+    if (tool === "select") {
+      if (existingGeometry != null) {
+        selectGeometryAt(existingGeometry);
+        e.preventDefault();
+        e.stopPropagation();
+        return true;
+      }
+      return false;
+    }
+
     const pageTools: ToolId[] = [
       "point", "line", "midpoint", "polygon", "circle", "arc", "compass", "angle",
       "rightAngle", "equalMark", "parallel", "perpendicular", "erase",
     ];
     if (!pageTools.includes(tool)) return false;
 
-    let pos = findGeometryAtDomPoint(e.clientX, e.clientY);
+    let pos = existingGeometry;
     const activeDraft = geometryDraftRef.current;
     if (pos == null && activeDraft?.pendingIds.length) pos = activeDraft.pos;
     if (pos == null) pos = insertGeometryAtPoint(e.clientX, e.clientY);
@@ -924,7 +936,7 @@ function DocumentEditorInner({
     const draft = geometryDraftRef.current?.pos === pos ? geometryDraftRef.current : { pos, pendingIds: [] };
     const next = applyQuickGeometryTool(scene, tool, localX, localY, draft.pendingIds);
     updateGeometrySceneAt(pos, next.scene);
-    geometryDraftRef.current = { pos, pendingIds: next.pendingIds };
+    geometryDraftRef.current = next.pendingIds.length ? { pos, pendingIds: next.pendingIds } : null;
     selectGeometryAt(pos);
     e.preventDefault();
     e.stopPropagation();
