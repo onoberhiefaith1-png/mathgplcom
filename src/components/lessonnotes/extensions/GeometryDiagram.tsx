@@ -5,8 +5,9 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Sparkles, Trash2 } from "lucide-react";
+import { Sparkles, Trash2, Pencil } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import { openGeometryEditor } from "@/components/lessonnotes/geometry-editor/GeometryEditorPanel";
 import {
   type GeometryScene,
   sanitizeScene,
