@@ -96,7 +96,7 @@ function GeometryDiagramView({
       className={cn("my-3 flex", containerAlign)}
       contentEditable={false}
     >
-      <SmartGeometryProvider scene={scene}>
+      <SmartGeometryProvider scene={scene} onSceneChange={(next) => updateAttributes({ scene: next })}>
         <div
           data-geometry-diagram-wrapper="true"
           data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
