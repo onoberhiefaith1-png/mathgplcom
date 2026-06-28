@@ -25,8 +25,11 @@ import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/Geometr
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
 import { SmartCalcNode, type SmartCalcAttrs } from "./extensions/SmartCalc";
+import { MathObjectNode } from "./extensions/MathObject";
+import { StepAnimationNode, type AnimationFrame } from "./extensions/StepAnimation";
 import { MathTablesPicker } from "./math-tools/MathTablesPicker";
 import { SmartCalculator } from "./math-tools/SmartCalculator";
+import { MathObjectsPicker } from "./math-objects/MathObjectsPicker";
 import { EMPTY_SCENE, sanitizeScene, pointById, type GeometryScene } from "@/lib/geometry/scene";
 import {
   addAngle,
@@ -61,6 +64,7 @@ import {
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
   ChevronUp, ChevronDown, Shapes, Table as TableIcon, LineChart, Calculator,
+  Film, Camera, Boxes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -253,6 +257,8 @@ function DocumentEditorInner({
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
   const [tablesOpen, setTablesOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [objectsOpen, setObjectsOpen] = useState(false);
+  const [animateMode, setAnimateMode] = useState(false);
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -700,6 +706,67 @@ function DocumentEditorInner({
     }, solutionSource?.problemText);
   };
 
+  // ── Step Animation: capture current selection (or current block) as a frame
+  const captureStep = () => {
+    if (!editor) return;
+    const { state } = editor;
+    let { from, to } = state.selection;
+    if (from === to) {
+      // No selection — fall back to the block containing the caret.
+      const $from = state.doc.resolve(from);
+      const start = $from.before($from.depth);
+      const end = $from.after($from.depth);
+      from = start; to = end;
+    }
+    const slice = state.doc.slice(from, to);
+    const contentJson = (slice.content as any).toJSON?.() ?? [];
+    if (!contentJson.length) {
+      toast({ title: "Nothing to capture", description: "Select content (or place the caret in a block) first." });
+      return;
+    }
+
+    // Walk outward from the selection: if we are already inside a stepAnimation
+    // node, append; otherwise wrap the selection in a new one.
+    let animPos = -1;
+    let animNode: any = null;
+    state.doc.descendants((node: any, pos: number) => {
+      if (animPos !== -1) return false;
+      if (node.type.name === "stepAnimation" && pos <= from && pos + node.nodeSize >= to) {
+        animPos = pos; animNode = node; return false;
+      }
+      return true;
+    });
+
+    const newFrame: AnimationFrame = { id: crypto.randomUUID(), content: contentJson };
+
+    if (animPos !== -1 && animNode) {
+      const prev: AnimationFrame[] = Array.isArray(animNode.attrs.frames) ? animNode.attrs.frames : [];
+      const next = [...prev, newFrame];
+      const tr = state.tr.setNodeMarkup(animPos, undefined, {
+        ...animNode.attrs,
+        frames: next,
+        currentFrame: next.length - 1,
+      });
+      editor.view.dispatch(tr);
+      toast({ title: `Frame ${next.length} captured` });
+      return;
+    }
+
+    // Wrap: insert a stepAnimation node at the selection start, then leave
+    // original content in place so the teacher can keep editing it as the
+    // "live" frame source. Future captures append to this node.
+    editor.chain()
+      .focus()
+      .insertContentAt(from, {
+        type: "stepAnimation",
+        attrs: { frames: [newFrame], currentFrame: 0 },
+      })
+      .run();
+    toast({ title: "Animation started", description: "Edit, then press Capture Step again to add the next frame." });
+  };
+
+
+
 
 
   const editor = useEditor({
@@ -722,6 +789,8 @@ function DocumentEditorInner({
       MathTableNode,
       SmartGraphNode,
       SmartCalcNode,
+      MathObjectNode,
+      StepAnimationNode,
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
@@ -1372,6 +1441,35 @@ function DocumentEditorInner({
         >
           <Calculator className="h-4 w-4" /> Calc
         </button>
+        <button
+          type="button"
+          onClick={() => setObjectsOpen(true)}
+          title="Insert a math object (cars, apples, dice, coins…)"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <Boxes className="h-4 w-4" /> Objects
+        </button>
+        <button
+          type="button"
+          onClick={() => setAnimateMode((v) => !v)}
+          title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
+          className={cn(
+            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+            animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+          )}
+        >
+          <Film className="h-4 w-4" /> Animate
+        </button>
+        {animateMode && (
+          <button
+            type="button"
+            onClick={captureStep}
+            title="Capture the current selection (or current block) as a new animation frame"
+            className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
+          >
+            <Camera className="h-4 w-4" /> Capture Step
+          </button>
+        )}
         <GlobalAiButton onGenerate={handleGlobalAi} />
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
         <Divider />
@@ -1490,6 +1588,14 @@ function DocumentEditorInner({
         onInsertWorking={(attrs: SmartCalcAttrs) => {
           if (!editor) return;
           editor.chain().focus().insertContent({ type: "smartCalc", attrs }).run();
+        }}
+      />
+      <MathObjectsPicker
+        open={objectsOpen}
+        onOpenChange={setObjectsOpen}
+        onInsert={(kind) => {
+          if (!editor) return;
+          editor.chain().focus().insertContent({ type: "mathObject", attrs: { kind, size: 32 } }).run();
         }}
       />
     </div>
