@@ -510,18 +510,14 @@ export function DocumentEditor({
       const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
       const start = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
       insertFrom = start;
-      // Clear the existing body, then insert the question content. Measure
-      // the doc-size delta to find the exact end of the question body.
+      // Clear the existing body first, then insert the question content and
+      // measure the doc-size delta to find the exact end of the question body.
       editor.chain().focus()
         .deleteRange({ from: start, to: info.sectionEndPos })
-        .insertContentAt(start, { type: "paragraph" }) // placeholder
         .run();
       const sizeBefore = editor.state.doc.content.size;
-      editor.chain().focus()
-        .deleteRange({ from: start, to: start + 2 }) // remove the placeholder paragraph
-        .insertContentAt(start, questionBodyNodes)
-        .run();
-      questionBodyEnd = start + (editor.state.doc.content.size - sizeBefore + 2);
+      editor.chain().focus().insertContentAt(start, questionBodyNodes).run();
+      questionBodyEnd = start + (editor.state.doc.content.size - sizeBefore);
       if (trailingNodes.length) {
         editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
       }
