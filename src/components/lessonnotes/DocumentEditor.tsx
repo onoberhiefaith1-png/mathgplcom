@@ -25,8 +25,11 @@ import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/Geometr
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
 import { SmartCalcNode, type SmartCalcAttrs } from "./extensions/SmartCalc";
+import { MathObjectNode } from "./extensions/MathObject";
+import { StepAnimationNode, type AnimationFrame } from "./extensions/StepAnimation";
 import { MathTablesPicker } from "./math-tools/MathTablesPicker";
 import { SmartCalculator } from "./math-tools/SmartCalculator";
+import { MathObjectsPicker } from "./math-objects/MathObjectsPicker";
 import { EMPTY_SCENE, sanitizeScene, pointById, type GeometryScene } from "@/lib/geometry/scene";
 import {
   addAngle,
@@ -61,6 +64,7 @@ import {
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
   ChevronUp, ChevronDown, Shapes, Table as TableIcon, LineChart, Calculator,
+  Film, Camera, Boxes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -253,6 +257,8 @@ function DocumentEditorInner({
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
   const [tablesOpen, setTablesOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [objectsOpen, setObjectsOpen] = useState(false);
+  const [animateMode, setAnimateMode] = useState(false);
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -722,6 +728,8 @@ function DocumentEditorInner({
       MathTableNode,
       SmartGraphNode,
       SmartCalcNode,
+      MathObjectNode,
+      StepAnimationNode,
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
