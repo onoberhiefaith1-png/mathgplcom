@@ -98,7 +98,12 @@ export type GeoObject =
 export interface GeometryScene {
   bounds: { width: number; height: number };
   objects: GeoObject[];
-  meta?: { topic?: string; caption?: string };
+  meta?: {
+    topic?: string;
+    caption?: string;
+    /** Teacher-curated relationships per selection signature. */
+    relationships?: Record<string, unknown>;
+  };
 }
 
 export const EMPTY_SCENE: GeometryScene = {
