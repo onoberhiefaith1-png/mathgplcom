@@ -20,10 +20,13 @@ import type { NodeViewProps } from "@tiptap/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move,
+  Plus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move, Sparkles, Loader2,
 } from "lucide-react";
-import type { GraphPoint, ConnectStyle, SmartGraphAttrs } from "@/components/lessonnotes/extensions/SmartGraph";
+import type { GraphPoint, ConnectStyle, GraphShape, SmartGraphAttrs } from "@/components/lessonnotes/extensions/SmartGraph";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 
 const SQ = 28; // pixels per square — kept generous so the grid never feels cramped.
 
