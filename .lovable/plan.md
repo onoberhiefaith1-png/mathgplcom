@@ -1,113 +1,69 @@
+## Goals
+Make the Geometry Editor reliable, discoverable, and well-connected to the lesson note. Five tracks:
 
-# MathGPL Geometry Editor — Implementation Plan
+### 1. Fix the "instant wipe" bug (root cause)
+`GeometryEditorPanel.tsx` mounts `PanelBody` with `key={\`gep-${Date.now()}\`}`. Because the panel lives inside `DocumentEditor`, every keystroke/save re-renders the parent → new key → PanelBody unmounts and remounts → scene + history reset to the original snapshot.
 
-## Goal
+That's exactly what the teacher sees: place two points or a line, then the next commit propagates to the document, the document re-renders, and the panel snaps back to the original diagram.
 
-Keep the Lesson Note Generator exactly as it is. Add a full **Geometry Editing System** that opens in a floating panel from a new **Diagram** toolbar button, edits the currently selected diagram in place, and works side-by-side with the existing AI Edit panel. Teacher never leaves the lesson note page.
+Fix:
+- Use a stable key derived from session identity (e.g. an id minted when the open event fires), not `Date.now()` on every render.
+- Move the `<GeometryEditorPanel />` mount to a stable spot (top of `DocumentEditor`'s tree, outside any per-doc memoization) so its own state survives doc updates.
+- Keep `onApply` updating the TipTap node, but stop re-seeding the panel's internal scene from `session.scene` after open; the panel is the source of truth until closed.
 
-## Foundations we reuse (no rewrites)
+### 2. Explicit Save / Apply workflow
+Today every action immediately writes back to the document. Teacher asked for a Save button so drafts stay local until confirmed.
 
-- `src/lib/geometry/scene.ts` — `GeometryScene` JSON is already the single source of truth (points, segments, lines, rays, circles, arcs, angles, polygons, labels). All new tools edit this JSON.
-- `src/components/lessonnotes/GeometryDiagram.tsx` — SVG renderer.
-- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — TipTap node + `openGeometryAiEdit`.
-- `src/components/lessonnotes/GeometryAiPanel.tsx` + `supabase/functions/geometry-edit` — AI Edit stays unchanged and lives next to the new manual editor.
-- Smartboard arc / polygon math in `src/lib/smartboard/` is reused for arcs and polygons.
+- Editor keeps a local working scene + dirty flag.
+- Footer gets three buttons: **Save** (writes back via `onApply`, clears dirty), **Revert** (restore last saved), **Close** (warns if dirty).
+- Auto-save toggle off by default. AI Edit, Undo/Redo, tool actions only mutate the local scene.
 
-## New surface
+### 3. Make every tool actually finish its action
+Audit each tool in `GeometryCanvas.tsx` so a teacher can see the result without further interaction:
 
-```text
-Lesson Note Toolbar
-  └─ Diagram ▾
-       ├─ Insert blank diagram
-       └─ Edit selected diagram   →  opens Geometry Editor Panel (floating, draggable)
-                                     [AI Edit] button in the same panel opens the existing AI side panel
-```
+- **Point**: confirm two clicks produce two persistent points (fixed by #1).
+- **Line**: after the bug fix, verify chain mode still works; add Esc to stop the chain.
+- **Polygon**: needs an explicit "close" affordance — show a Close button in the hint bar when 3+ vertices pending, in addition to Enter key.
+- **Circle (3-click hack)**: implement properly — points 1 and 3 lie on the circle, point 2 specifies the direction the arc/circle should pass through. Add `addCircleThrough3` to `sceneOps.ts` (circumcircle via perpendicular bisectors) and wire it into the `circle` tool's third click. Falls back to current drag-radius when only one click is made.
+- **Arc**: same 3-point engine, but renders the arc segment between points 1 and 3 passing through point 2.
+- **Angle**: confirm 3-click sequence commits (already correct after fix #1).
+- **Equal / Parallel / Perpendicular**: ensure the second click on the same segment doesn't silently dedupe; show pending count in the hint bar.
+- **Midpoint / Right angle / Erase / Label / Measure**: smoke-test each after the remount fix.
 
-The Geometry Editor Panel is a floating, non-modal overlay anchored to the selected `geometryDiagram` node. The lesson note stays visible and scrollable behind it.
+### 4. Foldable, named toolbar
+Replace the icon-only strip with an expandable rail.
 
-## Architecture
+- Add a collapse/expand chevron at the top of `GeometryToolbar.tsx`.
+- Collapsed (default, current width): icons only — matches today's look.
+- Expanded: icon + label + one-line hint, grouped by category (Draw / Shape / Mark / Measure / Edit) using accordion sections.
+- Persist expanded/collapsed in `localStorage` so the teacher's choice sticks.
 
-### 1. Scene model extensions (`src/lib/geometry/scene.ts`)
-Additive only — existing fields keep working.
-- `GeoSegment.length?: string` (e.g. `"5 cm"`, `"AB"`) for the Measurement tool.
-- `GeoAngle.value` already exists; add `GeoAngle.locked?: boolean` for constraint-fixed angles.
-- New marker kinds on `GeoSegment.marks`: `"parallel"|"double-parallel"|"triple-parallel"` for the Parallel tool.
-- New object: `GeoConstructionArc` (compass arc; same shape as `GeoArc` with `kind:"construction"`).
-- New optional `scene.style` block: `{ font?: string; strokeWidth?: number }` so the renderer stays themable.
-- All additions are optional → existing scenes & the AI edge function keep validating.
+### 5. Link the editor to lesson-note sections
+Two flows:
 
-### 2. Editor state (`src/lib/geometry/editor/`)
-New folder, pure logic, no UI:
-- `tools.ts` — `ToolId = "select"|"point"|"line"|"arc"|"circle"|"polygon"|"angle"|"label"|"measure"|"equalMark"|"parallel"|"perpendicular"|"rightAngle"|"midpoint"|"compass"|"move"|"erase"|"constraint"|"rotate"|"sketch"`.
-- `sceneOps.ts` — pure functions that take a `GeometryScene` + intent and return the next scene (`addPoint`, `addSegmentChain`, `addArcThrough3`, `addCircleByRadius`, `closePolygon`, `markEqual`, `markParallel`, `markPerpendicular`, `placeRightAngle`, `midpointOf`, `eraseObject`, `moveObject`, `rotateScene`, `applyConstraint`). Every op returns `{ scene, addedIds, changedIds }` so we can show the same diff highlighting the AI panel already uses.
-- `snap.ts` — Smart Snap: nearest point / midpoint / intersection / on-circle / on-line within a pixel threshold; returns a snap target + visual hint.
-- `history.ts` — undo/redo stack scoped to the open editor session.
-- `labels.ts` — auto-label generator (A, B, C…, skipping used letters).
-- `constraints.ts` — `make-parallel`, `make-perpendicular`, `make-equal`, `make-tangent`, `make-isosceles`, `make-equilateral`, `make-circle` solvers operating on selected ids.
+**a. Quick insert from editor → current section**
+- In editor footer add **Insert into note**. If the editor was opened from an existing diagram, this is just Save. If opened standalone (Diagram menu → New), this inserts a new `geometryDiagram` node at the current cursor's section (existing `sectionInsertPosition` logic).
 
-### 3. UI components (`src/components/lessonnotes/geometry-editor/`)
-- `GeometryEditorPanel.tsx` — floating panel (draggable header, resize, close). Hosts the toolbar, the live canvas, the selection inspector, undo/redo, and an `AI Edit` button that defers to `openGeometryAiEdit` (already wired).
-- `GeometryToolbar.tsx` — grouped tool buttons matching the 21 tools in the spec, with tooltips and keyboard shortcuts (P, L, A, C, G, N, T, M, E, ∥, ⟂, □, ·, ⊙, V, Del, K, R, S).
-- `GeometryCanvas.tsx` — SVG canvas that renders the same scene as `GeometryDiagram` plus an interaction layer: hover snap dots, in-progress preview (rubber-band line/arc/circle), selection halos, drag handles.
-- `SelectionInspector.tsx` — right-rail strip inside the panel for editing the selected object's label, length, angle value, dashed/solid, marks.
-- `SketchLayer.tsx` — freehand capture (mouse/stylus/touch) used by the Convert Sketch tool.
-- `useGeometryEditor.ts` — hook that wires scene + tool + history + snap and exposes `commit(nextScene)` which calls the TipTap node's `updateAttributes({ scene })`.
+**b. "Add to section" picker**
+- New footer button **Add to section…** opens a popover listing every section/subsection heading in the current document (read from the TipTap doc via `notebookContext` + section walker already used by `handleSectionAi`).
+- Selecting a section inserts the diagram immediately after that section's last node (reuse the diagram-preservation positioning logic).
+- Works whether the editor was opened from an existing diagram (clone semantics: a copy goes to the chosen section, original stays) or from scratch.
 
-### 4. Tool behavior map (all driven by `sceneOps`)
-1. **Point** — click → `addPoint` with auto label.
-2. **Straight Line** — click points sequentially → `addSegmentChain`; Esc/Enter ends; reuses smartboard segment helpers.
-3. **Arc (3-point)** — three clicks → `addArcThrough3` (uses smartboard arc math).
-4. **Circle** — drag from center, or click-center-then-click-radius-point → `addCircleByRadius`.
-5. **Polygon** — click points, Enter closes → `closePolygon` (auto segments + polygon object).
-6. **Angle** — click arm1 → vertex → arm2 → `addAngleMark`, default `marker:"arc"`.
-7. **Label** — click object, inline text input; writes `label`/`value`/`text`.
-8. **Measurement** — click side/angle → editable text bound to `length` / `value`.
-9. **Equal Mark** — click two sides (or two angles) → sets matching `marks` (single/double/triple cycles on repeat).
-10. **Parallel** — click two lines → matching parallel arrows on both.
-11. **Perpendicular** — click two intersecting lines → places right-angle square at intersection.
-12. **Right Angle Marker** — click any angle → sets `marker:"right"`.
-13. **Midpoint** — click segment → new point at midpoint with auto label `M`.
-14. **Compass / Construction Arc** — click center, click radius point → dashed construction arc.
-15. **Move** — drag points (dependent geometry follows because everything references point ids).
-16. **Eraser** — click object → `eraseObject` cascading only to orphan dependents.
-17. **Constraint** — multi-select + choose constraint → `constraints.ts` solver.
-18. **Convert Sketch** — `SketchLayer` records strokes, posts to a new edge function `geometry-sketch` that returns a `GeometryScene`; teacher gets the same Apply / Regenerate preview as AI Edit.
-19. **Rotate** — rotate selected ids or whole scene; renderer keeps labels upright (labels are rendered as separate text nodes with their own transform reset).
-20. **Smart Snap** — global behavior, threshold ~8px, visualized as a small ring.
-21. **AI Edit Integration** — unchanged: panel exposes the existing AI Edit button; manual + AI edits commit to the same scene; AI preview/apply flow stays as-is.
+To get the section list inside the panel, expose a small context/provider from `DocumentEditor` (`GeometrySectionsProvider`) that publishes `{ sections: {id, title, insertPos}[]; insertAt(id, scene) }`. `GeometryEditorPanel` consumes it; if not present (panel opened from a non-editor surface), the picker hides.
 
-### 5. Backend (Lovable Cloud edge functions)
-- **No change** to `geometry-edit`.
-- **New** `supabase/functions/geometry-sketch/index.ts` for Convert Sketch:
-  - Input: `{ strokes: Array<{x:number,y:number}[]>, bounds, topic? }`.
-  - Uses Lovable AI Gateway (`google/gemini-2.5-flash`, vision-capable) with a rasterized PNG of the strokes + a system prompt reusing `GEOMETRY_SCENE_SCHEMA` from `notebook-ai/geometryStandard.ts`.
-  - Output: `{ scene: GeometryScene }`, same shape as `geometry-edit` so the panel can reuse the preview/apply UI.
+## Files touched
+- `src/components/lessonnotes/geometry-editor/GeometryEditorPanel.tsx` — stable key, Save/Revert/Close footer, section picker UI.
+- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — dirty flag, decouple `onApply` from every commit; expose `save()`.
+- `src/components/lessonnotes/geometry-editor/GeometryToolbar.tsx` — collapsible rail with labels and groups.
+- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — 3-click circle/arc, polygon close button, Esc handling.
+- `src/lib/geometry/editor/sceneOps.ts` — `addCircleThrough3`, `addArcThrough3Points` (circumcircle math).
+- `src/lib/geometry/editor/tools.ts` — group metadata for the expanded toolbar.
+- `src/components/lessonnotes/DocumentEditor.tsx` — mount `GeometryEditorPanel` at a stable location; provide `GeometrySectionsProvider`; expose `insertDiagramIntoSection(id, scene)`.
 
-### 6. TipTap integration
-- Extend the `geometryDiagram` NodeView with an extra hover action **Edit** (pencil icon), beside the existing **AI Edit** and **Delete**.
-- `Edit` dispatches a new `geometry-editor:open` window event (mirror of `openGeometryAiEdit`). `DocumentEditor` listens and mounts `GeometryEditorPanel` for that node, passing `onApply: (scene) => updateAttributes({ scene })`.
-- Toolbar gets a `Diagram` dropdown: **Insert blank diagram** (inserts an empty `geometryDiagram` node + opens editor) and **Edit selected diagram** (enabled when a `geometryDiagram` node is selected).
-
-### 7. Tests (`src/test/`)
-- `geometryScene.ops.test.ts` — sceneOps for each tool: add point, chain segments, polygon close, arc-through-3, circle by radius, midpoint, equal/parallel/perpendicular marks, erase cascades.
-- `geometryConstraints.test.ts` — make-parallel, make-perpendicular, make-isosceles, make-equilateral, make-tangent.
-- `geometrySnap.test.ts` — snap-to-point/midpoint/intersection thresholds.
-
-## Out of scope (kept for later)
-- Theorem scaffolding & relationship highlighting (spec lists these as future Smart Diagram features).
-- Multi-diagram linking.
-- Persistent per-teacher tool preferences.
-
-## File touch list
-New:
-- `src/lib/geometry/editor/{tools,sceneOps,snap,history,labels,constraints}.ts`
-- `src/components/lessonnotes/geometry-editor/{GeometryEditorPanel,GeometryToolbar,GeometryCanvas,SelectionInspector,SketchLayer,useGeometryEditor}.tsx`
-- `supabase/functions/geometry-sketch/index.ts`
-- `src/test/geometryScene.ops.test.ts`, `geometryConstraints.test.ts`, `geometrySnap.test.ts`
-
-Edited (additive):
-- `src/lib/geometry/scene.ts` — optional fields only.
-- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — add **Edit** action + `openGeometryEditor` event helper.
-- `src/components/lessonnotes/DocumentEditor.tsx` — toolbar **Diagram** menu, mount `GeometryEditorPanel` on event.
-
-Unchanged: `GeometryDiagram.tsx` renderer, `GeometryAiPanel.tsx`, `geometry-edit` function, lesson-note generation pipeline.
+## Verification
+After build, drive the preview with Playwright:
+1. Open a diagram → place 3 points → confirm they persist.
+2. Draw a line, then a polygon (close via button) — confirm both stay.
+3. Three-click circle: pick A, direction point M, B → circle through A,M,B appears.
+4. Expand toolbar, confirm labels show, collapse, reload, confirm preference sticks.
+5. Open editor from Diagram menu → draw → Add to section → pick "Example 1" → verify diagram lands directly under Example 1 heading without touching other diagrams.
