@@ -86,6 +86,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
+      <FullscreenToggle />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
