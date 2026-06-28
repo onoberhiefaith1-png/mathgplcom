@@ -1,101 +1,68 @@
-# Integrate Geometry Editor into the Lesson Note
 
-Replace the separate floating Geometry Editor panel with an **in-document** editing experience. The lesson note becomes the only workspace; geometry tools appear contextually when a diagram frame is selected.
+# Geometry Mode — Embedded in Lesson Note
 
-## 1. Collapsible "Geometry Tools" Toolbar
+Replace the right-side dock + floating action bar with an in-document **Geometry Mode**, toggled from the existing Diagram button in the toolbar. The lesson note stays the workspace; geometry tools appear contextually.
 
-Rebuild `GeometryToolbar.tsx` so the default state is a single collapsed header:
+## 1. Diagram button = mode toggle
 
-```text
-▶ Geometry Tools
-```
+In `DocumentEditor.tsx` toolbar:
+- Diagram button becomes a toggle. Active state = highlighted (primary background).
+- Clicking ON: enters Geometry Mode, mounts the left-side **GeometryToolbox**, and — if the caret is not already inside a `geometryDiagram` — inserts a new empty frame into the current section (under current heading, before next heading) and selects it.
+- Clicking OFF: leaves Geometry Mode, unmounts toolbox. Frame stays in document, returns to faint idle look.
+- Selecting any existing frame auto-enters Geometry Mode; clicking outside any frame (caret moves to text) auto-exits.
 
-Click the chevron → expands to a vertical list grouped by category:
+State lives in `DocumentEditor` (`geometryMode: boolean`, driven by selection + manual toggle).
 
-```text
-▼ Geometry Tools
-   Draw
-     • Point
-     ── Straight Line
-     ⌒ Arc
-   Shapes
-     ◯ Circle
-     △ Polygon
-   Marks
-     ∠ Angle
-     ⊥ Perpendicular
-     ∥ Parallel
-     ≡ Equal Side
-     □ Right Angle
-   Measure
-     A Label
-     ↔ Measure
-   Edit
-     ✥ Move / Erase / Rotate
-   AI
-     ✎ Convert Sketch
-```
+## 2. Left-side floating GeometryToolbox
 
-Each row = **icon + readable name**. State (collapsed/expanded) persisted in `localStorage`. Inside each group, individual group headers are also collapsible (Radix `Collapsible`).
+New component `GeometryToolbox.tsx` (replaces the right-side `GeometryEditDock`):
+- Fixed position, left edge of the document column, vertically centred, own scrollbar.
+- Two display modes persisted in `localStorage`:
+  - **Collapsed**: icon-only, ~40px wide.
+  - **Expanded**: icon + short label, ~140px wide.
+- A small pin/chevron header toggles modes.
+- Tools rendered as a single flat scrollable list (groups kept as subtle dividers + tiny uppercase labels). Reuses `TOOLS` / `ICONS` from current `GeometryToolbar.tsx`; that file is repurposed/renamed.
+- Selecting a tool sets the active tool on the currently selected frame's editor state.
+- Toolbox is independent of page scroll (`position: fixed`); its own overflow handled internally.
 
-## 2. Word-Style Diagram Frame (TipTap NodeView)
+Existing `GeometryEditorPanel` right-side dock is removed.
 
-Rewrite `GeometryDiagram.tsx` NodeView so each `geometryDiagram` node renders as a **framed object** in the document:
+## 3. Frame appearance (clean by default)
 
-- **Idle:** thin `border-foreground/10` (almost invisible)
-- **Hover:** faint blue tint
-- **Selected** (TipTap `selected` prop): blue outline + 8 resize handles (corners + edges) + top-left move grip
-- **Floating toolbar** above the frame on selection: AI Edit · Duplicate · Delete · Lock size
+Rewrite the NodeView in `extensions/GeometryDiagram.tsx`:
+- Idle: 1px `border-foreground/5` (almost invisible). No buttons, no handles.
+- Hover near edge (within ~12px) OR TipTap `selected`: border turns blue, 8 resize handles + top-left move grip + top-right rotate handle appear, plus a compact edge toolbar (Delete · Duplicate · Copy · Paste · AI Edit).
+- Mouse leaves frame area → handles + edge toolbar fade out.
+- Removes the current always-visible floating black action bar.
 
-Frame attributes added to the node schema:
-- `width` (px), `height` (px), `align` ("left" | "center" | "right"), `locked` (bool)
+Hover proximity implemented with a wrapper that listens to `mousemove` on the frame's bounding box + small padding.
 
-Resize handles drag → update `width`/`height` attrs. Move grip → standard TipTap drag (set `draggable: true` on the node).
+## 4. Frame stays attached to its section
 
-## 3. In-Place Editing (no separate panel)
+- Frame is inserted via `insertContentAt(endOfCurrentSection)` so it always belongs to a section.
+- Move Up / Move Down (already part of section toolbar) keep working — frame moves with the section content because it's a block node inside it.
+- No floating/absolute positioning of the frame itself.
 
-When the diagram frame is selected, the **Geometry Tools** panel docks to the right side of the document area (inside `DocumentEditor.tsx`), not a floating overlay. When selection moves away from any diagram, the panel auto-hides.
+## 5. In-frame drawing
 
-- Mount once in `DocumentEditor.tsx`
-- Subscribe to the editor's selection updates; show panel when `editor.isActive('geometryDiagram')`
-- The panel writes scene changes directly into the active node's attrs via `updateAttributes({ scene })`
-- Save / Revert disappear — edits are live, with TipTap's native undo/redo handling history
+`useGeometryEditor` already supports live edits; we keep it. The toolbox writes `tool` into the active frame's editor instance via a small context provider `GeometryModeContext` that exposes `{ activeFrameId, setTool, scene, applyOp }`.
 
-The standalone `GeometryEditorPanel` portal is retired. `openGeometryEditor` becomes a no-op that simply selects the node.
+Drawing surface inside the frame uses the existing `GeometryDiagram` SVG renderer + interaction layer; only the chrome around it changes.
 
-## 4. Auto-Fit Frame
+## 6. AI Edit / Sketch / Generate
 
-After every scene change:
-- Compute SVG content bbox from the rendered scene
-- If `locked === false`: set frame `width`/`height` to bbox + padding
-- If `locked === true`: keep size, allow SVG to scale via `viewBox`
+Kept. Triggered from the hover edge toolbar (AI Edit button) which opens the existing inline AI panel anchored to the frame (small popover, not a full side dock).
 
-This prevents overflow when teachers add shapes, and shrinks back when content is removed.
+## 7. Files
 
-## 5. Context-Aware Tools
+Changed:
+- `src/components/lessonnotes/DocumentEditor.tsx` — Diagram toggle, Geometry Mode state, mount `GeometryToolbox`, auto enter/exit on selection.
+- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — new clean NodeView: faint idle border, hover-revealed handles + edge toolbar, rotate handle, remove always-on action bar.
+- `src/components/lessonnotes/geometry-editor/GeometryToolbar.tsx` → rename/repurpose into `GeometryToolbox.tsx` (left-side fixed, collapsed/expanded modes, own scroll).
+- `src/components/lessonnotes/geometry-editor/GeometryEditorPanel.tsx` — delete (replaced).
+- New `src/components/lessonnotes/geometry-editor/GeometryModeContext.tsx` — bridges toolbox ↔ active frame.
+- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — unchanged behaviourally; consumed via context.
 
-- Geometry Tools panel is **hidden** when caret is in text
-- Standard document toolbar stays visible always
-- The "Diagram" dropdown in the doc toolbar keeps two actions: *Insert blank diagram* and *Convert sketch*
-
-## 6. Drag, Duplicate, Delete
-
-- Frame draggable across paragraphs via TipTap drag handle
-- Duplicate button → `editor.chain().insertContent(currentNode.toJSON())`
-- Delete button → `deleteNode()`
-- Copy/paste works out of the box once the node serializes scene to `data-scene`
-
-## Technical Outline
-
-**Files changed:**
-- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — add width/height/locked/align attrs, new NodeView with resize handles, selection ring, floating action bar
-- `src/components/lessonnotes/geometry-editor/GeometryToolbar.tsx` — rewrite as collapsible sections (default collapsed), grouped, icon + label rows
-- `src/components/lessonnotes/geometry-editor/GeometryEditorPanel.tsx` — convert from floating portal to a docked side panel component (`GeometryEditDock.tsx`) consumed by `DocumentEditor`
-- `src/components/lessonnotes/DocumentEditor.tsx` — mount the dock, drive its visibility from selection, route scene updates to active node
-- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — drop savedScene/dirty/save/revert; edits propagate live
-- `src/components/lessonnotes/GeometryDiagram.tsx` (renderer) — expose content bbox callback for auto-fit
-- Remove: the global `geometry-editor:*` event bridge and the floating portal mount
-
-**Out of scope:** changing the underlying `GeometryScene` data model, AI Edit panel UX, sketch→geometry function.
+Out of scope: scene data model, AI prompts, sketch→geometry backend.
 
 Proceed?

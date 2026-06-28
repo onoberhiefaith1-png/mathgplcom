@@ -1,24 +1,31 @@
 // TipTap extension: an editable block node that holds a GeometryScene.
-// The NodeView renders the scene as SVG inside a Word-style frame —
-// idle = nearly invisible border; selected = blue outline with resize
-// and move handles. Selecting the frame auto-opens the right-edge
-// Geometry editor dock; clicking outside closes it.
+// The NodeView renders the scene as SVG inside a Word-style frame.
+//
+//   • Idle           — almost-invisible 1px border, no controls.
+//   • Hover          — faint blue border, edge toolbar + handles fade in.
+//   • Selected       — solid blue outline + resize/move handles + toolbar.
+//   • Selected + Geometry Mode — the static SVG is swapped for the live
+//     GeometryCanvas so the teacher can draw inside the frame.
+//
+// All editing happens inside the lesson note; there is no separate panel.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Sparkles, Trash2, Copy, Lock, Unlock, GripVertical } from "lucide-react";
-import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import {
-  openGeometryEditor,
-  closeGeometryEditor,
-} from "@/components/lessonnotes/geometry-editor/GeometryEditorPanel";
+  Sparkles, Trash2, Copy, Lock, Unlock, GripVertical, RotateCw,
+} from "lucide-react";
+import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
+import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
+import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 import {
   type GeometryScene,
   sanitizeScene,
   EMPTY_SCENE,
 } from "@/lib/geometry/scene";
+import { rotateScene } from "@/lib/geometry/editor/sceneOps";
 import { cn } from "@/lib/utils";
 
 const OPEN_EVENT = "geometry-ai-edit:open";
@@ -61,36 +68,47 @@ function GeometryDiagramView({
   const locked: boolean = !!node.attrs.locked;
   const align: "left" | "center" | "right" = node.attrs.align ?? "center";
 
-  // Natural diagram size from the scene bounds.
-  const naturalW = (scene.bounds?.width ?? 360) + PAD * 2;
-  const naturalH = (scene.bounds?.height ?? 240) + PAD * 2;
-  // Auto-fit when unlocked: width follows scene bounds. Locked: keep stored size.
-  const width: number = locked && node.attrs.width ? node.attrs.width : naturalW;
-  const height: number = locked && node.attrs.height ? node.attrs.height : naturalH;
-
-  // Stable session id per node so the dock keeps state across re-renders.
+  const { mode, setMode, setActiveFrameId, tool } = useGeometryMode();
   const sessionIdRef = useRef<string>(
     `gd-${Math.random().toString(36).slice(2, 10)}`,
   );
+  const [hovered, setHovered] = useState(false);
 
-  // Open / close the dock based on TipTap selection state.
+  // Per-frame editor state (drives the in-frame GeometryCanvas).
+  const geoEditor = useGeometryEditor(scene, (next) =>
+    updateAttributes({ scene: next }),
+  );
+  // Sync the tool from the global toolbox.
+  useEffect(() => {
+    if (selected && mode) geoEditor.setTool(tool);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, selected, mode]);
+
+  // When this frame becomes the selected node, mark it active and turn
+  // Geometry Mode on. Clicking out (selected → false) leaves mode on so
+  // the teacher can click back in and resume editing.
   useEffect(() => {
     if (selected) {
-      openGeometryEditor({
-        sessionId: sessionIdRef.current,
-        scene,
-        topic,
-        onApply: (next) => updateAttributes({ scene: next }),
-      });
+      setActiveFrameId(sessionIdRef.current);
+      if (!mode) setMode(true);
     }
-    // We deliberately do not close on deselect here — selecting another
-    // diagram swaps the session; clicking text doesn't need to tear down
-    // the panel mid-edit. The X button + closeGeometryEditor handle that.
+    // We don't clear activeFrameId on deselect — the toolbox stays
+    // ready and another frame's select will overwrite it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, scene]);
+  }, [selected]);
 
-  // When this node is removed, close the dock if it was editing us.
-  useEffect(() => () => closeGeometryEditor(), []);
+  // Natural diagram size from the scene bounds.
+  const naturalW = (scene.bounds?.width ?? 360) + PAD * 2;
+  const naturalH = (scene.bounds?.height ?? 240) + PAD * 2;
+  const isEditing = selected && mode;
+  // While editing, use natural size so canvas coordinates stay accurate.
+  // Otherwise honour the locked/explicit size; unlocked = auto-fit.
+  const width: number = isEditing
+    ? naturalW
+    : locked && node.attrs.width ? node.attrs.width : naturalW;
+  const height: number = isEditing
+    ? naturalH
+    : locked && node.attrs.height ? node.attrs.height : naturalH;
 
   const onResize = (e: React.PointerEvent, dir: "se" | "sw" | "ne" | "nw") => {
     e.preventDefault();
@@ -107,13 +125,16 @@ function GeometryDiagramView({
       const dy = ev.clientY - startY;
       const sx = dir.includes("e") ? 1 : -1;
       const sy = dir.includes("s") ? 1 : -1;
-      // Lock aspect ratio with Shift, otherwise keep ratio anyway so the
-      // SVG never distorts (geometry must stay true).
+      void dy; void sy;
       const ratio = startW / startH;
       const dw = Math.max(MIN_W - startW, dx * sx);
       const newW = Math.max(MIN_W, startW + dw);
       const newH = Math.max(MIN_H, newW / ratio);
-      updateAttributes({ width: Math.round(newW), height: Math.round(newH), locked: true });
+      updateAttributes({
+        width: Math.round(newW),
+        height: Math.round(newH),
+        locked: true,
+      });
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
@@ -141,39 +162,59 @@ function GeometryDiagramView({
     : align === "right" ? "justify-end"
     : "justify-center";
 
+  // Show chrome (handles + edge toolbar) when hovered OR selected.
+  const showChrome = hovered || selected;
+
+  // Outline tier: selected > hovered > idle.
+  const outlineCls = selected
+    ? "outline outline-2 outline-blue-500"
+    : hovered
+      ? "outline outline-1 outline-blue-400/70"
+      : "outline outline-1 outline-foreground/10";
+
   return (
-    <NodeViewWrapper className={cn("my-3 flex", containerAlign)} contentEditable={false}>
+    <NodeViewWrapper
+      className={cn("my-3 flex", containerAlign)}
+      contentEditable={false}
+    >
       <div
-        className={cn(
-          "relative inline-block bg-white rounded transition",
-          selected
-            ? "outline outline-2 outline-blue-500"
-            : "outline outline-1 outline-foreground/10 hover:outline-foreground/30",
-        )}
+        className={cn("relative inline-block bg-white rounded transition-[outline]", outlineCls)}
         style={{ width, height }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         onMouseDown={(e) => {
-          // Select the node so TipTap reports `selected = true`.
+          // Always select the node on click so TipTap reports selected = true
+          // and the canvas (if Geometry Mode is on) takes over drawing.
           const pos = typeof getPos === "function" ? getPos() : null;
-          if (pos != null) {
+          if (pos != null && !selected) {
             editor.commands.setNodeSelection(pos);
           }
           e.stopPropagation();
         }}
       >
-        {/* Move grip — drag handle for the whole block. */}
-        {selected && (
+        {/* Move grip (drag handle) */}
+        {showChrome && (
           <div
             data-drag-handle
             draggable
-            className="absolute -left-5 top-1/2 -translate-y-1/2 h-7 w-5 grid place-items-center text-foreground/50 cursor-grab active:cursor-grabbing bg-background border border-foreground/20 rounded"
+            className="absolute -left-5 top-2 h-7 w-5 grid place-items-center text-foreground/50 cursor-grab active:cursor-grabbing bg-background border border-foreground/20 rounded"
             title="Drag to move"
           >
             <GripVertical className="h-3 w-3" />
           </div>
         )}
 
+        {/* Drawing surface */}
         <div className="absolute inset-0 grid place-items-center overflow-hidden">
-          <GeometryDiagram scene={scene} explicitWidth={width} explicitHeight={height} />
+          {isEditing ? (
+            <GeometryCanvas editor={geoEditor} />
+          ) : (
+            <GeometryDiagram
+              scene={scene}
+              explicitWidth={width}
+              explicitHeight={height}
+            />
+          )}
         </div>
 
         {scene.meta?.caption && (
@@ -185,12 +226,19 @@ function GeometryDiagramView({
           </p>
         )}
 
-        {/* Floating action toolbar */}
-        {selected && (
+        {/* Edge toolbar */}
+        {showChrome && (
           <div className="absolute -top-9 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background border border-foreground/15 rounded-md shadow px-1 py-0.5">
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); openGeometryAiEdit({ scene, topic, onApply: (next) => updateAttributes({ scene: next }) }); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                openGeometryAiEdit({
+                  scene,
+                  topic,
+                  onApply: (next) => updateAttributes({ scene: next }),
+                });
+              }}
               className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded text-foreground hover:bg-foreground/5"
               title="AI edit"
             >
@@ -198,17 +246,31 @@ function GeometryDiagramView({
             </button>
             <button
               type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                updateAttributes({ scene: rotateScene(scene, 15).scene });
+              }}
+              className="inline-flex items-center justify-center h-6 w-6 rounded text-foreground/70 hover:bg-foreground/5"
+              title="Rotate 15°"
+            >
+              <RotateCw className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); handleDuplicate(); }}
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded text-foreground hover:bg-foreground/5"
+              className="inline-flex items-center justify-center h-6 w-6 rounded text-foreground/70 hover:bg-foreground/5"
               title="Duplicate"
             >
               <Copy className="h-3 w-3" />
             </button>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); updateAttributes({ locked: !locked }); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                updateAttributes({ locked: !locked });
+              }}
               className={cn(
-                "inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded hover:bg-foreground/5",
+                "inline-flex items-center justify-center h-6 w-6 rounded hover:bg-foreground/5",
                 locked ? "text-amber-600" : "text-foreground/70",
               )}
               title={locked ? "Unlock size (auto-fit)" : "Lock current size"}
@@ -226,8 +288,8 @@ function GeometryDiagramView({
           </div>
         )}
 
-        {/* Resize handles (corners). */}
-        {selected && (
+        {/* Resize handles (corners) */}
+        {showChrome && (
           <>
             <Handle pos="nw" onPointerDown={(e) => onResize(e, "nw")} />
             <Handle pos="ne" onPointerDown={(e) => onResize(e, "ne")} />
