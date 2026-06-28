@@ -22,6 +22,11 @@ import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
+import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
+import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
+import { SmartCalcNode, type SmartCalcAttrs } from "./extensions/SmartCalc";
+import { MathTablesPicker } from "./math-tools/MathTablesPicker";
+import { SmartCalculator } from "./math-tools/SmartCalculator";
 import { EMPTY_SCENE, sanitizeScene, pointById, type GeometryScene } from "@/lib/geometry/scene";
 import {
   addAngle,
