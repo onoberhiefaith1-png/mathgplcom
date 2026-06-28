@@ -237,6 +237,7 @@ All colors MUST be HSL.
 .lesson-doc [data-math-block] { vertical-align: baseline; }
 .lesson-doc [data-math-block] { display: block; min-height: 28px; }
 .lesson-doc .ProseMirror-selectednode[data-geometry-diagram],
+.lesson-doc .ProseMirror-selectednode[data-geometry-diagram-node],
 .lesson-doc .ProseMirror-selectednode [data-geometry-diagram-wrapper],
 .lesson-doc [data-geometry-diagram].ProseMirror-selectednode {
   outline: none !important;

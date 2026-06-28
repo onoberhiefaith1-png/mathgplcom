@@ -84,6 +84,7 @@ function GeometryDiagramView({
 
   return (
     <NodeViewWrapper
+      data-geometry-diagram-node="true"
       className={cn("my-3 flex", containerAlign)}
       contentEditable={false}
     >
