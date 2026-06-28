@@ -338,6 +338,15 @@ export function GeometryCanvas({ editor }: Props) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={() => setHover(null)}
+        onDoubleClick={() => {
+          // Double-click finishes a polygon or line in progress.
+          if (tool === "polygon" && pendingIds.length >= 3) {
+            apply(closePolygon(scene, pendingIds));
+            setPendingIds([]);
+          } else if (tool === "line") {
+            setPendingIds([]);
+          }
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
@@ -347,6 +356,7 @@ export function GeometryCanvas({ editor }: Props) {
           }
         }}
         tabIndex={0}
+
       >
         {/* Snap hint */}
         {hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
