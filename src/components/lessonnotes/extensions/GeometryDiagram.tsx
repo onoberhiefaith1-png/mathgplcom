@@ -87,12 +87,116 @@ function GeometryDiagramView({
 
   const isEditing = selected && mode;
 
+  const W = scene.bounds.width + PAD * 2;
+  const H = scene.bounds.height + PAD * 2;
+
   return (
     <NodeViewWrapper
       data-geometry-diagram-node="true"
       className={cn("my-3 flex", containerAlign)}
       contentEditable={false}
     >
+      <SmartGeometryProvider scene={scene}>
+        <div
+          data-geometry-diagram-wrapper="true"
+          data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
+          className={cn("relative inline-flex items-start gap-2")}
+          onMouseDown={(e) => {
+            const pos = typeof getPos === "function" ? getPos() : null;
+            if (pos != null && !selected) {
+              editor.commands.setNodeSelection(pos);
+            }
+            if (!isEditing && (!mode || tool === "select")) e.stopPropagation();
+          }}
+        >
+          <div className="relative inline-block">
+            {isEditing ? (
+              <GeometryCanvas editor={geoEditor} />
+            ) : (
+              <>
+                <GeometryDiagram scene={scene} />
+                {selected && <SmartOverlay width={W} height={H} />}
+              </>
+            )}
+
+            {scene.meta?.caption && (
+              <p
+                className="mt-1 text-[11px] italic text-center text-black/70"
+                style={{ fontFamily: "Georgia, serif" }}
+              >
+                {scene.meta.caption}
+              </p>
+            )}
+
+            {/* Action row — no frame, just tools when the diagram itself is selected. */}
+            {selected && (
+              <div className="absolute -top-7 right-0 flex items-center gap-1 bg-background/95 border border-foreground/15 rounded-md shadow px-1 py-0.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openGeometryAiEdit({
+                      scene,
+                      topic,
+                      onApply: (next) => updateAttributes({ scene: next }),
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded text-foreground hover:bg-foreground/5"
+                  title="AI edit"
+                >
+                  <Sparkles className="h-3 w-3" /> AI
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const pos = typeof getPos === "function" ? getPos() : null;
+                    if (pos == null) return;
+                    editor.chain().focus().insertContentAt(pos + node.nodeSize, {
+                      type: "geometryDiagram",
+                      attrs: { scene, topic, align },
+                    }).run();
+                  }}
+                  className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
+                  title="Duplicate diagram"
+                >
+                  <CopyPlus className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard?.writeText(JSON.stringify({ type: "geometryDiagram", attrs: { scene, topic, align } })).catch(() => {});
+                  }}
+                  className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
+                  title="Copy diagram data"
+                >
+                  <Copy className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); deleteNode(); }}
+                  className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:text-red-500 hover:bg-foreground/5"
+                  title="Delete diagram"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {selected && (
+            <RelationshipPanel
+              scene={scene}
+              topic={topic}
+              onApply={(next) => updateAttributes({ scene: next })}
+            />
+          )}
+        </div>
+      </SmartGeometryProvider>
+    </NodeViewWrapper>
+  );
+}
       <div
         data-geometry-diagram-wrapper="true"
         data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
