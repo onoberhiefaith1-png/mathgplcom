@@ -1,91 +1,94 @@
+## Smart Mathematics Toolkit — Tables, Graph, Calculator
 
-# Smart Geometry Engine
+Add three new insertable tools next to the **Diagram** button in the Lesson Notes toolbar, following the same model as Smart Geometry: AI generates the object, teacher edits everything, content lives as a TipTap node embedded in the lesson note.
 
-Upgrade the existing Geometry Editor so every diagram becomes a graph of recognised mathematical objects with live hover, multi-select, relationship detection, and a right-hand theorem panel. This is additive — the current `GeometryScene`, `GeometryCanvas`, `GeometryDiagram` and node view stay; we layer recognition + relationships on top.
+### Toolbar additions
+In `src/components/lessonnotes/DocumentEditor.tsx`, next to the Diagram button, add:
+- **Tables** (📊 icon) → opens Mathematical Tables picker, inserts `mathTable` node
+- **Graph** (📈 icon) → inserts a `smartGraph` node and opens scale dialog
+- **Calculator** (🧮 icon) → opens calculator popover; "Insert as working" inserts a `smartCalc` node
 
-## Scope (phase 1)
+Each tool inserts a block node at the current cursor (same insertion pattern as `geometryDiagram`).
 
-Ship the engine + UX skeleton with a focused set of theorems so it's usable end-to-end, then expand the theorem library iteratively.
+---
 
-Included now:
-- Recognition for **triangles** (sides, vertices, interior angles, midpoints) and **circles** (centre, radius, diameter, chord, arc, tangent, point-on-circumference).
-- Hover highlight + click multi-select on derived parts.
-- Right-hand "Relationships" panel with Relationship Mode + Apply Mode.
-- Initial theorem library: angle sum of triangle, isosceles, exterior angle, vertically opposite, angles on a straight line, Pythagoras, tangent ⟂ radius, angle at centre = 2× angle at circumference, angles in same segment, cyclic quadrilateral.
-- Editable numeric values (angles, lengths, radius) with live recompute of dependents.
-- "AI Edit" button that ships the current selection as context to the existing `geometry-edit` edge function.
+### PART 1 — Smart Mathematical Tables
 
-Deferred to later phases (called out so we don't over-build):
-- Graphs / tables / matrices / number lines (item 14 — foundation only).
-- Image-import recognition (item 1 mentions imported images; we'll handle AI- and manually-drawn diagrams first).
-- Full animation in expanded explanations.
+**New TipTap node**: `mathTable` (block, atomic, with `attrs: { tableId, input, rows }`).
 
-## Architecture
+**Picker UI** (`MathTablesPicker.tsx`): Collapsible list mirroring the textbook ToC. Catalog in `src/lib/tables/catalog.ts`:
+- Section A: Logarithms, Antilogarithms, Reciprocals, Squares, Square Roots, Cubes, Natural Logs, Exponentials, Negative Exponentials, Sin/Cos/Tan, Log Sin/Cos/Tan, Degree↔Radian, Sin/Cos/Tan (Radians)
+- Section B: Binomial Coefficients, Normal, t, Chi-square, F (5% & 1%), Factorials
 
-New module: `src/lib/geometry/smart/`
+Each entry: `{ id, name, validRange, headings, generate(input) → { rowLabel, mainCols, diffCols } }`.
 
-```text
-smart/
-  parts.ts         // SmartPart types: SidePart, AnglePart, RadiusPart, ChordPart, ...
-  recognize.ts     // GeometryScene -> SmartPart[] (graph w/ relations)
-  relations.ts     // Theorem definitions + applicability predicates
-  evaluate.ts      // Substitute scene values into a theorem -> Apply-mode equation
-  hitTest.ts       // (x,y) -> SmartPart (for hover/click on derived parts)
-```
+**Generation**: Pure JS (no AI) — `src/lib/tables/generators/*.ts` computes the exact row plus 0–9 main columns and 1–9 difference (mean diff) columns, matching textbook layout. Example for `log` with 55.24: row label `55`, columns 0–9 = log(55.0)…log(55.9) to 4dp, diff cols = mean differences.
 
-`SmartPart` wraps a logical math object with: id, kind, label, sourceObjectIds (the raw scene objects it derives from), geometry (for hit-test + halo), and editable fields.
+**Validation**: If input outside range, show inline message: "Enter a value between {min} and {max}."
 
-`Theorem` shape:
-```ts
-{ id, name, formula, genericDiagram, appliesTo(parts): boolean, instantiate(parts, scene): { equation, unknowns } }
-```
+**Renderer** (`MathTableView.tsx` NodeView):
+- Monospace, textbook styling, fixed column widths
+- `overflow-x: auto` on wrapper — never shrink, never wrap
+- Highlight the looked-up cell (e.g. row 55, col 2, diff 4)
+- Editable cells via `contentEditable` per cell; "Regenerate" button restores generated values
+- Top bar shows: table name, input value (editable → re-generates), Regenerate, Delete
 
-State: a new `SmartGeometryContext` (one per diagram node) holds `parts`, `hoveredPartId`, `selectedPartIds`, and a memoised `candidateTheorems` derived from `selectedPartIds` via progressive filtering (item 5).
+---
 
-## UI changes
+### PART 2 — Smart Graph
 
-1. **`GeometryCanvas.tsx`** — add a transparent overlay layer above the SVG that:
-   - on `pointermove` calls `hitTestSmartPart` and sets `hoveredPartId` (renders a glow on just that part).
-   - on `click` toggles `selectedPartIds` (shift / plain click both add, click empty clears).
-   - leaves all existing tool behaviour intact when an editor tool is active; smart-select is the default when `tool === "select"`.
+**New TipTap node**: `smartGraph` (block, atomic, with `attrs: { scale, axes, data, plots }`).
 
-2. **`RelationshipPanel.tsx`** (new, right side of diagram NodeView) — lists candidate theorems with:
-   - Mode toggle: **Relationship** (generic A+B+C=180°, generic mini-diagram) / **Apply** (substituted: `40 + 65 + x = 180`).
-   - Each row is `<Collapsible>` (already in `src/components/ui/collapsible.tsx`) with mini-diagram + explanation + "why it applies".
-   - Empty state: "Select an object in the diagram".
-   - "AI Edit selection" button at the bottom.
+**Flow on insert**:
+1. Scale dialog: choose `1 square = N units` for X and Y (or `1 cm = N units`)
+2. Node renders full-width SVG workspace with auto X/Y axes, origin, gridlines, tick labels
 
-3. **`GeometryDiagram` NodeView** — wrap the existing diagram + canvas in a 2-column layout: diagram left, `RelationshipPanel` right, only when the diagram is active. Collapsed otherwise so the lesson note layout is unchanged.
+**Workspace** (`SmartGraphView.tsx`):
+- Sticky data table at top (editable rows of `{x, y}`)
+- Scrollable SVG canvas below (horizontal + vertical scroll), grid never compressed
+- Toolbox: Point, Connect (Straight / Smooth Curve / Broken / Scatter), Move Axis, Reposition Origin, Rename Axes, Change Scale, Resize
+- Plot by clicking canvas → snaps to grid → adds point to data table
+- "Connect" joins selected points in chosen style; result is editable polyline/curve
 
-4. **Editable values** — click any rendered numeric label (angle value, segment length, radius) opens the existing `inlineEdit` input; on commit we `patchObject` the underlying scene object. Dependent values (circumference, diameter, area, recomputed unknowns) are derived live by `evaluate.ts`, not stored.
+**State**: All scene data stored in node `attrs`; updated via `updateAttributes`. History via TipTap.
 
-5. **Label rename** — clicking a point label opens the same inline editor; renaming `A → P` updates `label` on the point, and all derived parts/theorems re-render with the new name automatically because they read from the scene.
+---
 
-## AI integration
+### PART 3 — Smart Calculator
 
-`geometry-edit` edge function already accepts a scene + instruction. Extend the client call to include `selection: { kind, ids, label }` for the selected SmartPart(s). No edge function code change required for phase 1 — the model just gets richer context in the prompt the client sends.
+**Two modes** in one popover (`SmartCalculator.tsx`), toggled by tabs:
 
-## Files
+**Standard** — scientific calculator UI:
+- Basic ops, fractions, powers, roots, sin/cos/tan, log, ln, exp, memory (M+ M- MR MC), DEG/RAD toggle
+- Uses `mathjs` (already-friendly evaluator) for evaluation
+- "Copy result" only — does not insert into the note
 
-New:
-- `src/lib/geometry/smart/parts.ts`
-- `src/lib/geometry/smart/recognize.ts`
-- `src/lib/geometry/smart/relations.ts`
-- `src/lib/geometry/smart/evaluate.ts`
-- `src/lib/geometry/smart/hitTest.ts`
-- `src/components/lessonnotes/geometry-editor/SmartGeometryContext.tsx`
-- `src/components/lessonnotes/geometry-editor/RelationshipPanel.tsx`
-- `src/components/lessonnotes/geometry-editor/SmartOverlay.tsx` (hover/select highlight layer)
+**Smart** — working-shown mode:
+- Teacher types/speaks an expression or word problem
+- Calls existing AI gateway (Lovable AI, `google/gemini-3-flash-preview`) via a new edge function `smart-calc` that returns `{ formula, substitution, steps[], answer }` as JSON
+- "Insert into note" creates a `smartCalc` node showing formula, substitution, steps, answer — every line editable; "Recalculate" re-runs AI; "Convert to prose" turns it into normal paragraph nodes
 
-Edited:
-- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — mount `SmartOverlay`.
-- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — wrap with `SmartGeometryProvider` + render `RelationshipPanel` when active.
-- `src/components/lessonnotes/GeometryDiagram.tsx` — expose hit-targets via stable ids (`data-part-id`) so the overlay can highlight statically rendered diagrams too.
+---
 
-## Out of scope this turn
+### Shared philosophy
+- All three nodes are TipTap block nodes with NodeViews — same lifecycle as `geometryDiagram`
+- Every generated value is editable; nothing is locked
+- "Regenerate" never overwrites teacher edits without confirmation
+- All UI uses existing design tokens (no hardcoded colors)
 
-- The bug visible in console (`duplicate key "h-p49"` from halo rendering when the same id is selected + pending + flashed) — flag for a separate fix unless you want it bundled.
+### Technical summary
+- New files:
+  - `src/components/lessonnotes/extensions/MathTable.tsx`, `SmartGraph.tsx`, `SmartCalc.tsx` (TipTap nodes + NodeViews)
+  - `src/components/lessonnotes/math-tools/MathTablesPicker.tsx`, `SmartGraphView.tsx`, `SmartCalculator.tsx`
+  - `src/lib/tables/catalog.ts` + `src/lib/tables/generators/*.ts` (pure-JS table math)
+  - `src/lib/graph/scale.ts` (axis/tick math)
+  - `supabase/functions/smart-calc/index.ts` (AI step-by-step working)
+- Edits:
+  - `DocumentEditor.tsx` — register 3 nodes, add 3 toolbar buttons next to Diagram
+- Dependency: add `mathjs` for calculator evaluation
+- No DB schema changes — everything persists inside `document_json`
 
-## Open question
-
-Phase 1 ships the triangle + circle theorem set above. Do you want me to also include **parallel-line angle theorems** (alternate, corresponding, co-interior) in phase 1, or push those to phase 2?
+### Out of scope (this round)
+- Cross-linking graph ↔ table data (later)
+- Exporting tables/graphs to DOCX (later)
+- Student-side interactive plotting in Smartboard (later)
