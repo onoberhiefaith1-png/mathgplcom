@@ -489,11 +489,30 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
               </g>
             );
           })}
+
+          {/* Geometry shapes drawn on top of the graph (Diagram inside graph) */}
+          {(a.shapes ?? []).map((s) => (
+            <ShapeNode key={s.id} shape={s} />
+          ))}
+          {geomActive && geomDraft.length > 0 && (
+            <g opacity={0.6}>
+              {geomDraft.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r={3} fill="hsl(45 95% 45%)" />
+              ))}
+              {geomDraft.length >= 2 && (
+                <polyline
+                  points={geomDraft.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none" stroke="hsl(45 95% 45%)" strokeDasharray="4 3" strokeWidth={1.25}
+                />
+              )}
+            </g>
+          )}
         </svg>
       </div>
     </NodeViewWrapper>
   );
 }
+
 
 // ---------- small presentational helpers ----------------------------------
 
