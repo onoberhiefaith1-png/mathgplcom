@@ -492,32 +492,55 @@ export function DocumentEditor({
     if (!content) { toast({ title: "No content returned" }); return; }
 
     // Single-column flow: math + prose interleaved.
-    const nodes = isQuestionSectionKind(info.kind)
-      ? [...aiTextToNodes(content), ...solutionPlaceholderNodes()]
-      : aiTextToNodes(content);
+    // For question-style sections we insert the question body and the
+    // Solution placeholder SEPARATELY so we have an exact position for the
+    // geometry diagram (which must sit BELOW the question and ABOVE the
+    // "Solution" heading — the diagram is part of the question).
+    const questionBodyNodes = aiTextToNodes(content);
+    const trailingNodes = isQuestionSectionKind(info.kind) ? solutionPlaceholderNodes() : [];
 
     // REGENERATE (and in-place EDIT): replace the section body, strictly
     // bounded by this section's range. Otherwise append at section end.
     const replaceBody = info.action === "regenerate" || isInPlaceEdit(info, prompt);
     let insertFrom: number;
+    // Position immediately AFTER the question body — this is where the
+    // geometry diagram for the question must be inserted.
+    let questionBodyEnd: number;
     if (replaceBody) {
       const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
-      const start = info.headingPos + headingNodeSize;
+      const start = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
       insertFrom = start;
+      // Clear the existing body first, then insert the question content and
+      // measure the doc-size delta to find the exact end of the question body.
       editor.chain().focus()
         .deleteRange({ from: start, to: info.sectionEndPos })
-        .insertContentAt(start, nodes)
         .run();
+      const sizeBefore = editor.state.doc.content.size;
+      editor.chain().focus().insertContentAt(start, questionBodyNodes).run();
+      questionBodyEnd = start + (editor.state.doc.content.size - sizeBefore);
+      if (trailingNodes.length) {
+        editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
+      }
     } else {
       insertFrom = info.sectionEndPos;
-      editor.chain().focus().insertContentAt(info.sectionEndPos, nodes).run();
+      const sizeBefore = editor.state.doc.content.size;
+      editor.chain().focus().insertContentAt(insertFrom, questionBodyNodes).run();
+      questionBodyEnd = insertFrom + (editor.state.doc.content.size - sizeBefore);
+      if (trailingNodes.length) {
+        editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
+      }
     }
 
+    // Capture the question body end position via a relative mapping marker
+    // so it stays correct even if the document mutates while the geometry
+    // pass is in flight.
+    const geometryAnchor = questionBodyEnd;
+
     // Automatic geometry diagram pass. Fire-and-forget: if the section is
-    // geometric, this returns a GeometryScene which we insert at the end
-    // of the just-generated content. If it isn't, the backend returns null
-    // and we do nothing. Errors here are non-fatal — the teacher's lesson
-    // note is already on the page.
+    // geometric, this returns a GeometryScene which we insert IMMEDIATELY
+    // BELOW the question body (and above the Solution heading, when present).
+    // If the section isn't geometric, the backend returns null and we do
+    // nothing. Errors here are non-fatal.
     void (async () => {
       try {
         const topic = ctxRef.current?.topic || notebookContext?.topic;
@@ -533,8 +556,9 @@ export function DocumentEditor({
         if (error) return;
         const scene = sanitizeScene((data as any)?.scene);
         if (!scene || scene.objects.length === 0) return;
-        // Insert the diagram at the end of the section we just generated.
-        const insertAt = editor.state.doc.content.size;
+        // Insert the diagram at the END of the question body. Clamp to the
+        // current doc size in case the document shrank since we computed it.
+        const insertAt = Math.min(geometryAnchor, editor.state.doc.content.size);
         editor
           .chain()
           .focus()
