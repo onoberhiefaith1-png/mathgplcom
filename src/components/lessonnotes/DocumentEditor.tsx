@@ -398,10 +398,14 @@ export function DocumentEditor({
               `"""${prompt}"""\n\n` +
               `Output ONLY the full revised ${label}. Keep everything not mentioned in the instruction exactly as-is. ` +
               `Do NOT add section headings (no "Introduction", "Explanation", "Example", "Summary" titles). ` +
-              `Do NOT generate any other section. Return just the body text of this ${label}.`,
+              `Do NOT generate any other section. Return just the body text of this ${label}.\n\n` +
+              `DIAGRAM OWNERSHIP: This section may contain a geometry diagram that the editor preserves automatically. ` +
+              `Do NOT mention the diagram, do NOT say it was removed/replaced/moved, and do NOT add "(see diagram)" placeholders. ` +
+              `Only describe the diagram differently if the teacher's instruction explicitly asks to change it.`,
             currentContent: opts.sectionText,
           };
         }
+
         if (isQuestionSectionKind(opts.kind)) {
           return { prompt: prompt || `Generate one ${label} question only. Do not write the solution.`, currentContent: "" };
         }
