@@ -18,6 +18,9 @@ import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
+import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
+import { GeometryAiPanel } from "./GeometryAiPanel";
+import { sanitizeScene } from "@/lib/geometry/scene";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
 import { MathSymbolPanel } from "./MathSymbolPanel";
@@ -511,6 +514,7 @@ export function DocumentEditor({
       SolutionRow,
       SolutionMath,
       SolutionProse,
+      GeometryDiagramNode,
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
