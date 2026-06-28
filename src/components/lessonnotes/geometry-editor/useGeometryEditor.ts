@@ -1,4 +1,6 @@
 // useGeometryEditor — wires scene + tool + history together.
+// Important: edits stay LOCAL until the teacher saves. This prevents the
+// outer document from re-rendering the panel on every stroke.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { GeometryScene, GeoId, GeoObject } from "@/lib/geometry/scene";
@@ -26,6 +28,9 @@ export interface UseGeometryEditorReturn {
   canUndo: boolean;
   canRedo: boolean;
   flashIds: GeoId[];
+  dirty: boolean;
+  save: () => void;
+  revert: () => void;
 }
 
 export function useGeometryEditor(
@@ -33,6 +38,7 @@ export function useGeometryEditor(
   onChange: (s: GeometryScene) => void,
 ): UseGeometryEditorReturn {
   const [scene, setScene] = useState<GeometryScene>(initial);
+  const [savedScene, setSavedScene] = useState<GeometryScene>(initial);
   const [history, setHistory] = useState<History>(emptyHistory());
   const [tool, setTool] = useState<ToolId>("select");
   const [selectedIds, setSelectedIds] = useState<GeoId[]>([]);
@@ -43,8 +49,7 @@ export function useGeometryEditor(
   const commit = useCallback((next: GeometryScene) => {
     setHistory((h) => push(h, scene));
     setScene(next);
-    onChange(next);
-  }, [scene, onChange]);
+  }, [scene]);
 
   const apply = useCallback((op: OpResult) => {
     if (op.scene === scene) return;
@@ -73,18 +78,30 @@ export function useGeometryEditor(
     if (!r) return;
     setHistory(r.history);
     setScene(r.scene);
-    onChange(r.scene);
-  }, [history, scene, onChange]);
+  }, [history, scene]);
 
   const doRedo = useCallback(() => {
     const r = redo(history, scene);
     if (!r) return;
     setHistory(r.history);
     setScene(r.scene);
-    onChange(r.scene);
-  }, [history, scene, onChange]);
+  }, [history, scene]);
 
   const resetPending = useCallback(() => setPendingIds([]), []);
+
+  const save = useCallback(() => {
+    setSavedScene(scene);
+    onChange(scene);
+  }, [scene, onChange]);
+
+  const revert = useCallback(() => {
+    setHistory((h) => push(h, scene));
+    setScene(savedScene);
+    setPendingIds([]);
+    setSelectedIds([]);
+  }, [scene, savedScene]);
+
+  const dirty = scene !== savedScene;
 
   return {
     scene,
@@ -105,5 +122,8 @@ export function useGeometryEditor(
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
     flashIds,
+    dirty,
+    save,
+    revert,
   };
 }
