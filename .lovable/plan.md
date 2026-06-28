@@ -1,66 +1,90 @@
-# Fix: Debug labels (`POWER_SLOT`, `SCRIPT_0`) leaking into chip labels
+# Geometry Diagrams + AI Geometry Editor
 
-## Root cause
+Two tightly-linked features. The Lesson Note Generator workflow does not change — we only add a new content type (`geometryDiagram`) that the AI emits when a section needs a diagram, plus an AI Edit panel for those diagrams (mirroring the Floating Number AI Editor pattern).
 
-`src/lib/notebook/unicodeMath.ts` uses textual sentinel strings to hide partial
-LaTeX from intermediate regex passes:
+## 1. Diagram data model (single source of truth)
 
-```ts
-const POWER_SLOT = "\uE000POWER_SLOT\uE000";
-const token      = `\uE001SCRIPT_${n}\uE001`;
+A diagram is a small JSON scene of mathematical objects — not an image, not ASCII, not raw SVG.
+
+```text
+GeometryScene {
+  bounds: { width, height }              // logical units
+  objects: [
+    { id, type: "point",   x, y, label?, style? }
+    { id, type: "segment", a, b, label?, marks?: "tick"|"double"|"right" }
+    { id, type: "line"   , a, b }
+    { id, type: "ray"    , a, b }
+    { id, type: "circle" , center, r, label? }
+    { id, type: "arc"    , center, r, from, to }
+    { id, type: "angle"  , vertex, a, b, value?, marker?: "arc"|"right" }
+    { id, type: "polygon", points:[ids], fill?, label? }
+    { id, type: "label"  , x, y, text }
+  ]
+  meta: { topic, caption? }
+}
 ```
 
-The bracketing private-use characters (`\uE000`, `\uE001`) are invisible, but
-the **literal ASCII payload** (`POWER_SLOT`, `SCRIPT_0`, `SCRIPT_1`, …) is
-plain readable text. If anything downstream strips or normalizes private-use
-characters — or if the sentinel survives into a context where the surrounding
-`\uE000` is rendered as a glyph and ignored — the teacher sees the raw debug
-words. That is exactly what the report describes (`x POWER SCRIPT LOT`, etc.).
-There are no other sources of those strings in the rendering layer.
+Renderer: a new `<GeometryDiagram scene=… />` React component renders the scene to inline SVG (clean textbook style: thin strokes, serif labels, angle arcs, tick marks, right-angle squares). Pure function of the JSON, so editing = JSON diff.
 
-## Fix (rendering-layer only)
+## 2. TipTap node: `geometryDiagram`
 
-Replace the ASCII payloads with **pure private-use code points** so the
-sentinel can never expose readable text under any circumstance:
+New extension `src/components/lessonnotes/extensions/GeometryDiagram.tsx`:
+- Atom block node with `attrs: { scene: GeometryScene }`.
+- `NodeView` renders `<GeometryDiagram>` plus a small toolbar on hover: **AI Edit ✨**, Delete, Resize handle.
+- Persists inside `document_json` like other block nodes — no schema migration needed.
+- Registered in `DocumentEditor.tsx` extensions array.
 
-```ts
-const POWER_SLOT = "\uE000\uE010\uE000";
-const holdScript = (markup) => {
-  const idx = scriptSlots.length;
-  const token = `\uE001${String.fromCharCode(0xE100 + idx)}\uE001`;
-  scriptSlots.push(markup);
-  return token;
-};
-```
+## 3. Generator integration (no workflow change)
 
-The restore step at the bottom of `toUnicodeMath` already swaps these tokens
-back to their real markup before returning, so behaviour is unchanged for
-every well-formed input. Only the worst-case leak becomes invisible PUA
-characters instead of the words "POWER SCRIPT LOT".
+`supabase/functions/notebook-ai/index.ts` already returns structured section content. We add:
 
-As a defence-in-depth belt, also strip any leftover PUA sentinel from the
-final output (right before `return s.trim()`):
+- A new `geometryStandard.ts` knowledge file telling the model: when the concept requires a diagram (circle theorems, tangents, triangles, polygons, angles, transformations, loci, coordinate geometry, etc.), it MUST emit a `geometryDiagram` node with a full `scene` JSON instead of ASCII art. Explicit ban on `/\` / `____` / Unicode box drawing as geometry.
+- Extend the output schema (`aiToNodes.ts`) to accept `{ type: "geometryDiagram", scene: … }` and convert it into the TipTap node.
+- Tool/structured-output schema mirrors the GeometryScene shape so Gemini can fill it directly (kept small to stay under state limits).
+- Post-generation guard: if a section's prose mentions "as shown" / "the diagram" / "the figure" and no `geometryDiagram` was produced, the backend retries once asking specifically for the scene JSON.
 
-```ts
-s = s.replace(/[\uE000-\uE0FF]/g, "");
-```
+Teacher experience is unchanged: pick section → Generate → diagram appears inline, editable.
 
-## Out of scope (do not touch)
+## 4. Geometry AI Editor panel (mirrors Floating Number AI)
 
-- Floating-number generation, AI prompts, highlight engine, merge/split,
-  structure detection, metadata, Apply button, editor behaviour.
-- `renderMathInline` already renders `\frac`, `\sqrt`, `^{…}`, `_{…}`,
-  brackets, abs, integrals, summations, matrices as real math — no changes
-  needed there.
+New component `src/components/lessonnotes/GeometryAiPanel.tsx`, opened by the node's **AI Edit** button. Layout matches the existing AssistantPanel:
 
-## Files to edit
+- Left: lesson note + original diagram remain visible.
+- Right panel:
+  - **Preview**: live `<GeometryDiagram>` of the proposed scene, with changed objects highlighted.
+  - **Chat input** + **mic** (reuses `useVoiceInput` — same hardened hook used by Floating Number AI).
+  - **Image upload** (paperclip + camera) — uploaded images sent as multimodal input so the AI can "make my diagram look like this".
+  - Buttons: **Apply Changes**, **Regenerate**, **Cancel**.
 
-- `src/lib/notebook/unicodeMath.ts` — sentinel constants + final PUA strip.
+Edit flow:
+1. Teacher types/speaks/uploads ("change 30° to 45°", "make it isosceles", "label A B C", "add a tangent").
+2. New edge function `supabase/functions/geometry-edit/index.ts` receives `{ scene, instruction, images? }` and returns a **patched scene** (not a fresh one) using structured output. System prompt enforces: preserve existing object IDs, edit minimally, keep mathematical correctness (e.g. isosceles → adjust only the sides needed).
+3. Panel diffs old vs new scene → highlights moved/added/removed objects in the preview.
+4. Only on **Apply Changes** does the TipTap node's `scene` attr update.
 
-## Verification
+## 5. Files to add / edit
 
-- Existing tests under `src/test/` (highlight engine, floating laws,
-  extractor, unicode math) must still pass.
-- Manual: create `x^2`, `(a+b)^2`, `\frac{a+b}{c+d}`, `\sqrt{(a+b)/(c+d)}` —
-  chips render as `x²`, `(a+b)²`, stacked fraction, nested radical. No ASCII
-  debug words appear anywhere.
+Add:
+- `src/lib/geometry/scene.ts` — types + validators + diff helper.
+- `src/lib/geometry/renderSvg.tsx` — pure renderer (angle arcs, tick marks, right-angle squares, labels).
+- `src/components/lessonnotes/GeometryDiagram.tsx` — display component + hover toolbar.
+- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — TipTap node + NodeView.
+- `src/components/lessonnotes/GeometryAiPanel.tsx` — right-hand AI editor.
+- `supabase/functions/notebook-ai/geometryStandard.ts` — generation rules + scene schema description.
+- `supabase/functions/geometry-edit/index.ts` — edit endpoint (Lovable AI Gateway, `google/gemini-3-flash-preview`, structured output).
+
+Edit:
+- `src/components/lessonnotes/DocumentEditor.tsx` — register the new extension; wire AI Edit panel open state.
+- `src/lib/lessonnotes/aiToNodes.ts` — map `geometryDiagram` AI output to the TipTap node.
+- `supabase/functions/notebook-ai/index.ts` — inject `GEOMETRY_STANDARD`, add `geometryDiagram` to allowed node types, run the "diagram expected but missing" retry guard.
+
+## 6. Non-goals (explicit)
+
+- No change to lesson note sections, generation buttons, or notebook schema.
+- No change to Floating Number AI, Smartboard, or Adventure code paths.
+- No raster/image output — diagrams are always SVG built from the scene JSON so they stay editable.
+
+## Out of scope for this plan
+
+- 3D geometry, graph plotting (functions/curves) — would be a separate plan.
+- A manual click-to-draw editor — the AI editor + text/voice covers the requested workflow.

@@ -18,6 +18,9 @@ import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
+import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
+import { GeometryAiPanel } from "./GeometryAiPanel";
+import { sanitizeScene } from "@/lib/geometry/scene";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
 import { MathSymbolPanel } from "./MathSymbolPanel";
@@ -487,6 +490,41 @@ export function DocumentEditor({
       editor.chain().focus().insertContentAt(info.sectionEndPos, nodes).run();
     }
 
+    // Automatic geometry diagram pass. Fire-and-forget: if the section is
+    // geometric, this returns a GeometryScene which we insert at the end
+    // of the just-generated content. If it isn't, the backend returns null
+    // and we do nothing. Errors here are non-fatal — the teacher's lesson
+    // note is already on the page.
+    void (async () => {
+      try {
+        const topic = ctxRef.current?.topic || notebookContext?.topic;
+        const subtopic = ctxRef.current?.subtopic || notebookContext?.subtopic;
+        const subject = ctxRef.current?.subject || notebookContext?.subject;
+        const { data, error } = await supabase.functions.invoke("notebook-ai", {
+          body: {
+            mode: "geometry",
+            sectionText: content,
+            topic, subtopic, subject,
+          },
+        });
+        if (error) return;
+        const scene = sanitizeScene((data as any)?.scene);
+        if (!scene || scene.objects.length === 0) return;
+        // Insert the diagram at the end of the section we just generated.
+        const insertAt = editor.state.doc.content.size;
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(insertAt, {
+            type: "geometryDiagram",
+            attrs: { scene, topic },
+          })
+          .run();
+      } catch (err) {
+        console.warn("[geometry] auto-diagram skipped:", err);
+      }
+    })();
+
     if (isQuestionSectionKind(info.kind)) return;
 
     await persistAndOfferFloating(generationKind, content, {
@@ -494,6 +532,8 @@ export function DocumentEditor({
       to: editor.state.doc.content.size,
     }, solutionSource?.problemText);
   };
+
+
 
   const editor = useEditor({
     extensions: [
@@ -511,6 +551,7 @@ export function DocumentEditor({
       SolutionRow,
       SolutionMath,
       SolutionProse,
+      GeometryDiagramNode,
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
@@ -904,6 +945,7 @@ export function DocumentEditor({
         onClose={closeAiEdit}
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
+      <GeometryAiPanel />
     </div>
   );
 }

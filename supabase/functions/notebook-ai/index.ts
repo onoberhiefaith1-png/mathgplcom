@@ -9,6 +9,7 @@ import { BENCHMARK_STANDARD } from "./benchmarkStandard.ts";
 import { STRUCTURAL_STANDARD } from "./structuralStandard.ts";
 import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { INHERITANCE_STANDARD } from "./inheritanceStandard.ts";
+import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
   runValidationPipeline,
   firstFailingStage,
@@ -633,6 +634,8 @@ ${MATH_MARKUP_RULES}
 ${RENDERING_STANDARD}
 
 ${STRUCTURAL_STANDARD}
+
+${GEOMETRY_STANDARD}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
 Task style for this block: ${styleLine}
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
@@ -797,6 +800,76 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         kind: validationKind,
       });
       return new Response(JSON.stringify({ content, warnings }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MODE: geometry
+    // Given a generated section's text + topic, decide whether a geometry
+    // diagram is required. If yes, return a GeometryScene; otherwise null.
+    // The teacher never asks for this — the Lesson Note Generator calls it
+    // automatically after each section's text is produced.
+    // ─────────────────────────────────────────────────────────────
+    if (body.mode === "geometry") {
+      const b = body as {
+        mode: "geometry";
+        sectionText: string;
+        topic?: string; subtopic?: string; subject?: string;
+        forceDiagram?: boolean;
+      };
+      const sectionText = String(b.sectionText ?? "").trim();
+      if (!sectionText) {
+        return new Response(JSON.stringify({ scene: null }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const sys = `You decide whether a mathematics passage needs a geometry diagram,
+and if so, produce one as a GeometryScene JSON object.
+
+${GEOMETRY_STANDARD}
+
+${GEOMETRY_SCENE_SCHEMA}
+
+DECISION RULES:
+- Return {"scene": null} if the passage is purely algebraic / arithmetic
+  / statistical and does not describe a figure.
+- Return a "scene" object when the passage references a geometric figure
+  (triangle, quadrilateral, polygon, angle, parallel/perpendicular lines,
+  circle, tangent, chord, arc, sector, transformation, locus,
+  construction, coordinate geometry of lines/circles, similar/congruent
+  triangles, Pythagoras, trigonometry of triangles, etc.) OR when the
+  topic is naturally a geometry topic.
+- The diagram must match the passage's labels and numbers exactly. If the
+  passage names triangle ABC with angle A = 30°, your scene must use the
+  same vertex names and angle value.
+- Coordinates: origin top-left, y grows DOWNWARD. Layout the figure so it
+  fits with ≥20-unit padding inside bounds.
+
+OUTPUT — STRICT JSON only, no fences, no prose:
+  {"scene": <GeometryScene>} or {"scene": null}`;
+
+      const user = `Subject: ${b.subject || "Mathematics"} | Topic: ${b.topic || "—"} | Subtopic: ${b.subtopic || "—"}
+${b.forceDiagram ? "The teacher has explicitly requested a diagram for this passage.\n" : ""}
+PASSAGE:
+${sectionText}`;
+
+      const raw = await callAI(
+        [
+          { role: "system", content: sys },
+          { role: "user", content: user },
+        ],
+        "google/gemini-2.5-flash",
+      );
+      const cleaned = stripFences(raw).replace(/^```json\s*|\s*```$/g, "");
+      let scene: unknown = null;
+      try {
+        const obj = JSON.parse(cleaned);
+        scene = obj?.scene ?? null;
+      } catch {
+        scene = null;
+      }
+      return new Response(JSON.stringify({ scene }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
