@@ -62,7 +62,7 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       height={displayH}
       preserveAspectRatio="xMidYMid meet"
       className={className}
-      style={{ background: "white", borderRadius: 6 }}
+      style={{ background: "transparent" }}
     >
       <g>{elements}</g>
     </svg>
