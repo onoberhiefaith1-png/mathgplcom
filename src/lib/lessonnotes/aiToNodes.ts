@@ -196,6 +196,23 @@ function inlineMixedParagraph(line: string): TipTapNode {
   return content.length ? { type: "paragraph", content } : { type: "paragraph" };
 }
 
+/** Detect lines that are ASCII pseudo-diagrams (`/\`, `____`, `|  |`, etc.).
+ *  These slipped past the AI's geometry rule and would otherwise pollute
+ *  the notebook. The real diagram is inserted as a `geometryDiagram` node
+ *  by `DocumentEditor.requestGeometryForRange`. */
+function isAsciiArtLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  if (t.length < 3) return false;
+  // Pure-symbol lines made of slashes / backslashes / underscores / pipes /
+  // dashes / dots / spaces. Allow at most one digit/letter to permit a
+  // stray label, but if the line is dominated by drawing glyphs it is art.
+  const drawing = (t.match(/[\/\\_|\-=.~`*]/g) ?? []).length;
+  const letters = (t.match(/[A-Za-z0-9]/g) ?? []).length;
+  if (drawing >= 3 && drawing >= t.replace(/\s/g, "").length - 1 && letters <= 2) return true;
+  return false;
+}
+
 export function aiTextToNodes(text: string): TipTapNode[] {
   if (!text) return [{ type: "paragraph" }];
   // Display gate — last line of defence before AI text reaches the editor.
@@ -209,6 +226,11 @@ export function aiTextToNodes(text: string): TipTapNode[] {
   for (const raw of lines) {
     const line = raw.replace(/\s+$/, "");
     if (!line.trim()) { out.push({ type: "paragraph" }); continue; }
+    if (isAsciiArtLine(line)) {
+      // Drop ASCII pseudo-diagrams entirely. A real GeometryDiagram node
+      // will be inserted by the editor's geometry pass.
+      continue;
+    }
     if (isMostlyMath(line)) {
       out.push({ type: "mathBlock", attrs: { value: stripDollars(line.trim()) } });
     } else if (HAS_MATH(line)) {
@@ -219,6 +241,8 @@ export function aiTextToNodes(text: string): TipTapNode[] {
   }
   return out;
 }
+
+
 
 /* ---------------- two-column (Solution | Explanation) packer ---------------- */
 
