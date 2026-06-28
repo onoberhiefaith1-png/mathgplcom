@@ -38,7 +38,7 @@ import {
   Undo2, Redo2, Sigma, Minus, Plus, Heading1, Heading2,
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Shapes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
