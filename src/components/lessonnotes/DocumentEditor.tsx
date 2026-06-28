@@ -800,7 +800,9 @@ function DocumentEditorInner({
   }, []);
 
   const handleGeometryPaperClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!editor || !geometryMode || e.button !== 0 || isEditorControlTarget(e.target)) return false;
+    const targetEl = eventTargetElement(e.target);
+    const isGeometryTarget = Boolean(targetEl?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
+    if (!editor || !geometryMode || e.button !== 0 || (isEditorControlTarget(e.target) && !isGeometryTarget)) return false;
     const tool = geometryToolRef.current;
     if (!(tool === "point" || tool === "line" || tool === "midpoint")) return false;
 
@@ -1103,9 +1105,9 @@ function DocumentEditorInner({
    *  drop a new free-position text box at that point. */
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    if (isEditorControlTarget(e.target)) return;
-
     const el = eventTargetElement(e.target);
+    const isGeometryTarget = Boolean(el?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
+    if (isEditorControlTarget(e.target) && !isGeometryTarget) return;
 
     // Geometry Mode behaves like a drawing tool inside the lesson note:
     // choose Point/Line/Midpoint, then click the page. If the click is on an
