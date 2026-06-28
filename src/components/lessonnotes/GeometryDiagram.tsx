@@ -59,7 +59,8 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     <svg
       viewBox={`0 0 ${W} ${H}`}
       width={displayW}
-      height={(displayW / W) * H}
+      height={displayH}
+      preserveAspectRatio="xMidYMid meet"
       className={className}
       style={{ background: "white", borderRadius: 6 }}
     >
