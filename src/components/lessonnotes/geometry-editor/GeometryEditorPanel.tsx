@@ -1,12 +1,12 @@
-// GeometryEditorPanel — floating, non-modal manual editor for a single
-// GeometryScene. The teacher opens it from the diagram's hover toolbar
-// ("Edit") or the Diagram menu. Changes stay LOCAL inside the panel
-// until the teacher presses Save (or Add to section…).
+// GeometryEditorPanel — right-edge dock that opens whenever a diagram
+// frame is selected in the lesson note. Edits are LIVE — the teacher
+// never leaves the document. Closing the panel simply deselects the
+// diagram; nothing is lost.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  X, Undo2, Redo2, Sparkles, Lock, RotateCw, Triangle, Star, Equal,
-  Save, RotateCcw, FilePlus2, ChevronRight,
+  X, Undo2, Redo2, Sparkles, RotateCw, Triangle, Star, Equal,
+  FilePlus2, ChevronRight,
 } from "lucide-react";
 import { GeometryToolbar } from "./GeometryToolbar";
 import { GeometryCanvas } from "./GeometryCanvas";
@@ -21,9 +21,9 @@ import {
 import { openGeometryAiEdit } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 
 const OPEN_EVENT = "geometry-editor:open";
+const CLOSE_EVENT = "geometry-editor:close";
 const LIST_SECTIONS_EVENT = "geometry-editor:list-sections";
 const INSERT_INTO_SECTION_EVENT = "geometry-editor:insert-into-section";
 
@@ -31,10 +31,12 @@ export interface OpenGeometryEditorDetail {
   scene: GeometryScene;
   topic?: string;
   onApply: (next: GeometryScene) => void;
+  /** Stable id so the panel knows whether to swap to a new diagram or
+   *  keep editing the current one. Defaults to a fresh id. */
+  sessionId?: string;
 }
 
 export interface GeometryEditorSection {
-  /** Stable id (TipTap doc position is fine, but caller decides). */
   id: string;
   title: string;
 }
@@ -52,8 +54,10 @@ export function openGeometryEditor(detail: OpenGeometryEditorDetail) {
   window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail }));
 }
 
-/** Request the section list from the host document. Returns [] when no
- *  document editor is mounted (panel opened in isolation). */
+export function closeGeometryEditor() {
+  window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
+}
+
 function requestSections(): GeometryEditorSection[] {
   let result: GeometryEditorSection[] = [];
   const detail: ListSectionsRequest = {
@@ -69,7 +73,6 @@ function insertIntoSection(sectionId: string, scene: GeometryScene) {
 }
 
 interface Session extends OpenGeometryEditorDetail {
-  /** Stable id for this open session — used as React key. */
   sessionId: string;
 }
 
@@ -77,15 +80,25 @@ export function GeometryEditorPanel() {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const onOpen = (e: Event) => {
       const detail = (e as CustomEvent<OpenGeometryEditorDetail>).detail;
-      setSession({
-        ...detail,
-        sessionId: `gep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      const sessionId = detail.sessionId
+        ?? `gep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setSession((prev) => {
+        // Same diagram → refresh the onApply binding but keep the editor state.
+        if (prev && prev.sessionId === sessionId) {
+          return { ...prev, scene: detail.scene, onApply: detail.onApply, topic: detail.topic, sessionId };
+        }
+        return { ...detail, sessionId };
       });
     };
-    window.addEventListener(OPEN_EVENT, handler);
-    return () => window.removeEventListener(OPEN_EVENT, handler);
+    const onClose = () => setSession(null);
+    window.addEventListener(OPEN_EVENT, onOpen);
+    window.addEventListener(CLOSE_EVENT, onClose);
+    return () => {
+      window.removeEventListener(OPEN_EVENT, onOpen);
+      window.removeEventListener(CLOSE_EVENT, onClose);
+    };
   }, []);
 
   if (!session) return null;
@@ -106,22 +119,9 @@ function PanelBody({
   onClose: () => void;
 }) {
   const editor = useGeometryEditor(session.scene, session.onApply);
-  const [pos, setPos] = useState({ x: Math.max(16, window.innerWidth - 880), y: 80 });
-  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
   const [sketchOpen, setSketchOpen] = useState(false);
   const [sketchBusy, setSketchBusy] = useState(false);
   const [sectionPickerOpen, setSectionPickerOpen] = useState(false);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      setPos({ x: e.clientX - dragRef.current.dx, y: e.clientY - dragRef.current.dy });
-    };
-    const onUp = () => { dragRef.current = null; };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, []);
 
   useEffect(() => {
     if (editor.tool === "sketch") setSketchOpen(true);
@@ -131,11 +131,7 @@ function PanelBody({
     setSketchBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("geometry-sketch", {
-        body: {
-          strokes,
-          bounds: editor.scene.bounds,
-          topic: session.topic,
-        },
+        body: { strokes, bounds: editor.scene.bounds, topic: session.topic },
       });
       if (error) throw error;
       const next = sanitizeScene((data as any)?.scene);
@@ -176,52 +172,25 @@ function PanelBody({
       </button>
     ) : null;
 
-  const handleSave = () => {
-    editor.save();
-    toast({ title: "Diagram saved" });
-  };
-
-  const handleClose = () => {
-    if (editor.dirty) {
-      const ok = window.confirm("Discard unsaved changes to this diagram?");
-      if (!ok) return;
-    }
-    onClose();
-  };
-
-  const handleAddToSection = () => {
-    setSectionPickerOpen((v) => !v);
-  };
-
   const sections = useMemo(
     () => (sectionPickerOpen ? requestSections() : []),
     [sectionPickerOpen, editor.scene],
   );
 
   return (
-    <div
-      className="fixed z-50 bg-background border border-foreground/15 rounded-lg shadow-2xl flex flex-col"
-      style={{ left: pos.x, top: pos.y, width: 820, maxWidth: "95vw", maxHeight: "85vh" }}
-      role="dialog"
-      aria-label="Geometry editor"
+    <aside
+      className="fixed right-0 top-0 bottom-0 z-40 w-[380px] bg-background border-l border-foreground/15 shadow-xl flex flex-col"
+      role="complementary"
+      aria-label="Geometry tools"
     >
-      <header
-        className="px-3 py-2 border-b border-foreground/10 flex items-center gap-2 cursor-move select-none"
-        onMouseDown={(e) => { dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }; }}
-      >
-        <Lock className="h-3.5 w-3.5 text-foreground/40" />
-        <h2 className="text-sm font-medium">Geometry editor</h2>
+      <header className="px-3 py-2 border-b border-foreground/10 flex items-center gap-2">
+        <h2 className="text-sm font-medium">Diagram</h2>
         {session.topic && (
           <span className="text-[10px] uppercase tracking-wider text-foreground/50">{session.topic}</span>
         )}
-        <span className="ml-2 text-[11px] text-foreground/60 truncate flex items-center gap-1">
-          {hint}
-          {polygonClose}
-        </span>
-
         <button
           type="button"
-          onClick={() => openGeometryAiEdit({ scene: editor.scene, topic: session.topic, onApply: (s) => { editor.commit(s); } })}
+          onClick={() => openGeometryAiEdit({ scene: editor.scene, topic: session.topic, onApply: (s) => editor.commit(s) })}
           className="ml-auto inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-primary text-primary-foreground"
           title="Edit this diagram with AI"
         >
@@ -230,47 +199,50 @@ function PanelBody({
         <button type="button" disabled={!editor.canUndo} onClick={editor.doUndo} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Undo (Ctrl+Z)"><Undo2 className="h-3.5 w-3.5" /></button>
         <button type="button" disabled={!editor.canRedo} onClick={editor.doRedo} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Redo"><Redo2 className="h-3.5 w-3.5" /></button>
         <button type="button" onClick={() => editor.commit(rotateScene(editor.scene, 15).scene)} className="p-1 rounded hover:bg-foreground/10" title="Rotate 15°"><RotateCw className="h-3.5 w-3.5" /></button>
-        <button type="button" onClick={handleClose} className="p-1 rounded hover:bg-foreground/10" aria-label="Close"><X className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={onClose} className="p-1 rounded hover:bg-foreground/10" aria-label="Close"><X className="h-3.5 w-3.5" /></button>
       </header>
+
+      <GeometryToolbar tool={editor.tool} onTool={editor.setTool} />
 
       {constraintButtons}
 
-      <div className="flex-1 flex min-h-0">
-        <GeometryToolbar tool={editor.tool} onTool={editor.setTool} />
-        <div className="flex-1 overflow-auto p-3 flex items-start justify-center relative">
-          <GeometryCanvas editor={editor} />
-          {sketchOpen && (
-            <SketchLayer
-              width={editor.scene.bounds.width}
-              height={editor.scene.bounds.height}
-              pad={24}
-              busy={sketchBusy}
-              onConvert={onConvertSketch}
-              onCancel={() => { setSketchOpen(false); editor.setTool("select"); }}
-            />
-          )}
-        </div>
-        <aside className="w-[220px] shrink-0 border-l border-foreground/10 p-3 bg-muted/20 overflow-y-auto">
-          <SelectionInspector
-            scene={editor.scene}
-            selected={editor.selectedObjects}
-            onApply={(next) => editor.commit(next)}
+      <div className="px-3 py-1.5 text-[11px] text-foreground/60 border-b border-foreground/10 flex items-center gap-1 min-h-[28px]">
+        <span className="truncate">{hint}</span>
+        {polygonClose}
+      </div>
+
+      <div className="flex-1 overflow-auto p-3 flex items-start justify-center relative bg-muted/10">
+        <GeometryCanvas editor={editor} />
+        {sketchOpen && (
+          <SketchLayer
+            width={editor.scene.bounds.width}
+            height={editor.scene.bounds.height}
+            pad={24}
+            busy={sketchBusy}
+            onConvert={onConvertSketch}
+            onCancel={() => { setSketchOpen(false); editor.setTool("select"); }}
           />
-        </aside>
+        )}
+      </div>
+
+      <div className="border-t border-foreground/10 p-2 overflow-y-auto max-h-[220px] bg-muted/20">
+        <SelectionInspector
+          scene={editor.scene}
+          selected={editor.selectedObjects}
+          onApply={(next) => editor.commit(next)}
+        />
       </div>
 
       <footer className="border-t border-foreground/10 px-3 py-2 flex items-center gap-2 text-[11px]">
-        <span className={cn("text-foreground/55", editor.dirty && "text-amber-600 font-medium")}>
-          {editor.dirty ? "Unsaved changes" : "All changes saved"}
-        </span>
-        <div className="ml-auto flex items-center gap-1.5 relative">
+        <span className="text-foreground/55">Changes apply live to your lesson note.</span>
+        <div className="ml-auto relative">
           <button
             type="button"
-            onClick={handleAddToSection}
+            onClick={() => setSectionPickerOpen((v) => !v)}
             className="inline-flex items-center gap-1 px-2 py-1 rounded border border-foreground/15 hover:bg-foreground/5"
-            title="Insert this diagram into any section of the lesson note"
+            title="Insert a copy of this diagram into any section"
           >
-            <FilePlus2 className="h-3 w-3" /> Add to section…
+            <FilePlus2 className="h-3 w-3" /> Copy to section…
           </button>
           {sectionPickerOpen && (
             <SectionPicker
@@ -278,30 +250,14 @@ function PanelBody({
               onPick={(id) => {
                 insertIntoSection(id, editor.scene);
                 setSectionPickerOpen(false);
-                toast({ title: "Diagram added to section" });
+                toast({ title: "Diagram copied to section" });
               }}
               onClose={() => setSectionPickerOpen(false)}
             />
           )}
-          <button
-            type="button"
-            onClick={editor.revert}
-            disabled={!editor.dirty}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-foreground/15 hover:bg-foreground/5 disabled:opacity-40 disabled:hover:bg-transparent"
-          >
-            <RotateCcw className="h-3 w-3" /> Revert
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!editor.dirty}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-primary text-primary-foreground disabled:opacity-40"
-          >
-            <Save className="h-3 w-3" /> Save
-          </button>
         </div>
       </footer>
-    </div>
+    </aside>
   );
 }
 

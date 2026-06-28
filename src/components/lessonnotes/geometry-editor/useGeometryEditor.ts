@@ -1,8 +1,9 @@
 // useGeometryEditor — wires scene + tool + history together.
-// Important: edits stay LOCAL until the teacher saves. This prevents the
-// outer document from re-rendering the panel on every stroke.
+// Edits are LIVE: every commit propagates immediately to the lesson note
+// via `onChange`. The teacher never has to press a Save button — the
+// diagram is part of the document, just like editing text.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GeometryScene, GeoId, GeoObject } from "@/lib/geometry/scene";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { emptyHistory, push, undo, redo, type History } from "@/lib/geometry/editor/history";
@@ -13,7 +14,6 @@ export interface UseGeometryEditorReturn {
   tool: ToolId;
   setTool: (t: ToolId) => void;
   apply: (op: OpResult) => void;
-  /** Apply a function that produces the next scene; pushes to history. */
   commit: (next: GeometryScene) => void;
   selectedIds: GeoId[];
   setSelectedIds: (ids: GeoId[]) => void;
@@ -28,8 +28,11 @@ export interface UseGeometryEditorReturn {
   canUndo: boolean;
   canRedo: boolean;
   flashIds: GeoId[];
+  /** Always false; kept for legacy callers. */
   dirty: boolean;
+  /** No-op; edits are live. Kept for legacy callers. */
   save: () => void;
+  /** No-op; use undo. Kept for legacy callers. */
   revert: () => void;
 }
 
@@ -38,17 +41,30 @@ export function useGeometryEditor(
   onChange: (s: GeometryScene) => void,
 ): UseGeometryEditorReturn {
   const [scene, setScene] = useState<GeometryScene>(initial);
-  const [savedScene, setSavedScene] = useState<GeometryScene>(initial);
   const [history, setHistory] = useState<History>(emptyHistory());
   const [tool, setTool] = useState<ToolId>("select");
   const [selectedIds, setSelectedIds] = useState<GeoId[]>([]);
   const [pendingIds, setPendingIds] = useState<GeoId[]>([]);
   const [flashIds, setFlashIds] = useState<GeoId[]>([]);
   const flashTimer = useRef<number | null>(null);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+  // Sync external scene changes back in (e.g. the AI Edit panel writes
+  // a new scene to the node attrs).
+  useEffect(() => {
+    setScene(initial);
+    // Reset history when the underlying node changes.
+    setHistory(emptyHistory());
+    setSelectedIds([]);
+    setPendingIds([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
 
   const commit = useCallback((next: GeometryScene) => {
     setHistory((h) => push(h, scene));
     setScene(next);
+    onChangeRef.current(next);
   }, [scene]);
 
   const apply = useCallback((op: OpResult) => {
@@ -78,6 +94,7 @@ export function useGeometryEditor(
     if (!r) return;
     setHistory(r.history);
     setScene(r.scene);
+    onChangeRef.current(r.scene);
   }, [history, scene]);
 
   const doRedo = useCallback(() => {
@@ -85,23 +102,10 @@ export function useGeometryEditor(
     if (!r) return;
     setHistory(r.history);
     setScene(r.scene);
+    onChangeRef.current(r.scene);
   }, [history, scene]);
 
   const resetPending = useCallback(() => setPendingIds([]), []);
-
-  const save = useCallback(() => {
-    setSavedScene(scene);
-    onChange(scene);
-  }, [scene, onChange]);
-
-  const revert = useCallback(() => {
-    setHistory((h) => push(h, scene));
-    setScene(savedScene);
-    setPendingIds([]);
-    setSelectedIds([]);
-  }, [scene, savedScene]);
-
-  const dirty = scene !== savedScene;
 
   return {
     scene,
@@ -122,8 +126,8 @@ export function useGeometryEditor(
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
     flashIds,
-    dirty,
-    save,
-    revert,
+    dirty: false,
+    save: () => { /* no-op: live edits */ },
+    revert: () => { /* no-op: use undo */ },
   };
 }
