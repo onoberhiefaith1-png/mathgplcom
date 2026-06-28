@@ -16,7 +16,7 @@ import { useGeometryEditor } from "./useGeometryEditor";
 import { type GeometryScene, sanitizeScene } from "@/lib/geometry/scene";
 import { TOOLS } from "@/lib/geometry/editor/tools";
 import {
-  makeEqualSegments, makeIsosceles, makeEquilateral, rotateScene,
+  makeEqualSegments, makeIsosceles, makeEquilateral, rotateScene, closePolygon,
 } from "@/lib/geometry/editor/sceneOps";
 import { openGeometryAiEdit } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { supabase } from "@/integrations/supabase/client";
