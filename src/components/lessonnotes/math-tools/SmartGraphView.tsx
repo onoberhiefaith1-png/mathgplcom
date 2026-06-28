@@ -320,6 +320,34 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         <span className="text-neutral-400 text-[11px]">Tip: select <em>Move X</em> or <em>Move Y</em>, then drag the axis.</span>
       </div>
 
+      {/* AI generate row — describe a graph in words; AI fills the data table */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
+        <Sparkles className="h-3.5 w-3.5 text-yellow-600" />
+        <span className="text-neutral-500">AI</span>
+        <Input
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runAi(); } }}
+          placeholder='e.g. "y = 2x + 1", "sine curve from -180° to 360°", "x² - 4"'
+          className="h-7 flex-1 min-w-[200px] text-[12px] bg-white"
+          disabled={aiBusy}
+        />
+        <Button
+          type="button" size="sm" onClick={runAi} disabled={aiBusy || !aiPrompt.trim()}
+          className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400"
+        >
+          {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Generate
+        </Button>
+        {geo.mode && (
+          <span className="text-[11px] text-yellow-700 ml-2">
+            Diagram mode: click in graph to draw <strong>{geo.tool}</strong>
+            {geomDraft.length > 0 && ` (${geomDraft.length} pt${geomDraft.length === 1 ? "" : "s"})`}
+          </span>
+        )}
+      </div>
+
+
       {/* More — advanced grid + axis settings */}
       {showMore && (
         <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-neutral-200 bg-neutral-50 text-[11px]">
