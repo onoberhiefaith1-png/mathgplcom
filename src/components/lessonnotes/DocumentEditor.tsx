@@ -387,13 +387,34 @@ export function DocumentEditor({
           currentContent: opts.sectionText,
         };
       case "generate":
-      default:
+      default: {
+        // In-place EDIT: section already has content AND teacher typed an
+        // instruction → revise this section only, never touch other sections.
+        const hasExisting = opts.sectionText.trim().length > 0;
+        if (hasExisting && prompt) {
+          return {
+            prompt:
+              `Apply this teacher instruction to the ${label} below:\n` +
+              `"""${prompt}"""\n\n` +
+              `Output ONLY the full revised ${label}. Keep everything not mentioned in the instruction exactly as-is. ` +
+              `Do NOT add section headings (no "Introduction", "Explanation", "Example", "Summary" titles). ` +
+              `Do NOT generate any other section. Return just the body text of this ${label}.`,
+            currentContent: opts.sectionText,
+          };
+        }
         if (isQuestionSectionKind(opts.kind)) {
           return { prompt: prompt || `Generate one ${label} question only. Do not write the solution.`, currentContent: "" };
         }
         return { prompt: prompt || `Generate the ${SECTION_LABELS[opts.kind]}.`, currentContent: "" };
+      }
     }
   };
+
+  /** True when a custom-prompt "generate" should behave as an in-place edit. */
+  const isInPlaceEdit = (info: SectionAiCallContext, basePrompt: string) =>
+    info.action === "generate" &&
+    info.sectionText.trim().length > 0 &&
+    basePrompt.trim().length > 0;
 
   /** Handle per-section AI button (passed into SectionHeading extension). */
   const handleSectionAi = async (prompt: string, info: SectionAiCallContext) => {
@@ -475,9 +496,11 @@ export function DocumentEditor({
       ? [...aiTextToNodes(content), ...solutionPlaceholderNodes()]
       : aiTextToNodes(content);
 
-    // REGENERATE: replace the section body. Otherwise append at section end.
+    // REGENERATE (and in-place EDIT): replace the section body, strictly
+    // bounded by this section's range. Otherwise append at section end.
+    const replaceBody = info.action === "regenerate" || isInPlaceEdit(info, prompt);
     let insertFrom: number;
-    if (info.action === "regenerate") {
+    if (replaceBody) {
       const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
       const start = info.headingPos + headingNodeSize;
       insertFrom = start;
