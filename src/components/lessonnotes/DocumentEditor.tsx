@@ -216,11 +216,20 @@ async function scanImages(images: string[]): Promise<string[]> {
 // (legacy textToParagraphs removed — see aiTextToNodes for the math-aware version)
 
 
-export function DocumentEditor({
+export function DocumentEditor(props: Props) {
+  return (
+    <GeometryModeProvider>
+      <DocumentEditorInner {...props} />
+    </GeometryModeProvider>
+  );
+}
+
+function DocumentEditorInner({
   documentJson, paperSize, paperStyle, zoom,
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
+  const { mode: geometryMode, setMode: setGeometryMode } = useGeometryMode();
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
