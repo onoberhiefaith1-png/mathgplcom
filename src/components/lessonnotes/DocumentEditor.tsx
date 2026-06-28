@@ -1476,6 +1476,22 @@ function DocumentEditorInner({
       />
       <GeometryAiPanel />
       <GeometryToolbox />
+      <MathTablesPicker
+        open={tablesOpen}
+        onOpenChange={setTablesOpen}
+        onInsert={(attrs: MathTableAttrs) => {
+          if (!editor) return;
+          editor.chain().focus().insertContent({ type: "mathTable", attrs }).run();
+        }}
+      />
+      <SmartCalculator
+        open={calcOpen}
+        onOpenChange={setCalcOpen}
+        onInsertWorking={(attrs: SmartCalcAttrs) => {
+          if (!editor) return;
+          editor.chain().focus().insertContent({ type: "smartCalc", attrs }).run();
+        }}
+      />
     </div>
   );
 }
