@@ -9,8 +9,8 @@ import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, type SnapTarget } from "@/lib/geometry/editor/snap";
 import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
-  closePolygon, addAngle, midpointOfSegment, eraseObject, movePoint,
-  cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
+  addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
+  movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
