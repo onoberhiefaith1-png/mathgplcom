@@ -83,9 +83,14 @@ export function GeometryCanvas({ editor }: Props) {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
+    // Make sure the SVG owns keyboard focus so Enter/Esc work for polygon
+    // close + cancel without the teacher having to click extra.
+    try { (svgRef.current as any)?.focus?.({ preventScroll: true }); } catch { /* noop */ }
     const p = toLogical(e);
     const sn = snap(scene, p.x, p.y);
     const hitId = pickObject(scene, p.x, p.y);
+
+
 
     switch (tool) {
       case "select": {
