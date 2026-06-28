@@ -728,7 +728,10 @@ function DocumentEditorInner({
 
   const geometryDraftRef = useRef<{ pos: number; pendingIds: string[] } | null>(null);
   const geometryToolRef = useRef<ToolId>(geometryTool);
-  useEffect(() => { geometryToolRef.current = geometryTool; }, [geometryTool]);
+  useEffect(() => {
+    if (geometryToolRef.current !== geometryTool) geometryDraftRef.current = null;
+    geometryToolRef.current = geometryTool;
+  }, [geometryTool]);
 
   const selectGeometryAt = useCallback((pos: number) => {
     if (!editor) return;
