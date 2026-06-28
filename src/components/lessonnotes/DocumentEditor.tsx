@@ -720,10 +720,47 @@ export function DocumentEditor({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
+  /** Ribbon section insertion must NEVER replace selected content. In
+   *  particular, geometry diagrams are selectable atom nodes; if the diagram
+   *  is still selected, plain `insertContent()` replaces it. A new H2 section
+   *  belongs after the current top-level section, so any diagram owned by that
+   *  section remains above the new heading. */
+  const sectionInsertPosition = () => {
+    if (!editor) return 0;
+    const { doc, selection } = editor.state;
+    const anchor = selection.to;
+    let headingPos: number | null = null;
+    let headingLevel = 2;
+
+    doc.descendants((node, pos) => {
+      if (pos > anchor) return false;
+      if (node.type.name === "heading" && (node.attrs.level ?? 6) <= 2) {
+        headingPos = pos;
+        headingLevel = node.attrs.level ?? 2;
+      }
+      return true;
+    });
+
+    // No owning section yet: insert after the current selection, not over it.
+    if (headingPos == null) return Math.min(anchor, doc.content.size);
+
+    let endPos = doc.content.size;
+    doc.descendants((node, pos) => {
+      if (pos <= headingPos!) return true;
+      if (node.type.name === "heading" && (node.attrs.level ?? 6) <= headingLevel) {
+        endPos = pos;
+        return false;
+      }
+      return true;
+    });
+    return Math.min(endPos, doc.content.size);
+  };
+
   const insertSection = (kind: SectionKind) => {
     if (!editor) return;
+    const insertAt = sectionInsertPosition();
     editor.chain().focus()
-      .insertContent([
+      .insertContentAt(insertAt, [
         { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: SECTION_LABELS[kind] }] },
         { type: "paragraph" },
       ])
