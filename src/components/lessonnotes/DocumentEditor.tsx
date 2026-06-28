@@ -1345,6 +1345,33 @@ function DocumentEditorInner({
         >
           <Shapes className="h-4 w-4" /> Diagram
         </button>
+        <button
+          type="button"
+          onClick={() => setTablesOpen(true)}
+          title="Insert a mathematical table (logs, sines, etc.)"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <TableIcon className="h-4 w-4" /> Tables
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!editor) return;
+            editor.chain().focus().insertContent({ type: "smartGraph", attrs: { ...DEFAULT_GRAPH } }).run();
+          }}
+          title="Insert a smart graph workspace"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <LineChart className="h-4 w-4" /> Graph
+        </button>
+        <button
+          type="button"
+          onClick={() => setCalcOpen(true)}
+          title="Open smart calculator"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <Calculator className="h-4 w-4" /> Calc
+        </button>
         <GlobalAiButton onGenerate={handleGlobalAi} />
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
         <Divider />
