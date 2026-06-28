@@ -18,6 +18,9 @@ interface Props {
   /** When true, render at 1.4x for the right-hand AI preview panel. */
   large?: boolean;
   className?: string;
+  /** Force a specific display size (used by the framed NodeView). */
+  explicitWidth?: number;
+  explicitHeight?: number;
 }
 
 const STROKE = "#1f1f24";
@@ -26,11 +29,12 @@ const ACCENT_CHG = "#f59e0b";
 const ACCENT_DEL = "#ef4444";
 const LABEL_FONT = "'Times New Roman', Georgia, serif";
 
-export function GeometryDiagram({ scene, diff, large, className }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight }: Props) {
   const pad = 24;
   const W = (scene.bounds.width ?? 360) + pad * 2;
   const H = (scene.bounds.height ?? 240) + pad * 2;
-  const displayW = large ? Math.min(W * 1.4, 720) : Math.min(W, 520);
+  const displayW = explicitWidth ?? (large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
+  const displayH = explicitHeight ?? (displayW / W) * H;
 
   const colourOf = (id: string): string => {
     if (!diff) return STROKE;
