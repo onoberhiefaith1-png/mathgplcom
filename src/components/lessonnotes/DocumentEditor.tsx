@@ -1193,37 +1193,14 @@ function DocumentEditorInner({
           type="button"
           onClick={() => {
             if (!editor) return;
-            // Already inside a frame? Just toggle Geometry Mode.
-            const onFrame = editor.isActive("geometryDiagram");
             if (geometryMode) {
               setGeometryMode(false);
+              geometryDraftRef.current = null;
               return;
             }
             setGeometryMode(true);
-            if (onFrame) return;
-            // Otherwise insert a fresh frame at the end of the current
-            // section and select it so the toolbox drives it immediately.
-            const insertAt = sectionInsertPosition();
-            editor
-              .chain()
-              .focus()
-              .insertContentAt(insertAt, {
-                type: "geometryDiagram",
-                attrs: { scene: EMPTY_SCENE },
-              })
-              .run();
-            setTimeout(() => {
-              if (!editor) return;
-              let lastPos: number | null = null;
-              editor.state.doc.descendants((node, pos) => {
-                if (node.type.name === "geometryDiagram") lastPos = pos;
-              });
-              if (lastPos != null) {
-                editor.chain().focus().setNodeSelection(lastPos).run();
-              }
-            }, 0);
           }}
-          title={geometryMode ? "Exit Geometry Mode" : "Geometry Mode — draw inside a diagram frame"}
+          title={geometryMode ? "Exit Geometry Mode" : "Geometry Mode — choose a tool, then click the lesson note"}
           className={cn(
             "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
             geometryMode
