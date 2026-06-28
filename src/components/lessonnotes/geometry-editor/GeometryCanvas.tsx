@@ -83,9 +83,14 @@ export function GeometryCanvas({ editor }: Props) {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
+    // Make sure the SVG owns keyboard focus so Enter/Esc work for polygon
+    // close + cancel without the teacher having to click extra.
+    try { (svgRef.current as any)?.focus?.({ preventScroll: true }); } catch { /* noop */ }
     const p = toLogical(e);
     const sn = snap(scene, p.x, p.y);
     const hitId = pickObject(scene, p.x, p.y);
+
+
 
     switch (tool) {
       case "select": {
@@ -333,6 +338,15 @@ export function GeometryCanvas({ editor }: Props) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={() => setHover(null)}
+        onDoubleClick={() => {
+          // Double-click finishes a polygon or line in progress.
+          if (tool === "polygon" && pendingIds.length >= 3) {
+            apply(closePolygon(scene, pendingIds));
+            setPendingIds([]);
+          } else if (tool === "line") {
+            setPendingIds([]);
+          }
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
@@ -342,6 +356,7 @@ export function GeometryCanvas({ editor }: Props) {
           }
         }}
         tabIndex={0}
+
       >
         {/* Snap hint */}
         {hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
