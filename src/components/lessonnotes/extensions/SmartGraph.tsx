@@ -11,6 +11,14 @@ export type ConnectStyle = "straight" | "smooth" | "broken" | "scatter";
 
 export interface GraphPoint { x: number; y: number; label?: string }
 
+/** A geometry shape drawn on top of the graph (pixel-space relative to the SVG). */
+export interface GraphShape {
+  id: string;
+  kind: "point" | "line" | "circle" | "arc" | "polygon";
+  pts: Array<{ x: number; y: number }>;
+  label?: string;
+}
+
 export interface SmartGraphAttrs {
   unitsPerSquareX: number;
   unitsPerSquareY: number;
@@ -22,6 +30,7 @@ export interface SmartGraphAttrs {
   yLabel: string;
   points: GraphPoint[];
   connect: ConnectStyle;
+  shapes: GraphShape[];
 }
 
 export const DEFAULT_GRAPH: SmartGraphAttrs = {
