@@ -42,41 +42,70 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const [connect, setConnect] = useState<ConnectStyle>(a.connect ?? "straight");
   useEffect(() => { if (a.connect && a.connect !== connect) setConnect(a.connect); }, [a.connect]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- AI generation under the scale row -----------------------------------
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
-  const runAi = async () => {
-    const prompt = aiPrompt.trim();
-    if (!prompt || aiBusy) return;
-    setAiBusy(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("smart-graph", {
-        body: {
-          prompt,
-          unitsPerSquareX: a.unitsPerSquareX,
-          unitsPerSquareY: a.unitsPerSquareY,
-          squaresX: a.squaresX, squaresY: a.squaresY,
-          originSquareX: a.originSquareX, originSquareY: a.originSquareY,
-          xLabel: a.xLabel, yLabel: a.yLabel,
-        },
-      });
-      if (error) throw error;
-      const d = data as { points?: GraphPoint[]; connect?: ConnectStyle; xLabel?: string; yLabel?: string; error?: string };
-      if (d?.error) throw new Error(d.error);
-      const patch: Partial<SmartGraphAttrs> = {};
-      if (Array.isArray(d.points) && d.points.length) patch.points = d.points;
-      if (d.connect) { patch.connect = d.connect; setConnect(d.connect); }
-      if (d.xLabel) patch.xLabel = d.xLabel;
-      if (d.yLabel) patch.yLabel = d.yLabel;
-      if (Object.keys(patch).length) update(patch);
-      toast({ title: "Graph generated", description: `${d.points?.length ?? 0} point(s) plotted.` });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: "AI generation failed", description: msg, variant: "destructive" });
-    } finally {
-      setAiBusy(false);
+  // ---- Smart Scale assistant ----------------------------------------------
+  // Watches the data range + current scale and proposes a better cm-per-unit
+  // when the points overflow the page or look cramped. No equation generation,
+  // no "Generate" button — the scale fields themselves already update live.
+  const scaleSuggestion = useMemo(() => {
+    const pts = a.points ?? [];
+    if (pts.length === 0) return null;
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    const xMin = Math.min(0, ...xs), xMax = Math.max(0, ...xs);
+    const yMin = Math.min(0, ...ys), yMax = Math.max(0, ...ys);
+    const xRange = Math.max(1e-6, xMax - xMin);
+    const yRange = Math.max(1e-6, yMax - yMin);
+
+    // "Nice" step from a target raw step (1, 2, 5, 10 family).
+    const nice = (raw: number) => {
+      if (raw <= 0) return 1;
+      const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+      const f = raw / pow;
+      const m = f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10;
+      return m * pow;
+    };
+
+    // Aim for ~10 squares across the data range on each axis so the graph
+    // breathes without leaving the page.
+    const targetSquaresX = Math.max(8, Math.min(a.squaresX - 2, 14));
+    const targetSquaresY = Math.max(6, Math.min(a.squaresY - 2, 10));
+    const sx = nice(xRange / targetSquaresX);
+    const sy = nice(yRange / targetSquaresY);
+
+    // What the current scale produces.
+    const currentSpanX = a.squaresX * a.unitsPerSquareX;
+    const currentSpanY = a.squaresY * a.unitsPerSquareY;
+    const overflowX = xRange > currentSpanX * 0.95;
+    const overflowY = yRange > currentSpanY * 0.95;
+    const crampedX = xRange < currentSpanX * 0.15;
+    const crampedY = yRange < currentSpanY * 0.15;
+
+    const changeX = Math.abs(sx - a.unitsPerSquareX) / a.unitsPerSquareX > 0.25;
+    const changeY = Math.abs(sy - a.unitsPerSquareY) / a.unitsPerSquareY > 0.25;
+    if (!changeX && !changeY) return null;
+
+    let reason: string;
+    if (overflowX || overflowY) {
+      reason = "Current scale is too small — some plotted points fall off the page.";
+    } else if (crampedX || crampedY) {
+      reason = "Current scale is too large — the graph looks cramped near the origin.";
+    } else {
+      reason = "This scale fits all plotted points neatly on the page.";
     }
+    return { sx, sy, reason };
+  }, [a.points, a.unitsPerSquareX, a.unitsPerSquareY, a.squaresX, a.squaresY]);
+
+  const applyScaleSuggestion = () => {
+    if (!scaleSuggestion) return;
+    update({ unitsPerSquareX: scaleSuggestion.sx, unitsPerSquareY: scaleSuggestion.sy });
+    setScaleXText(`1 cm = ${scaleSuggestion.sx} unit${scaleSuggestion.sx === 1 ? "" : "s"}`);
+    setScaleYText(`1 cm = ${scaleSuggestion.sy} unit${scaleSuggestion.sy === 1 ? "" : "s"}`);
   };
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  // A fresh suggestion (different reason/values) un-dismisses itself.
+  useEffect(() => { setSuggestionDismissed(false); }, [scaleSuggestion?.sx, scaleSuggestion?.sy, scaleSuggestion?.reason]);
+
+
 
   // ---- Geometry-inside-graph -----------------------------------------------
   // When the document-wide Geometry Mode is active, clicks inside the graph
