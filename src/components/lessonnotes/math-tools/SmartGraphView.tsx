@@ -177,7 +177,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
     if (geomActive) {
       const snap = (v: number) => Math.round((v / SQ) * 2) / 2 * SQ;
       const p = { x: snap(x), y: snap(y) };
-      const t = geo.tool;
+      const t = geo.tool as GraphShape["kind"];
       if (t === "point") { addShape("point", [p]); return; }
       if (t === "line") {
         if (geomDraft.length === 0) setGeomDraft([p]);
