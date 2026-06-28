@@ -98,8 +98,10 @@ function GeometryDiagramView({
           if (pos != null && !selected) {
             editor.commands.setNodeSelection(pos);
           }
-          // While drawing, the canvas owns the pointer events.
-          if (!isEditing) e.stopPropagation();
+          // While drawing, the canvas/page geometry handler owns pointer
+          // events. In normal select mode, keep TipTap from treating a diagram
+          // click as text editing.
+          if (!isEditing && (!mode || tool === "select")) e.stopPropagation();
         }}
       >
         {isEditing ? (

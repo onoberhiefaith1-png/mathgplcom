@@ -236,6 +236,13 @@ All colors MUST be HSL.
 .lesson-doc [data-math-inline],
 .lesson-doc [data-math-block] { vertical-align: baseline; }
 .lesson-doc [data-math-block] { display: block; min-height: 28px; }
+.lesson-doc .ProseMirror-selectednode[data-geometry-diagram],
+.lesson-doc .ProseMirror-selectednode [data-geometry-diagram-wrapper],
+.lesson-doc [data-geometry-diagram].ProseMirror-selectednode {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
 
 /* Section heading: title + AI chip on the same baseline */
 .lesson-doc .section-heading-wrapper {
