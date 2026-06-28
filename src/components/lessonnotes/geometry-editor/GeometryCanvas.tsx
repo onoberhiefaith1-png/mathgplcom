@@ -303,9 +303,15 @@ export function GeometryCanvas({ editor }: Props) {
       if (cx == null || cy == null) return;
       out.push(<circle key={`h-${id}`} cx={cx + PAD} cy={cy + PAD} r={r} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="3 3" />);
     };
-    selectedIds.forEach((id) => haloFor(id, "#2563eb", 12));
-    pendingIds.forEach((id) => haloFor(id, "#10b981", 10));
-    flashIds.forEach((id) => haloFor(id, "#f59e0b", 14));
+    const seen = new Set<string>();
+    const once = (id: GeoId, color: string, r: number) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      haloFor(id, color, r);
+    };
+    selectedIds.forEach((id) => once(id, "#2563eb", 12));
+    pendingIds.forEach((id) => once(id, "#10b981", 10));
+    flashIds.forEach((id) => once(id, "#f59e0b", 14));
     return out;
   }, [scene, selectedIds, pendingIds, flashIds]);
 
