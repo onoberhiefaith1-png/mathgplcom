@@ -20,7 +20,8 @@ import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionR
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
-import { GeometryEditorPanel, openGeometryEditor } from "./geometry-editor/GeometryEditorPanel";
+import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
+import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
 import { EMPTY_SCENE, sanitizeScene } from "@/lib/geometry/scene";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
