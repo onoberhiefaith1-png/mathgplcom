@@ -945,6 +945,7 @@ export function DocumentEditor({
         onClose={closeAiEdit}
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
+      <GeometryAiPanel />
     </div>
   );
 }
