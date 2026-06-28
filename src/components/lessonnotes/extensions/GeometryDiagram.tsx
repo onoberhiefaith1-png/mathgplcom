@@ -92,7 +92,7 @@ function GeometryDiagramView({
         data-geometry-diagram-wrapper="true"
         data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
         className={cn(
-          "relative inline-block bg-white transition-colors",
+          "relative inline-block transition-colors",
         )}
         onMouseDown={(e) => {
           const pos = typeof getPos === "function" ? getPos() : null;
