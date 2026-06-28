@@ -741,6 +741,10 @@ function DocumentEditorInner({
     return Number.isFinite(pos) ? pos : null;
   }, []);
 
+  const geometryWrapperForPos = useCallback((pos: number): HTMLElement | null => {
+    return document.querySelector(`[data-geometry-pos="${pos}"]`) as HTMLElement | null;
+  }, []);
+
   const insertGeometryAtPoint = useCallback((clientX: number, clientY: number): number | null => {
     if (!editor) return null;
     const view = editor.view;
@@ -801,18 +805,21 @@ function DocumentEditorInner({
     if (!(tool === "point" || tool === "line" || tool === "midpoint")) return false;
 
     let pos = findGeometryAtDomPoint(e.clientX, e.clientY);
+    const activeDraft = geometryDraftRef.current;
+    if (pos == null && tool === "line" && activeDraft?.pendingIds.length) pos = activeDraft.pos;
     if (pos == null) pos = insertGeometryAtPoint(e.clientX, e.clientY);
     if (pos == null) return false;
 
     const node = editor.state.doc.nodeAt(pos);
     if (!node || node.type.name !== "geometryDiagram") return false;
-    const wrap = document.elementFromPoint(e.clientX, e.clientY)?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
+    const wrap = (document.elementFromPoint(e.clientX, e.clientY)?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null)
+      ?? geometryWrapperForPos(pos);
     const rect = wrap?.getBoundingClientRect();
     const scene = (sanitizeScene(node.attrs.scene) as GeometryScene) ?? EMPTY_SCENE;
     const W = scene.bounds.width + 48;
     const H = scene.bounds.height + 48;
-    const localX = rect ? ((e.clientX - rect.left) / rect.width) * W - 24 : scene.bounds.width / 2;
-    const localY = rect ? ((e.clientY - rect.top) / rect.height) * H - 24 : scene.bounds.height / 2;
+    const localX = rect ? Math.max(0, Math.min(scene.bounds.width, ((e.clientX - rect.left) / rect.width) * W - 24)) : scene.bounds.width / 2;
+    const localY = rect ? Math.max(0, Math.min(scene.bounds.height, ((e.clientY - rect.top) / rect.height) * H - 24)) : scene.bounds.height / 2;
     const draft = geometryDraftRef.current?.pos === pos ? geometryDraftRef.current : { pos, pendingIds: [] };
     const next = applyQuickGeometryTool(scene, tool, localX, localY, draft.pendingIds);
     updateGeometrySceneAt(pos, next.scene);
@@ -821,7 +828,7 @@ function DocumentEditorInner({
     e.preventDefault();
     e.stopPropagation();
     return true;
-  }, [editor, findGeometryAtDomPoint, geometryMode, insertGeometryAtPoint, selectGeometryAt, updateGeometrySceneAt, applyQuickGeometryTool]);
+  }, [editor, findGeometryAtDomPoint, geometryMode, geometryWrapperForPos, insertGeometryAtPoint, selectGeometryAt, updateGeometrySceneAt, applyQuickGeometryTool]);
 
   // Push external doc updates only when editor isn't focused.
   useEffect(() => {
