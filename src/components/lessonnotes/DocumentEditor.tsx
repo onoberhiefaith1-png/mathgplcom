@@ -1191,6 +1191,7 @@ export function DocumentEditor({
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
       <GeometryAiPanel />
+      <GeometryEditorPanel />
     </div>
   );
 }
