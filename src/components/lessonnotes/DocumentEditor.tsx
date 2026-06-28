@@ -1221,7 +1221,7 @@ function DocumentEditorInner({
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
       <GeometryAiPanel />
-      <GeometryEditorPanel />
+      <GeometryToolbox />
     </div>
   );
 }
