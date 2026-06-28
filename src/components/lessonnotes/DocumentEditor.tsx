@@ -768,6 +768,56 @@ export function DocumentEditor({
       .run();
   };
 
+  /** Bridge so the floating Geometry Editor panel can list and insert into
+   *  sections of this document. The panel dispatches window events; we reply
+   *  via callbacks in the event detail. */
+  useEffect(() => {
+    if (!editor) return;
+    const listSections = (e: Event) => {
+      const detail = (e as CustomEvent<{ reply: (s: { id: string; title: string }[]) => void }>).detail;
+      if (!detail?.reply) return;
+      const out: { id: string; title: string }[] = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === "heading" && (node.attrs.level ?? 6) <= 2) {
+          out.push({ id: String(pos), title: node.textContent || "(untitled)" });
+        }
+        return true;
+      });
+      detail.reply(out);
+    };
+    const insertInto = (e: Event) => {
+      const detail = (e as CustomEvent<{ sectionId: string; scene: unknown }>).detail;
+      if (!detail) return;
+      const headingPos = Number(detail.sectionId);
+      if (!Number.isFinite(headingPos)) return;
+      const doc = editor.state.doc;
+      const heading = doc.nodeAt(headingPos);
+      if (!heading || heading.type.name !== "heading") return;
+      const headingLevel = heading.attrs.level ?? 2;
+      // End of this section = position of next heading at same or higher level,
+      // else end of doc.
+      let endPos = doc.content.size;
+      doc.descendants((node, pos) => {
+        if (pos <= headingPos) return true;
+        if (node.type.name === "heading" && (node.attrs.level ?? 6) <= headingLevel) {
+          endPos = pos;
+          return false;
+        }
+        return true;
+      });
+      editor.chain().focus().insertContentAt(endPos, {
+        type: "geometryDiagram",
+        attrs: { scene: detail.scene },
+      }).run();
+    };
+    window.addEventListener("geometry-editor:list-sections", listSections);
+    window.addEventListener("geometry-editor:insert-into-section", insertInto);
+    return () => {
+      window.removeEventListener("geometry-editor:list-sections", listSections);
+      window.removeEventListener("geometry-editor:insert-into-section", insertInto);
+    };
+  }, [editor]);
+
   /** Global AI: insert at cursor (single block) OR draft whole lesson. */
   const handleGlobalAi = async (
     prompt: string,
