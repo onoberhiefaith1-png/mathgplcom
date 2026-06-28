@@ -1500,6 +1500,14 @@ function DocumentEditorInner({
           editor.chain().focus().insertContent({ type: "smartCalc", attrs }).run();
         }}
       />
+      <MathObjectsPicker
+        open={objectsOpen}
+        onOpenChange={setObjectsOpen}
+        onInsert={(kind) => {
+          if (!editor) return;
+          editor.chain().focus().insertContent({ type: "mathObject", attrs: { kind, size: 32 } }).run();
+        }}
+      />
     </div>
   );
 }
