@@ -516,6 +516,40 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
 // ---------- small presentational helpers ----------------------------------
 
+/** Render a geometry shape (point/line/circle/arc/polygon) in SVG pixel space. */
+function ShapeNode({ shape }: { shape: GraphShape }) {
+  const stroke = "hsl(220 90% 35%)";
+  const fill = "none";
+  if (shape.kind === "point" && shape.pts[0]) {
+    const p = shape.pts[0];
+    return <circle cx={p.x} cy={p.y} r={4} fill={stroke} />;
+  }
+  if (shape.kind === "line" && shape.pts.length >= 2) {
+    const [a, b] = shape.pts;
+    return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={stroke} strokeWidth={1.5} />;
+  }
+  if (shape.kind === "circle" && shape.pts.length >= 2) {
+    const [c, r] = shape.pts;
+    const radius = Math.hypot(r.x - c.x, r.y - c.y);
+    return <circle cx={c.x} cy={c.y} r={radius} fill={fill} stroke={stroke} strokeWidth={1.5} />;
+  }
+  if (shape.kind === "arc" && shape.pts.length >= 3) {
+    // 3-point arc → approximate as polyline through the points (lightweight).
+    const d = `M ${shape.pts[0].x} ${shape.pts[0].y} Q ${shape.pts[1].x} ${shape.pts[1].y} ${shape.pts[2].x} ${shape.pts[2].y}`;
+    return <path d={d} fill={fill} stroke={stroke} strokeWidth={1.5} />;
+  }
+  if (shape.kind === "polygon" && shape.pts.length >= 2) {
+    return (
+      <polygon
+        points={shape.pts.map((p) => `${p.x},${p.y}`).join(" ")}
+        fill="hsla(220, 90%, 50%, 0.06)" stroke={stroke} strokeWidth={1.5}
+      />
+    );
+  }
+  return null;
+}
+
+
 function ToolButton({
   active, onClick, icon, label,
 }: { active?: boolean; onClick: () => void; icon?: React.ReactNode; label: string }) {
