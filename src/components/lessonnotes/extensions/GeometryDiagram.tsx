@@ -7,11 +7,11 @@
 // in place. A tiny floating action row (AI · Delete) appears only while
 // the node is selected — that's the only chrome.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Sparkles, Trash2 } from "lucide-react";
+import { Copy, CopyPlus, Sparkles, Trash2 } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
@@ -53,8 +53,12 @@ function GeometryDiagramView({
   editor,
   getPos,
 }: NodeViewProps) {
-  const scene =
-    (sanitizeScene(node.attrs.scene) as GeometryScene) ?? EMPTY_SCENE;
+  const sceneKey = JSON.stringify(node.attrs.scene ?? EMPTY_SCENE);
+  const scene = useMemo(
+    () => (sanitizeScene(node.attrs.scene) as GeometryScene) ?? EMPTY_SCENE,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sceneKey],
+  );
   const topic = (node.attrs.topic as string) || scene.meta?.topic;
   const align: "left" | "center" | "right" = node.attrs.align ?? "center";
 
@@ -71,12 +75,6 @@ function GeometryDiagramView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, selected, mode]);
 
-  // Selecting any diagram auto-enters Geometry Mode so the toolbox shows up.
-  useEffect(() => {
-    if (selected && !mode) setMode(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
-
   const containerAlign =
     align === "left" ? "justify-start"
     : align === "right" ? "justify-end"
@@ -86,23 +84,25 @@ function GeometryDiagramView({
 
   return (
     <NodeViewWrapper
+      data-geometry-diagram-node="true"
       className={cn("my-3 flex", containerAlign)}
       contentEditable={false}
     >
       <div
+        data-geometry-diagram-wrapper="true"
+        data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
         className={cn(
-          "relative inline-block bg-white rounded transition-colors",
-          // Only a faint ring while selected so the teacher can tell which
-          // diagram the toolbox is acting on. No border at all otherwise.
-          selected ? "ring-1 ring-blue-400/60" : "",
+          "relative inline-block transition-colors",
         )}
         onMouseDown={(e) => {
           const pos = typeof getPos === "function" ? getPos() : null;
           if (pos != null && !selected) {
             editor.commands.setNodeSelection(pos);
           }
-          // While drawing, the canvas owns the pointer events.
-          if (!isEditing) e.stopPropagation();
+          // While drawing, the canvas/page geometry handler owns pointer
+          // events. In normal select mode, keep TipTap from treating a diagram
+          // click as text editing.
+          if (!isEditing && (!mode || tool === "select")) e.stopPropagation();
         }}
       >
         {isEditing ? (
@@ -120,7 +120,7 @@ function GeometryDiagramView({
           </p>
         )}
 
-        {/* Tiny action row — visible only while this diagram is selected. */}
+        {/* Action row — no frame, just tools when the diagram itself is selected. */}
         {selected && (
           <div className="absolute -top-7 right-0 flex items-center gap-1 bg-background/95 border border-foreground/15 rounded-md shadow px-1 py-0.5">
             <button
@@ -137,6 +137,33 @@ function GeometryDiagramView({
               title="AI edit"
             >
               <Sparkles className="h-3 w-3" /> AI
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const pos = typeof getPos === "function" ? getPos() : null;
+                if (pos == null) return;
+                editor.chain().focus().insertContentAt(pos + node.nodeSize, {
+                  type: "geometryDiagram",
+                  attrs: { scene, topic, align },
+                }).run();
+              }}
+              className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
+              title="Duplicate diagram"
+            >
+              <CopyPlus className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard?.writeText(JSON.stringify({ type: "geometryDiagram", attrs: { scene, topic, align } })).catch(() => {});
+              }}
+              className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
+              title="Copy diagram data"
+            >
+              <Copy className="h-3 w-3" />
             </button>
             <button
               type="button"

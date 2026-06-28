@@ -8,7 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -22,7 +22,23 @@ import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
-import { EMPTY_SCENE, sanitizeScene } from "@/lib/geometry/scene";
+import { EMPTY_SCENE, sanitizeScene, pointById, type GeometryScene } from "@/lib/geometry/scene";
+import {
+  addAngle,
+  addArcThrough3,
+  addCircleByRadius,
+  addCircleThrough3,
+  addPoint,
+  addSegment,
+  closePolygon,
+  cycleEqualMarks,
+  eraseObject,
+  markParallel,
+  midpointOfSegment,
+  patchObject,
+} from "@/lib/geometry/editor/sceneOps";
+import { snap, pickObject } from "@/lib/geometry/editor/snap";
+import type { ToolId } from "@/lib/geometry/editor/tools";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
 import { MathSymbolPanel } from "./MathSymbolPanel";
@@ -229,7 +245,7 @@ function DocumentEditorInner({
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
-  const { mode: geometryMode, setMode: setGeometryMode } = useGeometryMode();
+  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -710,6 +726,223 @@ function DocumentEditorInner({
     },
   });
 
+  const geometryDraftRef = useRef<{ pos: number; pendingIds: string[] } | null>(null);
+  const geometryToolRef = useRef<ToolId>(geometryTool);
+  useEffect(() => {
+    if (geometryToolRef.current !== geometryTool) geometryDraftRef.current = null;
+    geometryToolRef.current = geometryTool;
+  }, [geometryTool]);
+
+  const selectGeometryAt = useCallback((pos: number) => {
+    if (!editor) return;
+    setTimeout(() => {
+      editor.chain().focus().setNodeSelection(pos).run();
+    }, 0);
+  }, [editor]);
+
+  const updateGeometrySceneAt = useCallback((pos: number, scene: GeometryScene) => {
+    if (!editor) return;
+    const node = editor.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "geometryDiagram") return;
+    const tr = editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, scene });
+    editor.view.dispatch(tr);
+  }, [editor]);
+
+  const locateGeometryNearPos = useCallback((docPos: number): number | null => {
+    if (!editor) return null;
+    let exact: number | null = null;
+    let before: number | null = null;
+    let after: number | null = null;
+    editor.state.doc.descendants((node, nodePos) => {
+      if (node.type.name !== "geometryDiagram") return true;
+      if (docPos >= nodePos && docPos <= nodePos + node.nodeSize) {
+        exact = nodePos;
+        return false;
+      }
+      if (nodePos < docPos) before = nodePos;
+      else if (after == null && nodePos > docPos) after = nodePos;
+      return true;
+    });
+    return exact ?? after ?? before;
+  }, [editor]);
+
+  const findGeometryAtDomPoint = useCallback((clientX: number, clientY: number): number | null => {
+    const el = document.elementFromPoint(clientX, clientY) as Element | null;
+    const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
+    const raw = wrap?.dataset.geometryPos;
+    if (!raw) return null;
+    const pos = Number(raw);
+    return Number.isFinite(pos) ? pos : null;
+  }, []);
+
+  const geometryWrapperForPos = useCallback((pos: number): HTMLElement | null => {
+    return document.querySelector(`[data-geometry-pos="${pos}"]`) as HTMLElement | null;
+  }, []);
+
+  const insertGeometryAtPoint = useCallback((clientX: number, clientY: number): number | null => {
+    if (!editor) return null;
+    const view = editor.view;
+    const coords = view.posAtCoords({ left: clientX, top: clientY });
+    let pos = coords?.pos ?? editor.state.selection.to;
+    pos = Math.max(0, Math.min(pos, editor.state.doc.content.size));
+    const beforeSize = editor.state.doc.content.size;
+    editor.chain().focus().insertContentAt(pos, {
+      type: "geometryDiagram",
+      attrs: { scene: EMPTY_SCENE },
+    }).run();
+    const mappedPos = Math.min(pos, beforeSize);
+    return locateGeometryNearPos(mappedPos);
+  }, [editor, locateGeometryNearPos]);
+
+  const applyQuickGeometryTool = useCallback((scene: GeometryScene, tool: ToolId, x: number, y: number, pendingIds: string[]) => {
+    const sn = snap(scene, x, y);
+    const hitId = pickObject(scene, x, y, 10);
+    const ensurePointLocal = (base: GeometryScene, px: number, py: number) => {
+      const s = snap(base, px, py);
+      if (s.pointId) return { id: s.pointId, scene: base };
+      const op = addPoint(base, s.x, s.y);
+      return { id: op.addedIds[0], scene: op.scene };
+    };
+
+    if (tool === "point") {
+      return { scene: addPoint(scene, sn.x, sn.y).scene, pendingIds: [] };
+    }
+
+    if (tool === "line") {
+      const made = ensurePointLocal(scene, x, y);
+      if (pendingIds.length === 0) return { scene: made.scene, pendingIds: [made.id] };
+      const prev = pendingIds[pendingIds.length - 1];
+      if (prev === made.id) return { scene: made.scene, pendingIds };
+      const op = addSegment(made.scene, prev, made.id);
+      return { scene: op.scene, pendingIds: [made.id] };
+    }
+
+    if (tool === "polygon") {
+      const made = ensurePointLocal(scene, x, y);
+      const nextIds = [...pendingIds, made.id];
+      if (nextIds.length >= 3) {
+        return { scene: closePolygon(made.scene, nextIds).scene, pendingIds: [] };
+      }
+      return { scene: made.scene, pendingIds: nextIds };
+    }
+
+    if (tool === "circle") {
+      const made = ensurePointLocal(scene, x, y);
+      const nextIds = [...pendingIds, made.id];
+      if (nextIds.length >= 3) return { scene: addCircleThrough3(made.scene, nextIds[0], nextIds[1], nextIds[2]).scene, pendingIds: [] };
+      return { scene: made.scene, pendingIds: nextIds };
+    }
+
+    if (tool === "arc") {
+      const made = ensurePointLocal(scene, x, y);
+      const nextIds = [...pendingIds, made.id];
+      if (nextIds.length >= 3) {
+        const a = pointById(made.scene, nextIds[0]);
+        const m = pointById(made.scene, nextIds[1]);
+        const b = pointById(made.scene, nextIds[2]);
+        return { scene: a && m && b ? addArcThrough3(made.scene, a, m, b).scene : made.scene, pendingIds: [] };
+      }
+      return { scene: made.scene, pendingIds: nextIds };
+    }
+
+    if (tool === "compass") {
+      const made = ensurePointLocal(scene, x, y);
+      if (pendingIds.length === 0) return { scene: made.scene, pendingIds: [made.id] };
+      const op = addCircleByRadius(made.scene, pendingIds[0], made.id);
+      const circleId = op.addedIds[0];
+      return { scene: circleId ? patchObject(op.scene, circleId, { dashed: true } as any).scene : op.scene, pendingIds: [] };
+    }
+
+    if (tool === "angle") {
+      const made = ensurePointLocal(scene, x, y);
+      const nextIds = [...pendingIds, made.id];
+      if (nextIds.length >= 3) return { scene: addAngle(made.scene, nextIds[1], nextIds[0], nextIds[2]).scene, pendingIds: [] };
+      return { scene: made.scene, pendingIds: nextIds };
+    }
+
+    if (tool === "midpoint") {
+      if (!hitId) return { scene, pendingIds };
+      return { scene: midpointOfSegment(scene, hitId).scene, pendingIds: [] };
+    }
+
+    if (tool === "rightAngle") {
+      if (!hitId) return { scene, pendingIds };
+      const obj = scene.objects.find((o) => o.id === hitId);
+      if (obj?.type === "angle") return { scene: patchObject(scene, hitId, { marker: "right" } as any).scene, pendingIds: [] };
+      if (obj?.type === "segment") return { scene: patchObject(scene, hitId, { marks: "right" } as any).scene, pendingIds: [] };
+      return { scene, pendingIds };
+    }
+
+    if (tool === "equalMark" || tool === "parallel" || tool === "perpendicular") {
+      if (!hitId) return { scene, pendingIds };
+      const nextIds = pendingIds.includes(hitId) ? pendingIds : [...pendingIds, hitId];
+      if (nextIds.length < 2) return { scene, pendingIds: nextIds };
+      if (tool === "equalMark") return { scene: cycleEqualMarks(scene, nextIds).scene, pendingIds: [] };
+      if (tool === "parallel") return { scene: markParallel(scene, nextIds).scene, pendingIds: [] };
+      let s = scene;
+      for (const id of nextIds) {
+        const o = s.objects.find((obj) => obj.id === id);
+        if (o?.type === "segment") s = patchObject(s, id, { marks: "right" } as any).scene;
+      }
+      return { scene: s, pendingIds: [] };
+    }
+
+    if (tool === "erase") {
+      return { scene: hitId ? eraseObject(scene, hitId).scene : scene, pendingIds: [] };
+    }
+
+    return { scene, pendingIds };
+  }, []);
+
+  const handleGeometryPaperClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const targetEl = eventTargetElement(e.target);
+    const isGeometryTarget = Boolean(targetEl?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
+    if (!editor || !geometryMode || e.button !== 0 || (isEditorControlTarget(e.target) && !isGeometryTarget)) return false;
+    const tool = geometryToolRef.current;
+
+    const existingGeometry = findGeometryAtDomPoint(e.clientX, e.clientY);
+    if (tool === "select") {
+      if (existingGeometry != null) {
+        selectGeometryAt(existingGeometry);
+        e.preventDefault();
+        e.stopPropagation();
+        return true;
+      }
+      return false;
+    }
+
+    const pageTools: ToolId[] = [
+      "point", "line", "midpoint", "polygon", "circle", "arc", "compass", "angle",
+      "rightAngle", "equalMark", "parallel", "perpendicular", "erase",
+    ];
+    if (!pageTools.includes(tool)) return false;
+
+    let pos = existingGeometry;
+    const activeDraft = geometryDraftRef.current;
+    if (pos == null && activeDraft?.pendingIds.length) pos = activeDraft.pos;
+    if (pos == null) pos = insertGeometryAtPoint(e.clientX, e.clientY);
+    if (pos == null) return false;
+
+    const node = editor.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "geometryDiagram") return false;
+    const wrap = (document.elementFromPoint(e.clientX, e.clientY)?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null)
+      ?? geometryWrapperForPos(pos);
+    const rect = wrap?.getBoundingClientRect();
+    const scene = (sanitizeScene(node.attrs.scene) as GeometryScene) ?? EMPTY_SCENE;
+    const W = scene.bounds.width + 48;
+    const H = scene.bounds.height + 48;
+    const localX = rect ? Math.max(0, Math.min(scene.bounds.width, ((e.clientX - rect.left) / rect.width) * W - 24)) : scene.bounds.width / 2;
+    const localY = rect ? Math.max(0, Math.min(scene.bounds.height, ((e.clientY - rect.top) / rect.height) * H - 24)) : scene.bounds.height / 2;
+    const draft = geometryDraftRef.current?.pos === pos ? geometryDraftRef.current : { pos, pendingIds: [] };
+    const next = applyQuickGeometryTool(scene, tool, localX, localY, draft.pendingIds);
+    updateGeometrySceneAt(pos, next.scene);
+    geometryDraftRef.current = next.pendingIds.length ? { pos, pendingIds: next.pendingIds } : null;
+    selectGeometryAt(pos);
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
+  }, [editor, findGeometryAtDomPoint, geometryMode, geometryWrapperForPos, insertGeometryAtPoint, selectGeometryAt, updateGeometrySceneAt, applyQuickGeometryTool]);
+
   // Push external doc updates only when editor isn't focused.
   useEffect(() => {
     if (!editor || !documentJson) return;
@@ -983,11 +1216,18 @@ function DocumentEditorInner({
    *  drop a new free-position text box at that point. */
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    if (isEditorControlTarget(e.target)) return;
+    const el = eventTargetElement(e.target);
+    const isGeometryTarget = Boolean(el?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
+    if (isEditorControlTarget(e.target) && !isGeometryTarget) return;
+
+    // Geometry Mode behaves like a drawing tool inside the lesson note:
+    // choose Point/Line/Midpoint, then click the page. If the click is on an
+    // existing live canvas, the canvas handles it; otherwise create/update a
+    // plain geometry node at the clicked document position.
+    if (geometryMode && !el?.closest("[data-geometry-live-canvas]") && handleGeometryPaperClick(e)) return;
 
     // If the click was inside the actual TipTap editor DOM, do nothing —
     // TipTap will place the caret precisely on its own.
-    const el = eventTargetElement(e.target);
     const editorDom = editor?.view.dom;
     if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
 
@@ -1078,37 +1318,14 @@ function DocumentEditorInner({
           type="button"
           onClick={() => {
             if (!editor) return;
-            // Already inside a frame? Just toggle Geometry Mode.
-            const onFrame = editor.isActive("geometryDiagram");
             if (geometryMode) {
               setGeometryMode(false);
+              geometryDraftRef.current = null;
               return;
             }
             setGeometryMode(true);
-            if (onFrame) return;
-            // Otherwise insert a fresh frame at the end of the current
-            // section and select it so the toolbox drives it immediately.
-            const insertAt = sectionInsertPosition();
-            editor
-              .chain()
-              .focus()
-              .insertContentAt(insertAt, {
-                type: "geometryDiagram",
-                attrs: { scene: EMPTY_SCENE },
-              })
-              .run();
-            setTimeout(() => {
-              if (!editor) return;
-              let lastPos: number | null = null;
-              editor.state.doc.descendants((node, pos) => {
-                if (node.type.name === "geometryDiagram") lastPos = pos;
-              });
-              if (lastPos != null) {
-                editor.chain().focus().setNodeSelection(lastPos).run();
-              }
-            }, 0);
           }}
-          title={geometryMode ? "Exit Geometry Mode" : "Geometry Mode — draw inside a diagram frame"}
+          title={geometryMode ? "Exit Geometry Mode" : "Geometry Mode — choose a tool, then click the lesson note"}
           className={cn(
             "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
             geometryMode
