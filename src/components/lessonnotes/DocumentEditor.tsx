@@ -717,6 +717,9 @@ function DocumentEditorInner({
       SolutionMath,
       SolutionProse,
       GeometryDiagramNode,
+      MathTableNode,
+      SmartGraphNode,
+      SmartCalcNode,
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
