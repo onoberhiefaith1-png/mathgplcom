@@ -349,32 +349,36 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         <span className="text-neutral-400 text-[11px]">Tip: select <em>Move X</em> or <em>Move Y</em>, then drag the axis.</span>
       </div>
 
-      {/* AI generate row — describe a graph in words; AI fills the data table */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
-        <Sparkles className="h-3.5 w-3.5 text-yellow-600" />
-        <span className="text-neutral-500">AI</span>
-        <Input
-          value={aiPrompt}
-          onChange={(e) => setAiPrompt(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runAi(); } }}
-          placeholder='e.g. "y = 2x + 1", "sine curve from -180° to 360°", "x² - 4"'
-          className="h-7 flex-1 min-w-[200px] text-[12px] bg-white"
-          disabled={aiBusy}
-        />
-        <Button
-          type="button" size="sm" onClick={runAi} disabled={aiBusy || !aiPrompt.trim()}
-          className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400"
-        >
-          {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          Generate
-        </Button>
-        {geo.mode && (
-          <span className="text-[11px] text-yellow-700 ml-2">
-            Diagram mode: click in graph to draw <strong>{geo.tool}</strong>
-            {geomDraft.length > 0 && ` (${geomDraft.length} pt${geomDraft.length === 1 ? "" : "s"})`}
+      {/* Smart Scale — live scale recommendations based on plotted points.
+          No equation generation; the AI here is purely a layout assistant. */}
+      {scaleSuggestion && !suggestionDismissed && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-yellow-50/50 text-[12px]">
+          <Sparkles className="h-3.5 w-3.5 text-yellow-600 shrink-0" />
+          <span className="text-neutral-700 font-medium">Smart Scale</span>
+          <span className="text-neutral-600">
+            Suggested: <strong>1 cm = {scaleSuggestion.sx} unit{scaleSuggestion.sx === 1 ? "" : "s"}</strong> (X),
+            <strong> 1 cm = {scaleSuggestion.sy} unit{scaleSuggestion.sy === 1 ? "" : "s"}</strong> (Y).
           </span>
-        )}
-      </div>
+          <span className="text-neutral-500 italic">{scaleSuggestion.reason}</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button
+              type="button" size="sm" onClick={applyScaleSuggestion}
+              className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400"
+            >Accept</Button>
+            <button
+              type="button" onClick={() => setSuggestionDismissed(true)}
+              className="h-7 px-2 text-[11px] text-neutral-500 hover:text-neutral-700"
+            >Ignore</button>
+          </div>
+        </div>
+      )}
+      {geo.mode && (
+        <div className="px-3 py-1.5 border-b border-neutral-200 bg-white text-[11px] text-yellow-700">
+          Diagram mode: click in graph to draw <strong>{geo.tool}</strong>
+          {geomDraft.length > 0 && ` (${geomDraft.length} pt${geomDraft.length === 1 ? "" : "s"})`}
+        </div>
+      )}
+
 
 
       {/* More — advanced grid + axis settings */}
