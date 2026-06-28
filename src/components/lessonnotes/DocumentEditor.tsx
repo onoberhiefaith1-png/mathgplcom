@@ -804,9 +804,78 @@ function DocumentEditorInner({
       return { scene: op.scene, pendingIds: [made.id] };
     }
 
+    if (tool === "polygon") {
+      const made = ensurePointLocal(scene, x, y);
+      const nextIds = [...pendingIds, made.id];
+      if (nextIds.length >= 3 && pendingIds.includes(made.id)) {
+        return { scene: closePolygon(made.scene, pendingIds).scene, pendingIds: [] };
+      }
+      return { scene: made.scene, pendingIds: nextIds };
+    }
+
+    if (tool === "circle") {
+      const made = ensurePointLocal(scene, x, y);
+      const nextIds = [...pendingIds, made.id];
+      if (nextIds.length >= 3) return { scene: addCircleThrough3(made.scene, nextIds[0], nextIds[1], nextIds[2]).scene, pendingIds: [] };
+      return { scene: made.scene, pendingIds: nextIds };
+    }
+
+    if (tool === "arc") {
+      const made = ensurePointLocal(scene, x, y);
+      const nextIds = [...pendingIds, made.id];
+      if (nextIds.length >= 3) {
+        const a = pointById(made.scene, nextIds[0]);
+        const m = pointById(made.scene, nextIds[1]);
+        const b = pointById(made.scene, nextIds[2]);
+        return { scene: a && m && b ? addArcThrough3(made.scene, a, m, b).scene : made.scene, pendingIds: [] };
+      }
+      return { scene: made.scene, pendingIds: nextIds };
+    }
+
+    if (tool === "compass") {
+      const made = ensurePointLocal(scene, x, y);
+      if (pendingIds.length === 0) return { scene: made.scene, pendingIds: [made.id] };
+      const op = addCircleByRadius(made.scene, pendingIds[0], made.id);
+      const circleId = op.addedIds[0];
+      return { scene: circleId ? patchObject(op.scene, circleId, { dashed: true } as any).scene : op.scene, pendingIds: [] };
+    }
+
+    if (tool === "angle") {
+      const made = ensurePointLocal(scene, x, y);
+      const nextIds = [...pendingIds, made.id];
+      if (nextIds.length >= 3) return { scene: addAngle(made.scene, nextIds[1], nextIds[0], nextIds[2]).scene, pendingIds: [] };
+      return { scene: made.scene, pendingIds: nextIds };
+    }
+
     if (tool === "midpoint") {
       if (!hitId) return { scene, pendingIds };
       return { scene: midpointOfSegment(scene, hitId).scene, pendingIds: [] };
+    }
+
+    if (tool === "rightAngle") {
+      if (!hitId) return { scene, pendingIds };
+      const obj = scene.objects.find((o) => o.id === hitId);
+      if (obj?.type === "angle") return { scene: patchObject(scene, hitId, { marker: "right" } as any).scene, pendingIds: [] };
+      if (obj?.type === "segment") return { scene: patchObject(scene, hitId, { marks: "right" } as any).scene, pendingIds: [] };
+      return { scene, pendingIds };
+    }
+
+    if (tool === "equalMark" || tool === "parallel" || tool === "perpendicular") {
+      if (!hitId) return { scene, pendingIds };
+      const nextIds = pendingIds.includes(hitId) ? pendingIds : [...pendingIds, hitId];
+      if (nextIds.length < 2) return { scene, pendingIds: nextIds };
+      if (tool === "equalMark") return { scene: cycleEqualMarks(scene, nextIds).scene, pendingIds: [] };
+      if (tool === "parallel") return { scene: markParallel(scene, nextIds).scene, pendingIds: [] };
+      let s = scene;
+      for (const id of nextIds) {
+        const o = s.objects.find((obj) => obj.id === id);
+        if (o?.type === "segment") s = patchObject(s, id, { marks: "right" } as any).scene;
+      }
+      return { scene: s, pendingIds: [] };
+    }
+
+    if (tool === "erase") {
+      return { scene: hitId ? eraseObject(scene, hitId).scene : scene, pendingIds: [] };
     }
 
     return { scene, pendingIds };
@@ -817,11 +886,15 @@ function DocumentEditorInner({
     const isGeometryTarget = Boolean(targetEl?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
     if (!editor || !geometryMode || e.button !== 0 || (isEditorControlTarget(e.target) && !isGeometryTarget)) return false;
     const tool = geometryToolRef.current;
-    if (!(tool === "point" || tool === "line" || tool === "midpoint")) return false;
+    const pageTools: ToolId[] = [
+      "point", "line", "midpoint", "polygon", "circle", "arc", "compass", "angle",
+      "rightAngle", "equalMark", "parallel", "perpendicular", "erase",
+    ];
+    if (!pageTools.includes(tool)) return false;
 
     let pos = findGeometryAtDomPoint(e.clientX, e.clientY);
     const activeDraft = geometryDraftRef.current;
-    if (pos == null && tool === "line" && activeDraft?.pendingIds.length) pos = activeDraft.pos;
+    if (pos == null && activeDraft?.pendingIds.length) pos = activeDraft.pos;
     if (pos == null) pos = insertGeometryAtPoint(e.clientX, e.clientY);
     if (pos == null) return false;
 
