@@ -22,8 +22,21 @@ import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
-import { EMPTY_SCENE, sanitizeScene, type GeometryScene } from "@/lib/geometry/scene";
-import { addPoint, addSegment, midpointOfSegment } from "@/lib/geometry/editor/sceneOps";
+import { EMPTY_SCENE, sanitizeScene, pointById, type GeometryScene } from "@/lib/geometry/scene";
+import {
+  addAngle,
+  addArcThrough3,
+  addCircleByRadius,
+  addCircleThrough3,
+  addPoint,
+  addSegment,
+  closePolygon,
+  cycleEqualMarks,
+  eraseObject,
+  markParallel,
+  midpointOfSegment,
+  patchObject,
+} from "@/lib/geometry/editor/sceneOps";
 import { snap, pickObject } from "@/lib/geometry/editor/snap";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { PageFrame } from "./PageFrame";
