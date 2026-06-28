@@ -604,8 +604,8 @@ export function DocumentEditor({
     // BELOW the question body (and above the Solution heading, when present).
     // If the section isn't geometric, the backend returns null and we do
     // nothing. Errors here are non-fatal.
-    if (skipGeometryPass) return;
-    void (async () => {
+    if (!skipGeometryPass) void (async () => {
+
       try {
         const topic = ctxRef.current?.topic || notebookContext?.topic;
         const subtopic = ctxRef.current?.subtopic || notebookContext?.subtopic;
