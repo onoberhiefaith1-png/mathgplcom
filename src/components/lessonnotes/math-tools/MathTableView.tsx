@@ -71,9 +71,9 @@ export function MathTableView({ node, updateAttributes, deleteNode, selected }: 
           }
         }}
         className={cn(
-          "px-2 py-1 min-w-[3.5rem] text-center border-r border-b border-black/15 outline-none focus:bg-yellow-50 cursor-text",
+          "px-2 py-1 min-w-[3.5rem] text-center border-r border-b border-neutral-200 outline-none focus:bg-yellow-50 cursor-text",
           highlight && "bg-yellow-100 font-semibold",
-          kind === "label" && "font-semibold bg-black/[0.04]",
+          kind === "label" && "font-semibold bg-neutral-100",
         )}
       >
         {display}
@@ -86,14 +86,14 @@ export function MathTableView({ node, updateAttributes, deleteNode, selected }: 
       as="div"
       className={cn(
         "my-4 rounded-md border bg-white text-black",
-        selected ? "border-yellow-400 shadow" : "border-black/10",
+        selected ? "border-yellow-400 shadow" : "border-neutral-200",
       )}
       data-drag-handle
     >
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-black/10 bg-black/[0.02]">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-neutral-50">
         <div className="text-[12px] font-semibold">{tableName || "Mathematical Table"}</div>
-        <div className="text-[11px] text-black/50">
+        <div className="text-[11px] text-neutral-500">
           Range: {entry?.rangeLabel ?? "—"}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
@@ -124,18 +124,18 @@ export function MathTableView({ node, updateAttributes, deleteNode, selected }: 
         <div className="overflow-x-auto" data-no-drag>
           <div className="inline-block min-w-full font-mono text-[12px] text-black">
             {/* Header row */}
-            <div className="flex border-b-2 border-black/30">
-              <div className="px-2 py-1 min-w-[3.5rem] font-semibold border-r border-black/30 bg-black/[0.04] text-center">
+            <div className="flex border-b-2 border-neutral-300">
+              <div className="px-2 py-1 min-w-[3.5rem] font-semibold border-r border-neutral-300 bg-neutral-100 text-center">
                 {generated.rowLabelHeader}
               </div>
               {generated.mainHeadings.map((h, i) => (
-                <div key={`mh${i}`} className="px-2 py-1 min-w-[3.5rem] font-semibold border-r border-black/15 bg-black/[0.04] text-center">{h}</div>
+                <div key={`mh${i}`} className="px-2 py-1 min-w-[3.5rem] font-semibold border-r border-neutral-200 bg-neutral-100 text-center">{h}</div>
               ))}
               {generated.diffHeadings.length > 0 && (
                 <>
-                  <div className="px-2 py-1 min-w-[1.5rem] font-semibold border-l-2 border-r border-black/30 bg-black/[0.04] text-center">‖</div>
+                  <div className="px-2 py-1 min-w-[1.5rem] font-semibold border-l-2 border-r border-neutral-300 bg-neutral-100 text-center">‖</div>
                   {generated.diffHeadings.map((h, i) => (
-                    <div key={`dh${i}`} className="px-2 py-1 min-w-[2.5rem] font-semibold border-r border-black/15 bg-black/[0.04] text-center text-black/70">{h}</div>
+                    <div key={`dh${i}`} className="px-2 py-1 min-w-[2.5rem] font-semibold border-r border-neutral-200 bg-neutral-100 text-center text-neutral-700">{h}</div>
                   ))}
                 </>
               )}
@@ -149,7 +149,7 @@ export function MathTableView({ node, updateAttributes, deleteNode, selected }: 
                 ))}
                 {r.diff && r.diff.length > 0 && (
                   <>
-                    <div className="px-2 py-1 min-w-[1.5rem] border-l-2 border-r border-black/30 bg-black/[0.04] text-center text-black/40">‖</div>
+                    <div className="px-2 py-1 min-w-[1.5rem] border-l-2 border-r border-neutral-300 bg-neutral-100 text-center text-neutral-400">‖</div>
                     {r.diff.map((c, cIdx) => (
                       <Cell key={`d${cIdx}`} rowIdx={rIdx} kind="diff" colIdx={cIdx} text={c.text} highlight={c.highlight} />
                     ))}
@@ -158,12 +158,12 @@ export function MathTableView({ node, updateAttributes, deleteNode, selected }: 
               </div>
             ))}
           </div>
-          <div className="px-3 py-1.5 text-[11px] text-black/60 border-t border-black/10">
+          <div className="px-3 py-1.5 text-[11px] text-neutral-500 border-t border-neutral-200">
             {generated.lookupNote}
           </div>
         </div>
       ) : (
-        <div className="px-3 py-4 text-[12px] text-black/60">
+        <div className="px-3 py-4 text-[12px] text-neutral-500">
           Enter a value above and press <strong>Generate</strong> to look up this table.
         </div>
       )}
