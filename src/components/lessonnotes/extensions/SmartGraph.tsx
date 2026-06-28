@@ -44,6 +44,7 @@ export const DEFAULT_GRAPH: SmartGraphAttrs = {
   yLabel: "y",
   points: [],
   connect: "straight",
+  shapes: [],
 };
 
 export const SmartGraphNode = Node.create({
