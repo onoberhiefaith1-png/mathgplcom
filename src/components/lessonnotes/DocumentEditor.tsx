@@ -706,6 +706,67 @@ function DocumentEditorInner({
     }, solutionSource?.problemText);
   };
 
+  // ── Step Animation: capture current selection (or current block) as a frame
+  const captureStep = () => {
+    if (!editor) return;
+    const { state } = editor;
+    let { from, to } = state.selection;
+    if (from === to) {
+      // No selection — fall back to the block containing the caret.
+      const $from = state.doc.resolve(from);
+      const start = $from.before($from.depth);
+      const end = $from.after($from.depth);
+      from = start; to = end;
+    }
+    const slice = state.doc.slice(from, to);
+    const contentJson = (slice.content as any).toJSON?.() ?? [];
+    if (!contentJson.length) {
+      toast({ title: "Nothing to capture", description: "Select content (or place the caret in a block) first." });
+      return;
+    }
+
+    // Walk outward from the selection: if we are already inside a stepAnimation
+    // node, append; otherwise wrap the selection in a new one.
+    let animPos = -1;
+    let animNode: any = null;
+    state.doc.descendants((node: any, pos: number) => {
+      if (animPos !== -1) return false;
+      if (node.type.name === "stepAnimation" && pos <= from && pos + node.nodeSize >= to) {
+        animPos = pos; animNode = node; return false;
+      }
+      return true;
+    });
+
+    const newFrame: AnimationFrame = { id: crypto.randomUUID(), content: contentJson };
+
+    if (animPos !== -1 && animNode) {
+      const prev: AnimationFrame[] = Array.isArray(animNode.attrs.frames) ? animNode.attrs.frames : [];
+      const next = [...prev, newFrame];
+      const tr = state.tr.setNodeMarkup(animPos, undefined, {
+        ...animNode.attrs,
+        frames: next,
+        currentFrame: next.length - 1,
+      });
+      editor.view.dispatch(tr);
+      toast({ title: `Frame ${next.length} captured` });
+      return;
+    }
+
+    // Wrap: insert a stepAnimation node at the selection start, then leave
+    // original content in place so the teacher can keep editing it as the
+    // "live" frame source. Future captures append to this node.
+    editor.chain()
+      .focus()
+      .insertContentAt(from, {
+        type: "stepAnimation",
+        attrs: { frames: [newFrame], currentFrame: 0 },
+      })
+      .run();
+    toast({ title: "Animation started", description: "Edit, then press Capture Step again to add the next frame." });
+  };
+
+
+
 
 
   const editor = useEditor({
