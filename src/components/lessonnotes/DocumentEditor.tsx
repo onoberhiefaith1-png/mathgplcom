@@ -251,6 +251,8 @@ function DocumentEditorInner({
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+  const [tablesOpen, setTablesOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
