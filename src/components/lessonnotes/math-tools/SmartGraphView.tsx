@@ -170,10 +170,38 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
   const handleSvgClick = (e: React.MouseEvent) => {
     if (!svgRef.current || draggingRef.current) return;
-    if (mode !== "plot") return;
     const rect = svgRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    // Geometry-mode interception: build shapes by accumulating clicks.
+    if (geomActive) {
+      const snap = (v: number) => Math.round((v / SQ) * 2) / 2 * SQ;
+      const p = { x: snap(x), y: snap(y) };
+      const t = geo.tool;
+      if (t === "point") { addShape("point", [p]); return; }
+      if (t === "line") {
+        if (geomDraft.length === 0) setGeomDraft([p]);
+        else { addShape("line", [geomDraft[0], p]); setGeomDraft([]); }
+        return;
+      }
+      if (t === "circle" || t === "arc") {
+        const next = [...geomDraft, p];
+        if (next.length < 3) setGeomDraft(next);
+        else { addShape(t, next); setGeomDraft([]); }
+        return;
+      }
+      if (t === "polygon") {
+        // Click points; double-click to close.
+        if (e.detail >= 2 && geomDraft.length >= 2) {
+          addShape("polygon", geomDraft);
+          setGeomDraft([]);
+        } else {
+          setGeomDraft([...geomDraft, p]);
+        }
+        return;
+      }
+    }
+    if (mode !== "plot") return;
     const sx = Math.round((x / SQ) * 2) / 2 * SQ;
     const sy = Math.round((y / SQ) * 2) / 2 * SQ;
     setPoints([...a.points, toData(sx, sy)]);
