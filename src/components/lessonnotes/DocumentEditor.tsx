@@ -22,6 +22,11 @@ import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
+import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
+import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
+import { SmartCalcNode, type SmartCalcAttrs } from "./extensions/SmartCalc";
+import { MathTablesPicker } from "./math-tools/MathTablesPicker";
+import { SmartCalculator } from "./math-tools/SmartCalculator";
 import { EMPTY_SCENE, sanitizeScene, pointById, type GeometryScene } from "@/lib/geometry/scene";
 import {
   addAngle,
@@ -55,7 +60,7 @@ import {
   Undo2, Redo2, Sigma, Minus, Plus, Heading1, Heading2,
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
-  ChevronUp, ChevronDown, Shapes,
+  ChevronUp, ChevronDown, Shapes, Table as TableIcon, LineChart, Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -246,6 +251,8 @@ function DocumentEditorInner({
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+  const [tablesOpen, setTablesOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -712,6 +719,9 @@ function DocumentEditorInner({
       SolutionMath,
       SolutionProse,
       GeometryDiagramNode,
+      MathTableNode,
+      SmartGraphNode,
+      SmartCalcNode,
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
@@ -1335,6 +1345,33 @@ function DocumentEditorInner({
         >
           <Shapes className="h-4 w-4" /> Diagram
         </button>
+        <button
+          type="button"
+          onClick={() => setTablesOpen(true)}
+          title="Insert a mathematical table (logs, sines, etc.)"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <TableIcon className="h-4 w-4" /> Tables
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!editor) return;
+            editor.chain().focus().insertContent({ type: "smartGraph", attrs: { ...DEFAULT_GRAPH } }).run();
+          }}
+          title="Insert a smart graph workspace"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <LineChart className="h-4 w-4" /> Graph
+        </button>
+        <button
+          type="button"
+          onClick={() => setCalcOpen(true)}
+          title="Open smart calculator"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <Calculator className="h-4 w-4" /> Calc
+        </button>
         <GlobalAiButton onGenerate={handleGlobalAi} />
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
         <Divider />
@@ -1439,6 +1476,22 @@ function DocumentEditorInner({
       />
       <GeometryAiPanel />
       <GeometryToolbox />
+      <MathTablesPicker
+        open={tablesOpen}
+        onOpenChange={setTablesOpen}
+        onInsert={(attrs: MathTableAttrs) => {
+          if (!editor) return;
+          editor.chain().focus().insertContent({ type: "mathTable", attrs }).run();
+        }}
+      />
+      <SmartCalculator
+        open={calcOpen}
+        onOpenChange={setCalcOpen}
+        onInsertWorking={(attrs: SmartCalcAttrs) => {
+          if (!editor) return;
+          editor.chain().focus().insertContent({ type: "smartCalc", attrs }).run();
+        }}
+      />
     </div>
   );
 }
