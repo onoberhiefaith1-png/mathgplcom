@@ -724,11 +724,6 @@ function DocumentEditorInner({
     }, 0);
   }, [editor]);
 
-  const sceneFromNodeAt = useCallback((pos: number): GeometryScene => {
-    if (!editor) return EMPTY_SCENE;
-    return (sanitizeScene(editor.state.doc.nodeAt(pos)?.attrs?.scene) as GeometryScene) ?? EMPTY_SCENE;
-  }, [editor]);
-
   const updateGeometrySceneAt = useCallback((pos: number, scene: GeometryScene) => {
     if (!editor) return;
     const node = editor.state.doc.nodeAt(pos);
@@ -756,7 +751,17 @@ function DocumentEditorInner({
       type: "geometryDiagram",
       attrs: { scene: EMPTY_SCENE },
     }).run();
-    return pos;
+    let best: number | null = null;
+    editor.state.doc.descendants((node, nodePos) => {
+      if (node.type.name !== "geometryDiagram") return true;
+      if (nodePos >= pos && best == null) {
+        best = nodePos;
+        return false;
+      }
+      best = nodePos;
+      return true;
+    });
+    return best;
   }, [editor]);
 
   const applyQuickGeometryTool = useCallback((scene: GeometryScene, tool: ToolId, x: number, y: number, pendingIds: string[]) => {
