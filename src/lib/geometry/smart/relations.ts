@@ -46,24 +46,33 @@ const THEOREMS: Theorem[] = [
       if (angles.length < 1 || angles.length > 3) return false;
       return trianglePartsFromAngles(angles) !== null;
     },
-    apply(sel) {
+    apply(sel, graph) {
       const angles = sel.filter(isAngle);
       const tri = trianglePartsFromAngles(angles);
       if (!tri) return null;
-      const labels = ["A", "B", "C"];
-      const parts = angles.map((a, i) => {
-        const v = a.value;
-        const sym = a.label.replace(/^∠/, "") || labels[i];
-        return v != null ? `${v}` : sym;
+      // Recover all three angles of the triangle from the graph so we
+      // substitute REAL labels/values from the diagram, never invented
+      // variables.
+      const triId = angles[0].id.split("@")[1]; // e.g. triangle:pa-pb-pc
+      const allAngles = graph.parts.filter(
+        (p) => p.kind === "angle" && p.id.endsWith(`@${triId}`),
+      );
+      const parts = (allAngles.length === 3 ? allAngles : angles).map((a) => {
+        if (a.value != null) return `${a.value}°`;
+        // Use the angle's actual label (∠A → A) — never x/y/z unless the
+        // diagram has no label for that vertex.
+        const sym = a.label.replace(/^∠/, "").trim();
+        return sym || "?";
       });
-      // Pad up to 3 with x, y, z for unknowns.
-      while (parts.length < 3) parts.push(["x", "y", "z"][parts.length - 1]);
-      const unknown = parts.find((p) => /[a-z]/i.test(p));
+      const knowns = Object.fromEntries(
+        (allAngles.length ? allAngles : angles).map((a) => [a.label, a.value ?? "?"]),
+      );
+      const unknown = (allAngles.length ? allAngles : angles).find((a) => a.value == null)?.label;
       return {
         equation: `${parts.join(" + ")} = 180°`,
-        knowns: Object.fromEntries(angles.map((a) => [a.label, a.value ?? "?"])),
+        knowns,
         unknown,
-        explanation: "All three interior angles add to 180°.",
+        explanation: "All three interior angles of the triangle add to 180°.",
       };
     },
   },
