@@ -773,9 +773,9 @@ function DocumentEditorInner({
     const hitId = pickObject(scene, x, y, 10);
     const ensurePointLocal = (base: GeometryScene, px: number, py: number) => {
       const s = snap(base, px, py);
-      if (s.pointId) return { id: s.pointId, scene: base, added: false };
+      if (s.pointId) return { id: s.pointId, scene: base };
       const op = addPoint(base, s.x, s.y);
-      return { id: op.addedIds[0], scene: op.scene, added: true };
+      return { id: op.addedIds[0], scene: op.scene };
     };
 
     if (tool === "point") {
