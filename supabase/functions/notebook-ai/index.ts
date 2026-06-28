@@ -9,6 +9,7 @@ import { BENCHMARK_STANDARD } from "./benchmarkStandard.ts";
 import { STRUCTURAL_STANDARD } from "./structuralStandard.ts";
 import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { INHERITANCE_STANDARD } from "./inheritanceStandard.ts";
+import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
   runValidationPipeline,
   firstFailingStage,
@@ -633,6 +634,8 @@ ${MATH_MARKUP_RULES}
 ${RENDERING_STANDARD}
 
 ${STRUCTURAL_STANDARD}
+
+${GEOMETRY_STANDARD}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
 Task style for this block: ${styleLine}
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
