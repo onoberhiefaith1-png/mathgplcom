@@ -75,6 +75,7 @@ import StudentClassPage from "./pages/student/StudentClassPage.tsx";
 import StudentSmartBoardPage from "./pages/student/StudentSmartBoardPage.tsx";
 import AssessmentBoardPage from "./pages/student/AssessmentBoardPage.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
+import { FullscreenToggle } from "./components/common/FullscreenToggle";
 
 // Keep the realtime socket authenticated so private channels stay authorized.
 registerRealtimeAuthSync();
@@ -85,6 +86,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
+      <FullscreenToggle />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

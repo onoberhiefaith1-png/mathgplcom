@@ -20,10 +20,13 @@ import type { NodeViewProps } from "@tiptap/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move,
+  Plus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move, Sparkles, Loader2,
 } from "lucide-react";
-import type { GraphPoint, ConnectStyle, SmartGraphAttrs } from "@/components/lessonnotes/extensions/SmartGraph";
+import type { GraphPoint, ConnectStyle, GraphShape, SmartGraphAttrs } from "@/components/lessonnotes/extensions/SmartGraph";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 
 const SQ = 28; // pixels per square — kept generous so the grid never feels cramped.
 
@@ -38,6 +41,56 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const [showMore, setShowMore] = useState(false);
   const [connect, setConnect] = useState<ConnectStyle>(a.connect ?? "straight");
   useEffect(() => { if (a.connect && a.connect !== connect) setConnect(a.connect); }, [a.connect]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- AI generation under the scale row -----------------------------------
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const runAi = async () => {
+    const prompt = aiPrompt.trim();
+    if (!prompt || aiBusy) return;
+    setAiBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-graph", {
+        body: {
+          prompt,
+          unitsPerSquareX: a.unitsPerSquareX,
+          unitsPerSquareY: a.unitsPerSquareY,
+          squaresX: a.squaresX, squaresY: a.squaresY,
+          originSquareX: a.originSquareX, originSquareY: a.originSquareY,
+          xLabel: a.xLabel, yLabel: a.yLabel,
+        },
+      });
+      if (error) throw error;
+      const d = data as { points?: GraphPoint[]; connect?: ConnectStyle; xLabel?: string; yLabel?: string; error?: string };
+      if (d?.error) throw new Error(d.error);
+      const patch: Partial<SmartGraphAttrs> = {};
+      if (Array.isArray(d.points) && d.points.length) patch.points = d.points;
+      if (d.connect) { patch.connect = d.connect; setConnect(d.connect); }
+      if (d.xLabel) patch.xLabel = d.xLabel;
+      if (d.yLabel) patch.yLabel = d.yLabel;
+      if (Object.keys(patch).length) update(patch);
+      toast({ title: "Graph generated", description: `${d.points?.length ?? 0} point(s) plotted.` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: "AI generation failed", description: msg, variant: "destructive" });
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  // ---- Geometry-inside-graph -----------------------------------------------
+  // When the document-wide Geometry Mode is active, clicks inside the graph
+  // canvas place geometry shapes (point / line / circle / arc / polygon)
+  // instead of plotting data points. Shapes are stored on the node attrs.
+  const geo = useGeometryMode();
+  const geomActive = geo.mode && ["point", "line", "circle", "arc", "polygon"].includes(geo.tool);
+  const [geomDraft, setGeomDraft] = useState<Array<{ x: number; y: number }>>([]);
+  useEffect(() => { setGeomDraft([]); }, [geo.tool, geo.mode]);
+
+  const setShapes = (shapes: GraphShape[]) => update({ shapes });
+  const addShape = (kind: GraphShape["kind"], pts: Array<{ x: number; y: number }>) =>
+    setShapes([...(a.shapes ?? []), { id: `s${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, kind, pts }]);
+
 
   // ---- Manual scale entry --------------------------------------------------
   // The teacher writes the comparison freely; we parse "N cm = M units".
@@ -117,10 +170,38 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
   const handleSvgClick = (e: React.MouseEvent) => {
     if (!svgRef.current || draggingRef.current) return;
-    if (mode !== "plot") return;
     const rect = svgRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    // Geometry-mode interception: build shapes by accumulating clicks.
+    if (geomActive) {
+      const snap = (v: number) => Math.round((v / SQ) * 2) / 2 * SQ;
+      const p = { x: snap(x), y: snap(y) };
+      const t = geo.tool as GraphShape["kind"];
+      if (t === "point") { addShape("point", [p]); return; }
+      if (t === "line") {
+        if (geomDraft.length === 0) setGeomDraft([p]);
+        else { addShape("line", [geomDraft[0], p]); setGeomDraft([]); }
+        return;
+      }
+      if (t === "circle" || t === "arc") {
+        const next = [...geomDraft, p];
+        if (next.length < 3) setGeomDraft(next);
+        else { addShape(t, next); setGeomDraft([]); }
+        return;
+      }
+      if (t === "polygon") {
+        // Click points; double-click to close.
+        if (e.detail >= 2 && geomDraft.length >= 2) {
+          addShape("polygon", geomDraft);
+          setGeomDraft([]);
+        } else {
+          setGeomDraft([...geomDraft, p]);
+        }
+        return;
+      }
+    }
+    if (mode !== "plot") return;
     const sx = Math.round((x / SQ) * 2) / 2 * SQ;
     const sy = Math.round((y / SQ) * 2) / 2 * SQ;
     setPoints([...a.points, toData(sx, sy)]);
@@ -238,6 +319,34 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         </label>
         <span className="text-neutral-400 text-[11px]">Tip: select <em>Move X</em> or <em>Move Y</em>, then drag the axis.</span>
       </div>
+
+      {/* AI generate row — describe a graph in words; AI fills the data table */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
+        <Sparkles className="h-3.5 w-3.5 text-yellow-600" />
+        <span className="text-neutral-500">AI</span>
+        <Input
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runAi(); } }}
+          placeholder='e.g. "y = 2x + 1", "sine curve from -180° to 360°", "x² - 4"'
+          className="h-7 flex-1 min-w-[200px] text-[12px] bg-white"
+          disabled={aiBusy}
+        />
+        <Button
+          type="button" size="sm" onClick={runAi} disabled={aiBusy || !aiPrompt.trim()}
+          className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400"
+        >
+          {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Generate
+        </Button>
+        {geo.mode && (
+          <span className="text-[11px] text-yellow-700 ml-2">
+            Diagram mode: click in graph to draw <strong>{geo.tool}</strong>
+            {geomDraft.length > 0 && ` (${geomDraft.length} pt${geomDraft.length === 1 ? "" : "s"})`}
+          </span>
+        )}
+      </div>
+
 
       {/* More — advanced grid + axis settings */}
       {showMore && (
@@ -380,13 +489,66 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
               </g>
             );
           })}
+
+          {/* Geometry shapes drawn on top of the graph (Diagram inside graph) */}
+          {(a.shapes ?? []).map((s) => (
+            <ShapeNode key={s.id} shape={s} />
+          ))}
+          {geomActive && geomDraft.length > 0 && (
+            <g opacity={0.6}>
+              {geomDraft.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r={3} fill="hsl(45 95% 45%)" />
+              ))}
+              {geomDraft.length >= 2 && (
+                <polyline
+                  points={geomDraft.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none" stroke="hsl(45 95% 45%)" strokeDasharray="4 3" strokeWidth={1.25}
+                />
+              )}
+            </g>
+          )}
         </svg>
       </div>
     </NodeViewWrapper>
   );
 }
 
+
 // ---------- small presentational helpers ----------------------------------
+
+/** Render a geometry shape (point/line/circle/arc/polygon) in SVG pixel space. */
+function ShapeNode({ shape }: { shape: GraphShape }) {
+  const stroke = "hsl(220 90% 35%)";
+  const fill = "none";
+  if (shape.kind === "point" && shape.pts[0]) {
+    const p = shape.pts[0];
+    return <circle cx={p.x} cy={p.y} r={4} fill={stroke} />;
+  }
+  if (shape.kind === "line" && shape.pts.length >= 2) {
+    const [a, b] = shape.pts;
+    return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={stroke} strokeWidth={1.5} />;
+  }
+  if (shape.kind === "circle" && shape.pts.length >= 2) {
+    const [c, r] = shape.pts;
+    const radius = Math.hypot(r.x - c.x, r.y - c.y);
+    return <circle cx={c.x} cy={c.y} r={radius} fill={fill} stroke={stroke} strokeWidth={1.5} />;
+  }
+  if (shape.kind === "arc" && shape.pts.length >= 3) {
+    // 3-point arc → approximate as polyline through the points (lightweight).
+    const d = `M ${shape.pts[0].x} ${shape.pts[0].y} Q ${shape.pts[1].x} ${shape.pts[1].y} ${shape.pts[2].x} ${shape.pts[2].y}`;
+    return <path d={d} fill={fill} stroke={stroke} strokeWidth={1.5} />;
+  }
+  if (shape.kind === "polygon" && shape.pts.length >= 2) {
+    return (
+      <polygon
+        points={shape.pts.map((p) => `${p.x},${p.y}`).join(" ")}
+        fill="hsla(220, 90%, 50%, 0.06)" stroke={stroke} strokeWidth={1.5}
+      />
+    );
+  }
+  return null;
+}
+
 
 function ToolButton({
   active, onClick, icon, label,
