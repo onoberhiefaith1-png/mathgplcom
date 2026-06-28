@@ -8,7 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -22,7 +22,10 @@ import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
-import { EMPTY_SCENE, sanitizeScene } from "@/lib/geometry/scene";
+import { EMPTY_SCENE, sanitizeScene, type GeometryScene } from "@/lib/geometry/scene";
+import { addPoint, addSegment, midpointOfSegment } from "@/lib/geometry/editor/sceneOps";
+import { snap, pickObject } from "@/lib/geometry/editor/snap";
+import type { ToolId } from "@/lib/geometry/editor/tools";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
 import { MathSymbolPanel } from "./MathSymbolPanel";
@@ -229,7 +232,7 @@ function DocumentEditorInner({
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
-  const { mode: geometryMode, setMode: setGeometryMode } = useGeometryMode();
+  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
   const { id: notebookId } = useParams();
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -709,6 +712,111 @@ function DocumentEditorInner({
       saveTimer.current = setTimeout(() => onDocChange(editor.getJSON()), 600);
     },
   });
+
+  const geometryDraftRef = useRef<{ pos: number; pendingIds: string[] } | null>(null);
+  const geometryToolRef = useRef<ToolId>(geometryTool);
+  useEffect(() => { geometryToolRef.current = geometryTool; }, [geometryTool]);
+
+  const selectGeometryAt = useCallback((pos: number) => {
+    if (!editor) return;
+    setTimeout(() => {
+      editor.chain().focus().setNodeSelection(pos).run();
+    }, 0);
+  }, [editor]);
+
+  const sceneFromNodeAt = useCallback((pos: number): GeometryScene => {
+    if (!editor) return EMPTY_SCENE;
+    return (sanitizeScene(editor.state.doc.nodeAt(pos)?.attrs?.scene) as GeometryScene) ?? EMPTY_SCENE;
+  }, [editor]);
+
+  const updateGeometrySceneAt = useCallback((pos: number, scene: GeometryScene) => {
+    if (!editor) return;
+    const node = editor.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "geometryDiagram") return;
+    const tr = editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, scene });
+    editor.view.dispatch(tr);
+  }, [editor]);
+
+  const findGeometryAtDomPoint = useCallback((clientX: number, clientY: number): number | null => {
+    const el = document.elementFromPoint(clientX, clientY) as Element | null;
+    const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
+    const raw = wrap?.dataset.geometryPos;
+    if (!raw) return null;
+    const pos = Number(raw);
+    return Number.isFinite(pos) ? pos : null;
+  }, []);
+
+  const insertGeometryAtPoint = useCallback((clientX: number, clientY: number): number | null => {
+    if (!editor) return null;
+    const view = editor.view;
+    const coords = view.posAtCoords({ left: clientX, top: clientY });
+    let pos = coords?.pos ?? editor.state.selection.to;
+    pos = Math.max(0, Math.min(pos, editor.state.doc.content.size));
+    editor.chain().focus().insertContentAt(pos, {
+      type: "geometryDiagram",
+      attrs: { scene: EMPTY_SCENE },
+    }).run();
+    return pos;
+  }, [editor]);
+
+  const applyQuickGeometryTool = useCallback((scene: GeometryScene, tool: ToolId, x: number, y: number, pendingIds: string[]) => {
+    const sn = snap(scene, x, y);
+    const hitId = pickObject(scene, x, y, 10);
+    const ensurePointLocal = (base: GeometryScene, px: number, py: number) => {
+      const s = snap(base, px, py);
+      if (s.pointId) return { id: s.pointId, scene: base, added: false };
+      const op = addPoint(base, s.x, s.y);
+      return { id: op.addedIds[0], scene: op.scene, added: true };
+    };
+
+    if (tool === "point") {
+      return { scene: addPoint(scene, sn.x, sn.y).scene, pendingIds: [] };
+    }
+
+    if (tool === "line") {
+      const made = ensurePointLocal(scene, x, y);
+      if (pendingIds.length === 0) return { scene: made.scene, pendingIds: [made.id] };
+      const prev = pendingIds[pendingIds.length - 1];
+      if (prev === made.id) return { scene: made.scene, pendingIds };
+      const op = addSegment(made.scene, prev, made.id);
+      return { scene: op.scene, pendingIds: [made.id] };
+    }
+
+    if (tool === "midpoint") {
+      if (!hitId) return { scene, pendingIds };
+      return { scene: midpointOfSegment(scene, hitId).scene, pendingIds: [] };
+    }
+
+    return { scene, pendingIds };
+  }, []);
+
+  const handleGeometryPaperClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!editor || !geometryMode || e.button !== 0 || isEditorControlTarget(e.target)) return false;
+    const tool = geometryToolRef.current;
+    if (!(tool === "point" || tool === "line" || tool === "midpoint")) return false;
+
+    let pos = findGeometryAtDomPoint(e.clientX, e.clientY);
+    if (pos == null) pos = insertGeometryAtPoint(e.clientX, e.clientY);
+    if (pos == null) return false;
+
+    const node = editor.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "geometryDiagram") return false;
+    const wrap = document.elementFromPoint(e.clientX, e.clientY)?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
+    const rect = wrap?.getBoundingClientRect();
+    const scene = (sanitizeScene(node.attrs.scene) as GeometryScene) ?? EMPTY_SCENE;
+    const W = scene.bounds.width + 48;
+    const H = scene.bounds.height + 48;
+    const localX = rect ? ((e.clientX - rect.left) / rect.width) * W - 24 : scene.bounds.width / 2;
+    const localY = rect ? ((e.clientY - rect.top) / rect.height) * H - 24 : scene.bounds.height / 2;
+    const draft = geometryDraftRef.current?.pos === pos ? geometryDraftRef.current : { pos, pendingIds: [] };
+    const next = applyQuickGeometryTool(scene, tool, localX, localY, draft.pendingIds);
+    updateGeometrySceneAt(pos, next.scene);
+    geometryDraftRef.current = { pos, pendingIds: next.pendingIds };
+    selectGeometryAt(pos);
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
+  }, [editor, findGeometryAtDomPoint, geometryMode, insertGeometryAtPoint, selectGeometryAt, updateGeometrySceneAt, applyQuickGeometryTool]);
 
   // Push external doc updates only when editor isn't focused.
   useEffect(() => {
