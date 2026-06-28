@@ -1,68 +1,55 @@
+## Goal
 
-# Geometry Mode — Embedded in Lesson Note
+Drop the geometry **frame** entirely. When the teacher toggles the Diagram button, Geometry Mode turns on, the left toolbox appears, and drawing happens **directly inside the lesson note at the caret position** — no boxed frame, no resize handles, no hover chrome. Then audit every tool (Point, Line, Midpoint, Compass, Polygon, Circle, Arc, Right angle, etc.) so each one actually works.
 
-Replace the right-side dock + floating action bar with an in-document **Geometry Mode**, toggled from the existing Diagram button in the toolbar. The lesson note stays the workspace; geometry tools appear contextually.
+## 1. Remove the frame
 
-## 1. Diagram button = mode toggle
+- Delete the `geometryDiagram` TipTap **NodeView chrome**: faint border, hover handles, edge toolbar, rotate/resize grips, lock/duplicate buttons. The node still exists as a data carrier, but renders as a plain inline SVG with no border, no padding, no background.
+- Remove `GeometryEditorPanel` (already in spec) and any remaining "frame selected" UI.
+- Strip `GeometryModeContext.activeFrameId` from the selection model — there is no "active frame" anymore.
+- Auto-enter/exit Geometry Mode based on caret selection is removed; the only way in/out is the **Diagram toolbar button**.
 
-In `DocumentEditor.tsx` toolbar:
-- Diagram button becomes a toggle. Active state = highlighted (primary background).
-- Clicking ON: enters Geometry Mode, mounts the left-side **GeometryToolbox**, and — if the caret is not already inside a `geometryDiagram` — inserts a new empty frame into the current section (under current heading, before next heading) and selects it.
-- Clicking OFF: leaves Geometry Mode, unmounts toolbox. Frame stays in document, returns to faint idle look.
-- Selecting any existing frame auto-enters Geometry Mode; clicking outside any frame (caret moves to text) auto-exits.
+## 2. New drawing model: caret-anchored canvas
 
-State lives in `DocumentEditor` (`geometryMode: boolean`, driven by selection + manual toggle).
+- Geometry Mode ON → the toolbox shows on the left, and a **single ambient overlay canvas** mounts over the lesson note's editor surface (absolute, pointer-events on, transparent background).
+- Drawing operations write to a **scene that lives at the current caret position** in the document:
+  - If the caret is already inside an existing `geometryDiagram` node → edits go to that node's scene.
+  - Otherwise, the first click inserts a new `geometryDiagram` node at the caret (or end of current section) and starts the scene there. No visible frame — just the rendered SVG flowing inline with the text.
+- Clicking elsewhere in the text just moves the caret. The next drawing click writes to whatever node the caret now sits in (creating one if needed). This gives the "edit anywhere" behaviour the teacher asked for.
+- Diagram toolbar button OFF → overlay unmounts, toolbox hides, SVGs stay rendered inline with zero chrome.
 
-## 2. Left-side floating GeometryToolbox
+## 3. Tool audit (must all work end-to-end)
 
-New component `GeometryToolbox.tsx` (replaces the right-side `GeometryEditDock`):
-- Fixed position, left edge of the document column, vertically centred, own scrollbar.
-- Two display modes persisted in `localStorage`:
-  - **Collapsed**: icon-only, ~40px wide.
-  - **Expanded**: icon + short label, ~140px wide.
-- A small pin/chevron header toggles modes.
-- Tools rendered as a single flat scrollable list (groups kept as subtle dividers + tiny uppercase labels). Reuses `TOOLS` / `ICONS` from current `GeometryToolbar.tsx`; that file is repurposed/renamed.
-- Selecting a tool sets the active tool on the currently selected frame's editor state.
-- Toolbox is independent of page scroll (`position: fixed`); its own overflow handled internally.
+For each tool below: bind it to `useGeometryEditor`, exercise it manually in preview, fix any wiring/op gaps. Required tools:
 
-Existing `GeometryEditorPanel` right-side dock is removed.
+- **Select** — click an object, shows subtle highlight only (no frame).
+- **Point** — single click places labelled point (auto label A, B, C...).
+- **Line / Segment / Ray** — two clicks.
+- **Midpoint** — click a segment → places labelled midpoint.
+- **Compass / Circle** — 3-click (centre, through, confirm) per current spec.
+- **Arc** — 3-click (start, through, end).
+- **Polygon** — n clicks + double-click / Enter to close.
+- **Right angle marker** — click vertex then two rays, drops the small square.
+- **Angle marker** — same flow, drops the arc + value.
+- **Label / Text** — click position, inline edit.
+- **Delete** — Backspace / toolbox eraser on selected object.
+- **Undo / Redo** — already in `useGeometryEditor`, re-verify keyboard bindings.
 
-## 3. Frame appearance (clean by default)
+Each tool's op lives in `src/lib/geometry/editor/sceneOps.ts`; missing ones get added there.
 
-Rewrite the NodeView in `extensions/GeometryDiagram.tsx`:
-- Idle: 1px `border-foreground/5` (almost invisible). No buttons, no handles.
-- Hover near edge (within ~12px) OR TipTap `selected`: border turns blue, 8 resize handles + top-left move grip + top-right rotate handle appear, plus a compact edge toolbar (Delete · Duplicate · Copy · Paste · AI Edit).
-- Mouse leaves frame area → handles + edge toolbar fade out.
-- Removes the current always-visible floating black action bar.
+## 4. Files touched
 
-Hover proximity implemented with a wrapper that listens to `mousemove` on the frame's bounding box + small padding.
+- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — strip NodeView chrome to plain SVG render.
+- `src/components/lessonnotes/geometry-editor/GeometryModeContext.tsx` — remove `activeFrameId`, add caret-anchored scene resolver.
+- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` (new or repurposed) — ambient overlay handling pointer events while Geometry Mode is on.
+- `src/components/lessonnotes/geometry-editor/GeometryToolbox.tsx` — no change to layout, just confirm all 10+ tool ids are listed and dispatch correctly.
+- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — accept a scene-resolver instead of a single scene prop.
+- `src/lib/geometry/editor/sceneOps.ts` — fill in any missing per-tool ops (midpoint, right-angle, polygon-close).
+- `src/components/lessonnotes/DocumentEditor.tsx` — mount overlay; remove auto enter/exit on diagram selection.
 
-## 4. Frame stays attached to its section
+## 5. Out of scope
 
-- Frame is inserted via `insertContentAt(endOfCurrentSection)` so it always belongs to a section.
-- Move Up / Move Down (already part of section toolbar) keep working — frame moves with the section content because it's a block node inside it.
-- No floating/absolute positioning of the frame itself.
-
-## 5. In-frame drawing
-
-`useGeometryEditor` already supports live edits; we keep it. The toolbox writes `tool` into the active frame's editor instance via a small context provider `GeometryModeContext` that exposes `{ activeFrameId, setTool, scene, applyOp }`.
-
-Drawing surface inside the frame uses the existing `GeometryDiagram` SVG renderer + interaction layer; only the chrome around it changes.
-
-## 6. AI Edit / Sketch / Generate
-
-Kept. Triggered from the hover edge toolbar (AI Edit button) which opens the existing inline AI panel anchored to the frame (small popover, not a full side dock).
-
-## 7. Files
-
-Changed:
-- `src/components/lessonnotes/DocumentEditor.tsx` — Diagram toggle, Geometry Mode state, mount `GeometryToolbox`, auto enter/exit on selection.
-- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — new clean NodeView: faint idle border, hover-revealed handles + edge toolbar, rotate handle, remove always-on action bar.
-- `src/components/lessonnotes/geometry-editor/GeometryToolbar.tsx` → rename/repurpose into `GeometryToolbox.tsx` (left-side fixed, collapsed/expanded modes, own scroll).
-- `src/components/lessonnotes/geometry-editor/GeometryEditorPanel.tsx` — delete (replaced).
-- New `src/components/lessonnotes/geometry-editor/GeometryModeContext.tsx` — bridges toolbox ↔ active frame.
-- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — unchanged behaviourally; consumed via context.
-
-Out of scope: scene data model, AI prompts, sketch→geometry backend.
+- Scene data model, AI Edit panel, sketch-to-geometry backend — untouched.
+- Resize / rotate / move / lock / duplicate — gone with the frame, not replaced (the teacher edits by re-drawing or deleting objects).
 
 Proceed?
