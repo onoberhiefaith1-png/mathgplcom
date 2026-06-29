@@ -570,10 +570,14 @@ export const FloatingNumberPanel = ({
             padding: "2px 6px",
             borderRadius: 10,
             background: "#ffffff",
-            border: "1px solid #d1d5db",
+            border: frozen ? "1px solid #f59e0b" : "1px solid #d1d5db",
             boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+            opacity: frozen ? 0.5 : 1,
+            filter: frozen ? "grayscale(0.4)" : "none",
+            pointerEvents: frozen ? "none" : "auto",
+            transition: "opacity 160ms ease, filter 160ms ease",
           }}
-          title="Floating numbers — tap to use"
+          title={frozen ? "Notebook checkpoint — tap the notebook to continue" : "Floating numbers — tap to use"}
         >
           <button
             onClick={(e) => { e.stopPropagation(); if (canPrev) { goBackward(); onPing(); } }}
