@@ -301,9 +301,10 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           const rl = sourceLines[k];
           const eq = (rl.equation ?? "").trim();
           if (!eq) continue;
-          const cleaned = dropContextualLeadingPlus(cleanFragments((rl.fillers && rl.fillers.length > 0) ? rl.fillers : fillersFromEquation(eq)));
-          // Per-line shuffle — same seed for the same lesson, never equation order.
-          const fills = shuffleLine(cleaned, `${sub.id}-line-${k}`);
+          // Preserve the EXACT order the teacher generated. No shuffle, no
+          // rearrangement — the floating-number page should reflect the
+          // teacher's own construction sequence.
+          const fills = dropContextualLeadingPlus(cleanFragments((rl.fillers && rl.fillers.length > 0) ? rl.fillers : fillersFromEquation(eq)));
           const start = fragmentsFromLines.length;
           fragmentsFromLines.push(...fills);
           const explanation = (rl as any).explanation

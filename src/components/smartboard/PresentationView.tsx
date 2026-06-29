@@ -2025,9 +2025,14 @@ const PresentationView = ({
               const nb = (guidedLines[k] as { notebook?: string } | undefined)?.notebook;
               return (nb ?? "").trim();
             };
+            // Cursor movement limit (spec): the teacher may only step at most
+            // 3 lines beyond the most recently COMPLETED line (activeLineIdx
+            // tracks the next-to-solve, so completed = activeLineIdx-1).
+            const maxReachable = Math.min(lineCount - 1, activeLineIdx + 3);
             const stepTo = (target: number) => {
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
+              if (target > maxReachable) return; // out of reach — block the jump
               const nb = notebookFor(target);
               if (nb && !shownNotebookIdx.has(target)) {
                 // Reveal Notebook N first; do NOT advance activeLineIdx yet.
@@ -2080,6 +2085,23 @@ const PresentationView = ({
                     setConsumedAbsIdx((prev) => {
                       const next = new Set(prev);
                       next.add(absIdx);
+                      // Continuous rotation: when every chip of the active
+                      // line has been used, automatically clear them so the
+                      // pool refills and the teacher never runs out.
+                      if (hasGuidedLines) {
+                        const ln = guidedLines[curLineIdx];
+                        if (ln) {
+                          let allUsed = true;
+                          for (let i = ln.fragmentStart; i < ln.fragmentEnd; i++) {
+                            if (!next.has(i)) { allUsed = false; break; }
+                          }
+                          if (allUsed) {
+                            for (let i = ln.fragmentStart; i < ln.fragmentEnd; i++) {
+                              next.delete(i);
+                            }
+                          }
+                        }
+                      }
                       return next;
                     })
                   }
@@ -2105,6 +2127,12 @@ const PresentationView = ({
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
                   onWriteNotebookToBoard={writeProseLineOnBoard}
+                  frozen={notebookRevealIdx != null}
+                  notebookPending={
+                    hasGuidedLines &&
+                    notebookFor(curLineIdx).length > 0 &&
+                    !shownNotebookIdx.has(curLineIdx)
+                  }
                 />
 
 
