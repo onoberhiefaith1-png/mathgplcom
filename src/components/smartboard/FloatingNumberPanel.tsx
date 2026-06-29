@@ -491,9 +491,11 @@ export const FloatingNumberPanel = ({
           <ChevronDown size={16} />
         </button>
         {(() => {
-          // Page icon writes the prose (notebookText if present, else the
-          // current line's explanation) onto the board itself, below the
-          // last solved equation. No more side-note tooltip.
+          // Notebook checkpoint icon — a larger, recognisable mini-notebook
+          // SVG. When the current line has an unread teaching note, it
+          // pulses to draw the teacher's attention. Tapping freezes the
+          // floating numbers (handled by parent) and writes the prose
+          // exactly as authored onto the board.
           const prose =
             (notebookText && notebookText.trim().length > 0)
               ? notebookText
@@ -501,6 +503,7 @@ export const FloatingNumberPanel = ({
                   ? lines[activeLineIdx]?.explanation
                   : undefined);
           if (!prose || !prose.trim()) return null;
+          const pulse = notebookPending;
           return (
             <button
               onClick={(e) => {
@@ -508,22 +511,39 @@ export const FloatingNumberPanel = ({
                 onWriteNotebookToBoard?.(prose);
                 onPing();
               }}
-              title="Place this note on the board"
-              aria-label="Place this note on the board"
+              title="Teaching note — tap to place on board"
+              aria-label="Teaching note — tap to place on board"
               style={{
-                background: "transparent",
-                border: 0,
-                padding: 0,
-                marginTop: 2,
-                fontSize: 16,
-                lineHeight: 1,
+                background: pulse ? "#fef3c7" : "transparent",
+                border: pulse ? "1px solid #f59e0b" : "1px solid transparent",
+                borderRadius: 8,
+                padding: 3,
+                marginTop: 4,
+                lineHeight: 0,
                 cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
+                boxShadow: pulse ? "0 0 0 0 rgba(245,158,11,0.6)" : "none",
+                animation: pulse ? "fnp-notebook-pulse 1.6s ease-out infinite" : "none",
               }}
             >
-              📝
+              <style>{`@keyframes fnp-notebook-pulse {
+                0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
+                70% { box-shadow: 0 0 0 10px rgba(245,158,11,0); }
+                100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+              }`}</style>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+                   stroke={pulse ? "#b45309" : chromeFg}
+                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                   aria-hidden>
+                {/* spine */}
+                <path d="M5 3.5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5z" fill={pulse ? "#fffbeb" : "transparent"} />
+                {/* binder rings */}
+                <path d="M5 7h2M5 11h2M5 15h2M5 19h2" />
+                {/* lines */}
+                <path d="M10 8h6M10 12h6M10 16h4" />
+              </svg>
             </button>
           );
         })()}
