@@ -2085,6 +2085,23 @@ const PresentationView = ({
                     setConsumedAbsIdx((prev) => {
                       const next = new Set(prev);
                       next.add(absIdx);
+                      // Continuous rotation: when every chip of the active
+                      // line has been used, automatically clear them so the
+                      // pool refills and the teacher never runs out.
+                      if (hasGuidedLines) {
+                        const ln = guidedLines[curLineIdx];
+                        if (ln) {
+                          let allUsed = true;
+                          for (let i = ln.fragmentStart; i < ln.fragmentEnd; i++) {
+                            if (!next.has(i)) { allUsed = false; break; }
+                          }
+                          if (allUsed) {
+                            for (let i = ln.fragmentStart; i < ln.fragmentEnd; i++) {
+                              next.delete(i);
+                            }
+                          }
+                        }
+                      }
                       return next;
                     })
                   }
@@ -2110,6 +2127,12 @@ const PresentationView = ({
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
                   onWriteNotebookToBoard={writeProseLineOnBoard}
+                  frozen={notebookRevealIdx != null}
+                  notebookPending={
+                    hasGuidedLines &&
+                    notebookFor(curLineIdx).length > 0 &&
+                    !shownNotebookIdx.has(curLineIdx)
+                  }
                 />
 
 
