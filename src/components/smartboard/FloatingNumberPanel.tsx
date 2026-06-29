@@ -163,6 +163,8 @@ export const FloatingNumberPanel = ({
   lineNumber, lineCount, onPrevLine, onNextLine,
   notebookText,
   onWriteNotebookToBoard,
+  frozen = false,
+  notebookPending = false,
 }: Props) => {
   const initialY = rememberedY ?? defaultYPx;
   const [y, setY] = useState<number>(initialY);
