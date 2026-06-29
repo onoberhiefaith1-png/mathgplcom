@@ -2025,9 +2025,14 @@ const PresentationView = ({
               const nb = (guidedLines[k] as { notebook?: string } | undefined)?.notebook;
               return (nb ?? "").trim();
             };
+            // Cursor movement limit (spec): the teacher may only step at most
+            // 3 lines beyond the most recently COMPLETED line (activeLineIdx
+            // tracks the next-to-solve, so completed = activeLineIdx-1).
+            const maxReachable = Math.min(lineCount - 1, activeLineIdx + 3);
             const stepTo = (target: number) => {
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
+              if (target > maxReachable) return; // out of reach — block the jump
               const nb = notebookFor(target);
               if (nb && !shownNotebookIdx.has(target)) {
                 // Reveal Notebook N first; do NOT advance activeLineIdx yet.
