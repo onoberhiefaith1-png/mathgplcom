@@ -146,6 +146,12 @@ interface Props {
    *  the parent (PresentationView) so the FloatingNumberPanel never has to
    *  touch the writing-tree directly. */
   onWriteNotebookToBoard?: (text: string) => void;
+  /** When true, chip selection is disabled (e.g. while a Notebook
+   *  checkpoint is being revealed). Chips render dimmed and ignore taps. */
+  frozen?: boolean;
+  /** True when the current line has an unread notebook checkpoint — the
+   *  Notebook icon pulses to draw the teacher's eye. */
+  notebookPending?: boolean;
 }
 
 export const FloatingNumberPanel = ({
