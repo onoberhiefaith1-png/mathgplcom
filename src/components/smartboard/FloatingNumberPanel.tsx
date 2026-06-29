@@ -343,6 +343,7 @@ export const FloatingNumberPanel = ({
    *  out of the strip (the next unused number flows in from the right). */
   const handleActiveTap = (label: string, absIdx: number) => {
     if (!label) return;
+    if (frozen) { onPing(); return; }
     setReveal(0); // collapse any revealed used numbers so the strip compacts
     setUsedOrder((prev) => (prev.includes(absIdx) ? prev : [...prev, absIdx]));
     const frac = parseFractionChip(label);
@@ -360,6 +361,7 @@ export const FloatingNumberPanel = ({
 
   /** Tap a USED (green) chip: un-mark it so it returns to the unused flow. */
   const handleUsedTap = (absIdx: number) => {
+    if (frozen) { onPing(); return; }
     setUsedOrder((prev) => prev.filter((i) => i !== absIdx));
     onUnuse?.(absIdx);
     onPing();
