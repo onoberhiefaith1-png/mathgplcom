@@ -228,7 +228,7 @@ export const SettingsSheet = ({
                 type="range"
                 min={60}
                 max={200}
-                step={5}
+                step={1}
                 value={Math.round(lineSpacing * 100)}
                 onChange={(e) => setLineSpacing(clampLineSpacing(Number(e.target.value) / 100))}
                 className="w-full"
@@ -252,7 +252,7 @@ export const SettingsSheet = ({
                 type="range"
                 min={70}
                 max={180}
-                step={5}
+                step={1}
                 value={Math.round(textScale * 100)}
                 onChange={(e) => setTextScale(clampTextScale(Number(e.target.value) / 100))}
                 className="w-full"
