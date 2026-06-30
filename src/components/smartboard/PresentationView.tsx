@@ -2175,8 +2175,8 @@ const PresentationView = ({
         chromeFg={palette.chromeFg}
         chromeBorder={palette.chromeBorder}
         surfaceBg={surfaceFlatBg}
-        lineSpacing={lineSpacing}
-        setLineSpacing={setLineSpacing}
+        rowSpacing={rowSpacing}
+        setRowSpacing={setRowSpacing}
         textScale={textScale}
         setTextScale={setTextScale}
       />
