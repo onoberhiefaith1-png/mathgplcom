@@ -461,7 +461,8 @@ export const FloatingNumberPanel = ({
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
     const next = e.clientY - dragRef.current.dy;
-    const upper = Math.max(finalLineBottomPx + 8, topYPx);
+    const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
+    const upper = Math.max(finalLineBottomPx + clearance, topYPx);
     setY(Math.min(bottomYPx, Math.max(upper, next)));
   };
   const onPointerUp = (e: React.PointerEvent) => {
