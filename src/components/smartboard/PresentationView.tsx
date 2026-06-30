@@ -806,6 +806,15 @@ const PresentationView = ({
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
   ) => {
     const line = sensor.line;
+    // Notebook-prose rows are sensor-restricted: they render auto-generated
+    // narration ("The quadratic formula is:") and must never be editable.
+    // The sensor must also never settle on one — if it has, swallow the
+    // edit. This is the partner of the click-gate on FreeWriteLayer below.
+    const floorLine = Math.floor(line);
+    if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
+      hiddenInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
     setFreeLines((prev) => {
       const row = prev[line] ?? [];
       const res = fn(row, cursor);
@@ -2078,21 +2087,20 @@ const PresentationView = ({
             onMeasure={handleLineMeasure}
             onCursorChange={(line, c) => {
               // ── LINE LOCKING ────────────────────────────────────────────
-              // The cursor must follow Presentation, not the other way
-              // around. Only the lesson line currently active in the
-              // Floating Number panel (curLineIdx) is editable. Clicks on
-              // any locked equation are swallowed so the caret cannot move
-              // there and typing cannot leak into older lines. To correct
-              // an earlier step the teacher steps back through Presentation
-              // (Prev/Next on the floating panel or the line navigator),
-              // which advances curLineIdx and re-opens that line.
+              // Only the line currently active in the Floating Number panel
+              // is editable. Clicks on locked lines AND on notebook-prose
+              // rows are swallowed so the caret cannot drift backwards into
+              // a previous line or into a read-only narration row.
+              const floorLine = Math.floor(line);
+              if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
+                return; // notebook prose — sensor-restricted area
+              }
               if (hasGuidedLines && activeLayout) {
-                const curLineIdx = Math.min(
-                  manualFloatingLineIdx ?? floatingLineIdx,
-                  guidedLines.length - 1,
-                );
-                const activeBoardRow = bandStart(activeLayout) + curLineIdx;
-                if (line !== activeBoardRow) return; // locked — swallow
+                // The anchor effect has already placed sensor.line on the
+                // correct K-th-occupied (non-notebook) row for the current
+                // lesson line. Use that as the single source of truth so
+                // both the click-gate and notebook-skipping stay in sync.
+                if (Math.floor(sensor.line) !== floorLine) return;
               }
               const clamped = clampToActiveBand(line);
               if (clamped !== sensor.line) setSensor((s) => ({ ...s, line: clamped }));
@@ -2547,7 +2555,11 @@ const PresentationView = ({
           }
           if (e.key === "ArrowUp") {
             e.preventDefault();
-            setSensor((s) => ({ line: clampToActiveBand(s.line - 0.5), x: 0 }));
+            let cand = clampToActiveBand(sensor.line - 0.5);
+            // Hop over notebook-prose rows — they are sensor-restricted.
+            const minL = activeLayout ? bandStart(activeLayout) : 0;
+            while (cand > minL && notebookRowLines.has(Math.floor(cand))) cand -= 0.5;
+            setSensor((s) => ({ ...s, line: cand, x: 0 }));
             setCursor({ path: [], index: 0 });
             return;
           }
@@ -2561,7 +2573,11 @@ const PresentationView = ({
               }
             }
             if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
-            setSensor({ line: clampToActiveBand(nextLine), x: 0 });
+            let cand = clampToActiveBand(nextLine);
+            const maxL = activeLayout ? bandEnd(activeLayout) : cand;
+            // Hop over notebook-prose rows so the sensor never parks on one.
+            while (cand < maxL && notebookRowLines.has(Math.floor(cand))) cand += 0.5;
+            setSensor({ line: cand, x: 0 });
             setCursor({ path: [], index: 0 });
             return;
           }
