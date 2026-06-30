@@ -3216,6 +3216,112 @@ const PresentationView = ({
 
       </div>
 
+      {/* Dedicated Cursor Scrollbar — always visible while the carrier is
+          active. Independent from the Floating Number panel's ▲/▼: this
+          ONLY moves the writing sensor. */}
+      {canEdit && carrierVisible && hasGuidedLines && (
+        <CursorScrollbar
+          onUp={() => nudgeCursor(-1)}
+          onDown={() => nudgeCursor(1)}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          leftPx={12}
+          topCss="calc(50% + 140px)"
+          canUp={canCursorUp}
+          canDown={canCursorDown}
+        />
+      )}
+
+      {/* RIGHT rail — relocated section navigation, Smart Line and Dot. */}
+      {canEdit && carrierVisible && (
+        <div
+          data-sb-chrome
+          className="absolute z-30 flex flex-col items-center gap-2"
+          style={{
+            right: 12,
+            top: "calc(50% - 140px)",
+            userSelect: "none",
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { setBeatCursor((c) => Math.max(0, c - 1)); }}
+            disabled={beatCursor <= 0}
+            aria-label="Previous section"
+            title="Previous section"
+            className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: palette.chromeFg,
+              borderColor: palette.chromeBorder,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: beatCursor <= 0 ? 0.3 : 0.95,
+            }}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { if (canAdvanceBeat) setBeatCursor((c) => Math.min(beats.length - 1, c + 1)); }}
+            disabled={!canAdvanceBeat}
+            aria-label="Next section"
+            title="Next section"
+            className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: palette.chromeFg,
+              borderColor: palette.chromeBorder,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: !canAdvanceBeat ? 0.3 : 0.95,
+            }}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { spawnSmartLine(); }}
+            aria-label="Drop line"
+            title="Drop a line (fraction bar / strike-through)"
+            className="grid place-items-center rounded-full border transition-all"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: palette.chromeFg,
+              borderColor: palette.chromeBorder,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: 0.95,
+            }}
+          >
+            <MinusIcon className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { if (dotArmed) disarmDot(); else armDot(); }}
+            aria-label="Two-point line"
+            title="Tap to arm, then tap two points to draw a line"
+            className="grid place-items-center rounded-full border transition-all"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: dotArmed ? ink : palette.chromeFg,
+              borderColor: dotArmed ? ink : palette.chromeBorder,
+              boxShadow: dotArmed
+                ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
+                : "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: 0.95,
+            }}
+          >
+            <CircleIcon className="h-3 w-3" fill="currentColor" />
+          </button>
+        </div>
+      )}
+
+
+
 
 
 
