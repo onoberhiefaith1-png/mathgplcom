@@ -1556,8 +1556,8 @@ const PresentationView = ({
     setLiveCursor({ path: [], index: 0 });
     manualPushedRef.current = cand > auto ? cand : null;
     activeSensorPhysicalLineRef.current = cand;
-    activeSensorLogicalIdxRef.current = hasGuidedLines ? activeLineIdx : null;
-  }, [activeLayout, sensor.line, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor, hasGuidedLines, activeLineIdx]);
+    activeSensorLogicalIdxRef.current = null;
+  }, [activeLayout, sensor.line, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
 
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
