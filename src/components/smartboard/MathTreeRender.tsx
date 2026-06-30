@@ -346,7 +346,7 @@ const MatrixView = ({
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", verticalAlign: "middle",
-      margin: "0 0.15em", lineHeight: 1.1,
+      margin: "0.22em 0.15em", lineHeight: 1.1,
     }}>
       {node.left && <BracketGlyph kind={node.left} side="L" heightCss={bodyH} />}
       <span ref={ref} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "center" }}>
