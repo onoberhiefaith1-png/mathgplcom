@@ -31,6 +31,7 @@ import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
 import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
+import { CursorScrollbar } from "./CursorScrollbar";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
