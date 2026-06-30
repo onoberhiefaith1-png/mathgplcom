@@ -57,26 +57,36 @@ const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
 const linesFromSolution = (sol: string): { id: string; text: string }[] =>
   sol.split("\n").map((l) => l.trim()).filter(Boolean).map((text) => ({ id: newId(), text }));
 
+/**
+ * Teacher chips are the source of truth: preserve every saved filler verbatim
+ * and keep the parallel selection array index-aligned. `toUnicodeMath` is
+ * applied only as a display-safety pass — if it collapses a teacher edit to
+ * empty, we fall back to the original string so the edit is never silently
+ * dropped on Save / reload.
+ */
 const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
   const rawFillers = line.fillers ?? [];
   const rawSel = line.fillersSelected ?? [];
-  const kept: { v: string; sel: boolean }[] = [];
-  for (let i = 0; i < rawFillers.length; i++) {
-    const v = toUnicodeMath(String(rawFillers[i] ?? ""));
-    if (v && !isStillDirty(v)) kept.push({ v, sel: !!rawSel[i] });
-  }
-  const fillers = kept.map((k) => k.v);
-  const fillersSelected = kept.map((k) => k.sel);
+  const fillers = rawFillers.map((raw) => {
+    const original = String(raw ?? "");
+    const display = toUnicodeMath(original);
+    return display && display.length > 0 ? display : original;
+  });
+  const fillersSelected = fillers.map((_, i) => !!rawSel[i]);
   const containers = line.containers ?? [];
   const rawCSel = line.containersSelected ?? [];
   const containersSelected = containers.map((_, i) => !!rawCSel[i]);
+  const arrangement =
+    line.arrangement && line.arrangement.length === fillers.length
+      ? line.arrangement
+      : identityArrangement(fillers.length);
   return {
     ...line,
     fillers,
     fillersSelected,
     containers,
     containersSelected,
-    arrangement: fillers.length === rawFillers.length ? (line.arrangement ?? identityArrangement(fillers.length)) : identityArrangement(fillers.length),
+    arrangement,
   };
 };
 
@@ -696,11 +706,47 @@ const FloatingNumbersPage = () => {
         floating_scoring: scoring as any,
       })
       .eq("id", info.subsectionId);
-    setSaving(false);
     if (error) {
+      setSaving(false);
       toast({ title: "Could not save", description: error.message, variant: "destructive" });
       return false;
     }
+    // Parity self-check: read back the row and verify every filler we sent
+    // is present verbatim. If anything drifted (normalization, race, etc.)
+    // re-issue the write once so teacher edits are never silently lost.
+    try {
+      const { data: roundtrip } = await supabase
+        .from("notebook_subsections")
+        .select("floating_lines")
+        .eq("id", info.subsectionId)
+        .maybeSingle();
+      const saved = (roundtrip as any)?.floating_lines as FloatingLine[] | null;
+      const drift =
+        !Array.isArray(saved) ||
+        saved.length !== cleanLines.length ||
+        cleanLines.some((line, i) => {
+          const other = saved[i];
+          if (!other) return true;
+          const a = line.fillers ?? [];
+          const b = other.fillers ?? [];
+          if (a.length !== b.length) return true;
+          return a.some((v, j) => String(v) !== String(b[j]));
+        });
+      if (drift) {
+        console.warn("[floating] save parity drift — re-issuing write to preserve teacher edits");
+        await supabase
+          .from("notebook_subsections")
+          .update({
+            floating_lines: cleanLines as any,
+            floating_bucket: bucket as any,
+            floating_scoring: scoring as any,
+          })
+          .eq("id", info.subsectionId);
+      }
+    } catch (e) {
+      console.warn("[floating] parity check failed", e);
+    }
+    setSaving(false);
     dirtyRef.current = false;
     setSavedAt(Date.now());
     if (!silent) toast({ title: "Saved", description: `${bucket.fillers.length} floating numbers persisted.` });
