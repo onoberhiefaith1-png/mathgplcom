@@ -1451,6 +1451,13 @@ const PresentationView = ({
     return a - 1;
   }, [isEmptyWritableRow]);
 
+  const firstWritableRowAfter = useCallback((line: number, L: BeatLayout): number => {
+    const start = Math.floor(line) + 1 + extraRowsFor(Math.floor(line));
+    return findNextWritableEmptyRow(start, 1, L);
+  // extraRowsFor reads measured heights from a ref.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [findNextWritableEmptyRow]);
+
   // Tracks a deliberate downward push of the sensor by the teacher via
   // the Cursor Scrollbar. While set, auto-snap stops moving the sensor
   // back to the first-empty row.
@@ -1719,6 +1726,16 @@ const PresentationView = ({
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
 
+    if (
+      manualPushedRef.current !== null &&
+      Math.floor(sensor.line) === manualPushedRef.current &&
+      isEmptyWritableRow(Math.floor(sensor.line), activeLayout)
+    ) {
+      activeSensorLogicalIdxRef.current = idx;
+      activeSensorPhysicalLineRef.current = sensor.line;
+      return;
+    }
+
     // Once the current presentation line has been anchored, do not keep
     // re-solving that anchor after every keystroke. Typing changes freeLines,
     // and the old effect treated that as a reason to snap the sensor again;
@@ -1750,10 +1767,11 @@ const PresentationView = ({
       target = occupied[idx];
     } else {
       const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
-      // Skip past any notebook-prose rows when extending below the last
-      // written line — the sensor must land on the first non-notebook row.
-      let cand = lastOcc + 1 + (idx - occupied.length);
-      while (cand <= b && notebookRowLines.has(cand)) cand += 1;
+      // Skip past notebook-prose and structure-covered rows when extending
+      // below the last written line — the sensor must land on the first truly
+      // empty writable row, not merely the next physical row.
+      let cand = lastOcc < a ? a : firstWritableRowAfter(lastOcc, activeLayout);
+      if (idx > occupied.length) cand += idx - occupied.length;
       target = Math.min(b, cand);
     }
     if (sensor.line !== target) {
@@ -1763,7 +1781,7 @@ const PresentationView = ({
     activeSensorLogicalIdxRef.current = idx;
     activeSensorPhysicalLineRef.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line]);
+  }, [floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
@@ -1817,7 +1835,9 @@ const PresentationView = ({
       setFloatingLineIdx(nextIdx);
       return;
     }
-    const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
+    const expectedLineNum = activeSensorLogicalIdxRef.current === activeLineIdx && activeSensorPhysicalLineRef.current !== null
+      ? Math.floor(activeSensorPhysicalLineRef.current)
+      : Math.floor(sensor.line);
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) return;
     const ascii = rowToAscii(row);
@@ -1839,16 +1859,25 @@ const PresentationView = ({
     });
     if (target.notebook && !shownNotebookIdx.has(activeLineIdx)) {
       setManualFloatingLineIdx(activeLineIdx);
-      setSensor({ line: clampToActiveBand(expectedLineNum), x: 0 });
+      const nextWritable = firstWritableRowAfter(expectedLineNum, activeLayout);
+      if (nextWritable > bandEnd(activeLayout)) growActiveBand();
+      setSensor({ line: nextWritable, x: 0 });
       setLiveCursor({ path: [], index: 0 });
+      activeSensorPhysicalLineRef.current = nextWritable;
       return;
     }
     const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
     setActiveLineIdx(nextIdx);
     setFloatingLineIdx(nextIdx);
-    setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
+    const nextWritable = firstWritableRowAfter(expectedLineNum, activeLayout);
+    if (nextWritable > bandEnd(activeLayout)) growActiveBand();
+    setSensor({ line: nextWritable, x: 0 });
     setLiveCursor({ path: [], index: 0 });
-  }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout, shownNotebookIdx]);
+    activeSensorLogicalIdxRef.current = nextIdx;
+    activeSensorPhysicalLineRef.current = nextWritable;
+    manualPushedRef.current = null;
+    autoFloorRef.current = nextWritable;
+  }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout, shownNotebookIdx, sensor.line, firstWritableRowAfter]);
 
   // ── RESUME TO HIGHEST COMPLETED LESSON LINE ──────────────────────────
   // When the teacher reopens a lesson, scan the board for already-correct
