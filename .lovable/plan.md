@@ -1,51 +1,115 @@
-## Goal
+# Lesson-Aware Cursor + Working Area
 
-Make the two sliders in **Board Settings** actually do what their labels say, in the way you described in the voice note.
+Goal: stop treating the sensor like a word-processor caret. Bind it to **Lesson Lines** inside the active Solution's **Working Area**, auto-advance per Enter, lock all presentation content, and decouple the expandable panels so the canvas never reflows.
 
-- **Lesson Line Spacing** → grows only the vertical gap *between* lesson lines (between the "quadratic equation" paragraph and the "quadratic formula" paragraph, between the formula and the `x = …` equation, etc.). Inside one lesson line nothing moves — `2a` stays welded under the fraction bar of the quadratic formula.
-- **Text Size** → grows the actual lesson content (prose, equations, fractions, roots, exponents, variables, `2a`, `±`) proportionally, while page width, margins, top bar, settings panel and the smartboard chrome stay exactly the same.
+## 1. Model: Lesson Line vs Physical Row
 
-Right now the wiring is incomplete:
+Add a logical layer on top of the existing physical row grid.
 
-- `grid.FONT_PX` is only piped into `BoxLayer` (the floating answer chips). The lesson canvas (`FreeWriteLayer` → `MathTreeRender`) has no `fontSize` and just inherits a fixed body size, so the Text Size slider visually does nothing to the equations.
-- `lineSpacing` is multiplied straight into `LINE_HEIGHT`, which is *also* what positions every internal structure (smart-line overlay, band math, panel anchors). Moving it shifts a lot of things at once, which is why the slider feels like it's resizing the whole "section" rather than just opening up the gap between two lesson lines.
+- A **Physical Row** stays exactly what it is today: one slot on `grid.lineToY`.
+- A **Lesson Line** is one teaching step (intro sentence, equation, fraction, matrix, …). It may span 1..N physical rows but is the unit the cursor, floating-number strip, and notes attach to.
+- Each Lesson Line carries:
+  - `id`
+  - `kind`: `"prose-locked" | "heading-locked" | "question-locked" | "writable"`
+  - `beatId` (which Solution/Example beat it belongs to)
+  - `rowSpan`: rows it currently occupies (recomputed from rendered height / structural content)
+  - `floatingGroupId` (one strip per Lesson Line, not per row)
 
-## What changes
+A `LessonLineMap` per beat will be derived in `src/lib/smartboard/presentation.ts` alongside the existing notebook attachment pass, exposing:
+- `lessonLinesForBeat(beatId)`
+- `lineAt(row)` → Lesson Line containing that physical row
+- `nextWritableLine(currentId)` / `prevWritableLine(currentId)`
 
-### 1. Text Size becomes real
+## 2. Working Area per Solution
 
-`src/components/smartboard/FreeWriteLayer.tsx`
+For every beat whose kind is `solution` (or `working`):
 
-- Read `grid.FONT_PX` and apply it as `fontSize` on each `LineRender`'s wrapping `<div>`. Because every math sub-structure inside `MathTreeRender` is sized in `em` (fractions, sqrt overlines, exponents, brackets, `2a` denominator, etc.), bumping the parent font scales the entire equation as one rigid unit.
-- Adjust `lineHeight` to `1` (the surrounding row height is still controlled by `grid.LINE_HEIGHT`, so we don't double-stretch).
+- `workingArea.topRow` = first physical row *after* the locked "Solution" header line.
+- `workingArea.bottomRow` = last physical row *before* the next beat header.
+- Only `writable` Lesson Lines inside this range accept the sensor.
 
-`src/components/smartboard/PresentationView.tsx`
+`clampToActiveBand` in `PresentationView.tsx` is replaced by `clampToWorkingArea(beat, candidateRow)` which:
+1. Maps `candidateRow` → containing Lesson Line via `lineAt`.
+2. If that line is locked or outside `[topRow, bottomRow]`, snap to the nearest writable Lesson Line inside the area (preferring the current one).
+3. Returns `{ line, rowOffsetInside }` so multi-row Lesson Lines (e.g. tall fractions) can place the caret on the correct internal row without leaving the Lesson Line.
 
-- No prop changes; `grid` is already memoised from `getGrid(zoom, lineSpacing, textScale)`. Verify the canvas wrapper does not pin a fixed `fontSize` that would shadow `FreeWriteLayer`.
+## 3. Cursor as Lesson-Line cursor
 
-Result: dragging Text Size from 70%→180% smoothly grows every lesson line's text and math together. Page chrome, margins, sliders, settings panel and toolbars are untouched because none of them read `FONT_PX`.
+Replace the current `sensor: { line, x }` state with:
 
-### 2. Lesson Line Spacing becomes "gap only"
+```ts
+type LessonCursor = {
+  beatId: string;
+  lineId: string;        // logical Lesson Line
+  rowOffset: number;     // physical row within the Lesson Line (for tall structures)
+  caret: Cursor;         // existing tree caret inside that row
+};
+```
 
-`src/lib/smartboard/grid.ts`
+All call-sites that today write `setSensor({ line, x })` or `setLiveCursor(...)` go through new helpers:
+- `placeCursorAtFirstWritable(beatId)` — used on beat enter, page restore, and after a Lesson Line is committed.
+- `advanceLessonLine()` — Enter handler; commits current line, allocates the next writable Lesson Line (creates a new one at the bottom of the working area if needed), and snaps the sensor to it.
+- `moveLessonLine(dir: "up" | "down")` — Arrow Up/Down jumps **Lesson Lines**, not physical rows.
 
-- Split `LINE_HEIGHT` into two parts:
-  - an **intrinsic row height** derived from `FONT_PX` so text never overlaps when Text Size grows (`intrinsic = FONT_PX * 1.85`);
-  - an **extra gap** controlled by the slider (`extraGap = (lineSpacing − 1) * BASE_EXTRA_GAP`, where `BASE_EXTRA_GAP ≈ 28 px`).
-- `LINE_HEIGHT = intrinsic + extraGap`. At `lineSpacing = 1` we keep the current default visual; below 1 the gap closes; above 1 it opens up — but the intrinsic row never collapses, so multi-line math (fractions, sqrt) never clips.
-- Keep `BASELINE_OFFSET`, `MARGIN_LEFT`, `MARGIN_TOP` unchanged.
-- Keep `clampLineSpacing` and `clampTextScale`. Remove the now-unused `LINE_SPACING_PRESETS` / `TEXT_SIZE_PRESETS` exports (already not rendered).
+Clicks (`FreeWriteLayer.onCursorChange`, the canvas `onPointerDown` fallback near line 2227 and 2317): resolve the click to a Lesson Line via `lineAt`; if it's locked or outside the Working Area, **ignore** the click — do not move the cursor.
 
-Because each lesson line is one absolute-positioned `LineRender` placed at `MARGIN_TOP + line * LINE_HEIGHT`, increasing only the gap moves the *next* lesson line down without touching the contents of the current one. The internal layout of the quadratic formula (numerator, fraction bar, `2a` denominator) is sized in `em` inside `MathTreeRender` and never reads `LINE_HEIGHT`, so it stays welded together exactly as you described.
+## 4. Auto-placement & Auto-advance
 
-### 3. Notes
+- On beat activation / route mount: call `placeCursorAtFirstWritable(activeBeatId)`.
+- On Enter (already wired around line 2747): replace `clampToActiveBand(nextLine)` with `advanceLessonLine()`.
+- On structural insert that grows the active Lesson Line (fraction, sqrt, matrix), `rowSpan` is recomputed and the working area `bottomRow` shifts; subsequent Lesson Lines reflow via the existing `lineToY` pipeline plus the new `LessonLineMap`.
 
-- Smart-line overlay, box detach threshold, sensor magnet and panel anchors all already key off `grid.LINE_HEIGHT`, so they continue to move in sympathy with the new spacing — no separate fixes needed.
-- Persistence (`smartboard:lineSpacing:*`, `smartboard:textScale:*`) is already in place.
-- No backend changes, no schema changes, no UI redesign — only the two sliders behave the way the voice note describes.
+## 5. Floating Numbers follow the Lesson Line
 
-## Files touched
+`FloatingNumberPanel.tsx` currently keys off the active physical line. Change its input from `activeRow` to `activeLessonLineId` (passed down from PresentationView). The strip's vertical clamp uses `workingArea.topRow` / `workingArea.bottomRow` of the active beat — never above Solution, never into the next beat.
 
-- `src/lib/smartboard/grid.ts` — split intrinsic row height vs slider gap.
-- `src/components/smartboard/FreeWriteLayer.tsx` — apply `grid.FONT_PX` as `fontSize` per line.
-- `src/components/smartboard/PresentationView.tsx` — sanity check that no parent `fontSize` overrides the new value (read-only verification, edit only if a shadowing rule is found).
+## 6. Locked Presentation Areas
+
+Lesson Lines with kind `prose-locked | heading-locked | question-locked` reject:
+- pointer caret placement (FreeWriteLayer click gate)
+- arrow navigation lands (skipped by `nextWritableLine` / `prevWritableLine`)
+- programmatic `setLiveCursor` (helper rejects, falls back to current writable line)
+
+This subsumes the existing "notebook-prose exclusion" — it becomes a single locked-line rule.
+
+## 7. Smart Recovery
+
+Persist `{ beatId, lineId, rowOffset, caret }` to `localStorage` under `smartboard:lessonCursor:<notebookId>` on every commit. On mount, if a stored cursor's `lineId` still resolves in the rebuilt `LessonLineMap`, restore it; otherwise call `placeCursorAtFirstWritable` for the same beat. Floating-number active line is derived from the restored `lineId`.
+
+## 8. Independent Expandable Panels (no layout shift)
+
+Today the top toolbar and bottom Writing Lab share flex space with the canvas, so opening one resizes the other.
+
+- Move both panels to `position: absolute` overlays *above* the canvas, with their own backdrop:
+  - Top toolbar: `top: 0`, slides down, `pointer-events: auto` on the panel, transparent gutter underneath.
+  - Bottom Writing Lab: `bottom: 0`, slides up.
+- The canvas keeps a fixed inner height (`100vh - chromeReservedPx`). `chromeReservedPx` is a constant baseline (collapsed heights of both bars), never recomputed when a panel expands.
+- Each panel owns its own `expanded` state; neither reads the other.
+- Add a small "safe-area" CSS variable so the floating-number strip and sensor never render under an expanded panel (only their *visibility* is affected; the canvas layout itself stays put).
+
+## 9. Files to change
+
+- `src/lib/smartboard/presentation.ts` — emit `LessonLineMap` per beat (writable vs locked, rowSpan, working area bounds).
+- `src/lib/smartboard/grid.ts` — small helper `rowToLessonOffset` if needed; no spacing-formula changes.
+- `src/components/smartboard/PresentationView.tsx` — replace `sensor`/`clampToActiveBand` with `LessonCursor` + helpers; rewire Enter / Arrow / click / restore paths; pass `activeLessonLineId` down.
+- `src/components/smartboard/FreeWriteLayer.tsx` — click gate consults `lineAt(row).kind`.
+- `src/components/smartboard/FloatingNumberPanel.tsx` — key off `activeLessonLineId`; clamp vertical movement to working area.
+- `src/components/smartboard/SettingsSheet.tsx` and the top toolbar / bottom Writing Lab containers — move to absolute overlays with independent expand state; introduce `chromeReservedPx`.
+- New: `src/lib/smartboard/lessonLines.ts` — pure helpers (`buildLessonLineMap`, `nextWritable`, `prevWritable`, `lineAt`).
+- New tests in `src/test/`:
+  - `lessonLineMap.test.ts` — locked vs writable classification, rowSpan from tall structures, working-area bounds.
+  - `lessonCursor.test.ts` — Enter advances Lesson Line, clicks on locked content are ignored, restore picks up the same Lesson Line.
+
+## 10. Out of scope
+
+- No changes to math rendering, line spacing slider, or text-size slider.
+- No changes to AI editor / floating-number generation logic — only *which* Lesson Line the strip is bound to.
+- No DB schema changes; recovery uses `localStorage` like the existing `lineSpacingV2` key.
+
+## Acceptance checks
+
+1. Clicking the question, headings, or "Example 2" leaves the sensor inside the current Working Area.
+2. Pressing Enter after `2x²+5x+6=0` moves the sensor to a new Lesson Line, not the next physical row inside a tall fraction.
+3. A multi-row fraction is treated as one Lesson Line; one floating-number strip; one optional note.
+4. Reloading the page restores the same Lesson Line and caret position.
+5. Expanding the bottom Writing Lab does not move or resize the canvas; expanding the top toolbar does not hide the Writing Lab.
