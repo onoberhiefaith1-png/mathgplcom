@@ -3181,106 +3181,75 @@ const PresentationView = ({
         >
           <Redo2 className="h-5 w-5" />
         </button>
-        {/* Prev / Next section + Smart Line + Two-point line have moved
-            to the right rail (below). The left rail now keeps Undo / Redo
-            (and Box, below) plus the dedicated CursorScrollbar. */}
-
-
-        {/* Box — drops a draggable labelled cell. Drag onto a Smart Line
-            to magnet it as numerator (above) or denominator (below). */}
+        {/* Prev / Next section — stay on the LEFT rail next to Undo/Redo.
+            These four together are the top group. */}
         <button
-          onClick={() => {
-            revealLeftTools();
-            if (boxArmed) disarmBox(); else armBox();
-          }}
-          aria-label="Arm box tool — tap near a line to drop a magnet box"
-          title="Arm box tool, then tap near a SmartLine to drop a box above or below it"
-          className="grid place-items-center rounded-full border transition-all"
+          onClick={() => { setBeatCursor((c) => Math.max(0, c - 1)); revealLeftTools(); }}
+          disabled={beatCursor <= 0}
+          aria-label="Previous section"
+          title="Previous section"
+          className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
           style={{
             width: 40, height: 40,
             background: palette.chromeBg,
-            color: boxFlashError ? "#e11d48" : (boxArmed ? ink : palette.chromeFg),
-            borderColor: boxFlashError ? "#e11d48" : (boxArmed ? ink : palette.chromeBorder),
-            boxShadow: boxFlashError
-              ? "0 0 14px #e11d48, 0 2px 10px rgba(0,0,0,0.14)"
-              : (boxArmed
-                ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
-                : "0 2px 10px rgba(0,0,0,0.14)"),
+            color: palette.chromeFg,
+            borderColor: palette.chromeBorder,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
             backdropFilter: "blur(10px)",
-            opacity: 0.95,
+            opacity: beatCursor <= 0 ? 0.3 : 0.95,
           }}
         >
-          <SquareIcon className="h-4 w-4" />
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => { if (canAdvanceBeat) setBeatCursor((c) => Math.min(beats.length - 1, c + 1)); revealLeftTools(); }}
+          disabled={!canAdvanceBeat}
+          aria-label="Next section"
+          title="Next section"
+          className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
+          style={{
+            width: 40, height: 40,
+            background: palette.chromeBg,
+            color: palette.chromeFg,
+            borderColor: palette.chromeBorder,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+            backdropFilter: "blur(10px)",
+            opacity: !canAdvanceBeat ? 0.3 : 0.95,
+          }}
+        >
+          <ChevronRight className="h-5 w-5" />
         </button>
 
-
+        {/* Below the four-button top group: the dedicated Cursor Scrollbar
+            replaces the three relocated tools (Smart Line, Dot, Box). It
+            ONLY moves the writing sensor — never the floating-number panel. */}
+        {hasGuidedLines && (
+          <CursorScrollbar
+            inline
+            onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
+            onDown={() => { nudgeCursor(1); revealLeftTools(); }}
+            chromeBg={palette.chromeBg}
+            chromeFg={palette.chromeFg}
+            chromeBorder={palette.chromeBorder}
+            canUp={canCursorUp}
+            canDown={canCursorDown}
+          />
+        )}
       </div>
 
-      {/* Dedicated Cursor Scrollbar — always visible while the carrier is
-          active. Independent from the Floating Number panel's ▲/▼: this
-          ONLY moves the writing sensor. */}
-      {canEdit && carrierVisible && hasGuidedLines && (
-        <CursorScrollbar
-          onUp={() => nudgeCursor(-1)}
-          onDown={() => nudgeCursor(1)}
-          chromeBg={palette.chromeBg}
-          chromeFg={palette.chromeFg}
-          chromeBorder={palette.chromeBorder}
-          leftPx={12}
-          topCss="calc(50% + 140px)"
-          canUp={canCursorUp}
-          canDown={canCursorDown}
-        />
-      )}
-
-      {/* RIGHT rail — relocated section navigation, Smart Line and Dot. */}
+      {/* RIGHT rail — relocated theory tools: Smart Line, Two-point line, Box. */}
       {canEdit && carrierVisible && (
         <div
           data-sb-chrome
           className="absolute z-30 flex flex-col items-center gap-2"
           style={{
             right: 12,
-            top: "calc(50% - 140px)",
+            top: "50%",
+            transform: "translateY(-50%)",
             userSelect: "none",
           }}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={() => { setBeatCursor((c) => Math.max(0, c - 1)); }}
-            disabled={beatCursor <= 0}
-            aria-label="Previous section"
-            title="Previous section"
-            className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
-            style={{
-              width: 40, height: 40,
-              background: palette.chromeBg,
-              color: palette.chromeFg,
-              borderColor: palette.chromeBorder,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-              backdropFilter: "blur(10px)",
-              opacity: beatCursor <= 0 ? 0.3 : 0.95,
-            }}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            onClick={() => { if (canAdvanceBeat) setBeatCursor((c) => Math.min(beats.length - 1, c + 1)); }}
-            disabled={!canAdvanceBeat}
-            aria-label="Next section"
-            title="Next section"
-            className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
-            style={{
-              width: 40, height: 40,
-              background: palette.chromeBg,
-              color: palette.chromeFg,
-              borderColor: palette.chromeBorder,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-              backdropFilter: "blur(10px)",
-              opacity: !canAdvanceBeat ? 0.3 : 0.95,
-            }}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
           <button
             onClick={() => { spawnSmartLine(); }}
             aria-label="Drop line"
@@ -3317,8 +3286,30 @@ const PresentationView = ({
           >
             <CircleIcon className="h-3 w-3" fill="currentColor" />
           </button>
+          <button
+            onClick={() => { if (boxArmed) disarmBox(); else armBox(); }}
+            aria-label="Arm box tool — tap near a line to drop a magnet box"
+            title="Arm box tool, then tap near a SmartLine to drop a box above or below it"
+            className="grid place-items-center rounded-full border transition-all"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: boxFlashError ? "#e11d48" : (boxArmed ? ink : palette.chromeFg),
+              borderColor: boxFlashError ? "#e11d48" : (boxArmed ? ink : palette.chromeBorder),
+              boxShadow: boxFlashError
+                ? "0 0 14px #e11d48, 0 2px 10px rgba(0,0,0,0.14)"
+                : (boxArmed
+                  ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
+                  : "0 2px 10px rgba(0,0,0,0.14)"),
+              backdropFilter: "blur(10px)",
+              opacity: 0.95,
+            }}
+          >
+            <SquareIcon className="h-4 w-4" />
+          </button>
         </div>
       )}
+
 
 
 
