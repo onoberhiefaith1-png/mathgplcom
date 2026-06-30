@@ -1,30 +1,62 @@
-## Problem
-When Lesson Notes drops a new line onto the board (`writeProseLineOnBoard`), it places it at `maxLine + 1`. For a row that holds a stacked fraction or tall radical, the structure extends 1+ physical rows below its baseline, so the next prose line lands inside the denominator. Result: "Substitute a, b, and c into the formula:" overlaps `2a` in the screenshot.
+## Goal
+Two presentation fixes on the Smartboard:
 
-The structure-aware advance already exists for keyboard `Enter` (via `extraRowsFor`) but is bypassed by the mirror pipeline that paints AI/lesson-note rows onto the board.
+A. **Floating Number panel — full-body drag with bounded movement.**
+B. **Bottom (Values/Symbols/Structures) panel — never auto-opens; opens only when its pull-tab is explicitly clicked.**
 
-## Fix
-Make every code path that appends a new row reuse the same structure-aware offset.
+---
 
-1. In `src/components/smartboard/PresentationView.tsx`, inside `writeProseLineOnBoard`:
-   - After computing `maxLine`, compute `extra = extraRowsFor(maxLine)` and also recursively walk upward: if `maxLine - k` rows are notebook-prose with their own measured heights, account for them too (single step is sufficient since each prose row is one logical line, but the equation row above may be tall).
-   - Set `target = Math.max(maxLine + 1 + extra, sensor.line)`.
-   - Update the sensor jump to `target + 1` (unchanged) so the cursor sits right under the freshly written prose.
+## A. Floating Number panel drag
 
-2. Because `lineHeightsRef` is populated by `FreeWriteLayer`'s `ResizeObserver` asynchronously, the very first time a fraction line is appended `extraRowsFor` may still return 0. Add a one-shot reflow:
-   - After a row is rendered and `handleLineMeasure` updates `lineHeightsRef`, detect when a later notebook-prose row is now overlapping (its `target` ≤ measured bottom of an earlier row) and shift it down by the deficit.
-   - Implemented as a small effect keyed on `heightsTick` that scans `freeLines` in ascending order, recomputes each row's required clearance from the measured height of the row above, and rewrites `freeLines` / `notebookRowLines` keys when a shift is needed. Idempotent: only runs when a deficit is found.
+### Current state
+- `src/components/smartboard/FloatingNumberPanel.tsx` already has the boundary math wired:
+  - Upper bound = `finalLineBottomPx + 3 * rowHeightPx` (3 free rows below the last completed equation/structure).
+  - Lower bound = `bottomYPx` (top of the next section / next major lesson element, fed from `PresentationView`).
+- Drag pointer handlers exist (`onPointerDown / onPointerMove / onPointerUp`) but they are wired ONLY to a tiny 14×28 px grip square. The user can rarely catch it and the rest of the panel ignores pointer-drags.
+- The outer halo (`<div onPointerDown={(e) => { e.stopPropagation(); onPing(); }}>`) intentionally swallows pointer events to protect the writing surface, but it does not initiate the drag — so dragging the chip strip or the line badge does nothing.
 
-3. Apply the same `extraRowsFor`-aware spacing to `ArrowDown` auto-floor placement (already partially covered by the manual-slack cap), and to any other path that calls `setSensor({ line: target + 1 })` after writing a math row — audit `writeProseLineOnBoard`, `writeEquationLineOnBoard` (if present), and the lesson-note mirror entry points.
+### Change
+1. Move the pointer-down/move/up handlers from the small grip onto the outer halo `<div>` itself, so dragging anywhere on the panel body moves it.
+2. Keep button click semantics intact:
+   - Buttons inside (ChevronUp, ChevronDown, individual chip buttons, ping) call `e.stopPropagation()` on their own pointer-down so the drag never starts when the user is clicking a chip or arrow.
+   - Use a `pointerdown → pointermove` distance threshold (~4px) before flipping into drag mode; a tap inside an empty area of the panel still counts as a click/ping, not a drag.
+3. Keep the bounds clamp exactly as today (`upper = finalLineBottomPx + 3*rowHeightPx`, `lower = bottomYPx`). Drag commits `y` via `onCommitY(y)` on pointer-up, so per-beat persistence still works.
+4. The small visual grip rectangle stays as an affordance (cursor: grab) but no longer needs its own listeners.
 
-4. No schema, no backend changes. Pure presentation logic in `PresentationView.tsx` (and reading the existing `lineHeightsRef`).
+### Code touch points
+- `src/components/smartboard/FloatingNumberPanel.tsx` lines 455–536. Single file; no API change to `PresentationView`.
 
-## Verification
-- Reload the quadratic-formula lesson; "Substitute a, b, and c into the formula:" must render entirely below the `(…)/(2a)` denominator, not overlapping `2a`.
-- Increase Row Spacing slider; the gap grows but no new overlap appears.
-- Increase Text Size; the fraction grows taller, the prose below shifts further down accordingly.
-- Press Enter on a line that holds a fraction (existing path) — behavior unchanged.
+---
+
+## B. Bottom panel — strict click-to-open
+
+### Current state
+- `src/components/smartboard/BottomPanel.tsx` renders a 22px pull-tab and a 320px `<section>` that translates off-screen when closed. When closed, the `<section>` still receives pointer events (no `pointer-events: none`), and on some swipe paths the off-screen panel can be hit/animated accidentally.
+- `panelOpen` only changes through `onToggle`; the user reports the panel "appears on its own" — most likely on touch/track-pad scroll the pull-tab swallows the gesture, or the section catches a click in its 320px below-the-fold region during layout transitions.
+
+### Change
+1. When `open` is false:
+   - Add `pointerEvents: "none"` to the `<section>` and `visibility: "hidden"` after the slide-out transition ends. The pull-tab keeps `pointerEvents: "auto"` and remains the sole entry point.
+   - Add `tabIndex={-1}` and skip focus traps when closed.
+2. Pull-tab hardening:
+   - Use `onClick` only — remove any incidental pointer-down handlers that could trigger on swipe.
+   - Add `e.stopPropagation()` + `e.preventDefault()` in the click handler to make sure the toggle is a deliberate input.
+3. No auto-open effect anywhere — confirm there is no `setPanelOpen(true)` outside the toggle button (search-and-verify in `PresentationView.tsx`).
+4. Persist `panelOpen` to `localStorage` so a reload does not silently reopen it.
+
+### Code touch points
+- `src/components/smartboard/BottomPanel.tsx` (the `<section>` and pull-tab block).
+- `src/components/smartboard/PresentationView.tsx` — confirm `setPanelOpen` is only called by the toggle; persist with `localStorage`.
+
+---
 
 ## Out of scope
-- Floating Number panel bounds (already handled in the previous turn with 3-row clearance).
-- Changing how `extraRowsFor` measures height — it remains DOM-measured via `ResizeObserver`.
+- Recomputing the upper/lower bounds themselves (already structure-aware from previous turn).
+- Adding horizontal drag, snap-to-line, or magnet behavior.
+- Reorganizing the Values/Symbols/Structures content.
+
+## Verification
+1. Open the quadratic-formula lesson. Place pointer on any empty area of the floating-number strip (not on a chip). Press and drag vertically: the panel follows the pointer, clamped between `finalLineBottomPx + 3*rowHeight` and the next section's top.
+2. Click any chip / line arrow inside the panel — no drag is initiated; click action still fires.
+3. Reload the page with the bottom panel closed. Scroll/swipe near the bottom edge: the Values/Symbols panel must NOT slide up. Clicking the small pull-tab is the only way to open it; clicking it again closes it.
+4. `bun run build` exits 0.
