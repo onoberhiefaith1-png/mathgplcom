@@ -75,7 +75,7 @@ export const restorePersistedHighlights = (
  *   • before the first highlight → a notebook-only first row
  *   • between highlight A and B → notebook for highlight A
  *   • after the final highlight → notebook for the final highlight */
-const recomputeNotebooks = (source: Highlight[], lines: string[]): Highlight[] => {
+export const recomputeNotebooks = (source: Highlight[], lines: string[]): Highlight[] => {
   const realSource = source.filter((h) => !h.notebookOnly && h.tokens.length > 0);
   if (realSource.length === 0) return realSource;
   const rows = lines.map((l) => tokenize(l));
