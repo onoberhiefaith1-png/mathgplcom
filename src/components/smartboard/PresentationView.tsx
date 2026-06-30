@@ -1295,6 +1295,7 @@ const PresentationView = ({
   const [shownNotebookIdx, setShownNotebookIdx] = useState<Set<number>>(() => new Set());
   const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
   const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
+  const activeSensorLogicalIdxRef = useRef<number | null>(null);
 
   // Reset composer state every time the active example changes.
   useEffect(() => {
@@ -1306,6 +1307,7 @@ const PresentationView = ({
     setConsumedAbsIdx(new Set());
     setConsumedStructures(new Set());
     setNotebookRowLines(new Set());
+    activeSensorLogicalIdxRef.current = null;
   }, [activeReservoirIdx]);
 
 
