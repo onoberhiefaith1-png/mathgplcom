@@ -337,16 +337,23 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           // Apply the teacher's saved arrangement (shuffle order) so the
           // smartboard shows fragments in the same order the teacher arranged
           // them on the Floating Numbers page — NOT raw equation order.
+          // Teacher chips are immutable: when fillers came from the teacher's
+          // preparation page (rl.fillers), pass them through verbatim. Only
+          // machine-derived fillers (fillersFromEquation) may have their
+          // contextual leading "+" stripped.
+          const teacherProvided = !!(rl.fillers && rl.fillers.length > 0);
           const baseFills = isNotebookOnly
             ? []
-            : ((rl.fillers && rl.fillers.length > 0) ? rl.fillers : fillersFromEquation(eq));
+            : (teacherProvided ? (rl.fillers as string[]) : fillersFromEquation(eq));
           const arr = (rl as any).arrangement as number[] | undefined;
           const ordered = (arr && arr.length === baseFills.length)
             ? arr.map((i) => baseFills[i])
             : baseFills;
           const fills = isNotebookOnly
             ? []
-            : dropContextualLeadingPlus(cleanFragments(ordered));
+            : (teacherProvided
+                ? cleanFragments(ordered)
+                : dropContextualLeadingPlus(cleanFragments(ordered)));
           const start = fragmentsFromLines.length;
           fragmentsFromLines.push(...fills);
           const explanation = (rl as any).explanation
@@ -373,22 +380,44 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // `bucket.fillers` carries the teacher's arranged order. Prefer it
       // over `viewCombined` (which is original equation order) so the
       // smartboard reflects the shuffle when per-line data is missing.
-      const bucketCombined = dropContextualLeadingPlus(
+      // `bucket.fillers` and `bucket.viewCombined` are teacher-curated chip
+      // strings (edited and arranged on the preparation page). They MUST
+      // reach the Smartboard verbatim — never sign-stripped. Only the pure
+      // machine fallback derived from solutionLines may be normalised.
+      const bucketCombined =
         bucket?.fillers && bucket.fillers.length > 0
           ? cleanFragments(bucket.fillers)
           : bucket?.viewCombined && bucket.viewCombined.length > 0
             ? cleanFragments(bucket.viewCombined)
             : bucket?.viewRearranged && bucket.viewRearranged.length > 0
               ? cleanFragments(bucket.viewRearranged)
-              : [],
+              : [];
+      const solutionFallback = dropContextualLeadingPlus(
+        cleanFragments(solutionLines.flatMap(fillersFromEquation)),
       );
-      const solutionFallback = cleanFragments(solutionLines.flatMap(fillersFromEquation));
       const fragments: string[] =
         fragmentsFromLines.length > 0
           ? fragmentsFromLines
           : bucketCombined.length > 0
             ? bucketCombined
             : solutionFallback;
+
+      // Parity guard: any teacher-sourced fragment must survive byte-identical.
+      const teacherSource = (bucket?.fillers && bucket.fillers.length > 0)
+        ? bucket.fillers
+        : null;
+      if (teacherSource && fragments.length === teacherSource.length) {
+        for (let i = 0; i < fragments.length; i++) {
+          if (fragments[i] !== teacherSource[i]) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              "[smartboard parity] teacher chip drifted — restoring verbatim",
+              { index: i, teacher: teacherSource[i], compiled: fragments[i] },
+            );
+            fragments[i] = teacherSource[i];
+          }
+        }
+      }
       reservoirs.push({ beatId: `${sub.id}-q`, caption, fragments, lines });
     }
   }
