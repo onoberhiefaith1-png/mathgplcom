@@ -125,7 +125,7 @@ export const compileBucket = (lines: FloatingLine[]): FloatingBucket => {
     // reconstruction.
     const cleanFillers = cleanedWithIdx.map((c) => c.v);
     const cleanSelected = cleanedWithIdx.map((c) => c.sel);
-      const cleanArrangement = cleanFillers.length === rawFillers.length
+    const cleanArrangement = cleanFillers.length === rawFillers.length
       ? (line.arrangement ?? identityArrangement(cleanFillers.length))
       : identityArrangement(cleanFillers.length);
     const ordered = applyArrangement(cleanFillers, cleanArrangement);
