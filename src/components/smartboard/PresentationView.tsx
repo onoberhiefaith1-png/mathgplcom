@@ -2114,6 +2114,10 @@ const PresentationView = ({
         chromeFg={palette.chromeFg}
         chromeBorder={palette.chromeBorder}
         surfaceBg={surfaceFlatBg}
+        lineSpacing={lineSpacing}
+        setLineSpacing={setLineSpacing}
+        textScale={textScale}
+        setTextScale={setTextScale}
       />
 
       {/* Board body — pure surface, fills edge-to-edge. Tapping anywhere
