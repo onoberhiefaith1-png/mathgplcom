@@ -222,12 +222,15 @@ const SqrtView = ({
         preserveAspectRatio="none"
         style={{
           width: "0.55em", height: bodyH, alignSelf: "center",
-          overflow: "visible", marginLeft: "0.05em",
+          overflow: "visible", marginLeft: "0.05em", marginRight: 0,
+          display: "block",
         }}
         aria-hidden
       >
+        {/* Tick only — the overline is drawn by the body's borderTop so it
+            expands continuously as the teacher types, with no seam. */}
         <path
-          d="M0 65 L4 65 L8 95 L14 5 L100 5"
+          d="M0 65 L4 65 L8 95 L16 0"
           stroke="currentColor" strokeWidth="2" fill="none"
           vectorEffect="non-scaling-stroke" strokeLinejoin="miter" strokeLinecap="round"
         />
@@ -237,6 +240,7 @@ const SqrtView = ({
         style={{
           borderTop: "1.4px solid currentColor",
           padding: "2px 5px 0",
+          marginLeft: "-1px",
           display: "inline-flex",
           alignItems: "center",
         }}
