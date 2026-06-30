@@ -73,6 +73,29 @@ export const isContainer = (n: Node): boolean => n.kind !== "char";
 export const subRowsOf = (n: Node): Row[] =>
   n.kind === "char" ? [] : (n as Exclude<Node, { kind: "char" }>).rows;
 
+const SCRIPT_SUBROWS: Record<string, Set<number>> = {
+  sup: new Set([0]),
+  sub: new Set([0]),
+  power: new Set([1]),
+  subsup: new Set([1, 2]),
+};
+
+export const exitCompletedScriptCursor = (root: Row, cursor: Cursor): Cursor => {
+  if (cursor.path.length < 2) return cursor;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  const parentRow = getRowAt(root, parentPath);
+  const node = parentRow[nodeIdx];
+  if (!node || node.kind === "char") return cursor;
+  const scriptRows = SCRIPT_SUBROWS[node.kind];
+  if (!scriptRows?.has(subIdx)) return cursor;
+  const activeRow = subRowsOf(node)[subIdx] ?? [];
+  return activeRow.length > 0
+    ? { path: parentPath, index: nodeIdx + 1 }
+    : cursor;
+};
+
 export const getRowAt = (root: Row, path: number[]): Row => {
   let row: Row = root;
   for (let i = 0; i < path.length; i += 2) {
