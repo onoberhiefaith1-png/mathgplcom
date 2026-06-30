@@ -7,6 +7,7 @@ import type { SectionRow, SectionKind, BlockRow, NotebookRow } from "@/hooks/use
 import type { ContainerKind } from "./floatingPlan";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
+import { normEq } from "./rowAscii";
 
 export type BeatKind =
   | "text"            // intro/explanation/summary — full block
@@ -81,6 +82,32 @@ const fillersFromEquation = (equation: string): string[] =>
       .map((term) => term.ascii)
       .filter(Boolean),
   );
+
+type RawFloatingLine = {
+  equation?: string;
+  fillers?: string[];
+  containers?: ContainerKind[];
+  explanation?: string;
+  arrangement?: number[];
+};
+
+export const lessonSourceKey = (raw: string): string => normEq(toUnicodeMath(String(raw ?? "").trim()));
+
+const singleHighlightFallback = (payload: string): RawFloatingLine => ({
+  equation: payload,
+  fillers: payload.trim() ? [payload] : [],
+  containers: detectStructures(payload) as ContainerKind[],
+  arrangement: payload.trim() ? [0] : [],
+});
+
+export const findVerifiedFloatingLine = (
+  payload: string,
+  rawLines: RawFloatingLine[] | null | undefined,
+): RawFloatingLine | undefined => {
+  const key = lessonSourceKey(payload);
+  if (!key || !rawLines?.length) return undefined;
+  return rawLines.find((line) => lessonSourceKey(line?.equation ?? "") === key);
+};
 
 const splitSolutionLines = (solution: string | undefined | null): string[] =>
   String(solution ?? "")
@@ -269,7 +296,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | null
         | undefined;
       const rawLines = (sub as any).floating_lines as
-        | { equation?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; arrangement?: number[] }[]
+        | RawFloatingLine[]
         | null
         | undefined;
       // Highlights are the source of truth for "Notebook N" pairing — each
@@ -319,11 +346,15 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
               return acc;
             }
             const payload = String(h.payload ?? "").trim();
-            const matched = rawLines?.find((l) => String(l.equation ?? "").trim() === payload)
-              ?? rawLines?.[hi];
+            // Middleman parity guard: a highlight may only consume a saved
+            // floating line when that line's Lesson Note equation matches the
+            // highlight payload. Never fall back by array index — that can pull
+            // chips/notebook text from a different lesson line after edits.
+            const matched = findVerifiedFloatingLine(payload, rawLines)
+              ?? singleHighlightFallback(payload);
             const ownNotebook = String(h.precedingNotebook ?? "").trim();
             acc.push({
-              ...(matched ?? {}),
+              ...matched,
               equation: payload,
               notebook: ownNotebook || undefined,
               notebookOnly: false,

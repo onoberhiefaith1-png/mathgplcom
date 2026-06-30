@@ -42,6 +42,7 @@ import {
   insertChar as treeInsertChar,
   insertNode as treeInsertNode,
   insertNodeWrapping as treeInsertNodeWrapping,
+  exitCompletedScriptCursor,
   extractRunLeftOf,
   getRowAt,
   setRowAt,
@@ -1014,7 +1015,8 @@ const PresentationView = ({
       let r = row;
       let cur = c;
       for (const ch of text) {
-        const res = treeInsertChar(r, cur, ch);
+        const safeCursor = exitCompletedScriptCursor(r, cur);
+        const res = treeInsertChar(r, safeCursor, ch);
         r = res.root;
         cur = res.cursor;
       }
@@ -1037,9 +1039,11 @@ const PresentationView = ({
     if (!mirror.ok || mirror.row.length === 0) return;
     editActive((row, c) => {
       let r = row;
-      let cur = c;
+      let cur = exitCompletedScriptCursor(r, c);
       for (const node of mirror.row) {
-        const res = treeInsertNode(r, cur, node, true);
+        const subRows = node.kind === "char" ? [] : (node as Extract<Node, { rows: Row[] }>).rows;
+        const descend = subRows.length > 0 && subRows.every((sub) => sub.length === 0);
+        const res = treeInsertNode(r, cur, node, descend);
         r = res.root; cur = res.cursor;
       }
       return { root: r, cursor: cur };
