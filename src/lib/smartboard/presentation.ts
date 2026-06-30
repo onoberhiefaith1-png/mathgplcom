@@ -91,7 +91,7 @@ type RawFloatingLine = {
   arrangement?: number[];
 };
 
-export const lessonSourceKey = (raw: string): string => normEq(String(raw ?? "").trim());
+export const lessonSourceKey = (raw: string): string => normEq(toUnicodeMath(String(raw ?? "").trim()));
 
 const singleHighlightFallback = (payload: string): RawFloatingLine => ({
   equation: payload,
