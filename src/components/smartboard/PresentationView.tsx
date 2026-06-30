@@ -3023,23 +3023,29 @@ const PresentationView = ({
 
           if (e.key === "Enter") {
             e.preventDefault();
-            // Structure-aware advance: if the current Lesson Line holds a
-            // tall math object (fraction / root / matrix / etc.) the next
-            // Lesson Line must start BELOW the structure's full bounding
-            // box, never inside it. We add `extraRowsFor(base)` so a
-            // 2-row fraction skips its denominator.
+            // Structure-aware advance: move to the next truly empty writable
+            // row. If the next physical row is a notebook/prose row, previous
+            // ink, or covered by a tall math object, jump over it.
             const base = Number.isInteger(sensor.line) ? sensor.line : Math.floor(sensor.line);
-            const extra = extraRowsFor(base);
-            const nextLine = base + 1 + extra;
+            let nextLine = activeLayout
+              ? findNextWritableEmptyRow(base + 1 + extraRowsFor(base), 1, activeLayout)
+              : base + 1 + extraRowsFor(base);
             // Gate: don't allow advancing past the current expected guided
             // line until that line has turned green.
             if (hasGuidedLines && activeLayout) {
-              const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
-              if (nextLine > expectedLineNum && lineStatusMap[expectedLineNum] !== "green") {
+              const expectedLineNum = Math.floor(sensor.line);
+              const row = freeLines[expectedLineNum];
+              const ascii = row ? rowToAscii(row) : "";
+              const target = guidedLines[activeLineIdx];
+              const currentLineComplete = !!row && row.length > 0 && !!target &&
+                (equationsMatch(ascii, target.equation) || equationsEquivalent(ascii, target.equation));
+              if (nextLine > expectedLineNum && !currentLineComplete) {
                 return;
               }
             }
-            if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
+            if (activeLayout && nextLine > bandEnd(activeLayout)) {
+              growActiveBand();
+            }
             const snapLine = clampToActiveBand(nextLine);
             // Master-margin rule: new Lesson Lines never inherit the
             // previous line's horizontal position. Clear any stale
@@ -3054,6 +3060,9 @@ const PresentationView = ({
             setLiveCursor({ path: [], index: 0 });
             // Reset the 3-row manual slack anchor to the new auto-landing.
             autoFloorRef.current = Math.floor(snapLine);
+            manualPushedRef.current = null;
+            activeSensorLogicalIdxRef.current = hasGuidedLines ? activeLineIdx + 1 : null;
+            activeSensorPhysicalLineRef.current = snapLine;
             return;
           }
 
