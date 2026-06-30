@@ -2494,7 +2494,7 @@ const PresentationView = ({
         spellCheck={false}
         value=""
         onInput={(e) => {
-          const txt = e.target.value;
+          const txt = e.currentTarget.value;
           if (!txt) return;
           insertPlainTextAtSensor(txt);
           e.currentTarget.value = "";
