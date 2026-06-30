@@ -541,26 +541,22 @@ const NodeView = ({
         cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />;
 
     case "box": {
-      // Single-cell input. When empty, render the dashed cube as a sensor
-      // magnet so the teacher can see where to tap. Once any content is
-      // typed inside, the dashed border vanishes — the cube only exists
-      // while the slot is unfilled.
-      const inner = (node as { rows?: Row[] }).rows?.[0] ?? [];
-      const filled = inner.length > 0;
+      // A box node is only a cursor target. Do not draw a second outer cube:
+      // the editable child row already renders the single usable placeholder
+      // when empty, and that child placeholder disappears as soon as typing
+      // begins. This prevents the old “click first cube → another cube
+      // appears inside it” double-placeholder behavior.
       return (
         <span
           style={{
             display: "inline-flex",
-            alignItems: "flex-start",
-            verticalAlign: "top",
-            border: filled ? "none" : "1px dashed currentColor",
-            borderRadius: 4,
-            padding: filled ? 0 : "0 0.18em",
-            minWidth: filled ? 0 : "0.9em",
-            minHeight: filled ? 0 : "1.05em",
-            margin: filled ? 0 : "0 0.08em",
+            alignItems: "baseline",
+            verticalAlign: "baseline",
+            padding: 0,
+            minWidth: 0,
+            minHeight: 0,
+            margin: 0,
             lineHeight: 1,
-            opacity: filled ? 1 : 0.85,
           }}
         >
           {R(0)}
