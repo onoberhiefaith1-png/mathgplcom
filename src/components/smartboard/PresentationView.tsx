@@ -34,7 +34,7 @@ import { FloatingNumberPanel } from "./FloatingNumberPanel";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
-import { clampLineSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
+import { clampRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import {
   type Cursor, type Node, type Row,
   mkChar, mkSub, mkSup,
