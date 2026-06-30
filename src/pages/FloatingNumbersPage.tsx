@@ -76,7 +76,7 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
     fillersSelected,
     containers,
     containersSelected,
-    arrangement: fillers.length === rawFillers.length ? (line.arrangement ?? []) : rearrangeIndices(fillers.length),
+    arrangement: fillers.length === rawFillers.length ? (line.arrangement ?? identityArrangement(fillers.length)) : identityArrangement(fillers.length),
   };
 };
 
@@ -498,7 +498,7 @@ const FloatingNumbersPage = () => {
       });
 
       const highlights = (ss as any).floating_highlights as
-        | { groupId: number; payload: string }[] | null;
+        | { groupId: number; payload: string; notebookOnly?: boolean }[] | null;
       const persisted = (ss as any).floating_lines as FloatingLine[] | null;
 
       const savedScoring = (ss as any).floating_scoring as FloatingScoring | null;
@@ -506,9 +506,12 @@ const FloatingNumbersPage = () => {
         setScoring({ ...DEFAULT_SCORING, ...savedScoring });
       }
 
-      const hasHighlights = !!(highlights && Array.isArray(highlights) && highlights.length > 0);
+      const realHighlights = Array.isArray(highlights)
+        ? highlights.filter((h) => !h.notebookOnly && String(h.payload ?? "").trim().length > 0)
+        : [];
+      const hasHighlights = realHighlights.length > 0;
       setFromHighlights(hasHighlights);
-      setHighlightsData(hasHighlights ? highlights! : []);
+      setHighlightsData(hasHighlights ? realHighlights : []);
 
       if (hasHighlights) {
         // Highlights drive the list. Re-pair each highlight to its persisted
@@ -521,7 +524,7 @@ const FloatingNumbersPage = () => {
           ? persisted.map(normalizeFloatingLine)
           : [];
         const used = new Set<number>();
-        const reconciled: FloatingLine[] = highlights!.map((h, hi) => {
+        const reconciled: FloatingLine[] = realHighlights.map((h, hi) => {
           const payload = String(h.payload ?? "");
           let idx = persistedList.findIndex(
             (p, i) => !used.has(i) && (p.equation ?? "") === payload,

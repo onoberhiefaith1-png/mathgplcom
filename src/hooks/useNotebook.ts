@@ -50,6 +50,8 @@ export interface SubsectionRow {
   floating_lines?: any[] | null;
   /** Compiled floating bucket (Master + View) from Lesson Notes. */
   floating_bucket?: any | null;
+  /** Teacher highlight/notebook pairing metadata from Floating Prep. */
+  floating_highlights?: any[] | null;
 }
 
 export interface SectionRow {
@@ -120,6 +122,7 @@ export function useNotebook(notebookId: string | undefined) {
         blocks: [],
         floating_lines: s.floating_lines ?? null,
         floating_bucket: s.floating_bucket ?? null,
+        floating_highlights: s.floating_highlights ?? null,
       });
       subBySection.set(s.section_id, arr);
     });
