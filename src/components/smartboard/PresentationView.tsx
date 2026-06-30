@@ -2881,14 +2881,15 @@ const PresentationView = ({
               if (target < 0 || target >= lineCount) return;
               if (target > maxReachable) return; // out of reach — block the jump
               const currentPending = notebookFor(curLineIdx) && !shownNotebookIdx.has(curLineIdx);
-              if (target > curLineIdx && currentPending) return;
-              const nb = notebookFor(target);
-              if (nb && !shownNotebookIdx.has(target)) {
-                // Reveal Notebook N first; do NOT advance activeLineIdx yet.
-                setNotebookRevealIdx(target);
-              } else {
-                setManualFloatingLineIdx(target);
+              if (target > curLineIdx && currentPending) {
+                setNotebookAttentionIdx((prev) => {
+                  const next = new Set(prev);
+                  next.add(curLineIdx);
+                  return next;
+                });
+                return;
               }
+              setManualFloatingLineIdx(target);
             };
             const goPrev = () => {
               if (!hasGuidedLines) return;
@@ -2909,12 +2910,24 @@ const PresentationView = ({
                   next.add(k);
                   return next;
                 });
+                setNotebookAttentionIdx((prev) => {
+                  const next = new Set(prev);
+                  next.delete(k);
+                  return next;
+                });
                 setNotebookRevealIdx(null);
                 setManualFloatingLineIdx(k);
                 return;
               }
               const pending = notebookFor(curLineIdx);
-              if (pending && !shownNotebookIdx.has(curLineIdx)) return;
+              if (pending && !shownNotebookIdx.has(curLineIdx)) {
+                setNotebookAttentionIdx((prev) => {
+                  const next = new Set(prev);
+                  next.add(curLineIdx);
+                  return next;
+                });
+                return;
+              }
               stepTo(Math.min(lineCount - 1, curLineIdx + 1));
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
@@ -2927,6 +2940,11 @@ const PresentationView = ({
               setShownNotebookIdx((prev) => {
                 const next = new Set(prev);
                 next.add(k);
+                return next;
+              });
+              setNotebookAttentionIdx((prev) => {
+                const next = new Set(prev);
+                next.delete(k);
                 return next;
               });
               if (notebookRevealIdx != null) {
@@ -2975,7 +2993,8 @@ const PresentationView = ({
                   notebookPending={
                     hasGuidedLines &&
                     notebookFor(curLineIdx).length > 0 &&
-                    !shownNotebookIdx.has(curLineIdx)
+                    !shownNotebookIdx.has(curLineIdx) &&
+                    notebookAttentionIdx.has(curLineIdx)
                   }
                 />
 
