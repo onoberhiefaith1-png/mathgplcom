@@ -13,13 +13,23 @@
 const BASE = {
   MARGIN_LEFT: 80,
   MARGIN_TOP: 72,
-  LINE_HEIGHT: 64,
   BASELINE_OFFSET: 0.78,
   CARET_HEIGHT: 44,
 } as const;
 
 /** One em of writing equals this many CSS pixels at zoom = 1. */
 export const BASE_FONT_PX = 34;
+
+/** Intrinsic row height as a multiple of FONT_PX. Keeps the next lesson
+ *  line clear of tall structures (fractions, roots) at the default slider
+ *  position. The slider adds extra gap on top of this — it never reduces
+ *  the intrinsic row, so equations cannot clip into each other. */
+const INTRINSIC_ROW_PER_FONT = 1.85;
+
+/** How many CSS pixels the slider adds/removes per 100% of its travel.
+ *  At lineSpacing = 1 the gap is zero (current default look).
+ *  At lineSpacing = 2 the gap adds 36px; at 0.6 it subtracts ~14px. */
+const BASE_EXTRA_GAP = 36;
 
 export interface Grid {
   MARGIN_LEFT: number;
@@ -32,21 +42,31 @@ export interface Grid {
 
 /**
  * @param zoom         page-zoom multiplier (existing control)
- * @param lineSpacing  vertical gap multiplier between lesson lines (new)
- * @param textScale    content-only font multiplier — does not affect spacing (new)
+ * @param lineSpacing  vertical gap multiplier between lesson lines —
+ *                     adds/removes extra pixels of *gap only*, never
+ *                     shrinks the intrinsic row below the text height.
+ * @param textScale    content-only font multiplier — grows lesson text
+ *                     and math; row height follows so nothing clips.
  */
 export const getGrid = (
   zoom = 1,
   lineSpacing = 1,
   textScale = 1,
-): Grid => ({
-  MARGIN_LEFT: BASE.MARGIN_LEFT,
-  MARGIN_TOP: BASE.MARGIN_TOP,
-  LINE_HEIGHT: BASE.LINE_HEIGHT * zoom * lineSpacing,
-  BASELINE_OFFSET: BASE.BASELINE_OFFSET,
-  CARET_HEIGHT: BASE.CARET_HEIGHT * zoom * textScale,
-  FONT_PX: BASE_FONT_PX * zoom * textScale,
-});
+): Grid => {
+  const fontPx = BASE_FONT_PX * zoom * textScale;
+  const intrinsicRow = fontPx * INTRINSIC_ROW_PER_FONT;
+  const extraGap = (lineSpacing - 1) * BASE_EXTRA_GAP * zoom;
+  // Clamp so we can never collapse text into itself, even at slider min.
+  const lineHeight = Math.max(intrinsicRow * 0.82, intrinsicRow + extraGap);
+  return {
+    MARGIN_LEFT: BASE.MARGIN_LEFT,
+    MARGIN_TOP: BASE.MARGIN_TOP,
+    LINE_HEIGHT: lineHeight,
+    BASELINE_OFFSET: BASE.BASELINE_OFFSET,
+    CARET_HEIGHT: BASE.CARET_HEIGHT * zoom * textScale,
+    FONT_PX: fontPx,
+  };
+};
 
 /** Legacy export — equivalent to getGrid(1). */
 export const GRID = getGrid(1);
