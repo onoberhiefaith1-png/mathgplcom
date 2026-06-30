@@ -1132,7 +1132,18 @@ const PresentationView = ({
       if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) {
         e.preventDefault(); doRedo(); return;
       }
-      const tag = (e.target as HTMLElement | null)?.tagName;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isHiddenKeyboardCapture = target === hiddenInputRef.current;
+      const isFormField = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
+      if (
+        !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1 &&
+        (isHiddenKeyboardCapture || !isFormField)
+      ) {
+        e.preventDefault();
+        insertPlainTextAtSensor(e.key);
+        return;
+      }
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") {
         e.preventDefault();
@@ -1146,7 +1157,7 @@ const PresentationView = ({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [beats.length, canEdit]);
+  }, [beats.length, canEdit, insertPlainTextAtSensor]);
 
   const palette = SURFACES[surface];
   const isDark = surface === "blackboard";
