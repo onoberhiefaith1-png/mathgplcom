@@ -2369,6 +2369,9 @@ const PresentationView = ({
         }}
         onPointerDown={(e) => {
           if (!canEdit) return; // view-only mirror: no board interaction
+          // The board is read-only until the teacher activates solving
+          // mode via the # button. Eraser still works (handled below).
+          if (!solvingMode && !eraseMode && !boxArmed && !dotMode) return;
           if ((e.target as HTMLElement).closest("[data-sb-chrome]")) return;
           if ((e.target as HTMLElement).closest("[data-slot-idx]")) return;
           // Taps that land inside an existing math-tree row are handled by
