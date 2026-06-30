@@ -55,8 +55,8 @@ export const SettingsSheet = ({
   chromeFg,
   chromeBorder,
   surfaceBg,
-  lineSpacing = 0,
-  setLineSpacing,
+  rowSpacing = 0,
+  setRowSpacing,
   textScale = 1,
   setTextScale,
 }: Props) => {
