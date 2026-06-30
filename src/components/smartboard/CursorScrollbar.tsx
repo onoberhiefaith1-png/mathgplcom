@@ -96,6 +96,20 @@ export const CursorScrollbar = ({
     </button>
   );
 
+  if (inline) {
+    return (
+      <div
+        className="flex flex-col items-center gap-2"
+        style={{ userSelect: "none" }}
+        onPointerDown={(e) => e.stopPropagation()}
+        aria-label="Writing cursor controller"
+      >
+        {btn(canUp, onUp, <ChevronUp className="h-5 w-5" />, "Cursor up")}
+        {btn(canDown, onDown, <ChevronDown className="h-5 w-5" />, "Cursor down")}
+      </div>
+    );
+  }
+
   return (
     <div
       data-sb-chrome
@@ -116,3 +130,4 @@ export const CursorScrollbar = ({
 };
 
 export default CursorScrollbar;
+
