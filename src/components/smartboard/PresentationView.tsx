@@ -897,7 +897,12 @@ const PresentationView = ({
     const h = lineHeightsRef.current[line] ?? 0;
     if (h <= 0) return 0;
     const lh = grid.LINE_HEIGHT;
-    return Math.max(0, Math.ceil((h - lh) / lh));
+    // Do not treat normal handwriting or a simple superscript (x²) as a
+    // multi-row object. Those often measure a little taller than one Row
+    // because scripts extend upward, but they do not need a blank physical
+    // row underneath. Only structures that clearly occupy more than one row
+    // (fractions, matrices, tall radicals, etc.) reserve extra rows.
+    return Math.max(0, Math.ceil((h - lh * 1.35) / lh));
   };
 
   /** Structure-aware reflow: when ResizeObserver discovers a previously
@@ -1078,21 +1083,39 @@ const PresentationView = ({
     const sig = mirror.signature;
     setFreeLines((prev) => {
       let maxLine = -1;
+      let existingLine: number | null = null;
       for (const k of Object.keys(prev)) {
         const n = Number(k);
         const row = prev[n];
         if (row && row.length > 0) {
           maxLine = Math.max(maxLine, Math.floor(n));
           // Idempotency: same prose already on a line → bail.
-          if (rowSignature(row) === sig) return prev;
+          if (rowSignature(row) === sig) existingLine = Math.floor(n);
         }
+      }
+      if (existingLine !== null) {
+        setNotebookRowLines((prevSet) => {
+          const ns = new Set(prevSet);
+          ns.add(existingLine);
+          return ns;
+        });
+        const afterExisting = existingLine + 1 + extraRowsFor(existingLine);
+        setSensor((s) => ({ ...s, line: afterExisting, x: 0 }));
+        setLiveCursor({ path: [], index: 0 });
+        activeSensorLogicalIdxRef.current = null;
+        activeSensorPhysicalLineRef.current = afterExisting;
+        manualPushedRef.current = null;
+        return prev;
       }
       // Structure-aware placement: if the row above holds a tall Lesson
       // Object (stacked fraction, radical, matrix…), its measured DOM
       // height already extends past its baseline row. Skip those extra
       // physical rows so the new prose never lands inside a denominator.
       const extra = maxLine >= 0 ? extraRowsFor(maxLine) : 0;
-      const target = Math.max(maxLine + 1 + extra, sensor.line);
+      // Notes are authored teaching content, so they belong immediately below
+      // the last visible solution item. Do not let a stale/manually-pushed
+      // sensor create a large gap before the note.
+      const target = maxLine >= 0 ? maxLine + 1 + extra : Math.floor(sensor.line);
       const next = { ...prev, [target]: mirror.row };
       // Tag this row as notebook prose so the sensor-anchor logic skips it
       // when computing the K-th writable line. The sensor jumps to the row
@@ -1625,6 +1648,9 @@ const PresentationView = ({
   // tap commits the reveal — marks N as shown and advances to Line N.
   const [notebookRevealIdx, setNotebookRevealIdx] = useState<number | null>(null);
   const [shownNotebookIdx, setShownNotebookIdx] = useState<Set<number>>(() => new Set());
+  // A note icon stays calm at first. It only glows after the teacher tries to
+  // move to the next Lesson Line without first placing that note on the board.
+  const [notebookAttentionIdx, setNotebookAttentionIdx] = useState<Set<number>>(() => new Set());
   const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
   const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
 
@@ -1641,6 +1667,7 @@ const PresentationView = ({
     setFloatingLineIdx(0);
     setManualFloatingLineIdx(null);
     setNotebookRevealIdx(null);
+    setNotebookAttentionIdx(new Set());
     // Hydrate persisted "notebook shown" set for this reservoir.
     let restored: Set<number> = new Set();
     try {
@@ -1734,7 +1761,9 @@ const PresentationView = ({
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
 
+    const logicalLineChanged = activeSensorLogicalIdxRef.current !== idx;
     if (
+      !logicalLineChanged &&
       manualPushedRef.current !== null &&
       Math.floor(sensor.line) === manualPushedRef.current
     ) {
@@ -1742,6 +1771,7 @@ const PresentationView = ({
       activeSensorPhysicalLineRef.current = sensor.line;
       return;
     }
+    if (logicalLineChanged) manualPushedRef.current = null;
 
     // Once the current presentation line has been anchored, do not keep
     // re-solving that anchor after every keystroke. Typing changes freeLines,
@@ -2854,14 +2884,15 @@ const PresentationView = ({
               if (target < 0 || target >= lineCount) return;
               if (target > maxReachable) return; // out of reach — block the jump
               const currentPending = notebookFor(curLineIdx) && !shownNotebookIdx.has(curLineIdx);
-              if (target > curLineIdx && currentPending) return;
-              const nb = notebookFor(target);
-              if (nb && !shownNotebookIdx.has(target)) {
-                // Reveal Notebook N first; do NOT advance activeLineIdx yet.
-                setNotebookRevealIdx(target);
-              } else {
-                setManualFloatingLineIdx(target);
+              if (target > curLineIdx && currentPending) {
+                setNotebookAttentionIdx((prev) => {
+                  const next = new Set(prev);
+                  next.add(curLineIdx);
+                  return next;
+                });
+                return;
               }
+              setManualFloatingLineIdx(target);
             };
             const goPrev = () => {
               if (!hasGuidedLines) return;
@@ -2882,12 +2913,24 @@ const PresentationView = ({
                   next.add(k);
                   return next;
                 });
+                setNotebookAttentionIdx((prev) => {
+                  const next = new Set(prev);
+                  next.delete(k);
+                  return next;
+                });
                 setNotebookRevealIdx(null);
                 setManualFloatingLineIdx(k);
                 return;
               }
               const pending = notebookFor(curLineIdx);
-              if (pending && !shownNotebookIdx.has(curLineIdx)) return;
+              if (pending && !shownNotebookIdx.has(curLineIdx)) {
+                setNotebookAttentionIdx((prev) => {
+                  const next = new Set(prev);
+                  next.add(curLineIdx);
+                  return next;
+                });
+                return;
+              }
               stepTo(Math.min(lineCount - 1, curLineIdx + 1));
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
@@ -2900,6 +2943,11 @@ const PresentationView = ({
               setShownNotebookIdx((prev) => {
                 const next = new Set(prev);
                 next.add(k);
+                return next;
+              });
+              setNotebookAttentionIdx((prev) => {
+                const next = new Set(prev);
+                next.delete(k);
                 return next;
               });
               if (notebookRevealIdx != null) {
@@ -2948,7 +2996,8 @@ const PresentationView = ({
                   notebookPending={
                     hasGuidedLines &&
                     notebookFor(curLineIdx).length > 0 &&
-                    !shownNotebookIdx.has(curLineIdx)
+                    !shownNotebookIdx.has(curLineIdx) &&
+                    notebookAttentionIdx.has(curLineIdx)
                   }
                 />
 
