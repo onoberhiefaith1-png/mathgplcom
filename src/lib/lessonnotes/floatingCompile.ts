@@ -3,8 +3,6 @@
 // repeatable pattern, and (b) compile every per-line workspace into the one
 // Master Floating Bucket the Smartboard will later scroll through.
 
-import { toUnicodeMath } from "@/lib/notebook/unicodeMath";
-
 export type ContainerKind =
   | "fraction"
   | "bracket"
@@ -116,23 +114,18 @@ export const compileBucket = (lines: FloatingLine[]): FloatingBucket => {
     const start = fillers.length;
     const rawFillers = line.fillers ?? [];
     const rawSelected = line.fillersSelected ?? [];
-    // Teacher chips are presentation-source-of-truth: keep every saved filler
-    // verbatim. `toUnicodeMath` is applied only as a display-safety pass — if
-    // it collapses a teacher edit to empty we fall back to the raw string so
-    // the chip is never silently dropped between the prep page and the
-    // Smartboard.
+    // Teacher chips are presentation-source-of-truth. Do not run display
+    // conversion here: structural chips (\frac, \sqrt, brackets, powers)
+    // must reach the Smartboard exactly as the teacher saved them.
     const cleanedWithIdx: { v: string; sel: boolean }[] = rawFillers.map((raw, i) => {
-      const original = String(raw ?? "");
-      const display = toUnicodeMath(original);
-      const v = display && display.length > 0 ? display : original;
-      return { v, sel: !!rawSelected[i] };
+      return { v: String(raw ?? ""), sel: !!rawSelected[i] };
     });
     // Teacher chips are presentation-source-of-truth. Preserve every saved
-    // highlighted/edited filler exactly after display-safety unicode cleanup:
-    // no sign stripping, no splitting, no reconstruction.
+    // highlighted/edited filler exactly: no sign stripping, no splitting, no
+    // reconstruction.
     const cleanFillers = cleanedWithIdx.map((c) => c.v);
     const cleanSelected = cleanedWithIdx.map((c) => c.sel);
-      const cleanArrangement = cleanFillers.length === rawFillers.length
+    const cleanArrangement = cleanFillers.length === rawFillers.length
       ? (line.arrangement ?? identityArrangement(cleanFillers.length))
       : identityArrangement(cleanFillers.length);
     const ordered = applyArrangement(cleanFillers, cleanArrangement);

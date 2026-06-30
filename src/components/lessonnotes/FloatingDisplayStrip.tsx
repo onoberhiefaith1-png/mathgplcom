@@ -4,8 +4,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { extractTermsFromAscii, renderTermLabel } from "@/lib/smartboard/floatingExtractor";
-import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 
 const WINDOW_SIZE = 5;
 
@@ -82,12 +82,8 @@ export const FloatingDisplayStrip = ({ tokens, selected }: Props) => {
             </span>
           ) : (
             windowed.map(({ token, absIdx }, i) => {
-              const cleaned = toUnicodeMath(token);
-              if (isStillDirty(cleaned)) return null;
-              const term = extractTermsFromAscii(cleaned)[0];
-              const label = term
-                ? renderTermLabel(term, { isFirst: false, prevWasEquals: false })
-                : cleaned;
+              const gated = assertDisplaySafe(String(token ?? ""));
+              if (!gated.safe || !gated.cleaned.trim()) return null;
               const isSel = !!selected?.[absIdx];
               return (
                 <span
@@ -98,7 +94,7 @@ export const FloatingDisplayStrip = ({ tokens, selected }: Props) => {
                     border: "1.5px solid hsl(40 85% 42%)",
                   } : { background: "transparent" }}
                 >
-                  {label}
+                  {renderMathInline(gated.cleaned, `fds-${absIdx}-${i}`)}
                 </span>
               );
             })

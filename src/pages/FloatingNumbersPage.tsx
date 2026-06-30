@@ -8,6 +8,7 @@ import { ArrowLeft, ChevronRight, Loader2, Shuffle, Sparkles, Save } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import {
   type FloatingLine,
   type ContainerKind,
@@ -18,12 +19,11 @@ import {
   DEFAULT_SCORING,
   SCORE_LABELS,
 } from "@/lib/lessonnotes/floatingCompile";
-import { sanitizeFillers, detectStructures, extractTermsFromAscii, renderTermLabel, STRUCTURE_MARKUP, expandTransitionLine, dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
+import { sanitizeFillers, detectStructures, STRUCTURE_MARKUP, expandTransitionLine, dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
 import FloatingWorkspace from "@/components/lessonnotes/FloatingWorkspace";
 import FloatingDisplayStrip from "@/components/lessonnotes/FloatingDisplayStrip";
 import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditPanel";
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
-import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
 
@@ -58,20 +58,15 @@ const linesFromSolution = (sol: string): { id: string; text: string }[] =>
   sol.split("\n").map((l) => l.trim()).filter(Boolean).map((text) => ({ id: newId(), text }));
 
 /**
- * Teacher chips are the source of truth: preserve every saved filler verbatim
- * and keep the parallel selection array index-aligned. `toUnicodeMath` is
- * applied only as a display-safety pass — if it collapses a teacher edit to
- * empty, we fall back to the original string so the edit is never silently
- * dropped on Save / reload.
+ * Teacher chips are the source of truth. Save/reload must not reinterpret
+ * chips through display conversion, because that can turn structural LaTeX
+ * such as \frac / \sqrt into a different flat string. Preserve the saved
+ * value exactly and only keep the parallel selection arrays index-aligned.
  */
 const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
   const rawFillers = line.fillers ?? [];
   const rawSel = line.fillersSelected ?? [];
-  const fillers = rawFillers.map((raw) => {
-    const original = String(raw ?? "");
-    const display = toUnicodeMath(original);
-    return display && display.length > 0 ? display : original;
-  });
+  const fillers = rawFillers.map((raw) => String(raw ?? ""));
   const fillersSelected = fillers.map((_, i) => !!rawSel[i]);
   const containers = line.containers ?? [];
   const rawCSel = line.containersSelected ?? [];
@@ -1049,10 +1044,8 @@ const FloatingNumbersPage = () => {
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1.5">
                 {r.fillers.map((f, i) => {
-                  const cleaned = toUnicodeMath(f);
-                  if (!cleaned || isStillDirty(cleaned)) return null;
-                  const term = extractTermsFromAscii(cleaned)[0];
-                  const label = term ? renderTermLabel(term, { isFirst: false, prevWasEquals: false }) : cleaned;
+                  const gated = assertDisplaySafe(String(f ?? ""));
+                  if (!gated.safe || !gated.cleaned.trim()) return null;
                   return (
                     <span
                       key={`pf-${i}`}
@@ -1063,7 +1056,7 @@ const FloatingNumbersPage = () => {
                         color: "hsl(220 35% 18%)",
                       }}
                     >
-                      {renderMath(label, `pf-${aiEditLineIndex}-${i}`)}
+                      {renderMath(gated.cleaned, `pf-${aiEditLineIndex}-${i}`)}
                     </span>
                   );
                 })}
@@ -1136,10 +1129,8 @@ const FloatingNumbersPage = () => {
 /* ──────────────────────────── View Session ──────────────────────────── */
 
 const renderChip = (token: string, key: string, ctx: { isFirst: boolean; prevWasEquals: boolean; selected?: boolean }) => {
-  const cleaned = toUnicodeMath(token);
-  if (!cleaned || isStillDirty(cleaned)) return null;
-  const term = extractTermsFromAscii(cleaned)[0];
-  const label = term ? renderTermLabel(term, ctx) : cleaned;
+  const gated = assertDisplaySafe(String(token ?? ""));
+  if (!gated.safe || !gated.cleaned.trim()) return null;
   const baseStyle = {
     background: "hsl(38 38% 94%)",
     border: "1px solid hsl(220 15% 60% / 0.35)",
@@ -1156,7 +1147,7 @@ const renderChip = (token: string, key: string, ctx: { isFirst: boolean; prevWas
       className="px-2.5 py-1 rounded-md text-[15px]"
       style={ctx.selected ? selStyle : baseStyle}
     >
-      {renderMathInline(label, key)}
+      {renderMathInline(gated.cleaned, key)}
     </span>
   );
 };
