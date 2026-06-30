@@ -2236,17 +2236,18 @@ const PresentationView = ({
 
 
 
-          // Clamp the tap to the active beat's writable band so the
-          // teacher can't drop the sensor onto the cover / a past
-          // session's caption.
-          const targetLine = clampToActiveBand(halfLine);
+          // Lesson-aware click gate: ignore taps outside the active
+          // beat's writable band, on locked notebook-prose rows, and on
+          // the question / caption / future beats. The sensor stays
+          // exactly where it was — no silent clamping into the
+          // Working Area.
+          if (!isLineWritable(halfLine)) return;
+          const targetLine = halfLine;
           const row = freeLines[targetLine] ?? [];
           if (row.length === 0) {
             setLineOffsets((m) => ({ ...m, [targetLine]: snapped.x }));
           }
           setSensor({ line: targetLine, x: snapped.x });
-          // (Sensor taps no longer activate the floating panels; activation
-          // is button-driven now.)
           setLiveCursor({ path: [], index: row.length });
           hiddenInputRef.current?.focus({ preventScroll: true });
 
