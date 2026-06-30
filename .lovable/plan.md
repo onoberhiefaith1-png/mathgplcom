@@ -1,69 +1,39 @@
 ## Goal
 
-Make the writing sensor a **modal tool tied to the Floating Number (#) button**, not a permanent fixture. Bind it strictly to the current Solution working area, drive it automatically during solving, and let the new Cursor Scrollbar provide *manual extra space only*.
+The writing sensor must always sit on the **first empty row** of the active Solution band — never on a row that already contains an equation, note, or floating-number ink. The Cursor Scrollbar can push the sensor further down into empty space, but never back up onto written content.
 
----
+## Current behavior (problem)
 
-## 1. Sensor activation gate
+When the teacher presses `#`, `PresentationView` anchors the sensor at `bandStart(activeLayout)` — the row directly under the “Solution” caption — regardless of whether equations are already written there. The Cursor Scrollbar then lets the teacher move freely up/down across both empty and written rows.
 
-Edit `src/components/smartboard/PresentationView.tsx`.
+## New rules
 
-- Introduce a single source of truth `solvingMode` (boolean) derived from the existing `#` floating-number toggle state.
-  - `solvingMode = true` only when the `#` button is ON **and** the current beat has a Solution (writable working area).
-  - On `#` OFF, on beat change, or on navigation away from a solvable beat → `solvingMode = false`.
-- Render `WritingSensor`, the Cursor Scrollbar, and the Floating Number panel **only when `solvingMode === true`**.
-  - When false: no caret pulse, scrollbar buttons disabled/hidden, panel closed.
-- Hard-disable key handlers (`Enter`, character input, arrow caret movement) when `solvingMode === false` so reading the lesson cannot accidentally write.
+1. **First-empty anchor.** On entering solving mode (or whenever the active beat / written content changes while solving), the sensor snaps to the lowest row `r` in `[bandStart, bandEnd]` such that:
+   - `r` is writable (`isLineWritable(r)` — not a notebook-prose row, not a caption), and
+   - no row `≤ r` in the same band carries content (i.e. `freeLines[k]` is empty/absent for every written-content key `k ≤ r`), accounting for tall structures via the existing `extraRowsFor(line)` measurement so the sensor lands below the full visual height of fractions / √ on the previous row.
+2. **Auto-advance after writes.** When the row under the sensor becomes non-empty (Enter, or content lands via floating-number tap), the sensor re-runs rule 1 — it never stays on a written row.
+3. **Scrollbar = empty space only.**
+   - `canCursorUp` is true only while `sensor.line > firstEmptyRow`. Pressing ↑ on the first empty row is a no-op (button disabled).
+   - `canCursorDown` stays true as long as there are empty rows ahead inside the band; when the teacher reaches the bottom, ↓ grows the band by one row (existing `growActiveBand`) and steps onto it.
+   - Both directions still skip locked notebook-prose rows.
+4. **Master-left margin** preserved: every nudge resets `x: 0` and clears the live tree cursor (already done).
 
-## 2. Initial sensor placement under "Solution"
+## Files to change
 
-- When `solvingMode` flips from false → true:
-  - Resolve the active beat's `WorkingArea` via `lessonLines.ts → workingAreaFor`.
-  - Set `beatCursor` / `liveCursor` to `{ row: workingArea.topRow, x: masterLeftMargin }` — i.e. the first writable Lesson Line, which already sits directly below the auto-generated "Solution" caption (we reserved `+3` caption rows in the earlier fix).
-  - Clear `autoFloorRef` to this row so the 3-row slack window restarts here.
-- Never restore a stale `localStorage` cursor that lies above the Solution heading; clamp to `workingArea.topRow` on hydrate.
+- `src/components/smartboard/PresentationView.tsx`
+  - Add helper `firstEmptyBandRow(L: BeatLayout): number` that walks `bandStart(L) … bandEnd(L)`, accounts for `extraRowsFor` of any written row above, and returns the first writable empty row (or `bandEnd+1` triggering `growActiveBand`).
+  - Replace the “snap to `bandStart`” logic in the solving-mode entry effect (lines 1408–1418) with a snap to `firstEmptyBandRow(activeLayout)`.
+  - Add a second effect that watches `freeLines` + `activeLayout?.id` while `solvingMode` is true: if `sensor.line` is no longer the first-empty row AND the teacher hasn’t manually pushed the sensor below it via the scrollbar, re-snap. Manual override is tracked with a `manualPushedRef` set inside `nudgeCursor(+1)` past the auto floor and cleared when the auto floor advances past it.
+  - Update `canCursorUp` to require `sensor.line > firstEmptyRow` (the auto anchor), and `nudgeCursor(-1)` to clamp at that anchor.
+  - Update `nudgeCursor(+1)` so that hitting `bandEnd` calls `growActiveBand()` and steps into the new row.
+- `src/test/floatingSmartboardSync.test.ts` — extend with three cases:
+  1. Empty band → sensor at `bandStart`.
+  2. Two written rows at top → sensor at `bandStart + 2` (and below tall √ structure when measured height > 1).
+  3. Scrollbar ↑ from the auto anchor is blocked; ↓ moves into empty rows and eventually grows the band.
 
-## 3. Automatic sensor advance after each completed equation
+## Technical notes
 
-Already partially implemented (`extraRowsFor`, reflow engine). Tighten:
-
-- After Enter / structure commit, compute the bottom row of the just-written Lesson Line via the measured-height path (`ResizeObserver` heights from `FreeWriteLayer`).
-- Move the sensor to `bottomRow + 1` (one default editable row of gap), snap `x` to the master left margin, and update `autoFloorRef` to this new row.
-- Skip any locked rows in between (notebook prose, captions) using `nextWritable`.
-
-## 4. Cursor Scrollbar — *manual space only*
-
-Edit `src/components/smartboard/CursorScrollbar.tsx` + `PresentationView.tsx`:
-
-- Scrollbar is mounted only while `solvingMode === true`.
-- ▼ moves the sensor down one physical row inside the **current** working area; ▲ moves it up one physical row but never above `autoFloorRef` (cannot rewind into completed work).
-- Hard clamps:
-  - Cannot cross `workingArea.topRow` upward.
-  - Cannot cross `workingArea.bottomRow` downward — instead extends the band by 1 row (existing `growActiveBand`) up to the next beat's first row minus 1.
-  - Cannot enter any `kind !== "writable"` line (already enforced in `nudgeCursor`; verify).
-  - Existing ±3 row slack from `autoFloorRef` remains.
-- Buttons disable (greyed) when their direction is blocked.
-
-## 5. Section / beat boundaries
-
-- On beat navigation (Prev/Next Section, beat click), force `solvingMode = false`, hide sensor + scrollbar, close `#` panel.
-- The teacher must re-press `#` on the new beat to start solving there; the sensor then re-anchors under that beat's "Solution" caption per step 2.
-
-## 6. Cleanups
-
-- Remove any code path that mounts `WritingSensor` based on route load alone.
-- Remove `localStorage` restore of cursor outside an active working area.
-- Keep the Floating Number panel's ▲/▼ chip rotation (already decoupled from cursor in the previous turn).
-
-## Files touched
-
-- `src/components/smartboard/PresentationView.tsx` (activation gate, initial placement, auto-advance tightening, scrollbar clamps, beat-change reset)
-- `src/components/smartboard/CursorScrollbar.tsx` (disabled state visuals; minor)
-- `src/components/smartboard/FloatingNumberPanel.tsx` (mount only in `solvingMode`)
-- `src/components/smartboard/WritingSensor.tsx` (no logic change; conditional mount upstream)
-- `src/test/floatingSmartboardSync.test.ts` (extend: # toggle gates sensor; initial row = workingArea.topRow; ▲ blocked above autoFloor; ▼ extends band; beat change clears sensor)
-
-## Out of scope
-
-- No change to lesson-note editor, floating-number generator, AI prompts, or DB.
-- No change to top bar, eraser, bottom panel layout, or chip rendering.
+- “Written” means: `freeLines[k]` exists and has at least one non-empty atom, **or** the row is occupied by a structure whose visual height (from `extraRowsFor`) extends into it from a row above.
+- Notebook-prose rows (`notebookRowLines`) are treated as written for the “skip past” calculation but never become a sensor target.
+- The Floating Number panel’s own visibility gate (`activeAssistant === "numbers"`) is unchanged; only sensor placement is affected.
+- No backend/schema change. No new storage keys.
