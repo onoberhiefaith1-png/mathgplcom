@@ -2493,7 +2493,7 @@ const PresentationView = ({
         autoCorrect="off"
         spellCheck={false}
         value=""
-        onChange={(e) => {
+        onInput={(e) => {
           const txt = e.target.value;
           if (!txt) return;
           insertPlainTextAtSensor(txt);
