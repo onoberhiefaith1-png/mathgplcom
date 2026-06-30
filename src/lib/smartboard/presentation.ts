@@ -380,13 +380,6 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // `bucket.fillers` carries the teacher's arranged order. Prefer it
       // over `viewCombined` (which is original equation order) so the
       // smartboard reflects the shuffle when per-line data is missing.
-      const bucketCombined = dropContextualLeadingPlus(
-        bucket?.fillers && bucket.fillers.length > 0
-          ? cleanFragments(bucket.fillers)
-          : bucket?.viewCombined && bucket.viewCombined.length > 0
-            ? cleanFragments(bucket.viewCombined)
-            : bucket?.viewRearranged && bucket.viewRearranged.length > 0
-              ? cleanFragments(bucket.viewRearranged)
       // `bucket.fillers` and `bucket.viewCombined` are teacher-curated chip
       // strings (edited and arranged on the preparation page). They MUST
       // reach the Smartboard verbatim — never sign-stripped. Only the pure
