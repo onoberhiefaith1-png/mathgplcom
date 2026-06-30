@@ -116,12 +116,17 @@ export const compileBucket = (lines: FloatingLine[]): FloatingBucket => {
     const start = fillers.length;
     const rawFillers = line.fillers ?? [];
     const rawSelected = line.fillersSelected ?? [];
-    // Map clean indices back to original indices so selection stays aligned.
-    const cleanedWithIdx: { v: string; sel: boolean }[] = [];
-    for (let i = 0; i < rawFillers.length; i++) {
-      const v = toUnicodeMath(String(rawFillers[i] ?? ""));
-      if (v && !isStillDirty(v)) cleanedWithIdx.push({ v, sel: !!rawSelected[i] });
-    }
+    // Teacher chips are presentation-source-of-truth: keep every saved filler
+    // verbatim. `toUnicodeMath` is applied only as a display-safety pass — if
+    // it collapses a teacher edit to empty we fall back to the raw string so
+    // the chip is never silently dropped between the prep page and the
+    // Smartboard.
+    const cleanedWithIdx: { v: string; sel: boolean }[] = rawFillers.map((raw, i) => {
+      const original = String(raw ?? "");
+      const display = toUnicodeMath(original);
+      const v = display && display.length > 0 ? display : original;
+      return { v, sel: !!rawSelected[i] };
+    });
     // Teacher chips are presentation-source-of-truth. Preserve every saved
     // highlighted/edited filler exactly after display-safety unicode cleanup:
     // no sign stripping, no splitting, no reconstruction.
