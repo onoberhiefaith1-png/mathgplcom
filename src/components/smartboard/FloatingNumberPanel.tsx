@@ -452,23 +452,43 @@ export const FloatingNumberPanel = ({
     return null;
   };
 
+  // Whole-panel drag. A pointerdown anywhere on the outer halo arms a drag,
+  // but only commits to dragging after the pointer has moved >4px — taps on
+  // empty halo area still act as a ping/click. Buttons inside stop
+  // propagation on their own pointer-down so chip and arrow clicks are
+  // never hijacked by the drag.
+  const armRef = useRef<{ startY: number; baseY: number; pointerId: number; dragging: boolean } | null>(null);
   const onPointerDown = (e: React.PointerEvent) => {
+    // Ignore drags that start on an interactive element inside the panel.
+    if ((e.target as HTMLElement).closest("[data-fn-nodrag]")) return;
     e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { dy: e.clientY - y };
-    onPing();
+    armRef.current = { startY: e.clientY, baseY: y, pointerId: e.pointerId, dragging: false };
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const next = e.clientY - dragRef.current.dy;
+    const a = armRef.current;
+    if (!a) return;
+    const delta = e.clientY - a.startY;
+    if (!a.dragging) {
+      if (Math.abs(delta) < 4) return;
+      a.dragging = true;
+      try { (e.currentTarget as HTMLElement).setPointerCapture(a.pointerId); } catch { /* noop */ }
+    }
+    const next = a.baseY + delta;
     const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
     const upper = Math.max(finalLineBottomPx + clearance, topYPx);
     setY(Math.min(bottomYPx, Math.max(upper, next)));
   };
   const onPointerUp = (e: React.PointerEvent) => {
-    if (dragRef.current) onCommitY(y);
-    dragRef.current = null;
-    try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    const a = armRef.current;
+    armRef.current = null;
+    if (!a) return;
+    if (a.dragging) {
+      onCommitY(y);
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(a.pointerId); } catch { /* noop */ }
+    } else {
+      // It was a tap — keep the existing ping affordance.
+      onPing();
+    }
   };
 
   if (!visible || reservoirs.length === 0) return null;
