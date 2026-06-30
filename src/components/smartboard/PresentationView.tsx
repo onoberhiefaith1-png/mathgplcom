@@ -1279,6 +1279,18 @@ const PresentationView = ({
     const a = bandStart(activeLayout), b = bandEnd(activeLayout);
     return Math.max(a, Math.min(b, ln));
   };
+  /** Lesson-aware click gate: a row is accepted only when it falls
+   *  inside the ACTIVE beat's writable band AND is not a locked
+   *  notebook-prose row. Clicks on captions / questions / previous
+   *  beats / future beats are ignored — the sensor stays put. */
+  const isLineWritable = (ln: number): boolean => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
+    const floor = Math.floor(ln);
+    const a = bandStart(activeLayout), b = bandEnd(activeLayout);
+    if (floor < a || floor > b) return false;
+    if (notebookRowLines.has(floor) || notebookRowLines.has(ln)) return false;
+    return true;
+  };
   /** Grow the active band by one when the teacher needs more room. */
   const growActiveBand = () => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
