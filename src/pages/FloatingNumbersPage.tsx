@@ -8,6 +8,7 @@ import { ArrowLeft, ChevronRight, Loader2, Shuffle, Sparkles, Save } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import {
   type FloatingLine,
   type ContainerKind,
@@ -1044,10 +1045,8 @@ const FloatingNumbersPage = () => {
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1.5">
                 {r.fillers.map((f, i) => {
-                  const cleaned = toUnicodeMath(f);
-                  if (!cleaned || isStillDirty(cleaned)) return null;
-                  const term = extractTermsFromAscii(cleaned)[0];
-                  const label = term ? renderTermLabel(term, { isFirst: false, prevWasEquals: false }) : cleaned;
+                  const gated = assertDisplaySafe(String(f ?? ""));
+                  if (!gated.safe || !gated.cleaned.trim()) return null;
                   return (
                     <span
                       key={`pf-${i}`}
@@ -1058,7 +1057,7 @@ const FloatingNumbersPage = () => {
                         color: "hsl(220 35% 18%)",
                       }}
                     >
-                      {renderMath(label, `pf-${aiEditLineIndex}-${i}`)}
+                      {renderMath(gated.cleaned, `pf-${aiEditLineIndex}-${i}`)}
                     </span>
                   );
                 })}
@@ -1131,10 +1130,8 @@ const FloatingNumbersPage = () => {
 /* ──────────────────────────── View Session ──────────────────────────── */
 
 const renderChip = (token: string, key: string, ctx: { isFirst: boolean; prevWasEquals: boolean; selected?: boolean }) => {
-  const cleaned = toUnicodeMath(token);
-  if (!cleaned || isStillDirty(cleaned)) return null;
-  const term = extractTermsFromAscii(cleaned)[0];
-  const label = term ? renderTermLabel(term, ctx) : cleaned;
+  const gated = assertDisplaySafe(String(token ?? ""));
+  if (!gated.safe || !gated.cleaned.trim()) return null;
   const baseStyle = {
     background: "hsl(38 38% 94%)",
     border: "1px solid hsl(220 15% 60% / 0.35)",
@@ -1151,7 +1148,7 @@ const renderChip = (token: string, key: string, ctx: { isFirst: boolean; prevWas
       className="px-2.5 py-1 rounded-md text-[15px]"
       style={ctx.selected ? selStyle : baseStyle}
     >
-      {renderMathInline(label, key)}
+      {renderMathInline(gated.cleaned, key)}
     </span>
   );
 };
