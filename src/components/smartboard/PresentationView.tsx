@@ -1319,8 +1319,11 @@ const PresentationView = ({
       while (cand <= b && notebookRowLines.has(cand)) cand += 1;
       target = Math.min(b, cand);
     }
-    setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
-    setCursor({ path: [], index: 0 });
+    setSensor((s) => {
+      if (s.line === target) return s;
+      setCursor({ path: [], index: 0 });
+      return { ...s, line: target, x: 0 };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines]);
 
