@@ -3,7 +3,7 @@
 // repeatable pattern, and (b) compile every per-line workspace into the one
 // Master Floating Bucket the Smartboard will later scroll through.
 
-import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { toUnicodeMath } from "@/lib/notebook/unicodeMath";
 
 export type ContainerKind =
   | "fraction"
