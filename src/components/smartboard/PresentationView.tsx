@@ -899,6 +899,14 @@ const PresentationView = ({
       }
       const target = Math.max(maxLine + 1, sensor.line);
       const next = { ...prev, [target]: mirror.row };
+      // Tag this row as notebook prose so the sensor-anchor logic skips it
+      // when computing the K-th writable line. The sensor jumps to the row
+      // BELOW the notebook so the teacher writes under the teaching note.
+      setNotebookRowLines((prevSet) => {
+        const ns = new Set(prevSet);
+        ns.add(target);
+        return ns;
+      });
       setSensor((s) => ({ ...s, line: target + 1, x: 0 }));
       return next;
     });
