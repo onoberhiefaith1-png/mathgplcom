@@ -856,6 +856,17 @@ const PresentationView = ({
     return () => window.clearTimeout(t);
   }, [sensor.line]);
 
+  // Re-anchor the 3-row manual-slack floor whenever the sensor jumps to a
+  // new Lesson Line via auto-advance / programmatic placement (i.e., any
+  // move that lands *above* the current slack ceiling or above the floor).
+  // ArrowDown stays inside the cap, so this never fights manual slack.
+  useEffect(() => {
+    const floor = Math.floor(sensor.line);
+    if (floor < autoFloorRef.current || floor > autoFloorRef.current + 3) {
+      autoFloorRef.current = floor;
+    }
+  }, [sensor.line]);
+
   const handleLineMeasure = (line: number, width: number, height: number) => {
     lineWidthsRef.current[line] = width;
     const prev = lineHeightsRef.current[line] ?? 0;
