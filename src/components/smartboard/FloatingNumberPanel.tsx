@@ -1,8 +1,6 @@
-// FloatingNumberPanel — no background, lives INSIDE the scrolling board
-// surface so it scrolls with the active example. Vertical drag only.
-// Clamped between the final written line of the band and the band bottom.
-// Visibility is controlled by the parent (mutual-exclusion with the other
-// two assistants). Position is remembered per beat via parent storage.
+// FloatingNumberPanel — fixed smartboard overlay. It stays at the bottom-left
+// of the viewport, just to the right of the permanent hash/eraser tool column,
+// so teachers always have clear writing space above it.
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
