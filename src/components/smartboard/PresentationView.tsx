@@ -1835,9 +1835,23 @@ const PresentationView = ({
       setFloatingLineIdx(nextIdx);
       return;
     }
-    const expectedLineNum = activeSensorLogicalIdxRef.current === activeLineIdx && activeSensorPhysicalLineRef.current !== null
+    let expectedLineNum = activeSensorLogicalIdxRef.current === activeLineIdx && activeSensorPhysicalLineRef.current !== null
       ? Math.floor(activeSensorPhysicalLineRef.current)
       : Math.floor(sensor.line);
+    // A teacher may deliberately push the sensor before/after a line, so the
+    // current logical Lesson Line is identified by its written math, not by a
+    // fixed physical row number. Scan the active writable band for the row that
+    // matches this guided line, skipping notebook prose.
+    for (let r = bandStart(activeLayout); r <= bandEnd(activeLayout); r++) {
+      if (notebookRowLines.has(r)) continue;
+      const candidate = freeLines[r];
+      if (!candidate || candidate.length === 0) continue;
+      const candidateAscii = rowToAscii(candidate);
+      if (equationsMatch(candidateAscii, target.equation) || equationsEquivalent(candidateAscii, target.equation)) {
+        expectedLineNum = r;
+        break;
+      }
+    }
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) return;
     const ascii = rowToAscii(row);
@@ -1861,9 +1875,12 @@ const PresentationView = ({
       setManualFloatingLineIdx(activeLineIdx);
       const nextWritable = firstWritableRowAfter(expectedLineNum, activeLayout);
       if (nextWritable > bandEnd(activeLayout)) growActiveBand();
-      setSensor({ line: nextWritable, x: 0 });
-      setLiveCursor({ path: [], index: 0 });
-      activeSensorPhysicalLineRef.current = nextWritable;
+      if (Math.floor(sensor.line) !== nextWritable) {
+        setSensor({ line: nextWritable, x: 0 });
+        setLiveCursor({ path: [], index: 0 });
+      }
+      activeSensorLogicalIdxRef.current = activeLineIdx;
+      activeSensorPhysicalLineRef.current = expectedLineNum;
       return;
     }
     const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
