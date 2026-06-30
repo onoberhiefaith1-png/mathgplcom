@@ -1132,6 +1132,7 @@ const PresentationView = ({
       if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) {
         e.preventDefault(); doRedo(); return;
       }
+      if (e.defaultPrevented) return;
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       const isHiddenKeyboardCapture = target === hiddenInputRef.current;
