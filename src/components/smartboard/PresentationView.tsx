@@ -34,7 +34,7 @@ import { FloatingNumberPanel } from "./FloatingNumberPanel";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
-import { getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
+import { clampLineSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import {
   type Cursor, type Node, type Row,
   mkChar, mkSub, mkSup,
@@ -365,7 +365,7 @@ const PresentationView = ({
   const FREEWRITE_KEY = `smartboard:freewrite:${notebookId ?? "_"}`;
   const SENSOR_KEY = `smartboard:sensor:${notebookId ?? "_"}`;
   const ZOOM_KEY = `smartboard:zoom:${notebookId ?? "_"}`;
-  const LINE_SPACING_KEY = `smartboard:lineSpacing:${notebookId ?? "_"}`;
+  const LINE_SPACING_KEY = `smartboard:lineSpacingV2:${notebookId ?? "_"}`;
   const TEXT_SCALE_KEY = `smartboard:textScale:${notebookId ?? "_"}`;
 
   const [zoom, setZoom] = useState<number>(() => {
@@ -383,10 +383,10 @@ const PresentationView = ({
       const raw = localStorage.getItem(LINE_SPACING_KEY);
       if (raw) {
         const v = parseFloat(raw);
-        if (Number.isFinite(v) && v > 0) return v;
+        if (Number.isFinite(v) && v >= 0) return clampLineSpacing(v);
       }
     } catch { /* noop */ }
-    return 1;
+    return 0;
   });
   const [textScale, setTextScale] = useState<number>(() => {
     try {
@@ -1103,8 +1103,8 @@ const PresentationView = ({
     setZoom((prev) => {
       const host = boardScrollRef.current;
       if (host) {
-        const oldY = lineToY(sensor.line, getGrid(prev));
-        const newY = lineToY(sensor.line, getGrid(z));
+        const oldY = lineToY(sensor.line, getGrid(prev, lineSpacing, textScale));
+        const newY = lineToY(sensor.line, getGrid(z, lineSpacing, textScale));
         const delta = newY - oldY;
         requestAnimationFrame(() => {
           host.scrollTop = Math.max(0, host.scrollTop + delta);
@@ -1214,7 +1214,7 @@ const PresentationView = ({
       return { caption: lines, band: 0 };
     }
     if (b.kind === "problem" || b.kind === "exercise-prompt") {
-      return { caption: 3, band: 12 };
+      return { caption: Math.max(2, Math.ceil((b.content?.split(/\r?\n/).length ?? 1) + 1)), band: 12 };
     }
     return { caption: 2, band: 0 };
   };

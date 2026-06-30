@@ -3,9 +3,9 @@
 // changing the board surface. Margins are kept in screen pixels so the
 // outer chrome and scroll feel stay constant.
 //
-// `lineSpacing` multiplies only the vertical gap between baselines —
-// teachers raise it for more breathing space around fractions/roots
-// without changing the math itself.
+// `lineSpacing` is the teacher-controlled EXTRA gap between lesson lines.
+// 0 = no extra gap; increasing it only separates complete lesson lines,
+// never the internal pieces of a fraction/root/matrix.
 //
 // `textScale` multiplies only the writing font size — the page, margins
 // and chrome stay the same; only the content grows.
@@ -20,16 +20,12 @@ const BASE = {
 /** One em of writing equals this many CSS pixels at zoom = 1. */
 export const BASE_FONT_PX = 34;
 
-/** Intrinsic row height as a multiple of FONT_PX. Keeps the next lesson
- *  line clear of tall structures (fractions, roots) at the default slider
- *  position. The slider adds extra gap on top of this — it never reduces
- *  the intrinsic row, so equations cannot clip into each other. */
-const INTRINSIC_ROW_PER_FONT = 1.85;
+/** Smallest natural distance between lesson-line baselines at 0% spacing.
+ *  This is the editor's default writing rhythm, not an added blank row. */
+const MIN_ROW_PER_FONT = 1.28;
 
-/** How many CSS pixels the slider adds/removes per 100% of its travel.
- *  At lineSpacing = 1 the gap is zero (current default look).
- *  At lineSpacing = 2 the gap adds 36px; at 0.6 it subtracts ~14px. */
-const BASE_EXTRA_GAP = 36;
+/** Maximum extra gap added when the slider reaches 100%. */
+const MAX_EXTRA_GAP = 44;
 
 export interface Grid {
   MARGIN_LEFT: number;
@@ -42,22 +38,20 @@ export interface Grid {
 
 /**
  * @param zoom         page-zoom multiplier (existing control)
- * @param lineSpacing  vertical gap multiplier between lesson lines —
- *                     adds/removes extra pixels of *gap only*, never
- *                     shrinks the intrinsic row below the text height.
+ * @param lineSpacing  extra vertical gap between lesson lines, 0..1.
+ *                     0% means no extra gap above the natural baseline.
  * @param textScale    content-only font multiplier — grows lesson text
  *                     and math; row height follows so nothing clips.
  */
 export const getGrid = (
   zoom = 1,
-  lineSpacing = 1,
+  lineSpacing = 0,
   textScale = 1,
 ): Grid => {
   const fontPx = BASE_FONT_PX * zoom * textScale;
-  const intrinsicRow = fontPx * INTRINSIC_ROW_PER_FONT;
-  const extraGap = (lineSpacing - 1) * BASE_EXTRA_GAP * zoom;
-  // Clamp so we can never collapse text into itself, even at slider min.
-  const lineHeight = Math.max(intrinsicRow * 0.82, intrinsicRow + extraGap);
+  const naturalRow = fontPx * MIN_ROW_PER_FONT;
+  const extraGap = clampLineSpacing(lineSpacing) * MAX_EXTRA_GAP * zoom;
+  const lineHeight = naturalRow + extraGap;
   return {
     MARGIN_LEFT: BASE.MARGIN_LEFT,
     MARGIN_TOP: BASE.MARGIN_TOP,
@@ -103,20 +97,5 @@ export const entryPosition = (p: GridPoint, g: Grid = GRID) => ({
   lineHeight: `${g.LINE_HEIGHT}px`,
 });
 
-/** Preset multipliers for the Settings panel. */
-export const LINE_SPACING_PRESETS = [
-  { id: "compact", label: "Compact", value: 0.85 },
-  { id: "normal", label: "Normal", value: 1.0 },
-  { id: "comfortable", label: "Comfortable", value: 1.2 },
-  { id: "wide", label: "Wide", value: 1.45 },
-] as const;
-
-export const TEXT_SIZE_PRESETS = [
-  { id: "s", label: "S", value: 0.85 },
-  { id: "m", label: "M", value: 1.0 },
-  { id: "l", label: "L", value: 1.18 },
-  { id: "xl", label: "XL", value: 1.4 },
-] as const;
-
-export const clampLineSpacing = (v: number) => Math.max(0.6, Math.min(2.0, v));
+export const clampLineSpacing = (v: number) => Math.max(0, Math.min(1, v));
 export const clampTextScale = (v: number) => Math.max(0.7, Math.min(1.8, v));
