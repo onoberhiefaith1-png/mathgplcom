@@ -249,9 +249,9 @@ export function RelationshipPanel({ scene, topic }: Props) {
             >
               + Add relationship manually
             </button>
-          </>
-        )}
+        </>
       </aside>
+
 
       <RelationshipEditorSheet
         open={sheetOpen}
