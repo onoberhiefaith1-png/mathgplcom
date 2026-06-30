@@ -142,7 +142,6 @@ export const BottomPanel = ({
           // Closed panel must not catch scroll/touch/clicks that drift below
           // the canvas. Only the pull-tab above remains interactive.
           pointerEvents: open ? "auto" : "none",
-          visibility: open ? "visible" : "hidden",
         }}
       >
         {/* Tabs */}
