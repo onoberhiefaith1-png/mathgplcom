@@ -1788,7 +1788,7 @@ const PresentationView = ({
     activeSensorLogicalIdxRef.current = idx;
     activeSensorPhysicalLineRef.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter]);
+  }, [floatingLineIdx, manualFloatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
