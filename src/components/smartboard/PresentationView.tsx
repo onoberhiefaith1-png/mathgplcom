@@ -1761,7 +1761,9 @@ const PresentationView = ({
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
 
+    const logicalLineChanged = activeSensorLogicalIdxRef.current !== idx;
     if (
+      !logicalLineChanged &&
       manualPushedRef.current !== null &&
       Math.floor(sensor.line) === manualPushedRef.current
     ) {
@@ -1769,6 +1771,7 @@ const PresentationView = ({
       activeSensorPhysicalLineRef.current = sensor.line;
       return;
     }
+    if (logicalLineChanged) manualPushedRef.current = null;
 
     // Once the current presentation line has been anchored, do not keep
     // re-solving that anchor after every keystroke. Typing changes freeLines,
