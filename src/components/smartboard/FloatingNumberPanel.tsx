@@ -164,7 +164,7 @@ export const FloatingNumberPanel = ({
   chromeFg,
   reservoirs, viewIdx, activeIdx, visible,
   onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
-  leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx,
+  leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx, rowHeightPx,
   rememberedY, onCommitY, onPing, beatId,
   lineNumber, lineCount, onPrevLine, onNextLine,
   notebookText,
