@@ -1,95 +1,69 @@
 ## Goal
 
-Today one ▲/▼ control (the "line navigator" on the Floating Number panel) is doing two unrelated jobs:
-
-1. Scrolling through floating-number sets / lines (and updating the blue "Used" strip).
-2. Moving the writing cursor (sensor).
-
-We split them into two completely independent controls, rebalance the left toolbar, and clean up two long-standing rendering inconsistencies (square root component reuse, placeholder cubes leaking onto the Smartboard).
+Make the writing sensor a **modal tool tied to the Floating Number (#) button**, not a permanent fixture. Bind it strictly to the current Solution working area, drive it automatically during solving, and let the new Cursor Scrollbar provide *manual extra space only*.
 
 ---
 
-## 1. Floating Number Scrollbar — keep, narrow its job
+## 1. Sensor activation gate
 
-Edit `src/components/smartboard/FloatingNumberPanel.tsx` and `PresentationView.tsx`:
+Edit `src/components/smartboard/PresentationView.tsx`.
 
-- Keep the existing ▲/▼ + line-number badge inside the Floating Number panel (left "grip column").
-- It only:
-  - moves between floating-number lines (`onPrevLine` / `onNextLine`),
-  - rotates the 5-chip window,
-  - updates the blue "Used" section.
-- Remove every side-effect that currently nudges the writing cursor or `beatCursor` from these arrows. Any `setSensor` / `setLiveCursor` / `setManualFloatingLineIdx → cursor` linkage triggered by ▲/▼ on the panel is deleted.
-- The current secondary "left-edge floating-line navigator" overlay in `PresentationView.tsx` (lines 2808-2880) that also drives `setManualFloatingLineIdx` is **removed** — its job is now exclusively the panel's own ▲/▼.
+- Introduce a single source of truth `solvingMode` (boolean) derived from the existing `#` floating-number toggle state.
+  - `solvingMode = true` only when the `#` button is ON **and** the current beat has a Solution (writable working area).
+  - On `#` OFF, on beat change, or on navigation away from a solvable beat → `solvingMode = false`.
+- Render `WritingSensor`, the Cursor Scrollbar, and the Floating Number panel **only when `solvingMode === true`**.
+  - When false: no caret pulse, scrollbar buttons disabled/hidden, panel closed.
+- Hard-disable key handlers (`Enter`, character input, arrow caret movement) when `solvingMode === false` so reading the lesson cannot accidentally write.
 
-## 2. New dedicated Cursor Scrollbar
+## 2. Initial sensor placement under "Solution"
 
-Create `src/components/smartboard/CursorScrollbar.tsx`. It is a vertical pill rendered on the **left side** of the smartboard (the slot freed up by step 4), styled to match the Floating Number grip but with:
+- When `solvingMode` flips from false → true:
+  - Resolve the active beat's `WorkingArea` via `lessonLines.ts → workingAreaFor`.
+  - Set `beatCursor` / `liveCursor` to `{ row: workingArea.topRow, x: masterLeftMargin }` — i.e. the first writable Lesson Line, which already sits directly below the auto-generated "Solution" caption (we reserved `+3` caption rows in the earlier fix).
+  - Clear `autoFloorRef` to this row so the 3-row slack window restarts here.
+- Never restore a stale `localStorage` cursor that lies above the Solution heading; clamp to `workingArea.topRow` on hydrate.
 
-- only two buttons: ↑ and ↓
-- no line number, no page indicator, no floating-number index, no badge
+## 3. Automatic sensor advance after each completed equation
 
-Behaviour (all implemented in `PresentationView.tsx` via two callbacks `onCursorUp` / `onCursorDown`):
+Already partially implemented (`extraRowsFor`, reflow engine). Tighten:
 
-- ↑ moves the writing sensor up one editable row; ↓ moves it down one editable row.
-- Press-and-hold auto-repeats (≈ 90 ms cadence after a 350 ms initial delay).
-- Movement is run through the existing lesson-line gate (`lessonLines.ts` → `isClickAllowed`, `nextWritable` / `prevWritable`), so it:
-  - never enters locked rows (question, heading, prose, notebook, completed equations, headers/footers),
-  - never crosses out of the active beat / session,
-  - obeys the existing 3-row manual slack (`autoFloorRef`) — attempts beyond ±3 rows from the automatic floor are ignored,
-  - snaps `x` back to the master left margin on every move (consistent with Enter behaviour).
-- It is a **manual override only**. Automatic cursor placement (after Enter, after structure insertion, on beat change) is untouched.
+- After Enter / structure commit, compute the bottom row of the just-written Lesson Line via the measured-height path (`ResizeObserver` heights from `FreeWriteLayer`).
+- Move the sensor to `bottomRow + 1` (one default editable row of gap), snap `x` to the master left margin, and update `autoFloorRef` to this new row.
+- Skip any locked rows in between (notebook prose, captions) using `nextWritable`.
 
-## 3. Left toolbar layout changes
+## 4. Cursor Scrollbar — *manual space only*
 
-In `PresentationView.tsx` (the left toolbar block at lines 3177-3320 and the "floating-line navigator" overlay at 2808-2880):
+Edit `src/components/smartboard/CursorScrollbar.tsx` + `PresentationView.tsx`:
 
-- **Keep on the left:** Undo, Redo, the new Cursor Scrollbar (↑/↓).
-- **Move to the right toolbar** (`RightTools.tsx` or a new right-rail group adjacent to it): the three "middle controls" currently on the left — Previous Section (◀), Next Section (▶), Smart Line, plus the Dot/two-point-line tool that sits with them. (User listed three; we group the related four together so the rail still reads as one cluster. Confirmable.)
-- **Untouched:** top bar (Back / Undo / Prev / Next), bottom Eraser, bottom `#` floating-number toggle, bottom panel.
-- The left rail's 5-second auto-hide reveal stays for Undo/Redo. The new Cursor Scrollbar is **always visible** (it is a primary control, not chrome).
+- Scrollbar is mounted only while `solvingMode === true`.
+- ▼ moves the sensor down one physical row inside the **current** working area; ▲ moves it up one physical row but never above `autoFloorRef` (cannot rewind into completed work).
+- Hard clamps:
+  - Cannot cross `workingArea.topRow` upward.
+  - Cannot cross `workingArea.bottomRow` downward — instead extends the band by 1 row (existing `growActiveBand`) up to the next beat's first row minus 1.
+  - Cannot enter any `kind !== "writable"` line (already enforced in `nudgeCursor`; verify).
+  - Existing ±3 row slack from `autoFloorRef` remains.
+- Buttons disable (greyed) when their direction is blocked.
 
-## 4. Expandable square root reuse in Floating Number generator
+## 5. Section / beat boundaries
 
-The lesson-note editor already renders an expanding √ (CSS `border-top` overline that grows with the radicand). The Floating Number generator currently renders its own variant.
+- On beat navigation (Prev/Next Section, beat click), force `solvingMode = false`, hide sensor + scrollbar, close `#` panel.
+- The teacher must re-press `#` on the new beat to start solving there; the sensor then re-anchors under that beat's "Solution" caption per step 2.
 
-- Locate the lesson-note √ component (under `src/lib/notebook/mathRender.ts` / `MathTreeRender.tsx`) and export it as a single shared `SqrtView` from `src/lib/notebook/mathRender.ts` (or a new `src/components/math/Sqrt.tsx`).
-- Replace the Floating Number generator's local √ rendering (in `FloatingPreparationPage.tsx` and `FloatingDisplayStrip.tsx` / `floatingCompile.ts` render path) with that one component.
-- Verify hover-sync, atom click-order, and chip generation still work (existing tests in `floatingHighlightEngine.test.ts`).
+## 6. Cleanups
 
-## 5. Placeholder cube (□) policy
-
-Today empty slots inside √, fractions, scripts can render as a small dashed cube to guide editing. That is correct **only** in the Floating Number panel (editing template). It must never appear on the Smartboard (final presentation surface).
-
-- In the shared math views (`MathTreeRender.tsx` `SqrtView` / `FracView` / `SupView` / `SubView`), accept a `mode: "edit" | "present"` prop.
-- `edit` (Floating Number generator + lesson-note editor): keep the existing focused-slot placeholder.
-- `present` (Smartboard `FreeWriteLayer`, `FloatingNumberPanel` chip rendering, any board mirror): render empty slots as truly empty — no cube, no dashed outline, but preserve the expandable structure (so `√(2)` shows just the bar over `2`, and an empty fraction renders as the bar with no boxes).
-- Audit `assertDisplaySafe` / chip label paths so the cube glyph (`□`) inside payloads coming from AI/teacher input is stripped before it reaches the Smartboard.
-
-## 6. Cleanups & persistence
-
-- Remove the now-dead `manualFloatingLineIdx`/cursor coupling and the duplicated left-edge navigator overlay.
-- Cursor Scrollbar holds no persisted state; it reads/writes through the existing `cursorRef` + `setLiveCursor` flow so reload recovery already works.
-- No DB / edge function changes.
-
-## 7. Verification
-
-- Reuse `src/test/floatingSmartboardSync.test.ts`; add cases:
-  - Cursor Scrollbar ↑/↓ skips locked lines, clamps at the 3-row slack window, and snaps `x` to the master left margin.
-  - Floating Number ▲/▼ rotates the chip window and updates `usedSet` without touching the sensor.
-  - `SqrtView` in `present` mode emits no `□`; in `edit` mode it does when focused.
-- Manual check in the preview: open `/smartboard/...`, press the new ↑/↓ — cursor moves, floating-number window does not; press the panel ▲/▼ — chips rotate, cursor does not; insert a √ with empty radicand from the Floating Number panel — Smartboard shows a bare overline, no cube.
+- Remove any code path that mounts `WritingSensor` based on route load alone.
+- Remove `localStorage` restore of cursor outside an active working area.
+- Keep the Floating Number panel's ▲/▼ chip rotation (already decoupled from cursor in the previous turn).
 
 ## Files touched
 
-- `src/components/smartboard/PresentationView.tsx` (split controls, relocate three buttons, mount `CursorScrollbar`, remove duplicated overlay)
-- `src/components/smartboard/FloatingNumberPanel.tsx` (drop cursor side-effects from ▲/▼)
-- `src/components/smartboard/CursorScrollbar.tsx` (new)
-- `src/components/smartboard/RightTools.tsx` (host relocated section/line/dot buttons)
-- `src/lib/smartboard/mathTree.ts` + `MathTreeRender.tsx` (`mode: edit | present`, shared `SqrtView`)
-- `src/pages/FloatingPreparationPage.tsx`, `src/lib/lessonnotes/floatingCompile.ts`, `src/components/lessonnotes/FloatingDisplayStrip.tsx` (use shared `SqrtView`, mode flags)
-- `src/test/floatingSmartboardSync.test.ts` (extend)
+- `src/components/smartboard/PresentationView.tsx` (activation gate, initial placement, auto-advance tightening, scrollbar clamps, beat-change reset)
+- `src/components/smartboard/CursorScrollbar.tsx` (disabled state visuals; minor)
+- `src/components/smartboard/FloatingNumberPanel.tsx` (mount only in `solvingMode`)
+- `src/components/smartboard/WritingSensor.tsx` (no logic change; conditional mount upstream)
+- `src/test/floatingSmartboardSync.test.ts` (extend: # toggle gates sensor; initial row = workingArea.topRow; ▲ blocked above autoFloor; ▼ extends band; beat change clears sensor)
 
 ## Out of scope
 
-- No changes to top bar, eraser, `#` toggle, bottom panel, or automatic cursor placement logic.
-- No backend / AI prompt changes.
+- No change to lesson-note editor, floating-number generator, AI prompts, or DB.
+- No change to top bar, eraser, bottom panel layout, or chip rendering.

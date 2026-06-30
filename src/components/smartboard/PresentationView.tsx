@@ -1386,6 +1386,49 @@ const PresentationView = ({
   const activeLayout = layouts[layouts.length - 1];
   const bandStart = (L?: BeatLayout) => L ? L.startLine + L.captionLines : 0;
   const bandEnd = (L?: BeatLayout) => L ? L.startLine + L.captionLines + Math.max(0, L.bandLines) - 1 : 0;
+
+  // ── Solving mode ──────────────────────────────────────────────────
+  // Writing sensor + Cursor Scrollbar are NOT permanent. They exist
+  // only while the teacher is actively solving a question, signalled by
+  // the # (Floating Number) button being ON inside a beat that actually
+  // has a writable Solution band. Single source of truth — gates the
+  // pulsing caret, the keyboard handler, and the Cursor Scrollbar.
+  const solvingMode = !!(
+    activeAssistant === "numbers" &&
+    activeLayout &&
+    activeLayout.bandLines > 0
+  );
+
+  // When the teacher presses # to enter solving mode, anchor the sensor
+  // at the FIRST writable row of the active beat — i.e. directly below
+  // the auto-generated "Solution" caption. This guarantees solving
+  // always starts at the right place, no matter what stale cursor
+  // position was persisted from a previous session/beat.
+  const prevSolvingRef = useRef(false);
+  useEffect(() => {
+    const was = prevSolvingRef.current;
+    prevSolvingRef.current = solvingMode;
+    if (!solvingMode || was) return;
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+    const a = bandStart(activeLayout);
+    setSensor({ line: a, x: 0 });
+    setLiveCursor({ path: [], index: 0 });
+    autoFloorRef.current = a;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solvingMode, activeLayout?.id]);
+
+  // Leaving the current beat (Prev/Next Section, beat click) must close
+  // solving mode — the teacher must explicitly re-press # on the new
+  // beat to begin solving there.
+  const prevBeatIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = activeLayout?.id ?? null;
+    if (prevBeatIdRef.current !== null && prevBeatIdRef.current !== id) {
+      setActiveAssistant(null);
+    }
+    prevBeatIdRef.current = id;
+  }, [activeLayout?.id]);
+
   /** Lines the teacher is allowed to write on across the whole lesson. */
   const allowedLineSet = useMemo(() => {
     const s = new Set<number>();
@@ -2357,6 +2400,9 @@ const PresentationView = ({
         }}
         onPointerDown={(e) => {
           if (!canEdit) return; // view-only mirror: no board interaction
+          // The board is read-only until the teacher activates solving
+          // mode via the # button. Eraser still works (handled below).
+          if (!solvingMode && !eraseMode && !boxArmed && !dotArmed) return;
           if ((e.target as HTMLElement).closest("[data-sb-chrome]")) return;
           if ((e.target as HTMLElement).closest("[data-slot-idx]")) return;
           // Taps that land inside an existing math-tree row are handled by
@@ -2544,11 +2590,12 @@ const PresentationView = ({
             lines={visibleFreeLines}
             offsets={lineOffsets}
             grid={grid}
-            activeLine={activeBoxId ? null : sensor.line}
+            activeLine={!solvingMode ? null : (activeBoxId ? null : sensor.line)}
             cursor={cursor}
             caretColor={ink}
             onMeasure={handleLineMeasure}
             onCursorChange={(line, c) => {
+              if (!solvingMode) return;
               // Lesson-aware click gate: only writable rows inside the
               // active beat's working area accept caret placement.
               // Clicks on locked content (captions, question, notebook
@@ -2854,9 +2901,13 @@ const PresentationView = ({
         value=""
         onChange={(e) => {
           const txt = e.currentTarget.value;
-          if (!txt) return;
-          insertPlainTextAtSensor(txt);
           e.currentTarget.value = "";
+          if (!txt) return;
+          // Reading the lesson must never write to the board. The sensor
+          // is only active while the teacher has pressed the # button on
+          // a beat with a Solution band.
+          if (!solvingMode) return;
+          insertPlainTextAtSensor(txt);
         }}
         onKeyDown={(e) => {
           if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "=")) {
@@ -2868,6 +2919,9 @@ const PresentationView = ({
           if ((e.ctrlKey || e.metaKey) && e.key === "0") {
             e.preventDefault(); applyZoom(1); return;
           }
+          // All other keys (Enter, arrows, Tab, plain typing) only act
+          // while the teacher is in solving mode.
+          if (!solvingMode) return;
 
           if (e.key === "Tab") {
             e.preventDefault();
@@ -3223,7 +3277,7 @@ const PresentationView = ({
         {/* Below the four-button top group: the dedicated Cursor Scrollbar
             replaces the three relocated tools (Smart Line, Dot, Box). It
             ONLY moves the writing sensor — never the floating-number panel. */}
-        {hasGuidedLines && (
+        {solvingMode && (
           <CursorScrollbar
             inline
             onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
