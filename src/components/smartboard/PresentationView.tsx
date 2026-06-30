@@ -1263,6 +1263,7 @@ const PresentationView = ({
     setShownNotebookIdx(new Set());
     setConsumedAbsIdx(new Set());
     setConsumedStructures(new Set());
+    setNotebookRowLines(new Set());
   }, [activeReservoirIdx]);
 
 
