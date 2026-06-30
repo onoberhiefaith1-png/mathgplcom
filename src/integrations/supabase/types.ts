@@ -1169,7 +1169,6 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: string
       }
-      can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
       generate_mathgpl_id: { Args: never; Returns: string }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {
@@ -1194,8 +1193,6 @@ export type Database = {
           join_code: string
         }[]
       }
-      is_class_member: { Args: { _class_id: string }; Returns: boolean }
-      is_class_owner: { Args: { _class_id: string }; Returns: boolean }
       lookup_class_by_code: {
         Args: { code: string }
         Returns: {
@@ -1210,11 +1207,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      notebook_shared_to_member: {
-        Args: { _notebook_id: string }
-        Returns: boolean
-      }
-      shares_class_with: { Args: { _other: string }; Returns: boolean }
     }
     Enums: {
       block_kind: "problem" | "solution" | "reasoning" | "text"
