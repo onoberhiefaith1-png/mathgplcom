@@ -2797,92 +2797,10 @@ const PresentationView = ({
               single source of line status (no duplicate left-edge indicators). */}
 
 
-          {/* Left-side LINE NAVIGATOR — selects which line's floating numbers
-              show in the panel. Visible only while the left tools (undo/redo)
-              hit-zone is hovered, then fades after 5 s. */}
-          {activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (() => {
-            const bandTopPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
-            const bandBotPx = grid.MARGIN_TOP + (bandEnd(activeLayout) + 1) * grid.LINE_HEIGHT;
-            const cur = (manualFloatingLineIdx ?? Math.min(floatingLineIdx, guidedLines.length - 1)) + 1;
-            const total = guidedLines.length;
-            const setLine = (n: number) => {
-              const clamped = Math.max(1, Math.min(total, n));
-              setManualFloatingLineIdx(clamped - 1);
-              revealLeftTools();
-            };
-            return (
-              <div
-                data-sb-chrome
-                onPointerDown={(e) => { e.stopPropagation(); revealLeftTools(); }}
-                style={{
-                  position: "absolute",
-                  left: 28,
-                  top: (bandTopPx + bandBotPx) / 2 - 60,
-                  zIndex: 26,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 4,
-                  opacity: leftToolsVisible ? 1 : 0,
-                  transition: "opacity 220ms ease",
-                  pointerEvents: leftToolsVisible ? "auto" : "none",
-                  color: palette.chromeFg,
-                  userSelect: "none",
-                }}
-                aria-label="Floating-number line navigator"
-              >
-                <button
-                  onClick={(e) => { e.stopPropagation(); setLine(cur - 1); }}
-                  disabled={cur <= 1}
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: palette.chromeFg,
-                    opacity: cur > 1 ? 1 : 0.3,
-                    cursor: cur > 1 ? "pointer" : "default",
-                    padding: 2,
-                    display: "inline-flex",
-                  }}
-                  aria-label="Previous line"
-                >
-                  <ChevronUp size={20} />
-                </button>
-                <div
-                  style={{
-                    minWidth: 32,
-                    padding: "2px 8px",
-                    border: `1px solid ${palette.chromeBorder}`,
-                    borderRadius: 8,
-                    background: palette.chromeBg,
-                    color: palette.chromeFg,
-                    fontVariantNumeric: "tabular-nums",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    textAlign: "center",
-                  }}
-                  title={`Floating-number line ${cur} of ${total}`}
-                >
-                  {cur}
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setLine(cur + 1); }}
-                  disabled={cur >= total}
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: palette.chromeFg,
-                    opacity: cur < total ? 1 : 0.3,
-                    cursor: cur < total ? "pointer" : "default",
-                    padding: 2,
-                    display: "inline-flex",
-                  }}
-                  aria-label="Next line"
-                >
-                  <ChevronDown size={20} />
-                </button>
-              </div>
-            );
-          })()}
+          {/* Left-side line navigator REMOVED — the Floating Number panel's
+              own ▲/▼ is now the single control for switching floating-number
+              sets. Cursor movement lives in <CursorScrollbar/> below. */}
+
 
 
         </WritingSurface>
