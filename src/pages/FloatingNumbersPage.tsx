@@ -57,26 +57,36 @@ const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
 const linesFromSolution = (sol: string): { id: string; text: string }[] =>
   sol.split("\n").map((l) => l.trim()).filter(Boolean).map((text) => ({ id: newId(), text }));
 
+/**
+ * Teacher chips are the source of truth: preserve every saved filler verbatim
+ * and keep the parallel selection array index-aligned. `toUnicodeMath` is
+ * applied only as a display-safety pass — if it collapses a teacher edit to
+ * empty, we fall back to the original string so the edit is never silently
+ * dropped on Save / reload.
+ */
 const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
   const rawFillers = line.fillers ?? [];
   const rawSel = line.fillersSelected ?? [];
-  const kept: { v: string; sel: boolean }[] = [];
-  for (let i = 0; i < rawFillers.length; i++) {
-    const v = toUnicodeMath(String(rawFillers[i] ?? ""));
-    if (v && !isStillDirty(v)) kept.push({ v, sel: !!rawSel[i] });
-  }
-  const fillers = kept.map((k) => k.v);
-  const fillersSelected = kept.map((k) => k.sel);
+  const fillers = rawFillers.map((raw) => {
+    const original = String(raw ?? "");
+    const display = toUnicodeMath(original);
+    return display && display.length > 0 ? display : original;
+  });
+  const fillersSelected = fillers.map((_, i) => !!rawSel[i]);
   const containers = line.containers ?? [];
   const rawCSel = line.containersSelected ?? [];
   const containersSelected = containers.map((_, i) => !!rawCSel[i]);
+  const arrangement =
+    line.arrangement && line.arrangement.length === fillers.length
+      ? line.arrangement
+      : identityArrangement(fillers.length);
   return {
     ...line,
     fillers,
     fillersSelected,
     containers,
     containersSelected,
-    arrangement: fillers.length === rawFillers.length ? (line.arrangement ?? identityArrangement(fillers.length)) : identityArrangement(fillers.length),
+    arrangement,
   };
 };
 

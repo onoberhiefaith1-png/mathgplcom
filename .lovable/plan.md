@@ -1,61 +1,33 @@
-## Plan: Fix Floating Number Logic Only
+## Fix: Teacher edits on the Floating Number Generation page disappear after Save
 
-### Scope
-Keep the current Floating Number interface exactly as it is. No layout, color, icon, spacing, or styling changes.
+### What is happening
+On `FloatingNumbersPage`, every save/load runs each filler through `normalizeFloatingLine` (lines 60–81). That helper calls `toUnicodeMath()` then drops any filler for which `isStillDirty()` returns true (anything containing `\frac`, `\sqrt`, `^{`, `_{`, `sqrt(`, `**`, etc.). It also drops empty strings.
 
-### 1. Make the strip a true circular conveyor
-Update only the movement/state logic in `FloatingNumberPanel.tsx` so the flow is:
+Result: the moment a teacher edits a chip to anything that still looks "LaTeX-ish" (or anything `toUnicodeMath` collapses to empty), the manual Save → DB write strips it, and the subsequent reload from DB confirms the deletion. From the teacher's perspective: "I edited it, pressed Save, and my edit disappeared."
 
-```text
-visible five slots -> blue Used section -> hidden right queue -> visible five slots
-```
+This dirty-filter was meant for raw AI output, not teacher-curated chips. Per the existing rule in `floatingCompile.ts` ("Teacher chips are presentation-source-of-truth"), edited chips must be preserved verbatim.
 
-Behavior to enforce:
-- The visible five slots are a fixed window, not a normal filtered scrolling list.
-- When a teacher taps a white chip, that exact chip first becomes Used/blue.
-- The next hidden chip enters from the right.
-- A chip must not reappear as white until it has passed through the Used section.
-- When all hidden/unused chips are exhausted, the oldest Used chip cycles back from the far right as white.
-- The five-slot display never becomes empty; single-chip sets repeat correctly.
+### Fix scope (logic only — no UI changes)
 
-Technical direction:
-- Replace the current `remaining`-only window fill with an explicit ring/queue model derived from `allSlots` and `consumedAbsIdx`.
-- Keep Used ordering for display, but use an oldest-used return queue for re-entry from the hidden right side.
-- Remove the parent logic that clears all consumed chips as soon as a line is fully used, because that makes chips reappear without correctly passing through Used.
+1. **`src/pages/FloatingNumbersPage.tsx` — `normalizeFloatingLine`**
+   - Keep every filler the teacher has (do NOT drop on `isStillDirty` or empty).
+   - Apply `toUnicodeMath` only as a *display-safety* pass (it never deletes content); if its result is empty but the original string is non-empty, fall back to the original string verbatim.
+   - Preserve the parallel `fillersSelected` array 1:1 with no index shifts (no more "keep only kept" filtering, which previously misaligned highlight state).
+   - Preserve `arrangement` exactly as saved when filler count is unchanged (which it now always will be).
 
-### 2. Preserve highlighted chips exactly
-Fix the data path so the Smartboard presentation displays the same chip text saved from Floating Number Selection/Editing.
+2. **Persist path (`persist` at line 686)**
+   - Already writes `cleanLines`; with #1 fixed, the DB write is now lossless.
+   - Add a small post-write self-check: re-read `floating_lines` from the DB after the update; if any line's `fillers` array differs from what we just sent, log a console warning and re-issue the write once. This guarantees parity between what is on screen and what is persisted, which is also what `compileBucket` feeds into the Smartboard.
 
-Behavior to enforce:
-- `=0` stays `=0`, never `=` or `0`.
-- `a = 5` stays `a = 5`, never `a =`.
-- `+5x` stays `+5x`.
-- No splitting, sign stripping, spacing changes, reconstruction, or AI reinterpretation for teacher-highlighted/edited chips.
-
-Technical direction:
-- Stop using term extraction/render-label logic for presentation chip labels when a saved teacher chip already exists.
-- Keep math-display safety/rendering, but feed it the saved token verbatim.
-- Remove remaining contextual plus dropping in the persisted bucket compiler for teacher-edited lines.
-- Ensure `buildReservoirs` prefers per-line saved fillers in teacher arrangement exactly as saved.
-
-### 3. Restore chips when deleted from the whiteboard
-Add a synchronization pass in `PresentationView.tsx` that compares currently used floating chips with what still exists on the board.
-
-Behavior to enforce:
-- If the teacher inserts `+5x`, it becomes blue Used.
-- If the teacher later deletes that `+5x` from the whiteboard with Backspace or eraser, it is removed from Used.
-- It returns to its original unused position in the circular strip as a white chip.
-- Used always means “currently present on the whiteboard,” not “was tapped once sometime earlier.”
-
-Technical direction:
-- Track each used floating chip by absolute fragment index and exact saved label.
-- After board edits (`freeLines`) change, recompute which consumed chips still appear on the active guided board line.
-- Remove consumed indices whose exact chip is no longer represented on the board.
-- Use a conservative normalizer only for comparing visual math-tree text to saved chips; do not change the saved chip itself.
+3. **Compile path (`compileBucket` in `src/lib/lessonnotes/floatingCompile.ts`)**
+   - Already preserves teacher-edited fillers; confirm the same `toUnicodeMath`/`isStillDirty` filter inside `compileBucket` is gated by "teacher edited" and does not silently drop edits. If it currently drops, replace with the same "display-safe but never-delete" behavior so the Smartboard bucket matches the saved `floating_lines` row exactly.
 
 ### Verification
-- Use the example `2x², +5x, =0, +3, -7x, +2x`.
-- Confirm tapping `+5x` moves it to Used first and does not immediately reappear as white.
-- Confirm `=0` displays exactly as `=0` in presentation.
-- Confirm deleting a used chip from the board removes it from Used and restores it as white in its original ring position.
-- Confirm the UI looks unchanged.
+- Open the Floating Number generation page on the current notebook.
+- Edit a chip (e.g. change `5x` to `+5x`, or paste `x²`, or an empty-looking edit).
+- Press Save. Reload the page.
+- The edited chip text appears exactly as edited, in the same position, with the same highlight state.
+- Open the Smartboard for the same notebook — the same edited chip text is what the presentation strip shows.
+
+### Out of scope
+No changes to layout, colors, the rotating-conveyor logic, the AI assistant, or the FloatingPreparationPage. This is a Save/Load fidelity fix only.
