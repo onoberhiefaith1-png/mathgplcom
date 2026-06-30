@@ -1728,8 +1728,7 @@ const PresentationView = ({
 
     if (
       manualPushedRef.current !== null &&
-      Math.floor(sensor.line) === manualPushedRef.current &&
-      isEmptyWritableRow(Math.floor(sensor.line), activeLayout)
+      Math.floor(sensor.line) === manualPushedRef.current
     ) {
       activeSensorLogicalIdxRef.current = idx;
       activeSensorPhysicalLineRef.current = sensor.line;
