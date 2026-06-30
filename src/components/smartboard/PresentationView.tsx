@@ -2555,7 +2555,11 @@ const PresentationView = ({
           }
           if (e.key === "ArrowUp") {
             e.preventDefault();
-            setSensor((s) => ({ line: clampToActiveBand(s.line - 0.5), x: 0 }));
+            let cand = clampToActiveBand(sensor.line - 0.5);
+            // Hop over notebook-prose rows — they are sensor-restricted.
+            const minL = activeLayout ? bandStart(activeLayout) : 0;
+            while (cand > minL && notebookRowLines.has(Math.floor(cand))) cand -= 0.5;
+            setSensor((s) => ({ ...s, line: cand, x: 0 }));
             setCursor({ path: [], index: 0 });
             return;
           }
@@ -2569,7 +2573,11 @@ const PresentationView = ({
               }
             }
             if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
-            setSensor({ line: clampToActiveBand(nextLine), x: 0 });
+            let cand = clampToActiveBand(nextLine);
+            const maxL = activeLayout ? bandEnd(activeLayout) : cand;
+            // Hop over notebook-prose rows so the sensor never parks on one.
+            while (cand < maxL && notebookRowLines.has(Math.floor(cand))) cand += 0.5;
+            setSensor({ line: cand, x: 0 });
             setCursor({ path: [], index: 0 });
             return;
           }
