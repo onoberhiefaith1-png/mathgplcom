@@ -2598,6 +2598,18 @@ const PresentationView = ({
             return;
           }
 
+          // Desktop keyboards should advance the math-tree cursor directly on
+          // keydown. Relying only on the hidden textarea's input event made the
+          // visible sensor feel rigid when React immediately cleared the
+          // controlled textarea, and repeated typing could be applied against a
+          // stale cursor. Prevent the native text edit and insert the printable
+          // character through the board model instead.
+          if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+            e.preventDefault();
+            insertPlainTextAtSensor(e.key);
+            return;
+          }
+
         }}
         style={{
           position: "fixed",
