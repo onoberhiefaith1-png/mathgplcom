@@ -34,7 +34,7 @@ import { FloatingNumberPanel } from "./FloatingNumberPanel";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
-import { clampLineSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
+import { clampRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import {
   type Cursor, type Node, type Row,
   mkChar, mkSub, mkSup,
@@ -375,7 +375,8 @@ const PresentationView = ({
   const FREEWRITE_KEY = `smartboard:freewrite:${notebookId ?? "_"}`;
   const SENSOR_KEY = `smartboard:sensor:${notebookId ?? "_"}`;
   const ZOOM_KEY = `smartboard:zoom:${notebookId ?? "_"}`;
-  const LINE_SPACING_KEY = `smartboard:lineSpacingV2:${notebookId ?? "_"}`;
+  const ROW_SPACING_KEY = `smartboard:rowSpacingV1:${notebookId ?? "_"}`;
+  const LEGACY_LINE_SPACING_KEY = `smartboard:lineSpacingV2:${notebookId ?? "_"}`;
   const TEXT_SCALE_KEY = `smartboard:textScale:${notebookId ?? "_"}`;
 
   const [zoom, setZoom] = useState<number>(() => {
@@ -388,12 +389,13 @@ const PresentationView = ({
     } catch { /* noop */ }
     return 1;
   });
-  const [lineSpacing, setLineSpacing] = useState<number>(() => {
+  const [rowSpacing, setRowSpacing] = useState<number>(() => {
     try {
-      const raw = localStorage.getItem(LINE_SPACING_KEY);
+      const raw = localStorage.getItem(ROW_SPACING_KEY)
+        ?? localStorage.getItem(LEGACY_LINE_SPACING_KEY);
       if (raw) {
         const v = parseFloat(raw);
-        if (Number.isFinite(v) && v >= 0) return clampLineSpacing(v);
+        if (Number.isFinite(v) && v >= 0) return clampRowSpacing(v);
       }
     } catch { /* noop */ }
     return 0;
@@ -409,14 +411,14 @@ const PresentationView = ({
     return 1;
   });
   useEffect(() => {
-    try { localStorage.setItem(LINE_SPACING_KEY, String(lineSpacing)); } catch { /* noop */ }
-  }, [LINE_SPACING_KEY, lineSpacing]);
+    try { localStorage.setItem(ROW_SPACING_KEY, String(rowSpacing)); } catch { /* noop */ }
+  }, [ROW_SPACING_KEY, rowSpacing]);
   useEffect(() => {
     try { localStorage.setItem(TEXT_SCALE_KEY, String(textScale)); } catch { /* noop */ }
   }, [TEXT_SCALE_KEY, textScale]);
   const grid = useMemo(
-    () => getGrid(zoom, lineSpacing, textScale),
-    [zoom, lineSpacing, textScale],
+    () => getGrid(zoom, rowSpacing, textScale),
+    [zoom, rowSpacing, textScale],
   );
 
   const [sensor, setSensor] = useState<GridPoint>(() => {
@@ -1113,8 +1115,8 @@ const PresentationView = ({
     setZoom((prev) => {
       const host = boardScrollRef.current;
       if (host) {
-        const oldY = lineToY(sensor.line, getGrid(prev, lineSpacing, textScale));
-        const newY = lineToY(sensor.line, getGrid(z, lineSpacing, textScale));
+        const oldY = lineToY(sensor.line, getGrid(prev, rowSpacing, textScale));
+        const newY = lineToY(sensor.line, getGrid(z, rowSpacing, textScale));
         const delta = newY - oldY;
         requestAnimationFrame(() => {
           host.scrollTop = Math.max(0, host.scrollTop + delta);
@@ -2173,8 +2175,8 @@ const PresentationView = ({
         chromeFg={palette.chromeFg}
         chromeBorder={palette.chromeBorder}
         surfaceBg={surfaceFlatBg}
-        lineSpacing={lineSpacing}
-        setLineSpacing={setLineSpacing}
+        rowSpacing={rowSpacing}
+        setRowSpacing={setRowSpacing}
         textScale={textScale}
         setTextScale={setTextScale}
       />

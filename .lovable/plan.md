@@ -1,115 +1,101 @@
-# Lesson-Aware Cursor + Working Area
+# Smartboard Layout Terminology + Text Size Engine
 
-Goal: stop treating the sensor like a word-processor caret. Bind it to **Lesson Lines** inside the active Solution's **Working Area**, auto-advance per Enter, lock all presentation content, and decouple the expandable panels so the canvas never reflows.
+Rename the spacing concept across the codebase and lock down what Text Size, Row Spacing, and Zoom each control. Today the slider is called "Lesson Line Spacing" but it actually moves physical rows, which contradicts the agreed definition of a Lesson Line as one complete teaching step.
 
-## 1. Model: Lesson Line vs Physical Row
+## 1. Terminology lock
 
-Add a logical layer on top of the existing physical row grid.
+Adopt four terms with one meaning each:
 
-- A **Physical Row** stays exactly what it is today: one slot on `grid.lineToY`.
-- A **Lesson Line** is one teaching step (intro sentence, equation, fraction, matrix, …). It may span 1..N physical rows but is the unit the cursor, floating-number strip, and notes attach to.
-- Each Lesson Line carries:
-  - `id`
-  - `kind`: `"prose-locked" | "heading-locked" | "question-locked" | "writable"`
-  - `beatId` (which Solution/Example beat it belongs to)
-  - `rowSpan`: rows it currently occupies (recomputed from rendered height / structural content)
-  - `floatingGroupId` (one strip per Lesson Line, not per row)
+- **Section** — major block (Title, Introduction, Example, Solution, Summary). Fixed container.
+- **Lesson Line** — one complete teaching step (e.g. `a = 1`, or `x = (-b ± √(b²−4ac)) / 2a`). May span multiple rows.
+- **Row** — invisible horizontal writing guide; layout position only.
+- **Row Spacing** — vertical distance between consecutive rows.
 
-A `LessonLineMap` per beat will be derived in `src/lib/smartboard/presentation.ts` alongside the existing notebook attachment pass, exposing:
-- `lessonLinesForBeat(beatId)`
-- `lineAt(row)` → Lesson Line containing that physical row
-- `nextWritableLine(currentId)` / `prevWritableLine(currentId)`
+All UI copy, code comments, variable names, and storage keys are aligned to this.
 
-## 2. Working Area per Solution
+## 2. Rename the slider: Lesson Line Spacing → Row Spacing
 
-For every beat whose kind is `solution` (or `working`):
+UI:
+- `SettingsSheet.tsx` section header: "Lesson Line Spacing" → "Row Spacing", helper text rewritten ("0% packs rows tightly together; higher values push rows further apart. Never affects the inside of a fraction, root, or matrix.").
 
-- `workingArea.topRow` = first physical row *after* the locked "Solution" header line.
-- `workingArea.bottomRow` = last physical row *before* the next beat header.
-- Only `writable` Lesson Lines inside this range accept the sensor.
+Code:
+- `src/lib/smartboard/grid.ts`: rename `clampLineSpacing` → `clampRowSpacing`, parameter `lineSpacing` → `rowSpacing`, internal constants `MIN_ROW_PER_FONT`/`MAX_EXTRA_GAP` stay as-is (they already describe rows).
+- `PresentationView.tsx` and any other consumers: rename `lineSpacing` state and props to `rowSpacing`.
+- `localStorage` key `smartboard:lineSpacingV2` → `smartboard:rowSpacingV1`. One-time migration: on mount, if the new key is absent and the old key exists, copy the value over, then ignore the old key.
 
-`clampToActiveBand` in `PresentationView.tsx` is replaced by `clampToWorkingArea(beat, candidateRow)` which:
-1. Maps `candidateRow` → containing Lesson Line via `lineAt`.
-2. If that line is locked or outside `[topRow, bottomRow]`, snap to the nearest writable Lesson Line inside the area (preferring the current one).
-3. Returns `{ line, rowOffsetInside }` so multi-row Lesson Lines (e.g. tall fractions) can place the caret on the correct internal row without leaving the Lesson Line.
+No behavioural change to the slider math — only naming and copy. The slider already governs row gap, never internal math structure.
 
-## 3. Cursor as Lesson-Line cursor
+## 3. Enforce: Row Spacing never enters a Lesson Line
 
-Replace the current `sensor: { line, x }` state with:
+Audit the layout pipeline to confirm Row Spacing only adds gap *between* rows that belong to different Lesson Lines, never between rows of the same Lesson Line (tall fractions, roots, matrices, integrals).
 
-```ts
-type LessonCursor = {
-  beatId: string;
-  lineId: string;        // logical Lesson Line
-  rowOffset: number;     // physical row within the Lesson Line (for tall structures)
-  caret: Cursor;         // existing tree caret inside that row
-};
-```
+- In `presentation.ts` / `lessonLines.ts`, every Lesson Line already carries a `rowSpan`. The render pass must place internal rows at the natural row pitch (`MIN_ROW_PER_FONT * FONT_PX`) with **zero extra gap**, and apply the Row Spacing extra gap only at the boundary between Lesson Line N and Lesson Line N+1.
+- Add a small helper `lineToYWithinLesson(lessonIdx, rowOffset)` so multi-row structures use the intrinsic pitch; the existing `lineToY` continues to govern Lesson-Line-to-Lesson-Line transitions.
+- Vitest: `rowSpacing.test.ts` — at 0% and 100% Row Spacing, the *internal* row gap of a tall fraction is identical; only the gap to the next Lesson Line changes.
 
-All call-sites that today write `setSensor({ line, x })` or `setLiveCursor(...)` go through new helpers:
-- `placeCursorAtFirstWritable(beatId)` — used on beat enter, page restore, and after a Lesson Line is committed.
-- `advanceLessonLine()` — Enter handler; commits current line, allocates the next writable Lesson Line (creates a new one at the bottom of the working area if needed), and snaps the sensor to it.
-- `moveLessonLine(dir: "up" | "down")` — Arrow Up/Down jumps **Lesson Lines**, not physical rows.
+## 4. Text Size becomes an engine rule
 
-Clicks (`FreeWriteLayer.onCursorChange`, the canvas `onPointerDown` fallback near line 2227 and 2317): resolve the click to a Lesson Line via `lineAt`; if it's locked or outside the Working Area, **ignore** the click — do not move the cursor.
+Specify Text Size as: scales every Lesson Object; layout reflows automatically; nothing else changes.
 
-## 4. Auto-placement & Auto-advance
+Lesson Objects that scale:
+- Plain prose text, equations, fractions, roots, matrices, integrals, superscripts/subscripts
+- Graph labels, diagram labels
+- Floating Numbers chips
+- Lesson Notes
 
-- On beat activation / route mount: call `placeCursorAtFirstWritable(activeBeatId)`.
-- On Enter (already wired around line 2747): replace `clampToActiveBand(nextLine)` with `advanceLessonLine()`.
-- On structural insert that grows the active Lesson Line (fraction, sqrt, matrix), `rowSpan` is recomputed and the working area `bottomRow` shifts; subsequent Lesson Lines reflow via the existing `lineToY` pipeline plus the new `LessonLineMap`.
+Untouched by Text Size:
+- Page width, page margins, toolbar, Section headers/positions
+- Row Spacing slider value
+- Section gap constants
+- Zoom level
 
-## 5. Floating Numbers follow the Lesson Line
+Engine pipeline on every Text Size change:
+1. Recompute `FONT_PX = BASE_FONT_PX * zoom * textScale` (already in `grid.ts`).
+2. For every Lesson Line, recompute its intrinsic height as `rowSpan(textScale) * naturalRowPitch(textScale)`. `rowSpan` itself may grow because a fraction that fit in 2 rows at 100% may need 3 rows at 160%.
+3. Reflow: Lesson Line N+1's first row = Lesson Line N's last row + Row Spacing extra gap.
+4. Repaint floating-number strips, sensor, and notes using the new Lesson Line bounds.
+5. Persist `textScale` to `localStorage`; Row Spacing value is untouched.
 
-`FloatingNumberPanel.tsx` currently keys off the active physical line. Change its input from `activeRow` to `activeLessonLineId` (passed down from PresentationView). The strip's vertical clamp uses `workingArea.topRow` / `workingArea.bottomRow` of the active beat — never above Solution, never into the next beat.
+Components that need a Text Size pass review (apply `FONT_PX` consistently, no hardcoded font-size):
+- `MathTreeRender.tsx` (fractions, roots, matrices grow proportionally — overline auto-stretches, brackets auto-stretch, superscripts proportional)
+- `FreeWriteLayer.tsx` (prose lines)
+- `FloatingNumberPanel.tsx` (chip font + chip height)
+- `BeatBlock` / Section headers in `PresentationView.tsx` (Section headers themselves do NOT scale — they belong to chrome; confirm this is the desired behavior and keep them fixed).
 
-## 6. Locked Presentation Areas
+Decision needed: should Section headers ("Solution", "Example 2") scale with Text Size? Spec says "Sections do not move", which I'm reading as "Section header position/style is layout chrome and stays fixed". Confirmed below.
 
-Lesson Lines with kind `prose-locked | heading-locked | question-locked` reject:
-- pointer caret placement (FreeWriteLayer click gate)
-- arrow navigation lands (skipped by `nextWritableLine` / `prevWritableLine`)
-- programmatic `setLiveCursor` (helper rejects, falls back to current writable line)
+## 5. Zoom stays orthogonal
 
-This subsumes the existing "notebook-prose exclusion" — it becomes a single locked-line rule.
+Zoom only changes how large the whole page appears on screen — it multiplies everything (rows, text, chrome) uniformly via the existing `zoom` parameter in `getGrid`. It must not touch:
+- Row Spacing value
+- Text Size value
+- Section gap constants
 
-## 7. Smart Recovery
+No code change expected here; just verify no consumer reads `zoom` as a proxy for Text Size.
 
-Persist `{ beatId, lineId, rowOffset, caret }` to `localStorage` under `smartboard:lessonCursor:<notebookId>` on every commit. On mount, if a stored cursor's `lineId` still resolves in the rebuilt `LessonLineMap`, restore it; otherwise call `placeCursorAtFirstWritable` for the same beat. Floating-number active line is derived from the restored `lineId`.
+## 6. Files touched
 
-## 8. Independent Expandable Panels (no layout shift)
+- `src/lib/smartboard/grid.ts` — rename param, keep math.
+- `src/components/smartboard/SettingsSheet.tsx` — rename slider, rewrite helper text.
+- `src/components/smartboard/PresentationView.tsx` — rename state/prop, migrate `localStorage` key, ensure Row Spacing extra gap is applied only at Lesson Line boundaries.
+- `src/lib/smartboard/lessonLines.ts` / `presentation.ts` — expose Lesson Line boundaries to the layout pass.
+- `src/components/smartboard/MathTreeRender.tsx`, `FreeWriteLayer.tsx`, `FloatingNumberPanel.tsx` — confirm all sizing flows from `FONT_PX`; remove any hardcoded font sizes that would skip Text Size.
+- New tests: `src/test/rowSpacing.test.ts`, `src/test/textSize.test.ts`.
 
-Today the top toolbar and bottom Writing Lab share flex space with the canvas, so opening one resizes the other.
+## 7. Acceptance checks
 
-- Move both panels to `position: absolute` overlays *above* the canvas, with their own backdrop:
-  - Top toolbar: `top: 0`, slides down, `pointer-events: auto` on the panel, transparent gutter underneath.
-  - Bottom Writing Lab: `bottom: 0`, slides up.
-- The canvas keeps a fixed inner height (`100vh - chromeReservedPx`). `chromeReservedPx` is a constant baseline (collapsed heights of both bars), never recomputed when a panel expands.
-- Each panel owns its own `expanded` state; neither reads the other.
-- Add a small "safe-area" CSS variable so the floating-number strip and sensor never render under an expanded panel (only their *visibility* is affected; the canvas layout itself stays put).
+1. Settings panel shows "Row Spacing" and "Text Size" — no "Line Spacing" anywhere.
+2. Moving Row Spacing 0% → 100% changes the gap between `a = 1` and `b = 5`, but does NOT add any gap between the numerator and denominator of a fraction on a single Lesson Line.
+3. Moving Text Size 100% → 160% grows every equation, fraction, root, matrix, floating-number chip, and prose line. The page width, margins, Section headers, and Row Spacing setting are unchanged.
+4. When a fraction grows enough that it now needs an extra row, the next Lesson Line moves down automatically and never overlaps.
+5. Reload preserves the user's Row Spacing and Text Size; the old `smartboard:lineSpacingV2` value migrates once.
 
-## 9. Files to change
+## Out of scope
 
-- `src/lib/smartboard/presentation.ts` — emit `LessonLineMap` per beat (writable vs locked, rowSpan, working area bounds).
-- `src/lib/smartboard/grid.ts` — small helper `rowToLessonOffset` if needed; no spacing-formula changes.
-- `src/components/smartboard/PresentationView.tsx` — replace `sensor`/`clampToActiveBand` with `LessonCursor` + helpers; rewire Enter / Arrow / click / restore paths; pass `activeLessonLineId` down.
-- `src/components/smartboard/FreeWriteLayer.tsx` — click gate consults `lineAt(row).kind`.
-- `src/components/smartboard/FloatingNumberPanel.tsx` — key off `activeLessonLineId`; clamp vertical movement to working area.
-- `src/components/smartboard/SettingsSheet.tsx` and the top toolbar / bottom Writing Lab containers — move to absolute overlays with independent expand state; introduce `chromeReservedPx`.
-- New: `src/lib/smartboard/lessonLines.ts` — pure helpers (`buildLessonLineMap`, `nextWritable`, `prevWritable`, `lineAt`).
-- New tests in `src/test/`:
-  - `lessonLineMap.test.ts` — locked vs writable classification, rowSpan from tall structures, working-area bounds.
-  - `lessonCursor.test.ts` — Enter advances Lesson Line, clicks on locked content are ignored, restore picks up the same Lesson Line.
+- No changes to AI generation or floating-number logic.
+- No changes to zoom behavior beyond verifying orthogonality.
+- No DB schema changes.
 
-## 10. Out of scope
+## Open question for you
 
-- No changes to math rendering, line spacing slider, or text-size slider.
-- No changes to AI editor / floating-number generation logic — only *which* Lesson Line the strip is bound to.
-- No DB schema changes; recovery uses `localStorage` like the existing `lineSpacingV2` key.
-
-## Acceptance checks
-
-1. Clicking the question, headings, or "Example 2" leaves the sensor inside the current Working Area.
-2. Pressing Enter after `2x²+5x+6=0` moves the sensor to a new Lesson Line, not the next physical row inside a tall fraction.
-3. A multi-row fraction is treated as one Lesson Line; one floating-number strip; one optional note.
-4. Reloading the page restores the same Lesson Line and caret position.
-5. Expanding the bottom Writing Lab does not move or resize the canvas; expanding the top toolbar does not hide the Writing Lab.
+Should the Section headers ("Solution", "Example 2") also grow with Text Size, or stay fixed as part of the chrome? My current reading of your spec is **stay fixed**, but tell me if you want them to scale too.

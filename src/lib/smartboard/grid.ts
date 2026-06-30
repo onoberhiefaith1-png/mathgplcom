@@ -1,14 +1,22 @@
 // Invisible mathematical writing grid for the Smartboard.
+//
+// Terminology (locked):
+//   Section      — major lesson block (Title, Introduction, Example, Solution, Summary).
+//   Lesson Line  — one complete teaching step; may span multiple Rows.
+//   Row          — invisible horizontal writing guide; layout position only.
+//   Row Spacing  — vertical distance between consecutive Rows.
+//
 // Scale-aware: a single `zoom` multiplier rescales the writing without
 // changing the board surface. Margins are kept in screen pixels so the
 // outer chrome and scroll feel stay constant.
 //
-// `lineSpacing` is the teacher-controlled EXTRA gap between lesson lines.
-// 0 = no extra gap; increasing it only separates complete lesson lines,
-// never the internal pieces of a fraction/root/matrix.
+// `rowSpacing` is the teacher-controlled EXTRA gap between consecutive
+// rows. 0 = no extra gap; increasing it only separates rows, never the
+// internal pieces of a fraction/root/matrix (those are rendered with
+// their own intrinsic height by MathTreeRender, not via row count).
 //
 // `textScale` multiplies only the writing font size — the page, margins
-// and chrome stay the same; only the content grows.
+// and chrome stay the same; only the content (Lesson Objects) grows.
 
 const BASE = {
   MARGIN_LEFT: 80,
@@ -20,14 +28,16 @@ const BASE = {
 /** One em of writing equals this many CSS pixels at zoom = 1. */
 export const BASE_FONT_PX = 34;
 
-/** Smallest natural distance between lesson-line baselines at 0% spacing.
+/** Smallest natural distance between row baselines at 0% Row Spacing.
  *  This is the editor's default writing rhythm, not an added blank row. */
 const MIN_ROW_PER_FONT = 1.28;
 
-/** Maximum extra gap added when the slider reaches 100%. */
+/** Maximum extra gap added when the Row Spacing slider reaches 100%. */
 const MAX_EXTRA_GAP = 44;
 
-export const clampLineSpacing = (v: number) => Math.max(0, Math.min(1, v));
+export const clampRowSpacing = (v: number) => Math.max(0, Math.min(1, v));
+/** @deprecated Use `clampRowSpacing`. Kept for legacy import paths. */
+export const clampLineSpacing = clampRowSpacing;
 export const clampTextScale = (v: number) => Math.max(0.7, Math.min(1.8, v));
 
 export interface Grid {
@@ -41,19 +51,19 @@ export interface Grid {
 
 /**
  * @param zoom         page-zoom multiplier (existing control)
- * @param lineSpacing  extra vertical gap between lesson lines, 0..1.
- *                     0% means no extra gap above the natural baseline.
+ * @param rowSpacing   extra vertical gap between consecutive rows, 0..1.
+ *                     0% means no extra gap above the natural row pitch.
  * @param textScale    content-only font multiplier — grows lesson text
  *                     and math; row height follows so nothing clips.
  */
 export const getGrid = (
   zoom = 1,
-  lineSpacing = 0,
+  rowSpacing = 0,
   textScale = 1,
 ): Grid => {
   const fontPx = BASE_FONT_PX * zoom * textScale;
   const naturalRow = fontPx * MIN_ROW_PER_FONT;
-  const extraGap = clampLineSpacing(lineSpacing) * MAX_EXTRA_GAP * zoom;
+  const extraGap = clampRowSpacing(rowSpacing) * MAX_EXTRA_GAP * zoom;
   const lineHeight = naturalRow + extraGap;
   return {
     MARGIN_LEFT: BASE.MARGIN_LEFT,

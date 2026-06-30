@@ -13,7 +13,7 @@ import {
   WritingProfileId,
 } from "@/lib/smartboard/writingProfiles";
 import { COLOR_LIST, InkColorId, resolveInk } from "@/lib/smartboard/inkColors";
-import { clampLineSpacing, clampTextScale } from "@/lib/smartboard/grid";
+import { clampRowSpacing, clampTextScale } from "@/lib/smartboard/grid";
 import { WritingSurface } from "./WritingSurface";
 import { WritingLab } from "./WritingLab";
 
@@ -32,9 +32,9 @@ interface Props {
   chromeFg: string;
   chromeBorder: string;
   surfaceBg: string;
-  /** Lesson Line Spacing multiplier (applies only to vertical gap). */
-  lineSpacing?: number;
-  setLineSpacing?: (v: number) => void;
+  /** Row Spacing multiplier (extra gap between consecutive rows). */
+  rowSpacing?: number;
+  setRowSpacing?: (v: number) => void;
   /** Text Size multiplier (applies only to content font, not page). */
   textScale?: number;
   setTextScale?: (v: number) => void;
@@ -55,8 +55,8 @@ export const SettingsSheet = ({
   chromeFg,
   chromeBorder,
   surfaceBg,
-  lineSpacing = 0,
-  setLineSpacing,
+  rowSpacing = 0,
+  setRowSpacing,
   textScale = 1,
   setTextScale,
 }: Props) => {
@@ -215,26 +215,26 @@ export const SettingsSheet = ({
             </div>
           </section>
 
-          {/* ── Lesson Line Spacing ─────────────────────────── */}
-          {setLineSpacing && (
+          {/* ── Row Spacing ─────────────────────────── */}
+          {setRowSpacing && (
             <section>
               <div className="flex items-baseline justify-between mb-2">
                 <p className="text-[10px] uppercase tracking-[0.25em] opacity-60">
-                  Lesson Line Spacing
+                  Row Spacing
                 </p>
-                <span className="text-[10px] opacity-60">{Math.round(clampLineSpacing(lineSpacing) * 100)}%</span>
+                <span className="text-[10px] opacity-60">{Math.round(clampRowSpacing(rowSpacing) * 100)}%</span>
               </div>
               <input
                 type="range"
                 min={0}
                 max={100}
                 step={1}
-                value={Math.round(clampLineSpacing(lineSpacing) * 100)}
-                onChange={(e) => setLineSpacing(clampLineSpacing(Number(e.target.value) / 100))}
+                value={Math.round(clampRowSpacing(rowSpacing) * 100)}
+                onChange={(e) => setRowSpacing(clampRowSpacing(Number(e.target.value) / 100))}
                 className="w-full"
               />
               <p className="text-[10px] opacity-50 mt-1">
-                0% adds no extra blank gap; higher values separate complete lesson lines.
+                0% packs rows tightly; higher values push rows further apart. Never affects the inside of a fraction, root, or matrix.
               </p>
             </section>
           )}
