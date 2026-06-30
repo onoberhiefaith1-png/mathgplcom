@@ -488,6 +488,16 @@ const PresentationView = ({
     try { localStorage.setItem(OFFSETS_KEY, JSON.stringify(lineOffsets)); } catch { /* noop */ }
   }, [lineOffsets, OFFSETS_KEY]);
   const lineWidthsRef = useRef<Record<number, number>>({});
+  // Measured DOM height of each rendered line — drives structure-aware
+  // advance so the cursor never lands inside the bottom half of a fraction,
+  // matrix, root, etc. Updated by FreeWriteLayer onMeasure.
+  const lineHeightsRef = useRef<Record<number, number>>({});
+  // Auto-landing physical line for the active Lesson Line. ArrowDown is
+  // limited to at most this + 3 physical rows of manual slack.
+  const autoFloorRef = useRef<number>(0);
+  // Trigger re-renders when measured heights mutate (used inside the
+  // floating-panel bounds calculation).
+  const [heightsTick, setHeightsTick] = useState(0);
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
   const boardScrollRef = useRef<HTMLElement>(null);
 
