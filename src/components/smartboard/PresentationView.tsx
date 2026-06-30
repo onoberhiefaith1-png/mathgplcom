@@ -411,6 +411,12 @@ const PresentationView = ({
     } catch { /* noop */ }
     return {};
   });
+  // Rows in `freeLines` that contain notebook (teaching-note) prose rather
+  // than the teacher's own math. These rows are READ-ONLY narration: the
+  // sensor must never anchor to them, and they don't count as a "line" when
+  // stepping through guided lines. Reset whenever the active example changes
+  // (handled alongside other per-example state below).
+  const [notebookRowLines, setNotebookRowLines] = useState<Set<number>>(() => new Set());
   const OFFSETS_KEY = `smartboard:offsets:${notebookId ?? "_"}`;
   const [lineOffsets, setLineOffsets] = useState<Record<number, number>>(() => {
     try {
