@@ -492,31 +492,35 @@ const NodeView = ({
       return <BinomView node={node} parentPath={parentPath} idxInRow={idxInRow}
         cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />;
 
-    case "box":
-      // Single-cell input rendered as an outlined rectangle whose content
-      // sits on the *upper* writing barrier (top-aligned), so when the
-      // teacher drops a Smart Line just beneath it the pair reads visually
-      // as a stacked fraction (numerator above, line below).
+    case "box": {
+      // Single-cell input. When empty, render the dashed cube as a sensor
+      // magnet so the teacher can see where to tap. Once any content is
+      // typed inside, the dashed border vanishes — the cube only exists
+      // while the slot is unfilled.
+      const inner = (node as { rows?: Row[] }).rows?.[0] ?? [];
+      const filled = inner.length > 0;
       return (
         <span
           style={{
             display: "inline-flex",
             alignItems: "flex-start",
             verticalAlign: "top",
-            border: "1px dashed currentColor",
+            border: filled ? "none" : "1px dashed currentColor",
             borderRadius: 4,
-            padding: "0 0.18em",
-            minWidth: "0.9em",
-            minHeight: "1.05em",
-            margin: "0 0.08em",
+            padding: filled ? 0 : "0 0.18em",
+            minWidth: filled ? 0 : "0.9em",
+            minHeight: filled ? 0 : "1.05em",
+            margin: filled ? 0 : "0 0.08em",
             lineHeight: 1,
-            opacity: 0.85,
+            opacity: filled ? 1 : 0.85,
           }}
         >
           {R(0)}
           <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
         </span>
       );
+    }
+
   }
 
 };
