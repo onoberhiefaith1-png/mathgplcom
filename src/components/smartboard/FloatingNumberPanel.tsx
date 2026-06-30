@@ -514,35 +514,51 @@ export const FloatingNumberPanel = ({
               title="Teaching note — tap to place on board"
               aria-label="Teaching note — tap to place on board"
               style={{
-                background: pulse ? "#fef3c7" : "transparent",
-                border: pulse ? "1px solid #f59e0b" : "1px solid transparent",
-                borderRadius: 8,
-                padding: 3,
+                background: pulse ? "#fef3c7" : "rgba(255,255,255,0.6)",
+                border: pulse ? "1.5px solid #f59e0b" : "1px solid rgba(0,0,0,0.12)",
+                borderRadius: 10,
+                padding: 5,
                 marginTop: 4,
                 lineHeight: 0,
                 cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: pulse ? "0 0 0 0 rgba(245,158,11,0.6)" : "none",
+                boxShadow: pulse ? "0 0 0 0 rgba(245,158,11,0.6)" : "0 1px 2px rgba(0,0,0,0.08)",
                 animation: pulse ? "fnp-notebook-pulse 1.6s ease-out infinite" : "none",
               }}
             >
               <style>{`@keyframes fnp-notebook-pulse {
                 0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
-                70% { box-shadow: 0 0 0 10px rgba(245,158,11,0); }
+                70% { box-shadow: 0 0 0 12px rgba(245,158,11,0); }
                 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
               }`}</style>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-                   stroke={pulse ? "#b45309" : chromeFg}
-                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-                   aria-hidden>
-                {/* spine */}
-                <path d="M5 3.5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5z" fill={pulse ? "#fffbeb" : "transparent"} />
+              {/* Fancy notebook: hard cover + binder rings + ruled lines +
+                  red bookmark ribbon. Clearly reads as "Read lesson note". */}
+              <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden>
+                {/* back cover shadow */}
+                <rect x="6.5" y="3.5" width="21" height="25" rx="2.5"
+                  fill={pulse ? "#fde68a" : "#e7e3d6"} stroke={pulse ? "#b45309" : "#7a6a3a"} strokeWidth="1.2"/>
+                {/* front page */}
+                <rect x="9" y="5" width="18" height="22" rx="1.8"
+                  fill={pulse ? "#fffbeb" : "#fdfcf5"} stroke={pulse ? "#b45309" : "#7a6a3a"} strokeWidth="1.1"/>
+                {/* ruled lines */}
+                <g stroke={pulse ? "#b45309" : "#9b8b5a"} strokeWidth="0.9" strokeLinecap="round">
+                  <line x1="12" y1="10" x2="24" y2="10" />
+                  <line x1="12" y1="13.5" x2="24" y2="13.5" />
+                  <line x1="12" y1="17" x2="22" y2="17" />
+                  <line x1="12" y1="20.5" x2="24" y2="20.5" />
+                  <line x1="12" y1="24" x2="20" y2="24" />
+                </g>
                 {/* binder rings */}
-                <path d="M5 7h2M5 11h2M5 15h2M5 19h2" />
-                {/* lines */}
-                <path d="M10 8h6M10 12h6M10 16h4" />
+                <g fill="none" stroke={pulse ? "#92400e" : "#5a4a25"} strokeWidth="1.3">
+                  <circle cx="9" cy="9" r="1.1" />
+                  <circle cx="9" cy="16" r="1.1" />
+                  <circle cx="9" cy="23" r="1.1" />
+                </g>
+                {/* bookmark ribbon */}
+                <path d="M21 5 V13 L23 11 L25 13 V5 Z"
+                  fill={pulse ? "#dc2626" : "#b91c1c"} stroke="#7a1010" strokeWidth="0.6" strokeLinejoin="round"/>
               </svg>
             </button>
           );

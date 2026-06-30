@@ -42,14 +42,15 @@ export function SmartOverlay({ width, height }: Props) {
       }}
       onPointerLeave={() => setHoveredId(null)}
       onClick={(e) => {
+        // Additive selection: every click on a part toggles that part in
+        // place. Previous selections are preserved so the teacher can
+        // build A, A+B, A+B+C contexts. Background clicks no longer
+        // clear — use the explicit "Clear selection" button.
         const p = toLogical(e);
         const part = pickPart(graph, p.x, p.y);
         if (part) {
-          if (!e.shiftKey) clearSelection();
           toggleSelected(part.id);
           e.stopPropagation();
-        } else {
-          clearSelection();
         }
       }}
     >

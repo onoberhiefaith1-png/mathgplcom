@@ -462,24 +462,40 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
             mode === "moveY" && "cursor-ew-resize",
           )}
         >
-          {/* Minor grid */}
-          {xTicks.map((i) => (
-            <line key={`vx${i}`} x1={i * SQ} y1={0} x2={i * SQ} y2={H} stroke="hsl(0 0% 92%)" strokeWidth={1} />
-          ))}
-          {yTicks.map((i) => (
-            <line key={`vy${i}`} x1={0} y1={i * SQ} x2={W} y2={i * SQ} stroke="hsl(0 0% 92%)" strokeWidth={1} />
-          ))}
+          {/* Minor grid — 5 subdivisions per square (0.2, 0.4, 0.6, 0.8) */}
+          {Array.from({ length: a.squaresX * 5 + 1 }, (_, i) => i).map((i) => {
+            const x = (i / 5) * SQ;
+            const isMajor = i % 5 === 0;
+            return (
+              <line
+                key={`mx${i}`} x1={x} y1={0} x2={x} y2={H}
+                stroke={isMajor ? "hsl(0 0% 78%)" : "hsl(0 0% 92%)"}
+                strokeWidth={isMajor ? 1 : 0.5}
+              />
+            );
+          })}
+          {Array.from({ length: a.squaresY * 5 + 1 }, (_, i) => i).map((i) => {
+            const y = (i / 5) * SQ;
+            const isMajor = i % 5 === 0;
+            return (
+              <line
+                key={`my${i}`} x1={0} y1={y} x2={W} y2={y}
+                stroke={isMajor ? "hsl(0 0% 78%)" : "hsl(0 0% 92%)"}
+                strokeWidth={isMajor ? 1 : 0.5}
+              />
+            );
+          })}
 
-          {/* Axes (highlighted yellow while their move tool is active) */}
+          {/* Axes — heavy black lines, yellow while their move tool is active */}
           <line
             x1={0} y1={oyPx} x2={W} y2={oyPx}
-            stroke={mode === "moveX" ? "hsl(45 95% 50%)" : "hsl(0 0% 20%)"}
-            strokeWidth={mode === "moveX" ? 2 : 1.5}
+            stroke={mode === "moveX" ? "hsl(45 95% 50%)" : "hsl(0 0% 10%)"}
+            strokeWidth={mode === "moveX" ? 2.4 : 2}
           />
           <line
             x1={oxPx} y1={0} x2={oxPx} y2={H}
-            stroke={mode === "moveY" ? "hsl(45 95% 50%)" : "hsl(0 0% 20%)"}
-            strokeWidth={mode === "moveY" ? 2 : 1.5}
+            stroke={mode === "moveY" ? "hsl(45 95% 50%)" : "hsl(0 0% 10%)"}
+            strokeWidth={mode === "moveY" ? 2.4 : 2}
           />
 
           {/* Tick labels — re-derived from origin + scale */}
