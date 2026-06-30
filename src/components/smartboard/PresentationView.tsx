@@ -2829,9 +2829,14 @@ const PresentationView = ({
 
           if (e.key === "Enter") {
             e.preventDefault();
-            // From a half-line, commit to the next *full* line below.
+            // Structure-aware advance: if the current Lesson Line holds a
+            // tall math object (fraction / root / matrix / etc.) the next
+            // Lesson Line must start BELOW the structure's full bounding
+            // box, never inside it. We add `extraRowsFor(base)` so a
+            // 2-row fraction skips its denominator.
             const base = Number.isInteger(sensor.line) ? sensor.line : Math.floor(sensor.line);
-            const nextLine = base + 1;
+            const extra = extraRowsFor(base);
+            const nextLine = base + 1 + extra;
             // Gate: don't allow advancing past the current expected guided
             // line until that line has turned green.
             if (hasGuidedLines && activeLayout) {
@@ -2853,6 +2858,8 @@ const PresentationView = ({
             });
             setSensor({ line: snapLine, x: 0 });
             setLiveCursor({ path: [], index: 0 });
+            // Reset the 3-row manual slack anchor to the new auto-landing.
+            autoFloorRef.current = Math.floor(snapLine);
             return;
           }
 
