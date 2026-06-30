@@ -211,7 +211,7 @@ export const FloatingNumberPanel = ({
       const upper = Math.max(finalLineBottomPx + clearance, topYPx);
       return Math.min(bottomYPx, Math.max(upper, prev));
     });
-  }, [topYPx, bottomYPx, finalLineBottomPx]);
+  }, [topYPx, bottomYPx, finalLineBottomPx, rowHeightPx]);
 
   const reservoir = reservoirs[viewIdx];
   const fragments = reservoir?.fragments ?? [];
