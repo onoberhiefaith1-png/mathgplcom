@@ -130,22 +130,24 @@ export const RowView = ({
   // the teacher has filled the numerator, leftover template cubes around
   // it must vanish — the denominator's own empty cube is unaffected
   // because it lives in a different row.
-  const isNodeFilled = (n: Node): boolean => {
-    if (n.kind === "char") return true;
-    if (n.kind === "box") return false; // empty placeholder
+  // A node is "structurally empty" if it would only render as a dashed
+  // placeholder cube — i.e. a `box` node, or any container whose every
+  // sub-row is empty (e.g. a freshly inserted power/frac/sqrt). Such nodes
+  // collapse to a zero-width tap zone when a sibling on the same row has
+  // real content, matching the classroom rule: as soon as the teacher
+  // writes next to a placeholder, that placeholder disappears.
+  const isStructurallyEmpty = (n: Node): boolean => {
+    if (n.kind === "char") return false;
+    if (n.kind === "box") return true;
     const sub = (n as { rows?: Row[] }).rows;
-    if (!sub) return true;
-    return sub.some((r) => r.length > 0);
+    return !!sub && sub.every((r) => r.length === 0);
   };
-  const rowHasContent = row.some((n) => isNodeFilled(n));
+  const rowHasContent = row.some((n) => !isStructurallyEmpty(n));
 
   return (
     <span style={{ display: "inline-flex", alignItems: "baseline" }}>
       {row.map((node, i) => {
-        const isEmptyBoxSibling =
-          node.kind === "box" &&
-          rowHasContent &&
-          !isNodeFilled(node);
+        const isEmptyBoxSibling = rowHasContent && isStructurallyEmpty(node);
         return (
           <span
             key={i}
