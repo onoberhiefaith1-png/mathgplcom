@@ -324,7 +324,17 @@ const PresentationView = ({
 
 
 
-  const [beatCursor, setBeatCursor] = useState<number>(0);
+  const LESSON_CURSOR_KEY = `smartboard:lessonCursor:${notebookId ?? "_"}`;
+  const [beatCursor, setBeatCursor] = useState<number>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(LESSON_CURSOR_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.beatCursor === "number" && parsed.beatCursor >= 0) return parsed.beatCursor;
+      }
+    } catch { /* noop */ }
+    return 0;
+  });
   const [bandExtra, setBandExtra] = useState<Record<string, number>>({});
   const [surface, setSurface] = useState<Surface>(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(SURFACE_KEY) : null;
