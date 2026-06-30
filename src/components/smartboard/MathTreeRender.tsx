@@ -252,7 +252,7 @@ const SqrtView = ({
   return (
     <span style={{
       display: "inline-flex", alignItems: "center",
-      verticalAlign: "middle", margin: "0 0.12em", lineHeight: 1,
+      verticalAlign: "middle", margin: "0.18em 0.12em", lineHeight: 1,
     }}>
       {hasIndex && (
         <span style={{
