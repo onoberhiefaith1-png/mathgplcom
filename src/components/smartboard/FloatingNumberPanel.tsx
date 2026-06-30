@@ -370,6 +370,15 @@ export const FloatingNumberPanel = ({
     if (frozen) { onPing(); return; }
     setReveal(0); // collapse any revealed used numbers so the strip compacts
     setUsedOrder((prev) => (prev.includes(absIdx) ? prev : [...prev, absIdx]));
+    // Conveyor shift: advance offset so the successor of the tapped chip in
+    // the remaining flow becomes the new leftmost visible slot. After this
+    // chip is consumed, `remaining` shrinks by 1; setting offset to the
+    // tapped chip's current position aligns the next chip into view.
+    const tappedPos = remaining.findIndex((s) => s.absIdx === absIdx);
+    if (tappedPos >= 0) {
+      const newLen = Math.max(1, remaining.length - 1);
+      setOffset(((tappedPos % newLen) + newLen) % newLen);
+    }
     const frac = parseFractionChip(label);
     if (frac && onInsertFrac) {
       onInsertFrac(frac);
