@@ -1398,6 +1398,37 @@ const PresentationView = ({
     activeLayout &&
     activeLayout.bandLines > 0
   );
+
+  // When the teacher presses # to enter solving mode, anchor the sensor
+  // at the FIRST writable row of the active beat — i.e. directly below
+  // the auto-generated "Solution" caption. This guarantees solving
+  // always starts at the right place, no matter what stale cursor
+  // position was persisted from a previous session/beat.
+  const prevSolvingRef = useRef(false);
+  useEffect(() => {
+    const was = prevSolvingRef.current;
+    prevSolvingRef.current = solvingMode;
+    if (!solvingMode || was) return;
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+    const a = bandStart(activeLayout);
+    setSensor({ line: a, x: 0 });
+    setLiveCursor({ path: [], index: 0 });
+    autoFloorRef.current = a;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solvingMode, activeLayout?.id]);
+
+  // Leaving the current beat (Prev/Next Section, beat click) must close
+  // solving mode — the teacher must explicitly re-press # on the new
+  // beat to begin solving there.
+  const prevBeatIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = activeLayout?.id ?? null;
+    if (prevBeatIdRef.current !== null && prevBeatIdRef.current !== id) {
+      setActiveAssistant(null);
+    }
+    prevBeatIdRef.current = id;
+  }, [activeLayout?.id]);
+
   /** Lines the teacher is allowed to write on across the whole lesson. */
   const allowedLineSet = useMemo(() => {
     const s = new Set<number>();
