@@ -190,10 +190,6 @@ const latexToRow = (src: string): Row => {
     if (ch === "$") { i++; continue; }
     // Stray standalone braces shouldn't render as text.
     if (ch === "{" || ch === "}") { i++; continue; }
-    // Drop legacy `□` placeholders — empty slots are signalled by empty
-    // groups and the renderer paints its own dashed-box UI which hides as
-    // soon as content is typed. Letting `□` survive would print a dead glyph.
-    if (ch === "□") { i++; continue; }
 
     out.push(mkChar(ch));
     i++;
