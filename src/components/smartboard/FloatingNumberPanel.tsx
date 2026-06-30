@@ -175,7 +175,7 @@ export const FloatingNumberPanel = ({
 }: Props) => {
   const initialY = rememberedY ?? defaultYPx;
   const [y, setY] = useState<number>(initialY);
-  const dragRef = useRef<{ dy: number } | null>(null);
+  // (drag state lives in armRef below — defined alongside the handlers)
   const [offset, setOffset] = useState<number>(0);
   // How many already-USED numbers are currently revealed (green) on the left of
   // the single strip. 0 = pure forward view of unused numbers. Backward grows
@@ -452,23 +452,44 @@ export const FloatingNumberPanel = ({
     return null;
   };
 
+  // Whole-panel drag. A pointerdown anywhere on the outer halo arms a drag,
+  // but only commits to dragging after the pointer has moved >4px — taps on
+  // empty halo area still act as a ping/click. Buttons inside stop
+  // propagation on their own pointer-down so chip and arrow clicks are
+  // never hijacked by the drag.
+  const armRef = useRef<{ startY: number; baseY: number; pointerId: number; dragging: boolean } | null>(null);
   const onPointerDown = (e: React.PointerEvent) => {
+    // Ignore drags that start on an interactive element inside the panel.
+    const tgt = e.target as HTMLElement;
+    if (tgt.closest("button, [data-fn-nodrag]")) return;
     e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { dy: e.clientY - y };
-    onPing();
+    armRef.current = { startY: e.clientY, baseY: y, pointerId: e.pointerId, dragging: false };
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const next = e.clientY - dragRef.current.dy;
+    const a = armRef.current;
+    if (!a) return;
+    const delta = e.clientY - a.startY;
+    if (!a.dragging) {
+      if (Math.abs(delta) < 4) return;
+      a.dragging = true;
+      try { (e.currentTarget as HTMLElement).setPointerCapture(a.pointerId); } catch { /* noop */ }
+    }
+    const next = a.baseY + delta;
     const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
     const upper = Math.max(finalLineBottomPx + clearance, topYPx);
     setY(Math.min(bottomYPx, Math.max(upper, next)));
   };
   const onPointerUp = (e: React.PointerEvent) => {
-    if (dragRef.current) onCommitY(y);
-    dragRef.current = null;
-    try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    const a = armRef.current;
+    armRef.current = null;
+    if (!a) return;
+    if (a.dragging) {
+      onCommitY(y);
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(a.pointerId); } catch { /* noop */ }
+    } else {
+      // It was a tap — keep the existing ping affordance.
+      onPing();
+    }
   };
 
   if (!visible || reservoirs.length === 0) return null;
@@ -477,8 +498,10 @@ export const FloatingNumberPanel = ({
     <div
       data-sb-chrome
       data-floating-halo
-      onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
-      onPointerUp={(e) => { e.stopPropagation(); }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       onClick={(e) => { e.stopPropagation(); }}
       style={{
         position: "absolute",
@@ -494,6 +517,8 @@ export const FloatingNumberPanel = ({
         // caret. The visible chrome stays inside; only the hit zone grows.
         padding: "28px 32px",
         margin: "-22px -24px",
+        cursor: armRef.current?.dragging ? "grabbing" : "grab",
+        touchAction: "none",
         // No background — blends into the board.
       }}
     >
@@ -523,15 +548,12 @@ export const FloatingNumberPanel = ({
           <ChevronUp size={16} />
         </button>
         <div
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          title="Drag vertically"
+          title="Drag vertically — or drag anywhere on the strip"
           style={{
             width: 14, height: 28, borderRadius: 4,
             background: `color-mix(in oklab, ${chromeFg} 35%, transparent)`,
             cursor: "grab", touchAction: "none",
+            pointerEvents: "none",
           }}
         />
         {lineNumber != null && lineCount != null && lineCount > 0 && (

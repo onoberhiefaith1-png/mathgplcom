@@ -102,10 +102,11 @@ export const BottomPanel = ({
 
   return (
     <>
-      {/* Pull-tab */}
+      {/* Pull-tab — the ONLY way to open the panel. Explicit click only;
+          pointer events on the closed panel body are disabled. */}
       <button
         data-sb-chrome
-        onClick={onToggle}
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggle(); }}
         aria-label={open ? "Hide symbols" : "Show symbols"}
         className="absolute z-30 left-1/2 -translate-x-1/2 grid place-items-center rounded-t-full transition-all"
         style={{
@@ -116,6 +117,8 @@ export const BottomPanel = ({
           background: "transparent",
           boxShadow: `0 0 14px 2px ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
           opacity: 0.6,
+          pointerEvents: "auto",
+          touchAction: "manipulation",
         }}
       >
         {open ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
@@ -124,6 +127,7 @@ export const BottomPanel = ({
       <section
         data-sb-chrome
         aria-hidden={!open}
+        tabIndex={open ? 0 : -1}
         className="absolute z-20 left-0 right-0 bottom-0 border-t transition-transform duration-500 ease-out"
         style={{
           height: PANEL_HEIGHT,
@@ -135,6 +139,9 @@ export const BottomPanel = ({
           boxShadow: open
             ? `0 -20px 60px ${isDark ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.15)"}`
             : "none",
+          // Closed panel must not catch scroll/touch/clicks that drift below
+          // the canvas. Only the pull-tab above remains interactive.
+          pointerEvents: open ? "auto" : "none",
         }}
       >
         {/* Tabs */}
