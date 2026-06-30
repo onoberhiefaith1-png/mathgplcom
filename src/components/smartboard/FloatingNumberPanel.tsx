@@ -6,7 +6,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
-import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
@@ -433,9 +432,9 @@ export const FloatingNumberPanel = ({
 
   /** Resolve a slot token to its display label (null = skip dirty chips). */
   const slotLabel = (token: string): string | null => {
-    const cleaned = toUnicodeMath(token);
-    if (!cleaned || isStillDirty(cleaned)) return null;
-    return cleaned;
+    const gated = assertDisplaySafe(String(token ?? ""));
+    if (!gated.safe || !gated.cleaned.trim()) return null;
+    return gated.cleaned;
   };
 
   /** 1-based line number that owns a fragment (for the tiny corner badge). */
