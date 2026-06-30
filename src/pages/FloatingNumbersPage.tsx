@@ -58,20 +58,15 @@ const linesFromSolution = (sol: string): { id: string; text: string }[] =>
   sol.split("\n").map((l) => l.trim()).filter(Boolean).map((text) => ({ id: newId(), text }));
 
 /**
- * Teacher chips are the source of truth: preserve every saved filler verbatim
- * and keep the parallel selection array index-aligned. `toUnicodeMath` is
- * applied only as a display-safety pass — if it collapses a teacher edit to
- * empty, we fall back to the original string so the edit is never silently
- * dropped on Save / reload.
+ * Teacher chips are the source of truth. Save/reload must not reinterpret
+ * chips through display conversion, because that can turn structural LaTeX
+ * such as \frac / \sqrt into a different flat string. Preserve the saved
+ * value exactly and only keep the parallel selection arrays index-aligned.
  */
 const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
   const rawFillers = line.fillers ?? [];
   const rawSel = line.fillersSelected ?? [];
-  const fillers = rawFillers.map((raw) => {
-    const original = String(raw ?? "");
-    const display = toUnicodeMath(original);
-    return display && display.length > 0 ? display : original;
-  });
+  const fillers = rawFillers.map((raw) => String(raw ?? ""));
   const fillersSelected = fillers.map((_, i) => !!rawSel[i]);
   const containers = line.containers ?? [];
   const rawCSel = line.containersSelected ?? [];
