@@ -3181,86 +3181,10 @@ const PresentationView = ({
         >
           <Redo2 className="h-5 w-5" />
         </button>
-        {/* Prev / Next section — mirror the top-bar Prev/Next. */}
-        <button
-          onClick={() => { setBeatCursor((c) => Math.max(0, c - 1)); revealLeftTools(); }}
-          disabled={beatCursor <= 0}
-          aria-label="Previous section"
-          title="Previous section"
-          className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
-          style={{
-            width: 40, height: 40,
-            background: palette.chromeBg,
-            color: palette.chromeFg,
-            borderColor: palette.chromeBorder,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-            backdropFilter: "blur(10px)",
-            opacity: beatCursor <= 0 ? 0.3 : 0.95,
-          }}
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { canAdvanceBeat && setBeatCursor((c) => Math.min(beats.length - 1, c + 1)); revealLeftTools(); }}
-          disabled={!canAdvanceBeat}
-          aria-label="Next section"
-          title="Next section"
-          className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
-          style={{
-            width: 40, height: 40,
-            background: palette.chromeBg,
-            color: palette.chromeFg,
-            borderColor: palette.chromeBorder,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-            backdropFilter: "blur(10px)",
-            opacity: !canAdvanceBeat ? 0.3 : 0.95,
-          }}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        {/* Prev / Next section + Smart Line + Two-point line have moved
+            to the right rail (below). The left rail now keeps Undo / Redo
+            (and Box, below) plus the dedicated CursorScrollbar. */}
 
-        {/* Smart Line — drops a new draggable horizontal stroke onto the
-            canvas. Use it as a wide fraction bar, division stroke, or
-            strike-through for cancellation. */}
-        <button
-          onClick={() => { spawnSmartLine(); revealLeftTools(); }}
-          aria-label="Drop line"
-          title="Drop a line (fraction bar / strike-through)"
-          className="grid place-items-center rounded-full border transition-all"
-          style={{
-            width: 40, height: 40,
-            background: palette.chromeBg,
-            color: palette.chromeFg,
-            borderColor: palette.chromeBorder,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-            backdropFilter: "blur(10px)",
-            opacity: 0.95,
-          }}
-        >
-          <MinusIcon className="h-5 w-5" />
-        </button>
-
-        {/* Dot — two-tap line drawing. Tap to arm, then tap two points on
-            the board and a straight Smart Line is drawn between them. */}
-        <button
-          onClick={() => { if (dotArmed) disarmDot(); else armDot(); revealLeftTools(); }}
-          aria-label="Two-point line"
-          title="Tap to arm, then tap two points to draw a line"
-          className="grid place-items-center rounded-full border transition-all"
-          style={{
-            width: 40, height: 40,
-            background: palette.chromeBg,
-            color: dotArmed ? ink : palette.chromeFg,
-            borderColor: dotArmed ? ink : palette.chromeBorder,
-            boxShadow: dotArmed
-              ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
-              : "0 2px 10px rgba(0,0,0,0.14)",
-            backdropFilter: "blur(10px)",
-            opacity: 0.95,
-          }}
-        >
-          <CircleIcon className="h-3 w-3" fill="currentColor" />
-        </button>
 
         {/* Box — drops a draggable labelled cell. Drag onto a Smart Line
             to magnet it as numerator (above) or denominator (below). */}
