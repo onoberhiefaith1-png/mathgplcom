@@ -277,9 +277,10 @@ export const FloatingNumberPanel = ({
     prevLenRef.current = allSlots.length;
   }, [allSlots.length]);
 
-  // Clamp offset whenever the slot list changes size.
+  // Wrap offset within allSlots length so the unused strip rotates forever.
   useEffect(() => {
-    setOffset((o) => Math.max(0, Math.min(o, Math.max(0, allSlots.length - WINDOW_SIZE))));
+    if (allSlots.length === 0) { setOffset(0); return; }
+    setOffset((o) => ((o % allSlots.length) + allSlots.length) % allSlots.length);
   }, [allSlots.length]);
 
   // Keep `usedOrder` reconciled with the parent's consumed set: drop numbers no
@@ -297,11 +298,14 @@ export const FloatingNumberPanel = ({
     });
   }, [consumedAbsIdx]);
 
-  // Used numbers belonging to the active line, in usage order.
+  // Used numbers for the active line, ordered MOST-RECENT FIRST so the last
+  // chip the teacher tapped sits leftmost in the used zone (reversed view).
   const revealedUsed = useMemo<Slot[]>(() => {
     const inScope = new Set(usedSlots.map((s) => s.absIdx));
     return usedOrder
       .filter((i) => inScope.has(i))
+      .slice()
+      .reverse()
       .map((i) => ({ token: fragments[i], absIdx: i }));
   }, [usedOrder, usedSlots, fragments]);
 
@@ -312,35 +316,45 @@ export const FloatingNumberPanel = ({
   }, [reveal, revealedUsed.length]);
 
   // ── The single visible strip ──────────────────────────────────────────────
-  // Left part: the first `clampedReveal` used numbers (reversed so the most
-  // recently revealed sits nearest the unused block — matches the spec). Right
-  // part: the next unused numbers from `offset`. Whole thing is capped at 5.
+  // Left zone: `clampedReveal` used chips, newest-first (already reversed in
+  // `revealedUsed`). Right zone: unused chips cycling through `allSlots` with
+  // modular indexing — the floating numbers ROTATE forever instead of
+  // running out. If only one unused chip remains it simply repeats across
+  // every visible slot.
   type StripSlot = Slot & { used: boolean };
   const windowSlots = useMemo<StripSlot[]>(() => {
     const leftUsed: StripSlot[] = revealedUsed
       .slice(0, clampedReveal)
-      .reverse()
       .map((s) => ({ ...s, used: true }));
-    const rightUnused: StripSlot[] = allSlots
-      .slice(offset)
-      .map((s) => ({ ...s, used: false }));
-    return [...leftUsed, ...rightUnused].slice(0, WINDOW_SIZE);
+    const needed = Math.max(0, WINDOW_SIZE - leftUsed.length);
+    const rightUnused: StripSlot[] = [];
+    if (allSlots.length > 0) {
+      for (let i = 0; i < needed; i++) {
+        const idx = ((offset + i) % allSlots.length + allSlots.length) % allSlots.length;
+        rightUnused.push({ ...allSlots[idx], used: false });
+      }
+    }
+    return [...leftUsed, ...rightUnused];
   }, [revealedUsed, clampedReveal, allSlots, offset]);
 
-  const canPrev = offset > 0 || clampedReveal < revealedUsed.length;
-  const canNext = clampedReveal > 0 || offset + WINDOW_SIZE < allSlots.length;
+  const canPrev = clampedReveal < revealedUsed.length || allSlots.length > 0;
+  const canNext = clampedReveal > 0 || allSlots.length > 0;
 
-  /** Backward ◀ — first scroll back through unused numbers, then start revealing
-   *  already-used numbers (green) one at a time on the left. */
+  /** Backward ◀ — first reveal one more used chip (newest-first), then start
+   *  rotating the unused strip backwards. */
   const goBackward = () => {
-    if (offset > 0) { setOffset((o) => o - 1); return; }
-    if (clampedReveal < revealedUsed.length) setReveal((r) => r + 1);
+    if (clampedReveal < revealedUsed.length) { setReveal((r) => r + 1); return; }
+    if (allSlots.length > 0) {
+      setOffset((o) => ((o - 1) % allSlots.length + allSlots.length) % allSlots.length);
+    }
   };
-  /** Forward ▶ — first hide any revealed used numbers, then advance the window
-   *  through the upcoming unused numbers. */
+  /** Forward ▶ — first hide any revealed used chip, then rotate the unused
+   *  strip forwards. Cycles indefinitely. */
   const goForward = () => {
     if (clampedReveal > 0) { setReveal((r) => Math.max(0, r - 1)); return; }
-    if (offset + WINDOW_SIZE < allSlots.length) setOffset((o) => o + 1);
+    if (allSlots.length > 0) {
+      setOffset((o) => (o + 1) % allSlots.length);
+    }
   };
 
   /** Tap an UNUSED chip: insert it on the board AND mark it used so it slides

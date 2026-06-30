@@ -264,7 +264,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | null
         | undefined;
       const rawLines = (sub as any).floating_lines as
-        | { equation?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string }[]
+        | { equation?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; arrangement?: number[] }[]
         | null
         | undefined;
       // Highlights are the source of truth for "Notebook N" pairing — each
@@ -334,9 +334,19 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           // Preserve the EXACT order the teacher generated. No shuffle, no
           // rearrangement — the floating-number page should reflect the
           // teacher's own construction sequence.
+          // Apply the teacher's saved arrangement (shuffle order) so the
+          // smartboard shows fragments in the same order the teacher arranged
+          // them on the Floating Numbers page — NOT raw equation order.
+          const baseFills = isNotebookOnly
+            ? []
+            : ((rl.fillers && rl.fillers.length > 0) ? rl.fillers : fillersFromEquation(eq));
+          const arr = (rl as any).arrangement as number[] | undefined;
+          const ordered = (arr && arr.length === baseFills.length)
+            ? arr.map((i) => baseFills[i])
+            : baseFills;
           const fills = isNotebookOnly
             ? []
-            : dropContextualLeadingPlus(cleanFragments((rl.fillers && rl.fillers.length > 0) ? rl.fillers : fillersFromEquation(eq)));
+            : dropContextualLeadingPlus(cleanFragments(ordered));
           const start = fragmentsFromLines.length;
           fragmentsFromLines.push(...fills);
           const explanation = (rl as any).explanation
@@ -360,14 +370,17 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // Prefer per-line fragments; if those came back empty, fall back to
       // the compiled bucket so the Smartboard still shows the floating
       // numbers the teacher generated in the Lesson Note.
+      // `bucket.fillers` carries the teacher's arranged order. Prefer it
+      // over `viewCombined` (which is original equation order) so the
+      // smartboard reflects the shuffle when per-line data is missing.
       const bucketCombined = dropContextualLeadingPlus(
-        bucket?.viewCombined && bucket.viewCombined.length > 0
-          ? cleanFragments(bucket.viewCombined)
-          : bucket?.viewRearranged && bucket.viewRearranged.length > 0
-            ? cleanFragments(bucket.viewRearranged)
-          : bucket?.fillers && bucket.fillers.length > 0
-            ? cleanFragments(bucket.fillers)
-            : [],
+        bucket?.fillers && bucket.fillers.length > 0
+          ? cleanFragments(bucket.fillers)
+          : bucket?.viewCombined && bucket.viewCombined.length > 0
+            ? cleanFragments(bucket.viewCombined)
+            : bucket?.viewRearranged && bucket.viewRearranged.length > 0
+              ? cleanFragments(bucket.viewRearranged)
+              : [],
       );
       const solutionFallback = cleanFragments(solutionLines.flatMap(fillersFromEquation));
       const fragments: string[] =
