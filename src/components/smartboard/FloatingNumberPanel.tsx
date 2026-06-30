@@ -460,7 +460,8 @@ export const FloatingNumberPanel = ({
   const armRef = useRef<{ startY: number; baseY: number; pointerId: number; dragging: boolean } | null>(null);
   const onPointerDown = (e: React.PointerEvent) => {
     // Ignore drags that start on an interactive element inside the panel.
-    if ((e.target as HTMLElement).closest("[data-fn-nodrag]")) return;
+    const tgt = e.target as HTMLElement;
+    if (tgt.closest("button, [data-fn-nodrag]")) return;
     e.stopPropagation();
     armRef.current = { startY: e.clientY, baseY: y, pointerId: e.pointerId, dragging: false };
   };
