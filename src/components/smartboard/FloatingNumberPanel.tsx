@@ -5,6 +5,7 @@
 // two assistants). Position is remembered per beat via parent storage.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
@@ -132,6 +133,8 @@ interface Props {
    *  sit at least 3 rows below the bottom of the last completed Lesson
    *  Line so it never crowds a fraction's denominator or a tall radical. */
   rowHeightPx?: number;
+  /** Viewport-space bottom inset reserved by the collapsed/open bottom panel. */
+  viewportBottomInset?: number;
   /** Remembered Y from parent (per beat); null = use default. */
   rememberedY: number | null;
   onCommitY: (y: number) => void;
@@ -165,6 +168,7 @@ export const FloatingNumberPanel = ({
   reservoirs, viewIdx, activeIdx, visible,
   onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
   leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx, rowHeightPx,
+  viewportBottomInset = 0,
   rememberedY, onCommitY, onPing, beatId,
   lineNumber, lineCount, onPrevLine, onNextLine,
   notebookText,
@@ -173,9 +177,6 @@ export const FloatingNumberPanel = ({
   frozen = false,
   notebookPending = false,
 }: Props) => {
-  const initialY = rememberedY ?? defaultYPx;
-  const [y, setY] = useState<number>(initialY);
-  // (drag state lives in armRef below — defined alongside the handlers)
   const [offset, setOffset] = useState<number>(0);
   // How many already-USED numbers are currently revealed (green) on the left of
   // the single strip. 0 = pure forward view of unused numbers. Backward grows
@@ -185,34 +186,6 @@ export const FloatingNumberPanel = ({
   // first when scrolling Backward (most-recently-relevant per the spec).
   const [usedOrder, setUsedOrder] = useState<number[]>([]);
   const [reentryOffset, setReentryOffset] = useState<number>(0);
-
-
-
-
-  // Re-anchor when active beat changes.
-  useEffect(() => { setY(rememberedY ?? defaultYPx); }, [beatId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Re-anchor to the (viewport-aware) default whenever the panel is freshly
-  // shown and the user hasn't dragged it for this beat yet. Guarantees the
-  // first hash-click drops the strip inside the visible screen.
-  const wasVisibleRef = useRef(false);
-  useEffect(() => {
-    if (visible && !wasVisibleRef.current && rememberedY == null) {
-      setY(defaultYPx);
-    }
-    wasVisibleRef.current = visible;
-  }, [visible, rememberedY, defaultYPx]);
-
-
-  // Clamp whenever bounds shift (writing barrier / band size).
-  useEffect(() => {
-    setY((prev) => {
-      const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
-      const upper = Math.max(finalLineBottomPx + clearance, topYPx);
-      return Math.min(bottomYPx, Math.max(upper, prev));
-    });
-  }, [topYPx, bottomYPx, finalLineBottomPx, rowHeightPx]);
-
   const reservoir = reservoirs[viewIdx];
   const fragments = reservoir?.fragments ?? [];
   const lines: ReservoirLine[] = reservoir?.lines ?? [];
@@ -452,71 +425,36 @@ export const FloatingNumberPanel = ({
     return null;
   };
 
-  // Dedicated handle drag. The left vertical rectangle is the drag handle for
-  // the whole floating-number display; chips/buttons remain normal taps.
-  const [isDragging, setIsDragging] = useState(false);
-  const armRef = useRef<{
-    startY: number;
-    baseY: number;
-    pointerId: number;
-    lastY: number;
-  } | null>(null);
-  const onDragHandlePointerDown = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    onPing();
-    armRef.current = { startY: e.clientY, baseY: y, pointerId: e.pointerId, lastY: y };
-    setIsDragging(true);
-    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ }
-  };
-  const onDragHandlePointerMove = (e: React.PointerEvent) => {
-    const a = armRef.current;
-    if (!a) return;
-    const delta = e.clientY - a.startY;
-    const next = a.baseY + delta;
-    const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
-    const upper = Math.max(finalLineBottomPx + clearance, topYPx);
-    const clamped = Math.min(bottomYPx, Math.max(upper, next));
-    a.lastY = clamped;
-    setY(clamped);
-    onPing();
-    e.preventDefault();
-  };
-  const onDragHandlePointerUp = (e: React.PointerEvent) => {
-    const a = armRef.current;
-    armRef.current = null;
-    if (!a) return;
-    setIsDragging(false);
-    onCommitY(a.lastY);
-    onPing();
-    try { (e.currentTarget as HTMLElement).releasePointerCapture(a.pointerId); } catch { /* noop */ }
-    e.preventDefault();
-  };
+  // New fallback positioning rule: the floating-number display is a fixed
+  // viewport overlay at the bottom-left, just to the right of the hash/eraser
+  // tool column. It no longer depends on vertical dragging to stay usable.
+  const fixedLeft = Math.max(76, leftPx);
+  const fixedBottom = Math.max(8, viewportBottomInset + 8);
 
   if (!visible || reservoirs.length === 0) return null;
 
-  return (
+  const panel = (
     <div
       data-sb-chrome
       data-floating-halo
       onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
       onClick={(e) => { e.stopPropagation(); }}
       style={{
-        position: "absolute",
-        left: leftPx,
-        top: y,
-        transform: "translate(0, -50%)",
-        zIndex: 25,
+        position: "fixed",
+        left: fixedLeft,
+        bottom: fixedBottom,
+        zIndex: 39,
         display: "flex",
         alignItems: "center",
         gap: 8,
         // Generous invisible halo so taps *near* the floating-number strip
         // never bleed through to the writing surface and reposition the
         // caret. The visible chrome stays inside; only the hit zone grows.
-        padding: "28px 32px",
-        margin: "-22px -24px",
-        cursor: isDragging ? "grabbing" : "grab",
-        touchAction: "none",
+        padding: "10px 12px",
+        margin: 0,
+        maxWidth: `calc(100vw - ${fixedLeft + 12}px)`,
+        cursor: "default",
+        touchAction: "manipulation",
         // No background — blends into the board.
       }}
     >
@@ -546,16 +484,12 @@ export const FloatingNumberPanel = ({
           <ChevronUp size={16} />
         </button>
         <div
-          title="Drag vertically — or drag anywhere on the strip"
+          title="Floating numbers stay fixed at the bottom-left"
           style={{
             width: 14, height: 28, borderRadius: 4,
             background: `color-mix(in oklab, ${chromeFg} 35%, transparent)`,
-            cursor: isDragging ? "grabbing" : "grab", touchAction: "none",
+            cursor: "default", touchAction: "manipulation",
           }}
-          onPointerDown={onDragHandlePointerDown}
-          onPointerMove={onDragHandlePointerMove}
-          onPointerUp={onDragHandlePointerUp}
-          onPointerCancel={onDragHandlePointerUp}
         />
         {lineNumber != null && lineCount != null && lineCount > 0 && (
           <div
@@ -779,6 +713,7 @@ export const FloatingNumberPanel = ({
 
     </div>
   );
+  return typeof document === "undefined" ? panel : createPortal(panel, document.body);
 };
 
 export default FloatingNumberPanel;
