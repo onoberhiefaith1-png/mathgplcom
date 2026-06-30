@@ -856,8 +856,26 @@ const PresentationView = ({
     return () => window.clearTimeout(t);
   }, [sensor.line]);
 
-  const handleLineMeasure = (line: number, width: number) => {
+  const handleLineMeasure = (line: number, width: number, height: number) => {
     lineWidthsRef.current[line] = width;
+    const prev = lineHeightsRef.current[line] ?? 0;
+    // Only re-render when height crosses a row boundary — avoids thrash.
+    if (Math.abs(prev - height) > 2) {
+      lineHeightsRef.current[line] = height;
+      setHeightsTick((t) => (t + 1) & 0xffff);
+    } else {
+      lineHeightsRef.current[line] = height;
+    }
+  };
+
+  /** Extra physical rows occupied by a Lesson Object on `line` beyond its
+   *  baseline row. A simple fraction returns 1, a tall nested structure
+   *  returns 2+. Computed from the measured DOM height vs. row pitch. */
+  const extraRowsFor = (line: number): number => {
+    const h = lineHeightsRef.current[line] ?? 0;
+    if (h <= 0) return 0;
+    const lh = grid.LINE_HEIGHT;
+    return Math.max(0, Math.ceil((h - lh) / lh));
   };
 
   /** Edit the active line's tree via a fn that returns next root + cursor. */
