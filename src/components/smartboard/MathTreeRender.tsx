@@ -92,6 +92,10 @@ export const RowView = ({
         </span>
       );
     }
+    // Only the *active* empty slot shows the dashed placeholder. Other empty
+    // sub-rows (e.g. unused inner rows of a structure) collapse to a
+    // near-zero-width tap target so the board stays clean once a number has
+    // been entered elsewhere. The cursor can still land here on tap.
     return (
       <span
         onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
@@ -99,13 +103,13 @@ export const RowView = ({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          minWidth: "0.55em",
+          minWidth: isActive ? "0.55em" : "0.18em",
           minHeight: "0.85em",
-          padding: "0 0.04em",
-          border: `1px dashed ${isActive ? caretColor : "currentColor"}`,
+          padding: isActive ? "0 0.04em" : 0,
+          border: isActive ? `1px dashed ${caretColor}` : "none",
           borderRadius: 3,
           background: isActive ? `${caretColor}1f` : "transparent",
-          opacity: isActive ? 0.95 : 0.35,
+          opacity: isActive ? 0.95 : 0,
           margin: "0 1px",
           boxShadow: isActive ? `0 0 5px ${caretColor}55` : "none",
           cursor: "text",
@@ -218,12 +222,15 @@ const SqrtView = ({
         preserveAspectRatio="none"
         style={{
           width: "0.55em", height: bodyH, alignSelf: "center",
-          overflow: "visible", marginLeft: "0.05em",
+          overflow: "visible", marginLeft: "0.05em", marginRight: 0,
+          display: "block",
         }}
         aria-hidden
       >
+        {/* Tick only — the overline is drawn by the body's borderTop so it
+            expands continuously as the teacher types, with no seam. */}
         <path
-          d="M0 65 L4 65 L8 95 L14 5 L100 5"
+          d="M0 65 L4 65 L8 95 L16 0"
           stroke="currentColor" strokeWidth="2" fill="none"
           vectorEffect="non-scaling-stroke" strokeLinejoin="miter" strokeLinecap="round"
         />
@@ -233,6 +240,7 @@ const SqrtView = ({
         style={{
           borderTop: "1.4px solid currentColor",
           padding: "2px 5px 0",
+          marginLeft: "-1px",
           display: "inline-flex",
           alignItems: "center",
         }}

@@ -411,7 +411,10 @@ export const FloatingNumberPanel = ({
   return (
     <div
       data-sb-chrome
+      data-floating-halo
       onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
+      onPointerUp={(e) => { e.stopPropagation(); }}
+      onClick={(e) => { e.stopPropagation(); }}
       style={{
         position: "absolute",
         left: leftPx,
@@ -421,7 +424,11 @@ export const FloatingNumberPanel = ({
         display: "flex",
         alignItems: "center",
         gap: 8,
-        padding: "6px 8px",
+        // Generous invisible halo so taps *near* the floating-number strip
+        // never bleed through to the writing surface and reposition the
+        // caret. The visible chrome stays inside; only the hit zone grows.
+        padding: "28px 32px",
+        margin: "-22px -24px",
         // No background — blends into the board.
       }}
     >
