@@ -127,6 +127,11 @@ interface Props {
   bottomYPx: number;
   /** Last-written line bottom in board pixels — panel may not move above. */
   finalLineBottomPx: number;
+  /** One physical-row pitch in board pixels (grid.LINE_HEIGHT). Used to
+   *  enforce the 3-row clearance above the panel — the panel must always
+   *  sit at least 3 rows below the bottom of the last completed Lesson
+   *  Line so it never crowds a fraction's denominator or a tall radical. */
+  rowHeightPx?: number;
   /** Remembered Y from parent (per beat); null = use default. */
   rememberedY: number | null;
   onCommitY: (y: number) => void;
