@@ -1,62 +1,55 @@
-## Floating ↔ Notebook Synchronization Engine
+# Math Layout Engine Upgrade
 
-Make the Smartboard's floating-number/notebook pairing exactly match the spec you described. The lesson note becomes the source of truth; the Smartboard mirrors it without rewriting.
+Four targeted rendering improvements. No interface redesign — only layout / settings additions.
 
-### Behaviour rules to enforce
+## 1. Dynamic vertical spacing per lesson line
 
-1. **Pairing direction** — every unhighlighted block belongs to the highlight *above* it. Leading unhighlighted prose (before any highlight) becomes a standalone notebook-only entry with no floating number.
-2. **No empty notebooks** — a floating number gets `notebook = None` when nothing unhighlighted sits between it and the next highlight. No icon, no glow, no placeholder.
-3. **One notebook per gap** — all prose between two highlights collapses into a single notebook entry (even if it's 23 lines). Never split into N notes.
-4. **Notebook is a viewport, not generated** — preserve the original lesson-note formatting verbatim: paragraph breaks, blank lines, bullets, numbered lists, indentation, inline math layout, ordering. No flattening to one paragraph, no rewriting.
-5. **Glow rule** — notebook icon is calm by default. It glows only after the teacher advances to the next floating number AND the notebook is still unopened. Opening it clears the glow permanently for that lesson line.
-6. **Cursor margin** — every new writable line starts at the same fixed left margin (the band's left edge). No drift.
-7. **Cursor lock** — the active lesson line is fully editable (left/right caret anywhere); previously locked lines remain read-only (already in place — verify it still holds after the resync).
+Today `Board.tsx` guesses row height from a heuristic (`asciiHint`) based on which node kinds appear. That gives stair-step heights but lets a tall structure (deep fraction, nested root, matrix) still collide with the next line.
 
-### Technical changes
+Change: let each math row measure itself and report its actual rendered height; the line container reserves that height plus a comfortable margin above and below.
 
-**Lesson-note side** (source of truth)
-- `src/lib/lessonnotes/syncDocumentToNotebook.ts` and the document → highlight walker: when saving `floating_highlights`, capture each highlight's `precedingNotebook` as a **rich payload** (TipTap JSON fragment of the unhighlighted nodes between the previous highlight and this one), not a flattened `\n`-joined string. Add a `precedingNotebookText` fallback for legacy readers.
-- Mark leading-before-first-highlight prose as `notebookOnly: true` and KEEP it as its own entry (do not fold into the first highlight).
-- A highlight with no preceding unhighlighted content saves `precedingNotebook: null` — never an empty string that downstream code might treat as "has notebook".
+- Add a `LineMeasure` wrapper around the per-line `<MathRender>` (in `Board.tsx` and `PresentationView.tsx`) that uses a `ResizeObserver` on the inner content box.
+- Replace the `asciiHint` heuristic with `minHeight = max(baseLineHeight, measuredHeight + topPad + bottomPad)` where `topPad`/`bottomPad` come from the new Lesson Line Spacing setting (see §2).
+- Inside `MathTreeRender.tsx`, ensure structural nodes (`FracView`, `SqrtView`, nth root, matrix, large brackets, integrals, sums, stacked exponents) render with `display: inline-flex` and intrinsic top/bottom padding tied to their structural depth so the measured height already includes ascender/descender room. This removes the need to special-case node kinds in the parent.
+- Apply the same measured-height contract to the Smartboard `Board` rows, the Presentation view rows, and the Notebook viewport. Each line becomes a flex row with `align-items: center` and `min-height: measured`.
 
-**Presentation builder**
-- `src/lib/smartboard/presentation.ts` (the `rawHighlights.reduce` block, lines ~302-331): stop merging `pendingNotebook` into the following highlight. Instead emit a standalone `notebookOnly: true` reservoir line for leading prose. Between-highlight prose still attaches to the highlight *above* (current behaviour for the trailing case — extend so the notebook hangs off line K, not K+1).
-- `ReservoirLine.notebook` becomes `notebook?: NotebookContent` where `NotebookContent = { json: TiptapJSON; text: string } | null`. `null` ⇒ no notebook (no icon).
-- Drop the `pendingNotebook ? ... : (... || ownNotebook)` fallback — empty string must become `null`, not a truthy "has notebook" signal.
+Result: previous line → fraction → next line are always separated by the fraction's full bounding box plus the configured margin.
 
-**Smartboard rendering**
-- `FloatingNumberPanel.tsx` / notebook checkpoint UI: render notebooks via a small TipTap read-only renderer (reuse the lesson-note renderer) so paragraphs, bullets, math, and blank lines display exactly as authored. Replace the current single-paragraph text node.
-- Notebook icon visibility: only render when `line.notebook != null`. Remove any "empty notebook" fallback.
-- Glow state machine per `(reservoirIdx, lineIdx)`:
-  - `idle` → teacher advances to a line whose previous line has an unopened notebook → `glowing`.
-  - `glowing` → teacher opens notebook → `opened` (persist in localStorage so it doesn't re-glow on reload).
-  - Remove any continuous pulse animation; glow only fires once per transition.
-- Cursor anchor: ensure `bandStart(layout) + k` always resolves to the left margin column 0; remove any per-line indentation that crept in from prose rows.
+## 2. Lesson Line Spacing setting
 
-**Backwards compatibility**
-- Legacy notebooks that stored `precedingNotebook` as a plain string still render — wrap them in a single paragraph node at read time.
-- Legacy `notebookOnly` rows already exist; keep parsing them but stop folding them forward.
+Add a single CSS variable `--lesson-line-gap` driven by a new setting.
 
-### Files to edit
+- Extend `SettingsSheet.tsx` (Smartboard) and the matching Lesson Notes settings panel with a new section "Lesson Line Spacing": preset chips Compact / Normal / Comfortable / Wide, plus a Custom slider (range 0–48 px).
+- Persist as `lessonLineGap` in the existing settings store (same place `surface`, `profile`, `inkColorId` live).
+- Apply by setting `--lesson-line-gap` on the board / document root; the line container in §1 reads it for `topPad` + `bottomPad`.
+- Only affects vertical gap between lesson lines — no font, page or math-scale change.
 
-- `src/lib/smartboard/presentation.ts` — pairing + null-notebook semantics.
-- `src/lib/lessonnotes/syncDocumentToNotebook.ts` (+ the highlight walker it calls) — capture rich preceding-notebook JSON.
-- `src/components/smartboard/FloatingNumberPanel.tsx` (and the notebook checkpoint component) — TipTap renderer, glow state machine, hide-when-null.
-- `src/components/smartboard/PresentationView.tsx` — margin alignment check, glow trigger on lesson-line advance, opened-state persistence key.
-- Types: `ReservoirLine.notebook` shape; update any consumers via tsc.
+## 3. Independent Text Size control
 
-### Acceptance checks
+Keep the existing page Zoom (`workspaceZoom`) untouched. Add a parallel control that scales content only.
 
-- Solution starts with prose → notebook-only entry appears first, no floating number, sensor parked on next line.
-- Solution starts with highlight → first entry is a floating number with `notebook = None`, no icon.
-- 23 unhighlighted lines between two highlights → one notebook entry containing 23 formatted lines, attached to the highlight above.
-- Three consecutive highlights → three floating numbers, zero notebook icons.
-- Bullets / numbered lists / blank lines in a notebook render verbatim, not as a single paragraph.
-- Advancing past a line with an unopened notebook makes its icon glow; opening it stops the glow and the icon stays calm across reloads.
-- New writable lines all start at the same x-coordinate.
+- New setting `textSize` (presets: S / M / L / XL + slider 0.8×–1.6×), persisted alongside the others.
+- Drive a second CSS variable `--sb-text-scale`. Multiply the existing `--sb-eq-size` and prose font sizes by it: `font-size: calc(var(--sb-eq-size) * var(--sb-text-scale))`. Math glyphs, fractions, roots, exponents inherit because they already size in `em`.
+- Do NOT touch the workspace transform, canvas width, margins, chrome, or settings panels. The page stays the same size; only the writing grows.
+- Expose the control in the same settings panel as Lesson Line Spacing, clearly labelled "Text Size" with the existing Zoom kept separate and labelled "Page Zoom".
 
-### Out of scope
+## 4. Placeholders disappear once filled
 
-- Lesson-note authoring UI changes (highlight tool itself is unchanged).
-- Floating-number extraction logic, AI assistant, voice input.
-- Free-write (non-guided) sessions.
+In `MathTreeRender.tsx` the dashed cube currently renders whenever a sub-row is empty. The required rule is per-slot: each placeholder vanishes as soon as that slot has any content, independently of its siblings.
+
+- `RowView` keeps the dashed cube for a truly empty row (the slot has zero children).
+- Remove any logic that shows a placeholder cube for a non-empty row, including the "first child is a power/sub" case currently handled around lines 127–171. Replace it with: render the row's children; render the dashed cube only when `row.length === 0`.
+- For fractions: `FracView` renders numerator and denominator as two independent `RowView`s — each shows its own placeholder only while empty, so the example `12 / □` (top filled, bottom empty) works without any cross-slot coupling.
+- Same rule applies to: `SqrtView` radicand, nth-root index and radicand, exponent base/superscript slot, subscript slot, matrix cells, large-bracket body, integral bounds and integrand, sum bounds and summand.
+- Placeholders stay focusable as caret sensors (existing behaviour) but disappear visually the moment the slot becomes non-empty.
+
+## Technical notes
+
+- Files touched:
+  - `src/components/smartboard/MathTreeRender.tsx` — placeholder rule, intrinsic structural padding.
+  - `src/components/smartboard/Board.tsx` and the Presentation view's line container — replace `asciiHint` with measured height; consume `--lesson-line-gap`.
+  - `src/components/smartboard/SettingsSheet.tsx` (and Lesson Notes settings panel) — add Lesson Line Spacing + Text Size sections.
+  - `src/lib/smartboard/grid.ts` / theme module — expose `--lesson-line-gap`, `--sb-text-scale` defaults.
+  - Settings persistence hook (same store as `workspaceZoom`).
+- No business-logic changes, no schema changes, no AI prompt changes.
+- Verification: Playwright snapshot of a line containing `(-b ± √(b²-4ac)) / 2a` followed by a prose line at each spacing preset; check that no bounding boxes overlap and that filled fraction slots show no dashed cube.

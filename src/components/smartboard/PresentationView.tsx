@@ -365,6 +365,8 @@ const PresentationView = ({
   const FREEWRITE_KEY = `smartboard:freewrite:${notebookId ?? "_"}`;
   const SENSOR_KEY = `smartboard:sensor:${notebookId ?? "_"}`;
   const ZOOM_KEY = `smartboard:zoom:${notebookId ?? "_"}`;
+  const LINE_SPACING_KEY = `smartboard:lineSpacing:${notebookId ?? "_"}`;
+  const TEXT_SCALE_KEY = `smartboard:textScale:${notebookId ?? "_"}`;
 
   const [zoom, setZoom] = useState<number>(() => {
     try {
@@ -376,7 +378,36 @@ const PresentationView = ({
     } catch { /* noop */ }
     return 1;
   });
-  const grid = useMemo(() => getGrid(zoom), [zoom]);
+  const [lineSpacing, setLineSpacing] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem(LINE_SPACING_KEY);
+      if (raw) {
+        const v = parseFloat(raw);
+        if (Number.isFinite(v) && v > 0) return v;
+      }
+    } catch { /* noop */ }
+    return 1;
+  });
+  const [textScale, setTextScale] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem(TEXT_SCALE_KEY);
+      if (raw) {
+        const v = parseFloat(raw);
+        if (Number.isFinite(v) && v > 0) return v;
+      }
+    } catch { /* noop */ }
+    return 1;
+  });
+  useEffect(() => {
+    try { localStorage.setItem(LINE_SPACING_KEY, String(lineSpacing)); } catch { /* noop */ }
+  }, [LINE_SPACING_KEY, lineSpacing]);
+  useEffect(() => {
+    try { localStorage.setItem(TEXT_SCALE_KEY, String(textScale)); } catch { /* noop */ }
+  }, [TEXT_SCALE_KEY, textScale]);
+  const grid = useMemo(
+    () => getGrid(zoom, lineSpacing, textScale),
+    [zoom, lineSpacing, textScale],
+  );
 
   const [sensor, setSensor] = useState<GridPoint>(() => {
     try {
@@ -2083,6 +2114,10 @@ const PresentationView = ({
         chromeFg={palette.chromeFg}
         chromeBorder={palette.chromeBorder}
         surfaceBg={surfaceFlatBg}
+        lineSpacing={lineSpacing}
+        setLineSpacing={setLineSpacing}
+        textScale={textScale}
+        setTextScale={setTextScale}
       />
 
       {/* Board body — pure surface, fills edge-to-edge. Tapping anywhere

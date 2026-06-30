@@ -252,7 +252,7 @@ const SqrtView = ({
   return (
     <span style={{
       display: "inline-flex", alignItems: "center",
-      verticalAlign: "middle", margin: "0 0.12em", lineHeight: 1,
+      verticalAlign: "middle", margin: "0.18em 0.12em", lineHeight: 1,
     }}>
       {hasIndex && (
         <span style={{
@@ -346,7 +346,7 @@ const MatrixView = ({
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", verticalAlign: "middle",
-      margin: "0 0.15em", lineHeight: 1.1,
+      margin: "0.22em 0.15em", lineHeight: 1.1,
     }}>
       {node.left && <BracketGlyph kind={node.left} side="L" heightCss={bodyH} />}
       <span ref={ref} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "center" }}>
@@ -367,7 +367,7 @@ const BinomView = ({
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", verticalAlign: "middle",
-      margin: "0 0.12em",
+      margin: "0.18em 0.12em",
     }}>
       <BracketGlyph kind="(" side="L" heightCss={bodyH} />
       <span ref={ref} style={{
@@ -414,7 +414,7 @@ const NodeView = ({
       return (
         <span style={{
           display: "inline-flex", alignItems: "center",
-          verticalAlign: "middle", margin: "0 0.12em", lineHeight: 1.1,
+          verticalAlign: "middle", margin: "0.22em 0.12em", lineHeight: 1.1,
           fontSize: "0.96em",
         }}>
           <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center" }}>
@@ -495,7 +495,7 @@ const NodeView = ({
       return (
         <span style={{
           display: "inline-flex", alignItems: "center", verticalAlign: "middle",
-          margin: "0 0.15em",
+          margin: "0.18em 0.15em",
         }}>
           <span style={{
             display: "inline-flex", flexDirection: "column", alignItems: "center",
