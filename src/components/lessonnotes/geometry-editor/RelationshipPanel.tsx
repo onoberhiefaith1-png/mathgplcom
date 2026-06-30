@@ -43,7 +43,7 @@ export function RelationshipPanel({ scene, topic }: Props) {
   // objects updates the panel; pressing "Clear" hides it again.
   if (selectedParts.length === 0) return null;
 
-  const visible_marker = selectedParts.length;
+  
   const visible = useMemo(() => relationships.filter((r) => !r.hidden), [relationships]);
 
   const beginEdit = (r: Relationship) => {
