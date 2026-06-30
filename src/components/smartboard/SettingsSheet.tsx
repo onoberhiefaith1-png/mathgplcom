@@ -60,6 +60,10 @@ export const SettingsSheet = ({
   chromeFg,
   chromeBorder,
   surfaceBg,
+  lineSpacing = 1,
+  setLineSpacing,
+  textScale = 1,
+  setTextScale,
 }: Props) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
