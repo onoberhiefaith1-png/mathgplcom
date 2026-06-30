@@ -92,10 +92,11 @@ export const RowView = ({
         </span>
       );
     }
-    // Only the *active* empty slot shows the dashed placeholder. Other empty
-    // sub-rows (e.g. unused inner rows of a structure) collapse to a
-    // near-zero-width tap target so the board stays clean once a number has
-    // been entered elsewhere. The cursor can still land here on tap.
+    // Empty sub-rows render a visible dashed placeholder cube so the teacher
+    // can see — and tap — exactly where the sensor lands. The cube acts as a
+    // sensor magnet; once a character is typed the row is no longer empty and
+    // the cube disappears naturally. When the slot is *active* the cube glows
+    // to confirm focus.
     return (
       <span
         onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
@@ -103,13 +104,13 @@ export const RowView = ({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          minWidth: isActive ? "0.55em" : "0.18em",
+          minWidth: "0.7em",
           minHeight: "0.85em",
-          padding: isActive ? "0 0.04em" : 0,
-          border: isActive ? `1px dashed ${caretColor}` : "none",
+          padding: "0 0.05em",
+          border: `1px dashed ${caretColor}`,
           borderRadius: 3,
           background: isActive ? `${caretColor}1f` : "transparent",
-          opacity: isActive ? 0.95 : 0,
+          opacity: isActive ? 0.95 : 0.5,
           margin: "0 1px",
           boxShadow: isActive ? `0 0 5px ${caretColor}55` : "none",
           cursor: "text",
