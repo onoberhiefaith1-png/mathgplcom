@@ -337,16 +337,23 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           // Apply the teacher's saved arrangement (shuffle order) so the
           // smartboard shows fragments in the same order the teacher arranged
           // them on the Floating Numbers page — NOT raw equation order.
+          // Teacher chips are immutable: when fillers came from the teacher's
+          // preparation page (rl.fillers), pass them through verbatim. Only
+          // machine-derived fillers (fillersFromEquation) may have their
+          // contextual leading "+" stripped.
+          const teacherProvided = !!(rl.fillers && rl.fillers.length > 0);
           const baseFills = isNotebookOnly
             ? []
-            : ((rl.fillers && rl.fillers.length > 0) ? rl.fillers : fillersFromEquation(eq));
+            : (teacherProvided ? (rl.fillers as string[]) : fillersFromEquation(eq));
           const arr = (rl as any).arrangement as number[] | undefined;
           const ordered = (arr && arr.length === baseFills.length)
             ? arr.map((i) => baseFills[i])
             : baseFills;
           const fills = isNotebookOnly
             ? []
-            : dropContextualLeadingPlus(cleanFragments(ordered));
+            : (teacherProvided
+                ? cleanFragments(ordered)
+                : dropContextualLeadingPlus(cleanFragments(ordered)));
           const start = fragmentsFromLines.length;
           fragmentsFromLines.push(...fills);
           const explanation = (rl as any).explanation
