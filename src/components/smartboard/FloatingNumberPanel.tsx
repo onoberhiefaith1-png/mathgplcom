@@ -534,8 +534,6 @@ export const FloatingNumberPanel = ({
         }}
       >
         <button
-          data-fn-nodrag
-          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); if (lineNumber && lineNumber > 1) { onPrevLine?.(); onPing(); } }}
           disabled={!lineNumber || lineNumber <= 1}
           title="Previous line"
