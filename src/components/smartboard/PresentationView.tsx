@@ -1648,6 +1648,9 @@ const PresentationView = ({
   // tap commits the reveal — marks N as shown and advances to Line N.
   const [notebookRevealIdx, setNotebookRevealIdx] = useState<number | null>(null);
   const [shownNotebookIdx, setShownNotebookIdx] = useState<Set<number>>(() => new Set());
+  // A note icon stays calm at first. It only glows after the teacher tries to
+  // move to the next Lesson Line without first placing that note on the board.
+  const [notebookAttentionIdx, setNotebookAttentionIdx] = useState<Set<number>>(() => new Set());
   const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
   const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
 
@@ -1664,6 +1667,7 @@ const PresentationView = ({
     setFloatingLineIdx(0);
     setManualFloatingLineIdx(null);
     setNotebookRevealIdx(null);
+    setNotebookAttentionIdx(new Set());
     // Hydrate persisted "notebook shown" set for this reservoir.
     let restored: Set<number> = new Set();
     try {
