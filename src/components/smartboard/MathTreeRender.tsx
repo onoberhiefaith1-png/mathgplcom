@@ -124,25 +124,72 @@ export const RowView = ({
     );
   }
 
+  // Once *any* node in this row carries content, empty `box` placeholder
+  // siblings collapse to a zero-width tap zone (still focusable, but the
+  // dashed cube disappears). This matches the classroom rule: as soon as
+  // the teacher has filled the numerator, leftover template cubes around
+  // it must vanish — the denominator's own empty cube is unaffected
+  // because it lives in a different row.
+  const isNodeFilled = (n: Node): boolean => {
+    if (n.kind === "char") return true;
+    const sub = (n as { rows?: Row[] }).rows;
+    if (!sub) return true;
+    return sub.some((r) => r.length > 0);
+  };
+  const rowHasContent = row.some((n) => isNodeFilled(n));
+
   return (
     <span style={{ display: "inline-flex", alignItems: "baseline" }}>
-      {row.map((node, i) => (
-        <span
-          key={i}
-          data-erase-path={JSON.stringify([...path, i])}
-          style={{ display: "inline-flex", alignItems: "baseline" }}
-        >
-          {isActive && i === cursor.index && <Caret color={caretColor} />}
-          <NodeView
-            node={node}
-            parentPath={path}
-            idxInRow={i}
-            cursor={cursor}
-            onCursorChange={onCursorChange}
-            caretColor={caretColor}
-          />
-        </span>
-      ))}
+      {row.map((node, i) => {
+        const isEmptyBoxSibling =
+          node.kind === "box" &&
+          rowHasContent &&
+          !isNodeFilled(node);
+        return (
+          <span
+            key={i}
+            data-erase-path={JSON.stringify([...path, i])}
+            style={{ display: "inline-flex", alignItems: "baseline" }}
+          >
+            {isActive && i === cursor.index && <Caret color={caretColor} />}
+            {/* Inter-node tap gap — places cursor BEFORE this node so the
+                sensor can land between every pair of items on the active
+                line (e.g. between -b and ±). */}
+            <span
+              onPointerDown={(e) =>
+                stopAnd(e, () => onCursorChange({ path, index: i }))
+              }
+              style={{
+                display: "inline-block",
+                width: "0.22em",
+                alignSelf: "stretch",
+                cursor: "text",
+              }}
+              aria-hidden
+            />
+            {isEmptyBoxSibling ? (
+              // Collapsed invisible placeholder — keeps the path stable
+              // but removes the visual dashed cube once the row is filled.
+              <span
+                onPointerDown={(e) =>
+                  stopAnd(e, () => onCursorChange({ path, index: i }))
+                }
+                style={{ display: "inline-block", width: 0, height: "1em" }}
+                aria-hidden
+              />
+            ) : (
+              <NodeView
+                node={node}
+                parentPath={path}
+                idxInRow={i}
+                cursor={cursor}
+                onCursorChange={onCursorChange}
+                caretColor={caretColor}
+              />
+            )}
+          </span>
+        );
+      })}
       {isActive && cursor.index === row.length && <Caret color={caretColor} />}
       {/* trailing tap area → place cursor at end of this row */}
       <span
@@ -204,15 +251,15 @@ const SqrtView = ({
   // expands. No measurement is needed: CSS stretch keeps them in sync.
   return (
     <span style={{
-      display: "inline-flex", alignItems: "stretch",
-      verticalAlign: "middle", margin: "0 0.12em", lineHeight: 1.05,
+      display: "inline-flex", alignItems: "center",
+      verticalAlign: "middle", margin: "0 0.12em", lineHeight: 1,
     }}>
       {hasIndex && (
         <span style={{
           fontSize: "0.55em",
           display: "inline-block",
-          transform: "translateY(-0.55em)",
-          marginRight: "-0.1em",
+          transform: "translateY(-0.4em)",
+          marginRight: "-0.05em",
           marginLeft: "0.1em",
           minWidth: "0.7em",
           textAlign: "center",
@@ -226,15 +273,12 @@ const SqrtView = ({
         viewBox="0 0 16 100"
         preserveAspectRatio="none"
         style={{
-          width: "0.55em", height: "auto", alignSelf: "stretch",
+          width: "0.45em", height: "1.1em", alignSelf: "stretch",
           overflow: "visible", marginLeft: "0.05em", marginRight: 0,
           display: "block",
         }}
         aria-hidden
       >
-        {/* Diagonal tick only — its top-right (16,0) meets the body's
-            border-top exactly. The overline is the body's border-top so it
-            extends in real time as the radicand grows. */}
         <path
           d="M0 65 L4 65 L8 95 L16 0"
           stroke="currentColor" strokeWidth="2" fill="none"
@@ -244,10 +288,11 @@ const SqrtView = ({
       <span
         style={{
           borderTop: "1.4px solid currentColor",
-          padding: "2px 5px 0",
+          padding: "1px 4px 0",
           marginLeft: "-1px",
           display: "inline-flex",
-          alignItems: "center",
+          alignItems: "baseline",
+          lineHeight: 1.05,
         }}
       >
         <RowView row={node.rows[0] ?? []} path={subPath(0)}
