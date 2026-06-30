@@ -185,13 +185,14 @@ function GeometryDiagramView({
             )}
           </div>
 
-          {selected && (
-            <RelationshipPanel
-              scene={scene}
-              topic={topic}
-              onApply={(next) => updateAttributes({ scene: next })}
-            />
-          )}
+          {/* Relationship panel — appears only when at least one diagram
+              part is selected. Hidden internally by RelationshipPanel
+              when the selection is empty. */}
+          <RelationshipPanel
+            scene={scene}
+            topic={topic}
+            onApply={(next) => updateAttributes({ scene: next })}
+          />
         </div>
       </SmartGeometryProvider>
     </NodeViewWrapper>
