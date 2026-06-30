@@ -1334,6 +1334,23 @@ const PresentationView = ({
     // row where that line's math actually lives — not to row = K.
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
+
+    // Once the current presentation line has been anchored, do not keep
+    // re-solving that anchor after every keystroke. Typing changes freeLines,
+    // and the old effect treated that as a reason to snap the sensor again;
+    // that reset the tree cursor to the beginning, so characters appeared in
+    // reverse order. Re-anchor only when the logical presentation line changes
+    // (or if the sensor somehow lands on a restricted notebook row/outside the
+    // active band).
+    if (
+      activeSensorLogicalIdxRef.current === idx &&
+      sensor.line >= a && sensor.line <= b &&
+      !notebookRowLines.has(Math.floor(sensor.line)) &&
+      !notebookRowLines.has(sensor.line)
+    ) {
+      return;
+    }
+
     const occupied: number[] = [];
     for (let r = a; r <= b; r++) {
       const row = freeLines[r];
@@ -1358,6 +1375,7 @@ const PresentationView = ({
       setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
       setLiveCursor({ path: [], index: 0 });
     }
+    activeSensorLogicalIdxRef.current = idx;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line]);
 
