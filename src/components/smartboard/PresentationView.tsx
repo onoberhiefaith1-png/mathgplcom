@@ -1102,7 +1102,7 @@ const PresentationView = ({
         ns.add(target);
         return ns;
       });
-      setSensor((s) => ({ ...s, line: target + 1, x: 0 }));
+      setSensor((s) => ({ ...s, line: target + 1 + extraRowsFor(target), x: 0 }));
       return next;
     });
   }, [sensor.line]);
@@ -1394,66 +1394,83 @@ const PresentationView = ({
   // toggles the floating-number panel; it no longer gates the cursor.
   const solvingMode = !!(activeLayout && activeLayout.bandLines > 0);
 
-  // First empty writable row inside the active beat's band, accounting
-  // for tall structures (fractions / √ / matrices) that extend their
-  // visual height into rows below the row they live on. The sensor
-  // MUST anchor here — never on a row that already has ink, a note, or
-  // is covered by a structure above. If the whole band is full, returns
-  // `bandEnd(L) + 1` so the caller can grow the band.
-  const firstEmptyBandRow = useCallback((L: BeatLayout): number => {
+  const rowHasInk = useCallback((line: number): boolean => {
+    const row = freeLines[line];
+    return !!row && row.length > 0;
+  }, [freeLines]);
+
+  /** A row can be visually occupied by a tall structure that starts above it
+   *  (fraction denominator, radical body, matrix, etc.). The sensor must skip
+   *  those covered rows exactly as if they contained ink. */
+  const rowCoveredByStructure = useCallback((line: number, L: BeatLayout): boolean => {
+    const target = Math.floor(line);
     const a = bandStart(L), b = bandEnd(L);
-    let r = a;
-    while (r <= b) {
-      const row = freeLines[r];
-      const hasInk = !!row && row.length > 0;
-      const isNote = notebookRowLines.has(r);
-      if (!hasInk && !isNote) return r;
-      r = r + 1 + (hasInk ? extraRowsFor(r) : 0);
+    for (const key of Object.keys(freeLines)) {
+      const source = Number(key);
+      if (!Number.isInteger(source)) continue;
+      if (source < a || source > b || source >= target) continue;
+      const row = freeLines[source];
+      const isOccupied = (!!row && row.length > 0) || notebookRowLines.has(source);
+      if (!isOccupied) continue;
+      if (source + extraRowsFor(source) >= target) return true;
     }
-    return b + 1;
-  // extraRowsFor reads a ref so it doesn't need to be in deps.
+    return false;
+  // extraRowsFor reads measured heights from a ref.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, notebookRowLines]);
+
+  const isEmptyWritableRow = useCallback((line: number, L: BeatLayout): boolean => {
+    const r = Math.floor(line);
+    const a = bandStart(L), b = bandEnd(L);
+    if (r < a || r > b) return false;
+    if (notebookRowLines.has(r) || notebookRowLines.has(line)) return false;
+    if (rowHasInk(r) || rowHasInk(line)) return false;
+    if (rowCoveredByStructure(r, L)) return false;
+    return true;
+  }, [notebookRowLines, rowHasInk, rowCoveredByStructure]);
+
+  // First empty writable row inside the active beat's band. This is used only
+  // at checkpoints (open Solution / Enter / note / line-complete / scrollbar),
+  // never on every keystroke, so typing order is not disturbed.
+  const firstEmptyBandRow = useCallback((L: BeatLayout): number => {
+    const a = bandStart(L), b = bandEnd(L);
+    for (let r = a; r <= b; r++) {
+      if (isEmptyWritableRow(r, L)) return r;
+    }
+    return b + 1;
+  }, [isEmptyWritableRow]);
+
+  const findNextWritableEmptyRow = useCallback((startRow: number, dir: 1 | -1, L: BeatLayout): number => {
+    const a = bandStart(L), b = bandEnd(L);
+    let r = Math.floor(startRow);
+    if (dir > 0) {
+      for (; r <= b; r++) if (isEmptyWritableRow(r, L)) return r;
+      return b + 1;
+    }
+    for (; r >= a; r--) if (isEmptyWritableRow(r, L)) return r;
+    return a - 1;
+  }, [isEmptyWritableRow]);
 
   // Tracks a deliberate downward push of the sensor by the teacher via
   // the Cursor Scrollbar. While set, auto-snap stops moving the sensor
   // back to the first-empty row.
   const manualPushedRef = useRef<number | null>(null);
 
-  // When the teacher presses # to enter solving mode, anchor the sensor
-  // at the first EMPTY row of the active Solution band — below the
-  // last written equation/note, not at the top under "Solution".
-  const prevSolvingRef = useRef(false);
+  // When a writable Solution opens, anchor the sensor at the first EMPTY row
+  // of the active Solution band — below the last written equation/note, not
+  // permanently under the “Solution” label.
   useEffect(() => {
-    const was = prevSolvingRef.current;
-    prevSolvingRef.current = solvingMode;
-    if (!solvingMode || was) return;
+    if (!solvingMode) return;
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const r = Math.min(firstEmptyBandRow(activeLayout), bandEnd(activeLayout));
     setSensor({ line: r, x: 0 });
     setLiveCursor({ path: [], index: 0 });
     autoFloorRef.current = r;
     manualPushedRef.current = null;
+    activeSensorLogicalIdxRef.current = null;
+    activeSensorPhysicalLineRef.current = r;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solvingMode, activeLayout?.id]);
-
-  // While solving, keep the sensor pinned to the running first-empty
-  // row as the teacher writes — unless they explicitly pushed it lower
-  // with the Cursor Scrollbar (manualPushedRef). The push is honored
-  // until the auto floor catches up.
-  useEffect(() => {
-    if (!solvingMode || !activeLayout || activeLayout.bandLines <= 0) return;
-    const auto = Math.min(firstEmptyBandRow(activeLayout), bandEnd(activeLayout));
-    if (manualPushedRef.current !== null && auto >= manualPushedRef.current) {
-      manualPushedRef.current = null;
-    }
-    if (manualPushedRef.current !== null) return;
-    autoFloorRef.current = auto;
-    if (Math.floor(sensor.line) === auto) return;
-    setSensor((s) => ({ ...s, line: auto, x: 0 }));
-    setLiveCursor({ path: [], index: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [solvingMode, activeLayout?.id, freeLines, notebookRowLines, firstEmptyBandRow]);
 
   // Leaving the current beat (Prev/Next Section, beat click) must close
   // solving mode — the teacher must explicitly re-press # on the new
@@ -1519,34 +1536,28 @@ const PresentationView = ({
 
 
 
-  /** Dedicated cursor-up/down nudge for the CursorScrollbar.
-   *  Constrained to EMPTY rows only:
-   *   • ↑ can only step back as far as the auto first-empty row.
-   *   • ↓ steps to the next empty writable row; when at band end, grows
-   *     the band by one and steps onto the new row.
-   *  Notebook-prose rows are always skipped. Master left margin (x=0)
-   *  is enforced on every nudge. */
+  /** Dedicated cursor-up/down nudge for the CursorScrollbar. It jumps over
+   *  written/restricted/structure-covered rows and only parks on empty working
+   *  space. Master left margin (x=0) is enforced on every nudge. */
   const nudgeCursor = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
-    const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
     const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
-    let cand = Math.floor(sensor.line) + dir;
-    while (cand >= a && cand <= b && notebookRowLines.has(cand)) cand += dir;
+    const start = Math.floor(sensor.line) + dir;
+    let cand = findNextWritableEmptyRow(start, dir, activeLayout);
 
-    if (dir === -1) {
-      if (cand < auto) return; // never above first-empty
-    } else {
-      if (cand > b) {
-        // Grow band by one row so the teacher can keep going down.
-        growActiveBand();
-        cand = b + 1;
-      }
+    if (dir === -1 && cand < auto) return; // never above first-empty/auto floor
+    if (dir === 1 && cand > b) {
+      // Grow band by one row so the teacher can keep going down.
+      growActiveBand();
+      cand = b + 1;
     }
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
     manualPushedRef.current = cand > auto ? cand : null;
-  }, [activeLayout, sensor.line, notebookRowLines, firstEmptyBandRow, setLiveCursor]);
+    activeSensorPhysicalLineRef.current = cand;
+    activeSensorLogicalIdxRef.current = hasGuidedLines ? activeLineIdx : null;
+  }, [activeLayout, sensor.line, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor, hasGuidedLines, activeLineIdx]);
 
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
