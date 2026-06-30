@@ -2163,7 +2163,7 @@ const PresentationView = ({
                   notebookText={revealNotebookText}
                   onWriteNotebookToBoard={writeProseLineOnBoard}
                   onNotebookRead={markCurrentNotebookRead}
-                  frozen={notebookRevealIdx != null || currentNotebookPending}
+                  frozen={false}
                   notebookPending={
                     hasGuidedLines &&
                     notebookFor(curLineIdx).length > 0 &&
