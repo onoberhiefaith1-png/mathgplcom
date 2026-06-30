@@ -1,39 +1,41 @@
-## Problem
+## Goal
+Fix only the movement logic inside `FloatingNumberPanel.tsx`. Do not change the visual design, layout, controls, icons, colors, spacing, or chip styling. The blue used zone, the 5-slot window, and the chevrons stay exactly as they are today.
 
-Teacher's preparation chip `+5x` is showing on the Smartboard as `5x` — the leading `+` is silently stripped during presentation compile.
+The strip must behave as ONE continuous circular conveyor:
 
-Root cause: `src/lib/smartboard/presentation.ts` calls `dropContextualLeadingPlus(...)` on the teacher's already-edited, already-arranged chip list in two places:
-- Line 349 — per-line fills built from `rl.fillers` (the teacher's saved fillers, in arranged order).
-- Line 376 — `bucketCombined` built from `bucket.fillers` (the teacher's compiled bucket).
+```
+[ Blue Used (scrollable) ] | [ 5 visible slots ] | [ Hidden right queue ]
+        newest → oldest                                next → later
+```
 
-That helper assumes chips are in equation order and strips `+` from any chip whose previous chip is empty / `=` / `±`. After the teacher shuffles, `+5x` lands first and gets clobbered to `5x`. The very point of the preparation page is that the teacher's edited chips are the source of truth — the Smartboard must mirror them verbatim.
+## Required movement behavior
 
-## Fix (single rule: "Teacher chips are immutable")
+1. **Always exactly 5 visible chips.** If the source has fewer than 5 unique unused chips, repeat them (`a a a a a`, `x y x y x`) by modular indexing.
+2. **Tap an unused chip → conveyor shifts left by 1.**
+   - The tapped chip becomes the NEW newest entry of the blue zone (placed at the far-left end of blue, next to all older used chips).
+   - The next chip in the teacher's saved order slides into the right edge of the visible window.
+   - The tapped chip must NOT reappear inside the visible 5 until the rotation has cycled through every other chip first.
+3. **Hidden right queue → blue rotation.** When the right queue is exhausted, pull the OLDEST blue chip (far-left of blue) back onto the right side of the visible window, stripped of its blue state (renders as plain white again). The ring never ends and the 5 slots never go empty.
+4. **Backward chevron (◀)** scrolls the window left, revealing blue chips inside the visible 5 (newest first), exactly as it does today. Tapping a revealed blue chip returns it to the unused flow (current behavior preserved).
+5. **Forward chevron (▶)** hides any revealed blue chips first, then advances the right queue, looping forever.
+6. **Newest-used ordering** in blue: newest sits at the far-left end of the strip; older ones extend further left (matches current `revealedUsed.reverse()`).
 
-Treat teacher-supplied chip strings as final once they leave the preparation page. The Smartboard performs zero sign-aware transformation on chips that originated from `rl.fillers` or `bucket.fillers`.
+## Technical changes (single file: `src/components/smartboard/FloatingNumberPanel.tsx`)
 
-### Code changes (presentation.ts only)
+- Introduce a derived `remaining` list = `allSlots` filtered to NOT-consumed, in original teacher order. Keep `allSlots` for the ring fallback.
+- Rebuild `windowSlots`:
+  - Left part: `revealedUsed.slice(0, clampedReveal)` as today.
+  - Right part: fill `WINDOW_SIZE − clampedReveal` slots by modular walk over `remaining` (so consumed chips are skipped from the natural flow).
+  - If `remaining.length === 0`, fall back to a modular walk over `allSlots` rendered with `used: false` (the "blue rotating back as white" case).
+- `handleActiveTap`: after marking the chip consumed, advance `offset` so that the consumed chip's successor (in teacher order) becomes the new leftmost visible chip. Keep `setReveal(0)`.
+- `goForward` / `goBackward`: keep current reveal-then-rotate semantics, but rotate over `remaining` when non-empty, else `allSlots`. Wrap with modulo so it never stalls.
+- Keep all JSX, styles, dimensions, icons, halos, line badges, notebook button, drag grip, freezing/gating, fraction rendering, and tap handlers unchanged.
 
-1. **Per-line fills (around line 340-349)** — when `rl.fillers` exists, skip `dropContextualLeadingPlus`. Apply the `arrangement` map and `cleanFragments` (whitespace / empty cleanup only), then push verbatim. Only when fillers had to be derived via `fillersFromEquation(eq)` (no teacher input) may `dropContextualLeadingPlus` run, because those came from raw equation parsing.
+## Out of scope
+No edits to `presentation.ts`, `floatingPlan.ts`, `FloatingDisplayStrip.tsx`, `FloatingMath.tsx`, CSS, or any other file. No new components, no new props, no design tweaks.
 
-2. **Bucket fallback (around line 376-384)** — `bucket.fillers` and `bucket.viewCombined` are teacher-curated. Drop the `dropContextualLeadingPlus` wrapper for these two branches. Keep it only on the `solutionFallback` path (purely machine-derived from `solutionLines`).
-
-3. **Add a teacher-chip parity guard** — after assembling `fragments`, assert each fragment string is byte-identical to the teacher's source (`bucket.fillers[i]` or `rl.fillers[i]`). If not, `console.warn` with both values and fall back to the teacher string. This makes any future regression visible immediately instead of silently mis-rendering on stage.
-
-### What stays untouched
-
-- `dropContextualLeadingPlus` itself — still correct for machine-extracted fillers from raw equations.
-- `cleanFragments` — only trims whitespace / drops empties; safe to keep on the teacher path.
-- Chip rendering, ordering, rotation, used-zone logic — unchanged.
-- Preparation page — unchanged; it remains the single source of truth.
-
-### Verification
-
-- Reload the quadratic-formula notebook used in the screenshot; the first row chips must read exactly `+5x  =0  2x²  +3` on the Smartboard, matching the preparation panel.
-- Run existing tests: `floatingHighlightsBackend`, `floatingExtractorBackend`, `manualFloatingPromoter`. Add a regression test asserting that a teacher chip beginning with `+` survives `buildReservoirs` unchanged when present in `bucket.fillers`.
-- Manually shuffle chips on the preparation page (move `+5x` to position 1) and re-open the presentation — sign must persist.
-
-## Files touched
-
-- `src/lib/smartboard/presentation.ts` — remove sign stripping on teacher-sourced chips, add parity guard.
-- `src/test/` — new small regression test for the teacher-chip parity rule.
+## Verification
+- Manually drive a 5-chip equation in the live preview: tap leftmost chip → confirm tapped chip jumps to blue (far-left), remaining 4 slide left, 5th unused appears on right.
+- Tap until right queue empty → confirm oldest blue chip cycles back to right side as plain white, window stays at 5.
+- Single-token reservoir (`a`) → confirm the visible 5 shows `a a a a a` and rotates without going empty.
+- Backward/forward chevrons still reveal/hide blue chips with no layout change.
