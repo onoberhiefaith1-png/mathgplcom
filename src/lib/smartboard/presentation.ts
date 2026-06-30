@@ -70,6 +70,11 @@ const cleanFragments = (items: string[] | undefined | null): string[] =>
     .map((item) => toUnicodeMath(String(item ?? "")))
     .filter((item) => item && !isStillDirty(item));
 
+const cleanTeacherFragments = (items: string[] | undefined | null): string[] =>
+  (items ?? [])
+    .map((item) => String(item ?? ""))
+    .filter((item) => item.trim().length > 0);
+
 const fillersFromEquation = (equation: string): string[] =>
   dropContextualLeadingPlus(
     extractTermsFromAscii(equation)
@@ -352,7 +357,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           const fills = isNotebookOnly
             ? []
             : (teacherProvided
-                ? cleanFragments(ordered)
+                ? cleanTeacherFragments(ordered)
                 : dropContextualLeadingPlus(cleanFragments(ordered)));
           const start = fragmentsFromLines.length;
           fragmentsFromLines.push(...fills);
@@ -386,11 +391,11 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // machine fallback derived from solutionLines may be normalised.
       const bucketCombined =
         bucket?.fillers && bucket.fillers.length > 0
-          ? cleanFragments(bucket.fillers)
+          ? cleanTeacherFragments(bucket.fillers)
           : bucket?.viewCombined && bucket.viewCombined.length > 0
-            ? cleanFragments(bucket.viewCombined)
+            ? cleanTeacherFragments(bucket.viewCombined)
             : bucket?.viewRearranged && bucket.viewRearranged.length > 0
-              ? cleanFragments(bucket.viewRearranged)
+              ? cleanTeacherFragments(bucket.viewRearranged)
               : [];
       const solutionFallback = dropContextualLeadingPlus(
         cleanFragments(solutionLines.flatMap(fillersFromEquation)),

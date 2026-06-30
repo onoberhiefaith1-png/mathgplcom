@@ -4,7 +4,6 @@
 // Master Floating Bucket the Smartboard will later scroll through.
 
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
-import { dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
 
 export type ContainerKind =
   | "fraction"
@@ -123,10 +122,10 @@ export const compileBucket = (lines: FloatingLine[]): FloatingBucket => {
       const v = toUnicodeMath(String(rawFillers[i] ?? ""));
       if (v && !isStillDirty(v)) cleanedWithIdx.push({ v, sel: !!rawSelected[i] });
     }
-    const beforeDrop = cleanedWithIdx.map((c) => c.v);
-    const afterDrop = dropContextualLeadingPlus(beforeDrop);
-    // dropContextualLeadingPlus keeps the same length & order, only rewriting values.
-    const cleanFillers = afterDrop;
+    // Teacher chips are presentation-source-of-truth. Preserve every saved
+    // highlighted/edited filler exactly after display-safety unicode cleanup:
+    // no sign stripping, no splitting, no reconstruction.
+    const cleanFillers = cleanedWithIdx.map((c) => c.v);
     const cleanSelected = cleanedWithIdx.map((c) => c.sel);
       const cleanArrangement = cleanFillers.length === rawFillers.length
       ? (line.arrangement ?? identityArrangement(cleanFillers.length))
