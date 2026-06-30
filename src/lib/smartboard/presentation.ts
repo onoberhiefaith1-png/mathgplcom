@@ -264,7 +264,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | null
         | undefined;
       const rawLines = (sub as any).floating_lines as
-        | { equation?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string }[]
+        | { equation?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; arrangement?: number[] }[]
         | null
         | undefined;
       // Highlights are the source of truth for "Notebook N" pairing — each
