@@ -497,8 +497,10 @@ export const FloatingNumberPanel = ({
     <div
       data-sb-chrome
       data-floating-halo
-      onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
-      onPointerUp={(e) => { e.stopPropagation(); }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       onClick={(e) => { e.stopPropagation(); }}
       style={{
         position: "absolute",
@@ -514,6 +516,8 @@ export const FloatingNumberPanel = ({
         // caret. The visible chrome stays inside; only the hit zone grows.
         padding: "28px 32px",
         margin: "-22px -24px",
+        cursor: armRef.current?.dragging ? "grabbing" : "grab",
+        touchAction: "none",
         // No background — blends into the board.
       }}
     >
