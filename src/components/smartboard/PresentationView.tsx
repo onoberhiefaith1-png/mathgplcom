@@ -1077,7 +1077,6 @@ const PresentationView = ({
     if (!mirror.ok || mirror.row.length === 0) return;
     const sig = mirror.signature;
     setFreeLines((prev) => {
-      const before = prev[sensor.line] ?? [];
       let maxLine = -1;
       for (const k of Object.keys(prev)) {
         const n = Number(k);
@@ -1104,7 +1103,7 @@ const PresentationView = ({
         return ns;
       });
       setSensor((s) => ({ ...s, line: target + 1 + extraRowsFor(target), x: 0 }));
-      setLiveCursor({ path: [], index: before.length });
+      setLiveCursor({ path: [], index: 0 });
       activeSensorLogicalIdxRef.current = null;
       activeSensorPhysicalLineRef.current = target + 1 + extraRowsFor(target);
       manualPushedRef.current = null;
