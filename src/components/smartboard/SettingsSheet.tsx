@@ -55,7 +55,7 @@ export const SettingsSheet = ({
   chromeFg,
   chromeBorder,
   surfaceBg,
-  lineSpacing = 1,
+  lineSpacing = 0,
   setLineSpacing,
   textScale = 1,
   setTextScale,
@@ -222,19 +222,19 @@ export const SettingsSheet = ({
                 <p className="text-[10px] uppercase tracking-[0.25em] opacity-60">
                   Lesson Line Spacing
                 </p>
-                <span className="text-[10px] opacity-60">{Math.round(lineSpacing * 100)}%</span>
+                <span className="text-[10px] opacity-60">{Math.round(clampLineSpacing(lineSpacing) * 100)}%</span>
               </div>
               <input
                 type="range"
-                min={60}
-                max={200}
+                min={0}
+                max={100}
                 step={1}
-                value={Math.round(lineSpacing * 100)}
+                value={Math.round(clampLineSpacing(lineSpacing) * 100)}
                 onChange={(e) => setLineSpacing(clampLineSpacing(Number(e.target.value) / 100))}
                 className="w-full"
               />
               <p className="text-[10px] opacity-50 mt-1">
-                Adjusts only the vertical gap between lesson lines. Math and text are unchanged.
+                0% adds no extra blank gap; higher values separate complete lesson lines.
               </p>
             </section>
           )}
