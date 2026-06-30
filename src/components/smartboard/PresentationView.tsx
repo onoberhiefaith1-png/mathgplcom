@@ -31,6 +31,7 @@ import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
 import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
+import { CursorScrollbar } from "./CursorScrollbar";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
@@ -1436,6 +1437,39 @@ const PresentationView = ({
   };
 
 
+
+  /** Dedicated cursor-up/down nudge for the CursorScrollbar. Steps to the
+   *  next writable physical row inside the active band, skipping locked
+   *  notebook-prose rows. Snaps x back to the master left margin. */
+  const nudgeCursor = useCallback((dir: 1 | -1) => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+    const a = bandStart(activeLayout);
+    const b = bandEnd(activeLayout);
+    let cand = Math.floor(sensor.line) + dir;
+    while (cand >= a && cand <= b && notebookRowLines.has(cand)) cand += dir;
+    if (cand < a || cand > b) return;
+    setSensor((s) => ({ ...s, line: cand, x: 0 }));
+    setLiveCursor({ path: [], index: 0 });
+  }, [activeLayout, sensor.line, notebookRowLines, setLiveCursor]);
+
+  const canCursorUp = (() => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
+    const a = bandStart(activeLayout);
+    let cand = Math.floor(sensor.line) - 1;
+    while (cand >= a && notebookRowLines.has(cand)) cand -= 1;
+    return cand >= a;
+  })();
+  const canCursorDown = (() => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
+    const b = bandEnd(activeLayout);
+    let cand = Math.floor(sensor.line) + 1;
+    while (cand <= b && notebookRowLines.has(cand)) cand += 1;
+    return cand <= b;
+  })();
+
+
+
+
   // Carrier appears only for numbered-content beats (Example / Exercise /
   // Classwork / Homework). Stays hidden during cover, topic, intro,
   // explanation and summary.
@@ -1564,8 +1598,13 @@ const PresentationView = ({
   // they enforce "Presentation decides → cursor follows".
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout) return;
+    // Cursor follows ONLY the automatic floating-line index (driven by
+    // sensor position). The Floating Number panel's ▲/▼ updates
+    // `manualFloatingLineIdx` to change which chip set is shown, but it
+    // must NEVER move the writing cursor — that is now the job of the
+    // dedicated CursorScrollbar on the left rail.
     const idx = Math.min(
-      manualFloatingLineIdx ?? floatingLineIdx,
+      floatingLineIdx,
       guidedLines.length - 1,
     );
     // A presentation "line" is NOT a board row — a single logical line may
@@ -1620,7 +1659,7 @@ const PresentationView = ({
     activeSensorLogicalIdxRef.current = idx;
     activeSensorPhysicalLineRef.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line]);
+  }, [floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
@@ -2792,92 +2831,10 @@ const PresentationView = ({
               single source of line status (no duplicate left-edge indicators). */}
 
 
-          {/* Left-side LINE NAVIGATOR — selects which line's floating numbers
-              show in the panel. Visible only while the left tools (undo/redo)
-              hit-zone is hovered, then fades after 5 s. */}
-          {activeLayout && activeLayout.bandLines > 0 && hasGuidedLines && (() => {
-            const bandTopPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
-            const bandBotPx = grid.MARGIN_TOP + (bandEnd(activeLayout) + 1) * grid.LINE_HEIGHT;
-            const cur = (manualFloatingLineIdx ?? Math.min(floatingLineIdx, guidedLines.length - 1)) + 1;
-            const total = guidedLines.length;
-            const setLine = (n: number) => {
-              const clamped = Math.max(1, Math.min(total, n));
-              setManualFloatingLineIdx(clamped - 1);
-              revealLeftTools();
-            };
-            return (
-              <div
-                data-sb-chrome
-                onPointerDown={(e) => { e.stopPropagation(); revealLeftTools(); }}
-                style={{
-                  position: "absolute",
-                  left: 28,
-                  top: (bandTopPx + bandBotPx) / 2 - 60,
-                  zIndex: 26,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 4,
-                  opacity: leftToolsVisible ? 1 : 0,
-                  transition: "opacity 220ms ease",
-                  pointerEvents: leftToolsVisible ? "auto" : "none",
-                  color: palette.chromeFg,
-                  userSelect: "none",
-                }}
-                aria-label="Floating-number line navigator"
-              >
-                <button
-                  onClick={(e) => { e.stopPropagation(); setLine(cur - 1); }}
-                  disabled={cur <= 1}
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: palette.chromeFg,
-                    opacity: cur > 1 ? 1 : 0.3,
-                    cursor: cur > 1 ? "pointer" : "default",
-                    padding: 2,
-                    display: "inline-flex",
-                  }}
-                  aria-label="Previous line"
-                >
-                  <ChevronUp size={20} />
-                </button>
-                <div
-                  style={{
-                    minWidth: 32,
-                    padding: "2px 8px",
-                    border: `1px solid ${palette.chromeBorder}`,
-                    borderRadius: 8,
-                    background: palette.chromeBg,
-                    color: palette.chromeFg,
-                    fontVariantNumeric: "tabular-nums",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    textAlign: "center",
-                  }}
-                  title={`Floating-number line ${cur} of ${total}`}
-                >
-                  {cur}
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setLine(cur + 1); }}
-                  disabled={cur >= total}
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: palette.chromeFg,
-                    opacity: cur < total ? 1 : 0.3,
-                    cursor: cur < total ? "pointer" : "default",
-                    padding: 2,
-                    display: "inline-flex",
-                  }}
-                  aria-label="Next line"
-                >
-                  <ChevronDown size={20} />
-                </button>
-              </div>
-            );
-          })()}
+          {/* Left-side line navigator REMOVED — the Floating Number panel's
+              own ▲/▼ is now the single control for switching floating-number
+              sets. Cursor movement lives in <CursorScrollbar/> below. */}
+
 
 
         </WritingSurface>
@@ -3224,86 +3181,10 @@ const PresentationView = ({
         >
           <Redo2 className="h-5 w-5" />
         </button>
-        {/* Prev / Next section — mirror the top-bar Prev/Next. */}
-        <button
-          onClick={() => { setBeatCursor((c) => Math.max(0, c - 1)); revealLeftTools(); }}
-          disabled={beatCursor <= 0}
-          aria-label="Previous section"
-          title="Previous section"
-          className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
-          style={{
-            width: 40, height: 40,
-            background: palette.chromeBg,
-            color: palette.chromeFg,
-            borderColor: palette.chromeBorder,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-            backdropFilter: "blur(10px)",
-            opacity: beatCursor <= 0 ? 0.3 : 0.95,
-          }}
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { canAdvanceBeat && setBeatCursor((c) => Math.min(beats.length - 1, c + 1)); revealLeftTools(); }}
-          disabled={!canAdvanceBeat}
-          aria-label="Next section"
-          title="Next section"
-          className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
-          style={{
-            width: 40, height: 40,
-            background: palette.chromeBg,
-            color: palette.chromeFg,
-            borderColor: palette.chromeBorder,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-            backdropFilter: "blur(10px)",
-            opacity: !canAdvanceBeat ? 0.3 : 0.95,
-          }}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        {/* Prev / Next section + Smart Line + Two-point line have moved
+            to the right rail (below). The left rail now keeps Undo / Redo
+            (and Box, below) plus the dedicated CursorScrollbar. */}
 
-        {/* Smart Line — drops a new draggable horizontal stroke onto the
-            canvas. Use it as a wide fraction bar, division stroke, or
-            strike-through for cancellation. */}
-        <button
-          onClick={() => { spawnSmartLine(); revealLeftTools(); }}
-          aria-label="Drop line"
-          title="Drop a line (fraction bar / strike-through)"
-          className="grid place-items-center rounded-full border transition-all"
-          style={{
-            width: 40, height: 40,
-            background: palette.chromeBg,
-            color: palette.chromeFg,
-            borderColor: palette.chromeBorder,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-            backdropFilter: "blur(10px)",
-            opacity: 0.95,
-          }}
-        >
-          <MinusIcon className="h-5 w-5" />
-        </button>
-
-        {/* Dot — two-tap line drawing. Tap to arm, then tap two points on
-            the board and a straight Smart Line is drawn between them. */}
-        <button
-          onClick={() => { if (dotArmed) disarmDot(); else armDot(); revealLeftTools(); }}
-          aria-label="Two-point line"
-          title="Tap to arm, then tap two points to draw a line"
-          className="grid place-items-center rounded-full border transition-all"
-          style={{
-            width: 40, height: 40,
-            background: palette.chromeBg,
-            color: dotArmed ? ink : palette.chromeFg,
-            borderColor: dotArmed ? ink : palette.chromeBorder,
-            boxShadow: dotArmed
-              ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
-              : "0 2px 10px rgba(0,0,0,0.14)",
-            backdropFilter: "blur(10px)",
-            opacity: 0.95,
-          }}
-        >
-          <CircleIcon className="h-3 w-3" fill="currentColor" />
-        </button>
 
         {/* Box — drops a draggable labelled cell. Drag onto a Smart Line
             to magnet it as numerator (above) or denominator (below). */}
@@ -3334,6 +3215,112 @@ const PresentationView = ({
 
 
       </div>
+
+      {/* Dedicated Cursor Scrollbar — always visible while the carrier is
+          active. Independent from the Floating Number panel's ▲/▼: this
+          ONLY moves the writing sensor. */}
+      {canEdit && carrierVisible && hasGuidedLines && (
+        <CursorScrollbar
+          onUp={() => nudgeCursor(-1)}
+          onDown={() => nudgeCursor(1)}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          leftPx={12}
+          topCss="calc(50% + 140px)"
+          canUp={canCursorUp}
+          canDown={canCursorDown}
+        />
+      )}
+
+      {/* RIGHT rail — relocated section navigation, Smart Line and Dot. */}
+      {canEdit && carrierVisible && (
+        <div
+          data-sb-chrome
+          className="absolute z-30 flex flex-col items-center gap-2"
+          style={{
+            right: 12,
+            top: "calc(50% - 140px)",
+            userSelect: "none",
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { setBeatCursor((c) => Math.max(0, c - 1)); }}
+            disabled={beatCursor <= 0}
+            aria-label="Previous section"
+            title="Previous section"
+            className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: palette.chromeFg,
+              borderColor: palette.chromeBorder,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: beatCursor <= 0 ? 0.3 : 0.95,
+            }}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { if (canAdvanceBeat) setBeatCursor((c) => Math.min(beats.length - 1, c + 1)); }}
+            disabled={!canAdvanceBeat}
+            aria-label="Next section"
+            title="Next section"
+            className="grid place-items-center rounded-full border transition-all disabled:opacity-30"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: palette.chromeFg,
+              borderColor: palette.chromeBorder,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: !canAdvanceBeat ? 0.3 : 0.95,
+            }}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { spawnSmartLine(); }}
+            aria-label="Drop line"
+            title="Drop a line (fraction bar / strike-through)"
+            className="grid place-items-center rounded-full border transition-all"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: palette.chromeFg,
+              borderColor: palette.chromeBorder,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: 0.95,
+            }}
+          >
+            <MinusIcon className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { if (dotArmed) disarmDot(); else armDot(); }}
+            aria-label="Two-point line"
+            title="Tap to arm, then tap two points to draw a line"
+            className="grid place-items-center rounded-full border transition-all"
+            style={{
+              width: 40, height: 40,
+              background: palette.chromeBg,
+              color: dotArmed ? ink : palette.chromeFg,
+              borderColor: dotArmed ? ink : palette.chromeBorder,
+              boxShadow: dotArmed
+                ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
+                : "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: 0.95,
+            }}
+          >
+            <CircleIcon className="h-3 w-3" fill="currentColor" />
+          </button>
+        </div>
+      )}
+
+
 
 
 
