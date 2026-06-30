@@ -1009,7 +1009,12 @@ const PresentationView = ({
           if (rowSignature(row) === sig) return prev;
         }
       }
-      const target = Math.max(maxLine + 1, sensor.line);
+      // Structure-aware placement: if the row above holds a tall Lesson
+      // Object (stacked fraction, radical, matrix…), its measured DOM
+      // height already extends past its baseline row. Skip those extra
+      // physical rows so the new prose never lands inside a denominator.
+      const extra = maxLine >= 0 ? extraRowsFor(maxLine) : 0;
+      const target = Math.max(maxLine + 1 + extra, sensor.line);
       const next = { ...prev, [target]: mirror.row };
       // Tag this row as notebook prose so the sensor-anchor logic skips it
       // when computing the K-th writable line. The sensor jumps to the row
