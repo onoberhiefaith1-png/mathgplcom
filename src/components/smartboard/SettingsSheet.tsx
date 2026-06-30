@@ -224,25 +224,6 @@ export const SettingsSheet = ({
                 </p>
                 <span className="text-[10px] opacity-60">{Math.round(lineSpacing * 100)}%</span>
               </div>
-              <div className="grid grid-cols-4 gap-1.5 mb-2">
-                {LINE_SPACING_PRESETS.map((p) => {
-                  const active = Math.abs(lineSpacing - p.value) < 0.02;
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => setLineSpacing(p.value)}
-                      className="rounded-md border px-2 py-1.5 text-[11px]"
-                      style={{
-                        borderColor: active ? chromeFg : chromeBorder,
-                        background: active ? "rgba(0,0,0,0.05)" : "transparent",
-                        color: chromeFg,
-                      }}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
-              </div>
               <input
                 type="range"
                 min={60}
