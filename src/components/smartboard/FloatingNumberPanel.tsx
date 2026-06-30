@@ -466,6 +466,7 @@ export const FloatingNumberPanel = ({
   } | null>(null);
   const onPointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
+    onPing();
     armRef.current = { startY: e.clientY, baseY: y, pointerId: e.pointerId, dragging: false, lastY: y };
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ }
   };
@@ -485,6 +486,7 @@ export const FloatingNumberPanel = ({
     const clamped = Math.min(bottomYPx, Math.max(upper, next));
     a.lastY = clamped;
     setY(clamped);
+    onPing();
     e.preventDefault();
   };
   const onPointerUp = (e: React.PointerEvent) => {
@@ -494,6 +496,7 @@ export const FloatingNumberPanel = ({
     setIsDragging(false);
     if (a.dragging) {
       onCommitY(a.lastY);
+      onPing();
       try { (e.currentTarget as HTMLElement).releasePointerCapture(a.pointerId); } catch { /* noop */ }
       window.setTimeout(() => { suppressClickRef.current = false; }, 0);
     } else {
