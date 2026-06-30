@@ -62,7 +62,7 @@ const LineRender = ({
   cursor: Cursor;
   caretColor: string;
   onCursorChange: (c: Cursor) => void;
-  onMeasure?: (line: number, w: number) => void;
+  onMeasure?: (line: number, w: number, h: number) => void;
 }) => {
   const ref = useRef<HTMLDivElement | null>(null);
   const { top, left } = entryPosition({ line, x: xOffset }, grid);
@@ -70,8 +70,8 @@ const LineRender = ({
   useEffect(() => {
     if (!ref.current || !onMeasure) return;
     const measure = () => {
-      const w = ref.current?.getBoundingClientRect().width ?? 0;
-      onMeasure(line, w);
+      const r = ref.current?.getBoundingClientRect();
+      onMeasure(line, r?.width ?? 0, r?.height ?? 0);
     };
     measure();
     const ro = new ResizeObserver(measure);
