@@ -1391,6 +1391,38 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownNotebookIdx, activeReservoirIdx]);
 
+  // Persist Lesson-Line cursor (beat + active logical line) so a reload
+  // restores the teacher to the same teaching step.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        LESSON_CURSOR_KEY,
+        JSON.stringify({ beatCursor, activeLineIdx }),
+      );
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beatCursor, activeLineIdx]);
+
+  // On first mount, restore activeLineIdx for the current beat from
+  // localStorage so the floating-number strip and sensor pick up where
+  // the teacher left off.
+  const didRestoreLessonCursorRef = useRef(false);
+  useEffect(() => {
+    if (didRestoreLessonCursorRef.current) return;
+    if (activeReservoirIdx < 0) return;
+    didRestoreLessonCursorRef.current = true;
+    try {
+      const raw = localStorage.getItem(LESSON_CURSOR_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed?.activeLineIdx === "number" && parsed.activeLineIdx > 0) {
+        setActiveLineIdx(parsed.activeLineIdx);
+        setFloatingLineIdx(parsed.activeLineIdx);
+      }
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeReservoirIdx]);
+
 
   const activeReservoir = activeReservoirIdx >= 0 ? reservoirs[activeReservoirIdx] : undefined;
   const guidedLines = activeReservoir?.lines ?? [];
