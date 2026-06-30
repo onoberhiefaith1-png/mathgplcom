@@ -1224,7 +1224,12 @@ const PresentationView = ({
       return { caption: lines, band: 0 };
     }
     if (b.kind === "problem" || b.kind === "exercise-prompt") {
-      return { caption: Math.max(2, Math.ceil((b.content?.split(/\r?\n/).length ?? 1) + 1)), band: 12 };
+      const problemTextLines = Math.max(1, b.content?.split(/\r?\n/).length ?? 1);
+      // Reserve rows for: optional example caption, question text, the
+      // auto-written “Solution” label, then one clear baseline below it.
+      // The first writable row must begin below “Solution”, never in the
+      // gap between the question and that label.
+      return { caption: Math.max(4, problemTextLines + 3), band: 12 };
     }
     return { caption: 2, band: 0 };
   };
