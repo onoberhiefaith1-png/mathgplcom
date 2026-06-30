@@ -2136,10 +2136,13 @@ const PresentationView = ({
           places the writing sensor on the nearest invisible baseline. */}
       <main
         ref={boardScrollRef}
-        className="relative z-10 h-full w-full overflow-y-auto transition-[padding] duration-500 ease-out"
+        className="relative z-10 h-full w-full overflow-y-auto"
         style={{
           paddingTop: 24,
-          paddingBottom: 24 + (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT),
+          // Reserve only the COLLAPSED bottom-tab height. Expanding the
+          // Writing Lab no longer reflows the canvas — the panel floats
+          // above as an overlay (see BottomPanel mount below).
+          paddingBottom: 24 + TAB_HEIGHT,
           paddingRight: 0,
           cursor: eraseMode ? "cell" : undefined,
         }}
