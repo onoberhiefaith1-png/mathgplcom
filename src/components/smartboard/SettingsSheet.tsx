@@ -13,6 +13,12 @@ import {
   WritingProfileId,
 } from "@/lib/smartboard/writingProfiles";
 import { COLOR_LIST, InkColorId, resolveInk } from "@/lib/smartboard/inkColors";
+import {
+  LINE_SPACING_PRESETS,
+  TEXT_SIZE_PRESETS,
+  clampLineSpacing,
+  clampTextScale,
+} from "@/lib/smartboard/grid";
 import { WritingSurface } from "./WritingSurface";
 import { WritingLab } from "./WritingLab";
 
@@ -31,6 +37,12 @@ interface Props {
   chromeFg: string;
   chromeBorder: string;
   surfaceBg: string;
+  /** Lesson Line Spacing multiplier (applies only to vertical gap). */
+  lineSpacing?: number;
+  setLineSpacing?: (v: number) => void;
+  /** Text Size multiplier (applies only to content font, not page). */
+  textScale?: number;
+  setTextScale?: (v: number) => void;
 }
 
 const SAMPLE_SRC = "x^{2} + 5x - 7";
