@@ -806,6 +806,15 @@ const PresentationView = ({
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
   ) => {
     const line = sensor.line;
+    // Notebook-prose rows are sensor-restricted: they render auto-generated
+    // narration ("The quadratic formula is:") and must never be editable.
+    // The sensor must also never settle on one — if it has, swallow the
+    // edit. This is the partner of the click-gate on FreeWriteLayer below.
+    const floorLine = Math.floor(line);
+    if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
+      hiddenInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
     setFreeLines((prev) => {
       const row = prev[line] ?? [];
       const res = fn(row, cursor);
