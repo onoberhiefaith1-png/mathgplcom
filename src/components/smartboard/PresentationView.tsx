@@ -2087,21 +2087,20 @@ const PresentationView = ({
             onMeasure={handleLineMeasure}
             onCursorChange={(line, c) => {
               // ── LINE LOCKING ────────────────────────────────────────────
-              // The cursor must follow Presentation, not the other way
-              // around. Only the lesson line currently active in the
-              // Floating Number panel (curLineIdx) is editable. Clicks on
-              // any locked equation are swallowed so the caret cannot move
-              // there and typing cannot leak into older lines. To correct
-              // an earlier step the teacher steps back through Presentation
-              // (Prev/Next on the floating panel or the line navigator),
-              // which advances curLineIdx and re-opens that line.
+              // Only the line currently active in the Floating Number panel
+              // is editable. Clicks on locked lines AND on notebook-prose
+              // rows are swallowed so the caret cannot drift backwards into
+              // a previous line or into a read-only narration row.
+              const floorLine = Math.floor(line);
+              if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
+                return; // notebook prose — sensor-restricted area
+              }
               if (hasGuidedLines && activeLayout) {
-                const curLineIdx = Math.min(
-                  manualFloatingLineIdx ?? floatingLineIdx,
-                  guidedLines.length - 1,
-                );
-                const activeBoardRow = bandStart(activeLayout) + curLineIdx;
-                if (line !== activeBoardRow) return; // locked — swallow
+                // The anchor effect has already placed sensor.line on the
+                // correct K-th-occupied (non-notebook) row for the current
+                // lesson line. Use that as the single source of truth so
+                // both the click-gate and notebook-skipping stay in sync.
+                if (Math.floor(sensor.line) !== floorLine) return;
               }
               const clamped = clampToActiveBand(line);
               if (clamped !== sensor.line) setSensor((s) => ({ ...s, line: clamped }));
