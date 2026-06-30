@@ -1298,19 +1298,45 @@ const PresentationView = ({
   const activeSensorLogicalIdxRef = useRef<number | null>(null);
   const activeSensorPhysicalLineRef = useRef<number | null>(null);
 
-  // Reset composer state every time the active example changes.
+  // Persist "notebook already shown" per reservoir across reloads so the
+  // teacher is never re-prompted to insert a notebook that's already on the
+  // board.
+  const SHOWN_NB_KEY = `smartboard:shownNotebooks:${notebookId ?? "_"}:${activeReservoirIdx}`;
+
+  // Reset composer state every time the active example changes. We do NOT
+  // force activeLineIdx back to 0: the resume effect below will scan the
+  // board and place the teacher on the next unsolved lesson line.
   useEffect(() => {
     setActiveLineIdx(0);
     setFloatingLineIdx(0);
     setManualFloatingLineIdx(null);
     setNotebookRevealIdx(null);
-    setShownNotebookIdx(new Set());
+    // Hydrate persisted "notebook shown" set for this reservoir.
+    let restored: Set<number> = new Set();
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(SHOWN_NB_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) restored = new Set(parsed.filter((n: unknown) => typeof n === "number"));
+      }
+    } catch { /* noop */ }
+    setShownNotebookIdx(restored);
     setConsumedAbsIdx(new Set());
     setConsumedStructures(new Set());
     setNotebookRowLines(new Set());
     activeSensorLogicalIdxRef.current = null;
     activeSensorPhysicalLineRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
+
+  // Persist shownNotebookIdx whenever it changes.
+  useEffect(() => {
+    if (activeReservoirIdx < 0) return;
+    try {
+      window.localStorage.setItem(SHOWN_NB_KEY, JSON.stringify(Array.from(shownNotebookIdx)));
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownNotebookIdx, activeReservoirIdx]);
 
 
   const activeReservoir = activeReservoirIdx >= 0 ? reservoirs[activeReservoirIdx] : undefined;
