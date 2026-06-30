@@ -2490,16 +2490,22 @@ const PresentationView = ({
             const bandTopPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
             const bandBotPx = grid.MARGIN_TOP + (bandEnd(activeLayout) + 1) * grid.LINE_HEIGHT;
             // Final written line within this band — drives the upper drag clamp.
-            let lastLine = bandStart(activeLayout) - 1;
+            // Use measured DOM heights so tall structures (fractions, roots,
+            // matrices) contribute their *full* vertical extent — never just
+            // their first row. Falls back to one row pitch if unmeasured.
+            let finalLineBottomPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
             for (const k of Object.keys(freeLines)) {
               const ln = Number(k);
               if (!freeLines[ln] || freeLines[ln].length === 0) continue;
               const flr = Math.floor(ln);
-              if (flr >= bandStart(activeLayout) && flr <= bandEnd(activeLayout) && flr > lastLine) {
-                lastLine = flr;
-              }
+              if (flr < bandStart(activeLayout) || flr > bandEnd(activeLayout)) continue;
+              const topPx = grid.MARGIN_TOP + ln * grid.LINE_HEIGHT;
+              const measured = lineHeightsRef.current[ln] ?? grid.LINE_HEIGHT;
+              const botPx = topPx + Math.max(grid.LINE_HEIGHT, measured);
+              if (botPx > finalLineBottomPx) finalLineBottomPx = botPx;
             }
-            const finalLineBottomPx = grid.MARGIN_TOP + (lastLine + 1) * grid.LINE_HEIGHT;
+            // Reference `heightsTick` so this block re-runs when measurements update.
+            void heightsTick;
             // Band-bottom anchor (original behaviour) — may sit below the fold.
             const bandDefaultY = bandBotPx - grid.LINE_HEIGHT * 0.6;
             // Viewport-aware default: drop the panel near the bottom of the
