@@ -235,23 +235,19 @@ export const FloatingNumberPanel = ({
 
   type Slot = { token: string; absIdx: number };
 
-  /** Full ordered slot list for the active line — ALL fragments (used +
-   *  unused) in the teacher's saved order. The rotation cycles the entire
-   *  equation; chips already consumed reappear as plain white when they
-   *  loop back from the right (still tappable for re-use). */
-  const allSlots = useMemo<Slot[]>(() => {
+  /** AVAILABLE zone (right) — active line's UNUSED fragments, teacher's
+   *  saved order. Tapping one consumes it → moves to Used. */
+  const availableSlots = useMemo<Slot[]>(() => {
     if (fragments.length === 0) return [];
     if (useLineMode) {
-      const line = lines[activeLineIdx as number];
-      if (!line) return [];
-      const out: Slot[] = [];
-      for (let i = line.fragmentStart; i < line.fragmentEnd; i++) {
-        out.push({ token: fragments[i], absIdx: i });
-      }
-      return out;
+      const k = activeLineIdx as number;
+      return unconsumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
     }
-    return fragments.map((token, idx) => ({ token, absIdx: idx }));
-  }, [fragments, useLineMode, activeLineIdx, lines]); // eslint-disable-line react-hooks/exhaustive-deps
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    return fragments
+      .map((token, idx) => ({ token, absIdx: idx }))
+      .filter((s) => !consumed.has(s.absIdx));
+  }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** USED zone (left) — the active line's fragments already tapped/used. */
   const usedSlots = useMemo<Slot[]>(() => {
@@ -266,24 +262,14 @@ export const FloatingNumberPanel = ({
       .filter((s) => consumed.has(s.absIdx));
   }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset window position whenever beat or active line changes — the panel
-  // always opens on the first chip of the new line, showing no used numbers.
+  // Reset window position whenever beat or active line changes.
   useEffect(() => { setOffset(0); setReveal(0); }, [beatId, activeLineIdx]);
 
-  // Snap back to 0 whenever the unconsumed pool shrinks (a chip was just
-  // consumed) — keeps the next required chip in the viewport even if the
-  // teacher had manually scrolled away.
-  const prevLenRef = useRef<number>(allSlots.length);
+  // Wrap offset within availableSlots length so the unused strip rotates.
   useEffect(() => {
-    if (allSlots.length < prevLenRef.current) setOffset(0);
-    prevLenRef.current = allSlots.length;
-  }, [allSlots.length]);
-
-  // Wrap offset within allSlots length so the unused strip rotates forever.
-  useEffect(() => {
-    if (allSlots.length === 0) { setOffset(0); return; }
-    setOffset((o) => ((o % allSlots.length) + allSlots.length) % allSlots.length);
-  }, [allSlots.length]);
+    if (availableSlots.length === 0) { setOffset(0); return; }
+    setOffset((o) => ((o % availableSlots.length) + availableSlots.length) % availableSlots.length);
+  }, [availableSlots.length]);
 
   // Keep `usedOrder` reconciled with the parent's consumed set: drop numbers no
   // longer used, append any newly-consumed ones (the tap handler already appends
@@ -301,7 +287,7 @@ export const FloatingNumberPanel = ({
   }, [consumedAbsIdx]);
 
   // Used numbers for the active line, ordered MOST-RECENT FIRST so the last
-  // chip the teacher tapped sits leftmost in the used zone (reversed view).
+  // chip the teacher tapped sits leftmost in the used zone.
   const revealedUsed = useMemo<Slot[]>(() => {
     const inScope = new Set(usedSlots.map((s) => s.absIdx));
     return usedOrder
@@ -311,52 +297,64 @@ export const FloatingNumberPanel = ({
       .map((i) => ({ token: fragments[i], absIdx: i }));
   }, [usedOrder, usedSlots, fragments]);
 
-  // Clamp reveal to the number of used numbers available.
-  const clampedReveal = Math.min(reveal, revealedUsed.length);
+  // ── Auto-recycle ──────────────────────────────────────────────────────
+  // When the Available (white) zone is fully empty but used chips exist,
+  // the OLDEST used chip is auto-returned to Available so the teacher can
+  // keep tapping. Recycled chips render as plain white again. The cycle
+  // continues forever (tap empties → oldest recycles → tap empties → …).
   useEffect(() => {
-    if (reveal > revealedUsed.length) setReveal(revealedUsed.length);
-  }, [reveal, revealedUsed.length]);
+    if (!useLineMode) return;
+    if (availableSlots.length > 0) return;
+    if (usedOrder.length === 0) return;
+    // Find the oldest used index that still belongs to the active line.
+    const k = activeLineIdx as number;
+    const ln = lines[k];
+    if (!ln) return;
+    const oldest = usedOrder.find((i) => i >= ln.fragmentStart && i < ln.fragmentEnd);
+    if (oldest == null) return;
+    setUsedOrder((prev) => prev.filter((i) => i !== oldest));
+    onUnuse?.(oldest);
+  }, [availableSlots.length, usedOrder, useLineMode, activeLineIdx, lines, onUnuse]);
 
-  // ── The single visible strip ──────────────────────────────────────────────
-  // Left zone: `clampedReveal` used chips, newest-first (already reversed in
-  // `revealedUsed`). Right zone: unused chips cycling through `allSlots` with
-  // modular indexing — the floating numbers ROTATE forever instead of
-  // running out. If only one unused chip remains it simply repeats across
-  // every visible slot.
+  // ── The single visible strip — TWO zones ──────────────────────────────
+  // Left zone: ALL revealed used chips (newest-first), capped so at least
+  // one slot remains for Available when Available is non-empty.
+  // Right zone: rotating window over Available.
   type StripSlot = Slot & { used: boolean };
   const windowSlots = useMemo<StripSlot[]>(() => {
+    const maxUsed = availableSlots.length === 0
+      ? WINDOW_SIZE
+      : Math.max(0, WINDOW_SIZE - 1);
+    const usedCount = Math.min(revealedUsed.length, maxUsed);
     const leftUsed: StripSlot[] = revealedUsed
-      .slice(0, clampedReveal)
+      .slice(0, usedCount)
       .map((s) => ({ ...s, used: true }));
     const needed = Math.max(0, WINDOW_SIZE - leftUsed.length);
-    const rightUnused: StripSlot[] = [];
-    if (allSlots.length > 0) {
-      for (let i = 0; i < needed; i++) {
-        const idx = ((offset + i) % allSlots.length + allSlots.length) % allSlots.length;
-        rightUnused.push({ ...allSlots[idx], used: false });
+    const rightAvail: StripSlot[] = [];
+    if (availableSlots.length > 0) {
+      for (let i = 0; i < needed && i < availableSlots.length; i++) {
+        const idx = ((offset + i) % availableSlots.length + availableSlots.length) % availableSlots.length;
+        rightAvail.push({ ...availableSlots[idx], used: false });
       }
     }
-    return [...leftUsed, ...rightUnused];
-  }, [revealedUsed, clampedReveal, allSlots, offset]);
+    return [...leftUsed, ...rightAvail];
+  }, [revealedUsed, availableSlots, offset]);
 
-  const canPrev = clampedReveal < revealedUsed.length || allSlots.length > 0;
-  const canNext = clampedReveal > 0 || allSlots.length > 0;
+  // `reveal` retained as state for backward compat with any external readers
+  // but no longer gates display; rotation arrows only cycle the Available pool.
+  const clampedReveal = reveal; // unused in render
+  void clampedReveal;
 
-  /** Backward ◀ — first reveal one more used chip (newest-first), then start
-   *  rotating the unused strip backwards. */
+  const canPrev = availableSlots.length > 1;
+  const canNext = availableSlots.length > 1;
+
   const goBackward = () => {
-    if (clampedReveal < revealedUsed.length) { setReveal((r) => r + 1); return; }
-    if (allSlots.length > 0) {
-      setOffset((o) => ((o - 1) % allSlots.length + allSlots.length) % allSlots.length);
-    }
+    if (availableSlots.length === 0) return;
+    setOffset((o) => ((o - 1) % availableSlots.length + availableSlots.length) % availableSlots.length);
   };
-  /** Forward ▶ — first hide any revealed used chip, then rotate the unused
-   *  strip forwards. Cycles indefinitely. */
   const goForward = () => {
-    if (clampedReveal > 0) { setReveal((r) => Math.max(0, r - 1)); return; }
-    if (allSlots.length > 0) {
-      setOffset((o) => (o + 1) % allSlots.length);
-    }
+    if (availableSlots.length === 0) return;
+    setOffset((o) => (o + 1) % availableSlots.length);
   };
 
   /** Tap an UNUSED chip: insert it on the board AND mark it used so it slides
