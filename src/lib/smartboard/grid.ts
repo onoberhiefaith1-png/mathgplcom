@@ -27,6 +27,9 @@ const MIN_ROW_PER_FONT = 1.28;
 /** Maximum extra gap added when the slider reaches 100%. */
 const MAX_EXTRA_GAP = 44;
 
+export const clampLineSpacing = (v: number) => Math.max(0, Math.min(1, v));
+export const clampTextScale = (v: number) => Math.max(0.7, Math.min(1.8, v));
+
 export interface Grid {
   MARGIN_LEFT: number;
   MARGIN_TOP: number;
@@ -97,5 +100,3 @@ export const entryPosition = (p: GridPoint, g: Grid = GRID) => ({
   lineHeight: `${g.LINE_HEIGHT}px`,
 });
 
-export const clampLineSpacing = (v: number) => Math.max(0, Math.min(1, v));
-export const clampTextScale = (v: number) => Math.max(0.7, Math.min(1.8, v));
