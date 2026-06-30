@@ -2811,7 +2811,17 @@ const PresentationView = ({
               }
             }
             if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
-            setSensor({ line: clampToActiveBand(nextLine), x: 0 });
+            const snapLine = clampToActiveBand(nextLine);
+            // Master-margin rule: new Lesson Lines never inherit the
+            // previous line's horizontal position. Clear any stale
+            // offset so the cursor snaps to MARGIN_LEFT.
+            setLineOffsets((m) => {
+              if (!(snapLine in m)) return m;
+              const next = { ...m };
+              delete next[snapLine];
+              return next;
+            });
+            setSensor({ line: snapLine, x: 0 });
             setLiveCursor({ path: [], index: 0 });
             return;
           }
