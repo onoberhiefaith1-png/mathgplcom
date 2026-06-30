@@ -1334,13 +1334,12 @@ const PresentationView = ({
       while (cand <= b && notebookRowLines.has(cand)) cand += 1;
       target = Math.min(b, cand);
     }
-    setSensor((s) => {
-      if (s.line === target) return s;
+    if (sensor.line !== target) {
+      setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
       setCursor({ path: [], index: 0 });
-      return { ...s, line: target, x: 0 };
-    });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines]);
+  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
