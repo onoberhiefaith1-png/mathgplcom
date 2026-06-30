@@ -533,6 +533,8 @@ export const FloatingNumberPanel = ({
         }}
       >
         <button
+          data-fn-nodrag
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); if (lineNumber && lineNumber > 1) { onPrevLine?.(); onPing(); } }}
           disabled={!lineNumber || lineNumber <= 1}
           title="Previous line"
@@ -547,15 +549,12 @@ export const FloatingNumberPanel = ({
           <ChevronUp size={16} />
         </button>
         <div
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          title="Drag vertically"
+          title="Drag vertically — or drag anywhere on the strip"
           style={{
             width: 14, height: 28, borderRadius: 4,
             background: `color-mix(in oklab, ${chromeFg} 35%, transparent)`,
             cursor: "grab", touchAction: "none",
+            pointerEvents: "none",
           }}
         />
         {lineNumber != null && lineCount != null && lineCount > 0 && (
