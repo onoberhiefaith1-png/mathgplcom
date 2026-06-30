@@ -1,55 +1,51 @@
-# Math Layout Engine Upgrade
+## Goal
 
-Four targeted rendering improvements. No interface redesign — only layout / settings additions.
+Make the two sliders in **Board Settings** actually do what their labels say, in the way you described in the voice note.
 
-## 1. Dynamic vertical spacing per lesson line
+- **Lesson Line Spacing** → grows only the vertical gap *between* lesson lines (between the "quadratic equation" paragraph and the "quadratic formula" paragraph, between the formula and the `x = …` equation, etc.). Inside one lesson line nothing moves — `2a` stays welded under the fraction bar of the quadratic formula.
+- **Text Size** → grows the actual lesson content (prose, equations, fractions, roots, exponents, variables, `2a`, `±`) proportionally, while page width, margins, top bar, settings panel and the smartboard chrome stay exactly the same.
 
-Today `Board.tsx` guesses row height from a heuristic (`asciiHint`) based on which node kinds appear. That gives stair-step heights but lets a tall structure (deep fraction, nested root, matrix) still collide with the next line.
+Right now the wiring is incomplete:
 
-Change: let each math row measure itself and report its actual rendered height; the line container reserves that height plus a comfortable margin above and below.
+- `grid.FONT_PX` is only piped into `BoxLayer` (the floating answer chips). The lesson canvas (`FreeWriteLayer` → `MathTreeRender`) has no `fontSize` and just inherits a fixed body size, so the Text Size slider visually does nothing to the equations.
+- `lineSpacing` is multiplied straight into `LINE_HEIGHT`, which is *also* what positions every internal structure (smart-line overlay, band math, panel anchors). Moving it shifts a lot of things at once, which is why the slider feels like it's resizing the whole "section" rather than just opening up the gap between two lesson lines.
 
-- Add a `LineMeasure` wrapper around the per-line `<MathRender>` (in `Board.tsx` and `PresentationView.tsx`) that uses a `ResizeObserver` on the inner content box.
-- Replace the `asciiHint` heuristic with `minHeight = max(baseLineHeight, measuredHeight + topPad + bottomPad)` where `topPad`/`bottomPad` come from the new Lesson Line Spacing setting (see §2).
-- Inside `MathTreeRender.tsx`, ensure structural nodes (`FracView`, `SqrtView`, nth root, matrix, large brackets, integrals, sums, stacked exponents) render with `display: inline-flex` and intrinsic top/bottom padding tied to their structural depth so the measured height already includes ascender/descender room. This removes the need to special-case node kinds in the parent.
-- Apply the same measured-height contract to the Smartboard `Board` rows, the Presentation view rows, and the Notebook viewport. Each line becomes a flex row with `align-items: center` and `min-height: measured`.
+## What changes
 
-Result: previous line → fraction → next line are always separated by the fraction's full bounding box plus the configured margin.
+### 1. Text Size becomes real
 
-## 2. Lesson Line Spacing setting
+`src/components/smartboard/FreeWriteLayer.tsx`
 
-Add a single CSS variable `--lesson-line-gap` driven by a new setting.
+- Read `grid.FONT_PX` and apply it as `fontSize` on each `LineRender`'s wrapping `<div>`. Because every math sub-structure inside `MathTreeRender` is sized in `em` (fractions, sqrt overlines, exponents, brackets, `2a` denominator, etc.), bumping the parent font scales the entire equation as one rigid unit.
+- Adjust `lineHeight` to `1` (the surrounding row height is still controlled by `grid.LINE_HEIGHT`, so we don't double-stretch).
 
-- Extend `SettingsSheet.tsx` (Smartboard) and the matching Lesson Notes settings panel with a new section "Lesson Line Spacing": preset chips Compact / Normal / Comfortable / Wide, plus a Custom slider (range 0–48 px).
-- Persist as `lessonLineGap` in the existing settings store (same place `surface`, `profile`, `inkColorId` live).
-- Apply by setting `--lesson-line-gap` on the board / document root; the line container in §1 reads it for `topPad` + `bottomPad`.
-- Only affects vertical gap between lesson lines — no font, page or math-scale change.
+`src/components/smartboard/PresentationView.tsx`
 
-## 3. Independent Text Size control
+- No prop changes; `grid` is already memoised from `getGrid(zoom, lineSpacing, textScale)`. Verify the canvas wrapper does not pin a fixed `fontSize` that would shadow `FreeWriteLayer`.
 
-Keep the existing page Zoom (`workspaceZoom`) untouched. Add a parallel control that scales content only.
+Result: dragging Text Size from 70%→180% smoothly grows every lesson line's text and math together. Page chrome, margins, sliders, settings panel and toolbars are untouched because none of them read `FONT_PX`.
 
-- New setting `textSize` (presets: S / M / L / XL + slider 0.8×–1.6×), persisted alongside the others.
-- Drive a second CSS variable `--sb-text-scale`. Multiply the existing `--sb-eq-size` and prose font sizes by it: `font-size: calc(var(--sb-eq-size) * var(--sb-text-scale))`. Math glyphs, fractions, roots, exponents inherit because they already size in `em`.
-- Do NOT touch the workspace transform, canvas width, margins, chrome, or settings panels. The page stays the same size; only the writing grows.
-- Expose the control in the same settings panel as Lesson Line Spacing, clearly labelled "Text Size" with the existing Zoom kept separate and labelled "Page Zoom".
+### 2. Lesson Line Spacing becomes "gap only"
 
-## 4. Placeholders disappear once filled
+`src/lib/smartboard/grid.ts`
 
-In `MathTreeRender.tsx` the dashed cube currently renders whenever a sub-row is empty. The required rule is per-slot: each placeholder vanishes as soon as that slot has any content, independently of its siblings.
+- Split `LINE_HEIGHT` into two parts:
+  - an **intrinsic row height** derived from `FONT_PX` so text never overlaps when Text Size grows (`intrinsic = FONT_PX * 1.85`);
+  - an **extra gap** controlled by the slider (`extraGap = (lineSpacing − 1) * BASE_EXTRA_GAP`, where `BASE_EXTRA_GAP ≈ 28 px`).
+- `LINE_HEIGHT = intrinsic + extraGap`. At `lineSpacing = 1` we keep the current default visual; below 1 the gap closes; above 1 it opens up — but the intrinsic row never collapses, so multi-line math (fractions, sqrt) never clips.
+- Keep `BASELINE_OFFSET`, `MARGIN_LEFT`, `MARGIN_TOP` unchanged.
+- Keep `clampLineSpacing` and `clampTextScale`. Remove the now-unused `LINE_SPACING_PRESETS` / `TEXT_SIZE_PRESETS` exports (already not rendered).
 
-- `RowView` keeps the dashed cube for a truly empty row (the slot has zero children).
-- Remove any logic that shows a placeholder cube for a non-empty row, including the "first child is a power/sub" case currently handled around lines 127–171. Replace it with: render the row's children; render the dashed cube only when `row.length === 0`.
-- For fractions: `FracView` renders numerator and denominator as two independent `RowView`s — each shows its own placeholder only while empty, so the example `12 / □` (top filled, bottom empty) works without any cross-slot coupling.
-- Same rule applies to: `SqrtView` radicand, nth-root index and radicand, exponent base/superscript slot, subscript slot, matrix cells, large-bracket body, integral bounds and integrand, sum bounds and summand.
-- Placeholders stay focusable as caret sensors (existing behaviour) but disappear visually the moment the slot becomes non-empty.
+Because each lesson line is one absolute-positioned `LineRender` placed at `MARGIN_TOP + line * LINE_HEIGHT`, increasing only the gap moves the *next* lesson line down without touching the contents of the current one. The internal layout of the quadratic formula (numerator, fraction bar, `2a` denominator) is sized in `em` inside `MathTreeRender` and never reads `LINE_HEIGHT`, so it stays welded together exactly as you described.
 
-## Technical notes
+### 3. Notes
 
-- Files touched:
-  - `src/components/smartboard/MathTreeRender.tsx` — placeholder rule, intrinsic structural padding.
-  - `src/components/smartboard/Board.tsx` and the Presentation view's line container — replace `asciiHint` with measured height; consume `--lesson-line-gap`.
-  - `src/components/smartboard/SettingsSheet.tsx` (and Lesson Notes settings panel) — add Lesson Line Spacing + Text Size sections.
-  - `src/lib/smartboard/grid.ts` / theme module — expose `--lesson-line-gap`, `--sb-text-scale` defaults.
-  - Settings persistence hook (same store as `workspaceZoom`).
-- No business-logic changes, no schema changes, no AI prompt changes.
-- Verification: Playwright snapshot of a line containing `(-b ± √(b²-4ac)) / 2a` followed by a prose line at each spacing preset; check that no bounding boxes overlap and that filled fraction slots show no dashed cube.
+- Smart-line overlay, box detach threshold, sensor magnet and panel anchors all already key off `grid.LINE_HEIGHT`, so they continue to move in sympathy with the new spacing — no separate fixes needed.
+- Persistence (`smartboard:lineSpacing:*`, `smartboard:textScale:*`) is already in place.
+- No backend changes, no schema changes, no UI redesign — only the two sliders behave the way the voice note describes.
+
+## Files touched
+
+- `src/lib/smartboard/grid.ts` — split intrinsic row height vs slider gap.
+- `src/components/smartboard/FreeWriteLayer.tsx` — apply `grid.FONT_PX` as `fontSize` per line.
+- `src/components/smartboard/PresentationView.tsx` — sanity check that no parent `fontSize` overrides the new value (read-only verification, edit only if a shadowing rule is found).
