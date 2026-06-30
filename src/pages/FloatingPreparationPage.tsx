@@ -85,11 +85,16 @@ const recomputeNotebooks = (source: Highlight[], lines: string[]): Highlight[] =
     const next = ordered[i + 1];
     notebookByGroup.set(cur.h.groupId, chunk(cur.end + 1, (next?.start ?? flat.length) - 1));
   }
+  // Equation-first ordering: any unhighlighted prose BEFORE the first
+  // highlight is merged into the first highlight's notebook so the
+  // floating number appears first and the notebook comes after it.
   const leading = chunk(0, ordered[0].start - 1);
-  const mapped = realSource.map((h) => ({ ...h, precedingNotebook: notebookByGroup.get(h.groupId) ?? "" }));
-  return leading
-    ? [{ groupId: 0, tokens: [], payload: "", precedingNotebook: leading, notebookOnly: true }, ...mapped]
-    : mapped;
+  if (leading) {
+    const firstId = ordered[0].h.groupId;
+    const existing = notebookByGroup.get(firstId) ?? "";
+    notebookByGroup.set(firstId, existing ? `${leading}\n${existing}` : leading);
+  }
+  return realSource.map((h) => ({ ...h, precedingNotebook: notebookByGroup.get(h.groupId) ?? "" }));
 };
 
 const orderedHighlights = (source: Highlight[], lines: string[]) => {
