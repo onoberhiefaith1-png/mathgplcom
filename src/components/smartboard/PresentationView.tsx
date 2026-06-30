@@ -2935,6 +2935,12 @@ const PresentationView = ({
             const maxL = activeLayout ? bandEnd(activeLayout) : cand;
             // Hop over notebook-prose rows so the sensor never parks on one.
             while (cand < maxL && notebookRowLines.has(Math.floor(cand))) cand += 0.5;
+            // 3-row manual slack cap: the teacher can step the cursor at
+            // most 3 physical rows below where it auto-landed for the
+            // current Lesson Line. Prevents the sensor from wandering off
+            // and breaking lesson structure.
+            const slackCap = autoFloorRef.current + 3;
+            if (cand > slackCap) cand = slackCap;
             setSensor({ line: cand, x: 0 });
             setLiveCursor({ path: [], index: 0 });
             return;
