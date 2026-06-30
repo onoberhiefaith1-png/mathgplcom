@@ -65,7 +65,7 @@ const LineRender = ({
   onMeasure?: (line: number, w: number) => void;
 }) => {
   const ref = useRef<HTMLDivElement | null>(null);
-  const { top, left, lineHeight } = entryPosition({ line, x: xOffset }, grid);
+  const { top, left } = entryPosition({ line, x: xOffset }, grid);
 
   useEffect(() => {
     if (!ref.current || !onMeasure) return;
