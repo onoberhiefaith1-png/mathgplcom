@@ -99,7 +99,7 @@ const recomputeNotebooks = (source: Highlight[], lines: string[]): Highlight[] =
       payload: "",
       precedingNotebook: leading,
       notebookOnly: true,
-    } as Highlight);
+    });
   }
   return out;
 };
