@@ -1856,6 +1856,13 @@ const PresentationView = ({
           if (!canEdit) return; // view-only mirror: no board interaction
           if ((e.target as HTMLElement).closest("[data-sb-chrome]")) return;
           if ((e.target as HTMLElement).closest("[data-slot-idx]")) return;
+          // Taps that land inside an existing math-tree row are handled by
+          // the inner RowView/NodeView pointer handlers (which set the
+          // cursor to a precise path, including sub-rows of √, brackets,
+          // fractions). Do NOT fall through to the sensor-reset code below
+          // — that would force the caret back to the row root and prevent
+          // entering containers on the active line.
+          if ((e.target as HTMLElement).closest("[data-erase-line]")) return;
           if (!(e.target as HTMLElement).closest("[data-erase-box-id]")) setActiveBoxId(null);
           const host = boardScrollRef.current;
           if (!host) return;
