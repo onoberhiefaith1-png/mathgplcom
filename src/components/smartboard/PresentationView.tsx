@@ -2866,9 +2866,13 @@ const PresentationView = ({
         value=""
         onChange={(e) => {
           const txt = e.currentTarget.value;
-          if (!txt) return;
-          insertPlainTextAtSensor(txt);
           e.currentTarget.value = "";
+          if (!txt) return;
+          // Reading the lesson must never write to the board. The sensor
+          // is only active while the teacher has pressed the # button on
+          // a beat with a Solution band.
+          if (!solvingMode) return;
+          insertPlainTextAtSensor(txt);
         }}
         onKeyDown={(e) => {
           if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "=")) {
