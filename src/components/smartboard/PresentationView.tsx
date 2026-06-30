@@ -1399,23 +1399,66 @@ const PresentationView = ({
     activeLayout.bandLines > 0
   );
 
+  // First empty writable row inside the active beat's band, accounting
+  // for tall structures (fractions / √ / matrices) that extend their
+  // visual height into rows below the row they live on. The sensor
+  // MUST anchor here — never on a row that already has ink, a note, or
+  // is covered by a structure above. If the whole band is full, returns
+  // `bandEnd(L) + 1` so the caller can grow the band.
+  const firstEmptyBandRow = useCallback((L: BeatLayout): number => {
+    const a = bandStart(L), b = bandEnd(L);
+    let r = a;
+    while (r <= b) {
+      const row = freeLines[r];
+      const hasInk = !!row && row.length > 0;
+      const isNote = notebookRowLines.has(r);
+      if (!hasInk && !isNote) return r;
+      r = r + 1 + (hasInk ? extraRowsFor(r) : 0);
+    }
+    return b + 1;
+  // extraRowsFor reads a ref so it doesn't need to be in deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeLines, notebookRowLines]);
+
+  // Tracks a deliberate downward push of the sensor by the teacher via
+  // the Cursor Scrollbar. While set, auto-snap stops moving the sensor
+  // back to the first-empty row.
+  const manualPushedRef = useRef<number | null>(null);
+
   // When the teacher presses # to enter solving mode, anchor the sensor
-  // at the FIRST writable row of the active beat — i.e. directly below
-  // the auto-generated "Solution" caption. This guarantees solving
-  // always starts at the right place, no matter what stale cursor
-  // position was persisted from a previous session/beat.
+  // at the first EMPTY row of the active Solution band — below the
+  // last written equation/note, not at the top under "Solution".
   const prevSolvingRef = useRef(false);
   useEffect(() => {
     const was = prevSolvingRef.current;
     prevSolvingRef.current = solvingMode;
     if (!solvingMode || was) return;
     if (!activeLayout || activeLayout.bandLines <= 0) return;
-    const a = bandStart(activeLayout);
-    setSensor({ line: a, x: 0 });
+    const r = Math.min(firstEmptyBandRow(activeLayout), bandEnd(activeLayout));
+    setSensor({ line: r, x: 0 });
     setLiveCursor({ path: [], index: 0 });
-    autoFloorRef.current = a;
+    autoFloorRef.current = r;
+    manualPushedRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solvingMode, activeLayout?.id]);
+
+  // While solving, keep the sensor pinned to the running first-empty
+  // row as the teacher writes — unless they explicitly pushed it lower
+  // with the Cursor Scrollbar (manualPushedRef). The push is honored
+  // until the auto floor catches up.
+  useEffect(() => {
+    if (!solvingMode || !activeLayout || activeLayout.bandLines <= 0) return;
+    const auto = Math.min(firstEmptyBandRow(activeLayout), bandEnd(activeLayout));
+    if (manualPushedRef.current !== null && auto >= manualPushedRef.current) {
+      manualPushedRef.current = null;
+    }
+    if (manualPushedRef.current !== null) return;
+    autoFloorRef.current = auto;
+    if (Math.floor(sensor.line) === auto) return;
+    setSensor((s) => ({ ...s, line: auto, x: 0 }));
+    setLiveCursor({ path: [], index: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solvingMode, activeLayout?.id, freeLines, notebookRowLines, firstEmptyBandRow]);
 
   // Leaving the current beat (Prev/Next Section, beat click) must close
   // solving mode — the teacher must explicitly re-press # on the new
@@ -1481,33 +1524,45 @@ const PresentationView = ({
 
 
 
-  /** Dedicated cursor-up/down nudge for the CursorScrollbar. Steps to the
-   *  next writable physical row inside the active band, skipping locked
-   *  notebook-prose rows. Snaps x back to the master left margin. */
+  /** Dedicated cursor-up/down nudge for the CursorScrollbar.
+   *  Constrained to EMPTY rows only:
+   *   • ↑ can only step back as far as the auto first-empty row.
+   *   • ↓ steps to the next empty writable row; when at band end, grows
+   *     the band by one and steps onto the new row.
+   *  Notebook-prose rows are always skipped. Master left margin (x=0)
+   *  is enforced on every nudge. */
   const nudgeCursor = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
+    const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
     let cand = Math.floor(sensor.line) + dir;
     while (cand >= a && cand <= b && notebookRowLines.has(cand)) cand += dir;
-    if (cand < a || cand > b) return;
+
+    if (dir === -1) {
+      if (cand < auto) return; // never above first-empty
+    } else {
+      if (cand > b) {
+        // Grow band by one row so the teacher can keep going down.
+        growActiveBand();
+        cand = b + 1;
+      }
+    }
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
-  }, [activeLayout, sensor.line, notebookRowLines, setLiveCursor]);
+    manualPushedRef.current = cand > auto ? cand : null;
+  }, [activeLayout, sensor.line, notebookRowLines, firstEmptyBandRow, setLiveCursor]);
 
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
-    const a = bandStart(activeLayout);
-    let cand = Math.floor(sensor.line) - 1;
-    while (cand >= a && notebookRowLines.has(cand)) cand -= 1;
-    return cand >= a;
+    const b = bandEnd(activeLayout);
+    const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
+    return Math.floor(sensor.line) > auto;
   })();
   const canCursorDown = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
-    const b = bandEnd(activeLayout);
-    let cand = Math.floor(sensor.line) + 1;
-    while (cand <= b && notebookRowLines.has(cand)) cand += 1;
-    return cand <= b;
+    // ↓ can always grow the band, so it's always enabled while solving.
+    return true;
   })();
 
 
