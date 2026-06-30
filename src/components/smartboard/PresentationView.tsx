@@ -2760,8 +2760,12 @@ const PresentationView = ({
           }
           if (e.key === "ArrowUp") {
             e.preventDefault();
+            // Lesson-line lock: Up-arrow cannot leave the active lesson line.
+            if (hasGuidedLines && activeSensorPhysicalLineRef.current !== null) {
+              const anchor = activeSensorPhysicalLineRef.current;
+              if (sensor.line - 0.5 < anchor) return;
+            }
             let cand = clampToActiveBand(sensor.line - 0.5);
-            // Hop over notebook-prose rows — they are sensor-restricted.
             const minL = activeLayout ? bandStart(activeLayout) : 0;
             while (cand > minL && notebookRowLines.has(Math.floor(cand))) cand -= 0.5;
             setSensor((s) => ({ ...s, line: cand, x: 0 }));
