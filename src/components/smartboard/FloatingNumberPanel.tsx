@@ -266,24 +266,25 @@ export const FloatingNumberPanel = ({
       .filter((s) => consumed.has(s.absIdx));
   }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** REMAINING (unused) flow — allSlots in teacher's saved order with
+   *  consumed chips removed. This is what the right-side conveyor cycles
+   *  through. When this drains to empty, we fall back to `allSlots` so the
+   *  oldest blue chips rotate back into view as plain white. */
+  const remaining = useMemo<Slot[]>(() => {
+    const consumed = consumedAbsIdx ?? new Set<number>();
+    return allSlots.filter((s) => !consumed.has(s.absIdx));
+  }, [allSlots, consumedAbsIdx]);
+
   // Reset window position whenever beat or active line changes — the panel
   // always opens on the first chip of the new line, showing no used numbers.
   useEffect(() => { setOffset(0); setReveal(0); }, [beatId, activeLineIdx]);
 
-  // Snap back to 0 whenever the unconsumed pool shrinks (a chip was just
-  // consumed) — keeps the next required chip in the viewport even if the
-  // teacher had manually scrolled away.
-  const prevLenRef = useRef<number>(allSlots.length);
+  // Wrap offset within the active flow length so the strip rotates forever.
   useEffect(() => {
-    if (allSlots.length < prevLenRef.current) setOffset(0);
-    prevLenRef.current = allSlots.length;
-  }, [allSlots.length]);
-
-  // Wrap offset within allSlots length so the unused strip rotates forever.
-  useEffect(() => {
-    if (allSlots.length === 0) { setOffset(0); return; }
-    setOffset((o) => ((o % allSlots.length) + allSlots.length) % allSlots.length);
-  }, [allSlots.length]);
+    const len = remaining.length > 0 ? remaining.length : allSlots.length;
+    if (len === 0) { setOffset(0); return; }
+    setOffset((o) => ((o % len) + len) % len);
+  }, [remaining.length, allSlots.length]);
 
   // Keep `usedOrder` reconciled with the parent's consumed set: drop numbers no
   // longer used, append any newly-consumed ones (the tap handler already appends
@@ -318,11 +319,11 @@ export const FloatingNumberPanel = ({
   }, [reveal, revealedUsed.length]);
 
   // ── The single visible strip ──────────────────────────────────────────────
-  // Left zone: `clampedReveal` used chips, newest-first (already reversed in
-  // `revealedUsed`). Right zone: unused chips cycling through `allSlots` with
-  // modular indexing — the floating numbers ROTATE forever instead of
-  // running out. If only one unused chip remains it simply repeats across
-  // every visible slot.
+  // Left zone: `clampedReveal` used chips, newest-first. Right zone: cycle
+  // through `remaining` (unused chips, teacher order). When `remaining` is
+  // empty (every chip has been consumed), fall back to `allSlots` and render
+  // them as plain white — the oldest blue chips loop back onto the right
+  // edge so the 5 visible slots are never empty.
   type StripSlot = Slot & { used: boolean };
   const windowSlots = useMemo<StripSlot[]>(() => {
     const leftUsed: StripSlot[] = revealedUsed
@@ -330,32 +331,35 @@ export const FloatingNumberPanel = ({
       .map((s) => ({ ...s, used: true }));
     const needed = Math.max(0, WINDOW_SIZE - leftUsed.length);
     const rightUnused: StripSlot[] = [];
-    if (allSlots.length > 0) {
+    const flow = remaining.length > 0 ? remaining : allSlots;
+    if (flow.length > 0) {
       for (let i = 0; i < needed; i++) {
-        const idx = ((offset + i) % allSlots.length + allSlots.length) % allSlots.length;
-        rightUnused.push({ ...allSlots[idx], used: false });
+        const idx = ((offset + i) % flow.length + flow.length) % flow.length;
+        rightUnused.push({ ...flow[idx], used: false });
       }
     }
     return [...leftUsed, ...rightUnused];
-  }, [revealedUsed, clampedReveal, allSlots, offset]);
+  }, [revealedUsed, clampedReveal, remaining, allSlots, offset]);
 
-  const canPrev = clampedReveal < revealedUsed.length || allSlots.length > 0;
-  const canNext = clampedReveal > 0 || allSlots.length > 0;
+  const canPrev = clampedReveal < revealedUsed.length || remaining.length > 0 || allSlots.length > 0;
+  const canNext = clampedReveal > 0 || remaining.length > 0 || allSlots.length > 0;
 
-  /** Backward ◀ — first reveal one more used chip (newest-first), then start
-   *  rotating the unused strip backwards. */
+  /** Backward ◀ — first reveal one more used chip (newest-first), then
+   *  rotate the active flow backwards. */
   const goBackward = () => {
     if (clampedReveal < revealedUsed.length) { setReveal((r) => r + 1); return; }
-    if (allSlots.length > 0) {
-      setOffset((o) => ((o - 1) % allSlots.length + allSlots.length) % allSlots.length);
+    const flow = remaining.length > 0 ? remaining : allSlots;
+    if (flow.length > 0) {
+      setOffset((o) => ((o - 1) % flow.length + flow.length) % flow.length);
     }
   };
-  /** Forward ▶ — first hide any revealed used chip, then rotate the unused
-   *  strip forwards. Cycles indefinitely. */
+  /** Forward ▶ — first hide any revealed used chip, then rotate the active
+   *  flow forwards. Cycles indefinitely. */
   const goForward = () => {
     if (clampedReveal > 0) { setReveal((r) => Math.max(0, r - 1)); return; }
-    if (allSlots.length > 0) {
-      setOffset((o) => (o + 1) % allSlots.length);
+    const flow = remaining.length > 0 ? remaining : allSlots;
+    if (flow.length > 0) {
+      setOffset((o) => (o + 1) % flow.length);
     }
   };
 
@@ -366,6 +370,15 @@ export const FloatingNumberPanel = ({
     if (frozen) { onPing(); return; }
     setReveal(0); // collapse any revealed used numbers so the strip compacts
     setUsedOrder((prev) => (prev.includes(absIdx) ? prev : [...prev, absIdx]));
+    // Conveyor shift: advance offset so the successor of the tapped chip in
+    // the remaining flow becomes the new leftmost visible slot. After this
+    // chip is consumed, `remaining` shrinks by 1; setting offset to the
+    // tapped chip's current position aligns the next chip into view.
+    const tappedPos = remaining.findIndex((s) => s.absIdx === absIdx);
+    if (tappedPos >= 0) {
+      const newLen = Math.max(1, remaining.length - 1);
+      setOffset(((tappedPos % newLen) + newLen) % newLen);
+    }
     const frac = parseFractionChip(label);
     if (frac && onInsertFrac) {
       onInsertFrac(frac);
