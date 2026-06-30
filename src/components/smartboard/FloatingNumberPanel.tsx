@@ -119,23 +119,8 @@ interface Props {
   onUnuse?: (absIdx: number) => void;
   /** Board-space x in pixels (left edge of band). */
   leftPx: number;
-  /** Default board-space y (panel centre). */
-  defaultYPx: number;
-  /** Allowed vertical range (board pixels). */
-  topYPx: number;
-  bottomYPx: number;
-  /** Last-written line bottom in board pixels — panel may not move above. */
-  finalLineBottomPx: number;
-  /** One physical-row pitch in board pixels (grid.LINE_HEIGHT). Used to
-   *  enforce the 3-row clearance above the panel — the panel must always
-   *  sit at least 3 rows below the bottom of the last completed Lesson
-   *  Line so it never crowds a fraction's denominator or a tall radical. */
-  rowHeightPx?: number;
   /** Viewport-space bottom inset reserved by the collapsed/open bottom panel. */
   viewportBottomInset?: number;
-  /** Remembered Y from parent (per beat); null = use default. */
-  rememberedY: number | null;
-  onCommitY: (y: number) => void;
   onPing: () => void;
   beatId?: string;
   /** 1-based current floating-line for the per-beat line navigator. */
