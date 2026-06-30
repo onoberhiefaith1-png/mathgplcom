@@ -87,7 +87,12 @@ const LineRender = ({
         position: "absolute",
         top,
         left,
-        lineHeight,
+        // Scale lesson text + math with the Text Size slider. Internal
+        // math sub-structure is em-relative inside MathTreeRender, so
+        // every part of the equation (numerator, fraction bar, 2a,
+        // exponents, radicals) grows together as a rigid unit.
+        fontSize: `${grid.FONT_PX}px`,
+        lineHeight: 1,
         display: "inline-flex",
         alignItems: "baseline",
         whiteSpace: "pre",
