@@ -215,26 +215,26 @@ export const SettingsSheet = ({
             </div>
           </section>
 
-          {/* ── Lesson Line Spacing ─────────────────────────── */}
-          {setLineSpacing && (
+          {/* ── Row Spacing ─────────────────────────── */}
+          {setRowSpacing && (
             <section>
               <div className="flex items-baseline justify-between mb-2">
                 <p className="text-[10px] uppercase tracking-[0.25em] opacity-60">
-                  Lesson Line Spacing
+                  Row Spacing
                 </p>
-                <span className="text-[10px] opacity-60">{Math.round(clampLineSpacing(lineSpacing) * 100)}%</span>
+                <span className="text-[10px] opacity-60">{Math.round(clampRowSpacing(rowSpacing) * 100)}%</span>
               </div>
               <input
                 type="range"
                 min={0}
                 max={100}
                 step={1}
-                value={Math.round(clampLineSpacing(lineSpacing) * 100)}
-                onChange={(e) => setLineSpacing(clampLineSpacing(Number(e.target.value) / 100))}
+                value={Math.round(clampRowSpacing(rowSpacing) * 100)}
+                onChange={(e) => setRowSpacing(clampRowSpacing(Number(e.target.value) / 100))}
                 className="w-full"
               />
               <p className="text-[10px] opacity-50 mt-1">
-                0% adds no extra blank gap; higher values separate complete lesson lines.
+                0% packs rows tightly; higher values push rows further apart. Never affects the inside of a fraction, root, or matrix.
               </p>
             </section>
           )}
