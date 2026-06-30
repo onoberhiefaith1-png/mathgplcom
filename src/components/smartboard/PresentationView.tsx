@@ -619,6 +619,7 @@ const PresentationView = ({
   }, []);
   useEffect(() => {
     if (!activeAssistant) return;
+    if (activeAssistant === "numbers") return;
     lastAssistantActivityRef.current = Date.now();
     const id = window.setInterval(() => {
       if (Date.now() - lastAssistantActivityRef.current > 5000) {
@@ -2728,6 +2729,7 @@ const PresentationView = ({
                   bottomYPx={bandBotPx - 8}
                   finalLineBottomPx={finalLineBottomPx}
                   rowHeightPx={grid.LINE_HEIGHT}
+                  viewportBottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
                   rememberedY={fnY}
                   onCommitY={(y) => commitAssistantY("numbers", beatKey, y)}
                   onPing={pingAssistant}
