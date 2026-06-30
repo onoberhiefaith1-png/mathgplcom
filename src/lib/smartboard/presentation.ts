@@ -387,15 +387,44 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             ? cleanFragments(bucket.viewCombined)
             : bucket?.viewRearranged && bucket.viewRearranged.length > 0
               ? cleanFragments(bucket.viewRearranged)
-              : [],
+      // `bucket.fillers` and `bucket.viewCombined` are teacher-curated chip
+      // strings (edited and arranged on the preparation page). They MUST
+      // reach the Smartboard verbatim — never sign-stripped. Only the pure
+      // machine fallback derived from solutionLines may be normalised.
+      const bucketCombined =
+        bucket?.fillers && bucket.fillers.length > 0
+          ? cleanFragments(bucket.fillers)
+          : bucket?.viewCombined && bucket.viewCombined.length > 0
+            ? cleanFragments(bucket.viewCombined)
+            : bucket?.viewRearranged && bucket.viewRearranged.length > 0
+              ? cleanFragments(bucket.viewRearranged)
+              : [];
+      const solutionFallback = dropContextualLeadingPlus(
+        cleanFragments(solutionLines.flatMap(fillersFromEquation)),
       );
-      const solutionFallback = cleanFragments(solutionLines.flatMap(fillersFromEquation));
       const fragments: string[] =
         fragmentsFromLines.length > 0
           ? fragmentsFromLines
           : bucketCombined.length > 0
             ? bucketCombined
             : solutionFallback;
+
+      // Parity guard: any teacher-sourced fragment must survive byte-identical.
+      const teacherSource = (bucket?.fillers && bucket.fillers.length > 0)
+        ? bucket.fillers
+        : null;
+      if (teacherSource && fragments.length === teacherSource.length) {
+        for (let i = 0; i < fragments.length; i++) {
+          if (fragments[i] !== teacherSource[i]) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              "[smartboard parity] teacher chip drifted — restoring verbatim",
+              { index: i, teacher: teacherSource[i], compiled: fragments[i] },
+            );
+            fragments[i] = teacherSource[i];
+          }
+        }
+      }
       reservoirs.push({ beatId: `${sub.id}-q`, caption, fragments, lines });
     }
   }
