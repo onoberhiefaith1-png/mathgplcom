@@ -35,6 +35,39 @@ interface Highlight {
 }
 interface Snapshot { highlights: Highlight[]; nextId: number }
 
+export const restorePersistedHighlights = (
+  prior: (Highlight | { groupId: number; payload: string; notebookOnly?: boolean; precedingNotebook?: string; tokens?: TokenRef[] })[] | null,
+): { highlights: Highlight[]; nextId: number } => {
+  if (!prior || !Array.isArray(prior) || prior.length === 0) {
+    return { highlights: [], nextId: 1 };
+  }
+  let nextRealId = 1;
+  const restored: Highlight[] = [];
+  for (const p of prior as any[]) {
+    if (p?.notebookOnly === true) {
+      const nb = String(p.precedingNotebook ?? "").trim();
+      if (!nb) continue;
+      restored.push({
+        groupId: -1,
+        tokens: [],
+        payload: "",
+        precedingNotebook: nb,
+        notebookOnly: true,
+      });
+      continue;
+    }
+    if (!Array.isArray(p?.tokens) || p.tokens.length === 0) continue;
+    restored.push({
+      groupId: nextRealId++,
+      tokens: p.tokens as TokenRef[],
+      payload: String(p.payload ?? ""),
+      precedingNotebook: String(p.precedingNotebook ?? ""),
+      notebookOnly: false,
+    });
+  }
+  return { highlights: restored, nextId: nextRealId };
+};
+
 /** Recompute notebook checkpoints from token order.
  *
  * Highlighted tokens become floating numbers. Unhighlighted tokens NEVER go
@@ -255,16 +288,9 @@ const FloatingPreparationPage = () => {
         | (Highlight | { groupId: number; payload: string })[]
         | null;
       if (prior && Array.isArray(prior) && prior.length > 0) {
-        const restored: Highlight[] = prior
-          .filter((p: any) => Array.isArray(p?.tokens) && p.tokens.length > 0)
-          .map((p: any, i: number) => ({
-            groupId: i + 1,
-            tokens: p.tokens as TokenRef[],
-            payload: String(p.payload ?? ""),
-            precedingNotebook: String(p.precedingNotebook ?? ""),
-          }));
-        setHighlights(restored);
-        nextIdRef.current = restored.length + 1;
+        const restored = restorePersistedHighlights(prior as any);
+        setHighlights(restored.highlights);
+        nextIdRef.current = restored.nextId;
       }
       setLoading(false);
     })();
@@ -459,7 +485,7 @@ const FloatingPreparationPage = () => {
   /* ---------- Generate ---------- */
   const generate = useCallback(async () => {
     if (!subsectionId || !notebookId) return;
-    if (highlights.length === 0) {
+    if (highlights.filter((h) => !h.notebookOnly).length === 0) {
       toast({ title: "Highlight something first", description: "Drag across any part of the solution." });
       return;
     }
@@ -470,11 +496,12 @@ const FloatingPreparationPage = () => {
       return;
     }
     navigate(`/lesson-notes/${notebookId}/floating/${subsectionId}`);
-  }, [flushHighlightState, highlights.length, navigate, notebookId, subsectionId]);
+  }, [flushHighlightState, highlights, navigate, notebookId, subsectionId]);
 
   const summary = useMemo(() => {
-    if (highlights.length === 0) return "No highlights yet.";
-    return `${highlights.length} highlight${highlights.length === 1 ? "" : "s"} ready.`;
+    const realCount = highlights.filter((h) => !h.notebookOnly).length;
+    if (realCount === 0) return "No highlights yet.";
+    return `${realCount} highlight${realCount === 1 ? "" : "s"} ready.`;
   }, [highlights]);
 
   return (
@@ -524,7 +551,7 @@ const FloatingPreparationPage = () => {
             </button>
             <button
               onClick={generate}
-              disabled={submitting || highlights.length === 0}
+              disabled={submitting || highlights.filter((h) => !h.notebookOnly).length === 0}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md disabled:opacity-50"
               style={{ background: "hsl(48 95% 60%)", color: "hsl(220 35% 12%)" }}
             >
@@ -593,7 +620,7 @@ const FloatingPreparationPage = () => {
                 Highlights (in the order you made them)
               </div>
               <ul className="space-y-1.5">
-                {highlights.map((h) => {
+                {highlights.filter((h) => !h.notebookOnly).map((h) => {
                   const safePayload = assertDisplaySafe(h.payload).cleaned;
                   return (
                   <li key={h.groupId} className="flex items-start gap-2 text-sm text-foreground/85">
