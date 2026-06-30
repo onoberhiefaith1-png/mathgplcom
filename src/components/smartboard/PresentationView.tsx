@@ -2623,7 +2623,6 @@ const PresentationView = ({
             );
 
             const beatKey = current.id;
-            const fnY = assistantYByBeat[`numbers:${beatKey}`] ?? null;
             const stY = assistantYByBeat[`structures:${beatKey}`] ?? null;
             const syY = assistantYByBeat[`symbols:${beatKey}`] ?? null;
             const syR = assistantRightByBeat[`symbols:${beatKey}`] ?? null;
