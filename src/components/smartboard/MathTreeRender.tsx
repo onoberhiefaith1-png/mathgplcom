@@ -195,13 +195,16 @@ const SqrtView = ({
   node, parentPath, idxInRow, cursor, onCursorChange, caretColor,
 }: ContainerProps & { node: Extract<Node, { kind: "sqrt" }> }) => {
   const hasIndex = node.rows.length === 2;
-  const { ref, height } = useMeasuredHeight<HTMLSpanElement>();
-  const bodyH = height > 0 ? `${height}px` : "1em";
   const subPath = (i: number) => [...parentPath, idxInRow, i];
+  // The outer flex stretches all children to the same cross-axis height so
+  // the diagonal tick (svg) and the horizontal overline (body's border-top)
+  // meet seamlessly at the top-right corner — and continue to meet as the
+  // radicand grows in real time, identical to how the fraction bar already
+  // expands. No measurement is needed: CSS stretch keeps them in sync.
   return (
     <span style={{
-      display: "inline-flex", alignItems: "baseline",
-      verticalAlign: "baseline", margin: "0 0.12em", lineHeight: 1.05,
+      display: "inline-flex", alignItems: "stretch",
+      verticalAlign: "middle", margin: "0 0.12em", lineHeight: 1.05,
     }}>
       {hasIndex && (
         <span style={{
@@ -212,6 +215,7 @@ const SqrtView = ({
           marginLeft: "0.1em",
           minWidth: "0.7em",
           textAlign: "center",
+          alignSelf: "flex-start",
         }}>
           <RowView row={node.rows[1] ?? []} path={subPath(1)}
             cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
@@ -221,14 +225,15 @@ const SqrtView = ({
         viewBox="0 0 16 100"
         preserveAspectRatio="none"
         style={{
-          width: "0.55em", height: bodyH, alignSelf: "center",
+          width: "0.55em", height: "auto", alignSelf: "stretch",
           overflow: "visible", marginLeft: "0.05em", marginRight: 0,
           display: "block",
         }}
         aria-hidden
       >
-        {/* Tick only — the overline is drawn by the body's borderTop so it
-            expands continuously as the teacher types, with no seam. */}
+        {/* Diagonal tick only — its top-right (16,0) meets the body's
+            border-top exactly. The overline is the body's border-top so it
+            extends in real time as the radicand grows. */}
         <path
           d="M0 65 L4 65 L8 95 L16 0"
           stroke="currentColor" strokeWidth="2" fill="none"
@@ -236,7 +241,6 @@ const SqrtView = ({
         />
       </svg>
       <span
-        ref={ref}
         style={{
           borderTop: "1.4px solid currentColor",
           padding: "2px 5px 0",
