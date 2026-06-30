@@ -220,6 +220,94 @@ export const SettingsSheet = ({
             </div>
           </section>
 
+          {/* ── Lesson Line Spacing ─────────────────────────── */}
+          {setLineSpacing && (
+            <section>
+              <div className="flex items-baseline justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-[0.25em] opacity-60">
+                  Lesson Line Spacing
+                </p>
+                <span className="text-[10px] opacity-60">{Math.round(lineSpacing * 100)}%</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 mb-2">
+                {LINE_SPACING_PRESETS.map((p) => {
+                  const active = Math.abs(lineSpacing - p.value) < 0.02;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setLineSpacing(p.value)}
+                      className="rounded-md border px-2 py-1.5 text-[11px]"
+                      style={{
+                        borderColor: active ? chromeFg : chromeBorder,
+                        background: active ? "rgba(0,0,0,0.05)" : "transparent",
+                        color: chromeFg,
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="range"
+                min={60}
+                max={200}
+                step={5}
+                value={Math.round(lineSpacing * 100)}
+                onChange={(e) => setLineSpacing(clampLineSpacing(Number(e.target.value) / 100))}
+                className="w-full"
+              />
+              <p className="text-[10px] opacity-50 mt-1">
+                Adjusts only the vertical gap between lesson lines. Math and text are unchanged.
+              </p>
+            </section>
+          )}
+
+          {/* ── Text Size ──────────────────────────────────── */}
+          {setTextScale && (
+            <section>
+              <div className="flex items-baseline justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-[0.25em] opacity-60">
+                  Text Size
+                </p>
+                <span className="text-[10px] opacity-60">{Math.round(textScale * 100)}%</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 mb-2">
+                {TEXT_SIZE_PRESETS.map((p) => {
+                  const active = Math.abs(textScale - p.value) < 0.02;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setTextScale(p.value)}
+                      className="rounded-md border px-2 py-1.5 text-[11px]"
+                      style={{
+                        borderColor: active ? chromeFg : chromeBorder,
+                        background: active ? "rgba(0,0,0,0.05)" : "transparent",
+                        color: chromeFg,
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="range"
+                min={70}
+                max={180}
+                step={5}
+                value={Math.round(textScale * 100)}
+                onChange={(e) => setTextScale(clampTextScale(Number(e.target.value) / 100))}
+                className="w-full"
+              />
+              <p className="text-[10px] opacity-50 mt-1">
+                Grows lesson text, equations and math symbols. The page, margins and chrome stay the same.
+              </p>
+            </section>
+          )}
+
+
+
           {/* ── Writing Lab ───────────────────────────────── */}
           <section>
             <p className="text-[10px] uppercase tracking-[0.25em] opacity-60 mb-2">
