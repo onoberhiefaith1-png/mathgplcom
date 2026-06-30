@@ -1109,7 +1109,7 @@ const PresentationView = ({
     const L = layouts[layouts.length - 1];
     if (L && L.bandLines > 0) {
       setSensor({ line: L.startLine + L.captionLines, x: 0 });
-      setCursor({ path: [], index: 0 });
+      setLiveCursor({ path: [], index: 0 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beatCursor]);
@@ -1342,7 +1342,7 @@ const PresentationView = ({
     }
     if (sensor.line !== target) {
       setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
-      setCursor({ path: [], index: 0 });
+      setLiveCursor({ path: [], index: 0 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line]);
@@ -1422,14 +1422,14 @@ const PresentationView = ({
     if (target.notebook && !shownNotebookIdx.has(activeLineIdx)) {
       setManualFloatingLineIdx(activeLineIdx);
       setSensor({ line: clampToActiveBand(expectedLineNum), x: 0 });
-      setCursor({ path: [], index: 0 });
+      setLiveCursor({ path: [], index: 0 });
       return;
     }
     const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
     setActiveLineIdx(nextIdx);
     setFloatingLineIdx(nextIdx);
     setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
-    setCursor({ path: [], index: 0 });
+    setLiveCursor({ path: [], index: 0 });
   }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout, shownNotebookIdx]);
 
   // Per-line bulb status for the right-edge traffic-light rail.
@@ -1610,7 +1610,7 @@ const PresentationView = ({
         setActiveLineIdx(nextIdx);
         setFloatingLineIdx(nextIdx);
         setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
-        setCursor({ path: [], index: 0 });
+        setLiveCursor({ path: [], index: 0 });
         toast({ title: "✓ Line verified", description: `+${target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
@@ -1764,7 +1764,7 @@ const PresentationView = ({
               setFreeLines({});
               lineWidthsRef.current = {};
               setSensor({ line: 0, x: 0 });
-              setCursor({ path: [], index: 0 });
+              setLiveCursor({ path: [], index: 0 });
             }}
             className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-black/5"
             title="Clear board"
@@ -2029,7 +2029,7 @@ const PresentationView = ({
           setSensor({ line: targetLine, x: snapped.x });
           // (Sensor taps no longer activate the floating panels; activation
           // is button-driven now.)
-          setCursor({ path: [], index: row.length });
+          setLiveCursor({ path: [], index: row.length });
           hiddenInputRef.current?.focus({ preventScroll: true });
 
 
@@ -2127,7 +2127,7 @@ const PresentationView = ({
               }
               const clamped = clampToActiveBand(line);
               if (clamped !== sensor.line) setSensor((s) => ({ ...s, line: clamped }));
-              setCursor(c);
+              setLiveCursor(c);
               hiddenInputRef.current?.focus({ preventScroll: true });
             }}
           />
@@ -2520,7 +2520,7 @@ const PresentationView = ({
             e.preventDefault();
             const row = freeLines[sensor.line] ?? [];
             const next = treeNextEmpty(row, cursor, e.shiftKey ? -1 : 1);
-            if (next) setCursor(next);
+            if (next) setLiveCursor(next);
             return;
           }
 
@@ -2539,7 +2539,7 @@ const PresentationView = ({
             }
             if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
             setSensor({ line: clampToActiveBand(nextLine), x: 0 });
-            setCursor({ path: [], index: 0 });
+            setLiveCursor({ path: [], index: 0 });
             return;
           }
 
@@ -2556,7 +2556,7 @@ const PresentationView = ({
               const prevLine = sensor.line - 0.5;
               const prevRow = freeLines[prevLine] ?? [];
               setSensor({ line: prevLine, x: 0 });
-              setCursor({ path: [], index: prevRow.length });
+              setLiveCursor({ path: [], index: prevRow.length });
               return;
             }
             editActive((r, c) => treeBackspace(r, c));
@@ -2566,13 +2566,13 @@ const PresentationView = ({
           if (e.key === "ArrowLeft") {
             e.preventDefault();
             const row = freeLines[sensor.line] ?? [];
-            setCursor((c) => treeMoveLeft(row, c));
+            setLiveCursor((c) => treeMoveLeft(row, c));
             return;
           }
           if (e.key === "ArrowRight") {
             e.preventDefault();
             const row = freeLines[sensor.line] ?? [];
-            setCursor((c) => treeMoveRight(row, c));
+            setLiveCursor((c) => treeMoveRight(row, c));
             return;
           }
           if (e.key === "ArrowUp") {
@@ -2582,7 +2582,7 @@ const PresentationView = ({
             const minL = activeLayout ? bandStart(activeLayout) : 0;
             while (cand > minL && notebookRowLines.has(Math.floor(cand))) cand -= 0.5;
             setSensor((s) => ({ ...s, line: cand, x: 0 }));
-            setCursor({ path: [], index: 0 });
+            setLiveCursor({ path: [], index: 0 });
             return;
           }
           if (e.key === "ArrowDown") {
@@ -2600,7 +2600,7 @@ const PresentationView = ({
             // Hop over notebook-prose rows so the sensor never parks on one.
             while (cand < maxL && notebookRowLines.has(Math.floor(cand))) cand += 0.5;
             setSensor({ line: cand, x: 0 });
-            setCursor({ path: [], index: 0 });
+            setLiveCursor({ path: [], index: 0 });
             return;
           }
 
