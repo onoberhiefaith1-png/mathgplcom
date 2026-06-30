@@ -1268,11 +1268,29 @@ const PresentationView = ({
       manualFloatingLineIdx ?? floatingLineIdx,
       guidedLines.length - 1,
     );
-    const target = bandStart(activeLayout) + idx;
+    // A presentation "line" is NOT a board row — a single logical line may
+    // span multiple physical rows (or be separated from neighbours by blank
+    // rows the teacher left for spacing). Anchor the sensor to the K-th
+    // OCCUPIED row inside the active band, so stepping up/down jumps to the
+    // row where that line's math actually lives — not to row = K.
+    const a = bandStart(activeLayout);
+    const b = bandEnd(activeLayout);
+    const occupied: number[] = [];
+    for (let r = a; r <= b; r++) {
+      const row = freeLines[r];
+      if (row && row.length > 0) occupied.push(r);
+    }
+    let target: number;
+    if (idx < occupied.length) {
+      target = occupied[idx];
+    } else {
+      const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
+      target = Math.min(b, lastOcc + 1 + (idx - occupied.length));
+    }
     setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
     setCursor({ path: [], index: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines]);
+  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
