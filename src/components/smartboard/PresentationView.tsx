@@ -619,6 +619,7 @@ const PresentationView = ({
   }, []);
   useEffect(() => {
     if (!activeAssistant) return;
+    if (activeAssistant === "numbers") return;
     lastAssistantActivityRef.current = Date.now();
     const id = window.setInterval(() => {
       if (Date.now() - lastAssistantActivityRef.current > 5000) {
@@ -2622,7 +2623,6 @@ const PresentationView = ({
             );
 
             const beatKey = current.id;
-            const fnY = assistantYByBeat[`numbers:${beatKey}`] ?? null;
             const stY = assistantYByBeat[`structures:${beatKey}`] ?? null;
             const syY = assistantYByBeat[`symbols:${beatKey}`] ?? null;
             const syR = assistantRightByBeat[`symbols:${beatKey}`] ?? null;
@@ -2723,13 +2723,7 @@ const PresentationView = ({
                     })
                   }
                   leftPx={grid.MARGIN_LEFT + 8}
-                  defaultYPx={defaultY}
-                  topYPx={bandTopPx + 8}
-                  bottomYPx={bandBotPx - 8}
-                  finalLineBottomPx={finalLineBottomPx}
-                  rowHeightPx={grid.LINE_HEIGHT}
-                  rememberedY={fnY}
-                  onCommitY={(y) => commitAssistantY("numbers", beatKey, y)}
+                  viewportBottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
                   onPing={pingAssistant}
                   beatId={beatKey}
                   lineNumber={hasGuidedLines ? curLineIdx + 1 : undefined}
