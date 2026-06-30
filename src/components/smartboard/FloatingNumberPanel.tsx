@@ -4,7 +4,7 @@
 // Visibility is controlled by the parent (mutual-exclusion with the other
 // two assistants). Position is remembered per beat via parent storage.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
@@ -167,9 +167,9 @@ export const FloatingNumberPanel = ({
   chromeFg,
   reservoirs, viewIdx, activeIdx, visible,
   onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
-  leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx, rowHeightPx,
+  leftPx,
   viewportBottomInset = 0,
-  rememberedY, onCommitY, onPing, beatId,
+  onPing, beatId,
   lineNumber, lineCount, onPrevLine, onNextLine,
   notebookText,
   onWriteNotebookToBoard,
