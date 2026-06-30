@@ -3242,7 +3242,7 @@ const PresentationView = ({
         {/* Below the four-button top group: the dedicated Cursor Scrollbar
             replaces the three relocated tools (Smart Line, Dot, Box). It
             ONLY moves the writing sensor — never the floating-number panel. */}
-        {hasGuidedLines && (
+        {solvingMode && (
           <CursorScrollbar
             inline
             onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
