@@ -79,9 +79,9 @@ export function RelationshipPanel({ scene, topic }: Props) {
         className="w-72 shrink-0 border border-black/10 bg-white text-black px-3 py-3 text-sm rounded-md shadow-sm"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 gap-2">
           <h4 className="text-xs font-semibold tracking-wide text-black uppercase">Relationships</h4>
-          <div className="inline-flex rounded-md overflow-hidden border border-black/15 text-[11px]">
+          <div className="ml-auto inline-flex rounded-md overflow-hidden border border-black/15 text-[11px]">
             <button
               type="button"
               onClick={() => setMode("relation")}
@@ -93,16 +93,16 @@ export function RelationshipPanel({ scene, topic }: Props) {
               className={cn("px-2 py-0.5 transition", mode === "apply" ? "bg-yellow-400 text-black" : "bg-white text-black hover:bg-yellow-50")}
             >Apply</button>
           </div>
+          <button
+            type="button"
+            onClick={() => clearSelection()}
+            title="Clear selection"
+            className="text-[11px] px-2 py-0.5 rounded border border-black/15 bg-white text-black hover:bg-yellow-50"
+          >Clear</button>
         </div>
 
-        {empty ? (
-          <div className="rounded-md border border-dashed border-black/15 bg-white px-3 py-6 text-center">
-            <p className="text-xs text-black/60 leading-relaxed">
-              Select an object in the diagram to view its mathematical relationships.
-            </p>
-          </div>
-        ) : (
-          <>
+        <>
+
             {/* Selection chips */}
             <div className="mb-2 flex flex-wrap gap-1">
               {selectedParts.map((p) => (
