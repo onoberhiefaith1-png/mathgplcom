@@ -31,11 +31,17 @@ export function RelationshipPanel({ scene, topic }: Props) {
     selectedParts, mode, setMode, graph,
     relationships, upsertRelationship, removeRelationship,
     togglePinned, toggleHidden, duplicateRelationship, replaceRelationships,
+    clearSelection,
   } = useSmartGeometry();
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Relationship> | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Conditional visibility — the panel is invisible until the teacher
+  // selects at least one object inside the diagram. Selecting more
+  // objects updates the panel; pressing "Clear" hides it again.
+  if (selectedParts.length === 0) return null;
 
   const empty = selectedParts.length === 0;
   const visible = useMemo(() => relationships.filter((r) => !r.hidden), [relationships]);
