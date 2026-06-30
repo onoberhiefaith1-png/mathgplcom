@@ -20,7 +20,11 @@ interface Props {
   topCss?: string;
   canUp?: boolean;
   canDown?: boolean;
+  /** When true, render as an inline flex group (no absolute positioning),
+   *  so it can sit inside an existing rail. */
+  inline?: boolean;
 }
+
 
 const HOLD_DELAY_MS = 350;
 const REPEAT_MS = 90;
