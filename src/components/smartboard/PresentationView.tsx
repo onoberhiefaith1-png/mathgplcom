@@ -1434,7 +1434,37 @@ const PresentationView = ({
   const growActiveBand = () => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     setBandExtra((m) => ({ ...m, [activeLayout.id]: (m[activeLayout.id] ?? 0) + 1 }));
-  };
+
+  /** Dedicated cursor-up/down nudge for the CursorScrollbar. Steps to the
+   *  next writable physical row inside the active band, skipping locked
+   *  notebook-prose rows. Snaps x back to the master left margin. */
+  const nudgeCursor = useCallback((dir: 1 | -1) => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+    const a = bandStart(activeLayout);
+    const b = bandEnd(activeLayout);
+    let cand = Math.floor(sensor.line) + dir;
+    while (cand >= a && cand <= b && notebookRowLines.has(cand)) cand += dir;
+    if (cand < a || cand > b) return;
+    setSensor((s) => ({ ...s, line: cand, x: 0 }));
+    setLiveCursor({ path: [], index: 0 });
+  }, [activeLayout, sensor.line, notebookRowLines, setLiveCursor]);
+
+  const canCursorUp = (() => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
+    const a = bandStart(activeLayout);
+    let cand = Math.floor(sensor.line) - 1;
+    while (cand >= a && notebookRowLines.has(cand)) cand -= 1;
+    return cand >= a;
+  })();
+  const canCursorDown = (() => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
+    const b = bandEnd(activeLayout);
+    let cand = Math.floor(sensor.line) + 1;
+    while (cand <= b && notebookRowLines.has(cand)) cand += 1;
+    return cand <= b;
+  })();
+
+
 
 
   // Carrier appears only for numbered-content beats (Example / Exercise /
