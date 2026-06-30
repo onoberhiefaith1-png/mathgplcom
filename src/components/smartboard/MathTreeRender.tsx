@@ -367,7 +367,7 @@ const BinomView = ({
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", verticalAlign: "middle",
-      margin: "0 0.12em",
+      margin: "0.18em 0.12em",
     }}>
       <BracketGlyph kind="(" side="L" heightCss={bodyH} />
       <span ref={ref} style={{
