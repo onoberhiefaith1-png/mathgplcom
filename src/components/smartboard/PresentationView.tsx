@@ -1347,6 +1347,7 @@ const PresentationView = ({
     if (
       activeSensorLogicalIdxRef.current === idx &&
       sensor.line >= a && sensor.line <= b &&
+      (activeSensorPhysicalLineRef.current === null || sensor.line === activeSensorPhysicalLineRef.current) &&
       !notebookRowLines.has(Math.floor(sensor.line)) &&
       !notebookRowLines.has(sensor.line)
     ) {
@@ -1378,6 +1379,7 @@ const PresentationView = ({
       setLiveCursor({ path: [], index: 0 });
     }
     activeSensorLogicalIdxRef.current = idx;
+    activeSensorPhysicalLineRef.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line]);
 
