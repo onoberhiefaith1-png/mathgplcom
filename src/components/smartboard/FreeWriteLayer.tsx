@@ -18,7 +18,7 @@ interface Props {
   cursor: Cursor;
   caretColor: string;
   onCursorChange: (line: number, c: Cursor) => void;
-  onMeasure?: (line: number, width: number) => void;
+  onMeasure?: (line: number, width: number, height: number) => void;
 }
 
 const INACTIVE_CURSOR: Cursor = { path: [-1], index: 0 };
