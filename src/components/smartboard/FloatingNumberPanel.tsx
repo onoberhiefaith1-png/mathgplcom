@@ -452,34 +452,27 @@ export const FloatingNumberPanel = ({
     return null;
   };
 
-  // Whole-panel drag. A pointerdown anywhere on the visible number display
-  // arms a drag, including on chips. Movement beyond 4px becomes a drag;
-  // no movement remains a normal click/tap.
+  // Dedicated handle drag. The left vertical rectangle is the drag handle for
+  // the whole floating-number display; chips/buttons remain normal taps.
   const [isDragging, setIsDragging] = useState(false);
-  const suppressClickRef = useRef(false);
   const armRef = useRef<{
     startY: number;
     baseY: number;
     pointerId: number;
-    dragging: boolean;
     lastY: number;
   } | null>(null);
-  const onPointerDown = (e: React.PointerEvent) => {
+  const onDragHandlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     onPing();
-    armRef.current = { startY: e.clientY, baseY: y, pointerId: e.pointerId, dragging: false, lastY: y };
+    armRef.current = { startY: e.clientY, baseY: y, pointerId: e.pointerId, lastY: y };
+    setIsDragging(true);
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ }
   };
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onDragHandlePointerMove = (e: React.PointerEvent) => {
     const a = armRef.current;
     if (!a) return;
     const delta = e.clientY - a.startY;
-    if (!a.dragging) {
-      if (Math.abs(delta) < 4) return;
-      a.dragging = true;
-      suppressClickRef.current = true;
-      setIsDragging(true);
-      try { (e.currentTarget as HTMLElement).setPointerCapture(a.pointerId); } catch { /* noop */ }
-    }
     const next = a.baseY + delta;
     const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
     const upper = Math.max(finalLineBottomPx + clearance, topYPx);
@@ -489,20 +482,15 @@ export const FloatingNumberPanel = ({
     onPing();
     e.preventDefault();
   };
-  const onPointerUp = (e: React.PointerEvent) => {
+  const onDragHandlePointerUp = (e: React.PointerEvent) => {
     const a = armRef.current;
     armRef.current = null;
     if (!a) return;
     setIsDragging(false);
-    if (a.dragging) {
-      onCommitY(a.lastY);
-      onPing();
-      try { (e.currentTarget as HTMLElement).releasePointerCapture(a.pointerId); } catch { /* noop */ }
-      window.setTimeout(() => { suppressClickRef.current = false; }, 0);
-    } else {
-      // It was a tap — keep the existing ping affordance.
-      onPing();
-    }
+    onCommitY(a.lastY);
+    onPing();
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(a.pointerId); } catch { /* noop */ }
+    e.preventDefault();
   };
 
   if (!visible || reservoirs.length === 0) return null;
@@ -511,16 +499,7 @@ export const FloatingNumberPanel = ({
     <div
       data-sb-chrome
       data-floating-halo
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onClickCapture={(e) => {
-        if (!suppressClickRef.current) return;
-        e.preventDefault();
-        e.stopPropagation();
-        suppressClickRef.current = false;
-      }}
+      onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
       onClick={(e) => { e.stopPropagation(); }}
       style={{
         position: "absolute",
@@ -571,9 +550,12 @@ export const FloatingNumberPanel = ({
           style={{
             width: 14, height: 28, borderRadius: 4,
             background: `color-mix(in oklab, ${chromeFg} 35%, transparent)`,
-            cursor: "grab", touchAction: "none",
-            pointerEvents: "none",
+            cursor: isDragging ? "grabbing" : "grab", touchAction: "none",
           }}
+          onPointerDown={onDragHandlePointerDown}
+          onPointerMove={onDragHandlePointerMove}
+          onPointerUp={onDragHandlePointerUp}
+          onPointerCancel={onDragHandlePointerUp}
         />
         {lineNumber != null && lineCount != null && lineCount > 0 && (
           <div
