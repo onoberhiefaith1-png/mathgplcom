@@ -594,14 +594,17 @@ export const FloatingNumberPanel = ({
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: pulse ? "0 0 0 0 rgba(245,158,11,0.6)" : "0 1px 2px rgba(0,0,0,0.08)",
-                animation: pulse ? "fnp-notebook-pulse 1.6s ease-out infinite" : "none",
+                boxShadow: pulse
+                  ? "0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45)"
+                  : "0 1px 2px rgba(0,0,0,0.08)",
+                animation: pulse ? "fnp-notebook-pulse-once 1.4s ease-out 1" : "none",
+                transition: "box-shadow 240ms ease, background 240ms ease, border-color 240ms ease",
               }}
             >
-              <style>{`@keyframes fnp-notebook-pulse {
-                0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
-                70% { box-shadow: 0 0 0 12px rgba(245,158,11,0); }
-                100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+              <style>{`@keyframes fnp-notebook-pulse-once {
+                0% { transform: scale(1); }
+                40% { transform: scale(1.08); }
+                100% { transform: scale(1); }
               }`}</style>
               {/* Fancy notebook: hard cover + binder rings + ruled lines +
                   red bookmark ribbon. Clearly reads as "Read lesson note". */}

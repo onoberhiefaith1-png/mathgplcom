@@ -299,29 +299,33 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // Walk the FULL solution text (math + prose) so we can attach any
       // narrative explanation directly to the equation it follows.
       const parsedSolution = parseSolutionExplanations(solutionBlock?.content_ascii);
-      // Equation-first ordering: any `notebookOnly` rows saved by older
-      // Lesson Notes are folded into the FOLLOWING real highlight so the
-      // floating-number equation comes first and its notebook follows.
-      let pendingNotebook = "";
+      // Spec Rule 1 Case B / Rule 2: each notebookOnly highlight stands on
+      // its own as a standalone notebook entry (no floating equation). It
+      // is NOT folded into the following highlight — every notebook always
+      // belongs to the highlight ABOVE it, so leading prose has no parent
+      // and remains independent.
       const sourceLines = rawHighlights && rawHighlights.length > 0
         ? rawHighlights.reduce<Array<{ equation: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean }>>((acc, h, hi) => {
             if (h.notebookOnly) {
               const nb = String(h.precedingNotebook ?? "").trim();
-              if (nb) pendingNotebook = pendingNotebook ? `${pendingNotebook}\n${nb}` : nb;
+              if (!nb) return acc;
+              acc.push({
+                equation: "",
+                fillers: [],
+                containers: [],
+                notebook: nb,
+                notebookOnly: true,
+              });
               return acc;
             }
             const payload = String(h.payload ?? "").trim();
             const matched = rawLines?.find((l) => String(l.equation ?? "").trim() === payload)
               ?? rawLines?.[hi];
             const ownNotebook = String(h.precedingNotebook ?? "").trim();
-            const merged = pendingNotebook && ownNotebook
-              ? `${pendingNotebook}\n${ownNotebook}`
-              : (pendingNotebook || ownNotebook);
-            pendingNotebook = "";
             acc.push({
               ...(matched ?? {}),
               equation: payload,
-              notebook: merged,
+              notebook: ownNotebook || undefined,
               notebookOnly: false,
             });
             return acc;
