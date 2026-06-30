@@ -74,9 +74,23 @@ const PRESENCE_SUP: Record<string, string> = {
   "⁰": "^0", "¹": "^1", "²": "^2", "³": "^3", "⁴": "^4",
   "⁵": "^5", "⁶": "^6", "⁷": "^7", "⁸": "^8", "⁹": "^9",
 };
+const PRESENCE_SUP_DIGIT: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+  "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+};
+const PRESENCE_SUB_DIGIT: Record<string, string> = {
+  "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4",
+  "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9",
+};
+const fromPresenceDigits = (s: string, map: Record<string, string>): string =>
+  [...s].map((ch) => map[ch] ?? ch).join("");
 
 const normalizeFloatingPresence = (raw: string): string => {
   let s = String(raw ?? "");
+  s = s.replace(
+    /([+\-−])?([⁰¹²³⁴⁵⁶⁷⁸⁹]+)[⁄/]([₀₁₂₃₄₅₆₇₈₉]+)([a-zA-Z]*)/g,
+    (_m, sign = "", num, den, tail = "") => `${sign}${fromPresenceDigits(num, PRESENCE_SUP_DIGIT)}${tail}/${fromPresenceDigits(den, PRESENCE_SUB_DIGIT)}`,
+  );
   for (const [glyph, ascii] of Object.entries(PRESENCE_SUP)) s = s.split(glyph).join(ascii);
   return s
     .toLowerCase()
@@ -86,6 +100,7 @@ const normalizeFloatingPresence = (raw: string): string => {
     .replace(/÷|⁄/g, "/")
     .replace(/√/g, "sqrt")
     .replace(/\*\*/g, "^")
+    .replace(/\(([^()]+)\)\/\(([^()]+)\)/g, "$1/$2")
     .replace(/\^\(([^()]{1,3})\)/g, "^$1");
 };
 
