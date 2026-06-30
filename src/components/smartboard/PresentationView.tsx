@@ -2884,6 +2884,9 @@ const PresentationView = ({
           if ((e.ctrlKey || e.metaKey) && e.key === "0") {
             e.preventDefault(); applyZoom(1); return;
           }
+          // All other keys (Enter, arrows, Tab, plain typing) only act
+          // while the teacher is in solving mode.
+          if (!solvingMode) return;
 
           if (e.key === "Tab") {
             e.preventDefault();
