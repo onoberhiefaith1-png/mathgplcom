@@ -488,6 +488,16 @@ const PresentationView = ({
     try { localStorage.setItem(OFFSETS_KEY, JSON.stringify(lineOffsets)); } catch { /* noop */ }
   }, [lineOffsets, OFFSETS_KEY]);
   const lineWidthsRef = useRef<Record<number, number>>({});
+  // Measured DOM height of each rendered line — drives structure-aware
+  // advance so the cursor never lands inside the bottom half of a fraction,
+  // matrix, root, etc. Updated by FreeWriteLayer onMeasure.
+  const lineHeightsRef = useRef<Record<number, number>>({});
+  // Auto-landing physical line for the active Lesson Line. ArrowDown is
+  // limited to at most this + 3 physical rows of manual slack.
+  const autoFloorRef = useRef<number>(0);
+  // Trigger re-renders when measured heights mutate (used inside the
+  // floating-panel bounds calculation).
+  const [heightsTick, setHeightsTick] = useState(0);
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
   const boardScrollRef = useRef<HTMLElement>(null);
 
@@ -846,8 +856,37 @@ const PresentationView = ({
     return () => window.clearTimeout(t);
   }, [sensor.line]);
 
-  const handleLineMeasure = (line: number, width: number) => {
+  // Re-anchor the 3-row manual-slack floor whenever the sensor jumps to a
+  // new Lesson Line via auto-advance / programmatic placement (i.e., any
+  // move that lands *above* the current slack ceiling or above the floor).
+  // ArrowDown stays inside the cap, so this never fights manual slack.
+  useEffect(() => {
+    const floor = Math.floor(sensor.line);
+    if (floor < autoFloorRef.current || floor > autoFloorRef.current + 3) {
+      autoFloorRef.current = floor;
+    }
+  }, [sensor.line]);
+
+  const handleLineMeasure = (line: number, width: number, height: number) => {
     lineWidthsRef.current[line] = width;
+    const prev = lineHeightsRef.current[line] ?? 0;
+    // Only re-render when height crosses a row boundary — avoids thrash.
+    if (Math.abs(prev - height) > 2) {
+      lineHeightsRef.current[line] = height;
+      setHeightsTick((t) => (t + 1) & 0xffff);
+    } else {
+      lineHeightsRef.current[line] = height;
+    }
+  };
+
+  /** Extra physical rows occupied by a Lesson Object on `line` beyond its
+   *  baseline row. A simple fraction returns 1, a tall nested structure
+   *  returns 2+. Computed from the measured DOM height vs. row pitch. */
+  const extraRowsFor = (line: number): number => {
+    const h = lineHeightsRef.current[line] ?? 0;
+    if (h <= 0) return 0;
+    const lh = grid.LINE_HEIGHT;
+    return Math.max(0, Math.ceil((h - lh) / lh));
   };
 
   /** Edit the active line's tree via a fn that returns next root + cursor. */
@@ -2462,16 +2501,22 @@ const PresentationView = ({
             const bandTopPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
             const bandBotPx = grid.MARGIN_TOP + (bandEnd(activeLayout) + 1) * grid.LINE_HEIGHT;
             // Final written line within this band — drives the upper drag clamp.
-            let lastLine = bandStart(activeLayout) - 1;
+            // Use measured DOM heights so tall structures (fractions, roots,
+            // matrices) contribute their *full* vertical extent — never just
+            // their first row. Falls back to one row pitch if unmeasured.
+            let finalLineBottomPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
             for (const k of Object.keys(freeLines)) {
               const ln = Number(k);
               if (!freeLines[ln] || freeLines[ln].length === 0) continue;
               const flr = Math.floor(ln);
-              if (flr >= bandStart(activeLayout) && flr <= bandEnd(activeLayout) && flr > lastLine) {
-                lastLine = flr;
-              }
+              if (flr < bandStart(activeLayout) || flr > bandEnd(activeLayout)) continue;
+              const topPx = grid.MARGIN_TOP + ln * grid.LINE_HEIGHT;
+              const measured = lineHeightsRef.current[ln] ?? grid.LINE_HEIGHT;
+              const botPx = topPx + Math.max(grid.LINE_HEIGHT, measured);
+              if (botPx > finalLineBottomPx) finalLineBottomPx = botPx;
             }
-            const finalLineBottomPx = grid.MARGIN_TOP + (lastLine + 1) * grid.LINE_HEIGHT;
+            // Reference `heightsTick` so this block re-runs when measurements update.
+            void heightsTick;
             // Band-bottom anchor (original behaviour) — may sit below the fold.
             const bandDefaultY = bandBotPx - grid.LINE_HEIGHT * 0.6;
             // Viewport-aware default: drop the panel near the bottom of the
@@ -2605,6 +2650,7 @@ const PresentationView = ({
                   topYPx={bandTopPx + 8}
                   bottomYPx={bandBotPx - 8}
                   finalLineBottomPx={finalLineBottomPx}
+                  rowHeightPx={grid.LINE_HEIGHT}
                   rememberedY={fnY}
                   onCommitY={(y) => commitAssistantY("numbers", beatKey, y)}
                   onPing={pingAssistant}
@@ -2801,9 +2847,14 @@ const PresentationView = ({
 
           if (e.key === "Enter") {
             e.preventDefault();
-            // From a half-line, commit to the next *full* line below.
+            // Structure-aware advance: if the current Lesson Line holds a
+            // tall math object (fraction / root / matrix / etc.) the next
+            // Lesson Line must start BELOW the structure's full bounding
+            // box, never inside it. We add `extraRowsFor(base)` so a
+            // 2-row fraction skips its denominator.
             const base = Number.isInteger(sensor.line) ? sensor.line : Math.floor(sensor.line);
-            const nextLine = base + 1;
+            const extra = extraRowsFor(base);
+            const nextLine = base + 1 + extra;
             // Gate: don't allow advancing past the current expected guided
             // line until that line has turned green.
             if (hasGuidedLines && activeLayout) {
@@ -2825,6 +2876,8 @@ const PresentationView = ({
             });
             setSensor({ line: snapLine, x: 0 });
             setLiveCursor({ path: [], index: 0 });
+            // Reset the 3-row manual slack anchor to the new auto-landing.
+            autoFloorRef.current = Math.floor(snapLine);
             return;
           }
 
@@ -2900,6 +2953,12 @@ const PresentationView = ({
             const maxL = activeLayout ? bandEnd(activeLayout) : cand;
             // Hop over notebook-prose rows so the sensor never parks on one.
             while (cand < maxL && notebookRowLines.has(Math.floor(cand))) cand += 0.5;
+            // 3-row manual slack cap: the teacher can step the cursor at
+            // most 3 physical rows below where it auto-landed for the
+            // current Lesson Line. Prevents the sensor from wandering off
+            // and breaking lesson structure.
+            const slackCap = autoFloorRef.current + 3;
+            if (cand > slackCap) cand = slackCap;
             setSensor({ line: cand, x: 0 });
             setLiveCursor({ path: [], index: 0 });
             return;

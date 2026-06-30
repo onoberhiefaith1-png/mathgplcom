@@ -127,6 +127,11 @@ interface Props {
   bottomYPx: number;
   /** Last-written line bottom in board pixels — panel may not move above. */
   finalLineBottomPx: number;
+  /** One physical-row pitch in board pixels (grid.LINE_HEIGHT). Used to
+   *  enforce the 3-row clearance above the panel — the panel must always
+   *  sit at least 3 rows below the bottom of the last completed Lesson
+   *  Line so it never crowds a fraction's denominator or a tall radical. */
+  rowHeightPx?: number;
   /** Remembered Y from parent (per beat); null = use default. */
   rememberedY: number | null;
   onCommitY: (y: number) => void;
@@ -159,7 +164,7 @@ export const FloatingNumberPanel = ({
   chromeFg,
   reservoirs, viewIdx, activeIdx, visible,
   onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
-  leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx,
+  leftPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx, rowHeightPx,
   rememberedY, onCommitY, onPing, beatId,
   lineNumber, lineCount, onPrevLine, onNextLine,
   notebookText,
@@ -202,10 +207,11 @@ export const FloatingNumberPanel = ({
   // Clamp whenever bounds shift (writing barrier / band size).
   useEffect(() => {
     setY((prev) => {
-      const upper = Math.max(finalLineBottomPx + 8, topYPx);
+      const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
+      const upper = Math.max(finalLineBottomPx + clearance, topYPx);
       return Math.min(bottomYPx, Math.max(upper, prev));
     });
-  }, [topYPx, bottomYPx, finalLineBottomPx]);
+  }, [topYPx, bottomYPx, finalLineBottomPx, rowHeightPx]);
 
   const reservoir = reservoirs[viewIdx];
   const fragments = reservoir?.fragments ?? [];
@@ -455,7 +461,8 @@ export const FloatingNumberPanel = ({
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
     const next = e.clientY - dragRef.current.dy;
-    const upper = Math.max(finalLineBottomPx + 8, topYPx);
+    const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
+    const upper = Math.max(finalLineBottomPx + clearance, topYPx);
     setY(Math.min(bottomYPx, Math.max(upper, next)));
   };
   const onPointerUp = (e: React.PointerEvent) => {
