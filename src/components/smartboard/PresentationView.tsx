@@ -1292,19 +1292,27 @@ const PresentationView = ({
     const occupied: number[] = [];
     for (let r = a; r <= b; r++) {
       const row = freeLines[r];
-      if (row && row.length > 0) occupied.push(r);
+      if (!row || row.length === 0) continue;
+      // Notebook-prose rows are read-only narration — they must NOT count
+      // as a writable line when anchoring the sensor.
+      if (notebookRowLines.has(r)) continue;
+      occupied.push(r);
     }
     let target: number;
     if (idx < occupied.length) {
       target = occupied[idx];
     } else {
       const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
-      target = Math.min(b, lastOcc + 1 + (idx - occupied.length));
+      // Skip past any notebook-prose rows when extending below the last
+      // written line — the sensor must land on the first non-notebook row.
+      let cand = lastOcc + 1 + (idx - occupied.length);
+      while (cand <= b && notebookRowLines.has(cand)) cand += 1;
+      target = Math.min(b, cand);
     }
     setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
     setCursor({ path: [], index: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines]);
+  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
