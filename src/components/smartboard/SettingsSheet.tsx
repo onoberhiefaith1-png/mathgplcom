@@ -13,7 +13,7 @@ import {
   WritingProfileId,
 } from "@/lib/smartboard/writingProfiles";
 import { COLOR_LIST, InkColorId, resolveInk } from "@/lib/smartboard/inkColors";
-import { clampLineSpacing, clampTextScale } from "@/lib/smartboard/grid";
+import { clampRowSpacing, clampTextScale } from "@/lib/smartboard/grid";
 import { WritingSurface } from "./WritingSurface";
 import { WritingLab } from "./WritingLab";
 
