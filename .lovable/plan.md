@@ -1,70 +1,30 @@
+## Problem
+When Lesson Notes drops a new line onto the board (`writeProseLineOnBoard`), it places it at `maxLine + 1`. For a row that holds a stacked fraction or tall radical, the structure extends 1+ physical rows below its baseline, so the next prose line lands inside the denominator. Result: "Substitute a, b, and c into the formula:" overlaps `2a` in the screenshot.
 
-# Plan: Structure-Aware Layout + Bounded Cursor/Floating Movement
+The structure-aware advance already exists for keyboard `Enter` (via `extraRowsFor`) but is bypassed by the mirror pipeline that paints AI/lesson-note rows onto the board.
 
-Two related upgrades to the Smartboard presentation engine:
-1. **Mathematical Structure Recognition** — cursor never lands inside a multi-row math object; next Lesson Line always starts below the full bounding box.
-2. **Bounded Movement Rules** — cursor gets up to 3 manual rows of slack below the auto position; Floating Number panel becomes drag-bounded with collision avoidance.
+## Fix
+Make every code path that appends a new row reuse the same structure-aware offset.
 
----
+1. In `src/components/smartboard/PresentationView.tsx`, inside `writeProseLineOnBoard`:
+   - After computing `maxLine`, compute `extra = extraRowsFor(maxLine)` and also recursively walk upward: if `maxLine - k` rows are notebook-prose with their own measured heights, account for them too (single step is sufficient since each prose row is one logical line, but the equation row above may be tall).
+   - Set `target = Math.max(maxLine + 1 + extra, sensor.line)`.
+   - Update the sensor jump to `target + 1` (unchanged) so the cursor sits right under the freshly written prose.
 
-## Part 1 — Mathematical Structure Recognition Engine
+2. Because `lineHeightsRef` is populated by `FreeWriteLayer`'s `ResizeObserver` asynchronously, the very first time a fraction line is appended `extraRowsFor` may still return 0. Add a one-shot reflow:
+   - After a row is rendered and `handleLineMeasure` updates `lineHeightsRef`, detect when a later notebook-prose row is now overlapping (its `target` ≤ measured bottom of an earlier row) and shift it down by the deficit.
+   - Implemented as a small effect keyed on `heightsTick` that scans `freeLines` in ascending order, recomputes each row's required clearance from the measured height of the row above, and rewrites `freeLines` / `notebookRowLines` keys when a shift is needed. Idempotent: only runs when a deficit is found.
 
-### Goal
-Treat every math node (frac, root, matrix, integral, summation, piecewise, large bracket, sub/super, vector, long division, etc.) as **one indivisible Lesson Object** with a real bounding box. Row advancement uses the structure's **bottom edge + Row Spacing**, not its top row.
+3. Apply the same `extraRowsFor`-aware spacing to `ArrowDown` auto-floor placement (already partially covered by the manual-slack cap), and to any other path that calls `setSensor({ line: target + 1 })` after writing a math row — audit `writeProseLineOnBoard`, `writeEquationLineOnBoard` (if present), and the lesson-note mirror entry points.
 
-### Where it lives
-- `src/lib/smartboard/mathTree.ts` — already produces the tree; extend each node kind with an `intrinsicHeight` calc (rows of font-height, not pixels).
-- `src/components/smartboard/MathTreeRender.tsx` — already renders intrinsic height; add a `measuredBottom` report via `ResizeObserver` so the grid knows the true pixel bottom after fonts load.
-- `src/lib/smartboard/grid.ts` — add `structureBottom(lessonLineIdx)` helper that returns the lowest occupied y of all nodes on that Lesson Line.
-- `src/lib/smartboard/lessonLines.ts` — when computing the next Lesson Line origin, use `structureBottom + rowSpacing` instead of `topY + intrinsicRows * rowHeight`.
+4. No schema, no backend changes. Pure presentation logic in `PresentationView.tsx` (and reading the existing `lineHeightsRef`).
 
-### Algorithm (per Lesson Line)
-1. Collect all rendered Lesson Objects on the line.
-2. For each, compute intrinsic height from its tree (numerator + bar + denominator, radical body + index, matrix row count, etc.) — already partially done in `MathTreeRender`.
-3. Cross-check against the live measured DOM rect (handles font swaps, italics, large operators) and cache the max.
-4. `lineBottomY = max(object.top + object.measuredHeight)` for all objects on the line.
-5. `nextLineY = lineBottomY + rowSpacingPx`.
-6. Store on the LessonLine record so `PresentationView` cursor logic, Enter handler, and click-gate all use the same value.
-
-### Cursor consequences
-- Enter key, auto-advance on blue, and click-on-empty-row all snap to the next Lesson Line origin computed above.
-- Click gate refuses any y that falls **inside** another Lesson Line's bounding box (no caret inside a fraction belonging to a previous line).
-
----
-
-## Part 2 — Bounded Movement Rules
-
-### 2A. Cursor (sensor) manual slack
-- Allow the teacher to press ↓ or click below the auto cursor position by **at most 3 physical rows** (a "row" = one font-height unit from `grid.ts`, not a Lesson Line).
-- Track `manualRowOffset ∈ [0, 3]` on the active Lesson Line; clamp on every move.
-- Reset to 0 whenever a new Lesson Line is created or the active line changes.
-- Cursor still cannot enter a completed Lesson Line unless that line was re-selected from the Lesson Presentation panel (already enforced — keep).
-
-### 2B. Floating Number panel drag bounds
-File: `src/components/smartboard/FloatingNumberPanel.tsx` + `presentation.ts`.
-
-- Make the panel draggable on the Y axis (X stays anchored).
-- **Upper bound**: `nearestCompletedLessonLine.bottomY + 3 * rowHeight`. Snap back if dragged higher.
-- **Lower bound**: y immediately above the next **Lesson Section** heading (Example N, Exercise, Activity, Homework, Summary, Notes, Assessment, or any beat flagged `kind === "section"`). If no section follows, panel may drag freely through empty workspace.
-- **Collision avoidance**: build a list of occupied rects (equations, prose, headings, diagrams, graphs, tables, math objects) from the rendered Lesson Lines; reject any drag position that intersects.
-- **Auto re-settle**: subscribe to row-spacing, text-size, and lesson-edit events; if current y becomes invalid, animate to the nearest valid y preserving the 3-row clearance.
-
-### 2C. Section detector
-Add `isSectionBeat(beat)` in `src/lib/smartboard/presentation.ts` matching the list above (case-insensitive heading match + explicit beat-kind flag). Used by the Floating Number lower bound and by future features.
-
----
-
-## Technical Notes (for reviewers)
-
-- All math intrinsic-height work stays in `MathTreeRender.tsx` / `mathTree.ts`; `RowView` already welds structures — we add the **measured-bottom report upward** to `PresentationView`.
-- Lesson-line bottom is cached per line and invalidated on: structure edit, font/text-size change, row-spacing change, lesson reload.
-- Floating panel drag uses pointer events + `requestAnimationFrame` clamp; no layout shift since the panel is already an overlay (per the earlier bottom-panel decoupling work).
-- Storage keys: `smartboard:cursorSlackV1`, `smartboard:floatingPanelY:<lessonId>` for persistence across reload.
-- No backend or schema changes.
-
----
+## Verification
+- Reload the quadratic-formula lesson; "Substitute a, b, and c into the formula:" must render entirely below the `(…)/(2a)` denominator, not overlapping `2a`.
+- Increase Row Spacing slider; the gap grows but no new overlap appears.
+- Increase Text Size; the fraction grows taller, the prose below shifts further down accordingly.
+- Press Enter on a line that holds a fraction (existing path) — behavior unchanged.
 
 ## Out of scope
-- Horizontal drag of Floating Number panel.
-- Re-flowing already-typed lines when row spacing changes mid-lesson (already handled by the recent Row Spacing work).
-- Chemical-formula structures (listed as future support in the spec).
+- Floating Number panel bounds (already handled in the previous turn with 3-row clearance).
+- Changing how `extraRowsFor` measures height — it remains DOM-measured via `ResizeObserver`.

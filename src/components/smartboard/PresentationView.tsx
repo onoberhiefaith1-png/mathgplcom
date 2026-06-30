@@ -889,6 +889,70 @@ const PresentationView = ({
     return Math.max(0, Math.ceil((h - lh) / lh));
   };
 
+  /** Structure-aware reflow: when ResizeObserver discovers a previously
+   *  rendered row is taller than one physical row (a stacked fraction,
+   *  radical, matrix…), every row written below it must shift down by the
+   *  measured deficit so prose never overlaps a denominator. Runs whenever
+   *  a measured height crosses a row boundary (`heightsTick`). Idempotent:
+   *  walks lines in ascending order, recomputes each row's minimum row
+   *  index from the row above, and only mutates state when a shift is
+   *  needed. */
+  useEffect(() => {
+    const heights = lineHeightsRef.current;
+    const usedLines = Object.keys(freeLines)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && (freeLines[n]?.length ?? 0) > 0)
+      .sort((a, b) => a - b);
+    if (usedLines.length < 2) return;
+
+    const remap = new Map<number, number>();
+    let prevLine = usedLines[0];
+    let cursor = prevLine; // last assigned line index
+    for (let i = 1; i < usedLines.length; i++) {
+      const orig = usedLines[i];
+      const prevH = heights[prevLine] ?? 0;
+      const lh = grid.LINE_HEIGHT;
+      const prevExtra = prevH > 0 ? Math.max(0, Math.ceil((prevH - lh) / lh)) : 0;
+      const minLine = cursor + 1 + prevExtra;
+      const target = Math.max(orig, minLine);
+      if (target !== orig) remap.set(orig, target);
+      cursor = target;
+      prevLine = orig; // height keyed by original line index
+    }
+    if (remap.size === 0) return;
+
+    setFreeLines((prev) => {
+      const next: typeof prev = { ...prev };
+      // Apply shifts from largest to smallest to avoid clobbering.
+      const entries = Array.from(remap.entries()).sort((a, b) => b[0] - a[0]);
+      for (const [from, to] of entries) {
+        next[to] = prev[from];
+        delete next[from];
+      }
+      return next;
+    });
+    setNotebookRowLines((prev) => {
+      const ns = new Set<number>();
+      for (const n of prev) ns.add(remap.get(n) ?? n);
+      return ns;
+    });
+    // Remap measured heights too so the next reflow pass is stable.
+    const nextHeights: Record<number, number> = {};
+    for (const [k, v] of Object.entries(heights)) {
+      const n = Number(k);
+      nextHeights[remap.get(n) ?? n] = v;
+    }
+    lineHeightsRef.current = nextHeights;
+    // Shift the sensor if it sat on a remapped line.
+    setSensor((s) => {
+      const f = Math.floor(s.line);
+      const shift = remap.get(f);
+      if (shift === undefined) return s;
+      return { ...s, line: s.line + (shift - f) };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heightsTick]);
+
   /** Edit the active line's tree via a fn that returns next root + cursor. */
   const editActive = (
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
@@ -1009,7 +1073,12 @@ const PresentationView = ({
           if (rowSignature(row) === sig) return prev;
         }
       }
-      const target = Math.max(maxLine + 1, sensor.line);
+      // Structure-aware placement: if the row above holds a tall Lesson
+      // Object (stacked fraction, radical, matrix…), its measured DOM
+      // height already extends past its baseline row. Skip those extra
+      // physical rows so the new prose never lands inside a denominator.
+      const extra = maxLine >= 0 ? extraRowsFor(maxLine) : 0;
+      const target = Math.max(maxLine + 1 + extra, sensor.line);
       const next = { ...prev, [target]: mirror.row };
       // Tag this row as notebook prose so the sensor-anchor logic skips it
       // when computing the K-th writable line. The sensor jumps to the row
