@@ -124,25 +124,72 @@ export const RowView = ({
     );
   }
 
+  // Once *any* node in this row carries content, empty `box` placeholder
+  // siblings collapse to a zero-width tap zone (still focusable, but the
+  // dashed cube disappears). This matches the classroom rule: as soon as
+  // the teacher has filled the numerator, leftover template cubes around
+  // it must vanish — the denominator's own empty cube is unaffected
+  // because it lives in a different row.
+  const isNodeFilled = (n: Node): boolean => {
+    if (n.kind === "char") return true;
+    const sub = (n as { rows?: Row[] }).rows;
+    if (!sub) return true;
+    return sub.some((r) => r.length > 0);
+  };
+  const rowHasContent = row.some((n) => isNodeFilled(n));
+
   return (
     <span style={{ display: "inline-flex", alignItems: "baseline" }}>
-      {row.map((node, i) => (
-        <span
-          key={i}
-          data-erase-path={JSON.stringify([...path, i])}
-          style={{ display: "inline-flex", alignItems: "baseline" }}
-        >
-          {isActive && i === cursor.index && <Caret color={caretColor} />}
-          <NodeView
-            node={node}
-            parentPath={path}
-            idxInRow={i}
-            cursor={cursor}
-            onCursorChange={onCursorChange}
-            caretColor={caretColor}
-          />
-        </span>
-      ))}
+      {row.map((node, i) => {
+        const isEmptyBoxSibling =
+          node.kind === "box" &&
+          rowHasContent &&
+          !isNodeFilled(node);
+        return (
+          <span
+            key={i}
+            data-erase-path={JSON.stringify([...path, i])}
+            style={{ display: "inline-flex", alignItems: "baseline" }}
+          >
+            {isActive && i === cursor.index && <Caret color={caretColor} />}
+            {/* Inter-node tap gap — places cursor BEFORE this node so the
+                sensor can land between every pair of items on the active
+                line (e.g. between -b and ±). */}
+            <span
+              onPointerDown={(e) =>
+                stopAnd(e, () => onCursorChange({ path, index: i }))
+              }
+              style={{
+                display: "inline-block",
+                width: "0.22em",
+                alignSelf: "stretch",
+                cursor: "text",
+              }}
+              aria-hidden
+            />
+            {isEmptyBoxSibling ? (
+              // Collapsed invisible placeholder — keeps the path stable
+              // but removes the visual dashed cube once the row is filled.
+              <span
+                onPointerDown={(e) =>
+                  stopAnd(e, () => onCursorChange({ path, index: i }))
+                }
+                style={{ display: "inline-block", width: 0, height: "1em" }}
+                aria-hidden
+              />
+            ) : (
+              <NodeView
+                node={node}
+                parentPath={path}
+                idxInRow={i}
+                cursor={cursor}
+                onCursorChange={onCursorChange}
+                caretColor={caretColor}
+              />
+            )}
+          </span>
+        );
+      })}
       {isActive && cursor.index === row.length && <Caret color={caretColor} />}
       {/* trailing tap area → place cursor at end of this row */}
       <span
