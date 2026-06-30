@@ -324,7 +324,17 @@ const PresentationView = ({
 
 
 
-  const [beatCursor, setBeatCursor] = useState<number>(0);
+  const LESSON_CURSOR_KEY = `smartboard:lessonCursor:${notebookId ?? "_"}`;
+  const [beatCursor, setBeatCursor] = useState<number>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(LESSON_CURSOR_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.beatCursor === "number" && parsed.beatCursor >= 0) return parsed.beatCursor;
+      }
+    } catch { /* noop */ }
+    return 0;
+  });
   const [bandExtra, setBandExtra] = useState<Record<string, number>>({});
   const [surface, setSurface] = useState<Surface>(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(SURFACE_KEY) : null;
@@ -1279,6 +1289,18 @@ const PresentationView = ({
     const a = bandStart(activeLayout), b = bandEnd(activeLayout);
     return Math.max(a, Math.min(b, ln));
   };
+  /** Lesson-aware click gate: a row is accepted only when it falls
+   *  inside the ACTIVE beat's writable band AND is not a locked
+   *  notebook-prose row. Clicks on captions / questions / previous
+   *  beats / future beats are ignored — the sensor stays put. */
+  const isLineWritable = (ln: number): boolean => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
+    const floor = Math.floor(ln);
+    const a = bandStart(activeLayout), b = bandEnd(activeLayout);
+    if (floor < a || floor > b) return false;
+    if (notebookRowLines.has(floor) || notebookRowLines.has(ln)) return false;
+    return true;
+  };
   /** Grow the active band by one when the teacher needs more room. */
   const growActiveBand = () => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
@@ -1368,6 +1390,38 @@ const PresentationView = ({
     } catch { /* noop */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownNotebookIdx, activeReservoirIdx]);
+
+  // Persist Lesson-Line cursor (beat + active logical line) so a reload
+  // restores the teacher to the same teaching step.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        LESSON_CURSOR_KEY,
+        JSON.stringify({ beatCursor, activeLineIdx }),
+      );
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beatCursor, activeLineIdx]);
+
+  // On first mount, restore activeLineIdx for the current beat from
+  // localStorage so the floating-number strip and sensor pick up where
+  // the teacher left off.
+  const didRestoreLessonCursorRef = useRef(false);
+  useEffect(() => {
+    if (didRestoreLessonCursorRef.current) return;
+    if (activeReservoirIdx < 0) return;
+    didRestoreLessonCursorRef.current = true;
+    try {
+      const raw = localStorage.getItem(LESSON_CURSOR_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed?.activeLineIdx === "number" && parsed.activeLineIdx > 0) {
+        setActiveLineIdx(parsed.activeLineIdx);
+        setFloatingLineIdx(parsed.activeLineIdx);
+      }
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeReservoirIdx]);
 
 
   const activeReservoir = activeReservoirIdx >= 0 ? reservoirs[activeReservoirIdx] : undefined;
@@ -2124,10 +2178,13 @@ const PresentationView = ({
           places the writing sensor on the nearest invisible baseline. */}
       <main
         ref={boardScrollRef}
-        className="relative z-10 h-full w-full overflow-y-auto transition-[padding] duration-500 ease-out"
+        className="relative z-10 h-full w-full overflow-y-auto"
         style={{
           paddingTop: 24,
-          paddingBottom: 24 + (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT),
+          // Reserve only the COLLAPSED bottom-tab height. Expanding the
+          // Writing Lab no longer reflows the canvas — the panel floats
+          // above as an overlay (see BottomPanel mount below).
+          paddingBottom: 24 + TAB_HEIGHT,
           paddingRight: 0,
           cursor: eraseMode ? "cell" : undefined,
         }}
@@ -2224,17 +2281,18 @@ const PresentationView = ({
 
 
 
-          // Clamp the tap to the active beat's writable band so the
-          // teacher can't drop the sensor onto the cover / a past
-          // session's caption.
-          const targetLine = clampToActiveBand(halfLine);
+          // Lesson-aware click gate: ignore taps outside the active
+          // beat's writable band, on locked notebook-prose rows, and on
+          // the question / caption / future beats. The sensor stays
+          // exactly where it was — no silent clamping into the
+          // Working Area.
+          if (!isLineWritable(halfLine)) return;
+          const targetLine = halfLine;
           const row = freeLines[targetLine] ?? [];
           if (row.length === 0) {
             setLineOffsets((m) => ({ ...m, [targetLine]: snapped.x }));
           }
           setSensor({ line: targetLine, x: snapped.x });
-          // (Sensor taps no longer activate the floating panels; activation
-          // is button-driven now.)
           setLiveCursor({ path: [], index: row.length });
           hiddenInputRef.current?.focus({ preventScroll: true });
 
@@ -2315,24 +2373,19 @@ const PresentationView = ({
             caretColor={ink}
             onMeasure={handleLineMeasure}
             onCursorChange={(line, c) => {
-              // ── LINE LOCKING ────────────────────────────────────────────
-              // Only the line currently active in the Floating Number panel
-              // is editable. Clicks on locked lines AND on notebook-prose
-              // rows are swallowed so the caret cannot drift backwards into
-              // a previous line or into a read-only narration row.
-              const floorLine = Math.floor(line);
-              if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
-                return; // notebook prose — sensor-restricted area
-              }
+              // Lesson-aware click gate: only writable rows inside the
+              // active beat's working area accept caret placement.
+              // Clicks on locked content (captions, question, notebook
+              // prose, previous/future beats) are swallowed — the
+              // sensor and live caret stay exactly where they were.
+              if (!isLineWritable(line)) return;
               if (hasGuidedLines && activeLayout) {
                 // The anchor effect has already placed sensor.line on the
                 // correct K-th-occupied (non-notebook) row for the current
-                // lesson line. Use that as the single source of truth so
-                // both the click-gate and notebook-skipping stay in sync.
-                if (Math.floor(sensor.line) !== floorLine) return;
+                // lesson line. Reject clicks that try to leave it.
+                if (Math.floor(sensor.line) !== Math.floor(line)) return;
               }
-              const clamped = clampToActiveBand(line);
-              if (clamped !== sensor.line) setSensor((s) => ({ ...s, line: clamped }));
+              if (line !== sensor.line) setSensor((s) => ({ ...s, line }));
               setLiveCursor(c);
               hiddenInputRef.current?.focus({ preventScroll: true });
             }}
