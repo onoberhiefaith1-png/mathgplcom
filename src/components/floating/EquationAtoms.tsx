@@ -222,7 +222,8 @@ export const EquationAtoms = ({
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter") { e.preventDefault(); commit(); }
-    else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); }
+    else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); setClickOrder([]); }
+
   }, [commit]);
 
   useEffect(() => {
