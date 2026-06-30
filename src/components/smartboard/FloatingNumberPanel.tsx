@@ -235,21 +235,23 @@ export const FloatingNumberPanel = ({
 
   type Slot = { token: string; absIdx: number };
 
-  /** Full ordered slot list for the active line — taken in the exact order
-   *  the Lesson Note saved them (the per-line `arrangement` already applied
-   *  the 2-4-1-3 pattern during compilation, so no extra shuffle here).
-   *  The visible 5-chip viewport is a slice of this driven by `offset`. */
+  /** Full ordered slot list for the active line — ALL fragments (used +
+   *  unused) in the teacher's saved order. The rotation cycles the entire
+   *  equation; chips already consumed reappear as plain white when they
+   *  loop back from the right (still tappable for re-use). */
   const allSlots = useMemo<Slot[]>(() => {
     if (fragments.length === 0) return [];
     if (useLineMode) {
-      const k = activeLineIdx as number;
-      return unconsumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
+      const line = lines[activeLineIdx as number];
+      if (!line) return [];
+      const out: Slot[] = [];
+      for (let i = line.fragmentStart; i < line.fragmentEnd; i++) {
+        out.push({ token: fragments[i], absIdx: i });
+      }
+      return out;
     }
-    const consumed = consumedAbsIdx ?? new Set<number>();
-    return fragments
-      .map((token, idx) => ({ token, absIdx: idx }))
-      .filter((s) => !consumed.has(s.absIdx));
-  }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+    return fragments.map((token, idx) => ({ token, absIdx: idx }));
+  }, [fragments, useLineMode, activeLineIdx, lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** USED zone (left) — the active line's fragments already tapped/used. */
   const usedSlots = useMemo<Slot[]>(() => {
