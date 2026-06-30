@@ -1434,6 +1434,9 @@ const PresentationView = ({
   const growActiveBand = () => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     setBandExtra((m) => ({ ...m, [activeLayout.id]: (m[activeLayout.id] ?? 0) + 1 }));
+  };
+
+
 
   /** Dedicated cursor-up/down nudge for the CursorScrollbar. Steps to the
    *  next writable physical row inside the active band, skipping locked
