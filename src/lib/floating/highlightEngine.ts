@@ -71,26 +71,21 @@ const collectAtomIds = (nodes: ChipNode[]): string[] => {
   return out;
 };
 
-// Empty placeholders compile to empty groups (`{}`, `()`, `\sqrt{}`) so the
-// Smartboard renderer can show its own dashed-box placeholder UI and hide it
-// automatically the moment the teacher types into the slot. We never emit the
-// literal `□` character — it would otherwise render as a persistent dead glyph
-// on the board.
 const nodesToLatex = (nodes: ChipNode[]): string => {
   let s = "";
   for (const n of nodes) {
     if (n.kind === "atom") s += n.atom.value;
-    else if (n.kind === "slot") s += "";
+    else if (n.kind === "slot") s += "□";
     else if (n.kind === "frac") {
-      const num = nodesToLatex(n.num);
-      const den = nodesToLatex(n.den);
+      const num = nodesToLatex(n.num) || "□";
+      const den = nodesToLatex(n.den) || "□";
       s += `\\frac{${num}}{${den}}`;
     } else if (n.kind === "sqrt") {
-      const rad = nodesToLatex(n.radicand);
+      const rad = nodesToLatex(n.radicand) || "□";
       const deg = n.degree && n.degree.length ? `[${nodesToLatex(n.degree)}]` : "";
       s += `\\sqrt${deg}{${rad}}`;
     } else if (n.kind === "bracket") {
-      s += n.open.value + nodesToLatex(n.body) + n.close.value;
+      s += n.open.value + (nodesToLatex(n.body) || "□") + n.close.value;
     }
   }
   return s;

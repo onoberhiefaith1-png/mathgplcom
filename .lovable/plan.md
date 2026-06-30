@@ -1,61 +1,43 @@
-# Smartboard polish: placeholders, dynamic √, line locking
+## What went wrong
 
-Three targeted changes. No redesign. No layout shifts to unrelated areas.
+Last turn I changed two files in a way that broke how filled fractions/brackets/roots come across from the lesson note onto the Smartboard:
 
-## 1. Placeholder boxes disappear once filled
+1. `src/lib/floating/highlightEngine.ts` — `nodesToLatex` started emitting **empty groups** (`\frac{}{}`, `\sqrt{}`, `()`) for empty slots instead of the literal `□` it used to emit.
+2. `src/lib/smartboard/mirrorFromLessonNote.ts` — `latexToRow` started **dropping `□` characters** entirely.
 
-**File:** `src/components/smartboard/MathTreeRender.tsx`
+Together these two changes caused the Smartboard renderer to receive an empty `frac` node (`rows: [[], []]`). Empty rows in `MathTreeRender` paint the dashed-box placeholder UI, which is what you saw as `□` on top and `□ □ □` underneath — not the filled `-b ± √(b² − 4ac) / 2a` you saved in the lesson note.
 
-Today the empty-row guard already hides non-active empty sub-rows. The boxes still visible in the screenshot (`2d □ □ □`, `-4ac □ )`) are coming from two extra sources:
+The lesson note pipeline was working before. I should not have touched it.
 
-- Empty *adjacent rows* of containers (e.g. extra `power`/`subscript` slots, `frac` denominator, `bracket` body) that the renderer still gives a visible `minWidth` to. We will treat them the same as inner empty rows: `opacity 0`, `minWidth 0`, `border none` when the cursor isn't on that exact path. Tap target stays (~0.18em invisible hit zone) so the teacher can still click to enter it.
-- Stray literal `□` placeholder atoms emitted by `buildSlot`/`nodesToLatex` (`src/lib/floating/highlightEngine.ts`) when a structure is built with empty slots. These are persisted into the chip value and re-tokenised on the board as a real character. We will:
-  - Stop emitting `□` literals — `emptyToSlot` and `nodesToLatex` should produce an *empty* row (no content) instead of injecting the box glyph. The renderer's empty-row UI is now the single source of truth for "this slot is empty".
-  - In the smartboard tokenizer, ignore any legacy `□` characters when materialising a row so existing saved chips don't render stale boxes.
+## Fix
 
-Result: an empty slot shows the dashed box only while the cursor is inside it; the moment the teacher types, the box vanishes because the row is no longer empty. Applies uniformly to fraction, sqrt, bracket, power, subscript, abs.
+Revert exactly those two edits so the mirror behaves identically to how it did before my last turn. Nothing else changes.
 
-## 2. Seamless, expanding square root
+### File 1 — `src/lib/floating/highlightEngine.ts`
 
-**File:** `src/components/smartboard/MathTreeRender.tsx` (`SqrtView` only)
+Restore `nodesToLatex` to its prior form:
 
-The radical tick is an SVG with a fixed viewBox; the overline is the body's `borderTop`. The seam in the screenshot is because the SVG's top edge doesn't meet the borderTop pixel-for-pixel and the SVG stops growing when the body wraps.
+- `slot` → emits `"□"`
+- `frac` → `\frac{num || "□"}{den || "□"}`
+- `sqrt` → `\sqrt[deg]{rad || "□"}`
+- `bracket` → `open + (body || "□") + close`
 
-- Pull the overline off the body and draw it as a sibling `<span>` that sits on top of both the tick and the body, so a single 1.4px line spans `tick → body end`. The body keeps growing (it's already `inline-flex` + `useMeasuredHeight`), and the overline grows with it because it's `width: 100%` over the combined flex container.
-- Use the same `useMeasuredHeight` value to set the tick SVG height, so the diagonal stroke meets the overline exactly at the top-right corner (no gap, no overshoot).
-- Live expansion works because the body already re-measures via `ResizeObserver`. Confirm by typing inside `√(…)` — the overline lengthens in real time and freezes when typing stops (no extra logic needed; CSS flex handles it).
+### File 2 — `src/lib/smartboard/mirrorFromLessonNote.ts`
 
-Brackets, fractions, abs already use `useMeasuredHeight` the same way — no changes needed there. They expand correctly today.
+Remove the `if (ch === "□") { i++; continue; }` guard I added in `latexToRow`. `□` flows through as a `mkChar` again, exactly like before.
 
-## 3. Line locking — cursor follows Presentation
+## What I am NOT changing
 
-**Goal:** only the line currently shown in Presentation Mode is editable. Clicking any other line is a no-op.
-
-**Files:**
-- `src/components/smartboard/PresentationView.tsx` — already owns the active row index (the one with the pulsing notebook checkpoint).
-- `src/components/smartboard/SmartLineLayer.tsx` — renders each lesson line and wires pointer events.
-- `src/hooks/useSmartBoard.tsx` (or whichever hook owns `setCursor`) — gate cursor moves.
-
-Implementation:
-
-1. Add `activeLineIndex: number` to the smartboard state, owned by `PresentationView`. It equals the line currently being presented (the line whose checkpoint is the latest unlocked one, or the line the teacher has scrolled back to via Presentation's up/down controls).
-2. Pass `activeLineIndex` down to `SmartLineLayer`. Each rendered line receives `isActive = index === activeLineIndex`.
-3. In every pointer handler that places the cursor (`RowView` root tap, trailing tap area, `RightEscape`, `NodeView` taps), wrap the `onCursorChange` call with an `isEditable` guard provided by the parent line. When `!isEditable`, swallow the event (`e.stopPropagation()`, `e.preventDefault()`) and do nothing.
-4. When the teacher presses Next / creates a new line, `activeLineIndex` advances to the new line — previous line auto-locks (already the natural consequence of step 3).
-5. When the teacher scrolls Presentation back to an earlier line, that line becomes `activeLineIndex` and instantly editable. No separate "unlock" gesture.
-6. Optional toast on locked-line click: small inline hint `"Return via Presentation to edit this step."` Throttled, dismisses on next active-line click. Skip if it complicates the layout — silence is acceptable.
-
-No styling changes — locked lines look identical, they just don't accept the caret.
-
-## Out of scope
-
-- Floating Number panel rotation logic (unchanged).
-- Lesson-line pairing / notebook checkpoint flow (unchanged).
-- AI assistant, voice input, geometry, tables, graphs (unchanged).
-- Saved chip migration: a one-time read-side filter handles legacy `□` characters; no DB rewrite.
+- **Square-root overline expansion** (stretch-aligned flex in `SqrtView`) — separate concern, working as intended.
+- **Line locking** in `PresentationView.tsx` (`onCursorChange` gate + sensor-sync `useEffect`) — separate concern, working as intended.
+- **Placeholder-box visibility rules** — you raised this earlier and the existing `RowView` `isActive` logic already governs it. I will not retouch placeholder UI this turn.
 
 ## Verification
 
-1. Open the quadratic-formula smartboard from the screenshot. The trailing `□` boxes next to `2d` and inside `√(b²-4ac)` should be gone; an empty box only appears when the cursor is parked inside that exact slot.
-2. Click inside the square root and type — the overline extends continuously with the content; no seam between tick and overline; when typing stops the size is preserved.
-3. With three lines on the board, place cursor on Line 3, then click Line 1 — nothing happens, caret stays on Line 3. Scroll Presentation up to Line 1 — clicking Line 1 now places the caret there, and Lines 2/3 reject clicks. Press Next → Line 3 becomes active again, Line 1 locks.
+After the revert I will:
+
+1. Re-read both files to confirm they match the pre-regression behaviour.
+2. Drive Playwright to the smartboard route for this lesson and screenshot the line — expect to see `x = (-b ± √(b² − 4ac)) / 2a` rendered as one continuous structure, matching the lesson note.
+3. Confirm the sqrt overline still expands and locked lines still reject clicks.
+
+If the screenshot still doesn't match the lesson note exactly, I stop and ask before making any further change — I will not "improve" the mirror on my own again.
