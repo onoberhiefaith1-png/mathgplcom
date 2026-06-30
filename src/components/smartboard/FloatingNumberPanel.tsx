@@ -468,7 +468,6 @@ export const FloatingNumberPanel = ({
     e.stopPropagation();
     onPing();
     armRef.current = { startY: e.clientY, baseY: y, pointerId: e.pointerId, dragging: false, lastY: y };
-    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ }
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const a = armRef.current;
@@ -479,6 +478,7 @@ export const FloatingNumberPanel = ({
       a.dragging = true;
       suppressClickRef.current = true;
       setIsDragging(true);
+      try { (e.currentTarget as HTMLElement).setPointerCapture(a.pointerId); } catch { /* noop */ }
     }
     const next = a.baseY + delta;
     const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
