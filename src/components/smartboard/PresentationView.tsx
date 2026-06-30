@@ -631,23 +631,6 @@ const PresentationView = ({
     return () => window.clearInterval(id);
   }, [activeAssistant]);
 
-  // ── Solving mode ──────────────────────────────────────────────────
-  // The writing sensor + Cursor Scrollbar are NOT permanent. They only
-  // exist while the teacher is actively solving a question, which is
-  // signalled by the # (Floating Number) button being ON inside a beat
-  // that actually has a writable Solution band.
-  // `solvingMode` is the single source of truth that gates:
-  //   • the pulsing caret (passed to FreeWriteLayer as activeLine)
-  //   • the keyboard input handler
-  //   • the Cursor Scrollbar
-  //   • the Floating Number panel visibility (already wired via
-  //     activeAssistant === "numbers" in the panel's `visible` prop)
-  const solvingMode = !!(
-    activeAssistant === "numbers" &&
-    activeLayout &&
-    activeLayout.bandLines > 0
-  );
-
   // Per-beat position memory for the three assistant panels.
   // Key shape: `${kind}:${beatId}` → board-pixel coordinate.
   const [assistantYByBeat, setAssistantYByBeat] = useState<Record<string, number>>({});
