@@ -32,9 +32,9 @@ interface Props {
   chromeFg: string;
   chromeBorder: string;
   surfaceBg: string;
-  /** Lesson Line Spacing multiplier (applies only to vertical gap). */
-  lineSpacing?: number;
-  setLineSpacing?: (v: number) => void;
+  /** Row Spacing multiplier (extra gap between consecutive rows). */
+  rowSpacing?: number;
+  setRowSpacing?: (v: number) => void;
   /** Text Size multiplier (applies only to content font, not page). */
   textScale?: number;
   setTextScale?: (v: number) => void;
