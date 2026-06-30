@@ -70,6 +70,53 @@ import { Check as CheckIcon, Loader2 } from "lucide-react";
 
 type Surface = "whiteboard" | "blackboard";
 
+const PRESENCE_SUP: Record<string, string> = {
+  "⁰": "^0", "¹": "^1", "²": "^2", "³": "^3", "⁴": "^4",
+  "⁵": "^5", "⁶": "^6", "⁷": "^7", "⁸": "^8", "⁹": "^9",
+};
+const PRESENCE_SUP_DIGIT: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+  "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+};
+const PRESENCE_SUB_DIGIT: Record<string, string> = {
+  "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4",
+  "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9",
+};
+const fromPresenceDigits = (s: string, map: Record<string, string>): string =>
+  [...s].map((ch) => map[ch] ?? ch).join("");
+
+const normalizeFloatingPresence = (raw: string): string => {
+  let s = String(raw ?? "");
+  s = s.replace(
+    /([+\-−])?([⁰¹²³⁴⁵⁶⁷⁸⁹]+)[⁄/]([₀₁₂₃₄₅₆₇₈₉]+)([a-zA-Z]*)/g,
+    (_m, sign = "", num, den, tail = "") => `${sign}${fromPresenceDigits(num, PRESENCE_SUP_DIGIT)}${tail}/${fromPresenceDigits(den, PRESENCE_SUB_DIGIT)}`,
+  );
+  for (const [glyph, ascii] of Object.entries(PRESENCE_SUP)) s = s.split(glyph).join(ascii);
+  return s
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/−/g, "-")
+    .replace(/[×·]/g, "*")
+    .replace(/÷|⁄/g, "/")
+    .replace(/√/g, "sqrt")
+    .replace(/\*\*/g, "^")
+    .replace(/\(([^()]+)\)\/\(([^()]+)\)/g, "$1/$2")
+    .replace(/\^\(([^()]{1,3})\)/g, "^$1");
+};
+
+const countTokenOccurrences = (haystack: string, needle: string): number => {
+  if (!haystack || !needle) return 0;
+  let count = 0;
+  let from = 0;
+  while (from <= haystack.length) {
+    const at = haystack.indexOf(needle, from);
+    if (at < 0) break;
+    count++;
+    from = at + Math.max(1, needle.length);
+  }
+  return count;
+};
+
 const today = () => {
   const d = new Date();
   const pad = (n: number) => n.toString().padStart(2, "0");
@@ -1209,6 +1256,39 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
+  // Keep Used in sync with actual board ink. Used means "currently present on
+  // the whiteboard", so deleting a chip immediately returns it to the white
+  // conveyor ring in its original reservoir position.
+  useEffect(() => {
+    if (!activeReservoir || consumedAbsIdx.size === 0) return;
+    const boardText = [
+      ...Object.values(freeLines).map((row) => rowToAscii(row)),
+      ...boxes.map((b) => b.text ?? ""),
+    ].map(normalizeFloatingPresence).join("\n");
+
+    setConsumedAbsIdx((prev) => {
+      const next = new Set(prev);
+      const usedByToken = new Map<string, number>();
+      let changed = false;
+      Array.from(prev).sort((a, b) => a - b).forEach((idx) => {
+        const token = activeReservoir.fragments[idx];
+        const key = normalizeFloatingPresence(token ?? "");
+        if (!key) {
+          if (next.delete(idx)) changed = true;
+          return;
+        }
+        const available = countTokenOccurrences(boardText, key);
+        const used = usedByToken.get(key) ?? 0;
+        if (used >= available) {
+          if (next.delete(idx)) changed = true;
+        } else {
+          usedByToken.set(key, used + 1);
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [activeReservoir, freeLines, boxes, consumedAbsIdx.size]);
+
   // Strict sequential advance: ONLY check the physical board line that belongs
   // to the current queue step. No scan-ahead, no "best later line", no line 9.
   // If the expected line turns green, the sensor and floating queue move down
@@ -2120,23 +2200,6 @@ const PresentationView = ({
                     setConsumedAbsIdx((prev) => {
                       const next = new Set(prev);
                       next.add(absIdx);
-                      // Continuous rotation: when every chip of the active
-                      // line has been used, automatically clear them so the
-                      // pool refills and the teacher never runs out.
-                      if (hasGuidedLines) {
-                        const ln = guidedLines[curLineIdx];
-                        if (ln) {
-                          let allUsed = true;
-                          for (let i = ln.fragmentStart; i < ln.fragmentEnd; i++) {
-                            if (!next.has(i)) { allUsed = false; break; }
-                          }
-                          if (allUsed) {
-                            for (let i = ln.fragmentStart; i < ln.fragmentEnd; i++) {
-                              next.delete(i);
-                            }
-                          }
-                        }
-                      }
                       return next;
                     })
                   }

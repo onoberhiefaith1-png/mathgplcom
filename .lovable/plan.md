@@ -1,41 +1,61 @@
-## Goal
-Fix only the movement logic inside `FloatingNumberPanel.tsx`. Do not change the visual design, layout, controls, icons, colors, spacing, or chip styling. The blue used zone, the 5-slot window, and the chevrons stay exactly as they are today.
+## Plan: Fix Floating Number Logic Only
 
-The strip must behave as ONE continuous circular conveyor:
+### Scope
+Keep the current Floating Number interface exactly as it is. No layout, color, icon, spacing, or styling changes.
 
+### 1. Make the strip a true circular conveyor
+Update only the movement/state logic in `FloatingNumberPanel.tsx` so the flow is:
+
+```text
+visible five slots -> blue Used section -> hidden right queue -> visible five slots
 ```
-[ Blue Used (scrollable) ] | [ 5 visible slots ] | [ Hidden right queue ]
-        newest → oldest                                next → later
-```
 
-## Required movement behavior
+Behavior to enforce:
+- The visible five slots are a fixed window, not a normal filtered scrolling list.
+- When a teacher taps a white chip, that exact chip first becomes Used/blue.
+- The next hidden chip enters from the right.
+- A chip must not reappear as white until it has passed through the Used section.
+- When all hidden/unused chips are exhausted, the oldest Used chip cycles back from the far right as white.
+- The five-slot display never becomes empty; single-chip sets repeat correctly.
 
-1. **Always exactly 5 visible chips.** If the source has fewer than 5 unique unused chips, repeat them (`a a a a a`, `x y x y x`) by modular indexing.
-2. **Tap an unused chip → conveyor shifts left by 1.**
-   - The tapped chip becomes the NEW newest entry of the blue zone (placed at the far-left end of blue, next to all older used chips).
-   - The next chip in the teacher's saved order slides into the right edge of the visible window.
-   - The tapped chip must NOT reappear inside the visible 5 until the rotation has cycled through every other chip first.
-3. **Hidden right queue → blue rotation.** When the right queue is exhausted, pull the OLDEST blue chip (far-left of blue) back onto the right side of the visible window, stripped of its blue state (renders as plain white again). The ring never ends and the 5 slots never go empty.
-4. **Backward chevron (◀)** scrolls the window left, revealing blue chips inside the visible 5 (newest first), exactly as it does today. Tapping a revealed blue chip returns it to the unused flow (current behavior preserved).
-5. **Forward chevron (▶)** hides any revealed blue chips first, then advances the right queue, looping forever.
-6. **Newest-used ordering** in blue: newest sits at the far-left end of the strip; older ones extend further left (matches current `revealedUsed.reverse()`).
+Technical direction:
+- Replace the current `remaining`-only window fill with an explicit ring/queue model derived from `allSlots` and `consumedAbsIdx`.
+- Keep Used ordering for display, but use an oldest-used return queue for re-entry from the hidden right side.
+- Remove the parent logic that clears all consumed chips as soon as a line is fully used, because that makes chips reappear without correctly passing through Used.
 
-## Technical changes (single file: `src/components/smartboard/FloatingNumberPanel.tsx`)
+### 2. Preserve highlighted chips exactly
+Fix the data path so the Smartboard presentation displays the same chip text saved from Floating Number Selection/Editing.
 
-- Introduce a derived `remaining` list = `allSlots` filtered to NOT-consumed, in original teacher order. Keep `allSlots` for the ring fallback.
-- Rebuild `windowSlots`:
-  - Left part: `revealedUsed.slice(0, clampedReveal)` as today.
-  - Right part: fill `WINDOW_SIZE − clampedReveal` slots by modular walk over `remaining` (so consumed chips are skipped from the natural flow).
-  - If `remaining.length === 0`, fall back to a modular walk over `allSlots` rendered with `used: false` (the "blue rotating back as white" case).
-- `handleActiveTap`: after marking the chip consumed, advance `offset` so that the consumed chip's successor (in teacher order) becomes the new leftmost visible chip. Keep `setReveal(0)`.
-- `goForward` / `goBackward`: keep current reveal-then-rotate semantics, but rotate over `remaining` when non-empty, else `allSlots`. Wrap with modulo so it never stalls.
-- Keep all JSX, styles, dimensions, icons, halos, line badges, notebook button, drag grip, freezing/gating, fraction rendering, and tap handlers unchanged.
+Behavior to enforce:
+- `=0` stays `=0`, never `=` or `0`.
+- `a = 5` stays `a = 5`, never `a =`.
+- `+5x` stays `+5x`.
+- No splitting, sign stripping, spacing changes, reconstruction, or AI reinterpretation for teacher-highlighted/edited chips.
 
-## Out of scope
-No edits to `presentation.ts`, `floatingPlan.ts`, `FloatingDisplayStrip.tsx`, `FloatingMath.tsx`, CSS, or any other file. No new components, no new props, no design tweaks.
+Technical direction:
+- Stop using term extraction/render-label logic for presentation chip labels when a saved teacher chip already exists.
+- Keep math-display safety/rendering, but feed it the saved token verbatim.
+- Remove remaining contextual plus dropping in the persisted bucket compiler for teacher-edited lines.
+- Ensure `buildReservoirs` prefers per-line saved fillers in teacher arrangement exactly as saved.
 
-## Verification
-- Manually drive a 5-chip equation in the live preview: tap leftmost chip → confirm tapped chip jumps to blue (far-left), remaining 4 slide left, 5th unused appears on right.
-- Tap until right queue empty → confirm oldest blue chip cycles back to right side as plain white, window stays at 5.
-- Single-token reservoir (`a`) → confirm the visible 5 shows `a a a a a` and rotates without going empty.
-- Backward/forward chevrons still reveal/hide blue chips with no layout change.
+### 3. Restore chips when deleted from the whiteboard
+Add a synchronization pass in `PresentationView.tsx` that compares currently used floating chips with what still exists on the board.
+
+Behavior to enforce:
+- If the teacher inserts `+5x`, it becomes blue Used.
+- If the teacher later deletes that `+5x` from the whiteboard with Backspace or eraser, it is removed from Used.
+- It returns to its original unused position in the circular strip as a white chip.
+- Used always means “currently present on the whiteboard,” not “was tapped once sometime earlier.”
+
+Technical direction:
+- Track each used floating chip by absolute fragment index and exact saved label.
+- After board edits (`freeLines`) change, recompute which consumed chips still appear on the active guided board line.
+- Remove consumed indices whose exact chip is no longer represented on the board.
+- Use a conservative normalizer only for comparing visual math-tree text to saved chips; do not change the saved chip itself.
+
+### Verification
+- Use the example `2x², +5x, =0, +3, -7x, +2x`.
+- Confirm tapping `+5x` moves it to Used first and does not immediately reappear as white.
+- Confirm `=0` displays exactly as `=0` in presentation.
+- Confirm deleting a used chip from the board removes it from Used and restores it as white in its original ring position.
+- Confirm the UI looks unchanged.
