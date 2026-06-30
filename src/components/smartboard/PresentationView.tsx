@@ -1494,6 +1494,115 @@ const PresentationView = ({
     setLiveCursor({ path: [], index: 0 });
   }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout, shownNotebookIdx]);
 
+  // ── RESUME TO HIGHEST COMPLETED LESSON LINE ──────────────────────────
+  // When the teacher reopens a lesson, scan the board for already-correct
+  // lesson lines and place the active line on the FIRST UNSOLVED lesson
+  // line. Runs once per (reservoir, layout) — gated by a ref so subsequent
+  // typing doesn't keep snapping forwards.
+  const resumedReservoirRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
+    if (resumedReservoirRef.current === activeReservoirIdx) return;
+    resumedReservoirRef.current = activeReservoirIdx;
+    const a = bandStart(activeLayout);
+    let highestCompleted = -1;
+    for (let k = 0; k < guidedLines.length; k++) {
+      const target = guidedLines[k];
+      if (!target) continue;
+      if (target.notebookOnly) {
+        if (highestCompleted === k - 1) highestCompleted = k;
+        continue;
+      }
+      const row = freeLines[a + k];
+      if (!row || row.length === 0) continue;
+      const ascii = rowToAscii(row);
+      if (equationsEquivalent(ascii, target.equation) || equationsMatch(ascii, target.equation)) {
+        highestCompleted = k;
+        // Mark its notebook (if any) as already-shown so we never re-prompt.
+        if (target.notebook) {
+          setShownNotebookIdx((prev) => {
+            if (prev.has(k)) return prev;
+            const next = new Set(prev);
+            next.add(k);
+            return next;
+          });
+        }
+      } else {
+        break; // strict sequential — stop at the first gap
+      }
+    }
+    const resumeIdx = Math.min(highestCompleted + 1, guidedLines.length);
+    if (resumeIdx > 0) {
+      setActiveLineIdx(resumeIdx);
+      setFloatingLineIdx(resumeIdx);
+      // Mark all preceding fragments / structures as consumed so the
+      // floating-number strip reflects the resumed state.
+      setConsumedAbsIdx((prev) => {
+        const next = new Set(prev);
+        for (let k = 0; k < resumeIdx; k++) {
+          const t = guidedLines[k];
+          if (!t) continue;
+          for (let i = t.fragmentStart; i < t.fragmentEnd; i++) next.add(i);
+        }
+        return next;
+      });
+      setConsumedStructures((prev) => {
+        const next = new Set(prev);
+        for (let k = 0; k < resumeIdx; k++) {
+          const t = guidedLines[k];
+          if (!t) continue;
+          for (const c of t.containers) next.add(c);
+        }
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeReservoirIdx, hasGuidedLines, activeLayout?.startLine, activeLayout?.bandLines, guidedLines.length]);
+
+  // ── INTELLIGENT ERASE ────────────────────────────────────────────────
+  // If the teacher erases ink, only rewind activeLineIdx when the line
+  // they erased was the MOST RECENTLY completed one. Erasing an older line
+  // (with later completed lines still on the board) is a no-op — the
+  // lesson has already progressed past that point.
+  const prevActiveLineIdxRef = useRef<number>(activeLineIdx);
+  useEffect(() => {
+    prevActiveLineIdxRef.current = activeLineIdx;
+  }, [activeLineIdx]);
+  useEffect(() => {
+    if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
+    const a = bandStart(activeLayout);
+    // Find the highest k < activeLineIdx whose target row is now empty/wrong.
+    let lostTop = -1;
+    for (let k = activeLineIdx - 1; k >= 0; k--) {
+      const target = guidedLines[k];
+      if (!target || target.notebookOnly) continue;
+      const row = freeLines[a + k];
+      const ascii = row ? rowToAscii(row) : "";
+      const ok = !!row && row.length > 0 &&
+        (equationsEquivalent(ascii, target.equation) || equationsMatch(ascii, target.equation));
+      if (!ok) { lostTop = k; break; }
+    }
+    if (lostTop < 0) return;
+    // Only rewind if the lost line is the LATEST completed one (k === activeLineIdx-1).
+    if (lostTop !== activeLineIdx - 1) return;
+    setActiveLineIdx(lostTop);
+    setFloatingLineIdx(lostTop);
+    setManualFloatingLineIdx(null);
+    activeSensorLogicalIdxRef.current = null;
+    activeSensorPhysicalLineRef.current = null;
+    // Drop the consumed fragments/structures that belonged to the erased line.
+    const target = guidedLines[lostTop];
+    if (target) {
+      setConsumedAbsIdx((prev) => {
+        const next = new Set(prev);
+        for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.delete(i);
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeLines, hasGuidedLines, activeLayout?.startLine, activeLayout?.bandLines, guidedLines.length]);
+
+
   // Per-line bulb status for the right-edge traffic-light rail.
   // Computed after auto-advance so consumed lines correctly read as green.
   const lineStatusMap = useMemo<Record<number, LineBulb>>(() => {
