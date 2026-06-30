@@ -39,8 +39,10 @@ export const CursorScrollbar = ({
   topCss = "50%",
   canUp = true,
   canDown = true,
+  inline = false,
 }: Props) => {
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
+
 
   const clear = useCallback(() => {
     if (holdRef.current.timer != null) window.clearTimeout(holdRef.current.timer);
