@@ -1,43 +1,39 @@
-## What went wrong
+## Goal
+Restore the Smartboard math structure to the working state from before the “save edited floating number” fix, without losing the important save behavior: teacher edits must still remain after Save and must still feed the presentation.
 
-Last turn I changed two files in a way that broke how filled fractions/brackets/roots come across from the lesson note onto the Smartboard:
+## Plan
 
-1. `src/lib/floating/highlightEngine.ts` — `nodesToLatex` started emitting **empty groups** (`\frac{}{}`, `\sqrt{}`, `()`) for empty slots instead of the literal `□` it used to emit.
-2. `src/lib/smartboard/mirrorFromLessonNote.ts` — `latexToRow` started **dropping `□` characters** entirely.
+1. **Do not use a full History revert as the first approach**
+   - A full revert would also remove later fixes that are still needed.
+   - Instead, make a targeted restore around the save/compile path that began the regression.
 
-Together these two changes caused the Smartboard renderer to receive an empty `frac` node (`rows: [[], []]`). Empty rows in `MathTreeRender` paint the dashed-box placeholder UI, which is what you saw as `□` on top and `□ □ □` underneath — not the filled `-b ± √(b² − 4ac) / 2a` you saved in the lesson note.
+2. **Restore structure fidelity in the floating-number save path**
+   - In `FloatingNumbersPage.tsx`, keep teacher-edited chips from being deleted on Save.
+   - But stop converting saved chip values through broad display conversion when that changes math structure.
+   - Preserve the exact teacher chip string as the source value, so fractions, roots, brackets, equals signs, plus signs, and grouped expressions remain as created.
 
-The lesson note pipeline was working before. I should not have touched it.
+3. **Restore structure fidelity in the compile path**
+   - In `floatingCompile.ts`, compile the teacher’s saved fillers exactly, with no reconstruction.
+   - Keep arrangement/order behavior, but avoid transforming chip strings in a way that can change the lesson-note structure.
+   - This means the Smartboard receives the same chips the teacher saved, not a converted approximation.
 
-## Fix
+4. **Keep the original lesson-note-to-smartboard structure rules intact**
+   - Do not change the lesson-note mirror engine beyond the already planned revert of the placeholder regression.
+   - Keep `□` placeholder flow as it was before the later placeholder experiment, because that was part of the working structure pipeline.
 
-Revert exactly those two edits so the mirror behaves identically to how it did before my last turn. Nothing else changes.
+5. **Add focused safeguards**
+   - Add a small parity rule around save/compile: if a teacher chip exists, the output chip must match it exactly unless the teacher explicitly edits it.
+   - This protects cases like `+5x`, `=0`, `\frac{...}{...}`, `\sqrt{...}`, brackets, and combined structures.
 
-### File 1 — `src/lib/floating/highlightEngine.ts`
+6. **Verify the exact failure scenario**
+   - Edit floating numbers on the generation page.
+   - Press Save.
+   - Confirm the edited chips remain visible after reload.
+   - Open the Smartboard and confirm the presented structure matches the saved lesson-note/floating-number structure, not an empty or altered scaffold.
 
-Restore `nodesToLatex` to its prior form:
-
-- `slot` → emits `"□"`
-- `frac` → `\frac{num || "□"}{den || "□"}`
-- `sqrt` → `\sqrt[deg]{rad || "□"}`
-- `bracket` → `open + (body || "□") + close`
-
-### File 2 — `src/lib/smartboard/mirrorFromLessonNote.ts`
-
-Remove the `if (ch === "□") { i++; continue; }` guard I added in `latexToRow`. `□` flows through as a `mkChar` again, exactly like before.
-
-## What I am NOT changing
-
-- **Square-root overline expansion** (stretch-aligned flex in `SqrtView`) — separate concern, working as intended.
-- **Line locking** in `PresentationView.tsx` (`onCursorChange` gate + sensor-sync `useEffect`) — separate concern, working as intended.
-- **Placeholder-box visibility rules** — you raised this earlier and the existing `RowView` `isActive` logic already governs it. I will not retouch placeholder UI this turn.
-
-## Verification
-
-After the revert I will:
-
-1. Re-read both files to confirm they match the pre-regression behaviour.
-2. Drive Playwright to the smartboard route for this lesson and screenshot the line — expect to see `x = (-b ± √(b² − 4ac)) / 2a` rendered as one continuous structure, matching the lesson note.
-3. Confirm the sqrt overline still expands and locked lines still reject clicks.
-
-If the screenshot still doesn't match the lesson note exactly, I stop and ask before making any further change — I will not "improve" the mirror on my own again.
+## What will not change
+- No redesign.
+- No changes to rotation UI.
+- No changes to colors, layout, or cursor appearance.
+- No new interpretation of the math.
+- No AI reconstruction of teacher-saved chips.
