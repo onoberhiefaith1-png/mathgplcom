@@ -1,39 +1,84 @@
-## Goal
+## Plan: Smart Sensor + One-to-One Lesson Sync
 
-The writing sensor must always sit on the **first empty row** of the active Solution band — never on a row that already contains an equation, note, or floating-number ink. The Cursor Scrollbar can push the sensor further down into empty space, but never back up onto written content.
+### 1. Stop the sensor from resetting while typing
+- Remove the effect behavior that re-anchors the sensor to the first empty row after every character.
+- While a teacher is typing on the active line, the sensor/caret must stay inside that line and move right with each inserted object.
+- Auto-reposition only happens at clear checkpoints: opening a Solution, pressing Enter, confirming a notebook note, completing the expected line, or using the cursor scrollbar.
 
-## Current behavior (problem)
+### 2. Define the sensor as an active writing target
+The sensor will have one job: point to the current writable Lesson Line inside the active Solution.
 
-When the teacher presses `#`, `PresentationView` anchors the sensor at `bandStart(activeLayout)` — the row directly under the “Solution” caption — regardless of whether equations are already written there. The Cursor Scrollbar then lets the teacher move freely up/down across both empty and written rows.
+Rules:
+- It appears by default under “Solution” only when no solution content exists yet.
+- If solution content exists, it appears one writable row below the last written equation/note.
+- It never parks on a written row, notebook/prose row, heading, question, caption, restricted region, or the visual area covered by a tall math structure.
+- It remains visible at all times inside a writable Solution.
 
-## New rules
+### 3. Add smart row search for movement
+Create one shared helper for cursor placement:
 
-1. **First-empty anchor.** On entering solving mode (or whenever the active beat / written content changes while solving), the sensor snaps to the lowest row `r` in `[bandStart, bandEnd]` such that:
-   - `r` is writable (`isLineWritable(r)` — not a notebook-prose row, not a caption), and
-   - no row `≤ r` in the same band carries content (i.e. `freeLines[k]` is empty/absent for every written-content key `k ≤ r`), accounting for tall structures via the existing `extraRowsFor(line)` measurement so the sensor lands below the full visual height of fractions / √ on the previous row.
-2. **Auto-advance after writes.** When the row under the sensor becomes non-empty (Enter, or content lands via floating-number tap), the sensor re-runs rule 1 — it never stays on a written row.
-3. **Scrollbar = empty space only.**
-   - `canCursorUp` is true only while `sensor.line > firstEmptyRow`. Pressing ↑ on the first empty row is a no-op (button disabled).
-   - `canCursorDown` stays true as long as there are empty rows ahead inside the band; when the teacher reaches the bottom, ↓ grows the band by one row (existing `growActiveBand`) and steps onto it.
-   - Both directions still skip locked notebook-prose rows.
-4. **Master-left margin** preserved: every nudge resets `x: 0` and clears the live tree cursor (already done).
+```text
+findNextWritableEmptyRow(startRow, direction)
+```
 
-## Files to change
+It will:
+- Scan row by row in the requested direction.
+- Skip restricted rows.
+- Skip rows already containing ink.
+- Skip rows visually covered by fractions, roots, matrices, powers, or other tall structures.
+- Grow the working area if the teacher scrolls downward past the current Solution band.
 
-- `src/components/smartboard/PresentationView.tsx`
-  - Add helper `firstEmptyBandRow(L: BeatLayout): number` that walks `bandStart(L) … bandEnd(L)`, accounts for `extraRowsFor` of any written row above, and returns the first writable empty row (or `bandEnd+1` triggering `growActiveBand`).
-  - Replace the “snap to `bandStart`” logic in the solving-mode entry effect (lines 1408–1418) with a snap to `firstEmptyBandRow(activeLayout)`.
-  - Add a second effect that watches `freeLines` + `activeLayout?.id` while `solvingMode` is true: if `sensor.line` is no longer the first-empty row AND the teacher hasn’t manually pushed the sensor below it via the scrollbar, re-snap. Manual override is tracked with a `manualPushedRef` set inside `nudgeCursor(+1)` past the auto floor and cleared when the auto floor advances past it.
-  - Update `canCursorUp` to require `sensor.line > firstEmptyRow` (the auto anchor), and `nudgeCursor(-1)` to clamp at that anchor.
-  - Update `nudgeCursor(+1)` so that hitting `bandEnd` calls `growActiveBand()` and steps into the new row.
-- `src/test/floatingSmartboardSync.test.ts` — extend with three cases:
-  1. Empty band → sensor at `bandStart`.
-  2. Two written rows at top → sensor at `bandStart + 2` (and below tall √ structure when measured height > 1).
-  3. Scrollbar ↑ from the auto anchor is blocked; ↓ moves into empty rows and eventually grows the band.
+This same helper will be used by:
+- Initial sensor placement.
+- Enter key movement.
+- The left ↑/↓ scrollbar.
+- Auto-advance after a completed line.
+- Notebook note insertion.
 
-## Technical notes
+### 4. Fix the left ↑/↓ scrollbar behavior
+- The scrollbar will move only the sensor, not floating numbers.
+- ↑ moves to the previous available empty writable row, never into written/restricted content.
+- ↓ moves to the next available empty writable row, growing the Solution space if needed.
+- If the immediate next row is blocked, the sensor jumps over it to the next clean space.
+- The sensor always snaps to the master left margin when moved vertically.
 
-- “Written” means: `freeLines[k]` exists and has at least one non-empty atom, **or** the row is occupied by a structure whose visual height (from `extraRowsFor`) extends into it from a row above.
-- Notebook-prose rows (`notebookRowLines`) are treated as written for the “skip past” calculation but never become a sensor target.
-- The Floating Number panel’s own visibility gate (`activeAssistant === "numbers"`) is unchanged; only sensor placement is affected.
-- No backend/schema change. No new storage keys.
+### 5. Preserve typed order exactly
+Fix the insertion flow so typed content appears in the same order the teacher enters it:
+
+```text
+Teacher types: x² = 5x + 6
+Board shows:   x² = 5x + 6
+```
+
+Implementation rule:
+- Typing must never reset the math-tree cursor to the beginning of the line.
+- The cursor only resets to `{ path: [], index: 0 }` when starting a new empty line.
+- After each inserted character/chip/structure, keep the returned cursor position as the live cursor.
+
+### 6. One-to-one sync with notebook notes
+When the teacher presses the notebook/note action:
+- If the current typed line matches the expected lesson note/line, show the note confirmation behavior.
+- Write the notebook note onto the board exactly once.
+- Mark that note as completed/read.
+- Move the active lesson step to the next line.
+- Move the sensor to the next writable empty row below the note.
+
+### 7. Structure-aware next-line placement
+All vertical movement will use actual rendered structure height:
+- If the current line contains a fraction/root/matrix that occupies multiple rows, the next sensor position is below the full structure.
+- No cursor can land inside the denominator area, radical area, matrix body, or any occupied bounding box.
+
+### 8. Keep floating numbers independent
+- Floating Number panel line navigation remains separate from cursor movement.
+- The sensor follows lesson progress, not the floating-number display scrollbar.
+- Floating numbers may still auto-follow the active lesson line, but manually browsing floating numbers must not move the writing cursor.
+
+### 9. Verification
+I will verify:
+- The sensor is visible below Solution on load.
+- Typing `x² = 5x + 6` preserves order.
+- The caret moves right as typing happens.
+- Pressing Enter moves below the current line/structure.
+- The ↑/↓ cursor scrollbar jumps only to empty writable rows.
+- Notebook insertion moves the sensor below the inserted note.
+- The sensor never lands on questions, headings, notes, existing equations, or restricted regions.
