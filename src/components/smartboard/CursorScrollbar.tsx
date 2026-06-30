@@ -20,7 +20,11 @@ interface Props {
   topCss?: string;
   canUp?: boolean;
   canDown?: boolean;
+  /** When true, render as an inline flex group (no absolute positioning),
+   *  so it can sit inside an existing rail. */
+  inline?: boolean;
 }
+
 
 const HOLD_DELAY_MS = 350;
 const REPEAT_MS = 90;
@@ -35,8 +39,10 @@ export const CursorScrollbar = ({
   topCss = "50%",
   canUp = true,
   canDown = true,
+  inline = false,
 }: Props) => {
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
+
 
   const clear = useCallback(() => {
     if (holdRef.current.timer != null) window.clearTimeout(holdRef.current.timer);
@@ -90,6 +96,20 @@ export const CursorScrollbar = ({
     </button>
   );
 
+  if (inline) {
+    return (
+      <div
+        className="flex flex-col items-center gap-2"
+        style={{ userSelect: "none" }}
+        onPointerDown={(e) => e.stopPropagation()}
+        aria-label="Writing cursor controller"
+      >
+        {btn(canUp, onUp, <ChevronUp className="h-5 w-5" />, "Cursor up")}
+        {btn(canDown, onDown, <ChevronDown className="h-5 w-5" />, "Cursor down")}
+      </div>
+    );
+  }
+
   return (
     <div
       data-sb-chrome
@@ -110,3 +130,4 @@ export const CursorScrollbar = ({
 };
 
 export default CursorScrollbar;
+
