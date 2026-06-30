@@ -1564,8 +1564,13 @@ const PresentationView = ({
   // they enforce "Presentation decides → cursor follows".
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout) return;
+    // Cursor follows ONLY the automatic floating-line index (driven by
+    // sensor position). The Floating Number panel's ▲/▼ updates
+    // `manualFloatingLineIdx` to change which chip set is shown, but it
+    // must NEVER move the writing cursor — that is now the job of the
+    // dedicated CursorScrollbar on the left rail.
     const idx = Math.min(
-      manualFloatingLineIdx ?? floatingLineIdx,
+      floatingLineIdx,
       guidedLines.length - 1,
     );
     // A presentation "line" is NOT a board row — a single logical line may
