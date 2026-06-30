@@ -2639,6 +2639,7 @@ const PresentationView = ({
                   topYPx={bandTopPx + 8}
                   bottomYPx={bandBotPx - 8}
                   finalLineBottomPx={finalLineBottomPx}
+                  rowHeightPx={grid.LINE_HEIGHT}
                   rememberedY={fnY}
                   onCommitY={(y) => commitAssistantY("numbers", beatKey, y)}
                   onPing={pingAssistant}
