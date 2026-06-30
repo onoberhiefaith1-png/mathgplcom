@@ -387,6 +387,12 @@ const PresentationView = ({
   });
   // Cursor lives inside the active line's math tree.
   const [cursor, setCursor] = useState<Cursor>({ path: [], index: 0 });
+  const cursorRef = useRef<Cursor>({ path: [], index: 0 });
+  const setLiveCursor = useCallback((next: Cursor | ((prev: Cursor) => Cursor)) => {
+    const resolved = typeof next === "function" ? next(cursorRef.current) : next;
+    cursorRef.current = resolved;
+    setCursor(resolved);
+  }, []);
   const [freeLines, setFreeLines] = useState<FreeLineMap>(() => {
     try {
       const raw = localStorage.getItem(FREEWRITE_KEY);
@@ -817,8 +823,8 @@ const PresentationView = ({
     }
     setFreeLines((prev) => {
       const row = prev[line] ?? [];
-      const res = fn(row, cursor);
-      setCursor(res.cursor);
+      const res = fn(row, cursorRef.current);
+      setLiveCursor(res.cursor);
       const next = { ...prev };
       if (res.root.length === 0) delete next[line];
       else next[line] = res.root;
