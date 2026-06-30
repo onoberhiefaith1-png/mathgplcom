@@ -175,7 +175,7 @@ export const FloatingNumberPanel = ({
 }: Props) => {
   const initialY = rememberedY ?? defaultYPx;
   const [y, setY] = useState<number>(initialY);
-  const dragRef = useRef<{ dy: number } | null>(null);
+  // (drag state lives in armRef below — defined alongside the handlers)
   const [offset, setOffset] = useState<number>(0);
   // How many already-USED numbers are currently revealed (green) on the left of
   // the single strip. 0 = pure forward view of unused numbers. Backward grows
