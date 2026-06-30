@@ -2010,6 +2010,23 @@ const PresentationView = ({
             caretColor={ink}
             onMeasure={handleLineMeasure}
             onCursorChange={(line, c) => {
+              // ── LINE LOCKING ────────────────────────────────────────────
+              // The cursor must follow Presentation, not the other way
+              // around. Only the lesson line currently active in the
+              // Floating Number panel (curLineIdx) is editable. Clicks on
+              // any locked equation are swallowed so the caret cannot move
+              // there and typing cannot leak into older lines. To correct
+              // an earlier step the teacher steps back through Presentation
+              // (Prev/Next on the floating panel or the line navigator),
+              // which advances curLineIdx and re-opens that line.
+              if (hasGuidedLines && activeLayout) {
+                const curLineIdx = Math.min(
+                  manualFloatingLineIdx ?? floatingLineIdx,
+                  guidedLines.length - 1,
+                );
+                const activeBoardRow = bandStart(activeLayout) + curLineIdx;
+                if (line !== activeBoardRow) return; // locked — swallow
+              }
               const clamped = clampToActiveBand(line);
               if (clamped !== sensor.line) setSensor((s) => ({ ...s, line: clamped }));
               setCursor(c);
