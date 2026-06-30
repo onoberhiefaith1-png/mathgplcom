@@ -1077,6 +1077,7 @@ const PresentationView = ({
     if (!mirror.ok || mirror.row.length === 0) return;
     const sig = mirror.signature;
     setFreeLines((prev) => {
+      const before = prev[sensor.line] ?? [];
       let maxLine = -1;
       for (const k of Object.keys(prev)) {
         const n = Number(k);
@@ -1103,9 +1104,13 @@ const PresentationView = ({
         return ns;
       });
       setSensor((s) => ({ ...s, line: target + 1 + extraRowsFor(target), x: 0 }));
+      setLiveCursor({ path: [], index: before.length });
+      activeSensorLogicalIdxRef.current = hasGuidedLines ? activeLineIdx + 1 : null;
+      activeSensorPhysicalLineRef.current = target + 1 + extraRowsFor(target);
+      manualPushedRef.current = null;
       return next;
     });
-  }, [sensor.line]);
+  }, [sensor.line, setLiveCursor, hasGuidedLines, activeLineIdx]);
 
   /** Insert a real stacked fraction at the sensor (no slash). Optional sign
    *  is typed first; the frac node is created with numerator/denominator
