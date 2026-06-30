@@ -1115,8 +1115,8 @@ const PresentationView = ({
     setZoom((prev) => {
       const host = boardScrollRef.current;
       if (host) {
-        const oldY = lineToY(sensor.line, getGrid(prev, lineSpacing, textScale));
-        const newY = lineToY(sensor.line, getGrid(z, lineSpacing, textScale));
+        const oldY = lineToY(sensor.line, getGrid(prev, rowSpacing, textScale));
+        const newY = lineToY(sensor.line, getGrid(z, rowSpacing, textScale));
         const delta = newY - oldY;
         requestAnimationFrame(() => {
           host.scrollTop = Math.max(0, host.scrollTop + delta);
