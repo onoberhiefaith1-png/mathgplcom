@@ -207,7 +207,8 @@ export const FloatingNumberPanel = ({
   // Clamp whenever bounds shift (writing barrier / band size).
   useEffect(() => {
     setY((prev) => {
-      const upper = Math.max(finalLineBottomPx + 8, topYPx);
+      const clearance = (rowHeightPx ?? 0) > 0 ? rowHeightPx! * 3 : 8;
+      const upper = Math.max(finalLineBottomPx + clearance, topYPx);
       return Math.min(bottomYPx, Math.max(upper, prev));
     });
   }, [topYPx, bottomYPx, finalLineBottomPx]);
