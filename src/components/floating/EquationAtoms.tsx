@@ -230,7 +230,7 @@ export const EquationAtoms = ({
     const onKey = (e: KeyboardEvent) => {
       if (!focused.current) return;
       if (e.key === "Enter") { e.preventDefault(); commit(); }
-      else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); }
+      else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); setClickOrder([]); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
