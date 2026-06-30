@@ -1386,6 +1386,18 @@ const PresentationView = ({
   const activeLayout = layouts[layouts.length - 1];
   const bandStart = (L?: BeatLayout) => L ? L.startLine + L.captionLines : 0;
   const bandEnd = (L?: BeatLayout) => L ? L.startLine + L.captionLines + Math.max(0, L.bandLines) - 1 : 0;
+
+  // ── Solving mode ──────────────────────────────────────────────────
+  // Writing sensor + Cursor Scrollbar are NOT permanent. They exist
+  // only while the teacher is actively solving a question, signalled by
+  // the # (Floating Number) button being ON inside a beat that actually
+  // has a writable Solution band. Single source of truth — gates the
+  // pulsing caret, the keyboard handler, and the Cursor Scrollbar.
+  const solvingMode = !!(
+    activeAssistant === "numbers" &&
+    activeLayout &&
+    activeLayout.bandLines > 0
+  );
   /** Lines the teacher is allowed to write on across the whole lesson. */
   const allowedLineSet = useMemo(() => {
     const s = new Set<number>();
