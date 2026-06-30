@@ -2724,14 +2724,7 @@ const PresentationView = ({
                     })
                   }
                   leftPx={grid.MARGIN_LEFT + 8}
-                  defaultYPx={defaultY}
-                  topYPx={bandTopPx + 8}
-                  bottomYPx={bandBotPx - 8}
-                  finalLineBottomPx={finalLineBottomPx}
-                  rowHeightPx={grid.LINE_HEIGHT}
                   viewportBottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
-                  rememberedY={fnY}
-                  onCommitY={(y) => commitAssistantY("numbers", beatKey, y)}
                   onPing={pingAssistant}
                   beatId={beatKey}
                   lineNumber={hasGuidedLines ? curLineIdx + 1 : undefined}
