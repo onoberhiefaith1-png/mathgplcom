@@ -1880,7 +1880,7 @@ const PresentationView = ({
         setLiveCursor({ path: [], index: 0 });
       }
       activeSensorLogicalIdxRef.current = activeLineIdx;
-      activeSensorPhysicalLineRef.current = expectedLineNum;
+      activeSensorPhysicalLineRef.current = nextWritable;
       return;
     }
     const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
