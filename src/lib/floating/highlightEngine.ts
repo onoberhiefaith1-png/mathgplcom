@@ -230,12 +230,17 @@ export const applySelection = (
   atoms: Atom[],
   chips: Chip[],
   selected: Set<string>,
+  clickOrder?: string[],
 ): Chip[] => {
   if (selected.size === 0) return chips;
 
   const indexOf = new Map<string, number>();
   atoms.forEach((a, i) => indexOf.set(a.id, i));
   const byId = new Map<string, Atom>(atoms.map((a) => [a.id, a]));
+
+  // Click-order index per atom: earlier clicks → smaller number.
+  const clickIndex = new Map<string, number>();
+  (clickOrder ?? []).forEach((id, i) => { if (!clickIndex.has(id)) clickIndex.set(id, i); });
 
   // Auto-pair brackets: selecting one side always implies the partner.
   const partners = new Map<string, string>();
@@ -274,7 +279,32 @@ export const applySelection = (
     return buildChip(byId, [...runSelected]);
   }).filter((c) => c.atomIds.length > 0 || c.value);
 
+  // Order new chips by the teacher's click order: the chip containing the
+  // earliest-clicked atom comes first. Fallback to equation order when no
+  // click data is available (keeps tests / legacy callers stable).
+  const firstClick = (c: Chip): number => {
+    let min = Infinity;
+    for (const id of c.atomIds) {
+      const k = clickIndex.get(id);
+      if (k !== undefined && k < min) min = k;
+    }
+    return min;
+  };
+  if (clickOrder && clickOrder.length) {
+    newChips.sort((a, b) => {
+      const ca = firstClick(a);
+      const cb = firstClick(b);
+      if (ca !== cb) return ca - cb;
+      const ai = a.atomIds.length ? (indexOf.get(a.atomIds[0]) ?? 1e9) : 1e9;
+      const bi = b.atomIds.length ? (indexOf.get(b.atomIds[0]) ?? 1e9) : 1e9;
+      return ai - bi;
+    });
+    // Surviving chips (created in earlier commits) keep their existing
+    // array order; new chips are appended in click order.
+    return [...surviving, ...newChips];
+  }
 
+  // Legacy path: equation-order sort.
   const all = [...surviving, ...newChips];
   all.sort((a, b) => {
     const ai = a.atomIds.length ? (indexOf.get(a.atomIds[0]) ?? 1e9) : 1e9;
@@ -283,6 +313,7 @@ export const applySelection = (
   });
   return all;
 };
+
 
 
 export const swapChips = <T,>(chips: T[], a: number, b: number): T[] => {

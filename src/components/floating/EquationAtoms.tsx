@@ -178,10 +178,11 @@ export const EquationAtoms = ({
   const tree = useMemo(() => parseNodes(equation, lineId), [equation, lineId]);
   const atoms = useMemo(() => flattenAtoms(tree), [tree]);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [clickOrder, setClickOrder] = useState<string[]>(() => []);
   const containerRef = useRef<HTMLDivElement>(null);
   const focused = useRef(false);
 
-  useEffect(() => { setSelected(new Set()); }, [equation, lineId]);
+  useEffect(() => { setSelected(new Set()); setClickOrder([]); }, [equation, lineId]);
 
   const toggle = useCallback((id: string) => {
     setSelected((prev) => {
@@ -190,6 +191,7 @@ export const EquationAtoms = ({
       else next.add(id);
       return next;
     });
+    setClickOrder((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   }, []);
 
   const togglePair = useCallback((idA: string, idB: string) => {
@@ -200,27 +202,35 @@ export const EquationAtoms = ({
       else { next.add(idA); next.add(idB); }
       return next;
     });
+    setClickOrder((prev) => {
+      const on = prev.includes(idA) || prev.includes(idB);
+      if (on) return prev.filter((x) => x !== idA && x !== idB);
+      return [...prev, idA, idB];
+    });
   }, []);
 
   const focus = useCallback(() => { containerRef.current?.focus(); }, []);
 
   const commit = useCallback(() => {
     if (selected.size === 0) return;
-    const next = applySelection(tree, atoms, chips, selected);
+    const next = applySelection(tree, atoms, chips, selected, clickOrder);
     onApply(next, atoms);
     setSelected(new Set());
-  }, [tree, atoms, chips, selected, onApply]);
+    setClickOrder([]);
+  }, [tree, atoms, chips, selected, clickOrder, onApply]);
+
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter") { e.preventDefault(); commit(); }
-    else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); }
+    else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); setClickOrder([]); }
+
   }, [commit]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!focused.current) return;
       if (e.key === "Enter") { e.preventDefault(); commit(); }
-      else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); }
+      else if (e.key === "Escape") { e.preventDefault(); setSelected(new Set()); setClickOrder([]); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
