@@ -1256,6 +1256,25 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
+  // ── LINE LOCKING (sensor follows Presentation) ───────────────────────
+  // Whenever the Floating Number panel advances or rewinds to a different
+  // lesson line, snap the writing-sensor onto that line automatically so
+  // typing always lands on the line the teacher is presenting. This is the
+  // partner of the click-gate on FreeWriteLayer.onCursorChange: together
+  // they enforce "Presentation decides → cursor follows".
+  useEffect(() => {
+    if (!hasGuidedLines || !activeLayout) return;
+    const idx = Math.min(
+      manualFloatingLineIdx ?? floatingLineIdx,
+      guidedLines.length - 1,
+    );
+    const target = bandStart(activeLayout) + idx;
+    setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
+    setCursor({ path: [], index: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines]);
+
+
   // Keep Used in sync with actual board ink. Used means "currently present on
   // the whiteboard", so deleting a chip immediately returns it to the white
   // conveyor ring in its original reservoir position.
