@@ -2328,24 +2328,19 @@ const PresentationView = ({
             caretColor={ink}
             onMeasure={handleLineMeasure}
             onCursorChange={(line, c) => {
-              // ── LINE LOCKING ────────────────────────────────────────────
-              // Only the line currently active in the Floating Number panel
-              // is editable. Clicks on locked lines AND on notebook-prose
-              // rows are swallowed so the caret cannot drift backwards into
-              // a previous line or into a read-only narration row.
-              const floorLine = Math.floor(line);
-              if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
-                return; // notebook prose — sensor-restricted area
-              }
+              // Lesson-aware click gate: only writable rows inside the
+              // active beat's working area accept caret placement.
+              // Clicks on locked content (captions, question, notebook
+              // prose, previous/future beats) are swallowed — the
+              // sensor and live caret stay exactly where they were.
+              if (!isLineWritable(line)) return;
               if (hasGuidedLines && activeLayout) {
                 // The anchor effect has already placed sensor.line on the
                 // correct K-th-occupied (non-notebook) row for the current
-                // lesson line. Use that as the single source of truth so
-                // both the click-gate and notebook-skipping stay in sync.
-                if (Math.floor(sensor.line) !== floorLine) return;
+                // lesson line. Reject clicks that try to leave it.
+                if (Math.floor(sensor.line) !== Math.floor(line)) return;
               }
-              const clamped = clampToActiveBand(line);
-              if (clamped !== sensor.line) setSensor((s) => ({ ...s, line: clamped }));
+              if (line !== sensor.line) setSensor((s) => ({ ...s, line }));
               setLiveCursor(c);
               hiddenInputRef.current?.focus({ preventScroll: true });
             }}
