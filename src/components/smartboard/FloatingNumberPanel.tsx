@@ -8,6 +8,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { extractTermsFromAscii, renderTermLabel } from "@/lib/smartboard/floatingExtractor";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 
 const WINDOW_SIZE = 5;
@@ -66,10 +68,10 @@ export const parseFractionChip = (label: string): FractionParts | null => {
  *  draw a real stacked fraction with the variable riding on the numerator
  *  (so `¹⁰⁄₃x` reads as "10x over 3", never as "10 over 3 x"). */
 const ChipLabel = ({ label, color }: { label: string; color: string }) => {
+  const safe = assertDisplaySafe(label).cleaned;
   const frac = parseFractionChip(label);
   if (!frac) {
-    // Best-effort: render sup/sub digits as plain glyphs if any leaked in.
-    return <span>{label}</span>;
+    return <span>{renderMathInline(safe, `fn-chip-${safe}`)}</span>;
   }
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
@@ -146,6 +148,7 @@ interface Props {
    *  the parent (PresentationView) so the FloatingNumberPanel never has to
    *  touch the writing-tree directly. */
   onWriteNotebookToBoard?: (text: string) => void;
+  onNotebookRead?: () => void;
   /** When true, chip selection is disabled (e.g. while a Notebook
    *  checkpoint is being revealed). Chips render dimmed and ignore taps. */
   frozen?: boolean;
@@ -163,6 +166,7 @@ export const FloatingNumberPanel = ({
   lineNumber, lineCount, onPrevLine, onNextLine,
   notebookText,
   onWriteNotebookToBoard,
+  onNotebookRead,
   frozen = false,
   notebookPending = false,
 }: Props) => {
@@ -509,6 +513,7 @@ export const FloatingNumberPanel = ({
               onClick={(e) => {
                 e.stopPropagation();
                 onWriteNotebookToBoard?.(prose);
+                onNotebookRead?.();
                 onPing();
               }}
               title="Teaching note — tap to place on board"

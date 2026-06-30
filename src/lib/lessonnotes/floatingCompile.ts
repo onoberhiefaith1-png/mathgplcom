@@ -101,6 +101,8 @@ export const applyArrangement = <T,>(items: T[], arr: number[]): T[] => {
 export const rearrangeStream = <T,>(items: T[]): T[] =>
   applyArrangement(items, rearrangeIndices(items.length));
 
+const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
+
 /** Compile all lines into the Master Floating Bucket + View Session. */
 export const compileBucket = (lines: FloatingLine[]): FloatingBucket => {
   const fillers: string[] = [];
@@ -126,9 +128,9 @@ export const compileBucket = (lines: FloatingLine[]): FloatingBucket => {
     // dropContextualLeadingPlus keeps the same length & order, only rewriting values.
     const cleanFillers = afterDrop;
     const cleanSelected = cleanedWithIdx.map((c) => c.sel);
-    const cleanArrangement = cleanFillers.length === rawFillers.length
-      ? (line.arrangement ?? rearrangeIndices(cleanFillers.length))
-      : rearrangeIndices(cleanFillers.length);
+      const cleanArrangement = cleanFillers.length === rawFillers.length
+      ? (line.arrangement ?? identityArrangement(cleanFillers.length))
+      : identityArrangement(cleanFillers.length);
     const ordered = applyArrangement(cleanFillers, cleanArrangement);
     const orderedSel = applyArrangement(cleanSelected, cleanArrangement);
     fillers.push(...ordered);
@@ -148,8 +150,8 @@ export const compileBucket = (lines: FloatingLine[]): FloatingBucket => {
       }
     }
   }
-  const viewRearranged = rearrangeStream(viewCombined);
-  const selectedRearranged = rearrangeStream(selectedCombined);
+  const viewRearranged = viewCombined.slice();
+  const selectedRearranged = selectedCombined.slice();
   const containersSelected = containers.map((c) => !!containerSet.get(c));
   return {
     fillers,

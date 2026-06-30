@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { cn } from "@/lib/utils";
 
 interface TokenRef { line: number; tok: number }
@@ -29,43 +30,66 @@ interface Highlight {
    *  solution source. Becomes "Notebook N" on the Smartboard; empty
    *  string means no notebook (Line N appears alone). */
   precedingNotebook?: string;
+  /** Synthetic row used when the solution begins with unhighlighted content. */
+  notebookOnly?: boolean;
 }
 interface Snapshot { highlights: Highlight[]; nextId: number }
 
-/** Recompute precedingNotebook for every highlight from the current `lines`
- *  array. Unhighlighted source lines accumulate into a buffer that flushes
- *  onto the next highlight (in source order). */
+/** Recompute notebook checkpoints from token order.
+ *
+ * Highlighted tokens become floating numbers. Unhighlighted tokens NEVER go
+ * inside those floating chips; they become notebook checkpoints:
+ *   • before the first highlight → a notebook-only first row
+ *   • between highlight A and B → notebook for highlight A
+ *   • after the final highlight → notebook for the final highlight */
 const recomputeNotebooks = (source: Highlight[], lines: string[]): Highlight[] => {
-  if (source.length === 0) return source;
-  const ordered = source
+  const realSource = source.filter((h) => !h.notebookOnly && h.tokens.length > 0);
+  if (realSource.length === 0) return realSource;
+  const rows = lines.map((l) => tokenize(l));
+  const flat: Array<{ line: number; tok: number; src: string; pos: number }> = [];
+  rows.forEach((toks, line) => toks.forEach((src, tok) => flat.push({ line, tok, src, pos: flat.length })));
+  const posByKey = new Map(flat.map((t) => [`${t.line}:${t.tok}`, t.pos] as const));
+  const chunk = (fromPos: number, toPos: number): string => {
+    if (toPos < fromPos) return "";
+    const picked = flat.filter((t) => t.pos >= fromPos && t.pos <= toPos);
+    const byLine = new Map<number, string[]>();
+    for (const t of picked) {
+      const arr = byLine.get(t.line) ?? [];
+      arr.push(t.src);
+      byLine.set(t.line, arr);
+    }
+    return Array.from(byLine.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, toks]) => toks.join(" ").trim())
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  };
+  const ordered = realSource
     .map((h) => {
       const sorted = [...h.tokens].sort((a, b) => (a.line - b.line) || (a.tok - b.tok));
       const first = sorted[0] ?? { line: Number.MAX_SAFE_INTEGER, tok: 0 };
-      return { h, firstLine: first.line, firstTok: first.tok };
+      const positions = sorted.map((t) => posByKey.get(`${t.line}:${t.tok}`)).filter((p): p is number => typeof p === "number");
+      return {
+        h,
+        firstLine: first.line,
+        firstTok: first.tok,
+        start: positions.length ? Math.min(...positions) : Number.MAX_SAFE_INTEGER,
+        end: positions.length ? Math.max(...positions) : -1,
+      };
     })
     .sort((a, b) => (a.firstLine - b.firstLine) || (a.firstTok - b.firstTok));
-  const touched = new Set<number>();
-  for (const h of source) for (const t of h.tokens) touched.add(t.line);
   const notebookByGroup = new Map<number, string>();
-  let buf: string[] = [];
-  let nextIdx = 0;
-  for (let li = 0; li < lines.length; li++) {
-    while (nextIdx < ordered.length && ordered[nextIdx].firstLine === li) {
-      notebookByGroup.set(ordered[nextIdx].h.groupId, buf.join("\n").trim());
-      buf = [];
-      nextIdx++;
-    }
-    if (!touched.has(li)) {
-      const t = (lines[li] ?? "").trim();
-      if (t) buf.push(t);
-    }
+  for (let i = 0; i < ordered.length; i++) {
+    const cur = ordered[i];
+    const next = ordered[i + 1];
+    notebookByGroup.set(cur.h.groupId, chunk(cur.end + 1, (next?.start ?? flat.length) - 1));
   }
-  while (nextIdx < ordered.length) {
-    notebookByGroup.set(ordered[nextIdx].h.groupId, buf.join("\n").trim());
-    buf = [];
-    nextIdx++;
-  }
-  return source.map((h) => ({ ...h, precedingNotebook: notebookByGroup.get(h.groupId) ?? "" }));
+  const leading = chunk(0, ordered[0].start - 1);
+  const mapped = realSource.map((h) => ({ ...h, precedingNotebook: notebookByGroup.get(h.groupId) ?? "" }));
+  return leading
+    ? [{ groupId: 0, tokens: [], payload: "", precedingNotebook: leading, notebookOnly: true }, ...mapped]
+    : mapped;
 };
 
 const orderedHighlights = (source: Highlight[], lines: string[]) => {
@@ -75,6 +99,7 @@ const orderedHighlights = (source: Highlight[], lines: string[]) => {
     tokens: h.tokens,
     payload: h.payload,
     precedingNotebook: h.precedingNotebook ?? "",
+    notebookOnly: h.notebookOnly === true,
   }));
 };
 
@@ -145,7 +170,7 @@ const FloatingPreparationPage = () => {
   const saveHighlightState = useCallback(async (source: Highlight[]) => {
     if (!subsectionId) return false;
     const ordered = orderedHighlights(source, linesRef.current);
-    const activePayloads = new Set(ordered.map((h) => String(h.payload ?? "")));
+    const activePayloads = new Set(ordered.filter((h) => !h.notebookOnly).map((h) => String(h.payload ?? "")));
     const { data: ss } = await supabase
       .from("notebook_subsections")
       .select("floating_lines")
@@ -219,7 +244,7 @@ const FloatingPreparationPage = () => {
         | null;
       if (prior && Array.isArray(prior) && prior.length > 0) {
         const restored: Highlight[] = prior
-          .filter((p: any) => Array.isArray(p?.tokens))
+          .filter((p: any) => Array.isArray(p?.tokens) && p.tokens.length > 0)
           .map((p: any, i: number) => ({
             groupId: i + 1,
             tokens: p.tokens as TokenRef[],
@@ -556,11 +581,13 @@ const FloatingPreparationPage = () => {
                 Highlights (in the order you made them)
               </div>
               <ul className="space-y-1.5">
-                {highlights.map((h) => (
+                {highlights.map((h) => {
+                  const safePayload = assertDisplaySafe(h.payload).cleaned;
+                  return (
                   <li key={h.groupId} className="flex items-start gap-2 text-sm text-foreground/85">
                     <span className="text-foreground/40 mt-0.5">•</span>
-                    <span className="flex-1 break-words whitespace-pre-wrap font-mono text-[12px]">
-                      {h.payload}
+                    <span className="flex-1 break-words whitespace-pre-wrap text-[15px] leading-7">
+                      {renderMathInline(safePayload, `highlight-summary-${h.groupId}`)}
                     </span>
                     <button
                       onClick={() => removeHighlight(h.groupId)}
@@ -569,7 +596,8 @@ const FloatingPreparationPage = () => {
                       remove
                     </button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
               <p className="mt-3 text-[11px] text-foreground/45 italic">
                 Each highlight becomes one floating-number block, in the order shown above.

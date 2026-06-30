@@ -1,77 +1,32 @@
-# Teaching Flow & UI Refinement Pass
+## Plan
 
-A coordinated update across the Relationship panel, Smart Graph, Floating Number generator, and Presentation engine so the app behaves as one synchronized teaching assistant.
+1. **Remove computer math notation from teacher-facing screens**
+   - Update the Floating Number highlight summary so selected items render through the same Lesson Note math renderer instead of monospace raw text.
+   - Add a display-safety helper for floating chips so `\frac`, `\sqrt`, `^{}`, `_{}`, slash fractions, and template placeholders never appear as literal text.
+   - Use that helper in Floating Number chips and Smartboard floating-number strips, so teachers see stacked fractions, radicals, and raised powers only.
 
-## 1. Relationship Panel — conditional visibility
-File: `src/components/lessonnotes/geometry-editor/RelationshipPanel.tsx` (+ parent wrapper that mounts it).
-- Render `null` when `selectedParts.length === 0`. Remove the empty-state card.
-- Parent layout reserves the slot only when selection exists, so the diagram expands when nothing is selected.
+2. **Fix manual highlight generation order**
+   - Make manual click/apply preserve the teacher’s order permanently: first selected chip stays first, second stays second, third stays third.
+   - Stop resetting line arrangements with the old rearrange/shuffle pattern after manual atom selection, chip removal, or chip edits.
+   - Keep AI-generated order untouched separately, but ensure manual selections are saved and compiled in their entered order.
 
-## 2. Multi-select accumulates
-File: `src/components/lessonnotes/geometry-editor/SmartGeometryContext.tsx` (or the click handler in `GeometryDiagram.tsx`).
-- Default click → additive toggle (`Set` add; click same part removes that one).
-- Add explicit "Clear Selection" button in the Relationship panel header.
-- Remove the existing "replace on click" behaviour. Shift/Ctrl no longer required.
+3. **Rebuild highlighted vs unhighlighted lesson-line pairing**
+   - Treat highlights as the line boundaries.
+   - Any unhighlighted content before the first highlight becomes a notebook-only first line.
+   - Any unhighlighted content between highlight A and highlight B belongs to highlight A’s notebook checkpoint.
+   - Highlighted math is stored only as floating numbers; it must not appear inside the notebook checkpoint.
 
-## 3. Generic mode = full AI generation
-File: `supabase/functions/relationship-ai/index.ts` + `RelationshipEditorSheet.tsx`.
-- New prompt branches:
-  - 1 selection → "Everything related to X": definitions, properties, rules, theorems, formulae, connections.
-  - 2 selections → only joint relationships (perpendicular, parallel, distance, midpoint, AB-as-diameter, etc.).
-  - 3+ → relationships treating the set as one context (triangle, cyclic quad, collinearity, etc.).
-- Auto-call when Generic mode is active and selection changes (debounced); replace prior AI-sourced suggestions, keep teacher/pinned.
+4. **Activate strict presentation notebook gating**
+   - On the Smartboard, each presentation row becomes:
+     ```text
+     top: highlighted floating numbers, if any
+     bottom: notebook checkpoint from unhighlighted lesson-note content, if any
+     ```
+   - If a line has a notebook checkpoint, freeze floating-number progression until the teacher taps the notebook icon.
+   - Tapping the notebook icon writes only the unhighlighted content to the board using the Lesson Note renderer.
+   - Teacher may choose not to use all floating numbers, but cannot proceed past a line’s checkpoint before reading it.
+   - Keep the +3 row movement limit.
 
-## 4. Apply mode = lesson-ready statements
-Same edge function, separate branch.
-- Output statements suitable for direct insertion (e.g. "AB is a diameter, so ∠ACB = 90° (angle in a semicircle).").
-- Each item gets an "Insert into lesson" button in `RelationshipPanel` that pushes a paragraph/math block into the active TipTap editor.
-
-## 5. Real graph-paper styling
-File: `src/components/lessonnotes/math-tools/SmartGraphView.tsx`.
-- Axes: 2 px solid foreground.
-- Major gridlines every whole unit (≈0.6 opacity).
-- Minor gridlines at 0.2-unit subdivisions (≈0.2 opacity) — labeled at 0.2 / 0.4 / 0.6 / 0.8 when zoom permits.
-- Same vertical + horizontal treatment. Off-white paper background.
-
-## 6. Floating-number token fidelity
-Files: `src/lib/floating/atoms.ts`, `src/lib/floating/highlightEngine.ts`, `src/lib/smartboard/floatingExtractor.ts`.
-- Bug: highlight "a = 5" yields only "a =". Fix the trailing-token trim that drops the final atom when the highlight ends on a number adjacent to whitespace.
-- Add unit tests in `src/test/floatingExtractorBackend.test.ts` covering `a = 5`, `x = -3`, `y = 2x + 1`.
-
-## 7. Remove horizontal scrollbar on question
-File: `src/components/smartboard/PresentationView.tsx` (and the question header inside `FloatingNumberPanel.tsx`).
-- Replace `whitespace-nowrap overflow-x-auto` on the question container with `whitespace-normal break-words`. Match the lesson-note paragraph styles.
-
-## 8. Fancy Notebook icon
-File: `src/components/smartboard/NotebookIcon.tsx` (new) used by `FloatingNumberPanel.tsx` / `PresentationView.tsx`.
-- Custom SVG: spiral-bound notebook with bookmark ribbon and visible lines. Tooltip "Read Lesson Note". Slightly larger; existing pulse animation kept.
-
-## 9. Mini Rigid Teaching System (cursor window)
-File: `src/components/smartboard/PresentationView.tsx`.
-- Track `solvedLineIndex`. Allowed lines = `[solvedLineIndex+1, solvedLineIndex+3]` (max 3 ahead).
-- Navigation keys / clicks beyond range are blocked with a toast.
-- When line `n` is marked solved, window slides to `n+1 … n+3`.
-
-## 10. Floating numbers pause on explanation-only rows
-File: `src/components/smartboard/PresentationView.tsx` + `FloatingNumberPanel.tsx`.
-- Classify each row: `hasHighlights` vs `explanationOnly`.
-- On explanation-only rows: blur floating-number layer, set `frozen=true`, force Notebook pulse. Only after teacher opens Notebook + dismisses does the engine advance.
-
-## 11. Row-based lesson interpretation
-File: `src/lib/smartboard/presentation.ts`.
-- Rebuild plan as ordered rows, each `{ highlightedTokens[], explanationNodes[] }`.
-- Allow rows with empty `highlightedTokens` (pure explanation).
-- Downstream consumers updated to iterate rows instead of one flat fragment list.
-
-## 12. Notebook preserves lesson layout
-File: `src/components/smartboard/NotebookOverlay.tsx` (or equivalent).
-- Render the original TipTap JSON of the row's explanation (paragraph, spacing, math nodes) instead of plain-text join. Reuse the lesson-note read-only renderer.
-
-## Out of scope
-- No backend schema changes.
-- No changes to authentication, classes, or assessments.
-- No changes to floating-number law engine beyond the token-preservation bug.
-
-## Verification
-- Vitest: floating extractor cases.
-- Manual: select 1/2/3 atoms on a diagram and confirm Generic+Apply outputs differ; verify graph paper styling at multiple zooms; reproduce "a = 5" highlight; presentation walkthrough across explanation-only and mixed rows.
+5. **Validate visually**
+   - Check the floating prep page and Smartboard presentation page for visible raw `\frac`, `\sqrt`, `^{}`, `_{}`, `sqrt(`, or slash-fraction display.
+   - Confirm manual click order remains first-in-first-out after generating and saving.

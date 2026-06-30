@@ -40,6 +40,8 @@ const CONTAINER_KINDS: ContainerKind[] = [
   "integral", "matrix", "differential", "abs", "vector",
 ];
 
+const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
+
 const parseContainerKind = (raw: string): ContainerKind | null => {
   const v = raw.trim().toLowerCase();
   return (CONTAINER_KINDS as string[]).includes(v) ? (v as ContainerKind) : null;
@@ -69,7 +71,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
       ...line,
       fillers: nextFillers,
       fillersSelected: nextSel,
-      arrangement: rearrangeIndices(nextFillers.length),
+      arrangement: identityArrangement(nextFillers.length),
     });
   };
 
@@ -100,7 +102,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
       ...line,
       fillers: nextFillers,
       fillersSelected: nextSel,
-      arrangement: rearrangeIndices(nextFillers.length),
+      arrangement: identityArrangement(nextFillers.length),
     });
   };
 
@@ -172,7 +174,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
       ...line,
       fillers: nextFillers,
       fillersSelected: nextFillers.map(() => false),
-      arrangement: rearrangeIndices(nextFillers.length),
+      arrangement: identityArrangement(nextFillers.length),
     });
     setSwapPickIndex(null);
     toast({
@@ -224,7 +226,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
       ...line,
       fillers: nextFillers,
       fillersSelected: nextSel,
-      arrangement: rearrangeIndices(nextFillers.length),
+      arrangement: identityArrangement(nextFillers.length),
     });
     setSwapPickIndex(null);
     toast({ title: "Swapped Floating Numbers", duration: 1200 });

@@ -46,6 +46,8 @@ export interface ReservoirLine {
   lineId?: string;
   /** Marks awarded when this line is graded correct (assessment mode only). */
   marks?: number;
+  /** This line has only notebook content and no highlighted floating math. */
+  notebookOnly?: boolean;
 }
 
 export interface Reservoir {
@@ -270,7 +272,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // it in the lesson source. Matched into ReservoirLine by equation
       // payload so notebooks survive line reordering.
       const rawHighlights = (sub as any).floating_highlights as
-        | { payload?: string; precedingNotebook?: string }[]
+        | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean }[]
         | null
         | undefined;
       const notebookByPayload = new Map<string, string>();
@@ -292,25 +294,49 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // Walk the FULL solution text (math + prose) so we can attach any
       // narrative explanation directly to the equation it follows.
       const parsedSolution = parseSolutionExplanations(solutionBlock?.content_ascii);
-      const sourceLines = rawLines && rawLines.length > 0
-        ? rawLines
-        : solutionLines.map((equation) => ({ equation, fillers: fillersFromEquation(equation), containers: detectStructures(equation) as ContainerKind[] }));
+      const sourceLines = rawHighlights && rawHighlights.length > 0
+        ? rawHighlights.map((h, hi) => {
+            if (h.notebookOnly) {
+              return {
+                equation: "",
+                fillers: [],
+                containers: [] as ContainerKind[],
+                notebook: String(h.precedingNotebook ?? ""),
+                notebookOnly: true,
+              };
+            }
+            const payload = String(h.payload ?? "").trim();
+            const matched = rawLines?.find((l) => String(l.equation ?? "").trim() === payload)
+              ?? rawLines?.[hi];
+            return {
+              ...(matched ?? {}),
+              equation: payload,
+              notebook: String(h.precedingNotebook ?? ""),
+              notebookOnly: false,
+            };
+          })
+        : rawLines && rawLines.length > 0
+          ? rawLines
+          : solutionLines.map((equation) => ({ equation, fillers: fillersFromEquation(equation), containers: detectStructures(equation) as ContainerKind[] }));
 
       if (sourceLines && sourceLines.length > 0) {
         for (let k = 0; k < sourceLines.length; k++) {
           const rl = sourceLines[k];
           const eq = (rl.equation ?? "").trim();
-          if (!eq) continue;
+          const isNotebookOnly = (rl as any).notebookOnly === true;
+          if (!eq && !isNotebookOnly) continue;
           // Preserve the EXACT order the teacher generated. No shuffle, no
           // rearrangement — the floating-number page should reflect the
           // teacher's own construction sequence.
-          const fills = dropContextualLeadingPlus(cleanFragments((rl.fillers && rl.fillers.length > 0) ? rl.fillers : fillersFromEquation(eq)));
+          const fills = isNotebookOnly
+            ? []
+            : dropContextualLeadingPlus(cleanFragments((rl.fillers && rl.fillers.length > 0) ? rl.fillers : fillersFromEquation(eq)));
           const start = fragmentsFromLines.length;
           fragmentsFromLines.push(...fills);
           const explanation = (rl as any).explanation
             ?? parsedSolution.find((p) => p.equation === eq)?.explanation
             ?? parsedSolution[k]?.explanation;
-          const notebook = notebookByPayload.get(eq) || undefined;
+          const notebook = (rl as any).notebook || notebookByPayload.get(eq) || undefined;
           lines.push({
             equation: eq,
             fillers: fills,
@@ -319,6 +345,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             fragmentEnd: fragmentsFromLines.length,
             explanation: explanation || undefined,
             notebook,
+            notebookOnly: isNotebookOnly,
           });
         }
       }

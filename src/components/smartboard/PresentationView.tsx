@@ -790,14 +790,18 @@ const PresentationView = ({
   };
 
   /** Back-compat: FloatingMath calls this with a plain LaTeX-ish string.
-   *  We insert it character-by-character as raw chars. */
+   *  Never type that raw source onto the board: mirror it through the same
+   *  Lesson Note renderer first so \frac / \sqrt / slash fractions become
+   *  real stacked structures before the teacher sees them. */
   const insertTextAtSensor = (text: string) => {
     if (insertIntoActiveBox(text)) return;
+    const mirror = mirrorLessonNoteRow(text);
+    if (!mirror.ok || mirror.row.length === 0) return;
     editActive((row, c) => {
       let r = row;
       let cur = c;
-      for (const ch of text) {
-        const res = treeInsertChar(r, cur, ch);
+      for (const node of mirror.row) {
+        const res = treeInsertNode(r, cur, node, true);
         r = res.root; cur = res.cursor;
       }
       return { root: r, cursor: cur };
@@ -1216,6 +1220,13 @@ const PresentationView = ({
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const target = guidedLines[activeLineIdx];
     if (!target) return;
+    if (target.notebookOnly) {
+      if (target.notebook && !shownNotebookIdx.has(activeLineIdx)) return;
+      const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
+      setActiveLineIdx(nextIdx);
+      setFloatingLineIdx(nextIdx);
+      return;
+    }
     const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) return;
@@ -1236,12 +1247,18 @@ const PresentationView = ({
       for (const c of target.containers) next.add(c);
       return next;
     });
+    if (target.notebook && !shownNotebookIdx.has(activeLineIdx)) {
+      setManualFloatingLineIdx(activeLineIdx);
+      setSensor({ line: clampToActiveBand(expectedLineNum), x: 0 });
+      setCursor({ path: [], index: 0 });
+      return;
+    }
     const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
     setActiveLineIdx(nextIdx);
     setFloatingLineIdx(nextIdx);
     setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
     setCursor({ path: [], index: 0 });
-  }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout]);
+  }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout, shownNotebookIdx]);
 
   // Per-line bulb status for the right-edge traffic-light rail.
   // Computed after auto-advance so consumed lines correctly read as green.
@@ -2033,6 +2050,8 @@ const PresentationView = ({
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
               if (target > maxReachable) return; // out of reach — block the jump
+              const currentPending = notebookFor(curLineIdx) && !shownNotebookIdx.has(curLineIdx);
+              if (target > curLineIdx && currentPending) return;
               const nb = notebookFor(target);
               if (nb && !shownNotebookIdx.has(target)) {
                 // Reveal Notebook N first; do NOT advance activeLineIdx yet.
@@ -2064,11 +2083,27 @@ const PresentationView = ({
                 setManualFloatingLineIdx(k);
                 return;
               }
+              const pending = notebookFor(curLineIdx);
+              if (pending && !shownNotebookIdx.has(curLineIdx)) return;
               stepTo(Math.min(lineCount - 1, curLineIdx + 1));
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
+            const currentNotebookText = notebookFor(curLineIdx);
+            const currentNotebookPending = currentNotebookText.length > 0 && !shownNotebookIdx.has(curLineIdx);
             const revealNotebookText =
-              notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : undefined;
+              notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : currentNotebookText;
+            const markCurrentNotebookRead = () => {
+              const k = notebookRevealIdx ?? curLineIdx;
+              setShownNotebookIdx((prev) => {
+                const next = new Set(prev);
+                next.add(k);
+                return next;
+              });
+              if (notebookRevealIdx != null) {
+                setNotebookRevealIdx(null);
+                setManualFloatingLineIdx(k);
+              }
+            };
             return (
               <>
                 <FloatingNumberPanel
@@ -2127,7 +2162,8 @@ const PresentationView = ({
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
                   onWriteNotebookToBoard={writeProseLineOnBoard}
-                  frozen={notebookRevealIdx != null}
+                  onNotebookRead={markCurrentNotebookRead}
+                  frozen={notebookRevealIdx != null || currentNotebookPending}
                   notebookPending={
                     hasGuidedLines &&
                     notebookFor(curLineIdx).length > 0 &&
