@@ -370,14 +370,17 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // Prefer per-line fragments; if those came back empty, fall back to
       // the compiled bucket so the Smartboard still shows the floating
       // numbers the teacher generated in the Lesson Note.
+      // `bucket.fillers` carries the teacher's arranged order. Prefer it
+      // over `viewCombined` (which is original equation order) so the
+      // smartboard reflects the shuffle when per-line data is missing.
       const bucketCombined = dropContextualLeadingPlus(
-        bucket?.viewCombined && bucket.viewCombined.length > 0
-          ? cleanFragments(bucket.viewCombined)
-          : bucket?.viewRearranged && bucket.viewRearranged.length > 0
-            ? cleanFragments(bucket.viewRearranged)
-          : bucket?.fillers && bucket.fillers.length > 0
-            ? cleanFragments(bucket.fillers)
-            : [],
+        bucket?.fillers && bucket.fillers.length > 0
+          ? cleanFragments(bucket.fillers)
+          : bucket?.viewCombined && bucket.viewCombined.length > 0
+            ? cleanFragments(bucket.viewCombined)
+            : bucket?.viewRearranged && bucket.viewRearranged.length > 0
+              ? cleanFragments(bucket.viewRearranged)
+              : [],
       );
       const solutionFallback = cleanFragments(solutionLines.flatMap(fillersFromEquation));
       const fragments: string[] =
