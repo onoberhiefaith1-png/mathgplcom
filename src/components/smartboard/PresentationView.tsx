@@ -846,6 +846,21 @@ const PresentationView = ({
     });
   };
 
+  const insertPlainTextAtSensor = (text: string) => {
+    if (!text) return;
+    if (insertIntoActiveBox(text)) return;
+    editActive((row, c) => {
+      let r = row;
+      let cur = c;
+      for (const ch of text) {
+        const res = treeInsertChar(r, cur, ch);
+        r = res.root;
+        cur = res.cursor;
+      }
+      return { root: r, cursor: cur };
+    });
+  };
+
   const insertNodeAtSensor = (node: Node) => {
     if (node.kind === "char" && insertIntoActiveBox(node.ch)) return;
     editActive((row, c) => treeInsertNode(row, c, node, true));
@@ -2482,8 +2497,7 @@ const PresentationView = ({
         onChange={(e) => {
           const txt = e.target.value;
           if (!txt) return;
-          // Insert each character — most input events are single chars.
-          for (const ch of txt) insertCharAtSensor(ch, "mid");
+          insertPlainTextAtSensor(txt);
           e.currentTarget.value = "";
         }}
         onKeyDown={(e) => {
