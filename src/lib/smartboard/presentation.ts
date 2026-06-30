@@ -294,27 +294,33 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // Walk the FULL solution text (math + prose) so we can attach any
       // narrative explanation directly to the equation it follows.
       const parsedSolution = parseSolutionExplanations(solutionBlock?.content_ascii);
+      // Equation-first ordering: any `notebookOnly` rows saved by older
+      // Lesson Notes are folded into the FOLLOWING real highlight so the
+      // floating-number equation comes first and its notebook follows.
+      let pendingNotebook = "";
       const sourceLines = rawHighlights && rawHighlights.length > 0
-        ? rawHighlights.map((h, hi) => {
+        ? rawHighlights.reduce<Array<{ equation: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean }>>((acc, h, hi) => {
             if (h.notebookOnly) {
-              return {
-                equation: "",
-                fillers: [],
-                containers: [] as ContainerKind[],
-                notebook: String(h.precedingNotebook ?? ""),
-                notebookOnly: true,
-              };
+              const nb = String(h.precedingNotebook ?? "").trim();
+              if (nb) pendingNotebook = pendingNotebook ? `${pendingNotebook}\n${nb}` : nb;
+              return acc;
             }
             const payload = String(h.payload ?? "").trim();
             const matched = rawLines?.find((l) => String(l.equation ?? "").trim() === payload)
               ?? rawLines?.[hi];
-            return {
+            const ownNotebook = String(h.precedingNotebook ?? "").trim();
+            const merged = pendingNotebook && ownNotebook
+              ? `${pendingNotebook}\n${ownNotebook}`
+              : (pendingNotebook || ownNotebook);
+            pendingNotebook = "";
+            acc.push({
               ...(matched ?? {}),
               equation: payload,
-              notebook: String(h.precedingNotebook ?? ""),
+              notebook: merged,
               notebookOnly: false,
-            };
-          })
+            });
+            return acc;
+          }, [])
         : rawLines && rawLines.length > 0
           ? rawLines
           : solutionLines.map((equation) => ({ equation, fillers: fillersFromEquation(equation), containers: detectStructures(equation) as ContainerKind[] }));
