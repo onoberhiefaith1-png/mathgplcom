@@ -706,11 +706,47 @@ const FloatingNumbersPage = () => {
         floating_scoring: scoring as any,
       })
       .eq("id", info.subsectionId);
-    setSaving(false);
     if (error) {
+      setSaving(false);
       toast({ title: "Could not save", description: error.message, variant: "destructive" });
       return false;
     }
+    // Parity self-check: read back the row and verify every filler we sent
+    // is present verbatim. If anything drifted (normalization, race, etc.)
+    // re-issue the write once so teacher edits are never silently lost.
+    try {
+      const { data: roundtrip } = await supabase
+        .from("notebook_subsections")
+        .select("floating_lines")
+        .eq("id", info.subsectionId)
+        .maybeSingle();
+      const saved = (roundtrip as any)?.floating_lines as FloatingLine[] | null;
+      const drift =
+        !Array.isArray(saved) ||
+        saved.length !== cleanLines.length ||
+        cleanLines.some((line, i) => {
+          const other = saved[i];
+          if (!other) return true;
+          const a = line.fillers ?? [];
+          const b = other.fillers ?? [];
+          if (a.length !== b.length) return true;
+          return a.some((v, j) => String(v) !== String(b[j]));
+        });
+      if (drift) {
+        console.warn("[floating] save parity drift — re-issuing write to preserve teacher edits");
+        await supabase
+          .from("notebook_subsections")
+          .update({
+            floating_lines: cleanLines as any,
+            floating_bucket: bucket as any,
+            floating_scoring: scoring as any,
+          })
+          .eq("id", info.subsectionId);
+      }
+    } catch (e) {
+      console.warn("[floating] parity check failed", e);
+    }
+    setSaving(false);
     dirtyRef.current = false;
     setSavedAt(Date.now());
     if (!silent) toast({ title: "Saved", description: `${bucket.fillers.length} floating numbers persisted.` });
