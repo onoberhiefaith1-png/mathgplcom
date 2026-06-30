@@ -2564,6 +2564,7 @@ const PresentationView = ({
             caretColor={ink}
             onMeasure={handleLineMeasure}
             onCursorChange={(line, c) => {
+              if (!solvingMode) return;
               // Lesson-aware click gate: only writable rows inside the
               // active beat's working area accept caret placement.
               // Clicks on locked content (captions, question, notebook
