@@ -411,6 +411,12 @@ const PresentationView = ({
     } catch { /* noop */ }
     return {};
   });
+  // Rows in `freeLines` that contain notebook (teaching-note) prose rather
+  // than the teacher's own math. These rows are READ-ONLY narration: the
+  // sensor must never anchor to them, and they don't count as a "line" when
+  // stepping through guided lines. Reset whenever the active example changes
+  // (handled alongside other per-example state below).
+  const [notebookRowLines, setNotebookRowLines] = useState<Set<number>>(() => new Set());
   const OFFSETS_KEY = `smartboard:offsets:${notebookId ?? "_"}`;
   const [lineOffsets, setLineOffsets] = useState<Record<number, number>>(() => {
     try {
@@ -893,6 +899,14 @@ const PresentationView = ({
       }
       const target = Math.max(maxLine + 1, sensor.line);
       const next = { ...prev, [target]: mirror.row };
+      // Tag this row as notebook prose so the sensor-anchor logic skips it
+      // when computing the K-th writable line. The sensor jumps to the row
+      // BELOW the notebook so the teacher writes under the teaching note.
+      setNotebookRowLines((prevSet) => {
+        const ns = new Set(prevSet);
+        ns.add(target);
+        return ns;
+      });
       setSensor((s) => ({ ...s, line: target + 1, x: 0 }));
       return next;
     });
@@ -1249,6 +1263,7 @@ const PresentationView = ({
     setShownNotebookIdx(new Set());
     setConsumedAbsIdx(new Set());
     setConsumedStructures(new Set());
+    setNotebookRowLines(new Set());
   }, [activeReservoirIdx]);
 
 
@@ -1278,19 +1293,27 @@ const PresentationView = ({
     const occupied: number[] = [];
     for (let r = a; r <= b; r++) {
       const row = freeLines[r];
-      if (row && row.length > 0) occupied.push(r);
+      if (!row || row.length === 0) continue;
+      // Notebook-prose rows are read-only narration — they must NOT count
+      // as a writable line when anchoring the sensor.
+      if (notebookRowLines.has(r)) continue;
+      occupied.push(r);
     }
     let target: number;
     if (idx < occupied.length) {
       target = occupied[idx];
     } else {
       const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
-      target = Math.min(b, lastOcc + 1 + (idx - occupied.length));
+      // Skip past any notebook-prose rows when extending below the last
+      // written line — the sensor must land on the first non-notebook row.
+      let cand = lastOcc + 1 + (idx - occupied.length);
+      while (cand <= b && notebookRowLines.has(cand)) cand += 1;
+      target = Math.min(b, cand);
     }
     setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
     setCursor({ path: [], index: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines]);
+  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
