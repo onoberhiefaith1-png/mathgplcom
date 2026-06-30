@@ -2181,8 +2181,15 @@ const PresentationView = ({
         const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
         setActiveLineIdx(nextIdx);
         setFloatingLineIdx(nextIdx);
-        setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
+        const nextWritable = activeLayout
+          ? firstWritableRowAfter(expectedLineNum, activeLayout)
+          : expectedLineNum + 1;
+        if (activeLayout && nextWritable > bandEnd(activeLayout)) growActiveBand();
+        setSensor({ line: clampToActiveBand(nextWritable), x: 0 });
         setLiveCursor({ path: [], index: 0 });
+        activeSensorLogicalIdxRef.current = nextIdx;
+        activeSensorPhysicalLineRef.current = clampToActiveBand(nextWritable);
+        manualPushedRef.current = null;
         toast({ title: "✓ Line verified", description: `+${target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
