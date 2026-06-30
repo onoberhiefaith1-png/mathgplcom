@@ -1718,8 +1718,12 @@ const PresentationView = ({
     // `manualFloatingLineIdx` to change which chip set is shown, but it
     // must NEVER move the writing cursor — that is now the job of the
     // dedicated CursorScrollbar on the left rail.
+    // Follow whichever line the FloatingNumberPanel is currently showing —
+    // manual navigation (▲/▼ on the panel) takes precedence over the
+    // auto-advanced floatingLineIdx so clicking "line 2" on the panel
+    // immediately walks the writing sensor down to the next empty row.
     const idx = Math.min(
-      floatingLineIdx,
+      manualFloatingLineIdx ?? floatingLineIdx,
       guidedLines.length - 1,
     );
     // A presentation "line" is NOT a board row — a single logical line may
@@ -1784,7 +1788,7 @@ const PresentationView = ({
     activeSensorLogicalIdxRef.current = idx;
     activeSensorPhysicalLineRef.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter]);
+  }, [floatingLineIdx, manualFloatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
