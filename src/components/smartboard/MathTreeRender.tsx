@@ -132,6 +132,7 @@ export const RowView = ({
   // because it lives in a different row.
   const isNodeFilled = (n: Node): boolean => {
     if (n.kind === "char") return true;
+    if (n.kind === "box") return false; // empty placeholder
     const sub = (n as { rows?: Row[] }).rows;
     if (!sub) return true;
     return sub.some((r) => r.length > 0);
