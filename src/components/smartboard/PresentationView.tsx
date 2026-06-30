@@ -1455,6 +1455,8 @@ const PresentationView = ({
   // the Cursor Scrollbar. While set, auto-snap stops moving the sensor
   // back to the first-empty row.
   const manualPushedRef = useRef<number | null>(null);
+  const activeSensorLogicalIdxRef = useRef<number | null>(null);
+  const activeSensorPhysicalLineRef = useRef<number | null>(null);
 
   // When a writable Solution opens, anchor the sensor at the first EMPTY row
   // of the active Solution band — below the last written equation/note, not
@@ -1614,8 +1616,6 @@ const PresentationView = ({
   const [shownNotebookIdx, setShownNotebookIdx] = useState<Set<number>>(() => new Set());
   const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
   const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
-  const activeSensorLogicalIdxRef = useRef<number | null>(null);
-  const activeSensorPhysicalLineRef = useRef<number | null>(null);
 
   // Persist "notebook already shown" per reservoir across reloads so the
   // teacher is never re-prompted to insert a notebook that's already on the
