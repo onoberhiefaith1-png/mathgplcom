@@ -2165,10 +2165,10 @@ const PresentationView = ({
               const nb = (guidedLines[k] as { notebook?: string } | undefined)?.notebook;
               return (nb ?? "").trim();
             };
-            // Cursor movement limit (spec): the teacher may only step at most
-            // 3 lines beyond the most recently COMPLETED line (activeLineIdx
-            // tracks the next-to-solve, so completed = activeLineIdx-1).
-            const maxReachable = Math.min(lineCount - 1, activeLineIdx + 3);
+            // Cursor movement: teacher may freely traverse every line up to
+            // the last one. The down-chevron naturally disables at the bottom
+            // (cur >= total) so the teacher sees the line is blocked.
+            const maxReachable = lineCount - 1;
             const stepTo = (target: number) => {
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
