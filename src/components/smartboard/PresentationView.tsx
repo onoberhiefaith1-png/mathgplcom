@@ -387,6 +387,12 @@ const PresentationView = ({
   });
   // Cursor lives inside the active line's math tree.
   const [cursor, setCursor] = useState<Cursor>({ path: [], index: 0 });
+  const cursorRef = useRef<Cursor>({ path: [], index: 0 });
+  const setLiveCursor = useCallback((next: Cursor | ((prev: Cursor) => Cursor)) => {
+    const resolved = typeof next === "function" ? next(cursorRef.current) : next;
+    cursorRef.current = resolved;
+    setCursor(resolved);
+  }, []);
   const [freeLines, setFreeLines] = useState<FreeLineMap>(() => {
     try {
       const raw = localStorage.getItem(FREEWRITE_KEY);
@@ -817,8 +823,8 @@ const PresentationView = ({
     }
     setFreeLines((prev) => {
       const row = prev[line] ?? [];
-      const res = fn(row, cursor);
-      setCursor(res.cursor);
+      const res = fn(row, cursorRef.current);
+      setLiveCursor(res.cursor);
       const next = { ...prev };
       if (res.root.length === 0) delete next[line];
       else next[line] = res.root;
@@ -843,6 +849,21 @@ const PresentationView = ({
       wrap.rows[0] = [mkChar(ch)];
       const res = treeInsertNode(row, c, wrap, false);
       return res;
+    });
+  };
+
+  const insertPlainTextAtSensor = (text: string) => {
+    if (!text) return;
+    if (insertIntoActiveBox(text)) return;
+    editActive((row, c) => {
+      let r = row;
+      let cur = c;
+      for (const ch of text) {
+        const res = treeInsertChar(r, cur, ch);
+        r = res.root;
+        cur = res.cursor;
+      }
+      return { root: r, cursor: cur };
     });
   };
 
@@ -1088,7 +1109,7 @@ const PresentationView = ({
     const L = layouts[layouts.length - 1];
     if (L && L.bandLines > 0) {
       setSensor({ line: L.startLine + L.captionLines, x: 0 });
-      setCursor({ path: [], index: 0 });
+      setLiveCursor({ path: [], index: 0 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beatCursor]);
@@ -1111,7 +1132,19 @@ const PresentationView = ({
       if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) {
         e.preventDefault(); doRedo(); return;
       }
-      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isHiddenKeyboardCapture = target === hiddenInputRef.current;
+      const isFormField = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
+      if (
+        !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1 &&
+        (isHiddenKeyboardCapture || !isFormField)
+      ) {
+        e.preventDefault();
+        insertPlainTextAtSensor(e.key);
+        return;
+      }
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") {
         e.preventDefault();
@@ -1125,7 +1158,7 @@ const PresentationView = ({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [beats.length, canEdit]);
+  }, [beats.length, canEdit, insertPlainTextAtSensor]);
 
   const palette = SURFACES[surface];
   const isDark = surface === "blackboard";
@@ -1262,6 +1295,8 @@ const PresentationView = ({
   const [shownNotebookIdx, setShownNotebookIdx] = useState<Set<number>>(() => new Set());
   const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
   const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
+  const activeSensorLogicalIdxRef = useRef<number | null>(null);
+  const activeSensorPhysicalLineRef = useRef<number | null>(null);
 
   // Reset composer state every time the active example changes.
   useEffect(() => {
@@ -1273,6 +1308,8 @@ const PresentationView = ({
     setConsumedAbsIdx(new Set());
     setConsumedStructures(new Set());
     setNotebookRowLines(new Set());
+    activeSensorLogicalIdxRef.current = null;
+    activeSensorPhysicalLineRef.current = null;
   }, [activeReservoirIdx]);
 
 
@@ -1299,6 +1336,24 @@ const PresentationView = ({
     // row where that line's math actually lives — not to row = K.
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
+
+    // Once the current presentation line has been anchored, do not keep
+    // re-solving that anchor after every keystroke. Typing changes freeLines,
+    // and the old effect treated that as a reason to snap the sensor again;
+    // that reset the tree cursor to the beginning, so characters appeared in
+    // reverse order. Re-anchor only when the logical presentation line changes
+    // (or if the sensor somehow lands on a restricted notebook row/outside the
+    // active band).
+    if (
+      activeSensorLogicalIdxRef.current === idx &&
+      sensor.line >= a && sensor.line <= b &&
+      (activeSensorPhysicalLineRef.current === null || sensor.line === activeSensorPhysicalLineRef.current) &&
+      !notebookRowLines.has(Math.floor(sensor.line)) &&
+      !notebookRowLines.has(sensor.line)
+    ) {
+      return;
+    }
+
     const occupied: number[] = [];
     for (let r = a; r <= b; r++) {
       const row = freeLines[r];
@@ -1319,10 +1374,14 @@ const PresentationView = ({
       while (cand <= b && notebookRowLines.has(cand)) cand += 1;
       target = Math.min(b, cand);
     }
-    setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
-    setCursor({ path: [], index: 0 });
+    if (sensor.line !== target) {
+      setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
+      setLiveCursor({ path: [], index: 0 });
+    }
+    activeSensorLogicalIdxRef.current = idx;
+    activeSensorPhysicalLineRef.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines]);
+  }, [manualFloatingLineIdx, floatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
@@ -1399,14 +1458,14 @@ const PresentationView = ({
     if (target.notebook && !shownNotebookIdx.has(activeLineIdx)) {
       setManualFloatingLineIdx(activeLineIdx);
       setSensor({ line: clampToActiveBand(expectedLineNum), x: 0 });
-      setCursor({ path: [], index: 0 });
+      setLiveCursor({ path: [], index: 0 });
       return;
     }
     const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
     setActiveLineIdx(nextIdx);
     setFloatingLineIdx(nextIdx);
     setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
-    setCursor({ path: [], index: 0 });
+    setLiveCursor({ path: [], index: 0 });
   }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout, shownNotebookIdx]);
 
   // Per-line bulb status for the right-edge traffic-light rail.
@@ -1587,7 +1646,7 @@ const PresentationView = ({
         setActiveLineIdx(nextIdx);
         setFloatingLineIdx(nextIdx);
         setSensor({ line: clampToActiveBand(expectedLineNum + 1), x: 0 });
-        setCursor({ path: [], index: 0 });
+        setLiveCursor({ path: [], index: 0 });
         toast({ title: "✓ Line verified", description: `+${target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
@@ -1741,7 +1800,7 @@ const PresentationView = ({
               setFreeLines({});
               lineWidthsRef.current = {};
               setSensor({ line: 0, x: 0 });
-              setCursor({ path: [], index: 0 });
+              setLiveCursor({ path: [], index: 0 });
             }}
             className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-black/5"
             title="Clear board"
@@ -2006,7 +2065,7 @@ const PresentationView = ({
           setSensor({ line: targetLine, x: snapped.x });
           // (Sensor taps no longer activate the floating panels; activation
           // is button-driven now.)
-          setCursor({ path: [], index: row.length });
+          setLiveCursor({ path: [], index: row.length });
           hiddenInputRef.current?.focus({ preventScroll: true });
 
 
@@ -2104,7 +2163,7 @@ const PresentationView = ({
               }
               const clamped = clampToActiveBand(line);
               if (clamped !== sensor.line) setSensor((s) => ({ ...s, line: clamped }));
-              setCursor(c);
+              setLiveCursor(c);
               hiddenInputRef.current?.focus({ preventScroll: true });
             }}
           />
@@ -2477,10 +2536,9 @@ const PresentationView = ({
         spellCheck={false}
         value=""
         onChange={(e) => {
-          const txt = e.target.value;
+          const txt = e.currentTarget.value;
           if (!txt) return;
-          // Insert each character — most input events are single chars.
-          for (const ch of txt) insertCharAtSensor(ch, "mid");
+          insertPlainTextAtSensor(txt);
           e.currentTarget.value = "";
         }}
         onKeyDown={(e) => {
@@ -2498,7 +2556,7 @@ const PresentationView = ({
             e.preventDefault();
             const row = freeLines[sensor.line] ?? [];
             const next = treeNextEmpty(row, cursor, e.shiftKey ? -1 : 1);
-            if (next) setCursor(next);
+            if (next) setLiveCursor(next);
             return;
           }
 
@@ -2517,7 +2575,7 @@ const PresentationView = ({
             }
             if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
             setSensor({ line: clampToActiveBand(nextLine), x: 0 });
-            setCursor({ path: [], index: 0 });
+            setLiveCursor({ path: [], index: 0 });
             return;
           }
 
@@ -2534,7 +2592,7 @@ const PresentationView = ({
               const prevLine = sensor.line - 0.5;
               const prevRow = freeLines[prevLine] ?? [];
               setSensor({ line: prevLine, x: 0 });
-              setCursor({ path: [], index: prevRow.length });
+              setLiveCursor({ path: [], index: prevRow.length });
               return;
             }
             editActive((r, c) => treeBackspace(r, c));
@@ -2544,13 +2602,13 @@ const PresentationView = ({
           if (e.key === "ArrowLeft") {
             e.preventDefault();
             const row = freeLines[sensor.line] ?? [];
-            setCursor((c) => treeMoveLeft(row, c));
+            setLiveCursor((c) => treeMoveLeft(row, c));
             return;
           }
           if (e.key === "ArrowRight") {
             e.preventDefault();
             const row = freeLines[sensor.line] ?? [];
-            setCursor((c) => treeMoveRight(row, c));
+            setLiveCursor((c) => treeMoveRight(row, c));
             return;
           }
           if (e.key === "ArrowUp") {
@@ -2560,7 +2618,7 @@ const PresentationView = ({
             const minL = activeLayout ? bandStart(activeLayout) : 0;
             while (cand > minL && notebookRowLines.has(Math.floor(cand))) cand -= 0.5;
             setSensor((s) => ({ ...s, line: cand, x: 0 }));
-            setCursor({ path: [], index: 0 });
+            setLiveCursor({ path: [], index: 0 });
             return;
           }
           if (e.key === "ArrowDown") {
@@ -2578,7 +2636,19 @@ const PresentationView = ({
             // Hop over notebook-prose rows so the sensor never parks on one.
             while (cand < maxL && notebookRowLines.has(Math.floor(cand))) cand += 0.5;
             setSensor({ line: cand, x: 0 });
-            setCursor({ path: [], index: 0 });
+            setLiveCursor({ path: [], index: 0 });
+            return;
+          }
+
+          // Desktop keyboards should advance the math-tree cursor directly on
+          // keydown. Relying only on the hidden textarea's input event made the
+          // visible sensor feel rigid when React immediately cleared the
+          // controlled textarea, and repeated typing could be applied against a
+          // stale cursor. Prevent the native text edit and insert the printable
+          // character through the board model instead.
+          if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+            e.preventDefault();
+            insertPlainTextAtSensor(e.key);
             return;
           }
 
