@@ -495,7 +495,7 @@ const NodeView = ({
       return (
         <span style={{
           display: "inline-flex", alignItems: "center", verticalAlign: "middle",
-          margin: "0 0.15em",
+          margin: "0.18em 0.15em",
         }}>
           <span style={{
             display: "inline-flex", flexDirection: "column", alignItems: "center",
