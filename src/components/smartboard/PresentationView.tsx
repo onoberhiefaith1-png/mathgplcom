@@ -2294,10 +2294,19 @@ const PresentationView = ({
           if (!isLineWritable(halfLine)) return;
           const targetLine = halfLine;
           const row = freeLines[targetLine] ?? [];
+          // Master left margin rule: every Lesson Line begins at x = 0
+          // (the page's MARGIN_LEFT). Clicks never introduce an
+          // accidental horizontal offset — the cursor snaps back to the
+          // master left margin so all rows align like a textbook.
           if (row.length === 0) {
-            setLineOffsets((m) => ({ ...m, [targetLine]: snapped.x }));
+            setLineOffsets((m) => {
+              if (!(targetLine in m)) return m;
+              const next = { ...m };
+              delete next[targetLine];
+              return next;
+            });
           }
-          setSensor({ line: targetLine, x: snapped.x });
+          setSensor({ line: targetLine, x: 0 });
           setLiveCursor({ path: [], index: row.length });
           hiddenInputRef.current?.focus({ preventScroll: true });
 
@@ -2802,7 +2811,17 @@ const PresentationView = ({
               }
             }
             if (activeLayout && nextLine > bandEnd(activeLayout)) growActiveBand();
-            setSensor({ line: clampToActiveBand(nextLine), x: 0 });
+            const snapLine = clampToActiveBand(nextLine);
+            // Master-margin rule: new Lesson Lines never inherit the
+            // previous line's horizontal position. Clear any stale
+            // offset so the cursor snaps to MARGIN_LEFT.
+            setLineOffsets((m) => {
+              if (!(snapLine in m)) return m;
+              const next = { ...m };
+              delete next[snapLine];
+              return next;
+            });
+            setSensor({ line: snapLine, x: 0 });
             setLiveCursor({ path: [], index: 0 });
             return;
           }
