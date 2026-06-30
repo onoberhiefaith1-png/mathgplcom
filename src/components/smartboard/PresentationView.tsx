@@ -1105,12 +1105,12 @@ const PresentationView = ({
       });
       setSensor((s) => ({ ...s, line: target + 1 + extraRowsFor(target), x: 0 }));
       setLiveCursor({ path: [], index: before.length });
-      activeSensorLogicalIdxRef.current = hasGuidedLines ? activeLineIdx + 1 : null;
+      activeSensorLogicalIdxRef.current = null;
       activeSensorPhysicalLineRef.current = target + 1 + extraRowsFor(target);
       manualPushedRef.current = null;
       return next;
     });
-  }, [sensor.line, setLiveCursor, hasGuidedLines, activeLineIdx]);
+  }, [sensor.line, setLiveCursor]);
 
   /** Insert a real stacked fraction at the sensor (no slash). Optional sign
    *  is typed first; the frac node is created with numerator/denominator
