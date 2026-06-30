@@ -2723,7 +2723,19 @@ const PresentationView = ({
             }
             const row = freeLines[sensor.line] ?? [];
             const minLine = activeLayout ? bandStart(activeLayout) : 0;
-            if (row.length === 0 && cursor.path.length === 0 && sensor.line > minLine) {
+            // Lesson-line lock: Backspace cannot cross out of the active
+            // lesson line into an earlier (now read-only) one.
+            const activeAnchor = activeSensorPhysicalLineRef.current;
+            const canCrossUp =
+              !hasGuidedLines ||
+              activeAnchor === null ||
+              sensor.line - 0.5 >= activeAnchor;
+            if (
+              row.length === 0 &&
+              cursor.path.length === 0 &&
+              sensor.line > minLine &&
+              canCrossUp
+            ) {
               const prevLine = sensor.line - 0.5;
               const prevRow = freeLines[prevLine] ?? [];
               setSensor({ line: prevLine, x: 0 });
