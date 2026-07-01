@@ -1609,9 +1609,10 @@ const PresentationView = ({
   const nudgeCursorHoriz = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const r = Math.floor(sensor.line);
-    // Only allow horizontal movement inside a writable empty row — the
-    // sensor should never crawl into ink or a locked prose row.
-    if (!isEmptyWritableRow(r, activeLayout)) return;
+    // The sensor's own row is always considered writable for horizontal
+    // moves — the D-pad already blocks vertical entry into ink/prose.
+    // Only bail if we're clearly on a restricted prose row.
+    if (notebookRowLines.has(r)) return;
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
     const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
@@ -1621,8 +1622,9 @@ const PresentationView = ({
     if (next === sensor.x) return;
     setSensor((s) => ({ ...s, x: next }));
     setLiveCursor({ path: [], index: 0 });
+    manualSensorRef.current = { line: r, x: next };
     activeSensorPhysicalLineRef.current = sensor.line;
-  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, isEmptyWritableRow, setLiveCursor]);
+  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, notebookRowLines, setLiveCursor]);
 
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
