@@ -1738,6 +1738,8 @@ const PresentationView = ({
     setNotebookRowLines(new Set());
     activeSensorLogicalIdxRef.current = null;
     activeSensorPhysicalLineRef.current = null;
+    manualSensorRef.current = null;
+    manualPushedRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
 
