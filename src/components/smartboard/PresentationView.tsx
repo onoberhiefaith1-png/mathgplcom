@@ -1597,6 +1597,18 @@ const PresentationView = ({
       growActiveBand();
       cand = b + 1;
     }
+    // Leaving an empty row resets its temporary horizontal offset so
+    // future ink on it starts back at the master left margin.
+    const departed = sensor.line;
+    const departedInk = freeLines[departed] ?? freeLines[Math.floor(departed)] ?? [];
+    if (departedInk.length === 0) {
+      setLineOffsets((m) => {
+        if (!(departed in m)) return m;
+        const copy = { ...m };
+        delete copy[departed];
+        return copy;
+      });
+    }
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
     const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
