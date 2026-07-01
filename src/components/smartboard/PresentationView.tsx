@@ -1607,7 +1607,7 @@ const PresentationView = ({
     // sensor should never crawl into ink or a locked prose row.
     if (!isEmptyWritableRow(r, activeLayout)) return;
     const step = grid.FONT_PX * 0.6; // one ~character-width column
-    const boardW = boardRef.current?.getBoundingClientRect().width ?? 1200;
+    const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
     const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
     const next = dir > 0
       ? Math.min(maxX, sensor.x + step)
