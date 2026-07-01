@@ -1722,6 +1722,7 @@ const PresentationView = ({
   const prevPanelOpenForFloatingRef = useRef<boolean>(panelOpen);
   useEffect(() => {
     if (panelOpen && !prevPanelOpenForFloatingRef.current) {
+      setActiveLineIdx(0);
       setFloatingLineIdx(0);
       setManualFloatingLineIdx(null);
       setNotebookRevealIdx(null);
@@ -1807,30 +1808,50 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beatCursor, activeLineIdx]);
 
-  // On first mount, restore activeLineIdx for the current beat from
-  // localStorage so the floating-number strip and sensor pick up where
-  // the teacher left off.
-  const didRestoreLessonCursorRef = useRef(false);
-  useEffect(() => {
-    if (didRestoreLessonCursorRef.current) return;
-    if (activeReservoirIdx < 0) return;
-    didRestoreLessonCursorRef.current = true;
-    try {
-      const raw = localStorage.getItem(LESSON_CURSOR_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (typeof parsed?.activeLineIdx === "number" && parsed.activeLineIdx > 0) {
-        setActiveLineIdx(parsed.activeLineIdx);
-        setFloatingLineIdx(parsed.activeLineIdx);
-      }
-    } catch { /* noop */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeReservoirIdx]);
+  // The Floating Number presentation ALWAYS begins at Line 1 — the old
+  // localStorage restore of activeLineIdx was removed on purpose. Already
+  // written lines keep their chips marked consumed (see the resume scan
+  // below), but the displayed line and the sensor start from the top.
 
 
   const activeReservoir = activeReservoirIdx >= 0 ? reservoirs[activeReservoirIdx] : undefined;
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
+
+  /** Equation labels like "(1)" may be added before/after the math at any
+   *  time — line matching must succeed with or without them. */
+  const stripEqLabel = (s: string): string =>
+    s.replace(/^\s*\(\s*\d+\s*\)\s*/, "").replace(/\s*\(\s*\d+\s*\)\s*$/, "").trim();
+
+  // ── DISPLAYED-LINE EDITABILITY ───────────────────────────────────────
+  // The Floating Number display is the source of truth: the guided line it
+  // currently shows must stay editable even when its row already has ink.
+  // Resolve the physical row that belongs to the displayed line — the K-th
+  // occupied non-notebook row, where K counts only equation (non-prose)
+  // guided lines before it.
+  const displayedGuidedIdx = hasGuidedLines
+    ? Math.min(manualFloatingLineIdx ?? floatingLineIdx, Math.max(0, guidedLines.length - 1))
+    : -1;
+  const displayedLineRow = useMemo<number | null>(() => {
+    if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return null;
+    if (displayedGuidedIdx < 0) return null;
+    if (guidedLines[displayedGuidedIdx]?.notebookOnly) return null;
+    const a = bandStart(activeLayout);
+    const b = bandEnd(activeLayout);
+    const occupied: number[] = [];
+    for (let r = a; r <= b; r++) {
+      const row = freeLines[r];
+      if (!row || row.length === 0) continue;
+      if (notebookRowLines.has(r)) continue;
+      occupied.push(r);
+    }
+    let eqOrd = 0;
+    for (let k = 0; k < displayedGuidedIdx; k++) {
+      if (!guidedLines[k]?.notebookOnly) eqOrd++;
+    }
+    return eqOrd < occupied.length ? occupied[eqOrd] : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasGuidedLines, activeLayout, displayedGuidedIdx, freeLines, notebookRowLines, guidedLines]);
 
   // ── LINE LOCKING (sensor follows Presentation) ───────────────────────
   // Whenever the Floating Number panel advances or rewinds to a different
@@ -1927,16 +1948,24 @@ const PresentationView = ({
       if (notebookRowLines.has(r)) continue;
       occupied.push(r);
     }
+    // Map the guided-line index to its EQUATION ordinal — notebookOnly
+    // (prose) lines never own a written equation row, so they must not
+    // shift the row mapping.
+    let eqOrd = 0;
+    for (let k = 0; k < idx; k++) {
+      if (!guidedLines[k]?.notebookOnly) eqOrd++;
+    }
+    const isEquationLine = !guidedLines[idx]?.notebookOnly;
     let target: number;
-    if (idx < occupied.length) {
-      target = occupied[idx];
+    if (isEquationLine && eqOrd < occupied.length) {
+      target = occupied[eqOrd];
     } else {
       const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
       // Skip past notebook-prose and structure-covered rows when extending
       // below the last written line — the sensor must land on the first truly
       // empty writable row, not merely the next physical row.
       let cand = lastOcc < a ? a : firstWritableRowAfter(lastOcc, activeLayout);
-      if (idx > occupied.length) cand += idx - occupied.length;
+      if (isEquationLine && eqOrd > occupied.length) cand += eqOrd - occupied.length;
       target = Math.min(b, cand);
     }
     if (sensor.line !== target) {
@@ -1982,50 +2011,39 @@ const PresentationView = ({
     });
   }, [activeReservoir, freeLines, boxes, consumedAbsIdx.size]);
 
-  // Strict sequential advance: ONLY check the physical board line that belongs
-  // to the current queue step. No scan-ahead, no "best later line", no line 9.
-  // If the expected line turns green, the sensor and floating queue move down
-  // together by exactly one step for fast classroom flow.
+  // ── PASSIVE LINE-MATCH DETECTION (no auto-advance) ───────────────────
+  // When the board ink matches the current guided line, its floating-number
+  // chips are marked consumed (they dim/turn green) — and NOTHING else
+  // happens. The sensor never advances and the line never locks on its own,
+  // so the teacher can keep editing (e.g. append the "(1)" equation label).
+  // Advancing + locking happen ONLY when the teacher moves the Floating
+  // Number display to the next line (see stepTo in the panel wiring).
   useEffect(() => {
     if (assessmentMode) return; // assessment lines are graded server-side
     if (!hasGuidedLines) return;
     if (activeLineIdx >= guidedLines.length) return;
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const target = guidedLines[activeLineIdx];
-    if (!target) return;
-    if (target.notebookOnly) {
-      if (target.notebook && !shownNotebookIdx.has(activeLineIdx)) return;
-      const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
-      setActiveLineIdx(nextIdx);
-      setFloatingLineIdx(nextIdx);
-      return;
-    }
-    let expectedLineNum = activeSensorLogicalIdxRef.current === activeLineIdx && activeSensorPhysicalLineRef.current !== null
-      ? Math.floor(activeSensorPhysicalLineRef.current)
-      : Math.floor(sensor.line);
-    // A teacher may deliberately push the sensor before/after a line, so the
-    // current logical Lesson Line is identified by its written math, not by a
-    // fixed physical row number. Scan the active writable band for the row that
-    // matches this guided line, skipping notebook prose.
+    if (!target || target.notebookOnly) return;
+    const targetEq = stripEqLabel(target.equation);
+    let matchedRow: number | null = null;
     for (let r = bandStart(activeLayout); r <= bandEnd(activeLayout); r++) {
       if (notebookRowLines.has(r)) continue;
       const candidate = freeLines[r];
       if (!candidate || candidate.length === 0) continue;
-      const candidateAscii = rowToAscii(candidate);
-      if (equationsMatch(candidateAscii, target.equation) || equationsEquivalent(candidateAscii, target.equation)) {
-        expectedLineNum = r;
+      const candidateAscii = stripEqLabel(rowToAscii(candidate));
+      if (equationsMatch(candidateAscii, targetEq) || equationsEquivalent(candidateAscii, targetEq)) {
+        matchedRow = r;
         break;
       }
     }
-    const row = freeLines[expectedLineNum];
-    if (!row || row.length === 0) return;
-    const ascii = rowToAscii(row);
+    if (matchedRow == null) return;
+    const ascii = stripEqLabel(rowToAscii(freeLines[matchedRow]));
     const eqIdx = ascii.indexOf("=");
     const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
     const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
     const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
     if (eqIdx < 0 || !lhs || !rhs || dangling) return;
-    if (!equationsMatch(ascii, target.equation) && !equationsEquivalent(ascii, target.equation)) return;
     setConsumedAbsIdx((prev) => {
       const next = new Set(prev);
       for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.add(i);
@@ -2036,30 +2054,8 @@ const PresentationView = ({
       for (const c of target.containers) next.add(c);
       return next;
     });
-    if (target.notebook && !shownNotebookIdx.has(activeLineIdx)) {
-      setManualFloatingLineIdx(activeLineIdx);
-      const nextWritable = firstWritableRowAfter(expectedLineNum, activeLayout);
-      if (nextWritable > bandEnd(activeLayout)) growActiveBand();
-      if (Math.floor(sensor.line) !== nextWritable) {
-        setSensor({ line: nextWritable, x: 0 });
-        setLiveCursor({ path: [], index: 0 });
-      }
-      activeSensorLogicalIdxRef.current = activeLineIdx;
-      activeSensorPhysicalLineRef.current = nextWritable;
-      return;
-    }
-    const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
-    setActiveLineIdx(nextIdx);
-    setFloatingLineIdx(nextIdx);
-    const nextWritable = firstWritableRowAfter(expectedLineNum, activeLayout);
-    if (nextWritable > bandEnd(activeLayout)) growActiveBand();
-    setSensor({ line: nextWritable, x: 0 });
-    setLiveCursor({ path: [], index: 0 });
-    activeSensorLogicalIdxRef.current = nextIdx;
-    activeSensorPhysicalLineRef.current = nextWritable;
-    manualPushedRef.current = null;
-    autoFloorRef.current = nextWritable;
-  }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout, shownNotebookIdx, sensor.line, firstWritableRowAfter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeLines, hasGuidedLines, activeLineIdx, guidedLines, activeLayout, notebookRowLines]);
 
   // ── RESUME TO HIGHEST COMPLETED LESSON LINE ──────────────────────────
   // When the teacher reopens a lesson, scan the board for already-correct
