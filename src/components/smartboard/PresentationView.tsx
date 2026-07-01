@@ -3486,21 +3486,8 @@ const PresentationView = ({
           <ChevronRight className="h-5 w-5" />
         </button>
 
-        {/* Below the four-button top group: the dedicated Cursor Scrollbar
-            replaces the three relocated tools (Smart Line, Dot, Box). It
-            ONLY moves the writing sensor — never the floating-number panel. */}
-        {solvingMode && (
-          <CursorScrollbar
-            inline
-            onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
-            onDown={() => { nudgeCursor(1); revealLeftTools(); }}
-            chromeBg={palette.chromeBg}
-            chromeFg={palette.chromeFg}
-            chromeBorder={palette.chromeBorder}
-            canUp={canCursorUp}
-            canDown={canCursorDown}
-          />
-        )}
+        {/* The left-rail ↑/↓ scrollbar has been replaced by the permanent
+            Sensor D-pad (bottom-center, 4-direction). Nothing renders here. */}
       </div>
 
       {/* RIGHT rail — relocated theory tools: Smart Line, Two-point line, Box. */}
