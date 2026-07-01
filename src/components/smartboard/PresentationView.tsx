@@ -1635,9 +1635,12 @@ const PresentationView = ({
 
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
-    const b = bandEnd(activeLayout);
-    const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
-    return Math.floor(sensor.line) > auto;
+    // ▲ is enabled whenever ANY empty writable row exists above the
+    // sensor inside the active band — the sensor roams freely in the
+    // empty solution space.
+    const a = bandStart(activeLayout);
+    const cand = findNextWritableEmptyRow(Math.floor(sensor.line) - 1, -1, activeLayout);
+    return cand >= a;
   })();
   const canCursorDown = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
