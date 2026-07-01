@@ -1612,14 +1612,19 @@ const PresentationView = ({
   /** Horizontal nudge for the Sensor D-pad. Moves the sensor inside its
    *  current empty row by one grid column. Clamps at the master left
    *  margin (x=0) on the left and at the row's right-edge writable
-   *  extent on the right. Never enters a written/restricted row. */
+   *  extent on the right. Never enters a written/restricted row.
+   *  The visible caret is positioned via lineOffsets (the row's start
+   *  offset), so horizontal nudges must write BOTH sensor.x and the
+   *  row's offset — sensor.x alone never moves the caret on screen. */
   const nudgeCursorHoriz = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const r = Math.floor(sensor.line);
-    // The sensor's own row is always considered writable for horizontal
-    // moves — the D-pad already blocks vertical entry into ink/prose.
     // Only bail if we're clearly on a restricted prose row.
     if (notebookRowLines.has(r)) return;
+    // Horizontal moves only make sense on an EMPTY row — shifting the
+    // offset of a written row would drag its ink sideways.
+    const rowInk = freeLines[sensor.line] ?? freeLines[r] ?? [];
+    if (rowInk.length > 0) return;
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
     const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
@@ -1628,10 +1633,22 @@ const PresentationView = ({
       : Math.max(0, sensor.x - step);
     if (next === sensor.x) return;
     setSensor((s) => ({ ...s, x: next }));
+    // Move the visible caret: the row's start offset drives where the
+    // empty active line (and its future ink) renders.
+    setLineOffsets((m) => {
+      const key = sensor.line;
+      if (next === 0) {
+        if (!(key in m)) return m;
+        const copy = { ...m };
+        delete copy[key];
+        return copy;
+      }
+      return { ...m, [key]: next };
+    });
     setLiveCursor({ path: [], index: 0 });
     manualSensorRef.current = { line: r, x: next };
     activeSensorPhysicalLineRef.current = sensor.line;
-  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, notebookRowLines, setLiveCursor]);
+  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, notebookRowLines, freeLines, setLiveCursor]);
 
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
