@@ -2747,7 +2747,12 @@ const PresentationView = ({
           // Working Area.
           if (!isLineWritable(halfLine)) return;
           const targetLine = halfLine;
-          const row = freeLines[targetLine] ?? [];
+          const row = freeLines[targetLine] ?? freeLines[Math.floor(targetLine)] ?? [];
+          // LINE LOCKING: a written row is restricted once the teacher has
+          // moved past it. Taps on it are swallowed — to edit a completed
+          // line, navigate the Floating Number display back to that line
+          // (which parks the sensor there and unlocks it).
+          if (row.length > 0 && Math.floor(sensor.line) !== Math.floor(targetLine)) return;
           // Master left margin rule: every Lesson Line begins at x = 0
           // (the page's MARGIN_LEFT). Clicks never introduce an
           // accidental horizontal offset — the cursor snaps back to the
@@ -2759,6 +2764,10 @@ const PresentationView = ({
               delete next[targetLine];
               return next;
             });
+            // Free-space tap: hold the sensor here (manual override) so the
+            // auto-anchor doesn't immediately snap it back.
+            manualSensorRef.current = { line: Math.floor(targetLine), x: 0 };
+            activeSensorPhysicalLineRef.current = targetLine;
           }
           setSensor({ line: targetLine, x: 0 });
           setLiveCursor({ path: [], index: row.length });
