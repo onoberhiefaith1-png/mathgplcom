@@ -1664,6 +1664,20 @@ const PresentationView = ({
     if (activeReservoirIdx >= 0) setViewReservoirIdx(activeReservoirIdx);
   }, [activeReservoirIdx]);
 
+  // Rule 10 — Floating Number Always Starts at Line 1.
+  // Every time the teacher opens the # panel, snap the floating-number
+  // presentation back to Lesson Line 1 (idx 0) and clear any manual
+  // override, so navigation always starts from the top.
+  const prevPanelOpenForFloatingRef = useRef<boolean>(panelOpen);
+  useEffect(() => {
+    if (panelOpen && !prevPanelOpenForFloatingRef.current) {
+      setFloatingLineIdx(0);
+      setManualFloatingLineIdx(null);
+      setNotebookRevealIdx(null);
+    }
+    prevPanelOpenForFloatingRef.current = panelOpen;
+  }, [panelOpen]);
+
   /* ── Line-by-line composer state ──
      For each active example reservoir, the teacher must reproduce every
      `reservoir.lines[k].equation` on the board IN ORDER before the Next
