@@ -1829,17 +1829,30 @@ const PresentationView = ({
     const b = bandEnd(activeLayout);
 
     const logicalLineChanged = activeSensorLogicalIdxRef.current !== idx;
-    // Respect an active manual D-pad position: if the teacher just nudged
-    // the sensor and the target row is still unwritten, do NOT snap it
-    // back to firstEmptyBandRow.
-    if (
-      !logicalLineChanged &&
-      manualSensorRef.current !== null &&
-      Math.floor(sensor.line) === manualSensorRef.current.line
-    ) {
-      activeSensorLogicalIdxRef.current = idx;
-      activeSensorPhysicalLineRef.current = sensor.line;
-      return;
+    // ── MANUAL-OVERRIDE MODE ─────────────────────────────────────────
+    // While the teacher holds a D-pad position, the auto-anchor leaves
+    // the sensor completely alone. The override clears ONLY when:
+    //   1. ink lands on the manually chosen row (resume auto-flow), or
+    //   2. the Floating Number display navigates to a different line, or
+    //   3. the beat / reservoir changes (handled elsewhere).
+    if (manualSensorRef.current !== null) {
+      if (rowHasInk(manualSensorRef.current.line)) {
+        // Writing resumed on the chosen row — hand control back to the
+        // normal flow, anchored exactly where the sensor already is.
+        manualSensorRef.current = null;
+        activeSensorLogicalIdxRef.current = idx;
+        activeSensorPhysicalLineRef.current = sensor.line;
+        return;
+      }
+      if (!logicalLineChanged) {
+        activeSensorLogicalIdxRef.current = idx;
+        activeSensorPhysicalLineRef.current = sensor.line;
+        return;
+      }
+      // Explicit presentation-line change → clear the override and let
+      // the anchor logic below reposition the sensor.
+      manualSensorRef.current = null;
+      manualPushedRef.current = null;
     }
     if (
       !logicalLineChanged &&
