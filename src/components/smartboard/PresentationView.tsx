@@ -1597,6 +1597,7 @@ const PresentationView = ({
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
     manualPushedRef.current = cand > auto ? cand : null;
+    manualSensorRef.current = { line: cand, x: 0 };
     activeSensorPhysicalLineRef.current = cand;
     activeSensorLogicalIdxRef.current = null;
   }, [activeLayout, sensor.line, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
