@@ -365,21 +365,6 @@ const PresentationView = ({
     try { window.localStorage.setItem("smartboard:bottomPanelOpen", panelOpen ? "1" : "0"); }
     catch { /* noop */ }
   }, [panelOpen]);
-  // Floating Number mode must always OPEN on Lesson Line 1 — the panel's
-  // ▲/▼ navigator is the only way to advance to later lines.
-  const prevPanelOpenRef = useRef<boolean>(panelOpen);
-  useEffect(() => {
-    if (panelOpen && !prevPanelOpenRef.current) {
-      // Deferred: floatingLineIdx / manualFloatingLineIdx setters are declared
-      // further down the component. Wrap in a microtask so they exist.
-      queueMicrotask(() => {
-        try {
-          window.dispatchEvent(new CustomEvent("smartboard:resetFloatingLine"));
-        } catch { /* noop */ }
-      });
-    }
-    prevPanelOpenRef.current = panelOpen;
-  }, [panelOpen]);
   const [eraseMode, setEraseMode] = useState(false);
   const isErasingRef = useRef(false);
   // Left-rail (undo/redo) auto-hide: invisible by default, revealed on
