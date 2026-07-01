@@ -1490,6 +1490,11 @@ const PresentationView = ({
   // the Cursor Scrollbar. While set, auto-snap stops moving the sensor
   // back to the first-empty row.
   const manualPushedRef = useRef<number | null>(null);
+  // Sticky manual sensor position from the Sensor D-pad. When set, the
+  // auto-anchor effect must respect this {line,x} instead of snapping the
+  // sensor back to firstEmptyBandRow. Cleared on beat/reservoir change
+  // and when ink lands on the manually chosen row.
+  const manualSensorRef = useRef<{ line: number; x: number } | null>(null);
   const activeSensorLogicalIdxRef = useRef<number | null>(null);
   const activeSensorPhysicalLineRef = useRef<number | null>(null);
 
@@ -1504,6 +1509,7 @@ const PresentationView = ({
     setLiveCursor({ path: [], index: 0 });
     autoFloorRef.current = r;
     manualPushedRef.current = null;
+    manualSensorRef.current = null;
     activeSensorLogicalIdxRef.current = null;
     activeSensorPhysicalLineRef.current = r;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1592,6 +1598,7 @@ const PresentationView = ({
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
     manualPushedRef.current = cand > auto ? cand : null;
+    manualSensorRef.current = { line: cand, x: 0 };
     activeSensorPhysicalLineRef.current = cand;
     activeSensorLogicalIdxRef.current = null;
   }, [activeLayout, sensor.line, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
@@ -1603,9 +1610,10 @@ const PresentationView = ({
   const nudgeCursorHoriz = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const r = Math.floor(sensor.line);
-    // Only allow horizontal movement inside a writable empty row — the
-    // sensor should never crawl into ink or a locked prose row.
-    if (!isEmptyWritableRow(r, activeLayout)) return;
+    // The sensor's own row is always considered writable for horizontal
+    // moves — the D-pad already blocks vertical entry into ink/prose.
+    // Only bail if we're clearly on a restricted prose row.
+    if (notebookRowLines.has(r)) return;
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
     const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
@@ -1615,8 +1623,9 @@ const PresentationView = ({
     if (next === sensor.x) return;
     setSensor((s) => ({ ...s, x: next }));
     setLiveCursor({ path: [], index: 0 });
+    manualSensorRef.current = { line: r, x: next };
     activeSensorPhysicalLineRef.current = sensor.line;
-  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, isEmptyWritableRow, setLiveCursor]);
+  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, notebookRowLines, setLiveCursor]);
 
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
@@ -1631,12 +1640,12 @@ const PresentationView = ({
   })();
   const canCursorLeft = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
-    if (!isEmptyWritableRow(Math.floor(sensor.line), activeLayout)) return false;
+    if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     return sensor.x > 0;
   })();
   const canCursorRight = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
-    if (!isEmptyWritableRow(Math.floor(sensor.line), activeLayout)) return false;
+    if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     return true;
   })();
 
@@ -1730,6 +1739,8 @@ const PresentationView = ({
     setNotebookRowLines(new Set());
     activeSensorLogicalIdxRef.current = null;
     activeSensorPhysicalLineRef.current = null;
+    manualSensorRef.current = null;
+    manualPushedRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
 
@@ -1809,6 +1820,18 @@ const PresentationView = ({
     const b = bandEnd(activeLayout);
 
     const logicalLineChanged = activeSensorLogicalIdxRef.current !== idx;
+    // Respect an active manual D-pad position: if the teacher just nudged
+    // the sensor and the target row is still unwritten, do NOT snap it
+    // back to firstEmptyBandRow.
+    if (
+      !logicalLineChanged &&
+      manualSensorRef.current !== null &&
+      Math.floor(sensor.line) === manualSensorRef.current.line
+    ) {
+      activeSensorLogicalIdxRef.current = idx;
+      activeSensorPhysicalLineRef.current = sensor.line;
+      return;
+    }
     if (
       !logicalLineChanged &&
       manualPushedRef.current !== null &&
@@ -1818,7 +1841,10 @@ const PresentationView = ({
       activeSensorPhysicalLineRef.current = sensor.line;
       return;
     }
-    if (logicalLineChanged) manualPushedRef.current = null;
+    if (logicalLineChanged) {
+      manualPushedRef.current = null;
+      manualSensorRef.current = null;
+    }
 
     // Once the current presentation line has been anchored, do not keep
     // re-solving that anchor after every keystroke. Typing changes freeLines,
@@ -3645,7 +3671,7 @@ const PresentationView = ({
 
       {/* Permanent Sensor Controller (D-pad). Visible whenever the
           Floating Number workspace is active. Only moves the sensor. */}
-      {canEdit && solvingMode && panelOpen && (
+      {canEdit && solvingMode && (
         <SensorDPad
           onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
           onDown={() => { nudgeCursor(1); revealLeftTools(); }}
