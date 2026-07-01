@@ -32,6 +32,7 @@ import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
 import { CursorScrollbar } from "./CursorScrollbar";
+import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
@@ -1595,6 +1596,28 @@ const PresentationView = ({
     activeSensorLogicalIdxRef.current = null;
   }, [activeLayout, sensor.line, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
 
+  /** Horizontal nudge for the Sensor D-pad. Moves the sensor inside its
+   *  current empty row by one grid column. Clamps at the master left
+   *  margin (x=0) on the left and at the row's right-edge writable
+   *  extent on the right. Never enters a written/restricted row. */
+  const nudgeCursorHoriz = useCallback((dir: 1 | -1) => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+    const r = Math.floor(sensor.line);
+    // Only allow horizontal movement inside a writable empty row — the
+    // sensor should never crawl into ink or a locked prose row.
+    if (!isEmptyWritableRow(r, activeLayout)) return;
+    const step = grid.FONT_PX * 0.6; // one ~character-width column
+    const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
+    const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
+    const next = dir > 0
+      ? Math.min(maxX, sensor.x + step)
+      : Math.max(0, sensor.x - step);
+    if (next === sensor.x) return;
+    setSensor((s) => ({ ...s, x: next }));
+    setLiveCursor({ path: [], index: 0 });
+    activeSensorPhysicalLineRef.current = sensor.line;
+  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, isEmptyWritableRow, setLiveCursor]);
+
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     const b = bandEnd(activeLayout);
@@ -1604,6 +1627,16 @@ const PresentationView = ({
   const canCursorDown = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     // ↓ can always grow the band, so it's always enabled while solving.
+    return true;
+  })();
+  const canCursorLeft = (() => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
+    if (!isEmptyWritableRow(Math.floor(sensor.line), activeLayout)) return false;
+    return sensor.x > 0;
+  })();
+  const canCursorRight = (() => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
+    if (!isEmptyWritableRow(Math.floor(sensor.line), activeLayout)) return false;
     return true;
   })();
 
@@ -1630,6 +1663,20 @@ const PresentationView = ({
   useEffect(() => {
     if (activeReservoirIdx >= 0) setViewReservoirIdx(activeReservoirIdx);
   }, [activeReservoirIdx]);
+
+  // Rule 10 — Floating Number Always Starts at Line 1.
+  // Every time the teacher opens the # panel, snap the floating-number
+  // presentation back to Lesson Line 1 (idx 0) and clear any manual
+  // override, so navigation always starts from the top.
+  const prevPanelOpenForFloatingRef = useRef<boolean>(panelOpen);
+  useEffect(() => {
+    if (panelOpen && !prevPanelOpenForFloatingRef.current) {
+      setFloatingLineIdx(0);
+      setManualFloatingLineIdx(null);
+      setNotebookRevealIdx(null);
+    }
+    prevPanelOpenForFloatingRef.current = panelOpen;
+  }, [panelOpen]);
 
   /* ── Line-by-line composer state ──
      For each active example reservoir, the teacher must reproduce every
@@ -3453,21 +3500,8 @@ const PresentationView = ({
           <ChevronRight className="h-5 w-5" />
         </button>
 
-        {/* Below the four-button top group: the dedicated Cursor Scrollbar
-            replaces the three relocated tools (Smart Line, Dot, Box). It
-            ONLY moves the writing sensor — never the floating-number panel. */}
-        {solvingMode && (
-          <CursorScrollbar
-            inline
-            onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
-            onDown={() => { nudgeCursor(1); revealLeftTools(); }}
-            chromeBg={palette.chromeBg}
-            chromeFg={palette.chromeFg}
-            chromeBorder={palette.chromeBorder}
-            canUp={canCursorUp}
-            canDown={canCursorDown}
-          />
-        )}
+        {/* The left-rail ↑/↓ scrollbar has been replaced by the permanent
+            Sensor D-pad (bottom-center, 4-direction). Nothing renders here. */}
       </div>
 
       {/* RIGHT rail — relocated theory tools: Smart Line, Two-point line, Box. */}
@@ -3606,6 +3640,26 @@ const PresentationView = ({
           chromeFg={palette.chromeFg}
           chromeBorder={palette.chromeBorder}
           isDark={isDark}
+        />
+      )}
+
+      {/* Permanent Sensor Controller (D-pad). Visible whenever the
+          Floating Number workspace is active. Only moves the sensor. */}
+      {canEdit && solvingMode && panelOpen && (
+        <SensorDPad
+          onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
+          onDown={() => { nudgeCursor(1); revealLeftTools(); }}
+          onLeft={() => { nudgeCursorHoriz(-1); revealLeftTools(); }}
+          onRight={() => { nudgeCursorHoriz(1); revealLeftTools(); }}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          ink={ink}
+          canUp={canCursorUp}
+          canDown={canCursorDown}
+          canLeft={canCursorLeft}
+          canRight={canCursorRight}
+          bottomPx={(panelOpen ? PANEL_HEIGHT : TAB_HEIGHT) + 16}
         />
       )}
 
