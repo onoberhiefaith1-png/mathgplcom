@@ -32,6 +32,7 @@ import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
 import { CursorScrollbar } from "./CursorScrollbar";
+import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
