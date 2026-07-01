@@ -3645,7 +3645,7 @@ const PresentationView = ({
 
       {/* Permanent Sensor Controller (D-pad). Visible whenever the
           Floating Number workspace is active. Only moves the sensor. */}
-      {canEdit && solvingMode && panelOpen && (
+      {canEdit && solvingMode && (
         <SensorDPad
           onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
           onDown={() => { nudgeCursor(1); revealLeftTools(); }}
