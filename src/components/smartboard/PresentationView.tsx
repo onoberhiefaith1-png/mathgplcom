@@ -3036,7 +3036,16 @@ const PresentationView = ({
                 });
                 return;
               }
+              // The display drives everything: moving it advances/rewinds
+              // the lesson-line index, releases any D-pad override, and
+              // lets the line-sync effect park the sensor on the target
+              // line's row (unlocking it) or on the first empty row below
+              // (a new line). This is the ONLY place a line locks/unlocks.
+              setActiveLineIdx(target);
+              setFloatingLineIdx(target);
               setManualFloatingLineIdx(target);
+              manualSensorRef.current = null;
+              manualPushedRef.current = null;
             };
             const goPrev = () => {
               if (!hasGuidedLines) return;
@@ -3063,6 +3072,8 @@ const PresentationView = ({
                   return next;
                 });
                 setNotebookRevealIdx(null);
+                setActiveLineIdx(k);
+                setFloatingLineIdx(k);
                 setManualFloatingLineIdx(k);
                 return;
               }
@@ -3096,6 +3107,8 @@ const PresentationView = ({
               });
               if (notebookRevealIdx != null) {
                 setNotebookRevealIdx(null);
+                setActiveLineIdx(k);
+                setFloatingLineIdx(k);
                 setManualFloatingLineIdx(k);
               }
             };
