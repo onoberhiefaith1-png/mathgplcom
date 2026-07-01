@@ -3629,6 +3629,26 @@ const PresentationView = ({
         />
       )}
 
+      {/* Permanent Sensor Controller (D-pad). Visible whenever the
+          Floating Number workspace is active. Only moves the sensor. */}
+      {canEdit && solvingMode && panelOpen && (
+        <SensorDPad
+          onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
+          onDown={() => { nudgeCursor(1); revealLeftTools(); }}
+          onLeft={() => { nudgeCursorHoriz(-1); revealLeftTools(); }}
+          onRight={() => { nudgeCursorHoriz(1); revealLeftTools(); }}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          ink={ink}
+          canUp={canCursorUp}
+          canDown={canCursorDown}
+          canLeft={canCursorLeft}
+          canRight={canCursorRight}
+          bottomPx={(panelOpen ? PANEL_HEIGHT : TAB_HEIGHT) + 16}
+        />
+      )}
+
       {/* Teacher-only: hand live editing rights to one approved student. */}
       {isTeacher && syncEnabled && classIdProp && (
         <ActiveStudentControl
