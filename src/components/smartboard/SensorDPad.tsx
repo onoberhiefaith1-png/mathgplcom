@@ -3,10 +3,15 @@
 // changes the active Floating Number line. Rendered via portal at
 // bottom-center so it survives any board zoom / filter transforms.
 //
-// Boundaries (blocked movement / hold-to-repeat halt) are enforced
-// by the caller via canUp / canDown / canLeft / canRight.
+// Chrome: no card, no background, no border — the five arrow
+// buttons float directly on the screen so the pad blends in.
+//
+// Auto-hide: after SENSOR_IDLE_MS with no press and no pointer
+// activity inside a small hot-zone around the pad, it fades out.
+// Any pointer / wheel / touch inside the hot-zone brings it back
+// and resets the timer.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -29,6 +34,9 @@ interface Props {
 
 const HOLD_DELAY_MS = 350;
 const REPEAT_MS = 90;
+const SENSOR_IDLE_MS = 50_000;
+// Half-width/height of the invisible activity hot-zone centred on the pad.
+const HOT_ZONE_HALF = 140;
 
 export const SensorDPad = ({
   onUp, onDown, onLeft, onRight,
@@ -37,22 +45,79 @@ export const SensorDPad = ({
   bottomPx = 96,
 }: Props) => {
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+  const [visible, setVisible] = useState(true);
 
-  const clear = useCallback(() => {
+  const clearHold = useCallback(() => {
     if (holdRef.current.timer != null) window.clearTimeout(holdRef.current.timer);
     if (holdRef.current.interval != null) window.clearInterval(holdRef.current.interval);
     holdRef.current = { timer: null, interval: null };
   }, []);
 
-  useEffect(() => () => clear(), [clear]);
+  const kickIdle = useCallback(() => {
+    if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = window.setTimeout(() => setVisible(false), SENSOR_IDLE_MS);
+  }, []);
+
+  // Kick the idle timer whenever the pad becomes visible.
+  useEffect(() => {
+    if (visible) kickIdle();
+    return () => {
+      if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
+    };
+  }, [visible, kickIdle]);
+
+  // Window-level activity listener. Revive + reset only when the pointer
+  // is inside the pad's local hot-zone, so ordinary writing on the far
+  // side of the board doesn't keep it awake forever.
+  useEffect(() => {
+    const inHotZone = (x: number, y: number) => {
+      const el = wrapRef.current;
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      return (
+        Math.abs(x - cx) <= HOT_ZONE_HALF + r.width / 2 &&
+        Math.abs(y - cy) <= HOT_ZONE_HALF + r.height / 2
+      );
+    };
+    const onPointer = (e: PointerEvent | MouseEvent | WheelEvent) => {
+      if (!inHotZone(e.clientX, e.clientY)) return;
+      setVisible(true);
+      kickIdle();
+    };
+    const onTouch = (e: TouchEvent) => {
+      const t = e.touches[0] ?? e.changedTouches[0];
+      if (!t) return;
+      if (!inHotZone(t.clientX, t.clientY)) return;
+      setVisible(true);
+      kickIdle();
+    };
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    window.addEventListener("pointerdown", onPointer, { passive: true });
+    window.addEventListener("wheel", onPointer, { passive: true });
+    window.addEventListener("touchmove", onTouch, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onPointer);
+      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("wheel", onPointer);
+      window.removeEventListener("touchmove", onTouch);
+    };
+  }, [kickIdle]);
+
+  useEffect(() => () => clearHold(), [clearHold]);
 
   const startHold = useCallback((fn: () => void) => {
     fn();
-    clear();
+    kickIdle();
+    setVisible(true);
+    clearHold();
     holdRef.current.timer = window.setTimeout(() => {
-      holdRef.current.interval = window.setInterval(fn, REPEAT_MS);
+      holdRef.current.interval = window.setInterval(() => { fn(); kickIdle(); }, REPEAT_MS);
     }, HOLD_DELAY_MS);
-  }, [clear]);
+  }, [clearHold, kickIdle]);
 
   const btn = (
     enabled: boolean,
@@ -71,18 +136,17 @@ export const SensorDPad = ({
         (e.currentTarget as HTMLButtonElement).setPointerCapture?.(e.pointerId);
         startHold(fn);
       }}
-      onPointerUp={(e) => { e.stopPropagation(); clear(); }}
-      onPointerCancel={() => clear()}
-      onPointerLeave={() => clear()}
-      className="grid place-items-center rounded-full border transition-all"
+      onPointerUp={(e) => { e.stopPropagation(); clearHold(); }}
+      onPointerCancel={() => clearHold()}
+      onPointerLeave={() => clearHold()}
+      className="grid place-items-center rounded-full transition-all"
       style={{
-        width: 44, height: 44,
-        background: chromeBg,
+        width: 40, height: 40,
+        background: `${chromeBg}`,
         color: chromeFg,
-        borderColor: chromeBorder,
-        boxShadow: "0 2px 10px rgba(0,0,0,0.16)",
-        backdropFilter: "blur(10px)",
-        opacity: enabled ? 0.95 : 0.28,
+        border: `1px solid ${chromeBorder}`,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+        opacity: enabled ? 0.7 : 0.22,
         cursor: enabled ? "pointer" : "not-allowed",
       }}
     >
@@ -92,6 +156,7 @@ export const SensorDPad = ({
 
   const dpad = (
     <div
+      ref={wrapRef}
       data-sb-chrome
       aria-label="Sensor controller"
       className="fixed z-40"
@@ -100,21 +165,18 @@ export const SensorDPad = ({
         bottom: bottomPx,
         transform: "translateX(-50%)",
         userSelect: "none",
-        pointerEvents: "auto",
+        pointerEvents: visible ? "auto" : "none",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 250ms ease",
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div
         className="grid gap-1"
         style={{
-          gridTemplateColumns: "44px 44px 44px",
-          gridTemplateRows: "44px 44px 44px",
-          padding: 8,
-          borderRadius: 20,
-          background: chromeBg,
-          border: `1px solid ${chromeBorder}`,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.22)",
-          backdropFilter: "blur(10px)",
+          gridTemplateColumns: "40px 40px 40px",
+          gridTemplateRows: "40px 40px 40px",
+          background: "transparent",
         }}
       >
         <div />
@@ -128,13 +190,12 @@ export const SensorDPad = ({
         <div
           aria-hidden
           className="grid place-items-center"
-          style={{ opacity: 0.5 }}
+          style={{ opacity: 0.35 }}
         >
           <span
             style={{
-              width: 10, height: 10, borderRadius: "50%",
+              width: 6, height: 6, borderRadius: "50%",
               background: ink ?? chromeFg,
-              opacity: 0.6,
             }}
           />
         </div>
