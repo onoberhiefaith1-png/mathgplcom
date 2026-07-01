@@ -1817,6 +1817,18 @@ const PresentationView = ({
     const b = bandEnd(activeLayout);
 
     const logicalLineChanged = activeSensorLogicalIdxRef.current !== idx;
+    // Respect an active manual D-pad position: if the teacher just nudged
+    // the sensor and the target row is still unwritten, do NOT snap it
+    // back to firstEmptyBandRow.
+    if (
+      !logicalLineChanged &&
+      manualSensorRef.current !== null &&
+      Math.floor(sensor.line) === manualSensorRef.current.line
+    ) {
+      activeSensorLogicalIdxRef.current = idx;
+      activeSensorPhysicalLineRef.current = sensor.line;
+      return;
+    }
     if (
       !logicalLineChanged &&
       manualPushedRef.current !== null &&
@@ -1826,7 +1838,10 @@ const PresentationView = ({
       activeSensorPhysicalLineRef.current = sensor.line;
       return;
     }
-    if (logicalLineChanged) manualPushedRef.current = null;
+    if (logicalLineChanged) {
+      manualPushedRef.current = null;
+      manualSensorRef.current = null;
+    }
 
     // Once the current presentation line has been anchored, do not keep
     // re-solving that anchor after every keystroke. Typing changes freeLines,
