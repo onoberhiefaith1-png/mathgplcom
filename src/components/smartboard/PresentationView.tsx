@@ -1509,6 +1509,7 @@ const PresentationView = ({
     setLiveCursor({ path: [], index: 0 });
     autoFloorRef.current = r;
     manualPushedRef.current = null;
+    manualSensorRef.current = null;
     activeSensorLogicalIdxRef.current = null;
     activeSensorPhysicalLineRef.current = r;
     // eslint-disable-next-line react-hooks/exhaustive-deps
