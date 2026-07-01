@@ -1,37 +1,37 @@
-# Fix: D-pad Doesn't Move the Sensor + Free Movement in Empty Solution Space
+# Fix Floating Number Line Flow: Start at Line 1, No Auto-Advance, Panel-Driven Locking
 
-## What's going wrong
+## Problems observed
 
-The D-pad presses ARE firing, but an auto-anchor effect immediately snaps the sensor back — so it looks frozen:
+1. **Skips Line 1 on entry** — when the lesson loads, two mechanisms jump the presentation forward: a localStorage "lesson cursor" restore and a "resume to highest completed line" scan. Line 1 (a notebook/prose line with no equation number) is also auto-skipped by the notebookOnly fast-forward. The teacher lands on Line 2 without ever walking through Line 1.
+2. **Sensor advances on its own** — the moment the board ink matches the target equation (e.g. `x + y = 7`), an auto-advance effect immediately bumps the floating line index and moves the sensor down. The teacher never gets to finish the line (e.g. append the `(1)` equation number) because the row is instantly locked.
+3. **Displayed line is locked** — even while the Floating Number display is showing Line 2, the row is treated as "written = restricted", so the teacher cannot edit it.
 
-1. When you press ▲/▼, `nudgeCursor` sets the new position **but also resets the internal "logical line" tracker to null**. The line-sync effect then thinks the presentation line changed, **wipes the manual position (`manualSensorRef`)**, and re-anchors the sensor to its computed spot. Net result: the sensor never visibly moves.
-2. ▲ is additionally hard-clamped at the "first empty row" floor — so even without the snap-back, upward movement inside the empty solution space is forbidden.
-3. ◀/▶ moves survive slightly longer but get reverted by the same re-anchor whenever any dependency of that effect changes.
+## New behavior (the rule)
 
-## The fix
+- **The Floating Number display is the single source of truth.** The line it currently shows is ALWAYS editable. Nothing advances or locks automatically.
+- The sensor moves down and a line locks **only** when the teacher navigates the Floating Number display forward to the next line.
+- Navigating the display **back** to a previous line unlocks that line for editing again.
+- The presentation **always starts at Line 1**, even if earlier lines already have ink on the board.
 
-### 1. Stop the auto-anchor from fighting the D-pad
-- Introduce an explicit **manual-override mode**: while `manualSensorRef` is set, the line-sync/auto-anchor effect leaves the sensor completely alone.
-- The override is cleared ONLY when:
-  - The teacher navigates the Floating Number display to a different line (explicit panel ▲/▼), or
-  - Ink lands on the manually chosen row (writing resumes normal auto-flow), or
-  - The beat/section changes.
-- `nudgeCursor` / `nudgeCursorHoriz` will no longer null the logical-line tracker (that was the trigger for the snap-back).
+## Changes (all in `src/components/smartboard/PresentationView.tsx`)
 
-### 2. Free 4-way movement inside the empty solution region
-- **▲ Up**: allowed onto ANY empty, writable row inside the active Solution band — remove the "auto floor" clamp. Skips over written/locked rows, notes, and structure-covered rows.
-- **▼ Down**: as today — moves to next empty row, grows the band at the bottom edge.
-- **◀ ▶**: free horizontal movement within the current empty row, clamped at master left margin and board right edge.
-- Boundaries always respected: sensor never lands on the Solution heading, question rows, notebook notes, or inside math structures.
+### 1. Always start at Line 1
+- Remove the localStorage restore that sets `activeLineIdx`/`floatingLineIdx` from the persisted lesson cursor on mount.
+- Remove (or neutralize) the "resume to highest completed lesson line" effect that scans the board and jumps forward — it will still mark already-written lines' chips as consumed (green), but will not move the displayed line or the sensor.
+- Remove the notebookOnly fast-forward so Line 1 (prose-only) is displayed first and the teacher steps past it manually.
 
-### 3. Line locking (write → lock → unlock via display)
-- Once a row contains a completed lesson line and the teacher advances past it, that row is **locked**: the D-pad skips it and clicks on it are ignored.
-- To edit a locked line, the teacher navigates the Floating Number display back to that line — that unlocks exactly that row and parks the sensor on it (this reuses the existing "presentation decides → cursor follows" pathway, so it comes mostly free).
+### 2. Kill silent auto-advance
+- In the strict-sequential match effect: when the board line matches the target equation, keep marking fragments/structures as consumed (chips turn green) but **stop** calling `setActiveLineIdx`/`setFloatingLineIdx` and **stop** moving the sensor. The line stays open so the teacher can still add `(1)` etc.
+- Make the equation comparison tolerant of a leading/trailing equation label like `(1)` so the line still reads as complete whether or not the number has been added yet.
 
-## Technical details
-- `src/components/smartboard/PresentationView.tsx`:
-  - `nudgeCursor`: remove auto-floor clamp for ▲; search target with a version of `findNextWritableEmptyRow` that also treats locked/written rows as barriers to land on but transparent to jump over; keep `activeSensorLogicalIdxRef` intact.
-  - Line-sync effect (~line 1799): early-return unconditionally while `manualSensorRef.current` is set; clear it only on explicit floating-line change / ink-on-row / beat change.
-  - `canCursorUp`: true whenever an empty writable row exists above the sensor inside the band.
-  - Locked-row set: derived from rows whose guided line index < current `activeLineIdx`, minus the row currently selected via the Floating Number display.
-- No backend changes.
+### 3. Advance only via the Floating Number display
+- When the teacher taps Next on the panel (moves to line N+1): commit line N (mark consumed, lock its row), advance `activeLineIdx`/`floatingLineIdx` together, move the sensor to the first empty writable row below, and snap to the master left margin.
+- When the teacher taps Prev (back to line N): unlock line N's row, park the sensor on it so it is editable again; moving forward re-locks it.
+
+### 4. Lock gate follows the displayed line
+- Update the click/typing gate (`isLineWritable` + board tap gate) so the row that belongs to the currently displayed floating line is always writable — whether empty or already written — and all other written rows stay restricted.
+- The D-pad keeps working inside empty space as today; no changes to its free-roam behavior.
+
+## Verification
+- Playwright run against the Solution page: load lesson → panel shows Line 1 first; write `x + y = 7`, confirm sensor stays put and `(1)` can still be typed; tap Next → sensor drops one row and previous line locks; tap Prev → previous line editable again.
+- Existing sync tests (`floatingSmartboardSync.test.ts`) re-run to catch regressions.
