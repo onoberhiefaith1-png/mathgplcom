@@ -1619,7 +1619,7 @@ const PresentationView = ({
     // line-sync effect believe the presentation line changed, which wiped
     // manualSensorRef and snapped the sensor straight back — the D-pad
     // looked dead.
-  }, [activeLayout, sensor.line, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
+  }, [activeLayout, sensor.line, freeLines, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
 
   /** Horizontal nudge for the Sensor D-pad. Moves the sensor inside its
    *  current empty row by one grid column. Clamps at the master left
