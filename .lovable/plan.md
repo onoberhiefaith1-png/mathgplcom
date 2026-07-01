@@ -1,32 +1,37 @@
-## Sensor D-pad: chromeless, persistent, auto-hide, and actually movable
+# Fix: D-pad Doesn't Move the Sensor + Free Movement in Empty Solution Space
 
-### 1. Remove the D-pad background
-In `src/components/smartboard/SensorDPad.tsx`, drop the outer rounded container's `background`, `border`, `boxShadow`, `backdropFilter`, and padding. Only the five circular arrow buttons remain, floating directly on the board. Keep the buttons themselves as small translucent circles so they still read as controls, but the surrounding "card" disappears and blends into the screen.
+## What's going wrong
 
-### 2. Always visible (no gating on the # panel)
-In `PresentationView.tsx`, change the mount condition from `canEdit && solvingMode && panelOpen` to just `canEdit && solvingMode`. The D-pad appears the moment the Solution workspace exists — the teacher no longer has to open the bottom Floating Number panel first. Its `bottomPx` still shifts up/down based on whether the panel is open, so it never overlaps the panel.
+The D-pad presses ARE firing, but an auto-anchor effect immediately snaps the sensor back — so it looks frozen:
 
-### 3. 50-second idle auto-hide with activity revival
-Inside `SensorDPad.tsx`:
-- Add local `visible` state, default `true`.
-- Start a 50 s timer on mount; on expiry set `visible=false` (CSS: opacity 0, `pointer-events:none`, 250 ms fade).
-- Reset the timer on: any button press on the D-pad, any `pointermove` / `pointerdown` / `wheel` / `touchmove` inside a "hot zone" around the D-pad (a ~220 px × 220 px invisible rect centered on the pad, attached to `window`). Activity anywhere else on the board is ignored so it doesn't fight normal writing.
-- When hidden and activity fires inside the hot zone, set `visible=true` and restart the 50 s timer.
+1. When you press ▲/▼, `nudgeCursor` sets the new position **but also resets the internal "logical line" tracker to null**. The line-sync effect then thinks the presentation line changed, **wipes the manual position (`manualSensorRef`)**, and re-anchors the sensor to its computed spot. Net result: the sensor never visibly moves.
+2. ▲ is additionally hard-clamped at the "first empty row" floor — so even without the snap-back, upward movement inside the empty solution space is forbidden.
+3. ◀/▶ moves survive slightly longer but get reverted by the same re-anchor whenever any dependency of that effect changes.
 
-### 4. Fix the stuck sensor (down / right / left do nothing)
-The D-pad callbacks currently call `setSensor(...)`, but `PresentationView` runs an auto-anchor effect that re-pins the sensor to `firstEmptyBandRow` on every layout tick, immediately undoing any manual nudge. `manualPushedRef` only covers the downward-grow case, not left/right or upward-within-band moves.
+## The fix
 
-Fix in `PresentationView.tsx`:
-- Promote `manualPushedRef` to a richer `manualSensorRef` that stores `{ line, x, at }` whenever the D-pad fires.
-- In the auto-anchor effect, if `manualSensorRef.current` is set AND its `{line,x}` still lies inside a writable empty region (uses existing `isEmptyWritableRow` + horizontal-in-bounds check), skip the auto reset — respect the manual position.
-- Clear `manualSensorRef` when: beat changes, active reservoir changes, or new ink lands on the manually chosen row (auto-anchor then resumes).
-- For `nudgeCursorHoriz`, also drop the `isEmptyWritableRow` guard when the target row is the current sensor row and already empty; log a `console.debug` on early-returns during development so future regressions surface fast.
+### 1. Stop the auto-anchor from fighting the D-pad
+- Introduce an explicit **manual-override mode**: while `manualSensorRef` is set, the line-sync/auto-anchor effect leaves the sensor completely alone.
+- The override is cleared ONLY when:
+  - The teacher navigates the Floating Number display to a different line (explicit panel ▲/▼), or
+  - Ink lands on the manually chosen row (writing resumes normal auto-flow), or
+  - The beat/section changes.
+- `nudgeCursor` / `nudgeCursorHoriz` will no longer null the logical-line tracker (that was the trigger for the snap-back).
 
-### 5. Verification
-After the edits, drive Playwright against `/smartboard/...`: press ▼ three times, then ▶ five times, screenshot, and assert the sensor caret has moved down-and-right rather than snapped back to Solution+1.
+### 2. Free 4-way movement inside the empty solution region
+- **▲ Up**: allowed onto ANY empty, writable row inside the active Solution band — remove the "auto floor" clamp. Skips over written/locked rows, notes, and structure-covered rows.
+- **▼ Down**: as today — moves to next empty row, grows the band at the bottom edge.
+- **◀ ▶**: free horizontal movement within the current empty row, clamped at master left margin and board right edge.
+- Boundaries always respected: sensor never lands on the Solution heading, question rows, notebook notes, or inside math structures.
 
-### Technical notes
-- Files touched: `src/components/smartboard/SensorDPad.tsx`, `src/components/smartboard/PresentationView.tsx`.
-- No changes to `grid.ts`, no changes to the Floating Number panel, no backend work.
-- `TAB_HEIGHT` / `PANEL_HEIGHT` continue to drive `bottomPx` so the pad clears the bottom drawer.
-- The 50 s timeout is a named constant `SENSOR_IDLE_MS = 50_000` for easy tuning.
+### 3. Line locking (write → lock → unlock via display)
+- Once a row contains a completed lesson line and the teacher advances past it, that row is **locked**: the D-pad skips it and clicks on it are ignored.
+- To edit a locked line, the teacher navigates the Floating Number display back to that line — that unlocks exactly that row and parks the sensor on it (this reuses the existing "presentation decides → cursor follows" pathway, so it comes mostly free).
+
+## Technical details
+- `src/components/smartboard/PresentationView.tsx`:
+  - `nudgeCursor`: remove auto-floor clamp for ▲; search target with a version of `findNextWritableEmptyRow` that also treats locked/written rows as barriers to land on but transparent to jump over; keep `activeSensorLogicalIdxRef` intact.
+  - Line-sync effect (~line 1799): early-return unconditionally while `manualSensorRef.current` is set; clear it only on explicit floating-line change / ink-on-row / beat change.
+  - `canCursorUp`: true whenever an empty writable row exists above the sensor inside the band.
+  - Locked-row set: derived from rows whose guided line index < current `activeLineIdx`, minus the row currently selected via the Floating Number display.
+- No backend changes.
