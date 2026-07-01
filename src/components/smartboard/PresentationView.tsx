@@ -1639,12 +1639,12 @@ const PresentationView = ({
   })();
   const canCursorLeft = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
-    if (!isEmptyWritableRow(Math.floor(sensor.line), activeLayout)) return false;
+    if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     return sensor.x > 0;
   })();
   const canCursorRight = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
-    if (!isEmptyWritableRow(Math.floor(sensor.line), activeLayout)) return false;
+    if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     return true;
   })();
 
