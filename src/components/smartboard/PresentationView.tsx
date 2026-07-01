@@ -1579,41 +1579,64 @@ const PresentationView = ({
 
 
 
-  /** Dedicated cursor-up/down nudge for the CursorScrollbar. It jumps over
-   *  written/restricted/structure-covered rows and only parks on empty working
-   *  space. Master left margin (x=0) is enforced on every nudge. */
+  /** Dedicated cursor-up/down nudge for the Sensor D-pad. It jumps over
+   *  written/locked/restricted/structure-covered rows and only parks on empty
+   *  working space. Master left margin (x=0) is enforced on every nudge.
+   *  ▲ is free anywhere inside the empty solution space (no auto-floor
+   *  clamp) — it only stops at the top of the active band. */
   const nudgeCursor = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
+    const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
-    const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
     const start = Math.floor(sensor.line) + dir;
     let cand = findNextWritableEmptyRow(start, dir, activeLayout);
 
-    if (dir === -1 && cand < auto) return; // never above first-empty/auto floor
+    if (dir === -1 && cand < a) return; // top of the writable band
     if (dir === 1 && cand > b) {
       // Grow band by one row so the teacher can keep going down.
       growActiveBand();
       cand = b + 1;
     }
+    // Leaving an empty row resets its temporary horizontal offset so
+    // future ink on it starts back at the master left margin.
+    const departed = sensor.line;
+    const departedInk = freeLines[departed] ?? freeLines[Math.floor(departed)] ?? [];
+    if (departedInk.length === 0) {
+      setLineOffsets((m) => {
+        if (!(departed in m)) return m;
+        const copy = { ...m };
+        delete copy[departed];
+        return copy;
+      });
+    }
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
+    const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
     manualPushedRef.current = cand > auto ? cand : null;
     manualSensorRef.current = { line: cand, x: 0 };
     activeSensorPhysicalLineRef.current = cand;
-    activeSensorLogicalIdxRef.current = null;
-  }, [activeLayout, sensor.line, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
+    // IMPORTANT: keep activeSensorLogicalIdxRef intact. Nulling it made the
+    // line-sync effect believe the presentation line changed, which wiped
+    // manualSensorRef and snapped the sensor straight back — the D-pad
+    // looked dead.
+  }, [activeLayout, sensor.line, freeLines, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
 
   /** Horizontal nudge for the Sensor D-pad. Moves the sensor inside its
    *  current empty row by one grid column. Clamps at the master left
    *  margin (x=0) on the left and at the row's right-edge writable
-   *  extent on the right. Never enters a written/restricted row. */
+   *  extent on the right. Never enters a written/restricted row.
+   *  The visible caret is positioned via lineOffsets (the row's start
+   *  offset), so horizontal nudges must write BOTH sensor.x and the
+   *  row's offset — sensor.x alone never moves the caret on screen. */
   const nudgeCursorHoriz = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const r = Math.floor(sensor.line);
-    // The sensor's own row is always considered writable for horizontal
-    // moves — the D-pad already blocks vertical entry into ink/prose.
     // Only bail if we're clearly on a restricted prose row.
     if (notebookRowLines.has(r)) return;
+    // Horizontal moves only make sense on an EMPTY row — shifting the
+    // offset of a written row would drag its ink sideways.
+    const rowInk = freeLines[sensor.line] ?? freeLines[r] ?? [];
+    if (rowInk.length > 0) return;
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
     const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
@@ -1622,16 +1645,31 @@ const PresentationView = ({
       : Math.max(0, sensor.x - step);
     if (next === sensor.x) return;
     setSensor((s) => ({ ...s, x: next }));
+    // Move the visible caret: the row's start offset drives where the
+    // empty active line (and its future ink) renders.
+    setLineOffsets((m) => {
+      const key = sensor.line;
+      if (next === 0) {
+        if (!(key in m)) return m;
+        const copy = { ...m };
+        delete copy[key];
+        return copy;
+      }
+      return { ...m, [key]: next };
+    });
     setLiveCursor({ path: [], index: 0 });
     manualSensorRef.current = { line: r, x: next };
     activeSensorPhysicalLineRef.current = sensor.line;
-  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, notebookRowLines, setLiveCursor]);
+  }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, notebookRowLines, freeLines, setLiveCursor]);
 
   const canCursorUp = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
-    const b = bandEnd(activeLayout);
-    const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
-    return Math.floor(sensor.line) > auto;
+    // ▲ is enabled whenever ANY empty writable row exists above the
+    // sensor inside the active band — the sensor roams freely in the
+    // empty solution space.
+    const a = bandStart(activeLayout);
+    const cand = findNextWritableEmptyRow(Math.floor(sensor.line) - 1, -1, activeLayout);
+    return cand >= a;
   })();
   const canCursorDown = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
@@ -1641,11 +1679,15 @@ const PresentationView = ({
   const canCursorLeft = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
+    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    if (rowInk.length > 0) return false;
     return sensor.x > 0;
   })();
   const canCursorRight = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
+    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    if (rowInk.length > 0) return false;
     return true;
   })();
 
@@ -1820,17 +1862,30 @@ const PresentationView = ({
     const b = bandEnd(activeLayout);
 
     const logicalLineChanged = activeSensorLogicalIdxRef.current !== idx;
-    // Respect an active manual D-pad position: if the teacher just nudged
-    // the sensor and the target row is still unwritten, do NOT snap it
-    // back to firstEmptyBandRow.
-    if (
-      !logicalLineChanged &&
-      manualSensorRef.current !== null &&
-      Math.floor(sensor.line) === manualSensorRef.current.line
-    ) {
-      activeSensorLogicalIdxRef.current = idx;
-      activeSensorPhysicalLineRef.current = sensor.line;
-      return;
+    // ── MANUAL-OVERRIDE MODE ─────────────────────────────────────────
+    // While the teacher holds a D-pad position, the auto-anchor leaves
+    // the sensor completely alone. The override clears ONLY when:
+    //   1. ink lands on the manually chosen row (resume auto-flow), or
+    //   2. the Floating Number display navigates to a different line, or
+    //   3. the beat / reservoir changes (handled elsewhere).
+    if (manualSensorRef.current !== null) {
+      if (rowHasInk(manualSensorRef.current.line)) {
+        // Writing resumed on the chosen row — hand control back to the
+        // normal flow, anchored exactly where the sensor already is.
+        manualSensorRef.current = null;
+        activeSensorLogicalIdxRef.current = idx;
+        activeSensorPhysicalLineRef.current = sensor.line;
+        return;
+      }
+      if (!logicalLineChanged) {
+        activeSensorLogicalIdxRef.current = idx;
+        activeSensorPhysicalLineRef.current = sensor.line;
+        return;
+      }
+      // Explicit presentation-line change → clear the override and let
+      // the anchor logic below reposition the sensor.
+      manualSensorRef.current = null;
+      manualPushedRef.current = null;
     }
     if (
       !logicalLineChanged &&
@@ -2725,7 +2780,12 @@ const PresentationView = ({
           // Working Area.
           if (!isLineWritable(halfLine)) return;
           const targetLine = halfLine;
-          const row = freeLines[targetLine] ?? [];
+          const row = freeLines[targetLine] ?? freeLines[Math.floor(targetLine)] ?? [];
+          // LINE LOCKING: a written row is restricted once the teacher has
+          // moved past it. Taps on it are swallowed — to edit a completed
+          // line, navigate the Floating Number display back to that line
+          // (which parks the sensor there and unlocks it).
+          if (row.length > 0 && Math.floor(sensor.line) !== Math.floor(targetLine)) return;
           // Master left margin rule: every Lesson Line begins at x = 0
           // (the page's MARGIN_LEFT). Clicks never introduce an
           // accidental horizontal offset — the cursor snaps back to the
@@ -2737,6 +2797,10 @@ const PresentationView = ({
               delete next[targetLine];
               return next;
             });
+            // Free-space tap: hold the sensor here (manual override) so the
+            // auto-anchor doesn't immediately snap it back.
+            manualSensorRef.current = { line: Math.floor(targetLine), x: 0 };
+            activeSensorPhysicalLineRef.current = targetLine;
           }
           setSensor({ line: targetLine, x: 0 });
           setLiveCursor({ path: [], index: row.length });
