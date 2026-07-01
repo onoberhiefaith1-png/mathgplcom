@@ -2078,8 +2078,9 @@ const PresentationView = ({
       }
       const row = freeLines[a + k];
       if (!row || row.length === 0) continue;
-      const ascii = rowToAscii(row);
-      if (equationsEquivalent(ascii, target.equation) || equationsMatch(ascii, target.equation)) {
+      const ascii = stripEqLabel(rowToAscii(row));
+      const eq = stripEqLabel(target.equation);
+      if (equationsEquivalent(ascii, eq) || equationsMatch(ascii, eq)) {
         highestCompleted = k;
         // Mark its notebook (if any) as already-shown so we never re-prompt.
         if (target.notebook) {
@@ -2096,8 +2097,10 @@ const PresentationView = ({
     }
     const resumeIdx = Math.min(highestCompleted + 1, guidedLines.length);
     if (resumeIdx > 0) {
-      setActiveLineIdx(resumeIdx);
-      setFloatingLineIdx(resumeIdx);
+      // Deliberately do NOT move activeLineIdx / floatingLineIdx here — the
+      // Floating Number presentation ALWAYS begins at Line 1. Completed
+      // lines only get their chips marked consumed below so the strip
+      // mirrors what is already on the board.
       // Mark all preceding fragments / structures as consumed so the
       // floating-number strip reflects the resumed state.
       setConsumedAbsIdx((prev) => {
@@ -2140,9 +2143,10 @@ const PresentationView = ({
       const target = guidedLines[k];
       if (!target || target.notebookOnly) continue;
       const row = freeLines[a + k];
-      const ascii = row ? rowToAscii(row) : "";
+      const ascii = row ? stripEqLabel(rowToAscii(row)) : "";
+      const eq = stripEqLabel(target.equation);
       const ok = !!row && row.length > 0 &&
-        (equationsEquivalent(ascii, target.equation) || equationsMatch(ascii, target.equation));
+        (equationsEquivalent(ascii, eq) || equationsMatch(ascii, eq));
       if (!ok) { lostTop = k; break; }
     }
     if (lostTop < 0) return;
@@ -2778,10 +2782,14 @@ const PresentationView = ({
           const targetLine = halfLine;
           const row = freeLines[targetLine] ?? freeLines[Math.floor(targetLine)] ?? [];
           // LINE LOCKING: a written row is restricted once the teacher has
-          // moved past it. Taps on it are swallowed — to edit a completed
-          // line, navigate the Floating Number display back to that line
-          // (which parks the sensor there and unlocks it).
-          if (row.length > 0 && Math.floor(sensor.line) !== Math.floor(targetLine)) return;
+          // moved past it — UNLESS it is the line the Floating Number
+          // display is currently showing. The displayed line is ALWAYS
+          // editable; navigating the display back to a line unlocks it.
+          if (
+            row.length > 0 &&
+            Math.floor(sensor.line) !== Math.floor(targetLine) &&
+            displayedLineRow !== Math.floor(targetLine)
+          ) return;
           // Master left margin rule: every Lesson Line begins at x = 0
           // (the page's MARGIN_LEFT). Clicks never introduce an
           // accidental horizontal offset — the cursor snaps back to the
@@ -2887,10 +2895,13 @@ const PresentationView = ({
               // sensor and live caret stay exactly where they were.
               if (!isLineWritable(line)) return;
               if (hasGuidedLines && activeLayout) {
-                // The anchor effect has already placed sensor.line on the
-                // correct K-th-occupied (non-notebook) row for the current
-                // lesson line. Reject clicks that try to leave it.
-                if (Math.floor(sensor.line) !== Math.floor(line)) return;
+                // Caret may land on the sensor's row OR on the row of the
+                // line currently shown in the Floating Number display —
+                // that line is always editable. Everything else is locked.
+                if (
+                  Math.floor(sensor.line) !== Math.floor(line) &&
+                  displayedLineRow !== Math.floor(line)
+                ) return;
               }
               if (line !== sensor.line) setSensor((s) => ({ ...s, line }));
               setLiveCursor(c);
