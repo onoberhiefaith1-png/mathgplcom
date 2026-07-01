@@ -1490,6 +1490,11 @@ const PresentationView = ({
   // the Cursor Scrollbar. While set, auto-snap stops moving the sensor
   // back to the first-empty row.
   const manualPushedRef = useRef<number | null>(null);
+  // Sticky manual sensor position from the Sensor D-pad. When set, the
+  // auto-anchor effect must respect this {line,x} instead of snapping the
+  // sensor back to firstEmptyBandRow. Cleared on beat/reservoir change
+  // and when ink lands on the manually chosen row.
+  const manualSensorRef = useRef<{ line: number; x: number } | null>(null);
   const activeSensorLogicalIdxRef = useRef<number | null>(null);
   const activeSensorPhysicalLineRef = useRef<number | null>(null);
 
