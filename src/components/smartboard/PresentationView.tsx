@@ -1679,11 +1679,15 @@ const PresentationView = ({
   const canCursorLeft = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
+    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    if (rowInk.length > 0) return false;
     return sensor.x > 0;
   })();
   const canCursorRight = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
+    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    if (rowInk.length > 0) return false;
     return true;
   })();
 
