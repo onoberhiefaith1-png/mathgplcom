@@ -1840,7 +1840,9 @@ const PresentationView = ({
         if (r < a || r > b) continue;
         if (notebookRowLines.has(r) || notebookRowLines.has(ln)) continue;
         const row = freeLines[ln];
-        if (!row || row.length === 0) continue;
+        // Whitespace-only rows are NOT ink — they must never claim
+        // Lesson-Line ownership (stale owners poisoned sensor placement).
+        if (!row || !rowHasVisibleInk(row)) continue;
         set.add(r);
       }
       return [...set].sort((x, y) => x - y);
@@ -2027,17 +2029,16 @@ const PresentationView = ({
       // Line K already has ink → park at its last owned row (end of ink).
       target = ownedRows[ownedRows.length - 1];
     } else {
-      // Line K has no ink yet → find the highest owned row of any
-      // PREVIOUS line and place the sensor EXACTLY ONE row below it.
-      // The notation decides extra space: only a genuinely tall structure
-      // (stacked fraction / matrix) on that row pushes the sensor further
-      // down, via extraRowsFor. Plain equations add nothing.
-      let maxPrevOwned = -1;
-      for (const [k, o] of Object.entries(rowOwners)) {
-        if (o < idx) maxPrevOwned = Math.max(maxPrevOwned, Number(k));
-      }
-      if (maxPrevOwned >= a) {
-        target = Math.min(b, maxPrevOwned + 1 + extraRowsFor(maxPrevOwned));
+      // Line K has no ink yet → find the LAST row with VISIBLE ink on the
+      // board (actual content — never the ownership bookkeeping, whose
+      // stale entries used to park the sensor 2-3 rows too far down) and
+      // place the sensor EXACTLY ONE row below it. The notation decides
+      // extra space: only a genuinely tall structure (stacked fraction /
+      // matrix) on that row pushes the sensor further down, via
+      // extraRowsFor. Plain equations add nothing.
+      const lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
+      if (lastInk >= a) {
+        target = Math.min(b, nextSensorRowBelow(lastInk));
       } else {
         // No prior ink: land right below "Solution".
         target = a;
