@@ -55,7 +55,7 @@ import {
   rowHasTallStructure,
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
-import { rowToAscii, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
+import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
@@ -909,6 +909,12 @@ const PresentationView = ({
     if (h <= 0) return 1; // unmeasured fraction: assume one row below
     return Math.max(1, Math.ceil((h - lh * 1.35) / lh));
   };
+
+  /** SINGLE definition of "the row right below `row`" used by EVERY sensor
+   *  advance path (Enter key, line-sync, checkpoint). Plain equations →
+   *  exactly row + 1, zero gap. Only a genuinely tall structure on `row`
+   *  (fraction, matrix, big operator) pushes the sensor further down. */
+  const nextSensorRowBelow = (row: number): number => row + 1 + extraRowsFor(row);
 
   // Structure-aware reflow was REMOVED intentionally. The teacher owns
   // the workspace layout: the Smartboard must never reposition already
