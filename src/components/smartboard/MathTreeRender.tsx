@@ -248,62 +248,21 @@ const SqrtView = ({
 }: ContainerProps & { node: Extract<Node, { kind: "sqrt" }> }) => {
   const hasIndex = node.rows.length === 2;
   const subPath = (i: number) => [...parentPath, idxInRow, i];
-  // The outer flex stretches all children to the same cross-axis height so
-  // the diagonal tick (svg) and the horizontal overline (body's border-top)
-  // meet seamlessly at the top-right corner — and continue to meet as the
-  // radicand grows in real time, identical to how the fraction bar already
-  // expands. No measurement is needed: CSS stretch keeps them in sync.
+  // Both children of ConnectedRadical stretch to the same height, so the
+  // hook's top-right tip and the overline's left edge always meet — and
+  // both grow vertically when the radicand contains a fraction/nested
+  // radical (identical to how the fraction bar already expands).
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center",
-      verticalAlign: "middle", margin: "0.18em 0.12em", lineHeight: 1,
-    }}>
-      {hasIndex && (
-        <span style={{
-          fontSize: "0.55em",
-          display: "inline-block",
-          transform: "translateY(-0.4em)",
-          marginRight: "-0.05em",
-          marginLeft: "0.1em",
-          minWidth: "0.7em",
-          textAlign: "center",
-          alignSelf: "flex-start",
-        }}>
-          <RowView row={node.rows[1] ?? []} path={subPath(1)}
-            cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
-        </span>
-      )}
-      <svg
-        viewBox="0 0 16 100"
-        preserveAspectRatio="none"
-        style={{
-          width: "0.45em", height: "1.1em", alignSelf: "stretch",
-          overflow: "visible", marginLeft: "0.05em", marginRight: 0,
-          display: "block",
-        }}
-        aria-hidden
-      >
-        <path
-          d="M0 65 L4 65 L8 95 L16 0"
-          stroke="currentColor" strokeWidth="2" fill="none"
-          vectorEffect="non-scaling-stroke" strokeLinejoin="miter" strokeLinecap="round"
-        />
-      </svg>
-      <span
-        style={{
-          borderTop: "1.4px solid currentColor",
-          padding: "1px 4px 0",
-          marginLeft: "-1px",
-          display: "inline-flex",
-          alignItems: "baseline",
-          lineHeight: 1.05,
-        }}
-      >
-        <RowView row={node.rows[0] ?? []} path={subPath(0)}
+    <ConnectedRadical
+      degree={hasIndex ? (
+        <RowView row={node.rows[1] ?? []} path={subPath(1)}
           cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
-      </span>
+      ) : undefined}
+    >
+      <RowView row={node.rows[0] ?? []} path={subPath(0)}
+        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
       <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
-    </span>
+    </ConnectedRadical>
   );
 };
 
