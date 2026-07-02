@@ -2000,15 +2000,16 @@ const PresentationView = ({
       target = ownedRows[ownedRows.length - 1];
     } else {
       // Line K has no ink yet → find the highest owned row of any
-      // PREVIOUS line and place the sensor immediately below it. This is
-      // the rule the teacher asked for: "Find the lowest row used by
-      // Lesson Line N. Place the sensor one row below."
+      // PREVIOUS line and place the sensor EXACTLY ONE row below it.
+      // The notation decides extra space: only a genuinely tall structure
+      // (stacked fraction / matrix) on that row pushes the sensor further
+      // down, via extraRowsFor. Plain equations add nothing.
       let maxPrevOwned = -1;
       for (const [k, o] of Object.entries(rowOwners)) {
         if (o < idx) maxPrevOwned = Math.max(maxPrevOwned, Number(k));
       }
       if (maxPrevOwned >= a) {
-        target = Math.min(b, maxPrevOwned + 1);
+        target = Math.min(b, maxPrevOwned + 1 + extraRowsFor(maxPrevOwned));
       } else {
         // No prior ink: land right below "Solution".
         target = a;
