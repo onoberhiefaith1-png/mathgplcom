@@ -334,3 +334,23 @@ export const nextEmptyRow = (
 };
 
 export const isRowEmpty = (r: Row): boolean => r.length === 0;
+
+/** True when the row contains a genuinely TALL structure that physically
+ *  occupies rows below its baseline: stacked fractions, binomials,
+ *  matrices, big operators (∑ ∏ ∫ lim with limits). Plain text,
+ *  superscripts/subscripts (x², aₙ), powers, brackets, accents and
+ *  simple radicals are NOT tall — they never reserve extra rows.
+ *  Recurses into every container so a fraction nested inside brackets
+ *  or under a square root still counts. */
+export const rowHasTallStructure = (row: Row): boolean => {
+  for (const n of row) {
+    if (n.kind === "char") continue;
+    if (n.kind === "frac" || n.kind === "binom" || n.kind === "matrix" || n.kind === "bigop") {
+      return true;
+    }
+    for (const sub of subRowsOf(n)) {
+      if (rowHasTallStructure(sub)) return true;
+    }
+  }
+  return false;
+};

@@ -52,6 +52,7 @@ import {
   moveLeft as treeMoveLeft,
   moveRight as treeMoveRight,
   nextEmptyRow as treeNextEmpty,
+  rowHasTallStructure,
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { rowToAscii, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
