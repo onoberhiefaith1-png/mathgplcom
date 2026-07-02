@@ -631,29 +631,14 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
         const a = readBraced(src, close + 1);
         if (a) {
           const idxStr = src.slice(i + 6, close);
-          // Render the index using the parser too so \sl{} inside works.
           const indexNodes = renderInner(idxStr, `${keyBase}-rni${k}`, ctx);
           flush();
-          out.push(
-            createElement(
-              "span",
-              {
-                key: `${keyBase}-rn-${k++}`,
-                "data-math-kind": "radical",
-                "data-math-src": `\\sqrt[${idxStr}]{${a.inner}}`,
-                style: { display: "inline-flex", alignItems: "baseline", verticalAlign: "baseline", margin: "0 2px", lineHeight: 1 },
-              },
-              createElement("sup", {
-                key: "idx",
-                style: { fontSize: "0.55em", marginRight: "-4px", position: "relative", top: "-0.9em", lineHeight: 1 },
-              }, indexNodes),
-              createElement("span", { key: "s", style: { fontSize: "1.35em", lineHeight: 1, marginRight: "1px" } }, "√"),
-              createElement("span", {
-                key: "u",
-                style: { borderTop: "1.4px solid currentColor", paddingTop: "2px", paddingLeft: "2px", paddingRight: "2px" },
-              }, renderInner(a.inner, `${keyBase}-rnb${k}`, ctx)),
-            ),
-          );
+          out.push(connectedRadical(
+            `${keyBase}-rn-${k++}`,
+            renderInner(a.inner, `${keyBase}-rnb${k}`, ctx),
+            indexNodes,
+            `\\sqrt[${idxStr}]{${a.inner}}`,
+          ));
           i = a.end;
           continue;
         }
@@ -665,41 +650,23 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
       const a = readBraced(src, i + 5);
       if (a) {
         flush();
-        out.push(
-          createElement(
-            "span",
-            {
-              key: `${keyBase}-r-${k++}`,
-                "data-math-kind": "radical",
-                "data-math-src": `\\sqrt{${a.inner}}`,
-              style: { display: "inline-flex", alignItems: "baseline", verticalAlign: "baseline", margin: "0 2px", lineHeight: 1 },
-            },
-            createElement("span", { key: "s", style: { fontSize: "1.35em", lineHeight: 1, marginRight: "1px" } }, "√"),
-            createElement("span", {
-              key: "u",
-              style: { borderTop: "1.4px solid currentColor", paddingTop: "2px", paddingLeft: "2px", paddingRight: "2px" },
-            }, renderInner(a.inner, `${keyBase}-rb${k}`, ctx)),
-          ),
-        );
+        out.push(connectedRadical(
+          `${keyBase}-r-${k++}`,
+          renderInner(a.inner, `${keyBase}-rb${k}`, ctx),
+          null,
+          `\\sqrt{${a.inner}}`,
+        ));
         i = a.end;
         continue;
       }
-      // Unbalanced \sqrt{...} — never leak raw markup. Emit √ over empty slot.
+      // Unbalanced \sqrt — render an empty-slot placeholder inside a real radical.
       flush();
-      out.push(
-        createElement(
-          "span",
-          {
-            key: `${keyBase}-rb-${k++}`,
-            style: { display: "inline-flex", alignItems: "baseline", verticalAlign: "baseline", margin: "0 2px", lineHeight: 1 },
-          },
-          createElement("span", { key: "s", style: { fontSize: "1.35em", lineHeight: 1, marginRight: "1px" } }, "√"),
-          createElement("span", {
-            key: "u",
-            style: { borderTop: "1.4px solid currentColor", paddingTop: "2px", paddingLeft: "2px", paddingRight: "2px" },
-          }, emptySlotBox(ctx.slotCounter.n++, ctx, `${keyBase}-rsl${k}`)),
-        ),
-      );
+      out.push(connectedRadical(
+        `${keyBase}-rb-${k++}`,
+        emptySlotBox(ctx.slotCounter.n++, ctx, `${keyBase}-rsl${k}`),
+        null,
+        `\\sqrt{}`,
+      ));
       i += 5;
       continue;
     }
