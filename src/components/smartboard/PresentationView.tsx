@@ -1497,6 +1497,12 @@ const PresentationView = ({
   const manualSensorRef = useRef<{ line: number; x: number } | null>(null);
   const activeSensorLogicalIdxRef = useRef<number | null>(null);
   const activeSensorPhysicalLineRef = useRef<number | null>(null);
+  // Rows owned by the guided line currently shown on the Floating Number
+  // display. Kept in a ref so the D-pad nudge callbacks (declared before
+  // the ownership memo) can read it without stale-closure/TDZ issues.
+  const displayedLineRowsRef = useRef<Set<number>>(new Set());
+
+
 
   // When a writable Solution opens, anchor the sensor at the first EMPTY row
   // of the active Solution band — below the last written equation/note, not
@@ -1580,16 +1586,29 @@ const PresentationView = ({
 
 
   /** Dedicated cursor-up/down nudge for the Sensor D-pad. It jumps over
-   *  written/locked/restricted/structure-covered rows and only parks on empty
-   *  working space. Master left margin (x=0) is enforced on every nudge.
-   *  ▲ is free anywhere inside the empty solution space (no auto-floor
-   *  clamp) — it only stops at the top of the active band. */
+   *  written/locked/restricted/structure-covered rows and parks on empty
+   *  working space OR on a row belonging to the line the Floating Number
+   *  display currently shows (that line is always editable). Master left
+   *  margin (x=0) is enforced on every nudge. ▲ is free anywhere inside
+   *  the empty solution space — it only stops at the top of the band. */
   const nudgeCursor = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
     const start = Math.floor(sensor.line) + dir;
-    let cand = findNextWritableEmptyRow(start, dir, activeLayout);
+    const displayedRows = displayedLineRowsRef.current;
+    // Scan for the next acceptable row: empty writable OR owned by the
+    // displayed line (editable even when written).
+    let cand = a - 1 - (dir > 0 ? -(b - a + 2) : 0); // sentinel out of range
+    {
+      let r = start;
+      let found = false;
+      while (dir > 0 ? r <= b : r >= a) {
+        if (isEmptyWritableRow(r, activeLayout) || displayedRows.has(r)) { found = true; break; }
+        r += dir;
+      }
+      cand = found ? r : (dir > 0 ? b + 1 : a - 1);
+    }
 
     if (dir === -1 && cand < a) return; // top of the writable band
     if (dir === 1 && cand > b) {
@@ -1610,7 +1629,10 @@ const PresentationView = ({
       });
     }
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
-    setLiveCursor({ path: [], index: 0 });
+    // Landing on a written row of the displayed line parks the caret at the
+    // END of its ink, ready to continue/edit; empty rows start at index 0.
+    const candInk = freeLines[cand] ?? freeLines[cand + 0.5] ?? [];
+    setLiveCursor({ path: [], index: displayedRows.has(cand) ? candInk.length : 0 });
     const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
     manualPushedRef.current = cand > auto ? cand : null;
     manualSensorRef.current = { line: cand, x: 0 };
@@ -1619,7 +1641,7 @@ const PresentationView = ({
     // line-sync effect believe the presentation line changed, which wiped
     // manualSensorRef and snapped the sensor straight back — the D-pad
     // looked dead.
-  }, [activeLayout, sensor.line, freeLines, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
+  }, [activeLayout, sensor.line, freeLines, firstEmptyBandRow, isEmptyWritableRow, setLiveCursor]);
 
   /** Horizontal nudge for the Sensor D-pad. Moves the sensor inside its
    *  current empty row by one grid column. Clamps at the master left
@@ -1633,10 +1655,21 @@ const PresentationView = ({
     const r = Math.floor(sensor.line);
     // Only bail if we're clearly on a restricted prose row.
     if (notebookRowLines.has(r)) return;
-    // Horizontal moves only make sense on an EMPTY row — shifting the
-    // offset of a written row would drag its ink sideways.
     const rowInk = freeLines[sensor.line] ?? freeLines[r] ?? [];
-    if (rowInk.length > 0) return;
+    if (rowInk.length > 0) {
+      // Written row: shifting the offset would drag the ink sideways.
+      // If this row belongs to the line the Floating Number display is
+      // showing (or is the sensor's own writing row), ◀/▶ walks the CARET
+      // through the existing ink instead — the teacher can edit anywhere
+      // inside the displayed line.
+      if (
+        !displayedLineRowsRef.current.has(r) &&
+        activeSensorPhysicalLineRef.current !== sensor.line
+      ) return;
+      setLiveCursor((c) => (dir > 0 ? treeMoveRight(rowInk, c) : treeMoveLeft(rowInk, c)));
+      hiddenInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
     const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
@@ -1825,33 +1858,117 @@ const PresentationView = ({
 
   // ── DISPLAYED-LINE EDITABILITY ───────────────────────────────────────
   // The Floating Number display is the source of truth: the guided line it
-  // currently shows must stay editable even when its row already has ink.
-  // Resolve the physical row that belongs to the displayed line — the K-th
-  // occupied non-notebook row, where K counts only equation (non-prose)
-  // guided lines before it.
+  // currently shows must stay editable even when its rows already have ink.
+  // A lesson line may span SEVERAL physical rows (e.g. a continuation row
+  // "= x − y" below a fraction), so we track row → guided-line OWNERSHIP:
+  //   • Any row that receives its first ink while line K is displayed
+  //     belongs to line K.
+  //   • On reload, pre-existing rows are seeded by sequentially matching
+  //     accumulated row text against each guided equation.
+  // All rows owned by the displayed line stay editable; they lock only
+  // after the display moves to another line.
   const displayedGuidedIdx = hasGuidedLines
     ? Math.min(manualFloatingLineIdx ?? floatingLineIdx, Math.max(0, guidedLines.length - 1))
     : -1;
-  const displayedLineRow = useMemo<number | null>(() => {
-    if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return null;
-    if (displayedGuidedIdx < 0) return null;
-    if (guidedLines[displayedGuidedIdx]?.notebookOnly) return null;
+  const [rowOwners, setRowOwners] = useState<Record<number, number>>({});
+  const seededOwnersRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
-    const occupied: number[] = [];
-    for (let r = a; r <= b; r++) {
-      const row = freeLines[r];
-      if (!row || row.length === 0) continue;
-      if (notebookRowLines.has(r)) continue;
-      occupied.push(r);
+    const occupiedRows = (): number[] => {
+      const set = new Set<number>();
+      for (const k of Object.keys(freeLines)) {
+        const ln = Number(k);
+        const r = Math.floor(ln);
+        if (r < a || r > b) continue;
+        if (notebookRowLines.has(r) || notebookRowLines.has(ln)) continue;
+        const row = freeLines[ln];
+        if (!row || row.length === 0) continue;
+        set.add(r);
+      }
+      return [...set].sort((x, y) => x - y);
+    };
+
+    // ── One-time seeding per reservoir: map pre-existing ink to lines by
+    // sequentially matching accumulated row text against guided equations.
+    if (seededOwnersRef.current !== activeReservoirIdx) {
+      seededOwnersRef.current = activeReservoirIdx;
+      const eqTargets: { idx: number; eq: string }[] = [];
+      for (let k = 0; k < guidedLines.length; k++) {
+        const g = guidedLines[k];
+        if (g && !g.notebookOnly) eqTargets.push({ idx: k, eq: stripEqLabel(g.equation) });
+      }
+      const seeded: Record<number, number> = {};
+      let t = 0;
+      let group: number[] = [];
+      let combined = "";
+      for (const r of occupiedRows()) {
+        const ascii = stripEqLabel(rowToAscii(freeLines[r] ?? freeLines[r + 0.5] ?? []));
+        group.push(r);
+        combined = (combined + ascii).trim();
+        const ownerIdx = t < eqTargets.length ? eqTargets[t].idx : eqTargets.length > 0 ? eqTargets[eqTargets.length - 1].idx : 0;
+        for (const gr of group) seeded[gr] = ownerIdx;
+        if (
+          t < eqTargets.length &&
+          (equationsMatch(combined, eqTargets[t].eq) ||
+            equationsEquivalent(combined, eqTargets[t].eq) ||
+            equationsMatch(ascii, eqTargets[t].eq) ||
+            equationsEquivalent(ascii, eqTargets[t].eq))
+        ) {
+          t++;
+          group = [];
+          combined = "";
+        }
+      }
+      setRowOwners(seeded);
+      return;
     }
-    let eqOrd = 0;
-    for (let k = 0; k < displayedGuidedIdx; k++) {
-      if (!guidedLines[k]?.notebookOnly) eqOrd++;
-    }
-    return eqOrd < occupied.length ? occupied[eqOrd] : null;
+
+    // ── Incremental ownership: new ink belongs to the displayed line;
+    // erased rows release their ownership.
+    setRowOwners((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      const occ = new Set(occupiedRows());
+      for (const k of Object.keys(next)) {
+        const r = Number(k);
+        if (!occ.has(r)) { delete next[r]; changed = true; }
+      }
+      if (displayedGuidedIdx >= 0) {
+        // New ink belongs to the displayed line. When the display is on a
+        // prose (notebookOnly) line, the teacher is really writing the NEXT
+        // equation line — assign ownership there so the row stays editable
+        // when that equation's chips come up on the panel.
+        let owner = displayedGuidedIdx;
+        if (guidedLines[owner]?.notebookOnly) {
+          for (let k = displayedGuidedIdx + 1; k < guidedLines.length; k++) {
+            if (!guidedLines[k]?.notebookOnly) { owner = k; break; }
+          }
+        }
+        for (const r of occ) {
+          if (next[r] === undefined) { next[r] = owner; changed = true; }
+        }
+      }
+      return changed ? next : prev;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasGuidedLines, activeLayout, displayedGuidedIdx, freeLines, notebookRowLines, guidedLines]);
+  }, [freeLines, hasGuidedLines, activeLayout, activeReservoirIdx, displayedGuidedIdx, guidedLines, notebookRowLines]);
+
+  /** Every physical row owned by the guided line the Floating Number
+   *  display is currently showing. These rows are ALWAYS editable. */
+  const displayedLineRows = useMemo<Set<number>>(() => {
+    const out = new Set<number>();
+    if (displayedGuidedIdx < 0) return out;
+    for (const [k, owner] of Object.entries(rowOwners)) {
+      if (owner === displayedGuidedIdx) out.add(Number(k));
+    }
+    return out;
+  }, [rowOwners, displayedGuidedIdx]);
+  // Mirror into the ref for the D-pad callbacks declared earlier.
+  useEffect(() => {
+    displayedLineRowsRef.current = displayedLineRows;
+  }, [displayedLineRows]);
 
   // ── LINE LOCKING (sensor follows Presentation) ───────────────────────
   // Whenever the Floating Number panel advances or rewinds to a different
@@ -1956,8 +2073,17 @@ const PresentationView = ({
       if (!guidedLines[k]?.notebookOnly) eqOrd++;
     }
     const isEquationLine = !guidedLines[idx]?.notebookOnly;
+    // Rows already OWNED by this guided line (a line may span several
+    // physical rows). Rewinding the display to this line parks the sensor
+    // on its LAST row, at the end of the ink, ready for editing.
+    const ownedRows = Object.entries(rowOwners)
+      .filter(([, o]) => o === idx)
+      .map(([k]) => Number(k))
+      .sort((x, y) => x - y);
     let target: number;
-    if (isEquationLine && eqOrd < occupied.length) {
+    if (isEquationLine && ownedRows.length > 0) {
+      target = ownedRows[ownedRows.length - 1];
+    } else if (isEquationLine && eqOrd < occupied.length) {
       target = occupied[eqOrd];
     } else {
       const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
@@ -1970,12 +2096,13 @@ const PresentationView = ({
     }
     if (sensor.line !== target) {
       setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
-      setLiveCursor({ path: [], index: 0 });
+      const tInk = freeLines[target] ?? freeLines[target + 0.5] ?? [];
+      setLiveCursor({ path: [], index: ownedRows.includes(target) ? tInk.length : 0 });
     }
     activeSensorLogicalIdxRef.current = idx;
     activeSensorPhysicalLineRef.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floatingLineIdx, manualFloatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter]);
+  }, [floatingLineIdx, manualFloatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter, rowOwners]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
@@ -2782,13 +2909,13 @@ const PresentationView = ({
           const targetLine = halfLine;
           const row = freeLines[targetLine] ?? freeLines[Math.floor(targetLine)] ?? [];
           // LINE LOCKING: a written row is restricted once the teacher has
-          // moved past it — UNLESS it is the line the Floating Number
-          // display is currently showing. The displayed line is ALWAYS
-          // editable; navigating the display back to a line unlocks it.
+          // moved past it — UNLESS it belongs to the line the Floating Number
+          // display is currently showing. ALL rows of the displayed line are
+          // ALWAYS editable; navigating the display back to a line unlocks it.
           if (
             row.length > 0 &&
             Math.floor(sensor.line) !== Math.floor(targetLine) &&
-            displayedLineRow !== Math.floor(targetLine)
+            !displayedLineRows.has(Math.floor(targetLine))
           ) return;
           // Master left margin rule: every Lesson Line begins at x = 0
           // (the page's MARGIN_LEFT). Clicks never introduce an
@@ -2895,12 +3022,12 @@ const PresentationView = ({
               // sensor and live caret stay exactly where they were.
               if (!isLineWritable(line)) return;
               if (hasGuidedLines && activeLayout) {
-                // Caret may land on the sensor's row OR on the row of the
+                // Caret may land on the sensor's row OR on ANY row of the
                 // line currently shown in the Floating Number display —
                 // that line is always editable. Everything else is locked.
                 if (
                   Math.floor(sensor.line) !== Math.floor(line) &&
-                  displayedLineRow !== Math.floor(line)
+                  !displayedLineRows.has(Math.floor(line))
                 ) return;
               }
               if (line !== sensor.line) setSensor((s) => ({ ...s, line }));
