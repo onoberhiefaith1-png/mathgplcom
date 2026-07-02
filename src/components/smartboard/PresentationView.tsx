@@ -1648,9 +1648,40 @@ const PresentationView = ({
     if (notebookRowLines.has(floor) || notebookRowLines.has(ln)) return false;
     return true;
   };
-  /** Grow the active band by one when the teacher needs more room. */
+  /** Live mirror of rowOwners for callbacks declared above its state
+   *  (growActiveBand / nudgeCursor) — avoids TDZ while staying current. */
+  const rowOwnersRef = useRef<Record<number, number>>({});
+
+  /** FRESH-ROW GROWTH LAW: when the writable band grows, the newly opened
+   *  row must be BLANK. Board ink is persisted across sessions, and rows
+   *  outside the band are hidden — not deleted. Without this purge, every
+   *  ▼ press at the band bottom would un-hide one more row of the old
+   *  saved solution, making the board look like it "solves itself".
+   *  Rows owned by this lesson's committed lines or placed notes are
+   *  never touched — only orphaned, hidden leftover ink is cleared. */
+  const purgeHiddenInkRow = (r: number) => {
+    setFreeLines((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const key of [r, r + 0.5]) {
+        const row = next[key];
+        if (!row || row.length === 0) continue;
+        if (rowOwnersRef.current[r] !== undefined) continue; // committed lesson line
+        if (notebookRowLines.has(r) || notebookRowLines.has(key)) continue; // placed note
+        delete next[key];
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  };
+
+  /** Grow the active band by one when the teacher needs more room.
+   *  Always purges stale hidden ink on the row being opened, so NO
+   *  growth path (D-pad ▼, keyboard ArrowDown, Enter-advance, line
+   *  verification) can ever reveal previously hidden content. */
   const growActiveBand = () => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
+    purgeHiddenInkRow(bandEnd(activeLayout) + 1);
     setBandExtra((m) => ({ ...m, [activeLayout.id]: (m[activeLayout.id] ?? 0) + 1 }));
   };
 
