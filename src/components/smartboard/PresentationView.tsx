@@ -1992,6 +1992,9 @@ const PresentationView = ({
     ? Math.min(manualFloatingLineIdx ?? floatingLineIdx, Math.max(0, guidedLines.length - 1))
     : -1;
   const [rowOwners, setRowOwners] = useState<Record<number, number>>({});
+  // Keep the pre-declared ref in sync so growActiveBand's purge sees the
+  // current ownership map (render-time assignment is intentional).
+  rowOwnersRef.current = rowOwners;
   const seededOwnersRef = useRef<number>(-1);
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
