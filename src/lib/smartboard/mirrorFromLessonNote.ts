@@ -61,6 +61,30 @@ const matchBrace = (s: string, i: number): number => {
   return depth === 0 ? j + 1 : -1; // returns index AFTER the closing brace
 };
 
+/** Match a balanced `(...)` group starting at `i` (`s[i]` must be `(`).
+ *  Returns index AFTER the closing paren, or -1 on failure. Used to
+ *  recognise friendly-form radicals `√( ... )` that may reach the mirror
+ *  in AI-generated ASCII (never `\sqrt{...}`). */
+const matchParen = (s: string, i: number): number => {
+  if (s[i] !== "(") return -1;
+  let depth = 1;
+  let j = i + 1;
+  while (j < s.length && depth > 0) {
+    const c = s[j];
+    if (c === "\\") { j += 2; continue; }
+    if (c === "(") depth++;
+    else if (c === ")") { depth--; if (depth === 0) break; }
+    j++;
+  }
+  return depth === 0 ? j + 1 : -1;
+};
+
+const SUP_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+const SUP_TO_DIGIT: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+  "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+};
+
 const charsOf = (s: string): Row => [...s].map(mkChar);
 
 /* ─────────── LaTeX → Smartboard Row converter ─────────── */
