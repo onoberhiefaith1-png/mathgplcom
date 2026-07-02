@@ -1128,11 +1128,23 @@ const PresentationView = ({
       // Insert paragraphs consecutively from the sensor row downward.
       // LAW 2 (Locked-Ink Rule) still applies: existing ink is never
       // overwritten — each paragraph slides to the first free row below.
-      // The post-structure gap rule (rule #1) means writing beneath a
-      // fraction naturally starts one row lower.
+      // POST-STRUCTURE GAP: writing directly under a tall structure
+      // (fraction, matrix, big-op, tall radicand) reserves at least one
+      // empty row so the note never collides with a denominator/body.
       const next = { ...prev };
       const newNotebookRows: number[] = [];
       let target = Math.floor(sensor.line);
+      // Look upward from the sensor for the nearest inked row and, if it
+      // carries a tall structure, bump the landing row down by that
+      // structure's extra rows + one breathing-space row.
+      for (let r = target - 1; r >= 0; r--) {
+        const row = next[r] ?? next[r + 0.5];
+        if (row && rowHasVisibleInk(row)) {
+          const bump = nextSensorRowBelow(r);
+          if (bump > target) target = bump;
+          break;
+        }
+      }
       const occupied = (r: number): boolean => {
         const whole = next[r];
         const half = next[r + 0.5];
