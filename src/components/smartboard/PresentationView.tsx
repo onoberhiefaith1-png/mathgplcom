@@ -1432,7 +1432,7 @@ const PresentationView = ({
   }, [isEmptyWritableRow]);
 
   const firstWritableRowAfter = useCallback((line: number, L: BeatLayout): number => {
-    const start = Math.floor(line) + 1 + extraRowsFor(Math.floor(line));
+    const start = nextSensorRowBelow(Math.floor(line));
     return findNextWritableEmptyRow(start, 1, L);
   // extraRowsFor reads measured heights from a ref.
   // eslint-disable-next-line react-hooks/exhaustive-deps
