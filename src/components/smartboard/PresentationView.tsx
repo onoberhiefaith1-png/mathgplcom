@@ -52,6 +52,7 @@ import {
   moveLeft as treeMoveLeft,
   moveRight as treeMoveRight,
   nextEmptyRow as treeNextEmpty,
+  rowHasTallStructure,
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { rowToAscii, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
@@ -892,18 +893,21 @@ const PresentationView = ({
   };
 
   /** Extra physical rows occupied by a Lesson Object on `line` beyond its
-   *  baseline row. A simple fraction returns 1, a tall nested structure
-   *  returns 2+. Computed from the measured DOM height vs. row pitch. */
+   *  baseline row. THE NOTATION DECIDES: a row reserves extra rows below
+   *  it ONLY when its math tree actually contains a tall structure
+   *  (stacked fraction, binomial, matrix, big operator). Plain equations,
+   *  superscripts (x²) and normal handwriting always return 0 — no matter
+   *  what the pixel measurement says — so the sensor parks exactly one
+   *  row below a finished line. When a tall structure IS present, the
+   *  measured DOM height decides how many rows it truly spans
+   *  (simple fraction = 1, nested tower = 2+). */
   const extraRowsFor = (line: number): number => {
+    const row = freeLines[line] ?? freeLines[line + 0.5];
+    if (!row || row.length === 0 || !rowHasTallStructure(row)) return 0;
     const h = lineHeightsRef.current[line] ?? 0;
-    if (h <= 0) return 0;
     const lh = grid.LINE_HEIGHT;
-    // Do not treat normal handwriting or a simple superscript (x²) as a
-    // multi-row object. Those often measure a little taller than one Row
-    // because scripts extend upward, but they do not need a blank physical
-    // row underneath. Only structures that clearly occupy more than one row
-    // (fractions, matrices, tall radicals, etc.) reserve extra rows.
-    return Math.max(0, Math.ceil((h - lh * 1.35) / lh));
+    if (h <= 0) return 1; // unmeasured fraction: assume one row below
+    return Math.max(1, Math.ceil((h - lh * 1.35) / lh));
   };
 
   // Structure-aware reflow was REMOVED intentionally. The teacher owns
@@ -1996,15 +2000,16 @@ const PresentationView = ({
       target = ownedRows[ownedRows.length - 1];
     } else {
       // Line K has no ink yet → find the highest owned row of any
-      // PREVIOUS line and place the sensor immediately below it. This is
-      // the rule the teacher asked for: "Find the lowest row used by
-      // Lesson Line N. Place the sensor one row below."
+      // PREVIOUS line and place the sensor EXACTLY ONE row below it.
+      // The notation decides extra space: only a genuinely tall structure
+      // (stacked fraction / matrix) on that row pushes the sensor further
+      // down, via extraRowsFor. Plain equations add nothing.
       let maxPrevOwned = -1;
       for (const [k, o] of Object.entries(rowOwners)) {
         if (o < idx) maxPrevOwned = Math.max(maxPrevOwned, Number(k));
       }
       if (maxPrevOwned >= a) {
-        target = Math.min(b, maxPrevOwned + 1);
+        target = Math.min(b, maxPrevOwned + 1 + extraRowsFor(maxPrevOwned));
       } else {
         // No prior ink: land right below "Solution".
         target = a;

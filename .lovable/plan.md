@@ -1,64 +1,34 @@
-# Lesson-Line Driven Smartboard (Final Redesign)
+# Sensor Gap + Blocked ▲ Arrow — Root Cause Fix
 
-Replace the row-centric model in `PresentationView.tsx` with a **Lesson-Line model**. Rows become pure writing positions; Lesson Lines are defined by the Floating Number presentation and the teacher's ink, not by the grid.
+## What is going wrong
 
-## Core model change
+Both errors come from the same source: the board over-estimates how much vertical space an equation needs.
 
-Introduce `lessonLineOwners: Record<number, number>` — maps every physical row that has ink or a note to the **guided line index** that was active on the Floating Number panel when that row was written. This replaces `rowOwners` and the "sequential ordinal" seeding.
+Every written row's height is measured from the screen (pixels). The code then converts pixels to "extra reserved rows" with a loose threshold. A plain one-row equation like `x + y = 7 (1)` — especially at larger text sizes — measures slightly taller than one row, so the system wrongly reserves 1–2 phantom rows *below* it. This causes:
 
-Rules:
-- A Lesson Line = the set of rows whose owner === its guided index. It may be 1 row or 10 rows; the system never splits it.
-- Only two events write to `lessonLineOwners`:
-  1. Teacher types on a row while the panel shows guided line K → row belongs to K.
-  2. A note is inserted → its rows belong to the currently displayed K.
-- The board is never scanned to guess ownership. No content-matching, no "continuation" heuristic, no `stripEqLabel` fallback.
+1. **The gap**: When you finish a line and advance, every advance path adds this phantom padding, then also skips the "reserved" rows — so the sensor lands 3 rows down instead of 1.
+2. **The dead ▲ arrow**: The empty rows between the sensor and the equation are flagged as "covered by a structure", so the D-pad refuses to move the sensor up into them.
 
-## Sensor rules
+## The fix
 
-1. **Initial position**: when Floating Number mode opens (bandLines > 0), sensor = row immediately below the "Solution" caption, column 0. No `firstEmptyBandRow` offset, no reflow padding. Delete the "auto floor" logic.
-2. **Teacher owns layout**: `nudgeCursor` / `nudgeCursorHoriz` / board tap may land on **any empty row** in the working area, at any column ≥ master left margin. No skipping tall structures, no auto-advance when ink matches.
-3. **Advance on panel Next**: when the display moves K → K+1, find `maxRow = max(row where owner === K)`, then sensor = maxRow + 1, x = 0. If K has no ink yet, leave the sensor where it is.
-4. **Rewind on panel Prev**: sensor parks at the end of the last row owned by the target line (or stays put if that line has no ink).
-5. No automatic reflow when a structure grows. Delete the `extraRowsFor` / structure-clearance push in `writeProseLineOnBoard` and the reflow effect that shifts subsequent ink.
+**Rule: the notation decides.** A row only reserves extra rows below it when the math tree on that row actually contains a genuinely tall structure (stacked fraction, matrix, tall radical, big operator). Plain text, superscripts (x²), and normal equations reserve zero rows — no matter what the pixel measurement says.
 
-## Locking rules
+### 1. Structure-aware `extraRowsFor` (PresentationView.tsx)
+- Inspect the row's math tree: if it has no `frac`, `matrix`, `bigop`, or nested tall structure, return 0 immediately — skip the pixel heuristic entirely.
+- Only when a tall structure exists, use the measured height to decide how many extra rows it truly spans (fraction = 1, nested = 2+).
 
-- A row is **editable** iff `owner === displayedLineIdx` OR it has no owner (empty).
-- A row is **locked** iff it has an owner ≠ displayedLineIdx.
-- Enforced in three gates only: board tap, `FreeWriteLayer.onCursorChange`, and D-pad `nudgeCursor*`.
-- No other path locks or unlocks. Remove the ink-match effect that currently locks lines based on Unicode parity.
+### 2. Advance = exactly next row
+- Line-sync effect (advance to Line N+1): sensor lands at `last owned row of Line N + 1` — with the corrected `extraRowsFor` this is literally the next row for normal equations, and only pushes further when a real fraction/matrix physically occupies the row below.
+- Enter key and Floating-panel advance paths use the same corrected function, so all three paths agree.
 
-## Notes (Book icon)
+### 3. Un-block the ▲ arrow
+- `rowCoveredByStructure` automatically stops flagging empty rows below plain equations once `extraRowsFor` is corrected, so `canCursorUp` re-enables and the sensor can roam up through empty space again.
+- Verify ▲ stops only at the top of the writable band (just below "Solution").
 
-1. **Insertion point** = current sensor row + column. Modify `writeProseLineOnBoard` to write the note ink at `sensor.line` / `sensor.x` (not at a computed "next empty row"). All rows the note occupies get `owner = displayedLineIdx`.
-2. **Glow logic** — a note is "complete" iff the ink on its owned rows exactly equals the note's original character sequence. On every render of the active line, compare `serialize(freeLines rows owned by K & tagged as note)` with the stored `note.canonical`. If not equal (missing, edited, partially deleted) → glow. Track this in a new `noteStatus: Record<lineIdx, "pending" | "complete">` derived state; the Book icon reads it.
-3. After the teacher advances past the note's line, the glow state is frozen with the line's lock — glow only re-evaluates when the display returns to that line.
+### 4. Verification
+- Playwright run: write `x + y = 7`, advance the Floating Number display, screenshot-confirm the sensor sits on the immediately following row (same gap as between existing lines), and confirm ▲ is enabled and moves the sensor up.
+- Repeat with a stacked fraction to confirm tall structures still push the sensor below the whole structure (not row-by-row).
 
-## Files to change (all frontend)
-
-- `src/components/smartboard/PresentationView.tsx`
-  - Replace `rowOwners` seeding effect with a pure "record on write" effect that watches `freeLines` deltas and assigns the current `displayedLineIdx` to newly-inked rows.
-  - Rewrite sensor init: on `bandLines` transitioning to > 0, set sensor to `bandStart(activeLayout)` row, x = 0.
-  - Rewrite `nudgeCursor` / `nudgeCursorHoriz`: remove `isEmptyWritableRow` structural filters and `firstEmptyBandRow` floor; allow any row in `[bandStart, bandEnd]` that is either empty or owned by displayed line.
-  - Rewrite `stepTo` (panel Next/Prev): use `lessonLineOwners` to compute maxRow of previous line and park sensor there +1.
-  - Delete the reflow effect and `extraRowsFor` padding.
-  - Rewrite `writeProseLineOnBoard` to insert at sensor position and tag rows with `owner + kind: "note"`.
-- `src/lib/smartboard/lessonLines.ts`
-  - Add `noteStatus` helpers: `canonicalizeNote(text)` and `noteMatches(inkRows, canonical)`.
-- `src/components/smartboard/BottomPanel.tsx` (or wherever the Book icon lives — confirm during build)
-  - Read `noteStatus[displayedLineIdx]` for the glow class.
-- `src/test/floatingSmartboardSync.test.ts`
-  - Update expectations: sensor starts immediately below "Solution", multi-row Lesson Line 1 keeps ownership across all its rows, panel Next moves sensor to `maxRow + 1`, panel Prev unlocks all owned rows.
-
-## What we delete
-
-- `firstEmptyBandRow`, `rowCoveredByStructure`, `findNextWritableEmptyRow`, `extraRowsFor`, the `manualPushedRef` auto-floor logic, the ink-match auto-lock effect, and the sequential-ordinal seeding pass. These enforced a row-centric worldview that this redesign rejects.
-
-## Verification
-
-Playwright on `/smartboard/…`:
-1. Open Floating Number panel → sensor renders directly below "Solution" (screenshot).
-2. Type a multi-row equation (fraction) for Line 1 → all rows stay unlocked, no auto-advance.
-3. Panel Next → sensor drops to `maxRow + 1`, all Line-1 rows become click-locked.
-4. Panel Prev → Line 1 rows become editable again, sensor at end of last owned row.
-5. Book icon: insert note at sensor → glow stops; delete one char → glow returns on that line only.
+## Files touched
+- `src/components/smartboard/PresentationView.tsx` — `extraRowsFor`, `rowCoveredByStructure` (indirect), advance paths.
+- Possibly a small helper in `src/lib/smartboard/mathTree.ts` (`rowHasTallStructure`).
