@@ -893,18 +893,21 @@ const PresentationView = ({
   };
 
   /** Extra physical rows occupied by a Lesson Object on `line` beyond its
-   *  baseline row. A simple fraction returns 1, a tall nested structure
-   *  returns 2+. Computed from the measured DOM height vs. row pitch. */
+   *  baseline row. THE NOTATION DECIDES: a row reserves extra rows below
+   *  it ONLY when its math tree actually contains a tall structure
+   *  (stacked fraction, binomial, matrix, big operator). Plain equations,
+   *  superscripts (x²) and normal handwriting always return 0 — no matter
+   *  what the pixel measurement says — so the sensor parks exactly one
+   *  row below a finished line. When a tall structure IS present, the
+   *  measured DOM height decides how many rows it truly spans
+   *  (simple fraction = 1, nested tower = 2+). */
   const extraRowsFor = (line: number): number => {
+    const row = freeLines[line] ?? freeLines[line + 0.5];
+    if (!row || row.length === 0 || !rowHasTallStructure(row)) return 0;
     const h = lineHeightsRef.current[line] ?? 0;
-    if (h <= 0) return 0;
     const lh = grid.LINE_HEIGHT;
-    // Do not treat normal handwriting or a simple superscript (x²) as a
-    // multi-row object. Those often measure a little taller than one Row
-    // because scripts extend upward, but they do not need a blank physical
-    // row underneath. Only structures that clearly occupy more than one row
-    // (fractions, matrices, tall radicals, etc.) reserve extra rows.
-    return Math.max(0, Math.ceil((h - lh * 1.35) / lh));
+    if (h <= 0) return 1; // unmeasured fraction: assume one row below
+    return Math.max(1, Math.ceil((h - lh * 1.35) / lh));
   };
 
   // Structure-aware reflow was REMOVED intentionally. The teacher owns
