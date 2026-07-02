@@ -1128,11 +1128,23 @@ const PresentationView = ({
       // Insert paragraphs consecutively from the sensor row downward.
       // LAW 2 (Locked-Ink Rule) still applies: existing ink is never
       // overwritten — each paragraph slides to the first free row below.
-      // The post-structure gap rule (rule #1) means writing beneath a
-      // fraction naturally starts one row lower.
+      // POST-STRUCTURE GAP: writing directly under a tall structure
+      // (fraction, matrix, big-op, tall radicand) reserves at least one
+      // empty row so the note never collides with a denominator/body.
       const next = { ...prev };
       const newNotebookRows: number[] = [];
       let target = Math.floor(sensor.line);
+      // Look upward from the sensor for the nearest inked row and, if it
+      // carries a tall structure, bump the landing row down by that
+      // structure's extra rows + one breathing-space row.
+      for (let r = target - 1; r >= 0; r--) {
+        const row = next[r] ?? next[r + 0.5];
+        if (row && rowHasVisibleInk(row)) {
+          const bump = nextSensorRowBelow(r);
+          if (bump > target) target = bump;
+          break;
+        }
+      }
       const occupied = (r: number): boolean => {
         const whole = next[r];
         const half = next[r + 0.5];
@@ -1664,9 +1676,12 @@ const PresentationView = ({
 
     if (dir === -1 && cand < a) return; // top of the writable band
     if (dir === 1 && cand > b) {
-      // Grow band by one row so the teacher can keep going down.
-      growActiveBand();
-      cand = b + 1;
+      // Do NOT auto-grow the writable band on ▼. The D-pad's only job is
+      // to move the sensor inside existing empty space — it must never
+      // enlarge the working area or "feed" new rows onto the board. The
+      // teacher grows the band explicitly by writing/Enter, not by
+      // scrolling the sensor.
+      return;
     }
     // Leaving an empty row resets its temporary horizontal offset so
     // future ink on it starts back at the master left margin.
@@ -1800,18 +1815,12 @@ const PresentationView = ({
     if (activeReservoirIdx >= 0) setViewReservoirIdx(activeReservoirIdx);
   }, [activeReservoirIdx]);
 
-  // Rule 10 — Floating Number Always Starts at Line 1.
-  // Every time the teacher opens the # panel, snap the floating-number
-  // presentation back to Lesson Line 1 (idx 0) and clear any manual
-  // override, so navigation always starts from the top.
+  // The Floating Number panel remembers its current line across page
+  // reloads and across open/close of the # panel. We deliberately do NOT
+  // snap back to Line 1 when the panel opens — that behaviour was replaced
+  // by teacher-facing "line memory" (see the localStorage restore below).
   const prevPanelOpenForFloatingRef = useRef<boolean>(panelOpen);
   useEffect(() => {
-    if (panelOpen && !prevPanelOpenForFloatingRef.current) {
-      setActiveLineIdx(0);
-      setFloatingLineIdx(0);
-      setManualFloatingLineIdx(null);
-      setNotebookRevealIdx(null);
-    }
     prevPanelOpenForFloatingRef.current = panelOpen;
   }, [panelOpen]);
 
@@ -1847,8 +1856,20 @@ const PresentationView = ({
   // force activeLineIdx back to 0: the resume effect below will scan the
   // board and place the teacher on the next unsolved lesson line.
   useEffect(() => {
-    setActiveLineIdx(0);
-    setFloatingLineIdx(0);
+    // Line-memory restore: read the persisted Floating Number line for
+    // this notebook+reservoir so leaving the page and coming back keeps
+    // the teacher on the same lesson line.
+    const FLOAT_LINE_KEY = `smartboard:floatLineIdx:${notebookId ?? "_"}:${activeReservoirIdx}`;
+    let restoredIdx = 0;
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(FLOAT_LINE_KEY) : null;
+      if (raw != null) {
+        const n = Number(JSON.parse(raw));
+        if (Number.isFinite(n) && n >= 0) restoredIdx = Math.floor(n);
+      }
+    } catch { /* noop */ }
+    setActiveLineIdx(restoredIdx);
+    setFloatingLineIdx(restoredIdx);
     setManualFloatingLineIdx(null);
     setNotebookRevealIdx(null);
     setNotebookAttentionIdx(new Set());
@@ -1871,6 +1892,17 @@ const PresentationView = ({
     manualPushedRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
+
+  // Persist the Floating Number line index whenever it changes so the
+  // teacher can leave and return to the same line.
+  useEffect(() => {
+    if (activeReservoirIdx < 0) return;
+    try {
+      const FLOAT_LINE_KEY = `smartboard:floatLineIdx:${notebookId ?? "_"}:${activeReservoirIdx}`;
+      window.localStorage.setItem(FLOAT_LINE_KEY, JSON.stringify(activeLineIdx));
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLineIdx, activeReservoirIdx]);
 
   // Persist shownNotebookIdx whenever it changes.
   useEffect(() => {
@@ -2384,6 +2416,26 @@ const PresentationView = ({
       const next = new Set(prev);
       for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.delete(i);
       return next;
+    });
+    // Notebook-glow reset: any notebooks belonging to the rewound line
+    // (or lines beyond it) must forget that they've already been read,
+    // so that trying to advance forward again re-glows them until the
+    // teacher clicks the note back onto the board.
+    setShownNotebookIdx((prev) => {
+      let changed = false;
+      const nextS = new Set(prev);
+      for (const idx of prev) {
+        if (idx >= k) { nextS.delete(idx); changed = true; }
+      }
+      return changed ? nextS : prev;
+    });
+    setNotebookAttentionIdx((prev) => {
+      let changed = false;
+      const nextS = new Set(prev);
+      for (const idx of prev) {
+        if (idx >= k) { nextS.delete(idx); changed = true; }
+      }
+      return changed ? nextS : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, rowOwners, hasGuidedLines, activeLayout?.startLine, activeLayout?.bandLines, guidedLines.length]);
