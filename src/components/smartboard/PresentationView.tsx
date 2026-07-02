@@ -1354,8 +1354,30 @@ const PresentationView = ({
 
   const rowHasInk = useCallback((line: number): boolean => {
     const row = freeLines[line];
-    return !!row && row.length > 0;
+    return !!row && rowHasVisibleInk(row);
   }, [freeLines]);
+
+  /** Lowest board row inside the active band that carries VISIBLE ink
+   *  (or a placed note). This — the actual board content — is the sole
+   *  source of truth for "the last written row"; ownership bookkeeping
+   *  is never trusted for sensor placement. Returns -1 when the band is
+   *  entirely empty. */
+  const lastVisibleInkRow = useCallback((L: BeatLayout): number => {
+    const a = bandStart(L), b = bandEnd(L);
+    let last = -1;
+    for (const key of Object.keys(freeLines)) {
+      const ln = Number(key);
+      const r = Math.floor(ln);
+      if (r < a || r > b) continue;
+      const row = freeLines[ln];
+      if (row && rowHasVisibleInk(row)) last = Math.max(last, r);
+    }
+    for (const ln of notebookRowLines) {
+      const r = Math.floor(ln);
+      if (r >= a && r <= b) last = Math.max(last, r);
+    }
+    return last;
+  }, [freeLines, notebookRowLines]);
 
   /** A row can be visually occupied by a tall structure that starts above it
    *  (fraction denominator, radical body, matrix, etc.). The sensor must skip
