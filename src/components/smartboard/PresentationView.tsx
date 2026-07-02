@@ -1016,24 +1016,19 @@ const PresentationView = ({
   const writeProseLineOnBoard = useCallback((rawFromLessonNote: string) => {
     const src = (rawFromLessonNote ?? "").trim();
     if (!src) return;
-    // Stage through the Lesson Note mirror — this is the ONLY entry point
-    // for placing Lesson Note content on the Smartboard. It returns
-    // Smartboard math-tree nodes (real stacked fractions, radicals, etc.)
-    // identical to how Lesson Notes itself renders the same source, and
-    // refuses if any forbidden LaTeX residue survives.
     const mirror = mirrorLessonNoteRow(src);
     if (!mirror.ok || mirror.row.length === 0) return;
     const sig = mirror.signature;
     setFreeLines((prev) => {
-      let maxLine = -1;
+      // Idempotency: same prose already on a line → park sensor just below
+      // it, do not duplicate.
       let existingLine: number | null = null;
       for (const k of Object.keys(prev)) {
         const n = Number(k);
         const row = prev[n];
-        if (row && row.length > 0) {
-          maxLine = Math.max(maxLine, Math.floor(n));
-          // Idempotency: same prose already on a line → bail.
-          if (rowSignature(row) === sig) existingLine = Math.floor(n);
+        if (row && row.length > 0 && rowSignature(row) === sig) {
+          existingLine = Math.floor(n);
+          break;
         }
       }
       if (existingLine !== null) {
@@ -1042,40 +1037,23 @@ const PresentationView = ({
           ns.add(existingLine);
           return ns;
         });
-        const afterExisting = existingLine + 1 + extraRowsFor(existingLine);
-        setSensor((s) => ({ ...s, line: afterExisting, x: 0 }));
-        setLiveCursor({ path: [], index: 0 });
-        activeSensorLogicalIdxRef.current = null;
-        activeSensorPhysicalLineRef.current = afterExisting;
-        manualPushedRef.current = null;
         return prev;
       }
-      // Structure-aware placement: if the row above holds a tall Lesson
-      // Object (stacked fraction, radical, matrix…), its measured DOM
-      // height already extends past its baseline row. Skip those extra
-      // physical rows so the new prose never lands inside a denominator.
-      const extra = maxLine >= 0 ? extraRowsFor(maxLine) : 0;
-      // Notes are authored teaching content, so they belong immediately below
-      // the last visible solution item. Do not let a stale/manually-pushed
-      // sensor create a large gap before the note.
-      const target = maxLine >= 0 ? maxLine + 1 + extra : Math.floor(sensor.line);
+      // Insert the note AT THE CURRENT SENSOR ROW. The teacher's sensor
+      // position is the insertion point — no auto-computed offset, no
+      // extraRowsFor padding, no auto-jump to "next empty row below the
+      // last ink". The teacher decides where the note lands.
+      const target = Math.floor(sensor.line);
       const next = { ...prev, [target]: mirror.row };
-      // Tag this row as notebook prose so the sensor-anchor logic skips it
-      // when computing the K-th writable line. The sensor jumps to the row
-      // BELOW the notebook so the teacher writes under the teaching note.
       setNotebookRowLines((prevSet) => {
         const ns = new Set(prevSet);
         ns.add(target);
         return ns;
       });
-      setSensor((s) => ({ ...s, line: target + 1 + extraRowsFor(target), x: 0 }));
-      setLiveCursor({ path: [], index: 0 });
-      activeSensorLogicalIdxRef.current = null;
-      activeSensorPhysicalLineRef.current = target + 1 + extraRowsFor(target);
-      manualPushedRef.current = null;
       return next;
     });
-  }, [sensor.line, setLiveCursor]);
+  }, [sensor.line]);
+
 
   /** Insert a real stacked fraction at the sensor (no slash). Optional sign
    *  is typed first; the frac node is created with numerator/denominator
