@@ -1497,6 +1497,12 @@ const PresentationView = ({
   const manualSensorRef = useRef<{ line: number; x: number } | null>(null);
   const activeSensorLogicalIdxRef = useRef<number | null>(null);
   const activeSensorPhysicalLineRef = useRef<number | null>(null);
+  // Rows owned by the guided line currently shown on the Floating Number
+  // display. Kept in a ref so the D-pad nudge callbacks (declared before
+  // the ownership memo) can read it without stale-closure/TDZ issues.
+  const displayedLineRowsRef = useRef<Set<number>>(new Set());
+
+
 
   // When a writable Solution opens, anchor the sensor at the first EMPTY row
   // of the active Solution band — below the last written equation/note, not
