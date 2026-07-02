@@ -2219,17 +2219,33 @@ const PresentationView = ({
   }, [activeLineIdx]);
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
-    const a = bandStart(activeLayout);
-    // Find the highest k < activeLineIdx whose target row is now empty/wrong.
+    // Look up each lesson line by OWNERSHIP, not by a fixed a+k offset.
+    // The Smartboard is lesson-line-driven: teachers can leave blank spacer
+    // rows between lines, so `freeLines[a + k]` is not a reliable proxy for
+    // "where line k lives". Using rowOwners eliminates the false-positive
+    // rewind that fired whenever a spacer row sat above the row being typed.
     let lostTop = -1;
     for (let k = activeLineIdx - 1; k >= 0; k--) {
       const target = guidedLines[k];
       if (!target || target.notebookOnly) continue;
-      const row = freeLines[a + k];
-      const ascii = row ? stripEqLabel(rowToAscii(row)) : "";
+      const owned = Object.entries(rowOwners)
+        .filter(([, o]) => o === k)
+        .map(([r]) => Number(r))
+        .filter((r) => Number.isFinite(r))
+        .sort((x, y) => x - y);
+      // Never written yet in this session → nothing to lose, skip.
+      if (owned.length === 0) continue;
       const eq = stripEqLabel(target.equation);
-      const ok = !!row && row.length > 0 &&
-        (equationsEquivalent(ascii, eq) || equationsMatch(ascii, eq));
+      // Concatenate ascii across every owned row (multi-row equations weld).
+      const combined = owned
+        .map((r) => {
+          const row = freeLines[r];
+          return row && row.length > 0 ? rowToAscii(row) : "";
+        })
+        .join("");
+      const asciiJoined = stripEqLabel(combined);
+      const ok = asciiJoined.length > 0 &&
+        (equationsEquivalent(asciiJoined, eq) || equationsMatch(asciiJoined, eq));
       if (!ok) { lostTop = k; break; }
     }
     if (lostTop < 0) return;
@@ -2250,7 +2266,7 @@ const PresentationView = ({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [freeLines, hasGuidedLines, activeLayout?.startLine, activeLayout?.bandLines, guidedLines.length]);
+  }, [freeLines, rowOwners, hasGuidedLines, activeLayout?.startLine, activeLayout?.bandLines, guidedLines.length]);
 
 
   // Per-line bulb status for the right-edge traffic-light rail.
