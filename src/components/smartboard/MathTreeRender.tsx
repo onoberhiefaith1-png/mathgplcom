@@ -140,6 +140,11 @@ export const RowView = ({
   const isStructurallyEmpty = (n: Node): boolean => {
     if (n.kind === "char") return false;
     if (n.kind === "box") return true;
+    // A square root is a *deliberate* structure the teacher placed — it must
+    // be visible (hook + overline + dashed radicand slot) the instant it is
+    // inserted, even while its radicand is still empty. Only anonymous
+    // placeholder-like containers collapse.
+    if (n.kind === "sqrt") return false;
     const sub = (n as { rows?: Row[] }).rows;
     return !!sub && sub.every((r) => r.length === 0);
   };
