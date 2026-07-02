@@ -2120,7 +2120,7 @@ const PresentationView = ({
           if ((o as number) >= idx) continue;
           const row = freeLines[rr] ?? freeLines[rr + 0.5];
           if (!row || !rowHasVisibleInk(row)) continue;
-          t = Math.max(t, rr + 1 + extraRowsFor(rr));
+          t = Math.max(t, rr + 1 + extraRowsFor(rr) + sensorGapRowsBelow(rr));
         }
         // Skip rows still covered by a tall structure or holding a note.
         while (t <= b && activeLayout && !isEmptyWritableRow(t, activeLayout)) t++;
