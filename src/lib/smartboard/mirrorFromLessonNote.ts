@@ -151,6 +151,42 @@ const latexToRow = (src: string): Row => {
       continue;
     }
 
+    // Friendly-form radical:  √( ... )  or  ⁿ√( ... )  where n is one or
+    // more unicode superscript digits. AI-generated content sometimes
+    // emits this ASCII form instead of proper \sqrt{...}. Convert to a
+    // real sqrt node so the connected radical (SVG hook + border-top
+    // overline that grows with the radicand) is used everywhere — no
+    // bracketed fallback.
+    if (ch === "√" || SUP_DIGITS.includes(ch)) {
+      // Consume leading superscript digits as the optional index.
+      let p = i;
+      let indexDigits = "";
+      while (p < src.length && SUP_DIGITS.includes(src[p])) {
+        indexDigits += SUP_TO_DIGIT[src[p]] ?? "";
+        p++;
+      }
+      if (src[p] === "√") {
+        let q = p + 1;
+        while (src[q] === " ") q++;
+        if (src[q] === "(") {
+          const end = matchParen(src, q);
+          if (end > 0) {
+            const body = latexToRow(src.slice(q + 1, end - 1));
+            const indexRow: Row | null =
+              indexDigits.length > 0 ? charsOf(indexDigits) : null;
+            out.push(
+              indexRow
+                ? ({ kind: "sqrt", rows: [body, indexRow] } as Node)
+                : ({ kind: "sqrt", rows: [body] } as Node),
+            );
+            i = end;
+            continue;
+          }
+        }
+      }
+      // Fall through — a stray √ or superscript digit becomes a char.
+    }
+
     // \left, \right, \displaystyle — pure scaffolding, drop.
     if (src.startsWith("\\left", i))  { i += 5; continue; }
     if (src.startsWith("\\right", i)) { i += 6; continue; }
