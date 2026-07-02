@@ -12,6 +12,7 @@ import {
   useEffect, useRef, useState,
 } from "react";
 import type { Cursor, Node, Row } from "@/lib/smartboard/mathTree";
+import { ConnectedRadical } from "@/components/math/ConnectedRadical";
 
 interface Common {
   cursor: Cursor;
