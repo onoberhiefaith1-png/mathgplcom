@@ -922,6 +922,31 @@ const PresentationView = ({
   // extend downward visually; the sensor and subsequent lines stay
   // wherever the teacher placed them.
 
+  // ── LAW 2: LOCKED-INK RULE ───────────────────────────────────────────
+  /** A row owned by a lesson line EARLIER than the one the Floating
+   *  Number display is showing is immutable: no write path may replace
+   *  or clear its ink. (Rows owned by the displayed line stay editable.) */
+  const isLockedInkRow = (line: number): boolean => {
+    if (displayedGuidedIdx < 0) return false;
+    const r = Math.floor(line);
+    const owner = rowOwners[r] ?? rowOwners[line];
+    if (owner === undefined || owner >= displayedGuidedIdx) return false;
+    const row = freeLines[r] ?? freeLines[line];
+    return !!row && rowHasVisibleInk(row);
+  };
+
+  /** Relocation target for a write that hit a locked row: first empty
+   *  writable row below the last visible ink (structure-aware). */
+  const relocatedWriteRow = (): number | null => {
+    const L = activeLayout;
+    if (!L) return null;
+    const a = bandStart(L), b = bandEnd(L);
+    const li = lastVisibleInkRow(L);
+    let t = li >= a ? nextSensorRowBelow(li) : a;
+    while (t <= b && !isEmptyWritableRow(t, L)) t++;
+    return Math.min(b, t);
+  };
+
   /** Edit the active line's tree via a fn that returns next root + cursor. */
   const editActive = (
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
@@ -933,6 +958,29 @@ const PresentationView = ({
     // edit. This is the partner of the click-gate on FreeWriteLayer below.
     const floorLine = Math.floor(line);
     if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
+      hiddenInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    // LAW 2 — Locked-Ink Rule: a completed earlier line can never be
+    // replaced by a new write. If the sensor is still parked on one of
+    // its rows (e.g. the lower row of a fraction), relocate the write to
+    // the first empty row below the last ink instead of destroying it.
+    if (isLockedInkRow(line)) {
+      const t = relocatedWriteRow();
+      if (t === null) {
+        hiddenInputRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      setSensor((s) => (s.line === t ? s : { ...s, line: t, x: 0 }));
+      setFreeLines((prev) => {
+        const row = prev[t] ?? [];
+        const res = fn(row, { path: [], index: row.length });
+        setLiveCursor(res.cursor);
+        const next = { ...prev };
+        if (res.root.length === 0) delete next[t];
+        else next[t] = res.root;
+        return next;
+      });
       hiddenInputRef.current?.focus({ preventScroll: true });
       return;
     }
