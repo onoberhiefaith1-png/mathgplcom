@@ -120,12 +120,26 @@ export const ConnectedRadical = ({
           ...svgStyle,
         }}
       >
+        {/*
+          The SVG's viewBox is 16×100 (tall & narrow). Without an explicit
+          height, the browser derives an intrinsic height from the viewBox
+          aspect ratio (~3.1em for 0.5em width), which propagates through
+          the flex container and makes the whole radical ~3× taller than
+          the row. Setting an explicit `height` attribute pins the SVG's
+          intrinsic height to ~1em so a plain radicand (e.g. `b²-4ac`)
+          renders at row height, while `alignSelf: stretch` on the outer
+          wrapper still lets the SVG grow to match a tall radicand
+          (fraction, nested radical, etc.).
+        */}
         <svg
           viewBox={HOOK_VIEWBOX}
           preserveAspectRatio="none"
+          width="0.5em"
+          height="1em"
           style={{
             width: "0.5em",
             height: "100%",
+            minHeight: "0.9em",
             display: "block",
             overflow: "visible",
           }}
