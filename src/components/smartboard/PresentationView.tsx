@@ -1683,12 +1683,11 @@ const PresentationView = ({
 
     if (dir === -1 && cand < a) return; // top of the writable band
     if (dir === 1 && cand > b) {
-      // Do NOT auto-grow the writable band on ▼. The D-pad's only job is
-      // to move the sensor inside existing empty space — it must never
-      // enlarge the working area or "feed" new rows onto the board. The
-      // teacher grows the band explicitly by writing/Enter, not by
-      // scrolling the sensor.
-      return;
+      // ▼ at the bottom of the writable band: grow the band by one empty
+      // row so all empty space stays reachable by the sensor. The teacher
+      // must always be able to keep moving down into fresh working space.
+      growActiveBand();
+      cand = b + 1;
     }
     // Leaving an empty row resets its temporary horizontal offset so
     // future ink on it starts back at the master left margin.
