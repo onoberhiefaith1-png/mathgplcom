@@ -1980,44 +1980,42 @@ const PresentationView = ({
       return;
     }
 
-    const occupied: number[] = [];
-    for (let r = a; r <= b; r++) {
-      const row = freeLines[r];
-      if (!row || row.length === 0) continue;
-      // Notebook-prose rows are read-only narration — they must NOT count
-      // as a writable line when anchoring the sensor.
-      if (notebookRowLines.has(r)) continue;
-      occupied.push(r);
-    }
-    // Map the guided-line index to its EQUATION ordinal — notebookOnly
-    // (prose) lines never own a written equation row, so they must not
-    // shift the row mapping.
-    let eqOrd = 0;
-    for (let k = 0; k < idx; k++) {
-      if (!guidedLines[k]?.notebookOnly) eqOrd++;
-    }
-    const isEquationLine = !guidedLines[idx]?.notebookOnly;
-    // Rows already OWNED by this guided line (a line may span several
-    // physical rows). Rewinding the display to this line parks the sensor
-    // on its LAST row, at the end of the ink, ready for editing.
+    // Lesson-Line owned rows for the target line. Rewinding to a line
+    // that already has ink parks the sensor on its LAST owned row (end
+    // of the multi-row equation). Advancing to a line that has no ink
+    // yet parks the sensor immediately below the previous line's LAST
+    // owned row — never in the middle of a stacked structure.
     const ownedRows = Object.entries(rowOwners)
       .filter(([, o]) => o === idx)
       .map(([k]) => Number(k))
       .sort((x, y) => x - y);
+    const isEquationLine = !guidedLines[idx]?.notebookOnly;
     let target: number;
-    if (isEquationLine && ownedRows.length > 0) {
+    if (ownedRows.length > 0) {
+      // Line K already has ink → park at its last owned row (end of ink).
       target = ownedRows[ownedRows.length - 1];
-    } else if (isEquationLine && eqOrd < occupied.length) {
-      target = occupied[eqOrd];
     } else {
-      const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
-      // Skip past notebook-prose and structure-covered rows when extending
-      // below the last written line — the sensor must land on the first truly
-      // empty writable row, not merely the next physical row.
-      let cand = lastOcc < a ? a : firstWritableRowAfter(lastOcc, activeLayout);
-      if (isEquationLine && eqOrd > occupied.length) cand += eqOrd - occupied.length;
-      target = Math.min(b, cand);
+      // Line K has no ink yet → find the highest owned row of any
+      // PREVIOUS line and place the sensor immediately below it. This is
+      // the rule the teacher asked for: "Find the lowest row used by
+      // Lesson Line N. Place the sensor one row below."
+      let maxPrevOwned = -1;
+      for (const [k, o] of Object.entries(rowOwners)) {
+        if (o < idx) maxPrevOwned = Math.max(maxPrevOwned, Number(k));
+      }
+      if (maxPrevOwned >= a) {
+        target = Math.min(b, maxPrevOwned + 1);
+      } else {
+        // No prior ink: land right below "Solution".
+        target = a;
+      }
+      if (!isEquationLine) {
+        // Notebook-only guided line: keep the sensor still — the teacher
+        // is reading, not writing yet.
+        target = Math.min(b, target);
+      }
     }
+
     if (sensor.line !== target) {
       setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
       const tInk = freeLines[target] ?? freeLines[target + 0.5] ?? [];
