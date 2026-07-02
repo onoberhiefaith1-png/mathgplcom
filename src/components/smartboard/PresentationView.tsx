@@ -1935,9 +1935,19 @@ const PresentationView = ({
         const r = Number(k);
         if (!occ.has(r)) { delete next[r]; changed = true; }
       }
-      if (displayedGuidedIdx >= 0 && !guidedLines[displayedGuidedIdx]?.notebookOnly) {
+      if (displayedGuidedIdx >= 0) {
+        // New ink belongs to the displayed line. When the display is on a
+        // prose (notebookOnly) line, the teacher is really writing the NEXT
+        // equation line — assign ownership there so the row stays editable
+        // when that equation's chips come up on the panel.
+        let owner = displayedGuidedIdx;
+        if (guidedLines[owner]?.notebookOnly) {
+          for (let k = displayedGuidedIdx + 1; k < guidedLines.length; k++) {
+            if (!guidedLines[k]?.notebookOnly) { owner = k; break; }
+          }
+        }
         for (const r of occ) {
-          if (next[r] === undefined) { next[r] = displayedGuidedIdx; changed = true; }
+          if (next[r] === undefined) { next[r] = owner; changed = true; }
         }
       }
       return changed ? next : prev;
