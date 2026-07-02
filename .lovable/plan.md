@@ -1,45 +1,27 @@
-## Why the previous fix didn't take effect
+# Final Rule: The ▼ Button Never Reveals Content
 
-My earlier post-structure-gap fix scanned upward from `target - 1`. That works when the sensor sits BELOW the fraction, but in the failing screenshot the sensor is parked on the SAME row as the fraction (target = fracRow). The upward scan finds nothing above, no bump is applied, and the paragraph placement loop just does `target++` past the occupied fraction row — landing the note on `fracRow + 1`, i.e. flush against the denominator.
+## What is happening
 
-## Fix
+- Everything written on the Smartboard is saved locally so the board survives reloads.
+- Rows that fall outside the current writable band are hidden from view — but their ink is still stored.
+- The recent fix made the ▼ button grow the writable band by one row so the sensor can always reach empty space.
+- Side effect: each ▼ press un-hides one more row of the old, saved solution. It looks like the scroll-down button is "solving the equation by itself."
 
-In `writeProseLineOnBoard` (src/components/smartboard/PresentationView.tsx, ~lines 1128-1163), replace the current placement loop with one that respects the tall-structure footprint at every step, not just at the initial target:
+## The Final Law: Fresh-Row Growth
 
-```ts
-const rowIsTall = (r: number): boolean => {
-  const row = next[r] ?? next[r + 0.5];
-  return !!row && rowHasVisibleInk(row) && rowHasTallStructure(row);
-};
+**When the ▼ button extends the writable band, the newly opened row must always be blank. Growth may never reveal previously hidden ink.**
 
-// Enforce gap for the initial target too (covers the case where the
-// sensor is parked ON the tall row, not just below it).
-if (rowIsTall(target)) target = nextSensorRowBelow(target);
-// And also when the row directly above is tall (existing behaviour).
-else if (target > 0 && rowIsTall(target - 1)) {
-  target = Math.max(target, nextSensorRowBelow(target - 1));
-}
+- ▼ still works exactly as you asked: the sensor can always keep moving down into empty working space.
+- But before the new row becomes visible, any stale hidden ink sitting on it (leftover from an earlier session or an earlier band size) is cleared.
+- Rows genuinely owned by the current lesson's completed lines are never touched — only orphaned ink outside the lesson's owned rows is purged.
 
-for (const m of mirrored) {
-  // Skip occupied rows; when an occupant is a tall structure, jump
-  // past its full multi-row footprint + one empty breathing row.
-  while (occupied(target)) {
-    target = rowIsTall(target) ? nextSensorRowBelow(target) : target + 1;
-  }
-  next[target] = m.row;
-  newNotebookRows.push(target);
-  target += 1;
-}
-```
+## Technical Details
 
-`nextSensorRowBelow(r)` already returns `r + 1 + extraRowsFor(r) + sensorGapRowsBelow(r)`, which is exactly the "one full empty row after any structure that spans more than one row" rule.
+1. `src/components/smartboard/PresentationView.tsx` — in `nudgeCursor` (▼ at band bottom, ~line 1685):
+   - Before calling `growActiveBand()`, check `freeLines[b + 1]` and `freeLines[b + 1.5]`.
+   - If ink exists there and the row is not in `rowOwners` / `notebookRowLines` (i.e. it's not part of this lesson's committed lines), delete those keys from `freeLines` in the same update.
+   - Then grow the band and park the sensor on the now-guaranteed-blank row.
+2. Apply the same guard to the other two ▼-driven grow paths (keyboard ArrowDown at ~line 3650 and Enter-advance at ~line 3560) so no growth path can reveal stale ink.
+3. Guard against the erase-rewind effect (Law 1) misreading the purge: purged rows are unowned, so the rewind check is unaffected — verified in the plan, confirmed during implementation with a quick Playwright pass (grow band over a row with stale ink → row appears blank, sensor lands on it, no rewind).
 
-## Verification
-
-Drive Playwright against `/smartboard/...`, reproduce the flow:
-1. Write `x² + 8x − 1 = 0`
-2. Click notebook "The quadratic formula is:"
-3. Insert the stacked fraction `x = (−b ± √(b² − 4ac)) / 2a`
-4. Click notebook "For the given equation, a = 1, b = 8, c = …"
-
-Screenshot and confirm there is at least one empty row between the fraction's denominator and the second notebook line. No other files need changes.
+No changes to saved lessons, floating numbers, or any other sensor behavior.
