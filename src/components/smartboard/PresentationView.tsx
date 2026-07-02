@@ -2400,6 +2400,26 @@ const PresentationView = ({
       for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.delete(i);
       return next;
     });
+    // Notebook-glow reset: any notebooks belonging to the rewound line
+    // (or lines beyond it) must forget that they've already been read,
+    // so that trying to advance forward again re-glows them until the
+    // teacher clicks the note back onto the board.
+    setShownNotebookIdx((prev) => {
+      let changed = false;
+      const nextS = new Set(prev);
+      for (const idx of prev) {
+        if (idx >= k) { nextS.delete(idx); changed = true; }
+      }
+      return changed ? nextS : prev;
+    });
+    setNotebookAttentionIdx((prev) => {
+      let changed = false;
+      const nextS = new Set(prev);
+      for (const idx of prev) {
+        if (idx >= k) { nextS.delete(idx); changed = true; }
+      }
+      return changed ? nextS : prev;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, rowOwners, hasGuidedLines, activeLayout?.startLine, activeLayout?.bandLines, guidedLines.length]);
 
