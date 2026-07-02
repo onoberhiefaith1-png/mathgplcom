@@ -71,14 +71,17 @@ export const ConnectedRadical = ({
         display: "inline-flex",
         alignItems: "stretch",
         // Align the radical to the sibling text baseline so that e.g.
-        // "-b ± √(-4ac)" sit on ONE row. `middle` inflated the parent line
-        // and pushed the radicand well above the surrounding characters.
+        // "-b ± √(b²-4ac)" sit on ONE row. The flex container's baseline is
+        // the SVG hook's bottom edge (= the box bottom), so the radicand —
+        // anchored to the box bottom via `flex-end` on the overline wrapper
+        // below — sits on the same row as the surrounding characters, and
+        // any extra height (superscripts, fractions) grows UPWARD only.
         verticalAlign: "baseline",
         margin: "0 0.08em",
         // Constrain scale — the hook + overline shouldn't dominate a line
         // of characters; when the radicand contains a tall structure the
         // inline-flex `stretch` still lets both sides grow together.
-        fontSize: "0.95em",
+        fontSize: "0.9em",
         lineHeight: 1,
         ...wrapperStyle,
       }}
@@ -143,10 +146,15 @@ export const ConnectedRadical = ({
         style={{
           borderTop: "1.4px solid currentColor",
           paddingTop: "1px",
-          paddingLeft: "3px",
-          paddingRight: "3px",
+          paddingLeft: "2px",
+          paddingRight: "2px",
           display: "inline-flex",
-          alignItems: "center",
+          // Anchor the radicand to the BOTTOM of the radical box. The box
+          // bottom is the flex container's baseline (see wrapper comment),
+          // so the radicand shares the sibling text row instead of being
+          // vertically centered — which hoisted it upward whenever the
+          // radicand was taller than one line (e.g. b² superscripts).
+          alignItems: "flex-end",
           flex: "1 1 auto",
           minWidth: "0.5em",
           marginLeft: "-1px",
