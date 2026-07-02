@@ -1955,6 +1955,10 @@ const PresentationView = ({
     }
     return out;
   }, [rowOwners, displayedGuidedIdx]);
+  // Mirror into the ref for the D-pad callbacks declared earlier.
+  useEffect(() => {
+    displayedLineRowsRef.current = displayedLineRows;
+  }, [displayedLineRows]);
 
   // ── LINE LOCKING (sensor follows Presentation) ───────────────────────
   // Whenever the Floating Number panel advances or rewinds to a different
