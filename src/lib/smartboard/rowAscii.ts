@@ -74,6 +74,22 @@ const nodeToAscii = (n: Node): string => {
 
 export const rowToAscii = (row: Row): string => row.map(nodeToAscii).join("");
 
+/** True when a row contains VISIBLE ink: any non-whitespace character or a
+ *  structural node (fraction, root, bracket, matrix, …). Rows holding only
+ *  spaces — leftovers from typing/erasing — are NOT ink: they must never
+ *  count as "the last written row" when the sensor computes where to park,
+ *  and they must never claim Lesson-Line ownership. */
+export const rowHasVisibleInk = (row: Row): boolean => {
+  for (const n of row) {
+    if (n.kind === "char") {
+      if (n.ch.trim() !== "") return true;
+    } else {
+      return true; // any structural node is visible ink
+    }
+  }
+  return false;
+};
+
 const SUPERSCRIPT_MAP: Record<string, string> = {
   "⁰": "^0", "¹": "^1", "²": "^2", "³": "^3", "⁴": "^4",
   "⁵": "^5", "⁶": "^6", "⁷": "^7", "⁸": "^8", "⁹": "^9",
