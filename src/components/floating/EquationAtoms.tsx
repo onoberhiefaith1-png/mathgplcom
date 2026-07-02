@@ -283,37 +283,37 @@ export const EquationAtoms = ({
       );
     }
     if (n.kind === "sqrt") {
+      const isSel = selected.has(n.sign.id);
+      const isRing = ringFor(n.sign.id);
       return (
-        <span
+        <ConnectedRadical
           key={`r-${key}-${n.sign.id}`}
-          className="inline-flex items-stretch align-middle"
-          style={{ margin: "0 1px" }}
+          degree={n.degree ? renderNodes(n.degree) : undefined}
+          hookDataAtomId={n.sign.id}
+          hookTitle={`radical · ${n.sign.value}`}
+          onHookClick={(e) => { e.stopPropagation(); toggle(n.sign.id); focus(); }}
+          onHookMouseEnter={() => onAtomHover?.(n.sign.id)}
+          onHookMouseLeave={() => onAtomHover?.(null)}
+          svgStyle={{
+            color: isSel
+              ? "hsl(40 85% 42%)"
+              : isRing
+                ? "hsl(48 95% 45%)"
+                : undefined,
+            background: isSel
+              ? "hsl(48 95% 70%)"
+              : isRing
+                ? "hsl(48 95% 88%)"
+                : "transparent",
+            borderRadius: 4,
+            transition: "background 80ms, color 80ms",
+          }}
+          overlineStyle={{
+            borderTopColor: isSel ? "hsl(40 85% 42%)" : undefined,
+          }}
         >
-          {n.degree && (
-            <span style={{ fontSize: "0.6em", alignSelf: "flex-start", marginRight: -3 }}>
-              {renderNodes(n.degree)}
-            </span>
-          )}
-          <Leaf
-            atom={n.sign}
-            isSelected={selected.has(n.sign.id)}
-            isRingHover={ringFor(n.sign.id)}
-            toggle={toggle}
-            onHover={onAtomHover}
-            focus={focus}
-          />
-          <span
-            className="inline-flex items-center"
-            style={{
-              borderTop: "1.5px solid currentColor",
-              paddingTop: 1,
-              paddingLeft: 2,
-              paddingRight: 2,
-            }}
-          >
-            {renderNodes(n.radicand)}
-          </span>
-        </span>
+          {renderNodes(n.radicand)}
+        </ConnectedRadical>
       );
     }
     if (n.kind === "bracket") {
