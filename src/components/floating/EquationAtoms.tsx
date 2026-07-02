@@ -16,6 +16,7 @@ import {
   parseNodes,
 } from "@/lib/floating/atoms";
 import { type Chip, applySelection } from "@/lib/floating/highlightEngine";
+import { ConnectedRadical } from "@/components/math/ConnectedRadical";
 
 interface Props {
   equation: string;
