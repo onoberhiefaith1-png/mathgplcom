@@ -910,11 +910,23 @@ const PresentationView = ({
     return Math.max(1, Math.ceil((h - lh * 1.35) / lh));
   };
 
+  /** RULE — POST-STRUCTURE GAP: any row carrying a multi-row structure
+   *  (fraction, matrix, binomial, big operator, tall radicand) reserves
+   *  ONE trailing empty row directly beneath it. That gap keeps the next
+   *  line's ink from colliding with the denominator/lower body. Plain
+   *  equations reserve no gap. */
+  const sensorGapRowsBelow = (line: number): number => {
+    const row = freeLines[line] ?? freeLines[line + 0.5];
+    return row && row.length > 0 && rowHasTallStructure(row) ? 1 : 0;
+  };
+
   /** SINGLE definition of "the row right below `row`" used by EVERY sensor
    *  advance path (Enter key, line-sync, checkpoint). Plain equations →
    *  exactly row + 1, zero gap. Only a genuinely tall structure on `row`
-   *  (fraction, matrix, big operator) pushes the sensor further down. */
-  const nextSensorRowBelow = (row: number): number => row + 1 + extraRowsFor(row);
+   *  (fraction, matrix, big operator) pushes the sensor further down, and
+   *  additionally reserves one empty row of breathing space. */
+  const nextSensorRowBelow = (row: number): number =>
+    row + 1 + extraRowsFor(row) + sensorGapRowsBelow(row);
 
   // Structure-aware reflow was REMOVED intentionally. The teacher owns
   // the workspace layout: the Smartboard must never reposition already
