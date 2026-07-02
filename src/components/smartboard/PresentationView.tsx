@@ -922,6 +922,31 @@ const PresentationView = ({
   // extend downward visually; the sensor and subsequent lines stay
   // wherever the teacher placed them.
 
+  // ── LAW 2: LOCKED-INK RULE ───────────────────────────────────────────
+  /** A row owned by a lesson line EARLIER than the one the Floating
+   *  Number display is showing is immutable: no write path may replace
+   *  or clear its ink. (Rows owned by the displayed line stay editable.) */
+  const isLockedInkRow = (line: number): boolean => {
+    if (displayedGuidedIdx < 0) return false;
+    const r = Math.floor(line);
+    const owner = rowOwners[r] ?? rowOwners[line];
+    if (owner === undefined || owner >= displayedGuidedIdx) return false;
+    const row = freeLines[r] ?? freeLines[line];
+    return !!row && rowHasVisibleInk(row);
+  };
+
+  /** Relocation target for a write that hit a locked row: first empty
+   *  writable row below the last visible ink (structure-aware). */
+  const relocatedWriteRow = (): number | null => {
+    const L = activeLayout;
+    if (!L) return null;
+    const a = bandStart(L), b = bandEnd(L);
+    const li = lastVisibleInkRow(L);
+    let t = li >= a ? nextSensorRowBelow(li) : a;
+    while (t <= b && !isEmptyWritableRow(t, L)) t++;
+    return Math.min(b, t);
+  };
+
   /** Edit the active line's tree via a fn that returns next root + cursor. */
   const editActive = (
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
@@ -933,6 +958,29 @@ const PresentationView = ({
     // edit. This is the partner of the click-gate on FreeWriteLayer below.
     const floorLine = Math.floor(line);
     if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
+      hiddenInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    // LAW 2 — Locked-Ink Rule: a completed earlier line can never be
+    // replaced by a new write. If the sensor is still parked on one of
+    // its rows (e.g. the lower row of a fraction), relocate the write to
+    // the first empty row below the last ink instead of destroying it.
+    if (isLockedInkRow(line)) {
+      const t = relocatedWriteRow();
+      if (t === null) {
+        hiddenInputRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      setSensor((s) => (s.line === t ? s : { ...s, line: t, x: 0 }));
+      setFreeLines((prev) => {
+        const row = prev[t] ?? [];
+        const res = fn(row, { path: [], index: row.length });
+        setLiveCursor(res.cursor);
+        const next = { ...prev };
+        if (res.root.length === 0) delete next[t];
+        else next[t] = res.root;
+        return next;
+      });
       hiddenInputRef.current?.focus({ preventScroll: true });
       return;
     }
@@ -1051,9 +1099,21 @@ const PresentationView = ({
       }
       // Insert the note AT THE CURRENT SENSOR ROW. The teacher's sensor
       // position is the insertion point — no auto-computed offset, no
-      // extraRowsFor padding, no auto-jump to "next empty row below the
-      // last ink". The teacher decides where the note lands.
-      const target = Math.floor(sensor.line);
+      // extraRowsFor padding. BUT — LAW 2 (Locked-Ink Rule): if the sensor
+      // row already carries visible ink (e.g. the lower row of a completed
+      // fraction line), the note must NEVER replace it. Slide down to the
+      // first free row instead; existing ink always survives.
+      let target = Math.floor(sensor.line);
+      const occupied = (r: number): boolean => {
+        const whole = prev[r];
+        const half = prev[r + 0.5];
+        return (
+          (!!whole && rowHasVisibleInk(whole)) ||
+          (!!half && rowHasVisibleInk(half)) ||
+          notebookRowLines.has(r)
+        );
+      };
+      while (occupied(target)) target++;
       const next = { ...prev, [target]: mirror.row };
       setNotebookRowLines((prevSet) => {
         const ns = new Set(prevSet);
@@ -1062,7 +1122,7 @@ const PresentationView = ({
       });
       return next;
     });
-  }, [sensor.line]);
+  }, [sensor.line, notebookRowLines]);
 
 
   /** Insert a real stacked fraction at the sensor (no slash). Optional sign
@@ -2038,7 +2098,21 @@ const PresentationView = ({
       // extraRowsFor. Plain equations add nothing.
       const lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
       if (lastInk >= a) {
-        target = Math.min(b, nextSensorRowBelow(lastInk));
+        let t = nextSensorRowBelow(lastInk);
+        // A previous line's structure can occupy rows BELOW its baseline
+        // (fraction denominator, matrix body). The sensor must clear every
+        // row owned by earlier lines — it may never park inside line K−1.
+        for (const [rk, o] of Object.entries(rowOwners)) {
+          const rr = Math.floor(Number(rk));
+          if (!Number.isFinite(rr) || rr < a || rr > b) continue;
+          if ((o as number) >= idx) continue;
+          const row = freeLines[rr] ?? freeLines[rr + 0.5];
+          if (!row || !rowHasVisibleInk(row)) continue;
+          t = Math.max(t, rr + 1 + extraRowsFor(rr));
+        }
+        // Skip rows still covered by a tall structure or holding a note.
+        while (t <= b && activeLayout && !isEmptyWritableRow(t, activeLayout)) t++;
+        target = Math.min(b, t);
       } else {
         // No prior ink: land right below "Solution".
         target = a;
@@ -2208,63 +2282,73 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx, hasGuidedLines, activeLayout?.startLine, activeLayout?.bandLines, guidedLines.length]);
 
-  // ── INTELLIGENT ERASE ────────────────────────────────────────────────
-  // If the teacher erases ink, only rewind activeLineIdx when the line
-  // they erased was the MOST RECENTLY completed one. Erasing an older line
-  // (with later completed lines still on the board) is a no-op — the
-  // lesson has already progressed past that point.
+  // ── INTELLIGENT ERASE — LAW 1: FORWARD-ONLY RULE ─────────────────────
+  // The presentation may only rewind when ink was ACTUALLY DELETED from
+  // the latest completed line's own rows. Typing anywhere else on the
+  // board — a fresh row, a new line, a spacer — can NEVER trigger a
+  // rewind. This is enforced structurally: before any match check runs,
+  // we compare the line's ink against the previous render's snapshot and
+  // bail out unless its own text got SHORTER (a real deletion).
   const prevActiveLineIdxRef = useRef<number>(activeLineIdx);
   useEffect(() => {
     prevActiveLineIdxRef.current = activeLineIdx;
   }, [activeLineIdx]);
+  const prevFreeLinesRef = useRef<FreeLineMap>(freeLines);
   useEffect(() => {
+    const before = prevFreeLinesRef.current;
+    prevFreeLinesRef.current = freeLines;
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
-    // Look up each lesson line by OWNERSHIP, not by a fixed a+k offset.
-    // The Smartboard is lesson-line-driven: teachers can leave blank spacer
-    // rows between lines, so `freeLines[a + k]` is not a reliable proxy for
-    // "where line k lives". Using rowOwners eliminates the false-positive
-    // rewind that fired whenever a spacer row sat above the row being typed.
-    let lostTop = -1;
-    for (let k = activeLineIdx - 1; k >= 0; k--) {
-      const target = guidedLines[k];
-      if (!target || target.notebookOnly) continue;
-      const owned = Object.entries(rowOwners)
-        .filter(([, o]) => o === k)
-        .map(([r]) => Number(r))
-        .filter((r) => Number.isFinite(r))
-        .sort((x, y) => x - y);
-      // Never written yet in this session → nothing to lose, skip.
-      if (owned.length === 0) continue;
-      const eq = stripEqLabel(target.equation);
-      // Concatenate ascii across every owned row (multi-row equations weld).
-      const combined = owned
+    // Only the LATEST completed line can ever rewind. Older lines are
+    // locked history; notebook prose lines have no ink to lose.
+    const k = activeLineIdx - 1;
+    if (k < 0) return;
+    const target = guidedLines[k];
+    if (!target || target.notebookOnly) return;
+    // Rows owned by line k — looked up by OWNERSHIP, never a fixed a+k
+    // offset (teachers may leave blank spacer rows between lines).
+    const owned = Object.entries(rowOwners)
+      .filter(([, o]) => o === k)
+      .map(([r]) => Number(r))
+      .filter((r) => Number.isFinite(r))
+      .sort((x, y) => x - y);
+    // Never written yet in this session → nothing to lose, skip.
+    if (owned.length === 0) return;
+    // Read the line's FULL ink: integer row AND half-row key of every
+    // owned row — multi-row structures (fractions, matrices) store part
+    // of their ink under r + 0.5, which the old check silently dropped,
+    // producing the false "line was erased" rewind on every keystroke.
+    const readLine = (src: FreeLineMap): string =>
+      owned
         .map((r) => {
-          const row = freeLines[r];
-          return row && row.length > 0 ? rowToAscii(row) : "";
+          const whole = src[r];
+          const half = src[r + 0.5];
+          return (
+            (whole && whole.length > 0 ? rowToAscii(whole) : "") +
+            (half && half.length > 0 ? rowToAscii(half) : "")
+          );
         })
         .join("");
-      const asciiJoined = stripEqLabel(combined);
-      const ok = asciiJoined.length > 0 &&
-        (equationsEquivalent(asciiJoined, eq) || equationsMatch(asciiJoined, eq));
-      if (!ok) { lostTop = k; break; }
-    }
-    if (lostTop < 0) return;
-    // Only rewind if the lost line is the LATEST completed one (k === activeLineIdx-1).
-    if (lostTop !== activeLineIdx - 1) return;
-    setActiveLineIdx(lostTop);
-    setFloatingLineIdx(lostTop);
+    const nowText = readLine(freeLines);
+    const beforeText = readLine(before);
+    // LAW 1: no deletion on this line's own rows → never rewind, no
+    // matter what the (possibly stricter) equation match would say.
+    if (nowText.length >= beforeText.length) return;
+    const eq = stripEqLabel(target.equation);
+    const asciiJoined = stripEqLabel(nowText);
+    const ok = asciiJoined.length > 0 &&
+      (equationsEquivalent(asciiJoined, eq) || equationsMatch(asciiJoined, eq));
+    if (ok) return; // still holds the full equation → nothing lost
+    setActiveLineIdx(k);
+    setFloatingLineIdx(k);
     setManualFloatingLineIdx(null);
     activeSensorLogicalIdxRef.current = null;
     activeSensorPhysicalLineRef.current = null;
     // Drop the consumed fragments/structures that belonged to the erased line.
-    const target = guidedLines[lostTop];
-    if (target) {
-      setConsumedAbsIdx((prev) => {
-        const next = new Set(prev);
-        for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.delete(i);
-        return next;
-      });
-    }
+    setConsumedAbsIdx((prev) => {
+      const next = new Set(prev);
+      for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.delete(i);
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, rowOwners, hasGuidedLines, activeLayout?.startLine, activeLayout?.bandLines, guidedLines.length]);
 
