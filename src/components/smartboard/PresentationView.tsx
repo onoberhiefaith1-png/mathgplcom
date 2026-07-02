@@ -2098,7 +2098,21 @@ const PresentationView = ({
       // extraRowsFor. Plain equations add nothing.
       const lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
       if (lastInk >= a) {
-        target = Math.min(b, nextSensorRowBelow(lastInk));
+        let t = nextSensorRowBelow(lastInk);
+        // A previous line's structure can occupy rows BELOW its baseline
+        // (fraction denominator, matrix body). The sensor must clear every
+        // row owned by earlier lines — it may never park inside line K−1.
+        for (const [rk, o] of Object.entries(rowOwners)) {
+          const rr = Math.floor(Number(rk));
+          if (!Number.isFinite(rr) || rr < a || rr > b) continue;
+          if ((o as number) >= idx) continue;
+          const row = freeLines[rr] ?? freeLines[rr + 0.5];
+          if (!row || !rowHasVisibleInk(row)) continue;
+          t = Math.max(t, rr + 1 + extraRowsFor(rr));
+        }
+        // Skip rows still covered by a tall structure or holding a note.
+        while (t <= b && activeLayout && !isEmptyWritableRow(t, activeLayout)) t++;
+        target = Math.min(b, t);
       } else {
         // No prior ink: land right below "Solution".
         target = a;
