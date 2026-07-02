@@ -70,9 +70,16 @@ export const ConnectedRadical = ({
       style={{
         display: "inline-flex",
         alignItems: "stretch",
-        verticalAlign: "middle",
-        margin: "0.12em 0.12em",
-        lineHeight: 1.05,
+        // Align the radical to the sibling text baseline so that e.g.
+        // "-b ± √(-4ac)" sit on ONE row. `middle` inflated the parent line
+        // and pushed the radicand well above the surrounding characters.
+        verticalAlign: "baseline",
+        margin: "0 0.08em",
+        // Constrain scale — the hook + overline shouldn't dominate a line
+        // of characters; when the radicand contains a tall structure the
+        // inline-flex `stretch` still lets both sides grow together.
+        fontSize: "0.95em",
+        lineHeight: 1,
         ...wrapperStyle,
       }}
     >
