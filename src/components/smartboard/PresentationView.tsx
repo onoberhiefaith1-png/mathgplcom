@@ -3348,8 +3348,8 @@ const PresentationView = ({
             // ink, or covered by a tall math object, jump over it.
             const base = Number.isInteger(sensor.line) ? sensor.line : Math.floor(sensor.line);
             let nextLine = activeLayout
-              ? findNextWritableEmptyRow(base + 1 + extraRowsFor(base), 1, activeLayout)
-              : base + 1 + extraRowsFor(base);
+              ? findNextWritableEmptyRow(nextSensorRowBelow(base), 1, activeLayout)
+              : nextSensorRowBelow(base);
             // Gate: don't allow advancing past the current expected guided
             // line until that line has turned green.
             if (hasGuidedLines && activeLayout) {
