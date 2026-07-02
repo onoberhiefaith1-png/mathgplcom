@@ -1655,10 +1655,21 @@ const PresentationView = ({
     const r = Math.floor(sensor.line);
     // Only bail if we're clearly on a restricted prose row.
     if (notebookRowLines.has(r)) return;
-    // Horizontal moves only make sense on an EMPTY row — shifting the
-    // offset of a written row would drag its ink sideways.
     const rowInk = freeLines[sensor.line] ?? freeLines[r] ?? [];
-    if (rowInk.length > 0) return;
+    if (rowInk.length > 0) {
+      // Written row: shifting the offset would drag the ink sideways.
+      // If this row belongs to the line the Floating Number display is
+      // showing (or is the sensor's own writing row), ◀/▶ walks the CARET
+      // through the existing ink instead — the teacher can edit anywhere
+      // inside the displayed line.
+      if (
+        !displayedLineRowsRef.current.has(r) &&
+        activeSensorPhysicalLineRef.current !== sensor.line
+      ) return;
+      setLiveCursor((c) => (dir > 0 ? treeMoveRight(rowInk, c) : treeMoveLeft(rowInk, c)));
+      hiddenInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
     const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
