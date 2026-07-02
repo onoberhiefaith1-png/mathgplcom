@@ -1815,18 +1815,12 @@ const PresentationView = ({
     if (activeReservoirIdx >= 0) setViewReservoirIdx(activeReservoirIdx);
   }, [activeReservoirIdx]);
 
-  // Rule 10 — Floating Number Always Starts at Line 1.
-  // Every time the teacher opens the # panel, snap the floating-number
-  // presentation back to Lesson Line 1 (idx 0) and clear any manual
-  // override, so navigation always starts from the top.
+  // The Floating Number panel remembers its current line across page
+  // reloads and across open/close of the # panel. We deliberately do NOT
+  // snap back to Line 1 when the panel opens — that behaviour was replaced
+  // by teacher-facing "line memory" (see the localStorage restore below).
   const prevPanelOpenForFloatingRef = useRef<boolean>(panelOpen);
   useEffect(() => {
-    if (panelOpen && !prevPanelOpenForFloatingRef.current) {
-      setActiveLineIdx(0);
-      setFloatingLineIdx(0);
-      setManualFloatingLineIdx(null);
-      setNotebookRevealIdx(null);
-    }
     prevPanelOpenForFloatingRef.current = panelOpen;
   }, [panelOpen]);
 
