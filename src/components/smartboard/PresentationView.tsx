@@ -2852,13 +2852,13 @@ const PresentationView = ({
           const targetLine = halfLine;
           const row = freeLines[targetLine] ?? freeLines[Math.floor(targetLine)] ?? [];
           // LINE LOCKING: a written row is restricted once the teacher has
-          // moved past it — UNLESS it is the line the Floating Number
-          // display is currently showing. The displayed line is ALWAYS
-          // editable; navigating the display back to a line unlocks it.
+          // moved past it — UNLESS it belongs to the line the Floating Number
+          // display is currently showing. ALL rows of the displayed line are
+          // ALWAYS editable; navigating the display back to a line unlocks it.
           if (
             row.length > 0 &&
             Math.floor(sensor.line) !== Math.floor(targetLine) &&
-            displayedLineRow !== Math.floor(targetLine)
+            !displayedLineRows.has(Math.floor(targetLine))
           ) return;
           // Master left margin rule: every Lesson Line begins at x = 0
           // (the page's MARGIN_LEFT). Clicks never introduce an
@@ -2965,12 +2965,12 @@ const PresentationView = ({
               // sensor and live caret stay exactly where they were.
               if (!isLineWritable(line)) return;
               if (hasGuidedLines && activeLayout) {
-                // Caret may land on the sensor's row OR on the row of the
+                // Caret may land on the sensor's row OR on ANY row of the
                 // line currently shown in the Floating Number display —
                 // that line is always editable. Everything else is locked.
                 if (
                   Math.floor(sensor.line) !== Math.floor(line) &&
-                  displayedLineRow !== Math.floor(line)
+                  !displayedLineRows.has(Math.floor(line))
                 ) return;
               }
               if (line !== sensor.line) setSensor((s) => ({ ...s, line }));
