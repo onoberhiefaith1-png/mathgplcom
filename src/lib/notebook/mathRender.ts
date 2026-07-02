@@ -15,6 +15,93 @@
 
 import { createElement, type CSSProperties, type ReactNode } from "react";
 
+/* ─── Connected radical helper ─────────────────────────────────────────────
+ * Builds the SAME shape as <ConnectedRadical/>: an inline-flex with a
+ * stretched SVG hook whose top-right tip meets the overline wrapper's
+ * top-left. Uses createElement because this module is not JSX. */
+const RADICAL_HOOK = createElement(
+  "svg",
+  {
+    viewBox: "0 0 16 100",
+    preserveAspectRatio: "none",
+    style: { width: "0.5em", height: "100%", display: "block", overflow: "visible" },
+    "aria-hidden": true,
+  },
+  createElement("path", {
+    d: "M0 65 L4 65 L8 95 L16 0",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    fill: "none",
+    vectorEffect: "non-scaling-stroke",
+    strokeLinejoin: "miter",
+    strokeLinecap: "round",
+  }),
+);
+
+const connectedRadical = (
+  key: string,
+  radicand: ReactNode,
+  degree: ReactNode | null,
+  dataMathSrc: string,
+): ReactNode =>
+  createElement(
+    "span",
+    {
+      key,
+      "data-math-kind": "radical",
+      "data-math-src": dataMathSrc,
+      style: {
+        display: "inline-flex",
+        alignItems: "stretch",
+        verticalAlign: "middle",
+        margin: "0 2px",
+        lineHeight: 1.05,
+      },
+    },
+    degree
+      ? createElement(
+          "span",
+          {
+            key: "deg",
+            style: {
+              fontSize: "0.55em",
+              display: "inline-flex",
+              alignItems: "flex-start",
+              transform: "translateY(-0.35em)",
+              marginRight: "-0.15em",
+              minWidth: "0.7em",
+              justifyContent: "center",
+              lineHeight: 1,
+            },
+          },
+          degree,
+        )
+      : null,
+    createElement(
+      "span",
+      { key: "hook", style: { display: "inline-flex", alignSelf: "stretch", flex: "0 0 auto" } },
+      RADICAL_HOOK,
+    ),
+    createElement(
+      "span",
+      {
+        key: "bar",
+        style: {
+          borderTop: "1.4px solid currentColor",
+          paddingTop: "1px",
+          paddingLeft: "3px",
+          paddingRight: "3px",
+          display: "inline-flex",
+          alignItems: "center",
+          flex: "1 1 auto",
+          minWidth: "0.5em",
+          marginLeft: "-1px",
+        },
+      },
+      radicand,
+    ),
+  );
+
 const GREEK: Record<string, string> = {
   alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", zeta: "ζ",
   eta: "η", theta: "θ", iota: "ι", kappa: "κ", lambda: "λ", mu: "μ",
