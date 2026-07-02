@@ -61,6 +61,30 @@ const matchBrace = (s: string, i: number): number => {
   return depth === 0 ? j + 1 : -1; // returns index AFTER the closing brace
 };
 
+/** Match a balanced `(...)` group starting at `i` (`s[i]` must be `(`).
+ *  Returns index AFTER the closing paren, or -1 on failure. Used to
+ *  recognise friendly-form radicals `√( ... )` that may reach the mirror
+ *  in AI-generated ASCII (never `\sqrt{...}`). */
+const matchParen = (s: string, i: number): number => {
+  if (s[i] !== "(") return -1;
+  let depth = 1;
+  let j = i + 1;
+  while (j < s.length && depth > 0) {
+    const c = s[j];
+    if (c === "\\") { j += 2; continue; }
+    if (c === "(") depth++;
+    else if (c === ")") { depth--; if (depth === 0) break; }
+    j++;
+  }
+  return depth === 0 ? j + 1 : -1;
+};
+
+const SUP_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+const SUP_TO_DIGIT: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+  "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+};
+
 const charsOf = (s: string): Row => [...s].map(mkChar);
 
 /* ─────────── LaTeX → Smartboard Row converter ─────────── */
@@ -125,6 +149,42 @@ const latexToRow = (src: string): Row => {
       }
       i += 5;
       continue;
+    }
+
+    // Friendly-form radical:  √( ... )  or  ⁿ√( ... )  where n is one or
+    // more unicode superscript digits. AI-generated content sometimes
+    // emits this ASCII form instead of proper \sqrt{...}. Convert to a
+    // real sqrt node so the connected radical (SVG hook + border-top
+    // overline that grows with the radicand) is used everywhere — no
+    // bracketed fallback.
+    if (ch === "√" || SUP_DIGITS.includes(ch)) {
+      // Consume leading superscript digits as the optional index.
+      let p = i;
+      let indexDigits = "";
+      while (p < src.length && SUP_DIGITS.includes(src[p])) {
+        indexDigits += SUP_TO_DIGIT[src[p]] ?? "";
+        p++;
+      }
+      if (src[p] === "√") {
+        let q = p + 1;
+        while (src[q] === " ") q++;
+        if (src[q] === "(") {
+          const end = matchParen(src, q);
+          if (end > 0) {
+            const body = latexToRow(src.slice(q + 1, end - 1));
+            const indexRow: Row | null =
+              indexDigits.length > 0 ? charsOf(indexDigits) : null;
+            out.push(
+              indexRow
+                ? ({ kind: "sqrt", rows: [body, indexRow] } as Node)
+                : ({ kind: "sqrt", rows: [body] } as Node),
+            );
+            i = end;
+            continue;
+          }
+        }
+      }
+      // Fall through — a stray √ or superscript digit becomes a char.
     }
 
     // \left, \right, \displaystyle — pure scaffolding, drop.

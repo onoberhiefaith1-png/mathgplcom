@@ -910,11 +910,23 @@ const PresentationView = ({
     return Math.max(1, Math.ceil((h - lh * 1.35) / lh));
   };
 
+  /** RULE — POST-STRUCTURE GAP: any row carrying a multi-row structure
+   *  (fraction, matrix, binomial, big operator, tall radicand) reserves
+   *  ONE trailing empty row directly beneath it. That gap keeps the next
+   *  line's ink from colliding with the denominator/lower body. Plain
+   *  equations reserve no gap. */
+  const sensorGapRowsBelow = (line: number): number => {
+    const row = freeLines[line] ?? freeLines[line + 0.5];
+    return row && row.length > 0 && rowHasTallStructure(row) ? 1 : 0;
+  };
+
   /** SINGLE definition of "the row right below `row`" used by EVERY sensor
    *  advance path (Enter key, line-sync, checkpoint). Plain equations →
    *  exactly row + 1, zero gap. Only a genuinely tall structure on `row`
-   *  (fraction, matrix, big operator) pushes the sensor further down. */
-  const nextSensorRowBelow = (row: number): number => row + 1 + extraRowsFor(row);
+   *  (fraction, matrix, big operator) pushes the sensor further down, and
+   *  additionally reserves one empty row of breathing space. */
+  const nextSensorRowBelow = (row: number): number =>
+    row + 1 + extraRowsFor(row) + sensorGapRowsBelow(row);
 
   // Structure-aware reflow was REMOVED intentionally. The teacher owns
   // the workspace layout: the Smartboard must never reposition already
@@ -1072,54 +1084,78 @@ const PresentationView = ({
    *  Idempotent — if the same text is already on a line, we do not
    *  duplicate it. */
   const writeProseLineOnBoard = useCallback((rawFromLessonNote: string) => {
-    const src = (rawFromLessonNote ?? "").trim();
-    if (!src) return;
-    const mirror = mirrorLessonNoteRow(src);
-    if (!mirror.ok || mirror.row.length === 0) return;
-    const sig = mirror.signature;
+    const raw = rawFromLessonNote ?? "";
+    if (!raw.trim()) return;
+    // PARAGRAPH-SHAPED NOTES: the note must mirror the lesson-note's own
+    // paragraph structure, not flatten onto one endlessly-scrolling row.
+    // Split on blank lines first (real paragraph breaks); if none exist,
+    // fall back to single-newline breaks so authored line breaks still
+    // create rows. Empty paragraphs are dropped.
+    const paragraphs = (
+      raw.includes("\n\n") ? raw.split(/\n{2,}/) : raw.split(/\n+/)
+    )
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+    if (paragraphs.length === 0) return;
+
+    // Pre-compute the mirror rows once so the parity gate runs per
+    // paragraph and any that fail are skipped rather than dropping the
+    // whole note.
+    const mirrored = paragraphs
+      .map((p) => mirrorLessonNoteRow(p))
+      .filter((m) => m.ok && m.row.length > 0);
+    if (mirrored.length === 0) return;
+
     setFreeLines((prev) => {
-      // Idempotency: same prose already on a line → park sensor just below
-      // it, do not duplicate.
-      let existingLine: number | null = null;
+      // Idempotency: if the FIRST paragraph is already on the board with
+      // the exact same signature, treat the whole note as already
+      // committed and just re-mark it as sensor-restricted.
+      const firstSig = mirrored[0].signature;
       for (const k of Object.keys(prev)) {
         const n = Number(k);
         const row = prev[n];
-        if (row && row.length > 0 && rowSignature(row) === sig) {
-          existingLine = Math.floor(n);
-          break;
+        if (row && row.length > 0 && rowSignature(row) === firstSig) {
+          const existing = Math.floor(n);
+          setNotebookRowLines((prevSet) => {
+            const ns = new Set(prevSet);
+            ns.add(existing);
+            return ns;
+          });
+          return prev;
         }
       }
-      if (existingLine !== null) {
-        setNotebookRowLines((prevSet) => {
-          const ns = new Set(prevSet);
-          ns.add(existingLine);
-          return ns;
-        });
-        return prev;
-      }
-      // Insert the note AT THE CURRENT SENSOR ROW. The teacher's sensor
-      // position is the insertion point — no auto-computed offset, no
-      // extraRowsFor padding. BUT — LAW 2 (Locked-Ink Rule): if the sensor
-      // row already carries visible ink (e.g. the lower row of a completed
-      // fraction line), the note must NEVER replace it. Slide down to the
-      // first free row instead; existing ink always survives.
+
+      // Insert paragraphs consecutively from the sensor row downward.
+      // LAW 2 (Locked-Ink Rule) still applies: existing ink is never
+      // overwritten — each paragraph slides to the first free row below.
+      // The post-structure gap rule (rule #1) means writing beneath a
+      // fraction naturally starts one row lower.
+      const next = { ...prev };
+      const newNotebookRows: number[] = [];
       let target = Math.floor(sensor.line);
       const occupied = (r: number): boolean => {
-        const whole = prev[r];
-        const half = prev[r + 0.5];
+        const whole = next[r];
+        const half = next[r + 0.5];
         return (
           (!!whole && rowHasVisibleInk(whole)) ||
           (!!half && rowHasVisibleInk(half)) ||
-          notebookRowLines.has(r)
+          notebookRowLines.has(r) ||
+          newNotebookRows.includes(r)
         );
       };
-      while (occupied(target)) target++;
-      const next = { ...prev, [target]: mirror.row };
-      setNotebookRowLines((prevSet) => {
-        const ns = new Set(prevSet);
-        ns.add(target);
-        return ns;
-      });
+      for (const m of mirrored) {
+        while (occupied(target)) target++;
+        next[target] = m.row;
+        newNotebookRows.push(target);
+        target += 1;
+      }
+      if (newNotebookRows.length > 0) {
+        setNotebookRowLines((prevSet) => {
+          const ns = new Set(prevSet);
+          for (const r of newNotebookRows) ns.add(r);
+          return ns;
+        });
+      }
       return next;
     });
   }, [sensor.line, notebookRowLines]);
@@ -2108,7 +2144,7 @@ const PresentationView = ({
           if ((o as number) >= idx) continue;
           const row = freeLines[rr] ?? freeLines[rr + 0.5];
           if (!row || !rowHasVisibleInk(row)) continue;
-          t = Math.max(t, rr + 1 + extraRowsFor(rr));
+          t = Math.max(t, rr + 1 + extraRowsFor(rr) + sensorGapRowsBelow(rr));
         }
         // Skip rows still covered by a tall structure or holding a note.
         while (t <= b && activeLayout && !isEmptyWritableRow(t, activeLayout)) t++;
