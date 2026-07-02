@@ -1,34 +1,31 @@
-# Sensor Gap + Blocked ▲ Arrow — Root Cause Fix
+# Fix: Sensor must land exactly one row below the last equation
 
-## What is going wrong
+## The problem
+When you finish a line and the system advances, the sensor lands ~3 rows below the equation instead of the very next row. Pressing ▲ once fixes it manually — proving the *correct* row is empty and writable, but the auto-advance picks the wrong target.
 
-Both errors come from the same source: the board over-estimates how much vertical space an equation needs.
+## Root cause (what I found in the code)
+The "next row" is computed from the **row-ownership map** (`rowOwners`), not from the actual ink on the board:
 
-Every written row's height is measured from the screen (pixels). The code then converts pixels to "extra reserved rows" with a loose threshold. A plain one-row equation like `x + y = 7 (1)` — especially at larger text sizes — measures slightly taller than one row, so the system wrongly reserves 1–2 phantom rows *below* it. This causes:
+- `target = maxPrevOwned + 1` — where `maxPrevOwned` is the highest row *registered as owned* by a previous line.
+- The ownership map can contain stale or stray entries: any row that momentarily had content (placeholder nodes, half-row `+0.5` keys, leftover entries after erasing) stays registered, so `maxPrevOwned` can point 2–3 rows below the real equation.
+- There are also **two separate advance paths** (the Enter-key handler and the line-sync effect) that compute the target differently, so they can disagree.
 
-1. **The gap**: When you finish a line and advance, every advance path adds this phantom padding, then also skips the "reserved" rows — so the sensor lands 3 rows down instead of 1.
-2. **The dead ▲ arrow**: The empty rows between the sensor and the equation are flagged as "covered by a structure", so the D-pad refuses to move the sensor up into them.
+This matches your observation exactly: the *definition of "last row"* is wrong, not the +1 step.
 
 ## The fix
 
-**Rule: the notation decides.** A row only reserves extra rows below it when the math tree on that row actually contains a genuinely tall structure (stacked fraction, matrix, tall radical, big operator). Plain text, superscripts (x²), and normal equations reserve zero rows — no matter what the pixel measurement says.
+1. **One definition of "last inked row"** — a single helper `lastInkRowBelow()` that scans the actual board content (`freeLines`) inside the solution band and returns the lowest row that contains *visible* ink (real characters/structures — empty or whitespace-only rows are ignored). This becomes the sole source of truth, replacing `maxPrevOwned` from the ownership map.
 
-### 1. Structure-aware `extraRowsFor` (PresentationView.tsx)
-- Inspect the row's math tree: if it has no `frac`, `matrix`, `bigop`, or nested tall structure, return 0 immediately — skip the pixel heuristic entirely.
-- Only when a tall structure exists, use the measured height to decide how many extra rows it truly spans (fraction = 1, nested = 2+).
+2. **Sensor target = last inked row + 1** — plus extra rows only when that row genuinely contains a tall structure (fraction, matrix, ∑/∫), which is already handled by `rowHasTallStructure`. Plain equations → exactly one row below, zero gap.
 
-### 2. Advance = exactly next row
-- Line-sync effect (advance to Line N+1): sensor lands at `last owned row of Line N + 1` — with the corrected `extraRowsFor` this is literally the next row for normal equations, and only pushes further when a real fraction/matrix physically occupies the row below.
-- Enter key and Floating-panel advance paths use the same corrected function, so all three paths agree.
+3. **Unify all advance paths** — Enter key, line-completion advance, and the floating-number line-sync effect all call the same helper, so the sensor can never land differently depending on *how* you advanced.
 
-### 3. Un-block the ▲ arrow
-- `rowCoveredByStructure` automatically stops flagging empty rows below plain equations once `extraRowsFor` is corrected, so `canCursorUp` re-enables and the sensor can roam up through empty space again.
-- Verify ▲ stops only at the top of the writable band (just below "Solution").
+4. **Clean the ownership map** — rows whose content is empty/whitespace release ownership immediately, so stale entries can't poison future calculations.
 
-### 4. Verification
-- Playwright run: write `x + y = 7`, advance the Floating Number display, screenshot-confirm the sensor sits on the immediately following row (same gap as between existing lines), and confirm ▲ is enabled and moves the sensor up.
-- Repeat with a stacked fraction to confirm tall structures still push the sensor below the whole structure (not row-by-row).
+## Verification
+- Regression tests: "finish plain equation → sensor is at lastInkRow + 1, never +2/+3"; "stray empty row entries are ignored"; "fraction row still reserves its extra row".
+- Playwright run against the live board reproducing your exact flow (write `x + y = 7(1)`, advance) with a screenshot confirming the sensor sits directly under the equation.
 
-## Files touched
-- `src/components/smartboard/PresentationView.tsx` — `extraRowsFor`, `rowCoveredByStructure` (indirect), advance paths.
-- Possibly a small helper in `src/lib/smartboard/mathTree.ts` (`rowHasTallStructure`).
+## Technical details
+- `src/components/smartboard/PresentationView.tsx` — new `lastInkRowBelow()` helper; rewrite target computation in the line-sync effect (~line 2007) and Enter handler (~line 3320) to use it; ownership cleanup in the `setRowOwners` incremental effect.
+- `src/test/sensorSpacing.test.ts` — new regression cases.
