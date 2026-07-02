@@ -893,38 +893,27 @@ const PresentationView = ({
   };
 
   /** Extra physical rows occupied by a Lesson Object on `line` beyond its
-   *  baseline row. THE NOTATION DECIDES: a row reserves extra rows below
-   *  it ONLY when its math tree actually contains a tall structure
-   *  (stacked fraction, binomial, matrix, big operator). Plain equations,
-   *  superscripts (x²) and normal handwriting always return 0 — no matter
-   *  what the pixel measurement says — so the sensor parks exactly one
-   *  row below a finished line. When a tall structure IS present, the
-   *  measured DOM height decides how many rows it truly spans
-   *  (simple fraction = 1, nested tower = 2+). */
+   *  baseline row. THE LAW (fixed, deterministic — pixel measurements are
+   *  NEVER consulted, they inflate and cause 4-5 row overshoots):
+   *  - Plain equation / handwriting / superscripts (x²) → 0 extra rows.
+   *  - Tall structure (stacked fraction, binomial, matrix, big operator)
+   *    → exactly 1 extra row (the row its lower body occupies). */
   const extraRowsFor = (line: number): number => {
     const row = freeLines[line] ?? freeLines[line + 0.5];
     if (!row || row.length === 0 || !rowHasTallStructure(row)) return 0;
-    const h = lineHeightsRef.current[line] ?? 0;
-    const lh = grid.LINE_HEIGHT;
-    if (h <= 0) return 1; // unmeasured fraction: assume one row below
-    return Math.max(1, Math.ceil((h - lh * 1.35) / lh));
+    return 1;
   };
 
-  /** RULE — POST-STRUCTURE GAP: any row carrying a multi-row structure
-   *  (fraction, matrix, binomial, big operator, tall radicand) reserves
-   *  ONE trailing empty row directly beneath it. That gap keeps the next
-   *  line's ink from colliding with the denominator/lower body. Plain
-   *  equations reserve no gap. */
-  const sensorGapRowsBelow = (line: number): number => {
-    const row = freeLines[line] ?? freeLines[line + 0.5];
-    return row && row.length > 0 && rowHasTallStructure(row) ? 1 : 0;
-  };
+  /** Post-structure gap is folded into the fixed skip-one law above:
+   *  a tall structure already yields sensor = row + 2 via extraRowsFor.
+   *  No additional gap row is ever added. */
+  const sensorGapRowsBelow = (_line: number): number => 0;
 
   /** SINGLE definition of "the row right below `row`" used by EVERY sensor
-   *  advance path (Enter key, line-sync, checkpoint). Plain equations →
-   *  exactly row + 1, zero gap. Only a genuinely tall structure on `row`
-   *  (fraction, matrix, big operator) pushes the sensor further down, and
-   *  additionally reserves one empty row of breathing space. */
+   *  advance path (Enter key, line-sync, checkpoint).
+   *  THE LAW: plain equation → exactly row + 1. Multi-row structure
+   *  (fraction, matrix, big operator) → skip exactly ONE row → row + 2.
+   *  Never more. */
   const nextSensorRowBelow = (row: number): number =>
     row + 1 + extraRowsFor(row) + sensorGapRowsBelow(row);
 
