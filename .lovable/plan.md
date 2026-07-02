@@ -1,68 +1,44 @@
+# Fix: Line Never Goes Back + Previous Lines Can Never Be Overwritten
 
-## Bug
+## What you're seeing
 
-While typing on lesson line 4 (or 5), the Floating Number display suddenly jumps back to line 3 and the sensor snaps upward. This repeats on every new keystroke that lands on a row the teacher chose after a blank spacer row.
+**Bug 1 — Line 7 snaps back to line 6 on every keystroke.** The previous fix moved the "erase detection" to row ownership, but it still reads only whole-row ink (`freeLines[r]`). Multi-row structures (fractions) store part of their ink under half-row keys (`r + 0.5`), and some rows a line owns can legitimately be blank. When line 6 contains such a structure, the check reads incomplete text, concludes line 6 was "erased", and rewinds — every time you type on line 7.
 
-## Root cause
+**Bug 2 — Line 5 disappears when you click the next equation.** After a two-row line (numerator/denominator), the sensor advance lands on the denominator row instead of below the whole structure. If you then click the next equation without manually moving the sensor, the write happens *at the sensor row* and replaces line 5's ink wholesale.
 
-The **INTELLIGENT ERASE** effect in `src/components/smartboard/PresentationView.tsx` (≈ lines 2220–2253) assumes that lesson line *k* always lives at physical row `a + k` (where `a = bandStart`). It scans:
+## The Law (permanent guards, not spot fixes)
 
-```ts
-const row = freeLines[a + k];         // fixed offset — wrong
-const ok = row && equationsMatch(rowToAscii(row), guidedLines[k].equation);
-if (!ok) lostTop = k;                 // rewind trigger
-```
+Two invariants will be enforced in code so this class of bug cannot return for ANY row:
 
-But the Smartboard is lesson-line-driven, not row-driven: the teacher can leave blank spacer rows between lines (this is the same freedom you asked for in the Final Redesign). Row ownership is tracked via `rowOwners`, not by a `k → a+k` mapping.
+**Law 1 — Forward-Only Rule:** The presentation may only rewind when ink was *actually deleted* from the latest completed line's own rows. Typing anywhere else on the board can never trigger a rewind.
 
-Reproducing what you're seeing:
+**Law 2 — Locked-Ink Rule:** A row owned by a completed lesson line is immutable. No write path (typing, chip click, note placement, equation insertion) may replace or clear it. If a write targets a locked row, it is automatically relocated to the first empty row below the last ink — the old ink always survives.
 
-```text
-row a+0 : x + y = 7 (1)     ← line 0 (owned)
-row a+1 :                   ← blank spacer
-row a+2 : x − y = 3 (2)     ← line 1 (owned)
-row a+3 :                   ← blank spacer
-row a+4 : Add (1) and (2):  ← notebook / line 2
-row a+5 : x+(x)+y−y = 7+3   ← line 3 (owned)
-row a+6 : x+x+y−y = 10      ← line 4 (owned, being typed)
-```
+## Implementation
 
-The effect walks `k = activeLineIdx − 1 … 0` and checks `freeLines[a + k]`. For `k = 3` it reads `freeLines[a + 3]` — an empty spacer — decides line 3 is "lost", triggers:
+### 1. Rewrite the erase/rewind effect (`PresentationView.tsx`)
+- Keep a snapshot of the previous `freeLines`. Rewind is only considered when the total ink on the candidate line's owned rows **decreased** since the last render (real deletion). New ink appearing on other rows never fires it — this is Law 1 and kills the line-7 regression by construction.
+- When comparing line text, concatenate ascii from both integer and half-row keys (`r` and `r + 0.5`) of every owned row so fractions/multi-row structures read complete.
+- Rows the line owns that are legitimately blank (structure spillover) no longer count against the match.
 
-```ts
-setActiveLineIdx(lostTop);        // FN display jumps back
-setFloatingLineIdx(lostTop);
-activeSensorLogicalIdxRef.current = null;   // sensor re-anchors upward
-```
+### 2. Sensor advance skips the whole structure
+- When advancing from line N to N+1, the target row = one row below the **lowest row occupied by line N** (owned rows including half-keys, plus `extraRowsFor` tall-structure padding). The sensor can no longer park on a denominator row.
 
-That's exactly the symptom: FN panel rewinds, sensor snaps to the previous line's last owned row. Because the effect depends on `freeLines`, every keystroke re-fires it.
+### 3. Locked-row write guard (Law 2)
+- Add a single `isLockedRow(row)` helper: row is owned by a lesson line earlier than the currently displayed one.
+- `writeProseLineOnBoard` and every insertion path (`editActive`, chip/equation placement) check it. If the target row is locked **and has ink**, the write relocates to the next empty row below the last visible ink instead of replacing — existing ink is never destroyed.
 
-The two neighbouring effects (`PASSIVE LINE-MATCH DETECTION`, `RESUME TO HIGHEST COMPLETED LESSON LINE`) share the same `a + k` assumption; the resume-effect only runs once per reservoir, and the passive-match effect already scans the whole band, so they aren't causing the live regression — but the erase effect needs to move to the same ownership-based lookup for consistency.
-
-## Fix
-
-Make the erase effect look up each lesson line by **row ownership** instead of a fixed offset:
-
-1. Get the rows owned by line *k* from `rowOwners` (the existing map used by the sensor logic):
-   ```ts
-   const owned = Object.entries(rowOwners)
-     .filter(([, o]) => o === k)
-     .map(([r]) => Number(r))
-     .filter(Number.isInteger)
-     .sort((x, y) => x - y);
-   ```
-2. If `owned.length === 0`, line *k* was never written on this session — skip (do NOT treat as "lost"; nothing to rewind).
-3. Otherwise, concatenate the ascii from every owned row and compare against `guidedLines[k].equation` with the existing `equationsMatch` / `equationsEquivalent`. If none of the owned rows still holds matching ink, mark that line as `lostTop` and only then rewind.
-4. Keep the "only rewind the LATEST completed line" guard (`lostTop === activeLineIdx − 1`).
-
-This preserves the intended behaviour ("teacher erases the most recent completed line → rewind so they can redo it") while eliminating the false-positive that fires every time an unrelated spacer row is empty.
+### 4. Regression tests (`src/test/sensorSpacing.test.ts`)
+- Line with fraction across `r` and `r + 0.5` → erase check reads full text, no false rewind.
+- Typing on a fresh row N+1 while lines 0..N match → rewind never fires (Forward-Only Rule).
+- Ink actually deleted from latest line → rewind still fires (behaviour preserved).
+- Write targeting a locked inked row → relocated below, original ink intact.
+- Sensor advance after a two-row fraction line → lands below the denominator, not on it.
 
 ## Files to touch
-
-- `src/components/smartboard/PresentationView.tsx` — rewrite the effect at lines ~2220–2253.
+- `src/components/smartboard/PresentationView.tsx` — erase effect, sensor advance target, locked-row guard.
+- `src/test/sensorSpacing.test.ts` — new regression suite.
 
 ## Verification
-
-- Add a regression test in `src/test/sensorSpacing.test.ts` that seeds `guidedLines` + `rowOwners` with a spacer row between lines, mutates `freeLines` on a fresh row, and asserts the rewind logic does NOT trigger (i.e. `lostTop` stays `−1`).
-- Manual: reproduce your scenario — finish `x+y=7(1)` on row a+0, skip a row, write `x−y=3(2)`, skip a row, write notebook prose, then start typing line 4. Confirm the FN panel stays on line 4 and the sensor stays put.
-- Run the full vitest suite; expect 127+ passing.
+- Full vitest suite passes.
+- Manual: solve through 7+ lines including a fraction line — no snap-back at any line; clicking the next equation while the sensor sits on a fraction's lower row relocates the write instead of erasing the fraction.
