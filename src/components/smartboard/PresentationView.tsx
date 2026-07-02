@@ -55,7 +55,7 @@ import {
   rowHasTallStructure,
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
-import { rowToAscii, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
+import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
@@ -910,6 +910,12 @@ const PresentationView = ({
     return Math.max(1, Math.ceil((h - lh * 1.35) / lh));
   };
 
+  /** SINGLE definition of "the row right below `row`" used by EVERY sensor
+   *  advance path (Enter key, line-sync, checkpoint). Plain equations →
+   *  exactly row + 1, zero gap. Only a genuinely tall structure on `row`
+   *  (fraction, matrix, big operator) pushes the sensor further down. */
+  const nextSensorRowBelow = (row: number): number => row + 1 + extraRowsFor(row);
+
   // Structure-aware reflow was REMOVED intentionally. The teacher owns
   // the workspace layout: the Smartboard must never reposition already
   // written ink when a structure grows. Tall Lesson Objects simply
@@ -1348,8 +1354,30 @@ const PresentationView = ({
 
   const rowHasInk = useCallback((line: number): boolean => {
     const row = freeLines[line];
-    return !!row && row.length > 0;
+    return !!row && rowHasVisibleInk(row);
   }, [freeLines]);
+
+  /** Lowest board row inside the active band that carries VISIBLE ink
+   *  (or a placed note). This — the actual board content — is the sole
+   *  source of truth for "the last written row"; ownership bookkeeping
+   *  is never trusted for sensor placement. Returns -1 when the band is
+   *  entirely empty. */
+  const lastVisibleInkRow = useCallback((L: BeatLayout): number => {
+    const a = bandStart(L), b = bandEnd(L);
+    let last = -1;
+    for (const key of Object.keys(freeLines)) {
+      const ln = Number(key);
+      const r = Math.floor(ln);
+      if (r < a || r > b) continue;
+      const row = freeLines[ln];
+      if (row && rowHasVisibleInk(row)) last = Math.max(last, r);
+    }
+    for (const ln of notebookRowLines) {
+      const r = Math.floor(ln);
+      if (r >= a && r <= b) last = Math.max(last, r);
+    }
+    return last;
+  }, [freeLines, notebookRowLines]);
 
   /** A row can be visually occupied by a tall structure that starts above it
    *  (fraction denominator, radical body, matrix, etc.). The sensor must skip
@@ -1404,7 +1432,7 @@ const PresentationView = ({
   }, [isEmptyWritableRow]);
 
   const firstWritableRowAfter = useCallback((line: number, L: BeatLayout): number => {
-    const start = Math.floor(line) + 1 + extraRowsFor(Math.floor(line));
+    const start = nextSensorRowBelow(Math.floor(line));
     return findNextWritableEmptyRow(start, 1, L);
   // extraRowsFor reads measured heights from a ref.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1812,7 +1840,9 @@ const PresentationView = ({
         if (r < a || r > b) continue;
         if (notebookRowLines.has(r) || notebookRowLines.has(ln)) continue;
         const row = freeLines[ln];
-        if (!row || row.length === 0) continue;
+        // Whitespace-only rows are NOT ink — they must never claim
+        // Lesson-Line ownership (stale owners poisoned sensor placement).
+        if (!row || !rowHasVisibleInk(row)) continue;
         set.add(r);
       }
       return [...set].sort((x, y) => x - y);
@@ -1999,17 +2029,16 @@ const PresentationView = ({
       // Line K already has ink → park at its last owned row (end of ink).
       target = ownedRows[ownedRows.length - 1];
     } else {
-      // Line K has no ink yet → find the highest owned row of any
-      // PREVIOUS line and place the sensor EXACTLY ONE row below it.
-      // The notation decides extra space: only a genuinely tall structure
-      // (stacked fraction / matrix) on that row pushes the sensor further
-      // down, via extraRowsFor. Plain equations add nothing.
-      let maxPrevOwned = -1;
-      for (const [k, o] of Object.entries(rowOwners)) {
-        if (o < idx) maxPrevOwned = Math.max(maxPrevOwned, Number(k));
-      }
-      if (maxPrevOwned >= a) {
-        target = Math.min(b, maxPrevOwned + 1 + extraRowsFor(maxPrevOwned));
+      // Line K has no ink yet → find the LAST row with VISIBLE ink on the
+      // board (actual content — never the ownership bookkeeping, whose
+      // stale entries used to park the sensor 2-3 rows too far down) and
+      // place the sensor EXACTLY ONE row below it. The notation decides
+      // extra space: only a genuinely tall structure (stacked fraction /
+      // matrix) on that row pushes the sensor further down, via
+      // extraRowsFor. Plain equations add nothing.
+      const lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
+      if (lastInk >= a) {
+        target = Math.min(b, nextSensorRowBelow(lastInk));
       } else {
         // No prior ink: land right below "Solution".
         target = a;
@@ -3319,8 +3348,8 @@ const PresentationView = ({
             // ink, or covered by a tall math object, jump over it.
             const base = Number.isInteger(sensor.line) ? sensor.line : Math.floor(sensor.line);
             let nextLine = activeLayout
-              ? findNextWritableEmptyRow(base + 1 + extraRowsFor(base), 1, activeLayout)
-              : base + 1 + extraRowsFor(base);
+              ? findNextWritableEmptyRow(nextSensorRowBelow(base), 1, activeLayout)
+              : nextSensorRowBelow(base);
             // Gate: don't allow advancing past the current expected guided
             // line until that line has turned green.
             if (hasGuidedLines && activeLayout) {
