@@ -1825,33 +1825,103 @@ const PresentationView = ({
 
   // ── DISPLAYED-LINE EDITABILITY ───────────────────────────────────────
   // The Floating Number display is the source of truth: the guided line it
-  // currently shows must stay editable even when its row already has ink.
-  // Resolve the physical row that belongs to the displayed line — the K-th
-  // occupied non-notebook row, where K counts only equation (non-prose)
-  // guided lines before it.
+  // currently shows must stay editable even when its rows already have ink.
+  // A lesson line may span SEVERAL physical rows (e.g. a continuation row
+  // "= x − y" below a fraction), so we track row → guided-line OWNERSHIP:
+  //   • Any row that receives its first ink while line K is displayed
+  //     belongs to line K.
+  //   • On reload, pre-existing rows are seeded by sequentially matching
+  //     accumulated row text against each guided equation.
+  // All rows owned by the displayed line stay editable; they lock only
+  // after the display moves to another line.
   const displayedGuidedIdx = hasGuidedLines
     ? Math.min(manualFloatingLineIdx ?? floatingLineIdx, Math.max(0, guidedLines.length - 1))
     : -1;
-  const displayedLineRow = useMemo<number | null>(() => {
-    if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return null;
-    if (displayedGuidedIdx < 0) return null;
-    if (guidedLines[displayedGuidedIdx]?.notebookOnly) return null;
+  const [rowOwners, setRowOwners] = useState<Record<number, number>>({});
+  const seededOwnersRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
-    const occupied: number[] = [];
-    for (let r = a; r <= b; r++) {
-      const row = freeLines[r];
-      if (!row || row.length === 0) continue;
-      if (notebookRowLines.has(r)) continue;
-      occupied.push(r);
+    const occupiedRows = (): number[] => {
+      const set = new Set<number>();
+      for (const k of Object.keys(freeLines)) {
+        const ln = Number(k);
+        const r = Math.floor(ln);
+        if (r < a || r > b) continue;
+        if (notebookRowLines.has(r) || notebookRowLines.has(ln)) continue;
+        const row = freeLines[ln];
+        if (!row || row.length === 0) continue;
+        set.add(r);
+      }
+      return [...set].sort((x, y) => x - y);
+    };
+
+    // ── One-time seeding per reservoir: map pre-existing ink to lines by
+    // sequentially matching accumulated row text against guided equations.
+    if (seededOwnersRef.current !== activeReservoirIdx) {
+      seededOwnersRef.current = activeReservoirIdx;
+      const eqTargets: { idx: number; eq: string }[] = [];
+      for (let k = 0; k < guidedLines.length; k++) {
+        const g = guidedLines[k];
+        if (g && !g.notebookOnly) eqTargets.push({ idx: k, eq: stripEqLabel(g.equation) });
+      }
+      const seeded: Record<number, number> = {};
+      let t = 0;
+      let group: number[] = [];
+      let combined = "";
+      for (const r of occupiedRows()) {
+        const ascii = stripEqLabel(rowToAscii(freeLines[r] ?? freeLines[r + 0.5] ?? []));
+        group.push(r);
+        combined = (combined + ascii).trim();
+        const ownerIdx = t < eqTargets.length ? eqTargets[t].idx : eqTargets.length > 0 ? eqTargets[eqTargets.length - 1].idx : 0;
+        for (const gr of group) seeded[gr] = ownerIdx;
+        if (
+          t < eqTargets.length &&
+          (equationsMatch(combined, eqTargets[t].eq) ||
+            equationsEquivalent(combined, eqTargets[t].eq) ||
+            equationsMatch(ascii, eqTargets[t].eq) ||
+            equationsEquivalent(ascii, eqTargets[t].eq))
+        ) {
+          t++;
+          group = [];
+          combined = "";
+        }
+      }
+      setRowOwners(seeded);
+      return;
     }
-    let eqOrd = 0;
-    for (let k = 0; k < displayedGuidedIdx; k++) {
-      if (!guidedLines[k]?.notebookOnly) eqOrd++;
-    }
-    return eqOrd < occupied.length ? occupied[eqOrd] : null;
+
+    // ── Incremental ownership: new ink belongs to the displayed line;
+    // erased rows release their ownership.
+    setRowOwners((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      const occ = new Set(occupiedRows());
+      for (const k of Object.keys(next)) {
+        const r = Number(k);
+        if (!occ.has(r)) { delete next[r]; changed = true; }
+      }
+      if (displayedGuidedIdx >= 0 && !guidedLines[displayedGuidedIdx]?.notebookOnly) {
+        for (const r of occ) {
+          if (next[r] === undefined) { next[r] = displayedGuidedIdx; changed = true; }
+        }
+      }
+      return changed ? next : prev;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasGuidedLines, activeLayout, displayedGuidedIdx, freeLines, notebookRowLines, guidedLines]);
+  }, [freeLines, hasGuidedLines, activeLayout, activeReservoirIdx, displayedGuidedIdx, guidedLines, notebookRowLines]);
+
+  /** Every physical row owned by the guided line the Floating Number
+   *  display is currently showing. These rows are ALWAYS editable. */
+  const displayedLineRows = useMemo<Set<number>>(() => {
+    const out = new Set<number>();
+    if (displayedGuidedIdx < 0) return out;
+    for (const [k, owner] of Object.entries(rowOwners)) {
+      if (owner === displayedGuidedIdx) out.add(Number(k));
+    }
+    return out;
+  }, [rowOwners, displayedGuidedIdx]);
 
   // ── LINE LOCKING (sensor follows Presentation) ───────────────────────
   // Whenever the Floating Number panel advances or rewinds to a different
