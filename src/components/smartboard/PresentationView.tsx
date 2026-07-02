@@ -1099,9 +1099,21 @@ const PresentationView = ({
       }
       // Insert the note AT THE CURRENT SENSOR ROW. The teacher's sensor
       // position is the insertion point — no auto-computed offset, no
-      // extraRowsFor padding, no auto-jump to "next empty row below the
-      // last ink". The teacher decides where the note lands.
-      const target = Math.floor(sensor.line);
+      // extraRowsFor padding. BUT — LAW 2 (Locked-Ink Rule): if the sensor
+      // row already carries visible ink (e.g. the lower row of a completed
+      // fraction line), the note must NEVER replace it. Slide down to the
+      // first free row instead; existing ink always survives.
+      let target = Math.floor(sensor.line);
+      const occupied = (r: number): boolean => {
+        const whole = prev[r];
+        const half = prev[r + 0.5];
+        return (
+          (!!whole && rowHasVisibleInk(whole)) ||
+          (!!half && rowHasVisibleInk(half)) ||
+          notebookRowLines.has(r)
+        );
+      };
+      while (occupied(target)) target++;
       const next = { ...prev, [target]: mirror.row };
       setNotebookRowLines((prevSet) => {
         const ns = new Set(prevSet);
@@ -1110,7 +1122,7 @@ const PresentationView = ({
       });
       return next;
     });
-  }, [sensor.line]);
+  }, [sensor.line, notebookRowLines]);
 
 
   /** Insert a real stacked fraction at the sensor (no slash). Optional sign
