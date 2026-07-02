@@ -2063,8 +2063,17 @@ const PresentationView = ({
       if (!guidedLines[k]?.notebookOnly) eqOrd++;
     }
     const isEquationLine = !guidedLines[idx]?.notebookOnly;
+    // Rows already OWNED by this guided line (a line may span several
+    // physical rows). Rewinding the display to this line parks the sensor
+    // on its LAST row, at the end of the ink, ready for editing.
+    const ownedRows = Object.entries(rowOwners)
+      .filter(([, o]) => o === idx)
+      .map(([k]) => Number(k))
+      .sort((x, y) => x - y);
     let target: number;
-    if (isEquationLine && eqOrd < occupied.length) {
+    if (isEquationLine && ownedRows.length > 0) {
+      target = ownedRows[ownedRows.length - 1];
+    } else if (isEquationLine && eqOrd < occupied.length) {
       target = occupied[eqOrd];
     } else {
       const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
@@ -2077,12 +2086,13 @@ const PresentationView = ({
     }
     if (sensor.line !== target) {
       setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
-      setLiveCursor({ path: [], index: 0 });
+      const tInk = freeLines[target] ?? freeLines[target + 0.5] ?? [];
+      setLiveCursor({ path: [], index: ownedRows.includes(target) ? tInk.length : 0 });
     }
     activeSensorLogicalIdxRef.current = idx;
     activeSensorPhysicalLineRef.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floatingLineIdx, manualFloatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter]);
+  }, [floatingLineIdx, manualFloatingLineIdx, hasGuidedLines, guidedLines.length, activeLayout?.startLine, activeLayout?.captionLines, activeLayout?.bandLines, freeLines, notebookRowLines, sensor.line, isEmptyWritableRow, firstWritableRowAfter, rowOwners]);
 
 
   // Keep Used in sync with actual board ink. Used means "currently present on
