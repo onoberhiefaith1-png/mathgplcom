@@ -1134,16 +1134,18 @@ const PresentationView = ({
       const next = { ...prev };
       const newNotebookRows: number[] = [];
       let target = Math.floor(sensor.line);
-      // Look upward from the sensor for the nearest inked row and, if it
-      // carries a tall structure, bump the landing row down by that
-      // structure's extra rows + one breathing-space row.
-      for (let r = target - 1; r >= 0; r--) {
+      const rowIsTall = (r: number): boolean => {
         const row = next[r] ?? next[r + 0.5];
-        if (row && rowHasVisibleInk(row)) {
-          const bump = nextSensorRowBelow(r);
-          if (bump > target) target = bump;
-          break;
-        }
+        return !!row && rowHasVisibleInk(row) && rowHasTallStructure(row);
+      };
+      // Initial gap enforcement: covers BOTH "sensor parked directly on
+      // the tall row" and "sensor parked one row below it". Either way
+      // the note must clear the structure's full footprint plus one
+      // empty breathing row before it may land.
+      if (rowIsTall(target)) {
+        target = nextSensorRowBelow(target);
+      } else if (target > 0 && rowIsTall(target - 1)) {
+        target = Math.max(target, nextSensorRowBelow(target - 1));
       }
       const occupied = (r: number): boolean => {
         const whole = next[r];
@@ -1156,7 +1158,12 @@ const PresentationView = ({
         );
       };
       for (const m of mirrored) {
-        while (occupied(target)) target++;
+        // Skip occupied rows; when an occupant is a tall structure, jump
+        // past its full multi-row footprint + one empty breathing row so
+        // the paragraph never collides with a denominator/body.
+        while (occupied(target)) {
+          target = rowIsTall(target) ? nextSensorRowBelow(target) : target + 1;
+        }
         next[target] = m.row;
         newNotebookRows.push(target);
         target += 1;
