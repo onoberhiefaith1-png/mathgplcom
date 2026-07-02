@@ -1856,8 +1856,20 @@ const PresentationView = ({
   // force activeLineIdx back to 0: the resume effect below will scan the
   // board and place the teacher on the next unsolved lesson line.
   useEffect(() => {
-    setActiveLineIdx(0);
-    setFloatingLineIdx(0);
+    // Line-memory restore: read the persisted Floating Number line for
+    // this notebook+reservoir so leaving the page and coming back keeps
+    // the teacher on the same lesson line.
+    const FLOAT_LINE_KEY = `smartboard:floatLineIdx:${notebookId ?? "_"}:${activeReservoirIdx}`;
+    let restoredIdx = 0;
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(FLOAT_LINE_KEY) : null;
+      if (raw != null) {
+        const n = Number(JSON.parse(raw));
+        if (Number.isFinite(n) && n >= 0) restoredIdx = Math.floor(n);
+      }
+    } catch { /* noop */ }
+    setActiveLineIdx(restoredIdx);
+    setFloatingLineIdx(restoredIdx);
     setManualFloatingLineIdx(null);
     setNotebookRevealIdx(null);
     setNotebookAttentionIdx(new Set());
@@ -1880,6 +1892,17 @@ const PresentationView = ({
     manualPushedRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
+
+  // Persist the Floating Number line index whenever it changes so the
+  // teacher can leave and return to the same line.
+  useEffect(() => {
+    if (activeReservoirIdx < 0) return;
+    try {
+      const FLOAT_LINE_KEY = `smartboard:floatLineIdx:${notebookId ?? "_"}:${activeReservoirIdx}`;
+      window.localStorage.setItem(FLOAT_LINE_KEY, JSON.stringify(activeLineIdx));
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLineIdx, activeReservoirIdx]);
 
   // Persist shownNotebookIdx whenever it changes.
   useEffect(() => {
