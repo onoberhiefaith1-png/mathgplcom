@@ -1430,7 +1430,11 @@ const PresentationView = ({
   useEffect(() => {
     if (!solvingMode) return;
     if (!activeLayout || activeLayout.bandLines <= 0) return;
-    const r = Math.min(firstEmptyBandRow(activeLayout), bandEnd(activeLayout));
+    // Initial sensor position = the row IMMEDIATELY below "Solution".
+    // Do NOT scan for the first empty row: on reload the teacher expects
+    // to land right under the caption, above any existing ink, and place
+    // themselves manually. bandStart is exactly that row.
+    const r = bandStart(activeLayout);
     setSensor({ line: r, x: 0 });
     setLiveCursor({ path: [], index: 0 });
     autoFloorRef.current = r;
