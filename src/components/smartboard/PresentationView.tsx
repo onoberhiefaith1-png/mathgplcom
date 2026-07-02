@@ -1586,16 +1586,29 @@ const PresentationView = ({
 
 
   /** Dedicated cursor-up/down nudge for the Sensor D-pad. It jumps over
-   *  written/locked/restricted/structure-covered rows and only parks on empty
-   *  working space. Master left margin (x=0) is enforced on every nudge.
-   *  ▲ is free anywhere inside the empty solution space (no auto-floor
-   *  clamp) — it only stops at the top of the active band. */
+   *  written/locked/restricted/structure-covered rows and parks on empty
+   *  working space OR on a row belonging to the line the Floating Number
+   *  display currently shows (that line is always editable). Master left
+   *  margin (x=0) is enforced on every nudge. ▲ is free anywhere inside
+   *  the empty solution space — it only stops at the top of the band. */
   const nudgeCursor = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
     const start = Math.floor(sensor.line) + dir;
-    let cand = findNextWritableEmptyRow(start, dir, activeLayout);
+    const displayedRows = displayedLineRowsRef.current;
+    // Scan for the next acceptable row: empty writable OR owned by the
+    // displayed line (editable even when written).
+    let cand = a - 1 - (dir > 0 ? -(b - a + 2) : 0); // sentinel out of range
+    {
+      let r = start;
+      let found = false;
+      while (dir > 0 ? r <= b : r >= a) {
+        if (isEmptyWritableRow(r, activeLayout) || displayedRows.has(r)) { found = true; break; }
+        r += dir;
+      }
+      cand = found ? r : (dir > 0 ? b + 1 : a - 1);
+    }
 
     if (dir === -1 && cand < a) return; // top of the writable band
     if (dir === 1 && cand > b) {
@@ -1616,7 +1629,10 @@ const PresentationView = ({
       });
     }
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
-    setLiveCursor({ path: [], index: 0 });
+    // Landing on a written row of the displayed line parks the caret at the
+    // END of its ink, ready to continue/edit; empty rows start at index 0.
+    const candInk = freeLines[cand] ?? freeLines[cand + 0.5] ?? [];
+    setLiveCursor({ path: [], index: displayedRows.has(cand) ? candInk.length : 0 });
     const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
     manualPushedRef.current = cand > auto ? cand : null;
     manualSensorRef.current = { line: cand, x: 0 };
@@ -1625,7 +1641,7 @@ const PresentationView = ({
     // line-sync effect believe the presentation line changed, which wiped
     // manualSensorRef and snapped the sensor straight back — the D-pad
     // looked dead.
-  }, [activeLayout, sensor.line, freeLines, firstEmptyBandRow, findNextWritableEmptyRow, setLiveCursor]);
+  }, [activeLayout, sensor.line, freeLines, firstEmptyBandRow, isEmptyWritableRow, setLiveCursor]);
 
   /** Horizontal nudge for the Sensor D-pad. Moves the sensor inside its
    *  current empty row by one grid column. Clamps at the master left
