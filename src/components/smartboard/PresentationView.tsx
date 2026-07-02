@@ -906,69 +906,11 @@ const PresentationView = ({
     return Math.max(0, Math.ceil((h - lh * 1.35) / lh));
   };
 
-  /** Structure-aware reflow: when ResizeObserver discovers a previously
-   *  rendered row is taller than one physical row (a stacked fraction,
-   *  radical, matrix…), every row written below it must shift down by the
-   *  measured deficit so prose never overlaps a denominator. Runs whenever
-   *  a measured height crosses a row boundary (`heightsTick`). Idempotent:
-   *  walks lines in ascending order, recomputes each row's minimum row
-   *  index from the row above, and only mutates state when a shift is
-   *  needed. */
-  useEffect(() => {
-    const heights = lineHeightsRef.current;
-    const usedLines = Object.keys(freeLines)
-      .map(Number)
-      .filter((n) => Number.isInteger(n) && (freeLines[n]?.length ?? 0) > 0)
-      .sort((a, b) => a - b);
-    if (usedLines.length < 2) return;
-
-    const remap = new Map<number, number>();
-    let prevLine = usedLines[0];
-    let cursor = prevLine; // last assigned line index
-    for (let i = 1; i < usedLines.length; i++) {
-      const orig = usedLines[i];
-      const prevH = heights[prevLine] ?? 0;
-      const lh = grid.LINE_HEIGHT;
-      const prevExtra = prevH > 0 ? Math.max(0, Math.ceil((prevH - lh) / lh)) : 0;
-      const minLine = cursor + 1 + prevExtra;
-      const target = Math.max(orig, minLine);
-      if (target !== orig) remap.set(orig, target);
-      cursor = target;
-      prevLine = orig; // height keyed by original line index
-    }
-    if (remap.size === 0) return;
-
-    setFreeLines((prev) => {
-      const next: typeof prev = { ...prev };
-      // Apply shifts from largest to smallest to avoid clobbering.
-      const entries = Array.from(remap.entries()).sort((a, b) => b[0] - a[0]);
-      for (const [from, to] of entries) {
-        next[to] = prev[from];
-        delete next[from];
-      }
-      return next;
-    });
-    setNotebookRowLines((prev) => {
-      const ns = new Set<number>();
-      for (const n of prev) ns.add(remap.get(n) ?? n);
-      return ns;
-    });
-    // Remap measured heights too so the next reflow pass is stable.
-    const nextHeights: Record<number, number> = {};
-    for (const [k, v] of Object.entries(heights)) {
-      const n = Number(k);
-      nextHeights[remap.get(n) ?? n] = v;
-    }
-    lineHeightsRef.current = nextHeights;
-    // Shift the sensor if it sat on a remapped line.
-    setSensor((s) => {
-      const f = Math.floor(s.line);
-      const shift = remap.get(f);
-      if (shift === undefined) return s;
-      return { ...s, line: s.line + (shift - f) };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heightsTick]);
+  // Structure-aware reflow was REMOVED intentionally. The teacher owns
+  // the workspace layout: the Smartboard must never reposition already
+  // written ink when a structure grows. Tall Lesson Objects simply
+  // extend downward visually; the sensor and subsequent lines stay
+  // wherever the teacher placed them.
 
   /** Edit the active line's tree via a fn that returns next root + cursor. */
   const editActive = (
@@ -1074,24 +1016,19 @@ const PresentationView = ({
   const writeProseLineOnBoard = useCallback((rawFromLessonNote: string) => {
     const src = (rawFromLessonNote ?? "").trim();
     if (!src) return;
-    // Stage through the Lesson Note mirror — this is the ONLY entry point
-    // for placing Lesson Note content on the Smartboard. It returns
-    // Smartboard math-tree nodes (real stacked fractions, radicals, etc.)
-    // identical to how Lesson Notes itself renders the same source, and
-    // refuses if any forbidden LaTeX residue survives.
     const mirror = mirrorLessonNoteRow(src);
     if (!mirror.ok || mirror.row.length === 0) return;
     const sig = mirror.signature;
     setFreeLines((prev) => {
-      let maxLine = -1;
+      // Idempotency: same prose already on a line → park sensor just below
+      // it, do not duplicate.
       let existingLine: number | null = null;
       for (const k of Object.keys(prev)) {
         const n = Number(k);
         const row = prev[n];
-        if (row && row.length > 0) {
-          maxLine = Math.max(maxLine, Math.floor(n));
-          // Idempotency: same prose already on a line → bail.
-          if (rowSignature(row) === sig) existingLine = Math.floor(n);
+        if (row && row.length > 0 && rowSignature(row) === sig) {
+          existingLine = Math.floor(n);
+          break;
         }
       }
       if (existingLine !== null) {
@@ -1100,40 +1037,23 @@ const PresentationView = ({
           ns.add(existingLine);
           return ns;
         });
-        const afterExisting = existingLine + 1 + extraRowsFor(existingLine);
-        setSensor((s) => ({ ...s, line: afterExisting, x: 0 }));
-        setLiveCursor({ path: [], index: 0 });
-        activeSensorLogicalIdxRef.current = null;
-        activeSensorPhysicalLineRef.current = afterExisting;
-        manualPushedRef.current = null;
         return prev;
       }
-      // Structure-aware placement: if the row above holds a tall Lesson
-      // Object (stacked fraction, radical, matrix…), its measured DOM
-      // height already extends past its baseline row. Skip those extra
-      // physical rows so the new prose never lands inside a denominator.
-      const extra = maxLine >= 0 ? extraRowsFor(maxLine) : 0;
-      // Notes are authored teaching content, so they belong immediately below
-      // the last visible solution item. Do not let a stale/manually-pushed
-      // sensor create a large gap before the note.
-      const target = maxLine >= 0 ? maxLine + 1 + extra : Math.floor(sensor.line);
+      // Insert the note AT THE CURRENT SENSOR ROW. The teacher's sensor
+      // position is the insertion point — no auto-computed offset, no
+      // extraRowsFor padding, no auto-jump to "next empty row below the
+      // last ink". The teacher decides where the note lands.
+      const target = Math.floor(sensor.line);
       const next = { ...prev, [target]: mirror.row };
-      // Tag this row as notebook prose so the sensor-anchor logic skips it
-      // when computing the K-th writable line. The sensor jumps to the row
-      // BELOW the notebook so the teacher writes under the teaching note.
       setNotebookRowLines((prevSet) => {
         const ns = new Set(prevSet);
         ns.add(target);
         return ns;
       });
-      setSensor((s) => ({ ...s, line: target + 1 + extraRowsFor(target), x: 0 }));
-      setLiveCursor({ path: [], index: 0 });
-      activeSensorLogicalIdxRef.current = null;
-      activeSensorPhysicalLineRef.current = target + 1 + extraRowsFor(target);
-      manualPushedRef.current = null;
       return next;
     });
-  }, [sensor.line, setLiveCursor]);
+  }, [sensor.line]);
+
 
   /** Insert a real stacked fraction at the sensor (no slash). Optional sign
    *  is typed first; the frac node is created with numerator/denominator
@@ -1510,7 +1430,11 @@ const PresentationView = ({
   useEffect(() => {
     if (!solvingMode) return;
     if (!activeLayout || activeLayout.bandLines <= 0) return;
-    const r = Math.min(firstEmptyBandRow(activeLayout), bandEnd(activeLayout));
+    // Initial sensor position = the row IMMEDIATELY below "Solution".
+    // Do NOT scan for the first empty row: on reload the teacher expects
+    // to land right under the caption, above any existing ink, and place
+    // themselves manually. bandStart is exactly that row.
+    const r = bandStart(activeLayout);
     setSensor({ line: r, x: 0 });
     setLiveCursor({ path: [], index: 0 });
     autoFloorRef.current = r;
@@ -2056,44 +1980,42 @@ const PresentationView = ({
       return;
     }
 
-    const occupied: number[] = [];
-    for (let r = a; r <= b; r++) {
-      const row = freeLines[r];
-      if (!row || row.length === 0) continue;
-      // Notebook-prose rows are read-only narration — they must NOT count
-      // as a writable line when anchoring the sensor.
-      if (notebookRowLines.has(r)) continue;
-      occupied.push(r);
-    }
-    // Map the guided-line index to its EQUATION ordinal — notebookOnly
-    // (prose) lines never own a written equation row, so they must not
-    // shift the row mapping.
-    let eqOrd = 0;
-    for (let k = 0; k < idx; k++) {
-      if (!guidedLines[k]?.notebookOnly) eqOrd++;
-    }
-    const isEquationLine = !guidedLines[idx]?.notebookOnly;
-    // Rows already OWNED by this guided line (a line may span several
-    // physical rows). Rewinding the display to this line parks the sensor
-    // on its LAST row, at the end of the ink, ready for editing.
+    // Lesson-Line owned rows for the target line. Rewinding to a line
+    // that already has ink parks the sensor on its LAST owned row (end
+    // of the multi-row equation). Advancing to a line that has no ink
+    // yet parks the sensor immediately below the previous line's LAST
+    // owned row — never in the middle of a stacked structure.
     const ownedRows = Object.entries(rowOwners)
       .filter(([, o]) => o === idx)
       .map(([k]) => Number(k))
       .sort((x, y) => x - y);
+    const isEquationLine = !guidedLines[idx]?.notebookOnly;
     let target: number;
-    if (isEquationLine && ownedRows.length > 0) {
+    if (ownedRows.length > 0) {
+      // Line K already has ink → park at its last owned row (end of ink).
       target = ownedRows[ownedRows.length - 1];
-    } else if (isEquationLine && eqOrd < occupied.length) {
-      target = occupied[eqOrd];
     } else {
-      const lastOcc = occupied.length > 0 ? occupied[occupied.length - 1] : a - 1;
-      // Skip past notebook-prose and structure-covered rows when extending
-      // below the last written line — the sensor must land on the first truly
-      // empty writable row, not merely the next physical row.
-      let cand = lastOcc < a ? a : firstWritableRowAfter(lastOcc, activeLayout);
-      if (isEquationLine && eqOrd > occupied.length) cand += eqOrd - occupied.length;
-      target = Math.min(b, cand);
+      // Line K has no ink yet → find the highest owned row of any
+      // PREVIOUS line and place the sensor immediately below it. This is
+      // the rule the teacher asked for: "Find the lowest row used by
+      // Lesson Line N. Place the sensor one row below."
+      let maxPrevOwned = -1;
+      for (const [k, o] of Object.entries(rowOwners)) {
+        if (o < idx) maxPrevOwned = Math.max(maxPrevOwned, Number(k));
+      }
+      if (maxPrevOwned >= a) {
+        target = Math.min(b, maxPrevOwned + 1);
+      } else {
+        // No prior ink: land right below "Solution".
+        target = a;
+      }
+      if (!isEquationLine) {
+        // Notebook-only guided line: keep the sensor still — the teacher
+        // is reading, not writing yet.
+        target = Math.min(b, target);
+      }
     }
+
     if (sensor.line !== target) {
       setSensor((s) => (s.line === target ? s : { ...s, line: target, x: 0 }));
       const tInk = freeLines[target] ?? freeLines[target + 0.5] ?? [];
