@@ -2861,6 +2861,44 @@ const PresentationView = ({
     [writeProseLineOnBoard],
   );
 
+  // Board-note presence check: given a lineIdx with a Teacher Note in the
+  // preview, verify that some row on the Smartboard carries ink whose
+  // signature matches the note text. This is what catches the "flagged
+  // shown, never rendered" bug on Line 2.
+  const getBoardHasNoteFor = useCallback((lineIdx: number): boolean => {
+    const line = paiRefs.current.guidedLines[lineIdx];
+    const raw = (line?.notebook ?? "").trim();
+    if (!raw) return true;
+    const m = mirrorLessonNoteRow(raw);
+    if (!m.ok) return true;
+    const expected = m.signature;
+    const rows = freeLinesRef.current;
+    for (const key of Object.keys(rows)) {
+      const ink = rows[Number(key) as unknown as number];
+      if (!ink || ink.length === 0) continue;
+      if (rowSignature(ink) === expected) return true;
+    }
+    return false;
+  }, []);
+
+  const scrollBoardTo = useCallback((lineIdx: number) => {
+    const row = findBoardRowForLine(lineIdx);
+    if (row === null) return;
+    // Board scrolling is driven by `beatCursor` / `activeLineIdx`. Setting the
+    // active line ensures the row is in the visible band.
+    setActiveLineIdx(lineIdx);
+  }, [findBoardRowForLine]);
+
+  const eraseNoteAt = useCallback((lineIdx: number) => {
+    // Best-effort: drop the note flag so a rewrite re-runs the effect.
+    setShownNotebookIdx((prev) => {
+      if (!prev.has(lineIdx)) return prev;
+      const nx = new Set(prev);
+      nx.delete(lineIdx);
+      return nx;
+    });
+  }, []);
+
   const paiController = useMemo<PresentationController>(
     () => ({
       beats,
@@ -2893,6 +2931,11 @@ const PresentationView = ({
       getBoardRowSignatureFor,
       getExpectedRowSignatureFor,
       getExpectedPrefixSignatureFor,
+      getBoardHasNoteFor,
+      eraseNoteAt,
+      scrollBoardTo,
+      pickFloatingNumber: (lineIdx: number, fillerIdx: number) =>
+        writeEquationPrefix(lineIdx, fillerIdx + 1),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -2905,6 +2948,9 @@ const PresentationView = ({
       getBoardRowSignatureFor,
       getExpectedRowSignatureFor,
       getExpectedPrefixSignatureFor,
+      getBoardHasNoteFor,
+      eraseNoteAt,
+      scrollBoardTo,
     ],
   );
   const ai = usePresentationAI(paiController);

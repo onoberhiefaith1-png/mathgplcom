@@ -4,6 +4,7 @@
 
 export type IssueKind =
   | "note-missing"
+  | "note-missing-on-board"
   | "floating-missing"
   | "filler-missing"
   | "line-mismatch"
@@ -12,6 +13,8 @@ export type IssueKind =
   | "scroll-out-of-view"
   | "beat-cursor-drift"
   | "line-cursor-drift"
+  | "overlap-detected"
+  | "sensor-misplaced"
   | "section-missing"
   | "rendering-broken"
   | "structural";

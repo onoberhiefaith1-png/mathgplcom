@@ -59,17 +59,32 @@ export const runRepair = async (
         ? { ok: true, message: "Line rewritten from the Presenter Preview." }
         : { ok: false, message: "Line still does not match after rewrite." };
     }
-    case "note-missing": {
+    case "note-missing":
+    case "note-missing-on-board": {
       if (step.kind === "beat") return { ok: false, message: "Not a line step." };
       const raw = (step.line.notebook ?? "").trim();
       if (!raw) return { ok: false, message: "No note text available." };
+      // Teacher move: scroll target line into view, erase any half-written
+      // note that may have overlapped, then write the note fresh.
+      ctrl.scrollBoardTo?.(step.lineIdx);
+      ctrl.eraseNoteAt?.(step.lineIdx);
       ctrl.writeProseLineOnBoard(raw);
       ctrl.markNotebookShown(step.lineIdx);
       ctrl.addNotebookAttention(step.lineIdx);
-      await wait(120);
-      return ctrl.getShownNotebookIdx().has(step.lineIdx)
+      await wait(180);
+      const shown = ctrl.getShownNotebookIdx().has(step.lineIdx);
+      const onBoard = ctrl.getBoardHasNoteFor?.(step.lineIdx) ?? shown;
+      return shown && onBoard
         ? { ok: true, message: "Teacher Note written to the board." }
-        : { ok: false, message: "Note write did not register." };
+        : { ok: false, message: "Note write did not register on the board." };
+    }
+    case "overlap-detected":
+    case "sensor-misplaced": {
+      if (step.kind === "beat") return { ok: false, message: "Not a line step." };
+      ctrl.scrollBoardTo?.(step.lineIdx);
+      ctrl.setActiveLineIdx(step.lineIdx);
+      await wait(120);
+      return { ok: true, message: "Sensor re-anchored on target line." };
     }
     case "scroll-out-of-view": {
       const el = ctrl.getPreviewCardEl?.(step.beat.id);

@@ -141,6 +141,26 @@ export const inspectStep = (
           repairable: true,
         }),
       );
+      return issues;
+    }
+    // Even if `shownNotebookIdx` claims the note was placed, verify the
+    // Smartboard actually has a row whose ink matches the note. This catches
+    // the "flagged shown, never rendered" bug the teacher reported on Line 2.
+    const boardHasNote = ctrl.getBoardHasNoteFor?.(step.lineIdx) ?? true;
+    if (!boardHasNote) {
+      issues.push(
+        mkIssue(step, {
+          kind: "note-missing-on-board",
+          summary: "Presenter Preview shows a Teacher Note but the Smartboard has no matching row.",
+          expected: rawNote.slice(0, 120),
+          actual: "note row not found on board",
+          probableCause:
+            "writeProseLineOnBoard ran but the row was overwritten or the note landed on a row already owned by another line.",
+          suggestedFix:
+            "Move the sensor to a free row for this line and rewrite the note via writeProseLineOnBoard.",
+          repairable: true,
+        }),
+      );
     }
     return issues;
   }
