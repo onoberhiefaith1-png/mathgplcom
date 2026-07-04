@@ -1,78 +1,136 @@
-## Presenter Preview — Manual AI Edit Mode
 
-Add a second workflow to the Presenter Preview panel (the panel already embedded next to the live Smartboard in `PresentationView.tsx`) so the teacher can correct any presentation issue directly, without running Autoplay. Presentation AI (Autoplay/diagnosis) stays untouched.
+## Upgrade AI Edit into an Autonomous Smartboard Operator
 
-### 1. Two modes on the Presenter Preview panel
+Today's `AiEditWorkspace` behaves like a chat helper: it parses the teacher's prompt, runs one repair recipe, and reports back. The new behavior treats the Presenter Preview as the source of truth and makes the AI **act on the Smartboard** — clicking, opening, erasing, retrying — exactly as a teacher would, then verifying against the Preview.
 
-Add a mode state to `PresenterPreviewPanel.tsx`: `"normal" | "edit"`. Toolbar in the panel header:
+### 1. New operator loop
 
-- **Normal (default)** — presentation mode.
-  - No text selection (`user-select: none` on the scroller).
-  - Every top-level item (cover, prose section, problem, and each solution Line row) shows a small **Skip** pill in its corner. Toggling it writes to the existing skip-plan store (`toggleSkipped` in `src/lib/smartboard/presentation.ts` / the store used by `SmartboardPreviewPage`) so both the teacher panel and Autoplay honour the same flags.
-  - No AI Edit affordance.
-- **Edit** — activated by an **Edit** button in the top-right of the panel header (pencil icon, toggles to **Done** while active).
-  - Skip pills are hidden.
-  - Selection re-enabled; hovering any selectable item shows a faint outline.
-  - Clicking a selectable target selects it (single-select, replaces previous).
+Replace the single `runManualEdit(target, prompt, ctrl)` call with an autonomous loop in `src/lib/smartboard/manualEdit/operator.ts`:
 
-### 2. Selectable targets in Edit Mode
+```text
+select target
+  → DIAGNOSE (probe board vs. preview, no writes)
+  → REPRODUCE (perform the teacher gesture: click Note / click #-chip / scroll)
+  → OBSERVE (read board signature after gesture)
+  → ROOT-CAUSE (classify why the gesture failed)
+  → REPAIR (apply the smallest matching recipe)
+  → VERIFY (re-run the same probe)
+  → repeat up to N attempts, escalating strategy each time
+  → REPORT (pass, or structured failure with the exact failing step)
+```
 
-Wrap each renderable unit with a stable `data-edit-target` attribute carrying a typed descriptor:
+Each phase emits an `OperatorEvent` (`kind, label, ok, detail, tookMs`) so the drawer can render a live step list instead of a static report.
 
-- `section` (introduction / explanation / summary prose block)
-- `example` / `exercise` / `classwork` / `homework` (whole subsection card)
-- `question` (the problem statement inside a subsection)
-- `solution-line` (one reservoir line row)
-- `floating-number` (one chip inside the FloatingChips row)
-- `teacher-note` (the NoteBlock)
-- `math-structure` (an inline math span inside prose/equation — coarse selection using the parent node)
+### 2. Probes — the "can I…?" tests
 
-Selection state lives inside the panel; on select, render an inline **AI Edit** button directly beneath the selected element (absolutely positioned to the selected node's bounding box, or appended as a sibling row so layout stays stable). Only one AI Edit button visible at a time.
+New file `src/lib/smartboard/manualEdit/probes.ts` with pure read functions built on the existing controller:
 
-### 3. AI Workspace drawer
+- `probeNote(lineIdx)` → `{ inPreview, onBoard, blocked, offscreen }` using `ctrl.getBoardHasNoteFor`, `getPreviewCardEl`, board row rect vs. viewport.
+- `probeFloating(lineIdx, fillerIdx)` → compares `getExpectedPrefixSignatureFor` with `getBoardRowSignatureFor`, and checks whether the `#` panel opens.
+- `probeLine(lineIdx)` → expected vs. actual row signature; detects overlap with previous/next row rects.
+- `probeScroll(lineIdx)` → is the target row within the board viewport?
+- `probeActiveLine()` → does `getActiveLineIdx()` match the selected line?
+- `probeStructure(target)` → math-structure rendering (KaTeX span present, non-empty).
 
-Create `src/components/smartboard/AiEditWorkspace.tsx` — a slide-in drawer (right side, over the Smartboard column, dismissible) opened when the teacher clicks **AI Edit**. Contents:
+All probes are side-effect free. They feed both Diagnose and Verify.
 
-- Header showing the selection's descriptor (kind, section caption, line number, subsection id).
-- Read-only preview of the selected content (equation, note, chips, etc.), rendered with the same `renderMathInline` pipeline as the panel.
-- A prompt textarea with quick-suggestion chips seeded from the common corrections list (missing note, missing floating number, missing line, incorrect spacing, overlapping equations, wrong reveal order, misplaced floating chip, wrong active line, wrong scroll).
-- **Apply** and **Cancel** buttons. Apply calls the local edit dispatcher (§4); Cancel closes the drawer and clears selection.
+### 3. Gestures — the "do it like a teacher" actions
 
-The drawer is hosted from `PresentationView.tsx` so it has access to the same `PresentationController` used by Autoplay/repairs.
+New file `src/lib/smartboard/manualEdit/gestures.ts`. Each gesture is a small async function that drives the controller in the same order a teacher's hand would move:
 
-### 4. Edit dispatcher — local, no backend
+- `clickNote(lineIdx)` — `scrollBoardTo → moveSensorToSafeRow → eraseNoteAt(if stale) → writeProseLineOnBoard(note) → markNotebookShown → addNotebookAttention`.
+- `clickHash(lineIdx)` — `scrollBoardTo → moveSensorToSafeRow → openFloatingPanel`.
+- `pickChip(lineIdx, fillerIdx)` — assumes panel open; `pickFloatingNumber`, else fallback to `writeEquationPrefix`.
+- `writeQuestion(lineIdx, eq)` — `scrollBoardTo → moveSensorToSafeRow → writeQuestionLine`.
+- `eraseRow(lineIdx)` — guarded `eraseRow(-1, lineIdx)`.
+- `scrollIntoView(lineIdx)` — `scrollBoardTo` + settle wait.
+- `retryLineFromScratch(lineIdx)` — erase → safe row → replay every chip in order → verify.
 
-Add `src/lib/smartboard/manualEdit/dispatch.ts`. Given `{ target, promptText }` it:
+Gestures never touch notebook data or Preview state — only the board.
 
-1. Parses `promptText` against a small intent table (regex + keyword matcher) into one of:
-   `sync-note`, `sync-floating`, `sync-line`, `sync-highlight`, `sync-structure`, `fix-spacing`, `fix-overlap`, `fix-order`, `fix-active-line`, `fix-scroll`, `move-note`, `rerender-structure`.
-2. Looks up the target's board coordinates via the existing `PresentationController` methods (`scrollBoardTo`, `moveSensorToSafeRow`, `openFloatingPanel`, `pickFloatingNumber`, `writeQuestionLine`, `eraseRow`, `eraseNoteAt`, `setActiveLineIdx`, etc. — already declared in `controller.ts` and `interface.ts`).
-3. Reuses the repair recipes from `src/lib/smartboard/presentationAI/repairs.ts` where the intent maps 1:1 to an existing recipe (e.g. `sync-note` → `note-missing` recipe; `sync-floating` → `filler-missing` recipe; `fix-overlap` → `sensor-collision` recipe; `fix-scroll` → `board-scroll-lost` recipe). Only manual corrections that don't match an existing recipe get a new small handler.
-4. Returns an `EditReport` `{ ok, actions[], message }` shown in the drawer footer.
+### 4. Root-cause classifier
 
-Rule (per user): dispatcher **never mutates the notebook / Presenter Preview** — it only drives the Smartboard through the controller. The Preview stays the source of truth.
+New file `src/lib/smartboard/manualEdit/rootCause.ts`. Given `{target, probeBefore, gestureResult, probeAfter}` it returns one of:
 
-### 5. Verification
+`click-not-fired`, `panel-did-not-open`, `chip-not-registered`, `render-empty`, `sync-lost`, `mapping-missing`, `wrong-layer`, `blocked-by-overlap`, `outside-viewport`, `queue-missed`, `active-line-drift`, `structural` (last one = cannot repair from client).
 
-After apply, run a lightweight re-inspection using the existing `inspector.ts` against the affected line only; surface the pass/fail chip in the drawer. On fail, offer a single **Retry** which re-runs the recipe.
+Each root cause maps to an ordered list of repair strategies (see §5). The classifier is deterministic — no LLM.
 
-### 6. Independence from Presentation AI
+### 5. Strategy ladder (escalation)
 
-- Manual edit dispatcher and Presentation AI share the same controller and repair recipes but do not share run state — pressing Autoplay is unaffected, and using AI Edit while Autoplay is paused or stopped is allowed.
-- Presentation AI's issue log stays separate; manual edits log to a new short list in the drawer footer only.
+`src/lib/smartboard/manualEdit/strategies.ts` — per root cause, an ordered array of tactics. The operator tries them in order until Verify passes or the list is exhausted. Examples:
+
+- `click-not-fired` → [replay gesture, reset active line then replay, scroll then replay].
+- `panel-did-not-open` → [close+reopen panel, safe-row then reopen, erase row then reopen].
+- `chip-not-registered` → [pick chip again, erase row + replay all chips up to k, writeEquationPrefix fallback].
+- `render-empty` (note) → [rewriteNote, eraseNoteAt+rewrite, scroll+safe-row+rewrite].
+- `blocked-by-overlap` → [moveSensorToSafeRow, drop extra row for fraction, eraseRow + replay].
+- `outside-viewport` → [scrollBoardTo, then re-run original gesture].
+- `active-line-drift` → [`setActiveLineIdx`, then replay].
+- `sync-lost` / `queue-missed` → [`setBeatCursor` + `setActiveLineIdx`, replay].
+- `structural` → stop and emit escalation report.
+
+Tactics reuse the existing recipes in `presentationAI/repairs.ts` where they line up (`note-missing`, `filler-missing`, `line-mismatch`, `sensor-collision`, `board-scroll-lost`) so we don't duplicate logic.
+
+### 6. Quick Suggestions become executable workflows
+
+`SUGGESTED_PROMPTS` in `dispatch.ts` is replaced by `SUGGESTED_WORKFLOWS` — each entry pre-selects a root-cause hypothesis so the operator can skip Diagnose and go straight to the matching strategy ladder:
+
+| Chip | Workflow |
+| --- | --- |
+| Note missing on board | force root cause `render-empty` on target's line note |
+| Add floating number | `chip-not-registered` on selected filler (or first missing) |
+| Solution line missing | `queue-missed` on selected line |
+| Fix overlap | `blocked-by-overlap` |
+| Fix spacing | `blocked-by-overlap` (drop-extra-row tactic first) |
+| Bring into view | `outside-viewport` |
+| Reset active line | `active-line-drift` |
+| Re-render structure | `render-empty` with structure sub-strategy |
+
+Clicking the chip immediately triggers the operator run — no textarea required. The textarea stays for free-form intents that still route through the keyword parser.
+
+### 7. Drawer UX changes (`AiEditWorkspace.tsx`)
+
+- Auto-start Diagnose the moment the drawer opens; show a live checklist as probes complete.
+- Replace the current single "report" card with a phase timeline: Diagnose → Reproduce → Root cause → Repair (with tactic name) → Verify.
+- Buttons collapse to a single **Stop** while running; **Retry** re-runs from Diagnose; **Cancel** closes.
+- On terminal failure, render an "Escalate to code fix" block containing the full event trail, ready for the teacher to hand to Lovable.
+
+### 8. Controller surface additions
+
+Small, additive methods on `PresentationController` (only if not already exposed) — read-only where possible:
+
+- `getBoardRowRect(lineIdx)` — for overlap and viewport probes.
+- `isFloatingPanelOpen()` and `closeFloatingPanel()` — so gestures can reset the panel.
+- `getBoardScrollTopFor(lineIdx)` — for `outside-viewport` probe.
+
+No changes to notebook data, Presenter Preview rendering, or Autoplay flow.
+
+### 9. Independence & safety
+
+- Operator runs are isolated per drawer session; no shared state with Autoplay.
+- Every gesture is guarded by `guardOwnerLineIdx` where applicable so the operator can only erase/rewrite the selected line's row and its own note.
+- Hard cap: 5 tactics per run, 8 s per tactic, then escalate.
 
 ### Files
 
-- edit `src/components/smartboard/PresenterPreviewPanel.tsx` — mode toolbar, Skip pills, selection wiring, `data-edit-target` attributes, inline AI Edit button.
-- new `src/components/smartboard/AiEditWorkspace.tsx` — drawer UI.
-- new `src/lib/smartboard/manualEdit/dispatch.ts` — intent parser + controller driver.
-- new `src/lib/smartboard/manualEdit/types.ts` — `EditTarget`, `EditIntent`, `EditReport`.
-- edit `src/components/smartboard/PresentationView.tsx` — host the drawer, pass controller into it, thread selection state.
-- reuse `src/lib/smartboard/presentation.ts` skip-plan helpers so Skip pills share storage with `SmartboardPreviewPage`.
-- reuse `src/lib/smartboard/presentationAI/{controller,inspector,repairs,interface}.ts` — no changes required unless a new recipe (`move-note`) needs a small addition.
+**New**
+- `src/lib/smartboard/manualEdit/operator.ts` — the diagnose/reproduce/repair/verify loop.
+- `src/lib/smartboard/manualEdit/probes.ts` — pure read tests.
+- `src/lib/smartboard/manualEdit/gestures.ts` — teacher-style board actions.
+- `src/lib/smartboard/manualEdit/rootCause.ts` — deterministic classifier.
+- `src/lib/smartboard/manualEdit/strategies.ts` — ordered tactic ladders per root cause.
 
-### Out of scope (explicit)
+**Edited**
+- `src/lib/smartboard/manualEdit/dispatch.ts` — thin wrapper that now calls the operator; `SUGGESTED_WORKFLOWS` replaces `SUGGESTED_PROMPTS`.
+- `src/lib/smartboard/manualEdit/types.ts` — add `OperatorEvent`, `OperatorPhase`, `RootCause`, `Tactic`, extend `EditReport` with `events[]`.
+- `src/components/smartboard/AiEditWorkspace.tsx` — auto-run on open, phase timeline UI, Stop/Retry controls, escalation block.
+- `src/lib/smartboard/presentationAI/controller.ts` and `interface.ts` — expose the small read helpers listed in §8 if missing.
 
-- No changes to Presentation AI (Autoplay), diagnosis panel, or notebook data.
-- No new backend or edge functions.
-- No LLM call in the workspace drawer — intent parsing is local; a future upgrade could send `{target, promptText, boardSnapshot}` to `notebook-ai`, but this plan keeps everything client-side and deterministic first.
+**Untouched**
+- Presentation AI Autoplay, `usePresentationAI.ts`, `inspector.ts` internals, Presenter Preview panel selection layer, notebook data, backend/edge functions. No LLM call.
+
+### Out of scope
+
+- Sending diagnostics to an LLM. Everything is local and deterministic; a future upgrade can post the event trail to `notebook-ai`.
+- Changing what "correct" means — the Presenter Preview + existing `inspector.ts` remain the arbiter.
