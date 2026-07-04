@@ -413,21 +413,11 @@ const PresenterPreviewPanel = ({
       ? { cursor: "pointer" as const, outline: "1px dashed rgba(59,130,246,0.35)", outlineOffset: 2 }
       : {};
 
-  const AiEditButton = ({ target }: { target: EditTarget }) =>
-    isSelected(target) && onOpenAiEdit ? (
-      <div className="mt-2">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenAiEdit(target);
-          }}
-          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold text-white shadow"
-          style={{ background: "#3b82f6" }}
-        >
-          <Sparkles className="h-3 w-3" /> AI Edit
-        </button>
-      </div>
-    ) : null;
+  // Live Mirror Mode: no confirmation button — selecting an item mirrors
+  // it immediately via `onMirrorChange`. Keep the component as a no-op
+  // to preserve existing JSX slots without extra layout work.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const AiEditButton = (_: { target: EditTarget }) => null;
 
   const SkipPill = ({ beatId }: { beatId: string }) => {
     if (mode !== "normal" || !notebookId) return null;
