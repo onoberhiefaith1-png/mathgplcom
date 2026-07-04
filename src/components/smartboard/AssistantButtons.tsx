@@ -50,7 +50,7 @@ export const AssistantButtons = ({
         onClick={(e) => { e.stopPropagation(); onToggle("numbers"); }}
         aria-label="Toggle floating numbers"
         title="Floating numbers"
-        className="fixed z-40 grid place-items-center rounded-full border transition-all"
+        className="absolute z-40 grid place-items-center rounded-full border transition-all"
         style={{ left: 12, bottom: bottomInset + 12, ...btnStyle(active === "numbers", palette) }}
       >
         <Hash className="h-5 w-5" />
@@ -62,7 +62,7 @@ export const AssistantButtons = ({
         onClick={(e) => { e.stopPropagation(); onToggle("structures"); }}
         aria-label="Toggle structures"
         title="Structures (□/□, √□, …)"
-        className="fixed z-40 grid place-items-center rounded-full border transition-all"
+        className="absolute z-40 grid place-items-center rounded-full border transition-all"
         style={{ right: 12, bottom: bottomInset + 12 + liftRightBottom, ...btnStyle(active === "structures", palette) }}
       >
         <FunctionSquare className="h-5 w-5" />
@@ -74,7 +74,7 @@ export const AssistantButtons = ({
         onClick={(e) => { e.stopPropagation(); onToggle("symbols"); }}
         aria-label="Toggle symbols"
         title="Symbols (+ − × ÷ = …)"
-        className="fixed z-40 grid place-items-center rounded-full border transition-all"
+        className="absolute z-40 grid place-items-center rounded-full border transition-all"
         style={{ right: 12, top: "50%", transform: "translateY(-50%)", ...btnStyle(active === "symbols", palette) }}
       >
         <Sigma className="h-5 w-5" />
