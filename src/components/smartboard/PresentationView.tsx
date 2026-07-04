@@ -4385,9 +4385,11 @@ const PresentationView = ({
       {((role === "student" && canEdit) || assessmentMode) && (
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
+      </div>
     </div>
   );
 };
+
 
 
 /* ─────────────── Beat renderer ─────────────── */
