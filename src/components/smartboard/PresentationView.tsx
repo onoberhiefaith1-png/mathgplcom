@@ -2779,7 +2779,11 @@ const PresentationView = ({
 
   // Presenter Preview panel sync — the live board's beat id already matches
   // the preview panel's item id ("__cover__", "<secId>-text", "<subId>-q").
-  const activePreviewBeatId: string | null = current?.id ?? null;
+  // Never hand `null` to the preview while beats exist — otherwise the
+  // preview's first render stamps a "null" active key and later beat
+  // hydrations can silently no-op. Fall back to the first beat.
+  const activePreviewBeatId: string | null =
+    current?.id ?? (beats.length > 0 ? beats[0].id : null);
   const activePreviewLineIdx: number | null =
     current && (current.kind === "problem" || current.kind === "exercise-prompt")
       ? activeLineIdx
