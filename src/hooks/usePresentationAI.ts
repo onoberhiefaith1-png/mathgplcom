@@ -231,7 +231,7 @@ export const usePresentationAI = (
         scheduleNext(1);
       }, 200);
     },
-    [applyStep, inspectAndBook, scheduleNext, steps],
+    [applyStep, ctrl, inspectAndBook, scheduleNext, steps],
   );
 
   const stop = useCallback(() => {
