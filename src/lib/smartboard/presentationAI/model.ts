@@ -75,6 +75,14 @@ export const isRenderableNote = (raw: string | undefined | null): boolean => {
   return !lines.some(looksLikeMathLine);
 };
 
+/** The first solution line of a section is the ORIGINAL problem restated —
+ *  the AI writes it wholesale, it does not reconstruct it from chips. */
+export const isQuestionLine = (lineIdx: number, line: ReservoirLine): boolean => {
+  if (lineIdx !== 0) return false;
+  if (line.notebookOnly) return false;
+  return !!(line.equation ?? "").trim();
+};
+
 export const buildSteps = (
   beats: Beat[],
   reservoirs: Reservoir[],
@@ -89,15 +97,20 @@ export const buildSteps = (
     res.lines.forEach((line, lineIdx) => {
       const common = { beatIndex, beat, lineIdx, line, reservoir: res };
       steps.push({ kind: "line-start", ...common });
-      const fillers = line.fillers ?? [];
-      fillers.forEach((_, fillerIdx) => {
-        steps.push({
-          kind: "filler",
-          ...common,
-          fillerIdx,
-          totalFillers: fillers.length,
+      // Question line: no chip-picking. Written wholesale via
+      // writeQuestionLine in the stepper.
+      const isQuestion = isQuestionLine(lineIdx, line);
+      if (!isQuestion) {
+        const fillers = line.fillers ?? [];
+        fillers.forEach((_, fillerIdx) => {
+          steps.push({
+            kind: "filler",
+            ...common,
+            fillerIdx,
+            totalFillers: fillers.length,
+          });
         });
-      });
+      }
       if (isRenderableNote(line.notebook)) {
         steps.push({ kind: "note", ...common });
       }
@@ -108,8 +121,9 @@ export const buildSteps = (
 };
 
 /** How many sub-steps a single line consumes — used for pacing math. */
-export const lineSubStepCount = (line: ReservoirLine): number => {
-  const fillers = (line.fillers ?? []).length;
+export const lineSubStepCount = (line: ReservoirLine, lineIdx = 0): number => {
+  const isQuestion = isQuestionLine(lineIdx, line);
+  const fillers = isQuestion ? 0 : (line.fillers ?? []).length;
   const noteBeat = isRenderableNote(line.notebook) ? 1 : 0;
   // line-start + fillers + optional note + line-verify
   return 1 + fillers + noteBeat + 1;
