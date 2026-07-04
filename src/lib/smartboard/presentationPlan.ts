@@ -73,3 +73,19 @@ export const loadApprovedAt = (notebookId: string | null | undefined): string | 
     return null;
   }
 };
+
+/** Filter beats + reservoirs by the plan's skip flags. Used by both the
+ *  Preview page (to preview the effect of a skip) and the live
+ *  PresentationView (to actually skip during teaching). */
+export const applyPlan = (
+  beats: Beat[],
+  reservoirs: Reservoir[],
+  plan: PresentationPlan,
+): { beats: Beat[]; reservoirs: Reservoir[] } => {
+  const skip = new Set(plan.skipped);
+  if (skip.size === 0) return { beats, reservoirs };
+  return {
+    beats: beats.filter((b) => !skip.has(b.id)),
+    reservoirs: reservoirs.filter((r) => !skip.has(r.beatId)),
+  };
+};
