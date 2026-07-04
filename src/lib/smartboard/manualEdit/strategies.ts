@@ -10,7 +10,6 @@ import type { PresentationController } from "@/lib/smartboard/presentationAI/con
 import type { EditTarget, RootCause } from "./types";
 import * as G from "./gestures";
 import { pipelineLadderFor } from "./pipelineTactics";
-import * as G from "./gestures";
 
 export interface Tactic {
   name: string;
