@@ -45,7 +45,6 @@ export const waitForBeat = async (
   ctrl: PresentationController,
 ): Promise<boolean> => {
   const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
-  console.log("[MIRROR] waitForBeat", { beatId: target.beatId, beatIdx, cursor: ctrl.getBeatCursor(), beatIds: JSON.stringify(ctrl.beats.map((b) => ({ id: b.id, kind: (b as any).kind }))) });
   if (beatIdx < 0) return false;
   if (ctrl.getBeatCursor() !== beatIdx) ctrl.setBeatCursor(beatIdx);
 
@@ -55,13 +54,10 @@ export const waitForBeat = async (
     const cursorOk = ctrl.getBeatCursor() === beatIdx;
     const res = ctrl.getActiveReservoir();
     const resOk = !needsRes || res?.beatId === target.beatId;
-    if (cursorOk && (resOk || (!needsRes && cursorOk))) {
-      if (cursorOk && resOk) { console.log("[MIRROR] settled", { cursor: ctrl.getBeatCursor(), res: res?.beatId }); return true; }
-      if (cursorOk && !needsRes) return true;
-    }
+    if (cursorOk && resOk) return true;
+    if (cursorOk && !needsRes) return true;
     await wait(40);
   }
-  console.log("[MIRROR] waitForBeat TIMEOUT", { cursor: ctrl.getBeatCursor(), res: ctrl.getActiveReservoir()?.beatId });
   return ctrl.getBeatCursor() === beatIdx;
 };
 
