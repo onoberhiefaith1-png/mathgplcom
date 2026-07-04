@@ -161,6 +161,7 @@ export const FloatingNumberPanel = ({
   frozen = false,
   notebookPending = false,
 }: Props) => {
+  const sbRoot = useSmartboardRoot();
   const [offset, setOffset] = useState<number>(0);
   // How many already-USED numbers are currently revealed (green) on the left of
   // the single strip. 0 = pure forward view of unused numbers. Backward grows
@@ -693,7 +694,7 @@ export const FloatingNumberPanel = ({
 
     </div>
   );
-  return typeof document === "undefined" ? panel : createPortal(panel, document.body);
+  return typeof document === "undefined" ? panel : createPortal(panel, sbRoot ?? document.body);
 };
 
 export default FloatingNumberPanel;
