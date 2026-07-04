@@ -94,20 +94,18 @@ export const applyMirror = async (
     }
 
     case "floating-number": {
+      // Clicking a `#` (or a floating-number chip) in the preview must
+      // OPEN the Floating Number panel showing the chips for that line —
+      // it must NOT write ink or solve the equation. The teacher still
+      // taps chips manually on the board.
       const idx = li(target);
-      const k = fi(target);
       if (idx < 0) return;
       const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
       if (beatIdx >= 0) ctrl.setBeatCursor(beatIdx);
       ctrl.setActiveLineIdx(idx);
       ctrl.scrollBoardTo?.(idx);
       ctrl.moveSensorToSafeRow?.(idx);
-      // Same call the normal presenter uses when a teacher taps a chip.
-      if (ctrl.pickFloatingNumber) {
-        ctrl.pickFloatingNumber(idx, k);
-      } else {
-        ctrl.writeEquationPrefix(idx, k + 1);
-      }
+      ctrl.openFloatingPanel?.(idx);
       return;
     }
 
