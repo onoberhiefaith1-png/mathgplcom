@@ -2784,6 +2784,67 @@ const PresentationView = ({
   const canAdvanceBeat = beatCursor < beats.length - 1;
   useEffect(() => { guidedIncompleteRef.current = guidedIncomplete; }, [guidedIncomplete]);
 
+  // ─── Presentation AI wiring ──────────────────────────────────────────
+  // A dedicated AI that presents the lesson automatically and verifies the
+  // Smartboard against the Presenter Preview (source of truth). See
+  // src/lib/smartboard/presentationAI/*.
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const paiRefs = useRef({
+    beatCursor,
+    activeLineIdx,
+    shownNotebookIdx,
+    activeReservoir,
+    guidedLines,
+  });
+  paiRefs.current = {
+    beatCursor,
+    activeLineIdx,
+    shownNotebookIdx,
+    activeReservoir,
+    guidedLines,
+  };
+  const paiController = useMemo<PresentationController>(
+    () => ({
+      beats,
+      reservoirs,
+      notebookId,
+      notebookTitle: notebook?.title ?? null,
+      getBeatCursor: () => paiRefs.current.beatCursor,
+      setBeatCursor: (n: number) => setBeatCursor(n),
+      getActiveLineIdx: () => paiRefs.current.activeLineIdx,
+      setActiveLineIdx: (n: number) => setActiveLineIdx(n),
+      getShownNotebookIdx: () => paiRefs.current.shownNotebookIdx,
+      markNotebookShown: (i: number) =>
+        setShownNotebookIdx((p) => {
+          if (p.has(i)) return p;
+          const nx = new Set(p);
+          nx.add(i);
+          return nx;
+        }),
+      writeProseLineOnBoard,
+      addNotebookAttention: (i: number) =>
+        setNotebookAttentionIdx((p) => {
+          if (p.has(i)) return p;
+          const nx = new Set(p);
+          nx.add(i);
+          return nx;
+        }),
+      getActiveReservoir: () => paiRefs.current.activeReservoir,
+      getActiveGuidedLines: () => paiRefs.current.guidedLines,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [beats, reservoirs, notebookId, notebook?.title, writeProseLineOnBoard],
+  );
+  const ai = usePresentationAI(paiController);
+  useEffect(() => {
+    if (ai.activeIssue) setAiPanelOpen(true);
+  }, [ai.activeIssue]);
+  useEffect(() => {
+    if (ai.state === "reporting") setAiPanelOpen(true);
+  }, [ai.state]);
+
+
+
 
 
   if (loading && !assessmentMode) {
