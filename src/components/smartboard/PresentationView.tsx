@@ -407,6 +407,8 @@ const PresentationView = ({
     catch { /* noop */ }
   }, [presenterPanelOpen, PRESENTER_PANEL_KEY]);
   const [presenterIconVisible, setPresenterIconVisible] = useState(false);
+  // Manual AI Edit workspace — driven from the Presenter Preview's Edit mode.
+  const [aiEditTarget, setAiEditTarget] = useState<EditTarget | null>(null);
   // The 70% Smartboard pane element. Published via context so portals
   // (FloatingNumberPanel, SensorDPad) mount inside this container instead of
   // document.body, keeping every control anchored to the resized pane.
