@@ -2921,6 +2921,16 @@ const PresentationView = ({
     host.scrollTo({ top: target, behavior: "smooth" });
   }, [findBoardRowForLine, grid]);
 
+  // Scroll straight to a known board ROW (no ownership lookup needed).
+  // Live Mirror uses this after writing so the mirrored ink is always
+  // brought into view — note rows have no rowOwners entry.
+  const scrollBoardToRow = useCallback((row: number) => {
+    const host = boardScrollRef.current;
+    if (!host) return;
+    const y = lineToY(row, grid);
+    host.scrollTo({ top: Math.max(0, y - 140), behavior: "smooth" });
+  }, [grid]);
+
   /** Row occupancy classification — used by the AI to decide whether the
    *  next visual row is safe to write on. */
   const getRowOccupancy = useCallback(
