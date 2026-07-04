@@ -1,158 +1,68 @@
-# Presentation AI — Autoplay + Diagnosis Master
+## Presentation AI — Teacher Simulation Upgrade
 
-Build a dedicated "Presentation AI" that owns Smartboard playback and continuously verifies it against the Presenter Preview (the source of truth). Not a lesson generator — a presenter, inspector, diagnostician, and self-repair engine.
+Right now the Presentation AI advances beats/lines and reveals notes, but it **does not build math**. It reads the completed equation off the reservoir and moves on. This plan upgrades it into a real teacher: for every solution line it clicks Floating Numbers one-by-one, watches the equation grow on the Smartboard, drops the Teacher Note when the preview says so, and verifies the row against the Presenter Preview before advancing.
 
-## Scope
+The Presenter Preview stays the single source of truth. Nothing about the preview model or the reservoir builder changes — only the AI stepper, the controller surface, and the inspector.
 
-- Autoplay engine driving the same beat/line cursor a teacher advances manually.
-- Speed presets (Fast 10s / Standard 30s / Slow 60s / Detailed 120s per line).
-- Continuous verification: after every step, compare Smartboard state to Preview state.
-- Diagnosis Panel overlay (30% right, does not resize the Smartboard).
-- Self-repair for a bounded set of sync/render issues; escalation via generated Lovable prompt for anything requiring code changes.
-- End-of-lesson PASS/FAIL report.
+### 1. New step granularity (`model.ts`)
 
-## User flow
-
-1. Teacher opens a lesson on the Smartboard.
-2. Clicks new **Autoplay** control (in the existing top-right cluster near Preview toggle).
-3. Speed popover appears → pick preset → playback starts.
-4. Smartboard advances beat-by-beat, line-by-line, revealing floating numbers and teacher notes exactly as the Preview shows them.
-5. A small **AI Diagnosis** icon appears top-right during Autoplay. Green dot = healthy, red dot = error detected.
-6. On error: playback pauses at the exact position, icon turns red, panel auto-opens with error card + three actions: **Rectify**, **Proceed**, **Generate Lovable Prompt**.
-7. At end of lesson: report card summarizing checks, repairs, and PASS/FAIL.
-
-## Architecture
+Replace the current `beat | line` steps with:
 
 ```text
-                 ┌──────────────────────────┐
-                 │   PresentationAI (hook)  │
-                 │  - autoplayLoop()        │
-                 │  - inspect()             │
-                 │  - diagnose()            │
-                 │  - repair()              │
-                 └────────────┬─────────────┘
-                              │ reads
-     ┌────────────────────────┼────────────────────────┐
-     │                        │                        │
- Preview model           Smartboard state        Repair actions
- (buildBeats +           (beatCursor,            (setBeatCursor,
-  buildReservoirs)        activeLineIdx,          writeProseLineOnBoard,
-                          shownNotebookIdx,       setNotebookAttentionIdx,
-                          rendered DOM refs)      scrollIntoView, …)
+beat  →  line-start  →  filler-0  →  filler-1  →  …  →  filler-N  →  note (opt)  →  line-verify
 ```
 
-Single source of truth: the `items`/`beats`/`reservoirs` already computed for PresenterPreviewPanel. The AI reads that model and compares against the live Smartboard state exposed by `PresentationView`.
+- `filler-k`: expected side-effect is that the equation prefix `fillers[0..k].join(" ")` is now on the board.
+- `note`: only emitted when `isRenderableNote(line.notebook)` is true.
+- `line-verify`: final gate before the next line — compares full row.
 
-## Files
+Notebook-only lines skip straight from `line-start` to `note` to `line-verify`.
 
-New:
-- `src/lib/smartboard/presentationAI/model.ts` — expected-state snapshot per beat/line (section, line idx, expected floating chips, expected note text, expected highlight target).
-- `src/lib/smartboard/presentationAI/inspector.ts` — pure functions: `diffBeat(expected, actual) → Issue[]`, categorized by section/highlight/scroll/floating/note/rendering/sync.
-- `src/lib/smartboard/presentationAI/repairs.ts` — repair recipes keyed by issue type; each returns `{ apply(), verify(), label }`.
-- `src/lib/smartboard/presentationAI/lovablePrompt.ts` — builds a copy-pasteable Lovable prompt from an unresolved `Issue` (problem, component, expected, actual, probable cause, suggested implementation).
-- `src/hooks/usePresentationAI.ts` — state machine: `idle | presenting | paused | repairing | reporting`; owns speed, cursor advancement, inspection cadence, issue log, and report.
-- `src/components/smartboard/AutoplayControl.tsx` — top-right button + speed popover (presets + custom slider).
-- `src/components/smartboard/DiagnosisPanel.tsx` — right-side overlay (portaled into SmartboardRoot). Header status dot, current-step readout, issue card with Rectify/Proceed/Generate Prompt, scrollable issue log, end-of-lesson report view.
-- `src/components/smartboard/DiagnosisPromptModal.tsx` — shows generated Lovable prompt + Copy button.
+### 2. Controller additions (`presentationAI/controller.ts`)
 
-Edited:
-- `src/components/smartboard/PresentationView.tsx` — mount `usePresentationAI`, expose a small imperative surface (cursor setters, note/floating triggers, ref map for cards) via a context so the hook can drive playback and inspection without prop drilling. Render `AutoplayControl` + `DiagnosisPanel`.
-- `src/components/smartboard/PresenterPreviewPanel.tsx` — no behavioral change; expose ref map through context so inspector can read DOM state.
-- `.lovable/plan.md` — append feature entry.
+- `writeEquationPrefix(lineIdx, prefixTokenCount)` — teacher-style click emulation. Internally calls `writeProseLineOnBoard(fillers.slice(0, k).join(" "))` (which is already idempotent by row signature) so the row grows in place instead of duplicating.
+- `getBoardRowSignatureFor(lineIdx)` — returns the current signature of the row owned by that guided line (uses the existing `rowOwners` map + `rowSignature`), so the inspector can compare.
+- `getExpectedRowSignatureFor(lineIdx)` — mirror row signature for the full expected equation.
 
-No changes to buildBeats/buildReservoirs, note-purity, student view, or sync protocol.
+PresentationView already owns `writeProseLineOnBoard`, `rowOwners`, `mirrorLessonNoteRow`, and `rowSignature`. These new methods are thin wrappers exposed through `paiRefs`.
 
-## State machine (hook)
+### 3. Stepper (`usePresentationAI.ts`)
 
-```text
-idle ──Autoplay→ presenting ──tick→ inspect()
-   ↑                │                │
-   │                │           issues? ── no → advance()
-   │                │                │
-   │                ↓           yes ↓
-   │           reporting ← end     paused
-   │                                │
-   │                     ┌──────────┼──────────────┐
-   │                     ↓          ↓              ↓
-   │                Rectify → repairing     Proceed → advance()
-   │                     │                          
-   │                     ↓                          
-   │              verify ok? ── yes → presenting   
-   │                     │                          
-   │                     ↓ no                       
-   │              stay paused + offer Generate Prompt
-   └── Stop from any state
-```
+- Per-line pacing: total `SPEED_MS[speed]` is divided across `fillers.length + (hasNote ? 1 : 0) + 1` sub-steps. Minimum floor of 250 ms per click so fast mode still looks like typing rather than a paste.
+- On each `filler-k` tick: call `writeEquationPrefix(k+1)`, wait one frame + settle window, then `inspectStep`.
+- On `note`: call `writeProseLineOnBoard(note)` + `markNotebookShown`.
+- On `line-verify`: compare `getBoardRowSignatureFor` with `getExpectedRowSignatureFor`; on mismatch emit a `line-mismatch` issue and pause.
 
-## Verification checks per step
+### 4. Inspector (`presentationAI/inspector.ts`)
 
-Expected vs actual, using data already available:
-- Active beat id matches `beatCursor`.
-- Active line index matches `activeLineIdx` (clamped).
-- For each `guidedLines[i]` up to `activeLineIdx`:
-  - if `line.fillers.length > 0` → floating chips rendered on board (data present in shown state).
-  - if `line.notebook` non-empty and passes note-purity → note appears in `shownNotebookIdx` OR `notebookAttentionIdx === i`.
-- Highlighted card: DOM element for `activeBeatId` has the highlight class; no other card does.
-- Scroll: highlighted card in preview is within its scroll container's viewport.
+Two new issue kinds, both `repairable: true`:
 
-Each failing check → typed `Issue` with `{ kind, section, lineIdx, expected, actual, repairable: boolean }`.
+- `filler-missing` — expected prefix signature doesn't match the board row after a `filler-k` step. Repair: call `writeEquationPrefix(k+1)` again.
+- `line-mismatch` — full row signature mismatch at `line-verify`. Repair: call `writeEquationPrefix(fillers.length)` once, then re-check; if still mismatched, mark `repairable: false` and let the panel offer **Generate Lovable Prompt** with expected vs actual signatures inlined.
 
-## Self-repair recipes (bounded, safe)
+Existing checks (`beat-cursor-drift`, `line-cursor-drift`, `note-missing`) stay.
 
-- `note-missing` → call `writeProseLineOnBoard(rawNote)` + update `shownNotebookIdx`.
-- `floating-missing` → re-trigger the reveal path for that line (same call the Next button uses).
-- `highlight-wrong` → force `setBeatCursor(expected)` / `setActiveLineIdx(expected)`.
-- `scroll-out-of-view` → `scrollIntoView({ block: "center" })` on the preview card via ref map.
-- `beat-cursor-drift` → resync from expected model.
+Ordering rule (Rule 10 in the spec): when a `note` step is scheduled but the preview says a filler still comes after it, the inspector emits `sequence-mismatch` with expected/actual labels.
 
-Anything outside this whitelist (missing sections, broken math rendering, structural mismatches, missing DOM refs, animation deadlocks) is marked `repairable: false` and routed to the Lovable-prompt generator.
+### 5. Diagnosis panel
 
-## Generated Lovable prompt template
+No structural changes — the panel already renders `activeIssue.summary/expected/actual/probableCause/suggestedFix` and the Rectify / Proceed / Generate Prompt buttons. The new issue kinds plug straight in. Health % keeps ticking (green while `state === "presenting"`, red the moment `activeIssue` is set).
 
-```
-Presentation AI detected an unresolvable issue.
+### 6. Files touched
 
-Component: <file:line-hint>
-Section: <caption>
-Line: <n>
-Problem: <human summary>
-Expected (from Presenter Preview): <expected>
-Actual (from Smartboard): <actual>
-Probable cause: <heuristic>
-Suggested implementation: <recipe if any>
-Repro: Autoplay at <speed> preset on notebook <id>.
-```
+- `src/lib/smartboard/presentationAI/model.ts` — new step kinds + builder.
+- `src/lib/smartboard/presentationAI/types.ts` — new `IssueKind` values.
+- `src/lib/smartboard/presentationAI/inspector.ts` — filler / sequence / mismatch checks.
+- `src/lib/smartboard/presentationAI/repairs.ts` — recipes for the new kinds.
+- `src/lib/smartboard/presentationAI/controller.ts` — new methods on the interface.
+- `src/hooks/usePresentationAI.ts` — sub-step scheduler and per-tick pacing.
+- `src/components/smartboard/PresentationView.tsx` — implement `writeEquationPrefix`, `getBoardRowSignatureFor`, `getExpectedRowSignatureFor`; wire into `paiRefs`.
 
-Copy button writes to clipboard; modal stays open until dismissed.
+No changes to lesson-note authoring, floating-number extraction, or the Presenter Preview panel — this is purely the AI's presentation loop.
 
-## End-of-lesson report
+### 7. Success criteria
 
-Rendered inside DiagnosisPanel when state is `reporting`:
-- Sections tested, lines tested, floating numbers verified, teacher notes verified.
-- Highlight events, scroll events, sync checks, repairs performed.
-- Unresolved issues list (each with "Generate Prompt").
-- Big PASS or FAIL banner.
-
-## Explicit non-goals
-
-- No AI-generated math or content; no calls to the notebook-ai / floating-* edge functions.
-- No changes to the student-facing board or realtime broadcast protocol.
-- No modification of note-purity or floating extraction logic.
-- No auto-repair for code-level bugs — those always go to prompt generation.
-
-## Verification before finishing
-
-- Manual autoplay of a lesson at Fast preset completes with 0 issues on a known-good notebook.
-- Injecting a synthetic missing-note (temporarily comment out the note auto-reveal effect) causes: pause, red dot, issue card, Rectify succeeds, playback resumes.
-- Injecting a structural issue (e.g., missing beat) causes: pause, red dot, `repairable: false`, Generate Prompt produces a well-formed prompt.
-- End report renders and reflects the injected+repaired issue counts correctly.
-
----
-
-## Implemented: Presentation AI (Autoplay + Diagnosis)
-
-- New: `src/lib/smartboard/presentationAI/{types,controller,model,inspector,repairs,lovablePrompt}.ts`
-- New: `src/hooks/usePresentationAI.ts`
-- New: `src/components/smartboard/AutoplayControl.tsx`
-- New: `src/components/smartboard/DiagnosisPanel.tsx`
-- Edited: `src/components/smartboard/PresentationView.tsx` — added controller wiring + AutoplayControl (top-right) + DiagnosisPanel overlay.
+- On autoplay, each solution line's equation appears on the Smartboard token-by-token, not all at once.
+- Teacher Notes appear exactly where the Presenter Preview places them (between fillers if the preview has them there).
+- Any drift (missing filler, wrong order, missing note, row signature mismatch) turns the diagnosis chip red, pauses playback, and offers Rectify / Proceed / Generate Prompt.
+- End-of-lesson report counts every filler click and every note as inspected units.
