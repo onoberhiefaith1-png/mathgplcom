@@ -1,120 +1,82 @@
-# Chapter 2 — Smartboard Interface Mastery
+# Autoplay: Wipe Board + Actually Click the # Button
 
-Two visible outcomes:
-
-1. The Diagnosis panel becomes collapsible.
-2. Presentation AI stops behaving like a viewer and starts operating the Smartboard the way a teacher does — clicking the Floating Number button, moving the sensor, erasing wrong objects, dropping notes on the correct lines, and never letting two objects overlap.
-
-The Presenter Preview remains the source of truth. The Smartboard must be made to match it.
+Two focused fixes.
 
 ---
 
-## 1. Collapsible Diagnosis Panel
+## 1. Wipe the Smartboard on Autoplay start
 
-File: `src/components/smartboard/DiagnosisPanel.tsx`
+Right now Autoplay begins on top of whatever ink the teacher/student already had on the board, so leftover work confuses the AI's row-signature checks. The teacher's request: Autoplay must start from a blank surface.
 
-- Add a `collapsed` state (persist to `localStorage` under `pai:diagnosis:collapsed`).
-- When expanded: current 30% right overlay.
-- When collapsed: a slim vertical rail (~40px) pinned to the right edge showing status dot (🟢/🔴), step counter `n/N`, and a chevron button to expand. Red state pulses.
-- Header gets a collapse button (chevron-right icon) alongside the existing close (X).
-- Autoplay chip (`AutoplayControl.tsx`) keeps a small "Open diagnosis" affordance when the panel is fully closed; no change if just collapsed.
+**Change** — `PresentationView.tsx` exposes a `resetBoard()` on the `PresentationController`. `usePresentationAI.start()` calls it before the first step. `resetBoard()` performs the same reset the existing "Clear board" toolbar button already runs:
 
-## 2. Smartboard Interface Knowledge Layer
+- `setFreeLines({})`
+- `lineWidthsRef.current = {}`
+- `setSensor({ line: 0, x: 0 })`
+- `setLiveCursor({ path: [], index: 0 })`
+- Clear PAI-owned reveal state: `setShownNotebookIdx(new Set())`, `setNotebookAttentionIdx(new Set())`, `setConsumedAbsIdx(new Set())`
+- `rowOwnersRef.current = {}`
 
-New module: `src/lib/smartboard/presentationAI/interface.ts`
+It does **not** touch reservoirs, plan, or lesson content.
 
-Declarative catalogue of every Smartboard tool the AI is allowed to use, with purpose, when-to-use, and the imperative handle it invokes on the controller. This is the AI's "training manual" — inspector and repair recipes reference it by name instead of calling controller methods ad-hoc.
+## 2. Teach the AI to actually click the # (Floating Number) button
 
-Tools registered:
+The error in the screenshot — `Floating Number 1 did not land on the Smartboard. Expected +5x. writeEquationPrefix did not commit the row.` — happens because the current `pickFloatingNumber` still goes through `writeProseLineOnBoard(fillers.join(" "))`. That helper is designed for full prose/equation lines and refuses to commit chip fragments like `+5x` (leading operator, no left-hand side), so the row stays empty and the inspector flags it.
 
-- `floating-panel-toggle` — open/close Floating Number panel.
-- `floating-pick` — click a specific floating number in the panel.
-- `eraser` — remove a specific object (row / note / token) from the board.
-- `sensor-move` — D-Pad up/down/left/right.
-- `sensor-goto-line` — jump sensor to the start of a target line.
-- `note-drop` — write the current line's Teacher Note at sensor.
-- `scroll` — scroll the board viewport when the target line is off-screen.
+The real UI already has the exact path a teacher uses:
 
-Each entry: `{ id, purpose, preconditions, action(ctrl, args), verify(ctrl, args) }`.
+- `AssistantButtons` → **Numbers (#)** — sets `activeAssistant = "numbers"`, which mounts `FloatingNumberPanel`.
+- `FloatingNumberPanel` → chip click → `onInsert(text)` → `insertTextAtSensor(text)` (and `onInsertFrac` for fractions) → `setConsumedAbsIdx.add(absIdx)`.
 
-## 3. Controller surface expansion
+The AI must drive that exact path.
 
-File: `src/lib/smartboard/presentationAI/controller.ts` (interface) — `PresentationView.tsx` supplies the implementations, reusing existing Smartboard state (no new authoring logic).
+### Controller additions in `PresentationView.tsx`
 
-Add:
+- `openFloatingPanel()` → `setActiveAssistant("numbers")` and point the panel at the target reservoir/line via `setManualFloatingLineIdx(lineIdx)` + `setFloatingLineIdx(lineIdx)`.
+- `closeFloatingPanel()` → `setActiveAssistant(null)`.
+- `isFloatingPanelOpen()` → `activeAssistant === "numbers"`.
+- `moveSensorToLineStart(lineIdx)` → set the writing sensor to the leftmost column of the row currently owned by `lineIdx` (via `rowOwnersRef`); if the line has no owner yet, seat the sensor on the first empty row below the last owned row.
+- `pickFloatingNumber(lineIdx, fillerIdx)` — the teacher-style path:
+  1. If the panel isn't open, `openFloatingPanel()`.
+  2. `moveSensorToLineStart(lineIdx)` (only if the sensor isn't already on that row — never disrupt an in-progress line).
+  3. Read `filler = guidedLines[lineIdx].fillers[fillerIdx]`.
+  4. If the filler is a fraction chip (matches `^[+\-−]?\d+\/\d+[a-zA-Z]?$`), call `insertFractionAtSensor({sign, num, den})`; otherwise call `insertTextAtSensor(filler)`.
+  5. Compute the reservoir-flat `absIdx` for that chip and `setConsumedAbsIdx.add(absIdx)` so the panel greys the chip out the same way it would under a manual click.
 
-- `openFloatingPanel() / closeFloatingPanel() / isFloatingPanelOpen()`
-- `pickFloatingNumber(lineIdx, fillerIdx)` — programmatic equivalent of the teacher clicking the # tile; falls through to the same code path `writeEquationPrefix` already uses, but exposed as a named tool call so the AI's action log reads like teacher moves.
-- `eraseRow(lineIdx)` / `eraseNoteAt(lineIdx)` — clears just the offending object via existing row-signature machinery.
-- `moveSensor(dir: "up"|"down"|"left"|"right", steps=1)` + `getSensorPosition()`.
-- `scrollBoardTo(lineIdx)` — ensures the target row is in view.
-- `detectOverlap(lineIdx)` — returns `{ overlapsWith: number | null, kind: "row"|"note" }` by comparing bounding rects of rendered rows/notes (uses `getPreviewCardEl`-style DOM lookup on the board side).
-- `getBoardNoteFor(lineIdx)` / `getExpectedNoteFor(lineIdx)` — for the note-missing check.
+The AI hook (`usePresentationAI.ts`) `applyStep` for `kind === "filler"` calls `ctrl.pickFloatingNumber(lineIdx, fillerIdx)` instead of `writeEquationPrefix`. `line-verify` still calls `writeEquationPrefix` as a belt-and-braces final assertion (idempotent by row signature).
 
-None of this changes lesson-note authoring, floating-number extraction, or the Presenter Preview.
+### AbsIdx mapping
 
-## 4. New inspector checks
-
-File: `src/lib/smartboard/presentationAI/inspector.ts`
-
-Adds three issue kinds (all `repairable: true`):
-
-- `note-missing-on-board` — Preview line has a renderable note, `getBoardNoteFor(lineIdx)` is empty. This is the exact bug the user showed on Line 2.
-- `overlap-detected` — `detectOverlap` reports a collision between the current line and any prior object.
-- `sensor-misplaced` — before a write, sensor is not on the expected row.
-
-Existing `filler-missing` / `line-mismatch` / `beat-cursor-drift` / `note-missing` stay.
-
-## 5. New repair recipes
-
-File: `src/lib/smartboard/presentationAI/repairs.ts`
-
-Each recipe is expressed as a sequence of interface-tool calls (Observe → Decide → Act → Verify):
-
-- `note-missing-on-board` → `sensor-goto-line(lineIdx)` → `note-drop` → verify `getBoardNoteFor == expected`.
-- `overlap-detected` → `eraser` on the offending object → `sensor-move("down")` until `detectOverlap` clears → re-run the original write (filler prefix or note-drop) → verify.
-- `sensor-misplaced` → `sensor-goto-line` → verify.
-- `filler-missing` (existing) → rewritten to go through `openFloatingPanel` → `pickFloatingNumber` → `closeFloatingPanel`, so the repair path exercises the same tools a teacher would.
-
-## 6. Write-time guard rails in the stepper
-
-File: `src/hooks/usePresentationAI.ts`
-
-Before every `filler` / `note` / `line-verify` step, run the standard teacher cycle:
+`FloatingNumberPanel` numbers chips per reservoir. The mapping is:
 
 ```text
-Observe → Decide → Act → Verify → Repair? → Continue
+absIdx(lineIdx, fillerIdx) =
+  sum(reservoir.lines[k].fillers.length for k in 0..lineIdx-1) + fillerIdx
 ```
 
-Concretely:
+`resolveFloatingAbsIdx(lineIdx, fillerIdx)` will live in `PresentationView.tsx` next to the other PAI helpers and be used by `pickFloatingNumber`.
 
-1. `detectOverlap(lineIdx)` — if collision, emit `overlap-detected` and pause.
-2. Ensure sensor is on the target line; otherwise emit `sensor-misplaced`.
-3. Perform the action via the interface tool (not raw controller calls).
-4. Re-inspect; if the note is expected here and missing, emit `note-missing-on-board`.
+### Inspector wording
 
-Speed presets and min-tick timing stay the same.
+The `filler-missing` message now reads: `Floating Number k for line L was not placed. The AI must open the # panel and click the chip for "<filler>".` Repair recipe becomes:
 
-## 7. UI wiring in `PresentationView.tsx`
-
-- Implement the new controller methods against existing Smartboard state (row signatures, `mirrorLessonNoteRow`, DOM measurements for overlap).
-- Register the tools from `interface.ts` on mount.
-- No change to the visible Smartboard chrome beyond what already exists (Floating # button, Eraser, SensorDPad, RightTools). The AI just drives them programmatically.
-
-## 8. Success criteria
-
-- Diagnosis panel can be collapsed to a rail and re-expanded; state persists across reloads.
-- On the current failing lesson, Line 2's missing Teacher Note is detected → diagnosis turns red → **Rectify** drops the note in the correct position with no overlap → panel returns to green and autoplay continues.
-- Two objects never occupy the same board region during autoplay; when a collision would occur, the AI scrolls/moves the sensor down before writing.
-- End-of-run report counts `note-missing-on-board`, `overlap-detected`, and `sensor-misplaced` alongside the existing stats, and unresolved instances still produce a Lovable Prompt.
+1. `openFloatingPanel()`
+2. `moveSensorToLineStart(lineIdx)`
+3. `pickFloatingNumber(lineIdx, fillerIdx)`
+4. Re-inspect the row signature; success when it matches the expected prefix.
 
 ## Files touched
 
-- `src/components/smartboard/DiagnosisPanel.tsx` (collapsible)
-- `src/lib/smartboard/presentationAI/interface.ts` (new — tool catalogue)
-- `src/lib/smartboard/presentationAI/controller.ts` (interface additions)
-- `src/lib/smartboard/presentationAI/inspector.ts` (new checks)
-- `src/lib/smartboard/presentationAI/repairs.ts` (new recipes)
-- `src/lib/smartboard/presentationAI/types.ts` (new issue kinds + stats)
-- `src/hooks/usePresentationAI.ts` (Observe→Verify cycle)
-- `src/components/smartboard/PresentationView.tsx` (controller impls, no authoring changes)
+- `src/lib/smartboard/presentationAI/controller.ts` — extend interface (`resetBoard`, `moveSensorToLineStart`, richer `pickFloatingNumber`).
+- `src/components/smartboard/PresentationView.tsx` — implement `resetBoard`, real `openFloatingPanel`/`closeFloatingPanel`, `moveSensorToLineStart`, teacher-style `pickFloatingNumber`, `resolveFloatingAbsIdx`.
+- `src/hooks/usePresentationAI.ts` — call `ctrl.resetBoard()` in `start()`; route `filler` step through `pickFloatingNumber`; route `note` step through `openFloatingPanel(false)` before `writeProseLineOnBoard` so the note lands on a clean surface.
+- `src/lib/smartboard/presentationAI/repairs.ts` — `filler-missing` recipe drives the panel + chip click sequence.
+- `src/lib/smartboard/presentationAI/inspector.ts` — updated messages to name the tool the AI must use.
+
+## Success criteria
+
+- Pressing Autoplay wipes any existing ink and starts on a blank Smartboard.
+- The Numbers (#) assistant panel visibly opens as the AI reaches each filler step; chips grey out one by one as the AI picks them.
+- The Line 1 `+5x` case in the screenshot commits to the board on the first attempt — no red diagnosis.
+- Teacher Notes still land after the fillers (existing `note-missing-on-board` check remains in place).
+- Nothing changes about how fillers or notes are authored in the Presenter Preview.

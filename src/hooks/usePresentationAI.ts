@@ -94,12 +94,23 @@ export const usePresentationAI = (
       }
       ctrl.setBeatCursor(step.beatIndex);
       ctrl.setActiveLineIdx(step.lineIdx);
-      if (step.kind === "line-start") return;
+      if (step.kind === "line-start") {
+        // Open the # panel and point it at this line — the visible teacher
+        // gesture. Fine to no-op if the controller doesn't expose it.
+        ctrl.openFloatingPanel?.(step.lineIdx);
+        return;
+      }
       if (step.kind === "filler") {
-        ctrl.writeEquationPrefix(step.lineIdx, step.fillerIdx + 1);
+        // Teacher move: click the chip on the # panel. Falls back to the
+        // legacy prefix writer if the controller doesn't implement it.
+        if (ctrl.pickFloatingNumber) ctrl.pickFloatingNumber(step.lineIdx, step.fillerIdx);
+        else ctrl.writeEquationPrefix(step.lineIdx, step.fillerIdx + 1);
         return;
       }
       if (step.kind === "note") {
+        // Close the # panel before dropping the Teacher Note so the note
+        // lands on a clean surface instead of behind the chip tray.
+        ctrl.closeFloatingPanel?.();
         const raw = (step.line.notebook ?? "").trim();
         if (raw) {
           ctrl.writeProseLineOnBoard(raw);
@@ -195,6 +206,9 @@ export const usePresentationAI = (
       if (steps.length === 0) return;
       clearTimer();
       if (s) setSpeed(s);
+      // Wipe the Smartboard — Autoplay must always start from a blank
+      // surface so the AI reconstructs the full solution from scratch.
+      ctrl.resetBoard?.();
       setIssues([]);
       setActiveIssue(null);
       setStats(emptyStats);
@@ -217,7 +231,7 @@ export const usePresentationAI = (
         scheduleNext(1);
       }, 200);
     },
-    [applyStep, inspectAndBook, scheduleNext, steps],
+    [applyStep, ctrl, inspectAndBook, scheduleNext, steps],
   );
 
   const stop = useCallback(() => {

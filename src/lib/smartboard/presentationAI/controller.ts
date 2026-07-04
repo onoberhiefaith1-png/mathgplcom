@@ -59,9 +59,13 @@ export interface PresentationController {
   /** Programmatic click of the Floating Number tile — used by the AI to
    *  perform the same action a teacher would perform manually. */
   pickFloatingNumber?: (lineIdx: number, fillerIdx: number) => void;
-  openFloatingPanel?: () => void;
+  openFloatingPanel?: (lineIdx?: number) => void;
   closeFloatingPanel?: () => void;
   isFloatingPanelOpen?: () => boolean;
+
+  /** Wipe every mark from the Smartboard so autoplay starts from a blank
+   *  surface. Does NOT touch reservoirs, plan, or lesson content. */
+  resetBoard?: () => void;
 
   /** Preview panel card element for a beat id (used for scroll checks). */
   getPreviewCardEl?: (beatId: string) => HTMLElement | null;

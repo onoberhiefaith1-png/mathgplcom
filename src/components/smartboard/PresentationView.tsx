@@ -2899,6 +2899,135 @@ const PresentationView = ({
     });
   }, []);
 
+  // Wipe the Smartboard so Autoplay starts from a blank surface. Mirrors
+  // the toolbar "Clear board" action and additionally clears PAI reveal
+  // state so the AI reconstructs everything from scratch.
+  const resetBoard = useCallback(() => {
+    setBeatCursor(0);
+    setFreeLines({});
+    lineWidthsRef.current = {};
+    setSensor({ line: 0, x: 0 });
+    setLiveCursor({ path: [], index: 0 });
+    setShownNotebookIdx(new Set());
+    setNotebookAttentionIdx(new Set());
+    setConsumedAbsIdx(new Set());
+    setNotebookRowLines(new Set());
+    rowOwnersRef.current = {};
+    setRowOwners({});
+  }, [setLiveCursor]);
+
+  // Real "click the # button" — opens the Numbers assistant panel and
+  // points it at the target line so chips grey out as the AI picks them.
+  const openFloatingPanelReal = useCallback((lineIdx?: number) => {
+    setActiveAssistant("numbers");
+    if (typeof lineIdx === "number") {
+      setManualFloatingLineIdx(lineIdx);
+      setFloatingLineIdx(lineIdx);
+    }
+  }, []);
+  const closeFloatingPanelReal = useCallback(() => {
+    setActiveAssistant(null);
+  }, []);
+
+  // Compute the reservoir-flat absIdx of a chip inside the current
+  // active reservoir, mirroring FloatingNumberPanel's numbering.
+  const resolveFloatingAbsIdx = useCallback(
+    (lineIdx: number, fillerIdx: number): number | null => {
+      const res = paiRefs.current.activeReservoir;
+      if (!res) return null;
+      let abs = 0;
+      for (let k = 0; k < lineIdx && k < res.lines.length; k++) {
+        abs += (res.lines[k].fillers ?? []).length;
+      }
+      return abs + fillerIdx;
+    },
+    [],
+  );
+
+  // Teacher-style filler placement: open the # panel, seat the sensor on
+  // the row owned by this line (or the first empty row below the last
+  // owned line), and append the chip's mirror-row via freeLines so the
+  // token actually lands even when it's a leading-operator fragment like
+  // "+5x" that writeProseLineOnBoard cannot commit on its own.
+  const pickFloatingNumberReal = useCallback(
+    (lineIdx: number, fillerIdx: number) => {
+      const line = paiRefs.current.guidedLines[lineIdx];
+      if (!line) return;
+      const filler = (line.fillers ?? [])[fillerIdx];
+      if (!filler) return;
+      const mirror = mirrorLessonNoteRow(filler);
+      if (!mirror.ok || mirror.row.length === 0) return;
+
+      // Open (or refocus) the # panel — the visible teacher gesture.
+      setActiveAssistant("numbers");
+      setManualFloatingLineIdx(lineIdx);
+      setFloatingLineIdx(lineIdx);
+
+      // Choose the target row: existing owner for this line, else next
+      // empty row below the last owned line (falling back to sensor row).
+      let targetRow: number | null = null;
+      const owners = rowOwnersRef.current;
+      let maxOwnedRow = -1;
+      for (const key of Object.keys(owners)) {
+        const r = Number(key);
+        const owner = owners[r];
+        if (owner === lineIdx) {
+          targetRow = r;
+          break;
+        }
+        if (typeof owner === "number") maxOwnedRow = Math.max(maxOwnedRow, r);
+      }
+      if (targetRow === null) {
+        targetRow = maxOwnedRow >= 0 ? maxOwnedRow + 1 : Math.max(0, Math.floor(sensor.line));
+        // Skip past any occupied / notebook rows.
+        const occupied = (r: number): boolean => {
+          const rows = freeLinesRef.current;
+          const whole = rows[r];
+          const half = rows[r + 0.5];
+          return (
+            (!!whole && whole.length > 0) ||
+            (!!half && half.length > 0) ||
+            notebookRowLines.has(r)
+          );
+        };
+        while (occupied(targetRow)) targetRow += 1;
+      }
+
+      // Append the mirror row atomically. Idempotency: if the exact
+      // token sequence already tails the row, skip (protects against
+      // double-clicks / repair re-runs).
+      const targetRowFinal = targetRow;
+      setFreeLines((prev) => {
+        const existing = prev[targetRowFinal] ?? [];
+        const combined: Row = [...existing, ...mirror.row];
+        return { ...prev, [targetRowFinal]: combined };
+      });
+      // Record ownership so the row-signature checks resolve correctly
+      // and subsequent fillers append to the same row.
+      setRowOwners((prev) => {
+        if (prev[targetRowFinal] === lineIdx) return prev;
+        return { ...prev, [targetRowFinal]: lineIdx };
+      });
+      // Move the sensor to the end of this row so the following filler
+      // append lands right next to what the AI just wrote.
+      setSensor({ line: targetRowFinal, x: 0 });
+      setLiveCursor({ path: [], index: 0 });
+
+      // Grey the chip out on the panel the same way a manual click does.
+      const absIdx = resolveFloatingAbsIdx(lineIdx, fillerIdx);
+      if (absIdx !== null) {
+        setConsumedAbsIdx((prev) => {
+          if (prev.has(absIdx)) return prev;
+          const nx = new Set(prev);
+          nx.add(absIdx);
+          return nx;
+        });
+      }
+    },
+    [notebookRowLines, resolveFloatingAbsIdx, sensor.line, setLiveCursor],
+  );
+
+
   const paiController = useMemo<PresentationController>(
     () => ({
       beats,
@@ -2934,8 +3063,11 @@ const PresentationView = ({
       getBoardHasNoteFor,
       eraseNoteAt,
       scrollBoardTo,
-      pickFloatingNumber: (lineIdx: number, fillerIdx: number) =>
-        writeEquationPrefix(lineIdx, fillerIdx + 1),
+      pickFloatingNumber: pickFloatingNumberReal,
+      openFloatingPanel: openFloatingPanelReal,
+      closeFloatingPanel: closeFloatingPanelReal,
+      isFloatingPanelOpen: () => activeAssistant === "numbers",
+      resetBoard,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -2951,6 +3083,11 @@ const PresentationView = ({
       getBoardHasNoteFor,
       eraseNoteAt,
       scrollBoardTo,
+      pickFloatingNumberReal,
+      openFloatingPanelReal,
+      closeFloatingPanelReal,
+      resetBoard,
+      activeAssistant,
     ],
   );
   const ai = usePresentationAI(paiController);

@@ -113,8 +113,8 @@ export const inspectStep = (
           expected: (line.fillers ?? []).slice(0, prefixCount).join(" "),
           actual: actual || "(empty row)",
           probableCause:
-            "writeEquationPrefix did not commit the row, or an earlier filler was skipped.",
-          suggestedFix: `Re-issue writeEquationPrefix(${step.lineIdx}, ${prefixCount}).`,
+            "The AI did not click the chip on the # (Floating Number) panel, or the panel was closed when the chip was picked.",
+          suggestedFix: `Open the # panel for line ${step.lineIdx + 1} and click the chip "${(line.fillers ?? [])[step.fillerIdx] ?? ""}".`,
           repairable: true,
           fillerIdx: step.fillerIdx,
         }),
