@@ -39,23 +39,63 @@ export const runRepair = async (
     }
     case "filler-missing": {
       if (step.kind !== "filler") return { ok: false, message: "Not a filler step." };
-      // Teacher move: open the # panel (if closed) then click the chip.
+      // Teacher move (Rule 2 → 3 → 5 → 6): scroll target into view, seat
+      // the sensor on a safe row, open the # panel, then click the chip.
+      ctrl.scrollBoardTo?.(step.lineIdx);
+      ctrl.moveSensorToSafeRow?.(step.lineIdx);
       ctrl.openFloatingPanel?.(step.lineIdx);
       await wait(80);
       if (ctrl.pickFloatingNumber) ctrl.pickFloatingNumber(step.lineIdx, step.fillerIdx);
       else ctrl.writeEquationPrefix(step.lineIdx, step.fillerIdx + 1);
       await wait(200);
       const prefix = step.fillerIdx + 1;
-      const expected = ctrl.getExpectedPrefixSignatureFor(step.lineIdx, prefix);
-      const actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
+      let expected = ctrl.getExpectedPrefixSignatureFor(step.lineIdx, prefix);
+      let actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
+      if (expected !== actual) {
+        // Rule 6: erase and retry once on a fresh safe row.
+        ctrl.eraseRow?.(-1, step.lineIdx);
+        ctrl.moveSensorToSafeRow?.(step.lineIdx);
+        for (let k = 0; k <= step.fillerIdx; k++) {
+          ctrl.pickFloatingNumber?.(step.lineIdx, k);
+          await wait(60);
+        }
+        await wait(120);
+        expected = ctrl.getExpectedPrefixSignatureFor(step.lineIdx, prefix);
+        actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
+      }
       return expected === actual
         ? { ok: true, message: `Floating Number ${prefix} placed via the # panel.` }
         : { ok: false, message: "Row did not accept the chip. The AI must open the # panel and click the chip manually." };
     }
+    case "question-line-missing": {
+      if (step.kind === "beat") return { ok: false, message: "Not a line step." };
+      const eq = (step.line.equation ?? "").trim();
+      if (!eq) return { ok: false, message: "No equation text for the question line." };
+      ctrl.scrollBoardTo?.(step.lineIdx);
+      ctrl.moveSensorToSafeRow?.(step.lineIdx);
+      if (ctrl.writeQuestionLine) ctrl.writeQuestionLine(step.lineIdx, eq);
+      else ctrl.writeProseLineOnBoard(eq);
+      await wait(180);
+      const expected = ctrl.getExpectedRowSignatureFor(step.lineIdx);
+      const actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
+      return expected === actual
+        ? { ok: true, message: "Question line written." }
+        : { ok: false, message: "Question line did not land on the board." };
+    }
     case "line-mismatch": {
       if (step.kind === "beat") return { ok: false, message: "Not a line step." };
+      // Rule 8: erase current row, safe-row, rewrite full equation.
+      ctrl.eraseRow?.(-1, step.lineIdx);
+      ctrl.moveSensorToSafeRow?.(step.lineIdx);
       const fillers = step.line.fillers ?? [];
-      ctrl.writeEquationPrefix(step.lineIdx, fillers.length);
+      if (fillers.length > 0) {
+        for (let k = 0; k < fillers.length; k++) {
+          ctrl.pickFloatingNumber?.(step.lineIdx, k);
+          await wait(40);
+        }
+      } else {
+        ctrl.writeEquationPrefix(step.lineIdx, fillers.length);
+      }
       await wait(200);
       const expected = ctrl.getExpectedRowSignatureFor(step.lineIdx);
       const actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
