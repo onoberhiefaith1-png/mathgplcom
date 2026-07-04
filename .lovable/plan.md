@@ -146,3 +146,13 @@ Rendered inside DiagnosisPanel when state is `reporting`:
 - Injecting a synthetic missing-note (temporarily comment out the note auto-reveal effect) causes: pause, red dot, issue card, Rectify succeeds, playback resumes.
 - Injecting a structural issue (e.g., missing beat) causes: pause, red dot, `repairable: false`, Generate Prompt produces a well-formed prompt.
 - End report renders and reflects the injected+repaired issue counts correctly.
+
+---
+
+## Implemented: Presentation AI (Autoplay + Diagnosis)
+
+- New: `src/lib/smartboard/presentationAI/{types,controller,model,inspector,repairs,lovablePrompt}.ts`
+- New: `src/hooks/usePresentationAI.ts`
+- New: `src/components/smartboard/AutoplayControl.tsx`
+- New: `src/components/smartboard/DiagnosisPanel.tsx`
+- Edited: `src/components/smartboard/PresentationView.tsx` — added controller wiring + AutoplayControl (top-right) + DiagnosisPanel overlay.
