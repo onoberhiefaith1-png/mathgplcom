@@ -4,10 +4,33 @@
 
 import type { PresentationController } from "./controller";
 import type { Issue } from "./types";
-import { isRenderableNote, type PresentationStep } from "./model";
+import { isRenderableNote, isQuestionLine, type PresentationStep } from "./model";
+import { rule } from "./interface";
 
 let idCounter = 0;
 const nextId = () => `ai-${Date.now().toString(36)}-${(idCounter++).toString(36)}`;
+
+/** Build the equation prefix a teacher would have on the board after
+ *  placing chips[0..=fillerIdx], in Preview order. Uses the equation text
+ *  as the source of truth so the diagnosis reads like what the teacher sees
+ *  on the Presenter Preview. */
+const equationPrefixFor = (equation: string, fillers: string[], fillerIdx: number): string => {
+  const eq = (equation ?? "").trim();
+  if (!eq) return fillers.slice(0, fillerIdx + 1).join(" ");
+  // Locate each chip's first occurrence and take everything up to the end
+  // of chip[fillerIdx]. Falls back to joined chips if a chip is not found.
+  let cursor = 0;
+  let endIdx = 0;
+  for (let k = 0; k <= fillerIdx; k++) {
+    const chip = (fillers[k] ?? "").trim();
+    if (!chip) continue;
+    const hit = eq.indexOf(chip, cursor);
+    if (hit < 0) return fillers.slice(0, fillerIdx + 1).join(" ");
+    endIdx = hit + chip.length;
+    cursor = endIdx;
+  }
+  return eq.slice(0, endIdx);
+};
 
 const captionFor = (step: PresentationStep): string =>
   step.kind === "beat"
