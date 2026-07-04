@@ -12,6 +12,7 @@ import {
 
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
+import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
 import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
 
@@ -256,8 +257,16 @@ const PresentationView = ({
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? true : (isTeacher || isActiveStudent);
   const applyingRemoteRef = useRef(false);
-  const notebookBeats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
-  const notebookReservoirs = useMemo(() => buildReservoirs(sections), [sections]);
+  const rawBeats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
+  const rawReservoirs = useMemo(() => buildReservoirs(sections), [sections]);
+  // Apply the teacher's approved Preview plan (Present / Skip flags). The
+  // Preview page writes these to localStorage; the live board reads them
+  // here so the classroom presentation is a 1:1 copy of what the teacher
+  // rehearsed. Assessment mode ignores the plan.
+  const { beats: notebookBeats, reservoirs: notebookReservoirs } = useMemo(() => {
+    if (assessmentMode) return { beats: rawBeats, reservoirs: rawReservoirs };
+    return applyPlan(rawBeats, rawReservoirs, loadPlan(notebookId));
+  }, [rawBeats, rawReservoirs, assessmentMode, notebookId]);
   const beats = assessmentMode && source ? source.beats : notebookBeats;
   const reservoirs = assessmentMode && source ? source.reservoirs : notebookReservoirs;
 
