@@ -1,11 +1,17 @@
 // Presentation AI — state machine hook.
 // Owns autoplay, per-step inspection, repair orchestration, issue log, and
-// the end-of-lesson report.
+// the end-of-lesson report. Steps are fine-grained: beat → line-start →
+// filler₀…fillerₙ → note? → line-verify, so the AI performs each solution
+// line the way a teacher would — building the equation token by token.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
-import { buildSteps, type PresentationStep } from "@/lib/smartboard/presentationAI/model";
+import {
+  buildSteps,
+  lineSubStepCount,
+  type PresentationStep,
+} from "@/lib/smartboard/presentationAI/model";
 import { inspectStep, inspectStructure } from "@/lib/smartboard/presentationAI/inspector";
 import { runRepair } from "@/lib/smartboard/presentationAI/repairs";
 import {
@@ -37,6 +43,20 @@ export interface UsePresentationAIResult {
 
 const emptyStats: StepStat = { beats: 0, lines: 0, floating: 0, notes: 0, repairs: 0 };
 
+const MIN_TICK_MS = 250;
+
+/** Pacing per sub-step type, derived from the speed preset's total per-line budget. */
+const paceForStep = (step: PresentationStep, speed: SpeedPreset): number => {
+  const perLine = SPEED_MS[speed];
+  if (step.kind === "beat") return Math.min(4_000, Math.max(600, perLine / 4));
+  const subSteps = Math.max(2, lineSubStepCount(step.line));
+  const slice = Math.max(MIN_TICK_MS, Math.floor(perLine / subSteps));
+  // Line-start is a brief anchor; verify gets a small settle window.
+  if (step.kind === "line-start") return Math.max(MIN_TICK_MS, Math.floor(slice / 2));
+  if (step.kind === "line-verify") return Math.max(MIN_TICK_MS, Math.floor(slice / 2));
+  return slice;
+};
+
 export const usePresentationAI = (
   ctrl: PresentationController,
 ): UsePresentationAIResult => {
@@ -65,36 +85,66 @@ export const usePresentationAI = (
   const currentStep = stepIndex >= 0 && stepIndex < steps.length ? steps[stepIndex] : null;
   const totalSteps = steps.length;
 
+  /** Apply the side-effect that this step describes (cursor moves, writes). */
   const applyStep = useCallback(
     (step: PresentationStep) => {
-      // Set expected cursors so the Smartboard renders this step.
+      if (step.kind === "beat") {
+        ctrl.setBeatCursor(step.beatIndex);
+        return;
+      }
       ctrl.setBeatCursor(step.beatIndex);
-      if (step.kind === "line") ctrl.setActiveLineIdx(step.lineIdx);
+      ctrl.setActiveLineIdx(step.lineIdx);
+      if (step.kind === "line-start") return;
+      if (step.kind === "filler") {
+        ctrl.writeEquationPrefix(step.lineIdx, step.fillerIdx + 1);
+        return;
+      }
+      if (step.kind === "note") {
+        const raw = (step.line.notebook ?? "").trim();
+        if (raw) {
+          ctrl.writeProseLineOnBoard(raw);
+          ctrl.markNotebookShown(step.lineIdx);
+          ctrl.addNotebookAttention(step.lineIdx);
+        }
+        return;
+      }
+      if (step.kind === "line-verify") {
+        // Belt-and-braces: ensure the completed row is on the board even if
+        // an earlier filler tick missed. Idempotent by row signature.
+        const totalFillers = (step.line.fillers ?? []).length;
+        if (totalFillers > 0) ctrl.writeEquationPrefix(step.lineIdx, totalFillers);
+      }
     },
     [ctrl],
   );
 
+  const bookStats = useCallback((step: PresentationStep) => {
+    setStats((prev) => {
+      const next = { ...prev };
+      if (step.kind === "beat") next.beats += 1;
+      else if (step.kind === "line-start") next.lines += 1;
+      else if (step.kind === "filler") next.floating += 1;
+      else if (step.kind === "note") next.notes += 1;
+      return next;
+    });
+  }, []);
+
   const inspectAndBook = useCallback(
     (step: PresentationStep): Issue[] => {
       const found = inspectStep(step, ctrl);
-      if (found.length > 0) {
-        setIssues((prev) => [...prev, ...found]);
-      }
-      // stats accounting per step (only count on healthy pass)
-      setStats((prev) => {
-        const next = { ...prev };
-        if (step.kind === "beat") next.beats += 1;
-        else {
-          next.lines += 1;
-          if (step.line.fillers.length > 0) next.floating += 1;
-          if ((step.line.notebook ?? "").trim()) next.notes += 1;
-        }
-        return next;
-      });
+      if (found.length > 0) setIssues((prev) => [...prev, ...found]);
+      bookStats(step);
       return found;
     },
-    [ctrl],
+    [bookStats, ctrl],
   );
+
+  // Keep refs so the async advance loop reads latest state.
+  const issuesRef = useRef<Issue[]>([]);
+  const resolvedRef = useRef<Set<string>>(new Set());
+  const statsRef = useRef<StepStat>(emptyStats);
+  useEffect(() => { issuesRef.current = issues; }, [issues]);
+  useEffect(() => { statsRef.current = stats; }, [stats]);
 
   const finish = useCallback(() => {
     clearTimer();
@@ -112,29 +162,20 @@ export const usePresentationAI = (
     setActiveIssue(null);
   }, [ctrl]);
 
-  // Keep refs so the async advance loop reads latest state.
-  const issuesRef = useRef<Issue[]>([]);
-  const resolvedRef = useRef<Set<string>>(new Set());
-  const statsRef = useRef<StepStat>(emptyStats);
-  useEffect(() => { issuesRef.current = issues; }, [issues]);
-  useEffect(() => { statsRef.current = stats; }, [stats]);
-
   const scheduleNext = useCallback(
     (nextIndex: number) => {
       clearTimer();
       if (nextIndex >= steps.length) {
-        // Small delay so the last render lands before we finalize.
         timerRef.current = window.setTimeout(() => finish(), 400);
         return;
       }
       const step = steps[nextIndex];
-      const isLineStep = step.kind === "line";
-      const delay = isLineStep ? SPEED_MS[speed] : Math.min(4_000, SPEED_MS[speed] / 3);
+      const delay = paceForStep(step, speed);
       timerRef.current = window.setTimeout(() => {
         setStepIndex(nextIndex);
         applyStep(step);
-        // Give React one frame + a small settle window so the auto-reveal
-        // effects (note-attention, floating carrier) get a chance to run.
+        // Give React one frame + a small settle window so auto-reveal
+        // effects (note-attention, floating carrier) have a chance to run.
         window.setTimeout(() => {
           const found = inspectAndBook(step);
           if (found.length > 0) {
@@ -163,7 +204,6 @@ export const usePresentationAI = (
       statsRef.current = emptyStats;
       startedAtRef.current = Date.now();
       setState("presenting");
-      // Kick off from step 0 immediately.
       const first = steps[0];
       setStepIndex(0);
       applyStep(first);
@@ -188,10 +228,7 @@ export const usePresentationAI = (
 
   const proceed = useCallback(() => {
     if (state !== "paused") return;
-    if (activeIssue) {
-      // Leave in issue log but no longer active.
-      setActiveIssue(null);
-    }
+    if (activeIssue) setActiveIssue(null);
     setState("presenting");
     scheduleNext(stepIndex + 1);
   }, [activeIssue, scheduleNext, state, stepIndex]);
@@ -203,7 +240,6 @@ export const usePresentationAI = (
     if (result.ok) {
       resolvedRef.current.add(activeIssue.id);
       setStats((prev) => ({ ...prev, repairs: prev.repairs + 1 }));
-      // Re-inspect same step; if clean, continue.
       const remaining = inspectStep(currentStep, ctrl);
       if (remaining.length === 0) {
         setActiveIssue(null);
@@ -211,13 +247,10 @@ export const usePresentationAI = (
         scheduleNext(stepIndex + 1);
         return;
       }
-      // New issue surfaced by the repair — pause with the next one.
       setIssues((prev) => [...prev, ...remaining]);
       setActiveIssue(remaining[0]);
       setState("paused");
     } else {
-      // Repair failed — mark the issue as non-repairable so the UI offers
-      // "Generate Lovable Prompt" instead of Rectify again.
       setIssues((prev) =>
         prev.map((i) => (i.id === activeIssue.id ? { ...i, repairable: false } : i)),
       );

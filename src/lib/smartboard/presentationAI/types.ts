@@ -5,6 +5,9 @@
 export type IssueKind =
   | "note-missing"
   | "floating-missing"
+  | "filler-missing"
+  | "line-mismatch"
+  | "sequence-mismatch"
   | "highlight-wrong"
   | "scroll-out-of-view"
   | "beat-cursor-drift"
@@ -19,6 +22,8 @@ export interface Issue {
   section: string;      // beat caption or id
   beatId: string;
   lineIdx: number | null;
+  /** Optional filler index within the line (for filler-missing). */
+  fillerIdx?: number | null;
   summary: string;
   expected: string;
   actual: string;
