@@ -4971,10 +4971,13 @@ const PresentationView = ({
       </div>
       </SmartboardRootContext.Provider>
       <AiEditWorkspace
-        open={!!aiEditTarget}
+        open={mirrorActive}
         target={aiEditTarget}
         controller={paiController}
-        onClose={() => setAiEditTarget(null)}
+        onClose={() => {
+          setMirrorActive(false);
+          setAiEditTarget(null);
+        }}
       />
     </div>
   );
