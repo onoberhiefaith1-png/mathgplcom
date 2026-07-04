@@ -70,12 +70,14 @@ const today = () => {
 
 /* ─────────────── Renderers ─────────────── */
 
+// FUNDAMENTAL LAW: every piece of text on this page passes through the
+// classroom math renderer before display. renderMathInline returns REACT
+// NODES — render them as children, never into innerHTML (that coerces the
+// element array to "[object Object],[object Object]").
 const InlineMath = ({ ascii }: { ascii: string }) => (
-  <span
-    className="font-serif"
-    style={{ color: INK }}
-    dangerouslySetInnerHTML={{ __html: renderMathInline(asDisplayString(ascii)) }}
-  />
+  <span className="font-serif" style={{ color: INK }}>
+    {renderMathInline(asDisplayString(ascii))}
+  </span>
 );
 
 const HighlightBox = ({ children }: { children: React.ReactNode }) => (
@@ -111,12 +113,31 @@ const FloatingChips = ({ fillers }: { fillers: string[] }) => {
   );
 };
 
+const NotYetAvailable = () => (
+  <div className="mt-2 pl-1">
+    <span
+      className="inline-flex items-center rounded-md border border-dashed px-2.5 py-1 text-xs italic"
+      style={{
+        borderColor: "rgba(120,113,108,0.4)",
+        color: "#78716c",
+        background: "rgba(120,113,108,0.05)",
+      }}
+    >
+      Floating numbers not yet available
+    </span>
+  </div>
+);
+
 const NoteBlock = ({ text }: { text: string }) => {
   const clean = asDisplayString(text).trim();
   if (!clean) return null;
+  // Note prose can carry math (e.g. "For the equation 2x^{2} + 5x + 3 = 0").
+  // Render every note line through the math renderer so raw LaTeX syntax
+  // (\frac, \sqrt, ^{}) never reaches the teacher's eyes.
+  const noteLines = clean.split(/\r?\n+/).filter((l) => l.trim());
   return (
     <div
-      className="my-2 flex items-start gap-2 rounded-md px-3 py-2 text-[15px] leading-relaxed"
+      className="mt-2 flex items-start gap-2 rounded-md px-3 py-2 text-[15px] leading-relaxed"
       style={{
         background: "rgba(120,113,108,0.08)",
         borderLeft: "3px solid rgba(120,113,108,0.5)",
@@ -124,7 +145,11 @@ const NoteBlock = ({ text }: { text: string }) => {
       }}
     >
       <StickyNote className="mt-0.5 h-4 w-4 flex-none opacity-70" />
-      <div className="whitespace-pre-wrap italic">{clean}</div>
+      <div className="italic">
+        {noteLines.map((l, i) => (
+          <div key={i}>{renderMathInline(l, `note-${i}`)}</div>
+        ))}
+      </div>
     </div>
   );
 };
