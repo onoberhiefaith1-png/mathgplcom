@@ -39,14 +39,18 @@ export const runRepair = async (
     }
     case "filler-missing": {
       if (step.kind !== "filler") return { ok: false, message: "Not a filler step." };
+      // Teacher move: open the # panel (if closed) then click the chip.
+      ctrl.openFloatingPanel?.(step.lineIdx);
+      await wait(80);
+      if (ctrl.pickFloatingNumber) ctrl.pickFloatingNumber(step.lineIdx, step.fillerIdx);
+      else ctrl.writeEquationPrefix(step.lineIdx, step.fillerIdx + 1);
+      await wait(200);
       const prefix = step.fillerIdx + 1;
-      ctrl.writeEquationPrefix(step.lineIdx, prefix);
-      await wait(180);
       const expected = ctrl.getExpectedPrefixSignatureFor(step.lineIdx, prefix);
       const actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
       return expected === actual
-        ? { ok: true, message: `Floating Number ${prefix} placed.` }
-        : { ok: false, message: "Row did not accept the expected prefix." };
+        ? { ok: true, message: `Floating Number ${prefix} placed via the # panel.` }
+        : { ok: false, message: "Row did not accept the chip. The AI must open the # panel and click the chip manually." };
     }
     case "line-mismatch": {
       if (step.kind === "beat") return { ok: false, message: "Not a line step." };
