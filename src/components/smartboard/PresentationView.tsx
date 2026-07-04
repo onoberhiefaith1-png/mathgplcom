@@ -3205,6 +3205,12 @@ const PresentationView = ({
       closeFloatingPanel: closeFloatingPanelReal,
       isFloatingPanelOpen: () => activeAssistant === "numbers",
       resetBoard,
+      moveSensorUp,
+      moveSensorDown,
+      moveSensorToSafeRow,
+      eraseRow,
+      getRowOccupancy,
+      writeQuestionLine,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -3225,6 +3231,12 @@ const PresentationView = ({
       closeFloatingPanelReal,
       resetBoard,
       activeAssistant,
+      moveSensorUp,
+      moveSensorDown,
+      moveSensorToSafeRow,
+      eraseRow,
+      getRowOccupancy,
+      writeQuestionLine,
     ],
   );
   const ai = usePresentationAI(paiController);
