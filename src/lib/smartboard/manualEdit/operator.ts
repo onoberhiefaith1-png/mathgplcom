@@ -28,7 +28,7 @@ import { diagnose } from "./rootCause";
 import { strategyFor } from "./strategies";
 import * as G from "./gestures";
 
-const MAX_TACTICS = 5;
+const MAX_TACTICS = 10;
 
 export interface OperatorOptions {
   intent?: EditIntent;
