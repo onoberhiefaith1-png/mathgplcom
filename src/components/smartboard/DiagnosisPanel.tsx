@@ -117,6 +117,18 @@ const DiagnosisPanel = ({
 }: DiagnosisPanelProps) => {
   const root = useSmartboardRoot();
   const [promptText, setPromptText] = useState<string | null>(null);
+  const COLLAPSE_KEY = "pai:diagnosis:collapsed";
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem(COLLAPSE_KEY) === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); } catch { /* noop */ }
+  }, [collapsed]);
+  // Auto-expand when a new issue lands so the teacher never misses it.
+  useEffect(() => {
+    if (ai.activeIssue) setCollapsed(false);
+  }, [ai.activeIssue]);
 
   const healthy = ai.state === "presenting" || ai.state === "idle";
   const progress = ai.totalSteps > 0
@@ -139,7 +151,42 @@ const DiagnosisPanel = ({
     );
   };
 
-  const panel = (
+  const collapsedRail = (
+    <aside
+      className="absolute right-0 top-0 z-[150] flex h-full w-10 flex-col items-center gap-3 border-l bg-white/95 py-3 shadow-2xl backdrop-blur"
+      style={{ borderColor: "rgba(0,0,0,0.12)" }}
+    >
+      <button
+        onClick={() => setCollapsed(false)}
+        className="rounded p-1 hover:bg-neutral-100"
+        aria-label="Expand diagnosis panel"
+        title="Expand diagnosis panel"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span
+        className={`inline-block h-2.5 w-2.5 rounded-full ${
+          healthy ? "bg-emerald-500" : "bg-red-600 animate-pulse"
+        }`}
+        aria-hidden
+      />
+      <div
+        className="mt-1 text-[10px] font-semibold tabular-nums text-neutral-600"
+        style={{ writingMode: "vertical-rl" }}
+      >
+        {ai.stepIndex + 1}/{ai.totalSteps}
+      </div>
+      <button
+        onClick={onClose}
+        className="mt-auto rounded p-1 text-neutral-500 hover:bg-neutral-100"
+        aria-label="Close diagnosis panel"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </aside>
+  );
+
+  const panel = collapsed ? collapsedRail : (
     <aside
       className="absolute right-0 top-0 z-[150] flex h-full w-[30%] min-w-[320px] max-w-[440px] flex-col border-l bg-white/95 shadow-2xl backdrop-blur"
       style={{ borderColor: "rgba(0,0,0,0.12)" }}
@@ -156,6 +203,14 @@ const DiagnosisPanel = ({
             {healthy ? "Presentation Healthy" : ai.state === "repairing" ? "Repairing…" : "Error Detected"}
           </p>
         </div>
+        <button
+          onClick={() => setCollapsed(true)}
+          className="rounded p-1 hover:bg-neutral-100"
+          aria-label="Collapse diagnosis panel"
+          title="Collapse"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
         <button onClick={onClose} className="rounded p-1 hover:bg-neutral-100" aria-label="Close diagnosis panel">
           <X className="h-4 w-4" />
         </button>
