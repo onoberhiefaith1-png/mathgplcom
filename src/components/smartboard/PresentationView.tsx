@@ -3923,10 +3923,20 @@ const PresentationView = ({
         // eraser never sits under (or near) any right-edge control.
         const HOME_BOTTOM = (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT) + 12 + 52;
         const wiping = !!eraserDrag;
+        // Convert viewport pointer coords to Smartboard-pane-local coords.
+        // The pane has `transform: translateZ(0)`, so any `position: fixed`
+        // descendant is contained by the pane's box. Using raw clientX/Y
+        // would draw the icon offset by the pane's viewport left/top —
+        // visible as a horizontal offset while the 30% preview is open.
+        const toLocal = (cx: number, cy: number) => {
+          const host = boardScrollRef.current;
+          const r = host?.getBoundingClientRect();
+          return { x: cx - (r?.left ?? 0), y: cy - (r?.top ?? 0) };
+        };
         const startEraserDrag = (e: React.PointerEvent) => {
           e.stopPropagation();
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
-          setEraserDrag({ x: e.clientX, y: e.clientY });
+          setEraserDrag(toLocal(e.clientX, e.clientY));
           const wipeAt = (cx: number, cy: number) => {
             const host = boardScrollRef.current;
             if (!host) return;
@@ -3936,7 +3946,7 @@ const PresentationView = ({
           };
           wipeAt(e.clientX, e.clientY);
           const onMove = (ev: PointerEvent) => {
-            setEraserDrag({ x: ev.clientX, y: ev.clientY });
+            setEraserDrag(toLocal(ev.clientX, ev.clientY));
             wipeAt(ev.clientX, ev.clientY);
           };
           const onUp = () => {
@@ -3951,7 +3961,7 @@ const PresentationView = ({
         };
         const style: React.CSSProperties = wiping
           ? {
-              position: "fixed",
+              position: "absolute",
               left: eraserDrag!.x - 22,
               top: eraserDrag!.y - 22,
               width: 44, height: 44,
