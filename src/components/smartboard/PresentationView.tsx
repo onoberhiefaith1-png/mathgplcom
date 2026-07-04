@@ -4191,7 +4191,7 @@ const PresentationView = ({
           onClick={(e) => { e.stopPropagation(); setVerifyOn((v) => !v); }}
           aria-label="Toggle AI line verification"
           title={verifyOn ? "AI verification on — tap to turn off" : "AI verification off — tap to turn on"}
-          className="fixed z-40 grid place-items-center rounded-full border transition-all"
+          className="absolute z-40 grid place-items-center rounded-full border transition-all"
           style={{
             right: 12,
             top: `calc(50% + 56px)`,
@@ -4263,7 +4263,7 @@ const PresentationView = ({
       {assessmentMode && (
         <>
           <div
-            className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
+            className="absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
             style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
           >
             <button
@@ -4349,7 +4349,7 @@ const PresentationView = ({
             <button
               onClick={checkActiveLine}
               disabled={assessChecking || activeLineIdx >= guidedLines.length}
-              className="fixed bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
+              className="absolute bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
               style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
             >
               {assessChecking
@@ -4364,7 +4364,7 @@ const PresentationView = ({
       {/* Student status indicator — visible to live-mirror students only. */}
       {role === "student" && !assessmentMode && (
         <div
-          className="fixed left-1/2 top-3 z-[60] -translate-x-1/2 select-none rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur"
+          className="absolute left-1/2 top-3 z-[60] -translate-x-1/2 select-none rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur"
           style={
             isActiveStudent
               ? { background: "rgba(34,197,94,0.15)", color: "#16a34a", borderColor: "rgba(34,197,94,0.45)" }
