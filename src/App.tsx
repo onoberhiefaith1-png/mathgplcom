@@ -46,6 +46,7 @@ import FractionsImproperGame from "./pages/FractionsImproperGame.tsx";
 import FractionsMixedGame from "./pages/FractionsMixedGame.tsx";
 import MathBoardPage from "./pages/MathBoardPage.tsx";
 import SmartBoardPage from "./pages/SmartBoardPage.tsx";
+import SmartboardPreviewPage from "./pages/SmartboardPreviewPage.tsx";
 import { FractionAdditionHub, FractionSubtractionHub, FractionMixedHub, FractionMultiplicationHub, FractionDivisionHub, FractionMulDivHub } from "./pages/FractionChallengeHub.tsx";
 import { FractionAdditionGame, FractionSubtractionGame, FractionMixedGame, FractionMultiplicationGame, FractionDivisionGame, FractionMulDivGame } from "./pages/FractionChallengeGame.tsx";
 import DecimalsHub from "./pages/DecimalsHub.tsx";
@@ -143,6 +144,7 @@ const App = () => (
           <Route path="/games/fractions/mixed-to-improper/:difficulty" element={<FractionsMixedGame />} />
           <Route path="/mathboard" element={<MathBoardPage />} />
           <Route path="/smartboard" element={<SmartBoardPage />} />
+          <Route path="/smartboard/:notebookId/preview" element={<SmartboardPreviewPage />} />
           <Route path="/smartboard/:notebookId" element={<SmartBoardPage />} />
           <Route path="/lesson-notes" element={<LessonNotesPage />} />
           <Route path="/lesson-notes/:id" element={<NotebookEditorPage />} />
