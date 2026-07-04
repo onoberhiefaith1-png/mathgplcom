@@ -1,6 +1,8 @@
 // Presentation AI — expected-state model.
 // Turns the Presenter Preview data (beats + reservoirs) into a linear
-// sequence of "steps". Each step is either "enter beat" or "advance line".
+// sequence of "steps" that mirror how a human teacher would perform the
+// lesson: enter a beat, start a line, click each floating number in order,
+// optionally drop the teacher note, then verify the completed row.
 
 import type { Beat, Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 
@@ -10,8 +12,8 @@ export interface EnterBeatStep {
   beat: Beat;
 }
 
-export interface AdvanceLineStep {
-  kind: "line";
+export interface LineStartStep {
+  kind: "line-start";
   beatIndex: number;
   beat: Beat;
   lineIdx: number;
@@ -19,7 +21,42 @@ export interface AdvanceLineStep {
   reservoir: Reservoir;
 }
 
-export type PresentationStep = EnterBeatStep | AdvanceLineStep;
+export interface FillerStep {
+  kind: "filler";
+  beatIndex: number;
+  beat: Beat;
+  lineIdx: number;
+  line: ReservoirLine;
+  reservoir: Reservoir;
+  /** Zero-based filler index just placed. Expected prefix length = fillerIdx + 1. */
+  fillerIdx: number;
+  totalFillers: number;
+}
+
+export interface NoteStep {
+  kind: "note";
+  beatIndex: number;
+  beat: Beat;
+  lineIdx: number;
+  line: ReservoirLine;
+  reservoir: Reservoir;
+}
+
+export interface LineVerifyStep {
+  kind: "line-verify";
+  beatIndex: number;
+  beat: Beat;
+  lineIdx: number;
+  line: ReservoirLine;
+  reservoir: Reservoir;
+}
+
+export type PresentationStep =
+  | EnterBeatStep
+  | LineStartStep
+  | FillerStep
+  | NoteStep
+  | LineVerifyStep;
 
 // Note-purity predicate — mirrors the auto-reveal effect in PresentationView.
 export const looksLikeMathLine = (l: string): boolean => {
@@ -50,8 +87,30 @@ export const buildSteps = (
     const res = byBeat.get(beat.id);
     if (!res || res.lines.length === 0) return;
     res.lines.forEach((line, lineIdx) => {
-      steps.push({ kind: "line", beatIndex, beat, lineIdx, line, reservoir: res });
+      const common = { beatIndex, beat, lineIdx, line, reservoir: res };
+      steps.push({ kind: "line-start", ...common });
+      const fillers = line.fillers ?? [];
+      fillers.forEach((_, fillerIdx) => {
+        steps.push({
+          kind: "filler",
+          ...common,
+          fillerIdx,
+          totalFillers: fillers.length,
+        });
+      });
+      if (isRenderableNote(line.notebook)) {
+        steps.push({ kind: "note", ...common });
+      }
+      steps.push({ kind: "line-verify", ...common });
     });
   });
   return steps;
+};
+
+/** How many sub-steps a single line consumes — used for pacing math. */
+export const lineSubStepCount = (line: ReservoirLine): number => {
+  const fillers = (line.fillers ?? []).length;
+  const noteBeat = isRenderableNote(line.notebook) ? 1 : 0;
+  // line-start + fillers + optional note + line-verify
+  return 1 + fillers + noteBeat + 1;
 };

@@ -27,6 +27,22 @@ export interface PresentationController {
   getActiveReservoir: () => Reservoir | undefined;
   getActiveGuidedLines: () => ReservoirLine[];
 
+  /**
+   * Teacher-style progressive equation writer. Writes the first
+   * `prefixTokenCount` fillers of the guided line at `lineIdx` onto the
+   * Smartboard. Idempotent by row signature — safe to call repeatedly.
+   */
+  writeEquationPrefix: (lineIdx: number, prefixTokenCount: number) => void;
+
+  /** Current board row signature for the guided line (empty string if none). */
+  getBoardRowSignatureFor: (lineIdx: number) => string;
+
+  /** Expected full-row signature computed from the reservoir line. */
+  getExpectedRowSignatureFor: (lineIdx: number) => string;
+
+  /** Expected prefix signature (first k fillers) for filler-level checks. */
+  getExpectedPrefixSignatureFor: (lineIdx: number, prefixTokenCount: number) => string;
+
   /** Preview panel card element for a beat id (used for scroll checks). */
   getPreviewCardEl?: (beatId: string) => HTMLElement | null;
 }

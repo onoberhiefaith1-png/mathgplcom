@@ -1,7 +1,8 @@
 // Presentation AI — repair recipes.
 // Each recipe knows how to fix one issue kind by driving the controller.
-// Repairs are bounded and safe: they only manipulate cursor/reveal state,
-// never lesson content, floating extraction, or persisted data.
+// Repairs are bounded and safe: they only manipulate cursor/reveal state and
+// invoke the teacher-style equation writer — never lesson content, floating
+// extraction, or persisted data.
 
 import type { PresentationController } from "./controller";
 import type { Issue } from "./types";
@@ -29,15 +30,37 @@ export const runRepair = async (
         : { ok: false, message: "Beat cursor did not accept the new value." };
     }
     case "line-cursor-drift": {
-      if (step.kind !== "line") return { ok: false, message: "Not a line step." };
+      if (step.kind === "beat") return { ok: false, message: "Not a line step." };
       ctrl.setActiveLineIdx(step.lineIdx);
       await wait(120);
       return ctrl.getActiveLineIdx() === step.lineIdx
         ? { ok: true, message: "Line cursor resynced." }
         : { ok: false, message: "Line cursor did not accept the new value." };
     }
+    case "filler-missing": {
+      if (step.kind !== "filler") return { ok: false, message: "Not a filler step." };
+      const prefix = step.fillerIdx + 1;
+      ctrl.writeEquationPrefix(step.lineIdx, prefix);
+      await wait(180);
+      const expected = ctrl.getExpectedPrefixSignatureFor(step.lineIdx, prefix);
+      const actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
+      return expected === actual
+        ? { ok: true, message: `Floating Number ${prefix} placed.` }
+        : { ok: false, message: "Row did not accept the expected prefix." };
+    }
+    case "line-mismatch": {
+      if (step.kind === "beat") return { ok: false, message: "Not a line step." };
+      const fillers = step.line.fillers ?? [];
+      ctrl.writeEquationPrefix(step.lineIdx, fillers.length);
+      await wait(200);
+      const expected = ctrl.getExpectedRowSignatureFor(step.lineIdx);
+      const actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
+      return expected === actual
+        ? { ok: true, message: "Line rewritten from the Presenter Preview." }
+        : { ok: false, message: "Line still does not match after rewrite." };
+    }
     case "note-missing": {
-      if (step.kind !== "line") return { ok: false, message: "Not a line step." };
+      if (step.kind === "beat") return { ok: false, message: "Not a line step." };
       const raw = (step.line.notebook ?? "").trim();
       if (!raw) return { ok: false, message: "No note text available." };
       ctrl.writeProseLineOnBoard(raw);
@@ -57,7 +80,7 @@ export const runRepair = async (
     }
     case "highlight-wrong": {
       ctrl.setBeatCursor(step.beatIndex);
-      if (step.kind === "line") ctrl.setActiveLineIdx(step.lineIdx);
+      if (step.kind !== "beat") ctrl.setActiveLineIdx(step.lineIdx);
       await wait(120);
       return { ok: true, message: "Highlight target reset." };
     }
