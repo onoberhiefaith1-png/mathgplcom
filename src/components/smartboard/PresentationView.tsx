@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import { SmartboardRootContext } from "./SmartboardRoot";
+import AutoplayControl from "./AutoplayControl";
+import DiagnosisPanel from "./DiagnosisPanel";
+import { usePresentationAI } from "@/hooks/usePresentationAI";
+import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
