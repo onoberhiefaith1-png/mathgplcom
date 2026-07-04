@@ -401,6 +401,10 @@ const PresentationView = ({
     catch { /* noop */ }
   }, [presenterPanelOpen, PRESENTER_PANEL_KEY]);
   const [presenterIconVisible, setPresenterIconVisible] = useState(false);
+  // The 70% Smartboard pane element. Published via context so portals
+  // (FloatingNumberPanel, SensorDPad) mount inside this container instead of
+  // document.body, keeping every control anchored to the resized pane.
+  const [sbRootEl, setSbRootEl] = useState<HTMLDivElement | null>(null);
   const presenterIconTimer = useRef<number | null>(null);
   const revealPresenterIcon = useCallback(() => {
     setPresenterIconVisible(true);
@@ -2853,7 +2857,10 @@ const PresentationView = ({
           (eraser, floating-number pill, cursor toolbar, bottom panel,
           symbol buttons, etc.) is scoped to this pane and reflows when
           the preview opens. */}
+      <SmartboardRootContext.Provider value={sbRootEl}>
       <div
+        ref={setSbRootEl}
+        id="sb-root"
         className="relative h-full overflow-hidden"
         style={{
           flex: 1,
