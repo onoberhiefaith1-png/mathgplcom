@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useSmartboardRoot } from "./SmartboardRoot";
 
 interface Props {
   onUp: () => void;
@@ -44,6 +45,7 @@ export const SensorDPad = ({
   canUp = true, canDown = true, canLeft = true, canRight = true,
   bottomPx = 96,
 }: Props) => {
+  const sbRoot = useSmartboardRoot();
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const idleTimerRef = useRef<number | null>(null);
@@ -159,7 +161,7 @@ export const SensorDPad = ({
       ref={wrapRef}
       data-sb-chrome
       aria-label="Sensor controller"
-      className="fixed z-40"
+      className="absolute z-40"
       style={{
         left: "50%",
         bottom: bottomPx,
@@ -212,7 +214,7 @@ export const SensorDPad = ({
   );
 
   if (typeof document === "undefined") return null;
-  return createPortal(dpad, document.body);
+  return createPortal(dpad, sbRoot ?? document.body);
 };
 
 export default SensorDPad;

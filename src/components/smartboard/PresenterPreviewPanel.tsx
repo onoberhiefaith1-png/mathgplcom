@@ -25,8 +25,12 @@ import { SmartboardLessonText } from "@/components/smartboard/SmartboardLessonTe
 const INK = "#1a2230";
 const ACCENT = "#8a6a1f";
 
-const HIGHLIGHT_BG = "rgba(138,106,31,0.08)";
-const HIGHLIGHT_RING = "inset 0 0 0 2px rgba(138,106,31,0.35)";
+// Border-only active highlight. The card/line background and text colors
+// stay exactly the same; only the frame changes so the teacher can see which
+// element the Smartboard is currently presenting.
+const HIGHLIGHT_BORDER = "rgba(138,106,31,0.9)";
+const HIGHLIGHT_SHADOW =
+  "0 0 0 4px rgba(138,106,31,0.15), 0 6px 22px rgba(138,106,31,0.18)";
 
 const asDisplayString = (v: unknown): string => {
   if (v == null) return "";
@@ -308,7 +312,7 @@ const PresenterPreviewPanel = ({
 
   const activeStyle = (isActive: boolean): React.CSSProperties =>
     isActive
-      ? { background: HIGHLIGHT_BG, boxShadow: HIGHLIGHT_RING }
+      ? { borderColor: HIGHLIGHT_BORDER, borderWidth: 2, boxShadow: HIGHLIGHT_SHADOW }
       : {};
 
   return (
@@ -401,10 +405,16 @@ const PresenterPreviewPanel = ({
                     <div
                       key={k}
                       ref={setLineRef(lineKey)}
-                      className="rounded-md pl-3 py-1.5 transition-colors"
+                      className="rounded-md pl-3 pr-2 py-1.5 transition-all border"
                       style={{
-                        borderLeft: "2px solid rgba(138,106,31,0.15)",
-                        ...activeStyle(lineActive),
+                        borderColor: lineActive
+                          ? HIGHLIGHT_BORDER
+                          : "rgba(138,106,31,0.15)",
+                        borderLeftWidth: lineActive ? 2 : 2,
+                        borderTopWidth: lineActive ? 2 : 0,
+                        borderRightWidth: lineActive ? 2 : 0,
+                        borderBottomWidth: lineActive ? 2 : 0,
+                        boxShadow: lineActive ? HIGHLIGHT_SHADOW : "none",
                       }}
                     >
                       <div
