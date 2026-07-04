@@ -4966,6 +4966,12 @@ const PresentationView = ({
       )}
       </div>
       </SmartboardRootContext.Provider>
+      <AiEditWorkspace
+        open={!!aiEditTarget}
+        target={aiEditTarget}
+        controller={paiController}
+        onClose={() => setAiEditTarget(null)}
+      />
     </div>
   );
 };
