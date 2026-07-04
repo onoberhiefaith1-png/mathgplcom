@@ -206,6 +206,9 @@ export const usePresentationAI = (
       if (steps.length === 0) return;
       clearTimer();
       if (s) setSpeed(s);
+      // Wipe the Smartboard — Autoplay must always start from a blank
+      // surface so the AI reconstructs the full solution from scratch.
+      ctrl.resetBoard?.();
       setIssues([]);
       setActiveIssue(null);
       setStats(emptyStats);
