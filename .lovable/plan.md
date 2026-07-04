@@ -1,79 +1,37 @@
-## Smartboard Presentation Preview — Redesign
+# Fix Solution Preview: Real Equations, Floating Numbers, Notes — No `[object Object]`, No LaTeX Symbols
 
-### Goal
-Rebuild `/smartboard/:id/preview` as **PowerPoint Presenter View** for the Smartboard. The teacher sees exactly what students will see, plus three overlays: highlighted regions, floating-number groups, notebook notes. No JSON, no `[Object Object]`, no LaTeX source, no auto-generated captions like "Lesson title card shown first on board."
+## What is wrong (root cause found)
 
-### Root cause of current bugs
-`SmartboardPreviewPage.tsx` renders `beat.content` / `beat.caption` / `beat.reasoning` from `buildBeats()`. Some of those values are non-string (structured blocks) → React prints `[Object Object]`. It also injects our own prose ("Lesson title card shown first…", "Rehearsal mode…") and shows section-kind labels ("COVER", "INTRODUCTION"). That is debug UX, not teacher UX.
+- The preview page feeds the math renderer's output into a raw-HTML slot. The renderer produces React elements, and the browser prints them literally as `[object Object],[object Object]`. Your saved data is clean — `2x² + 5x + 3 = 0` and all floating numbers are stored correctly. It is purely a display wiring bug on this one page.
+- Notes (e.g. "The quadratic formula is x = \frac{-b ...}") skip the math renderer entirely, so raw LaTeX symbols leak onto the screen — a violation of the fundamental law.
 
-### New approach: read straight from the Lesson Note, render with Smartboard components
+## What will change
 
-The preview will bypass the beat-string pipeline for display and instead pull the **same raw section/block rows** the Lesson Note uses, then paint them with the **same components the live board uses** (`SmartboardLessonText`, `FloatingNumberPanel`, `renderMathInline`). This guarantees visual parity and eliminates the object-stringification path.
+**Each Solution renders as numbered display lines — the exact same line structure as the Floating Number generating page (1:1 with the Smartboard):**
 
-### Layout (top → bottom, scrollable)
+For every line (Line 1, Line 2, Line 3 … unlimited, universal rule):
 
-```text
-┌─────────────────────────────────────────┐
-│  Cover (title / subject / subtopic / date)  ← from notebook row, plain text
-├─────────────────────────────────────────┤
-│  Introduction   [👁 Present] [✏ AI]         ← raw lesson-note prose
-├─────────────────────────────────────────┤
-│  Explanation    [👁 Present] [✏ AI]         ← raw lesson-note prose
-├─────────────────────────────────────────┤
-│  Example 1                                  ← "Example 1" caption ONLY
-│    Question:  x² + 5x + 6 = 0               ← raw problem block
-│    Solution:                                ← Smartboard-style
-│      🟧 x = (-b ± √(b²-4ac)) / 2a           ← highlighted region
-│         🔵 -b   ±   √   b²   -4ac   2a      ← floating-number group
-│      📘 The quadratic formula is used …     ← notebook note (if any)
-│    [👁 Present] [✏ AI]
-├─────────────────────────────────────────┤
-│  Exercise 1 / Classwork / Homework …        ← same shape, question only
-├─────────────────────────────────────────┤
-│  Summary                                     ← raw prose
-└─────────────────────────────────────────┘
-[Approve & Go Live]  [Reset skips]
-```
+1. **Equation on top** — properly rendered math (stacked fractions, real square roots, superscripts), amber-highlighted, e.g. `ax² + bx + c = 0`. Never `[object Object]`.
+2. **Floating numbers underneath** — the exact chips already generated on the Floating Number page, in the same order (e.g. `2x²` `+5x` `+3` `=0`), rendered as real math.
+3. **Note underneath** — with the same quality notebook note icon used on the Smartboard, its text also passed through the math renderer so no `\frac`, `\sqrt`, `^{}` ever appears.
+4. If a line has only a note and no floating numbers, only the note shows — but it still counts as its own line.
+5. If the teacher has **not yet generated** floating numbers for the lesson, the chips area shows **"Not yet available"** instead of guessing.
 
-Rules the redesign enforces:
+**One AI Edit button per line** — it covers all three segments together (equation + floating numbers + note), sending the full line context so the AI can correct any of them.
 
-1. **Everything outside Solution is copied verbatim** from `notebook_sections` / `notebook_blocks`. No regeneration, no summary, no auto-description.
-2. **Only the Solution section merges** with highlighted regions + floating numbers + notebook notes.
-3. **No internal data ever leaks**: any value that is not a string gets rejected at the render boundary (guard helper `asDisplayString`) instead of being splatted into JSX.
-4. **Captions** are minimal — `Example 1`, `Exercise 1`, etc. No section-kind pills, no "COVER" chrome, no "Lesson title card shown first…" copy, no rehearsal banner.
-5. Each block gets **👁 Present / 🚫 Skip** (existing `presentationPlan` logic reused) and **✏ AI Edit** (opens a popover scoped to that line only).
-6. Approve & Go Live keeps its current behavior (marks plan approved, launches `/smartboard/:id`).
+**Fundamental law enforced everywhere on this page:** every piece of text (problem, equation, chips, notes, explanations) goes through the classroom math renderer before display. Raw computer syntax (`\frac`, `\sqrt`, `^{2}`, `[object Object]`) can never appear. This is fixed at the rendering layer, so it holds for 6 lines or a million lines.
 
-### Files
+## What does NOT change
 
-**Rewrite (single file, no new backend):**
-- `src/pages/SmartboardPreviewPage.tsx` — replace the current implementation. New page:
-  - Reads `sections`, `notebook`, `blocks` via `useNotebook`.
-  - For each section, renders the raw `content_ascii` (introduction, explanation, summary) using `SmartboardLessonText` (same renderer live board uses).
-  - For each numbered subsection (example / exercise / classwork / homework):
-    - Caption: `Example N` etc. (nothing else).
-    - Problem: raw `content_ascii` via `SmartboardLessonText`.
-    - Solution: iterates `buildReservoirs()` line-by-line and paints:
-      - Highlighted equation via `renderMathInline` inside a subtle amber box (visual identical to Smartboard highlight).
-      - Floating-number chips using the **same FloatingNumberPanel visual** (or a thin read-only wrapper matching it) so chip order/style match the live board 1:1.
-      - Notebook note (if `line.notebook`) as a `📘 Note` prose block, unhighlighted.
-  - Cover: reads `notebook.title`, `notebook.subject`, `notebook.subtopic`, and today's date — nothing else.
-  - Adds `asDisplayString(x)` helper: returns `""` when `x` is not a primitive string/number, so a stray object can never render as `[Object Object]`.
-- `src/components/smartboard/preview/PreviewAiEdit.tsx` *(new, small)* — line-scoped AI popover. Reuses the existing `floating-assistant` edge function with a payload containing only the clicked line's payload + role, then the caller mutates the corresponding `floating_highlights` row and lets the preview re-fetch.
+- Floating Number generating page, Smartboard live view, Lesson Note data — untouched.
+- Present / Skip toggles and Approve & Go Live — kept as they are.
+- Notes above the Cover / Introduction sections — already correct, kept.
 
-**Unchanged:**
-- `presentation.ts`, `presentationPlan.ts`, `PresentationView.tsx`, shelf, routing. The redesign is purely presentational.
+## Technical details
 
-### Guardrails / laws preserved
-- **Note-Purity Law** and **Note-Attachment Law** are enforced by the existing `buildReservoirs`; the preview reads through it unchanged.
-- **Zero re-interpretation**: preview reads the exact same data the live board reads.
-- **Universal**: no line-count assumptions — works for 1 line or 10,000.
-
-### Acceptance checks
-- No occurrence of `[Object Object]`, `undefined`, JSON braces, or the strings "Lesson title card", "Rehearsal mode", or section-kind chrome anywhere on the page.
-- Cover shows title / subject / subtopic / date only.
-- Introduction / Explanation / Summary text matches the Lesson Note character-for-character.
-- Example/Exercise captions read exactly `Example 1`, `Exercise 1`, etc.
-- Highlighted equations render inside an amber highlight box; floating chips appear directly under them in the same order as the Floating Numbers page.
-- Notebook notes only appear where `line.notebook` is non-empty (Note-Purity + Attachment already guarantee this).
-- Present / Skip pills continue to work; Approve & Go Live still launches the live board.
+- `src/pages/SmartboardPreviewPage.tsx` (only file edited):
+  - Replace `InlineMath`'s `dangerouslySetInnerHTML={{ __html: renderMathInline(...) }}` with direct React children rendering `{renderMathInline(ascii)}` — this alone kills every `[object Object]`.
+  - `NoteBlock` and explanation text: render via `renderMathInline` (or `SmartboardLessonText`) instead of plain text, eliminating raw LaTeX.
+  - Reorder the per-line layout to: equation (HighlightBox) → FloatingChips → NoteBlock, matching the Floating Number display line; add per-line numbering context and a "Not yet available" chip state when `floating_lines` is empty for that subsection.
+  - Single `AiEditPopover` per line, payload includes equation + fillers + note.
+- Verify with Playwright screenshot of `/smartboard/:id/preview` on the quadratic lesson before finishing.

@@ -70,12 +70,14 @@ const today = () => {
 
 /* ─────────────── Renderers ─────────────── */
 
+// FUNDAMENTAL LAW: every piece of text on this page passes through the
+// classroom math renderer before display. renderMathInline returns REACT
+// NODES — render them as children, never into innerHTML (that coerces the
+// element array to "[object Object],[object Object]").
 const InlineMath = ({ ascii }: { ascii: string }) => (
-  <span
-    className="font-serif"
-    style={{ color: INK }}
-    dangerouslySetInnerHTML={{ __html: renderMathInline(asDisplayString(ascii)) }}
-  />
+  <span className="font-serif" style={{ color: INK }}>
+    {renderMathInline(asDisplayString(ascii))}
+  </span>
 );
 
 const HighlightBox = ({ children }: { children: React.ReactNode }) => (
@@ -111,12 +113,31 @@ const FloatingChips = ({ fillers }: { fillers: string[] }) => {
   );
 };
 
+const NotYetAvailable = () => (
+  <div className="mt-2 pl-1">
+    <span
+      className="inline-flex items-center rounded-md border border-dashed px-2.5 py-1 text-xs italic"
+      style={{
+        borderColor: "rgba(120,113,108,0.4)",
+        color: "#78716c",
+        background: "rgba(120,113,108,0.05)",
+      }}
+    >
+      Floating numbers not yet available
+    </span>
+  </div>
+);
+
 const NoteBlock = ({ text }: { text: string }) => {
   const clean = asDisplayString(text).trim();
   if (!clean) return null;
+  // Note prose can carry math (e.g. "For the equation 2x^{2} + 5x + 3 = 0").
+  // Render every note line through the math renderer so raw LaTeX syntax
+  // (\frac, \sqrt, ^{}) never reaches the teacher's eyes.
+  const noteLines = clean.split(/\r?\n+/).filter((l) => l.trim());
   return (
     <div
-      className="my-2 flex items-start gap-2 rounded-md px-3 py-2 text-[15px] leading-relaxed"
+      className="mt-2 flex items-start gap-2 rounded-md px-3 py-2 text-[15px] leading-relaxed"
       style={{
         background: "rgba(120,113,108,0.08)",
         borderLeft: "3px solid rgba(120,113,108,0.5)",
@@ -124,7 +145,11 @@ const NoteBlock = ({ text }: { text: string }) => {
       }}
     >
       <StickyNote className="mt-0.5 h-4 w-4 flex-none opacity-70" />
-      <div className="whitespace-pre-wrap italic">{clean}</div>
+      <div className="italic">
+        {noteLines.map((l, i) => (
+          <div key={i}>{renderMathInline(l, `note-${i}`)}</div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -292,7 +317,16 @@ const SmartboardPreviewPage = () => {
   type Item =
     | { id: string; kind: "cover" }
     | { id: string; kind: "prose"; caption: string; text: string }
-    | { id: string; kind: "problem"; caption: string; problem: string; reservoir?: Reservoir; subsectionId: string };
+    | {
+        id: string;
+        kind: "problem";
+        caption: string;
+        problem: string;
+        reservoir?: Reservoir;
+        subsectionId: string;
+        /** Teacher has generated floating numbers on the Floating Number page. */
+        hasFloatingData: boolean;
+      };
 
   const items: Item[] = [];
   items.push({ id: "__cover__", kind: "cover" });
@@ -327,6 +361,9 @@ const SmartboardPreviewPage = () => {
           problem,
           reservoir: reservoirByBeat.get(`${sub.id}-q`),
           subsectionId: sub.id,
+          hasFloatingData:
+            Array.isArray((sub as any).floating_lines) &&
+            ((sub as any).floating_lines as any[]).length > 0,
         });
       }
     }
@@ -433,19 +470,36 @@ const SmartboardPreviewPage = () => {
               </div>
 
               {res && res.lines.length > 0 && (
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 space-y-4">
                   {res.lines.map((line: ReservoirLine, k: number) => {
                     const eq = asDisplayString(line.equation).trim();
                     const note = asDisplayString(line.notebook).trim();
-                    const hasFloating = !line.notebookOnly && line.fillers.length > 0;
-                    const label = eq || note.slice(0, 40) || `Line ${k + 1}`;
+                    const label = `Line ${k + 1}`;
+                    // Universal rule — same for line 1 or line 1,000,000:
+                    //   1. equation (highlighted) on top
+                    //   2. floating numbers underneath (exact chips from the
+                    //      Floating Number page; "not yet available" if the
+                    //      teacher hasn't generated them)
+                    //   3. note underneath, notebook icon style
+                    // One AI Edit per line — it covers all three segments.
                     return (
                       <div
                         key={k}
                         className="pl-4"
                         style={{ borderLeft: "2px solid rgba(138,106,31,0.15)" }}
                       >
-                        {note && <NoteBlock text={note} />}
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                          <span
+                            className="text-[10px] font-semibold uppercase tracking-[0.25em]"
+                            style={{ color: "rgba(138,106,31,0.65)" }}
+                          >
+                            {label}
+                          </span>
+                          <AiEditPopover
+                            lineLabel={label}
+                            onSend={(n) => onAiEdit(`${it.caption} · ${label}`, n)}
+                          />
+                        </div>
                         {!line.notebookOnly && eq && (
                           <div className="flex items-center gap-3 flex-wrap">
                             <HighlightBox>
@@ -453,18 +507,20 @@ const SmartboardPreviewPage = () => {
                                 <InlineMath ascii={eq} />
                               </span>
                             </HighlightBox>
-                            <AiEditPopover
-                              lineLabel={label}
-                              onSend={(n) => onAiEdit(label, n)}
-                            />
                           </div>
                         )}
-                        {hasFloating && <FloatingChips fillers={line.fillers} />}
-                        {line.explanation && (
-                          <div className="mt-1 pl-1 text-xs italic text-neutral-500 whitespace-pre-wrap">
-                            {asDisplayString(line.explanation)}
-                          </div>
+                        {!line.notebookOnly && eq && (
+                          it.hasFloatingData && line.fillers.length > 0 ? (
+                            <FloatingChips fillers={line.fillers} />
+                          ) : (
+                            <NotYetAvailable />
+                          )
                         )}
+                        {note && <NoteBlock text={note} />}
+                        {/* line.explanation intentionally NOT rendered here:
+                            on the live board it only surfaces behind the "+"
+                            marker, and its text duplicates equations that
+                            already appear as their own display lines. */}
                       </div>
                     );
                   })}
