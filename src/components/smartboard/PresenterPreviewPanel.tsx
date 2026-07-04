@@ -150,10 +150,11 @@ export interface PresenterPreviewPanelProps {
   activeLineIdx?: number | null;
   /** Emits true when the teacher is manually scrolling the panel. */
   onManualScrollChange?: (isManual: boolean) => void;
-  /** Fires when the teacher clicks the inline "AI Edit" button on the
-   *  currently selected target while Edit Mode is active. Host opens the
-   *  AI Edit Workspace drawer. */
-  onOpenAiEdit?: (target: EditTarget) => void;
+  /** Fires whenever Live Mirror Mode toggles or its selection changes.
+   *  Host uses this to clear the Smartboard, mirror the selected object,
+   *  and show the Live Mirror status strip. When `active` is false the
+   *  Smartboard should exit mirror mode. */
+  onMirrorChange?: (active: boolean, target: EditTarget | null) => void;
 }
 
 const PresenterPreviewPanel = ({
@@ -161,7 +162,7 @@ const PresenterPreviewPanel = ({
   activeBeatId,
   activeLineIdx,
   onManualScrollChange,
-  onOpenAiEdit,
+  onMirrorChange,
 }: PresenterPreviewPanelProps) => {
   const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
 
@@ -176,6 +177,15 @@ const PresenterPreviewPanel = ({
     // Clear selection when leaving edit mode.
     if (mode !== "edit") setSelection(null);
   }, [mode]);
+
+  // Live Mirror Mode signalling — mirror mode is active whenever the
+  // teacher is in Edit mode. Selection changes propagate immediately so
+  // the host can mirror the picked object onto the Smartboard.
+  useEffect(() => {
+    if (!onMirrorChange) return;
+    if (mode === "edit") onMirrorChange(true, selection);
+    else onMirrorChange(false, null);
+  }, [mode, selection, onMirrorChange]);
 
   const toggleSkip = useCallback(
     (beatId: string) => {
@@ -403,21 +413,11 @@ const PresenterPreviewPanel = ({
       ? { cursor: "pointer" as const, outline: "1px dashed rgba(59,130,246,0.35)", outlineOffset: 2 }
       : {};
 
-  const AiEditButton = ({ target }: { target: EditTarget }) =>
-    isSelected(target) && onOpenAiEdit ? (
-      <div className="mt-2">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenAiEdit(target);
-          }}
-          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold text-white shadow"
-          style={{ background: "#3b82f6" }}
-        >
-          <Sparkles className="h-3 w-3" /> AI Edit
-        </button>
-      </div>
-    ) : null;
+  // Live Mirror Mode: no confirmation button — selecting an item mirrors
+  // it immediately via `onMirrorChange`. Keep the component as a no-op
+  // to preserve existing JSX slots without extra layout work.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const AiEditButton = (_: { target: EditTarget }) => null;
 
   const SkipPill = ({ beatId }: { beatId: string }) => {
     if (mode !== "normal" || !notebookId) return null;

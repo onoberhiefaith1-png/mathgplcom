@@ -1,111 +1,111 @@
 
-## Give the AI Operator "Pipeline Power" — Fix Error until it lands
+# Live Mirror Mode — Presenter Preview as Single Source of Truth
 
-The current operator diagnoses "note-not-clickable on Line 1" but stops there because its ladder tops out at "replay click." The Presenter Preview is the source of truth, so the operator must be able to force any preview content onto the Smartboard — even when the normal click/render pipeline is broken. This plan expands the tactic ladder, adds a real-time "Fix Error" mode, and shares the same repair power with Autoplay.
+## Goal
 
-### 1. Rename the primary control to **Fix Error**
+Replace the current AI Edit (diagnose → reproduce → repair) with a much simpler system:
 
-`AiEditWorkspace.tsx`:
-- Replace the current *Cancel / Run / Retry* footer with a single primary **Fix Error** button (destructive-red styling) that is always visible until the issue is resolved.
-- While the loop runs it becomes **Fixing… <elapsed>s** with a Stop affordance next to it.
-- After success the button turns into **Fixed ✓** for 2s, then hides.
-- After the ladder fully exhausts, it becomes **Fix Again** (re-run from Diagnose with an escalation flag that unlocks the invasive tactics up front).
+- Enter AI Edit → Smartboard clears to a blank canvas.
+- Teacher clicks any object in the Presenter Preview → that exact object appears on the Smartboard using the same presentation call the lesson normally uses.
+- Teacher deselects (clicks again / clicks another object) → the previous object is removed.
+- No regeneration, no reconstruction, no AI diagnosis. If clicking an object shows nothing, that is itself the diagnostic — the mapping for that object type is broken.
 
-Auto-diagnose on open stays, but its purpose is only to *pre-fill* the root cause. Nothing runs until the teacher presses **Fix Error** — matches the user's mental model.
+## Behaviour
 
-### 2. Live "on-screen" progress
+```text
+Click AI Edit
+   ↓
+resetBoard()  →  Smartboard is empty
+   ↓
+Teacher clicks Preview item  ────►  Smartboard shows exactly that item
+Teacher clicks it again      ────►  Smartboard removes it
+Teacher clicks another item  ────►  previous is removed, new one shown
+```
 
-The drawer already renders a timeline. Add:
-- A **status bar** at the top of the timeline: *"Fixing: Line 1 note — Testing tactic 3 of 7 — elapsed 1.4s"*.
-- A **flash toast on the Smartboard column itself** (`FixOverlay.tsx`, absolute-positioned over `PresentationView`) that mirrors the current tactic in large text: *"Testing: dispatch synthetic click on note button…"*, *"Testing: force render via controller…"*, *"Verifying…"*. The overlay auto-hides on success.
-- A per-tactic **result chip** (✓ / ✗) that appears next to the tactic row the moment its Verify probe returns.
+Selection is single-item. A tiny "Exit Live Mirror" button restores normal presentation state.
 
-This gives the teacher the "I can see it working" experience they asked for.
+### Clickable preview objects → matching Smartboard action
 
-### 3. Expand the tactic ladder — the "pipeline power"
+| Preview object | Smartboard action (existing controller call) |
+|---|---|
+| Cover / section / subsection heading | `writeProseLineOnBoard(headingText)` on a fresh row |
+| Introduction / explanation prose line | `writeProseLineOnBoard(text)` |
+| Example question line | `writeQuestionLine(lineIdx, equation)` |
+| Solution line (full) | `writeEquationPrefix(lineIdx, allTokens)` |
+| Individual floating number tile | `pickFloatingNumber(lineIdx, fillerIdx)` |
+| Floating-number group header | `openFloatingPanel(lineIdx)` |
+| Teacher Note | `markNotebookShown(idx)` / note-open path used in normal playback |
+| Math structure / final answer | same call the normal presenter uses for that beat |
 
-New file `src/lib/smartboard/manualEdit/pipelineTactics.ts`. Each tactic is progressively more invasive; the operator walks the ladder until Verify passes:
+Each mapping is a one-liner that calls existing controller methods. No new rendering logic on the Smartboard side.
 
-**Note pipeline (Line 1 case):**
-1. **Replay click via controller API** — `clickNote` gesture (current behavior).
-2. **Scroll + reset active line + replay** — clears cursor drift.
-3. **Dispatch synthetic DOM click on the note button** — `document.querySelector('[data-note-button][data-line-idx="N"]')` → `element.dispatchEvent(new MouseEvent('click', {bubbles:true}))`. Requires adding `data-note-button` / `data-line-idx` attributes to the preview panel's Note affordance (small edit in `PresenterPreviewPanel.tsx`).
-4. **Force-open Note via controller side door** — call `writeProseLineOnBoard(note)` after `moveSensorToSafeRow` and `markNotebookShown`. Bypasses the click handler entirely.
-5. **Erase note row + re-inject** — `eraseNoteAt(lineIdx)` → safe row → `writeProseLineOnBoard` → `markNotebookShown` → `addNotebookAttention`. Rebuilds ownership.
-6. **Rebuild row mapping** — new controller call `rebuildRowOwnership(lineIdx)` that clears the internal `rowOwners` entry for the line and re-runs `moveSensorToSafeRow`, then re-injects. Fixes stale mapping (the exact "note-not-clickable" symptom).
-7. **Full re-render of the line region** — new controller call `forceRepaintLine(lineIdx)` that bumps a per-line paint counter, causing the board renderer to re-mount that row's ink, then re-inject.
+### Deselect semantics
 
-**Floating-chip pipeline:** already have panel/pick/erase tactics — add:
-- **Synthetic click on the `#` FAB and chip tiles** using new `data-fab="hash"` / `data-chip="lineIdx-fillerIdx"` attributes.
-- **Bypass panel: writeEquationPrefix as final fallback** (already present, promoted to tactic 6).
+Track `mirrorSelection: { targetKey, undo: () => void }`. When switching or unselecting:
 
-**Line pipeline:** add
-- **Synthetic click on Line reveal button** where applicable.
-- **`forceRepaintLine` + `retryLineFromScratch`** as the last resort.
+- Line targets → `eraseRow(row, guardOwnerLineIdx)` for the row(s) the action created.
+- Note targets → `eraseNoteAt(lineIdx)`.
+- Floating tile → erase just that filler's ink (reuse the existing per-filler erase path used when a tile is un-picked in normal playback).
+- Panel-opening actions → `closeFloatingPanel()`.
 
-**Universal fallbacks (any target):**
-- **Reset beat cursor + active line** (`sync-lost`).
-- **Reset board scroll to line row** (`board-scroll-lost`).
+If a clean undo isn't available for a target, fall back to `resetBoard()` before rendering the next selection (still fast, since the board is otherwise empty in mirror mode).
 
-Cap: 7 tactics per run, 6 s per tactic, hard 20 s overall wall-clock.
+### Verification signal (replaces "diagnosis")
 
-### 4. Controller additions (thin, additive)
+After each click, wait one frame and check the corresponding board signature (`getBoardRowSignatureFor`, `getBoardHasNoteFor`, etc.). Show a small inline badge next to the clicked preview object:
 
-`src/lib/smartboard/presentationAI/controller.ts` and its wiring in `PresentationView.tsx`:
+- ✓ mirrored — signature matched.
+- ✗ not mirrored — Smartboard produced nothing. Message: "Mapping for {objectType} is broken."
 
-- `rebuildRowOwnership(lineIdx: number): void` — clears `rowOwners` entries for that line and any note it owned.
-- `forceRepaintLine(lineIdx: number): void` — increments a `linePaintNonce[lineIdx]` state used as a React key on the line's row group, forcing remount.
-- `getNoteButtonEl?(lineIdx): HTMLElement | null` — returns the preview panel note button so tactics can dispatch synthetic clicks.
-- `getHashFabEl?(): HTMLElement | null` and `getChipEl?(lineIdx, fillerIdx): HTMLElement | null` — same idea for floating.
+No repair attempts. No tactic ladder. No operator loop. The badge is the whole diagnostic.
 
-These are read/side-door helpers, not new writing logic — the existing writers already cover all cases.
+## Scope of changes
 
-### 5. Preview panel — expose DOM targets
+### Remove / retire
 
-`PresenterPreviewPanel.tsx`:
-- Add `data-note-button data-line-idx={i}` to each Note affordance.
-- Add `data-chip data-line-idx={i} data-filler-idx={k}` to each floating chip.
-- Add `data-line-reveal data-line-idx={i}` to each line's reveal button.
-- No behavior change — only attributes so tactic 3 can dispatch synthetic clicks.
+Delete these files (the operator/diagnose/repair machinery is no longer used):
 
-### 6. Share the power with Autoplay
+- `src/lib/smartboard/manualEdit/operator.ts`
+- `src/lib/smartboard/manualEdit/probes.ts`
+- `src/lib/smartboard/manualEdit/gestures.ts`
+- `src/lib/smartboard/manualEdit/rootCause.ts`
+- `src/lib/smartboard/manualEdit/strategies.ts`
+- `src/lib/smartboard/manualEdit/pipelineTactics.ts`
+- `src/components/smartboard/FixOverlay.tsx`
 
-`src/hooks/usePresentationAI.ts` (Autoplay):
-- Import `runPipelineRepair(target, ctrl)` from a new shared entry `src/lib/smartboard/manualEdit/pipelineRepair.ts` (thin wrapper over the operator with `forcedCause` derived from the current issue).
-- On any repair failure inside Autoplay's existing `runRepair`, escalate to `runPipelineRepair` before marking the issue unresolved. This gives Autoplay the same "keep trying tactics until it lands" behavior as manual Fix Error.
-- No UI change to the Autoplay diagnosis panel — the extra tactics show up under the existing repair log.
+Autoplay never called the operator directly (only via `AiEditWorkspace`), so removing these does not touch normal presentation.
 
-### 7. Verification — behind-the-scenes tests
+### Add
 
-The operator's `verify()` in `operator.ts` gets stricter, per-target checks:
+- `src/lib/smartboard/manualEdit/mirror.ts` — pure mapping table `{ target → apply(ctrl), undo(ctrl), verify(ctrl) }`. One entry per `EditTargetKind`.
+- `src/hooks/useMirrorMode.ts` — hook that owns `active`, `selection`, and exposes `enter()`, `exit()`, `select(target)`.
 
-- **Note:** `getBoardHasNoteFor(lineIdx)` **and** DOM query for the rendered note row (`[data-board-note-line="N"]`) so a "silent success" (state marked shown but DOM missing) is caught. Add `data-board-note-line` to the Smartboard's note rendering.
-- **Chip:** signature match **and** ink DOM presence.
-- **Line:** signature match **and** ink DOM presence for the row.
+### Rewrite
 
-When Verify fails via DOM even though state says success, the operator classifies as `render-empty` and jumps to `forceRepaintLine`.
+- `src/components/smartboard/AiEditWorkspace.tsx` — becomes a slim status strip: "Live Mirror Mode active — click any item in the Presenter Preview." Shows current selection + ✓/✗ verification, plus an Exit button. No timeline, no Fix Error, no tactics.
+- `src/components/smartboard/PresenterPreviewPanel.tsx` — when mirror mode is active, every renderable node (headings, prose lines, question lines, solution lines, notes, floating chips, structures) becomes a button-role element that calls `select({ kind, beatId, lineIdx?, fillerIdx? })`. Selected item gets the existing highlight border. Also renders the ✓/✗ badge inline after verification returns.
+- `src/lib/smartboard/manualEdit/types.ts` — keep `EditTarget` / `EditTargetKind`; drop operator/report/phase types that are no longer referenced.
+- `src/lib/smartboard/manualEdit/dispatch.ts` — replace with a 5-line adapter that just calls `mirror.apply(target)`; suggestion-chip flow is gone.
 
-### 8. Files
+### Untouched
 
-**New**
-- `src/lib/smartboard/manualEdit/pipelineTactics.ts` — the expanded ladder (tactics 3–7 per target).
-- `src/lib/smartboard/manualEdit/pipelineRepair.ts` — shared entry for Autoplay + manual.
-- `src/components/smartboard/FixOverlay.tsx` — big-text status overlay on the Smartboard column.
+- All lesson data, notebook, floating-number generation, backend, LLM.
+- Normal Autoplay path in `PresentationView.tsx` and `usePresentationAI.ts` — the mirror hook uses the same controller methods Autoplay already uses; the presentation engine on the Smartboard does not change.
+- `PresenterPreviewPanel` rendering of the lesson content is unchanged; only click handlers and a subtle badge column are added under a mirror-mode flag.
 
-**Edited**
-- `src/lib/smartboard/manualEdit/operator.ts` — walk the extended ladder, emit richer events, stricter verify.
-- `src/lib/smartboard/manualEdit/strategies.ts` — plug pipeline tactics on top of the current ones per root cause.
-- `src/lib/smartboard/manualEdit/dispatch.ts` — no API change, just re-export.
-- `src/components/smartboard/AiEditWorkspace.tsx` — replace footer with **Fix Error** button, elapsed timer, status bar, mount `FixOverlay`.
-- `src/components/smartboard/PresenterPreviewPanel.tsx` — `data-note-button` / `data-chip` / `data-line-reveal` attributes.
-- `src/components/smartboard/PresentationView.tsx` — implement `rebuildRowOwnership`, `forceRepaintLine`, `getNoteButtonEl`, `getHashFabEl`, `getChipEl`; add `data-board-note-line` on rendered note rows; host `FixOverlay`.
-- `src/lib/smartboard/presentationAI/controller.ts` — new optional methods declared.
-- `src/hooks/usePresentationAI.ts` — escalate failed repairs through `runPipelineRepair`.
+## Acceptance checks
 
-**Untouched**
-- Notebook data, Preview content, backend, LLM. All fixes remain local, deterministic, additive.
+1. Enter AI Edit → Smartboard is empty.
+2. Click Introduction → prose appears; click again → gone.
+3. Click Example 1 question → same equation appears as in normal play.
+4. Click a solution line → the whole line writes out.
+5. Click a Teacher Note → note appears exactly as in normal play; ✓ badge.
+6. Click a floating chip → that filler appears at the correct position; ✓ badge.
+7. If any of the above shows nothing → ✗ badge names the failing object type, without attempting any repair.
+8. Exit Live Mirror → Smartboard returns to whatever state it had before entering (either empty or the pre-existing playback state, whichever we snapshot on enter — we snapshot & restore).
 
-### Out of scope
+## Non-goals
 
-- Rewriting the note/chip event system. Tactics 3–7 sit *around* the existing pipeline; they don't replace it.
-- Any change to lesson content or the Preview's rendering rules.
+- No new AI calls, no regeneration, no diagnosis, no repair.
+- No changes to how content is generated or stored.
+- No changes to student-facing Smartboard behaviour outside AI Edit.

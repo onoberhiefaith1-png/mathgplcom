@@ -1,4 +1,9 @@
-// Manual AI Edit — target descriptors, operator events, and reports.
+// Manual AI Edit — Live Mirror Mode target descriptors.
+//
+// Live Mirror Mode replaces the previous diagnose/repair operator: the
+// Presenter Preview is the source of truth, and clicking any preview
+// object mirrors that object onto the Smartboard 1:1 using the same
+// controller calls used during normal playback.
 
 export type EditTargetKind =
   | "cover"
@@ -19,68 +24,12 @@ export interface EditTarget {
   text?: string;
 }
 
-export type EditIntent =
-  | "sync-note"
-  | "sync-floating"
-  | "sync-line"
-  | "sync-highlight"
-  | "sync-structure"
-  | "fix-spacing"
-  | "fix-overlap"
-  | "fix-order"
-  | "fix-active-line"
-  | "fix-scroll"
-  | "move-note"
-  | "rerender-structure"
-  | "unknown";
+export type MirrorStatus = "idle" | "applying" | "ok" | "missing";
 
-export type RootCause =
-  | "click-not-fired"
-  | "panel-did-not-open"
-  | "chip-not-registered"
-  | "render-empty"
-  | "sync-lost"
-  | "mapping-missing"
-  | "wrong-layer"
-  | "blocked-by-overlap"
-  | "outside-viewport"
-  | "queue-missed"
-  | "active-line-drift"
-  | "structural"
-  | "none";
-
-export type OperatorPhase =
-  | "diagnose"
-  | "reproduce"
-  | "observe"
-  | "root-cause"
-  | "repair"
-  | "verify"
-  | "report";
-
-export interface OperatorEvent {
-  phase: OperatorPhase;
-  label: string;
+export interface MirrorResult {
   ok: boolean;
-  detail?: string;
-  tookMs?: number;
-}
-
-export interface EditAction {
-  label: string;
-  ok: boolean;
-  detail?: string;
-}
-
-export interface EditReport {
-  ok: boolean;
-  intent: EditIntent;
-  rootCause?: RootCause;
+  /** Human-readable message shown in the status strip. */
   message: string;
-  actions: EditAction[];
-  events: OperatorEvent[];
-  escalate?: {
-    reason: string;
-    trail: OperatorEvent[];
-  };
+  /** Optional diagnostic when ok === false. */
+  detail?: string;
 }
