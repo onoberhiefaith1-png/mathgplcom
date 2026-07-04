@@ -1,111 +1,51 @@
+## Fix regressions + rebuild Presenter-Preview → Smartboard as source-of-truth
 
-# Live Mirror Mode — Presenter Preview as Single Source of Truth
+The last refactor broke normal Smartboard operation. This plan restores original behavior and rebuilds Live Mirror as an opt-in Edit mode on the Presenter Preview, exactly as described.
 
-## Goal
+### Problems observed
 
-Replace the current AI Edit (diagnose → reproduce → repair) with a much simpler system:
+1. `AiEditWorkspace`'s "clear board on close" effect fires on **mount** (`open===false`), wiping the Smartboard whenever `PresentationView` renders → Next does nothing, only the cover shows.
+2. `CursorScrollbar` is imported but never rendered — the up/down cursor rail is gone.
+3. Floating-number hash FAB is present via `AssistantButtons`, but the mirror path used `pickFloatingNumber` (which *solves*) instead of opening the panel to *display* the chips, contradicting the "click # → show all floating numbers, don't solve" requirement.
+4. Mirror mode is entered implicitly with a `mode` state inside `PresenterPreviewPanel` but there is no visible **Edit** toggle button in the panel header.
+5. Selecting a new item leaves the previously-mirrored ink on the board (mirror only re-runs `clearBoard` at entry, not per selection change in a robust way).
 
-- Enter AI Edit → Smartboard clears to a blank canvas.
-- Teacher clicks any object in the Presenter Preview → that exact object appears on the Smartboard using the same presentation call the lesson normally uses.
-- Teacher deselects (clicks again / clicks another object) → the previous object is removed.
-- No regeneration, no reconstruction, no AI diagnosis. If clicking an object shows nothing, that is itself the diagnostic — the mapping for that object type is broken.
+### Fixes
 
-## Behaviour
+**1. `src/components/smartboard/AiEditWorkspace.tsx`**
+- Guard the "close" effect with a `hasBeenOpen` ref so `clearBoard` runs **only** when actually transitioning from open → closed, never on mount.
+- On selection change while open, always call `clearBoard(controller)` before `applyMirror`, so the previous highlight's ink disappears the moment a new item is picked.
+- On Exit, in addition to clearing, call `controller.resetBoard?.()` and reset beat cursor to the current live beat so normal playback resumes cleanly.
 
-```text
-Click AI Edit
-   ↓
-resetBoard()  →  Smartboard is empty
-   ↓
-Teacher clicks Preview item  ────►  Smartboard shows exactly that item
-Teacher clicks it again      ────►  Smartboard removes it
-Teacher clicks another item  ────►  previous is removed, new one shown
-```
+**2. `src/components/smartboard/PresentationView.tsx`**
+- Render `<CursorScrollbar>` inline on the left rail (below the assistant buttons), wired to the existing sensor up/down handlers — restores the disappeared cursor controller.
+- Do **not** mount `AiEditWorkspace` when `mirrorActive===false` (already the case; verified `open={mirrorActive}` — combined with fix #1 this makes the workspace fully inert until the teacher enters Edit mode).
+- No other Smartboard control-flow changes: Next, Prev, autoplay, floating-number panel, notebook reveal, and all other affordances stay exactly as they were.
 
-Selection is single-item. A tiny "Exit Live Mirror" button restores normal presentation state.
+**3. `src/lib/smartboard/manualEdit/mirror.ts`**
+- `floating-number` case: replace `ctrl.pickFloatingNumber(...)` with `ctrl.openFloatingPanel?.(idx)`. Clicking the # on a preview line will now **open the FloatingNumberPanel** showing all chips for that line — it will not write ink or solve.
+- `teacher-note` case: keep the existing note-write path (already writes the note on the board via `writeProseLineOnBoard` + `markNotebookShown`).
+- `question` / `solution-line` / `cover` / `section` / `subsection`: keep 1:1 write behavior unchanged.
+- `clearBoard` unchanged (already calls `resetBoard` + `closeFloatingPanel`).
 
-### Clickable preview objects → matching Smartboard action
+**4. `src/components/smartboard/PresenterPreviewPanel.tsx`**
+- Add a visible **Edit / Done** pill in the panel header (next to the existing "Following teacher" indicator) that toggles `mode` between `"normal"` and `"edit"`. When toggled to `"normal"`, `onMirrorChange(false, null)` fires and the board clears + resumes normal playback.
+- Split each solution line in Edit mode into two clickable regions with visible affordances:
+  - **`#` handle** (left, styled like the existing FloatingChips border) → selects `{ kind: "floating-number", beatId, lineIdx, fillerIdx: 0 }`.
+  - **Note pill** (right, the existing `NoteBlock`) → selects `{ kind: "teacher-note", beatId, lineIdx, text: notebook }`.
+  - Selecting one deselects the other (the existing `selectTarget` toggle handles this).
+- Cover / prose sections / question line: single clickable region per item (unchanged).
+- In Normal mode the split is not shown; the preview reads exactly as before.
 
-| Preview object | Smartboard action (existing controller call) |
-|---|---|
-| Cover / section / subsection heading | `writeProseLineOnBoard(headingText)` on a fresh row |
-| Introduction / explanation prose line | `writeProseLineOnBoard(text)` |
-| Example question line | `writeQuestionLine(lineIdx, equation)` |
-| Solution line (full) | `writeEquationPrefix(lineIdx, allTokens)` |
-| Individual floating number tile | `pickFloatingNumber(lineIdx, fillerIdx)` |
-| Floating-number group header | `openFloatingPanel(lineIdx)` |
-| Teacher Note | `markNotebookShown(idx)` / note-open path used in normal playback |
-| Math structure / final answer | same call the normal presenter uses for that beat |
+### Acceptance checks
 
-Each mapping is a one-liner that calls existing controller methods. No new rendering logic on the Smartboard side.
+- Open a lesson: cover renders on the Smartboard; **Next** advances beats normally through Introduction → Example 1 → …
+- Open Presenter Preview: highlight follows the live beat; Next still works.
+- Click **Edit** in the preview header: enter Live Mirror; Smartboard clears.
+- Click Introduction card → prose appears on board. Click Example 1 → Example 1 question appears (previous ink gone). Click a solution line's `#` → FloatingNumberPanel opens showing the chips (no equation written). Click the same line's Note → note text writes on the board (chips close).
+- Click **Done** in the preview header: Smartboard clears, normal playback resumes from the current beat, Next works again.
+- Cursor up/down rail is visible on the left. Floating-number # FAB is visible on the right.
 
-### Deselect semantics
+### Out of scope
 
-Track `mirrorSelection: { targetKey, undo: () => void }`. When switching or unselecting:
-
-- Line targets → `eraseRow(row, guardOwnerLineIdx)` for the row(s) the action created.
-- Note targets → `eraseNoteAt(lineIdx)`.
-- Floating tile → erase just that filler's ink (reuse the existing per-filler erase path used when a tile is un-picked in normal playback).
-- Panel-opening actions → `closeFloatingPanel()`.
-
-If a clean undo isn't available for a target, fall back to `resetBoard()` before rendering the next selection (still fast, since the board is otherwise empty in mirror mode).
-
-### Verification signal (replaces "diagnosis")
-
-After each click, wait one frame and check the corresponding board signature (`getBoardRowSignatureFor`, `getBoardHasNoteFor`, etc.). Show a small inline badge next to the clicked preview object:
-
-- ✓ mirrored — signature matched.
-- ✗ not mirrored — Smartboard produced nothing. Message: "Mapping for {objectType} is broken."
-
-No repair attempts. No tactic ladder. No operator loop. The badge is the whole diagnostic.
-
-## Scope of changes
-
-### Remove / retire
-
-Delete these files (the operator/diagnose/repair machinery is no longer used):
-
-- `src/lib/smartboard/manualEdit/operator.ts`
-- `src/lib/smartboard/manualEdit/probes.ts`
-- `src/lib/smartboard/manualEdit/gestures.ts`
-- `src/lib/smartboard/manualEdit/rootCause.ts`
-- `src/lib/smartboard/manualEdit/strategies.ts`
-- `src/lib/smartboard/manualEdit/pipelineTactics.ts`
-- `src/components/smartboard/FixOverlay.tsx`
-
-Autoplay never called the operator directly (only via `AiEditWorkspace`), so removing these does not touch normal presentation.
-
-### Add
-
-- `src/lib/smartboard/manualEdit/mirror.ts` — pure mapping table `{ target → apply(ctrl), undo(ctrl), verify(ctrl) }`. One entry per `EditTargetKind`.
-- `src/hooks/useMirrorMode.ts` — hook that owns `active`, `selection`, and exposes `enter()`, `exit()`, `select(target)`.
-
-### Rewrite
-
-- `src/components/smartboard/AiEditWorkspace.tsx` — becomes a slim status strip: "Live Mirror Mode active — click any item in the Presenter Preview." Shows current selection + ✓/✗ verification, plus an Exit button. No timeline, no Fix Error, no tactics.
-- `src/components/smartboard/PresenterPreviewPanel.tsx` — when mirror mode is active, every renderable node (headings, prose lines, question lines, solution lines, notes, floating chips, structures) becomes a button-role element that calls `select({ kind, beatId, lineIdx?, fillerIdx? })`. Selected item gets the existing highlight border. Also renders the ✓/✗ badge inline after verification returns.
-- `src/lib/smartboard/manualEdit/types.ts` — keep `EditTarget` / `EditTargetKind`; drop operator/report/phase types that are no longer referenced.
-- `src/lib/smartboard/manualEdit/dispatch.ts` — replace with a 5-line adapter that just calls `mirror.apply(target)`; suggestion-chip flow is gone.
-
-### Untouched
-
-- All lesson data, notebook, floating-number generation, backend, LLM.
-- Normal Autoplay path in `PresentationView.tsx` and `usePresentationAI.ts` — the mirror hook uses the same controller methods Autoplay already uses; the presentation engine on the Smartboard does not change.
-- `PresenterPreviewPanel` rendering of the lesson content is unchanged; only click handlers and a subtle badge column are added under a mirror-mode flag.
-
-## Acceptance checks
-
-1. Enter AI Edit → Smartboard is empty.
-2. Click Introduction → prose appears; click again → gone.
-3. Click Example 1 question → same equation appears as in normal play.
-4. Click a solution line → the whole line writes out.
-5. Click a Teacher Note → note appears exactly as in normal play; ✓ badge.
-6. Click a floating chip → that filler appears at the correct position; ✓ badge.
-7. If any of the above shows nothing → ✗ badge names the failing object type, without attempting any repair.
-8. Exit Live Mirror → Smartboard returns to whatever state it had before entering (either empty or the pre-existing playback state, whichever we snapshot on enter — we snapshot & restore).
-
-## Non-goals
-
-- No new AI calls, no regeneration, no diagnosis, no repair.
-- No changes to how content is generated or stored.
-- No changes to student-facing Smartboard behaviour outside AI Edit.
+- No changes to lesson-note generation, backend, floating-number generator, plan storage, autoplay logic, or math rendering.
