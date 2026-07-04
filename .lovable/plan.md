@@ -1,136 +1,111 @@
 
-## Upgrade AI Edit into an Autonomous Smartboard Operator
+## Give the AI Operator "Pipeline Power" — Fix Error until it lands
 
-Today's `AiEditWorkspace` behaves like a chat helper: it parses the teacher's prompt, runs one repair recipe, and reports back. The new behavior treats the Presenter Preview as the source of truth and makes the AI **act on the Smartboard** — clicking, opening, erasing, retrying — exactly as a teacher would, then verifying against the Preview.
+The current operator diagnoses "note-not-clickable on Line 1" but stops there because its ladder tops out at "replay click." The Presenter Preview is the source of truth, so the operator must be able to force any preview content onto the Smartboard — even when the normal click/render pipeline is broken. This plan expands the tactic ladder, adds a real-time "Fix Error" mode, and shares the same repair power with Autoplay.
 
-### 1. New operator loop
+### 1. Rename the primary control to **Fix Error**
 
-Replace the single `runManualEdit(target, prompt, ctrl)` call with an autonomous loop in `src/lib/smartboard/manualEdit/operator.ts`:
+`AiEditWorkspace.tsx`:
+- Replace the current *Cancel / Run / Retry* footer with a single primary **Fix Error** button (destructive-red styling) that is always visible until the issue is resolved.
+- While the loop runs it becomes **Fixing… <elapsed>s** with a Stop affordance next to it.
+- After success the button turns into **Fixed ✓** for 2s, then hides.
+- After the ladder fully exhausts, it becomes **Fix Again** (re-run from Diagnose with an escalation flag that unlocks the invasive tactics up front).
 
-```text
-select target
-  → DIAGNOSE (probe board vs. preview, no writes)
-  → REPRODUCE (perform the teacher gesture: click Note / click #-chip / scroll)
-  → OBSERVE (read board signature after gesture)
-  → ROOT-CAUSE (classify why the gesture failed)
-  → REPAIR (apply the smallest matching recipe)
-  → VERIFY (re-run the same probe)
-  → repeat up to N attempts, escalating strategy each time
-  → REPORT (pass, or structured failure with the exact failing step)
-```
+Auto-diagnose on open stays, but its purpose is only to *pre-fill* the root cause. Nothing runs until the teacher presses **Fix Error** — matches the user's mental model.
 
-Each phase emits an `OperatorEvent` (`kind, label, ok, detail, tookMs`) so the drawer can render a live step list instead of a static report.
+### 2. Live "on-screen" progress
 
-### 2. Probes — the "can I…?" tests
+The drawer already renders a timeline. Add:
+- A **status bar** at the top of the timeline: *"Fixing: Line 1 note — Testing tactic 3 of 7 — elapsed 1.4s"*.
+- A **flash toast on the Smartboard column itself** (`FixOverlay.tsx`, absolute-positioned over `PresentationView`) that mirrors the current tactic in large text: *"Testing: dispatch synthetic click on note button…"*, *"Testing: force render via controller…"*, *"Verifying…"*. The overlay auto-hides on success.
+- A per-tactic **result chip** (✓ / ✗) that appears next to the tactic row the moment its Verify probe returns.
 
-New file `src/lib/smartboard/manualEdit/probes.ts` with pure read functions built on the existing controller:
+This gives the teacher the "I can see it working" experience they asked for.
 
-- `probeNote(lineIdx)` → `{ inPreview, onBoard, blocked, offscreen }` using `ctrl.getBoardHasNoteFor`, `getPreviewCardEl`, board row rect vs. viewport.
-- `probeFloating(lineIdx, fillerIdx)` → compares `getExpectedPrefixSignatureFor` with `getBoardRowSignatureFor`, and checks whether the `#` panel opens.
-- `probeLine(lineIdx)` → expected vs. actual row signature; detects overlap with previous/next row rects.
-- `probeScroll(lineIdx)` → is the target row within the board viewport?
-- `probeActiveLine()` → does `getActiveLineIdx()` match the selected line?
-- `probeStructure(target)` → math-structure rendering (KaTeX span present, non-empty).
+### 3. Expand the tactic ladder — the "pipeline power"
 
-All probes are side-effect free. They feed both Diagnose and Verify.
+New file `src/lib/smartboard/manualEdit/pipelineTactics.ts`. Each tactic is progressively more invasive; the operator walks the ladder until Verify passes:
 
-### 3. Gestures — the "do it like a teacher" actions
+**Note pipeline (Line 1 case):**
+1. **Replay click via controller API** — `clickNote` gesture (current behavior).
+2. **Scroll + reset active line + replay** — clears cursor drift.
+3. **Dispatch synthetic DOM click on the note button** — `document.querySelector('[data-note-button][data-line-idx="N"]')` → `element.dispatchEvent(new MouseEvent('click', {bubbles:true}))`. Requires adding `data-note-button` / `data-line-idx` attributes to the preview panel's Note affordance (small edit in `PresenterPreviewPanel.tsx`).
+4. **Force-open Note via controller side door** — call `writeProseLineOnBoard(note)` after `moveSensorToSafeRow` and `markNotebookShown`. Bypasses the click handler entirely.
+5. **Erase note row + re-inject** — `eraseNoteAt(lineIdx)` → safe row → `writeProseLineOnBoard` → `markNotebookShown` → `addNotebookAttention`. Rebuilds ownership.
+6. **Rebuild row mapping** — new controller call `rebuildRowOwnership(lineIdx)` that clears the internal `rowOwners` entry for the line and re-runs `moveSensorToSafeRow`, then re-injects. Fixes stale mapping (the exact "note-not-clickable" symptom).
+7. **Full re-render of the line region** — new controller call `forceRepaintLine(lineIdx)` that bumps a per-line paint counter, causing the board renderer to re-mount that row's ink, then re-inject.
 
-New file `src/lib/smartboard/manualEdit/gestures.ts`. Each gesture is a small async function that drives the controller in the same order a teacher's hand would move:
+**Floating-chip pipeline:** already have panel/pick/erase tactics — add:
+- **Synthetic click on the `#` FAB and chip tiles** using new `data-fab="hash"` / `data-chip="lineIdx-fillerIdx"` attributes.
+- **Bypass panel: writeEquationPrefix as final fallback** (already present, promoted to tactic 6).
 
-- `clickNote(lineIdx)` — `scrollBoardTo → moveSensorToSafeRow → eraseNoteAt(if stale) → writeProseLineOnBoard(note) → markNotebookShown → addNotebookAttention`.
-- `clickHash(lineIdx)` — `scrollBoardTo → moveSensorToSafeRow → openFloatingPanel`.
-- `pickChip(lineIdx, fillerIdx)` — assumes panel open; `pickFloatingNumber`, else fallback to `writeEquationPrefix`.
-- `writeQuestion(lineIdx, eq)` — `scrollBoardTo → moveSensorToSafeRow → writeQuestionLine`.
-- `eraseRow(lineIdx)` — guarded `eraseRow(-1, lineIdx)`.
-- `scrollIntoView(lineIdx)` — `scrollBoardTo` + settle wait.
-- `retryLineFromScratch(lineIdx)` — erase → safe row → replay every chip in order → verify.
+**Line pipeline:** add
+- **Synthetic click on Line reveal button** where applicable.
+- **`forceRepaintLine` + `retryLineFromScratch`** as the last resort.
 
-Gestures never touch notebook data or Preview state — only the board.
+**Universal fallbacks (any target):**
+- **Reset beat cursor + active line** (`sync-lost`).
+- **Reset board scroll to line row** (`board-scroll-lost`).
 
-### 4. Root-cause classifier
+Cap: 7 tactics per run, 6 s per tactic, hard 20 s overall wall-clock.
 
-New file `src/lib/smartboard/manualEdit/rootCause.ts`. Given `{target, probeBefore, gestureResult, probeAfter}` it returns one of:
+### 4. Controller additions (thin, additive)
 
-`click-not-fired`, `panel-did-not-open`, `chip-not-registered`, `render-empty`, `sync-lost`, `mapping-missing`, `wrong-layer`, `blocked-by-overlap`, `outside-viewport`, `queue-missed`, `active-line-drift`, `structural` (last one = cannot repair from client).
+`src/lib/smartboard/presentationAI/controller.ts` and its wiring in `PresentationView.tsx`:
 
-Each root cause maps to an ordered list of repair strategies (see §5). The classifier is deterministic — no LLM.
+- `rebuildRowOwnership(lineIdx: number): void` — clears `rowOwners` entries for that line and any note it owned.
+- `forceRepaintLine(lineIdx: number): void` — increments a `linePaintNonce[lineIdx]` state used as a React key on the line's row group, forcing remount.
+- `getNoteButtonEl?(lineIdx): HTMLElement | null` — returns the preview panel note button so tactics can dispatch synthetic clicks.
+- `getHashFabEl?(): HTMLElement | null` and `getChipEl?(lineIdx, fillerIdx): HTMLElement | null` — same idea for floating.
 
-### 5. Strategy ladder (escalation)
+These are read/side-door helpers, not new writing logic — the existing writers already cover all cases.
 
-`src/lib/smartboard/manualEdit/strategies.ts` — per root cause, an ordered array of tactics. The operator tries them in order until Verify passes or the list is exhausted. Examples:
+### 5. Preview panel — expose DOM targets
 
-- `click-not-fired` → [replay gesture, reset active line then replay, scroll then replay].
-- `panel-did-not-open` → [close+reopen panel, safe-row then reopen, erase row then reopen].
-- `chip-not-registered` → [pick chip again, erase row + replay all chips up to k, writeEquationPrefix fallback].
-- `render-empty` (note) → [rewriteNote, eraseNoteAt+rewrite, scroll+safe-row+rewrite].
-- `blocked-by-overlap` → [moveSensorToSafeRow, drop extra row for fraction, eraseRow + replay].
-- `outside-viewport` → [scrollBoardTo, then re-run original gesture].
-- `active-line-drift` → [`setActiveLineIdx`, then replay].
-- `sync-lost` / `queue-missed` → [`setBeatCursor` + `setActiveLineIdx`, replay].
-- `structural` → stop and emit escalation report.
+`PresenterPreviewPanel.tsx`:
+- Add `data-note-button data-line-idx={i}` to each Note affordance.
+- Add `data-chip data-line-idx={i} data-filler-idx={k}` to each floating chip.
+- Add `data-line-reveal data-line-idx={i}` to each line's reveal button.
+- No behavior change — only attributes so tactic 3 can dispatch synthetic clicks.
 
-Tactics reuse the existing recipes in `presentationAI/repairs.ts` where they line up (`note-missing`, `filler-missing`, `line-mismatch`, `sensor-collision`, `board-scroll-lost`) so we don't duplicate logic.
+### 6. Share the power with Autoplay
 
-### 6. Quick Suggestions become executable workflows
+`src/hooks/usePresentationAI.ts` (Autoplay):
+- Import `runPipelineRepair(target, ctrl)` from a new shared entry `src/lib/smartboard/manualEdit/pipelineRepair.ts` (thin wrapper over the operator with `forcedCause` derived from the current issue).
+- On any repair failure inside Autoplay's existing `runRepair`, escalate to `runPipelineRepair` before marking the issue unresolved. This gives Autoplay the same "keep trying tactics until it lands" behavior as manual Fix Error.
+- No UI change to the Autoplay diagnosis panel — the extra tactics show up under the existing repair log.
 
-`SUGGESTED_PROMPTS` in `dispatch.ts` is replaced by `SUGGESTED_WORKFLOWS` — each entry pre-selects a root-cause hypothesis so the operator can skip Diagnose and go straight to the matching strategy ladder:
+### 7. Verification — behind-the-scenes tests
 
-| Chip | Workflow |
-| --- | --- |
-| Note missing on board | force root cause `render-empty` on target's line note |
-| Add floating number | `chip-not-registered` on selected filler (or first missing) |
-| Solution line missing | `queue-missed` on selected line |
-| Fix overlap | `blocked-by-overlap` |
-| Fix spacing | `blocked-by-overlap` (drop-extra-row tactic first) |
-| Bring into view | `outside-viewport` |
-| Reset active line | `active-line-drift` |
-| Re-render structure | `render-empty` with structure sub-strategy |
+The operator's `verify()` in `operator.ts` gets stricter, per-target checks:
 
-Clicking the chip immediately triggers the operator run — no textarea required. The textarea stays for free-form intents that still route through the keyword parser.
+- **Note:** `getBoardHasNoteFor(lineIdx)` **and** DOM query for the rendered note row (`[data-board-note-line="N"]`) so a "silent success" (state marked shown but DOM missing) is caught. Add `data-board-note-line` to the Smartboard's note rendering.
+- **Chip:** signature match **and** ink DOM presence.
+- **Line:** signature match **and** ink DOM presence for the row.
 
-### 7. Drawer UX changes (`AiEditWorkspace.tsx`)
+When Verify fails via DOM even though state says success, the operator classifies as `render-empty` and jumps to `forceRepaintLine`.
 
-- Auto-start Diagnose the moment the drawer opens; show a live checklist as probes complete.
-- Replace the current single "report" card with a phase timeline: Diagnose → Reproduce → Root cause → Repair (with tactic name) → Verify.
-- Buttons collapse to a single **Stop** while running; **Retry** re-runs from Diagnose; **Cancel** closes.
-- On terminal failure, render an "Escalate to code fix" block containing the full event trail, ready for the teacher to hand to Lovable.
-
-### 8. Controller surface additions
-
-Small, additive methods on `PresentationController` (only if not already exposed) — read-only where possible:
-
-- `getBoardRowRect(lineIdx)` — for overlap and viewport probes.
-- `isFloatingPanelOpen()` and `closeFloatingPanel()` — so gestures can reset the panel.
-- `getBoardScrollTopFor(lineIdx)` — for `outside-viewport` probe.
-
-No changes to notebook data, Presenter Preview rendering, or Autoplay flow.
-
-### 9. Independence & safety
-
-- Operator runs are isolated per drawer session; no shared state with Autoplay.
-- Every gesture is guarded by `guardOwnerLineIdx` where applicable so the operator can only erase/rewrite the selected line's row and its own note.
-- Hard cap: 5 tactics per run, 8 s per tactic, then escalate.
-
-### Files
+### 8. Files
 
 **New**
-- `src/lib/smartboard/manualEdit/operator.ts` — the diagnose/reproduce/repair/verify loop.
-- `src/lib/smartboard/manualEdit/probes.ts` — pure read tests.
-- `src/lib/smartboard/manualEdit/gestures.ts` — teacher-style board actions.
-- `src/lib/smartboard/manualEdit/rootCause.ts` — deterministic classifier.
-- `src/lib/smartboard/manualEdit/strategies.ts` — ordered tactic ladders per root cause.
+- `src/lib/smartboard/manualEdit/pipelineTactics.ts` — the expanded ladder (tactics 3–7 per target).
+- `src/lib/smartboard/manualEdit/pipelineRepair.ts` — shared entry for Autoplay + manual.
+- `src/components/smartboard/FixOverlay.tsx` — big-text status overlay on the Smartboard column.
 
 **Edited**
-- `src/lib/smartboard/manualEdit/dispatch.ts` — thin wrapper that now calls the operator; `SUGGESTED_WORKFLOWS` replaces `SUGGESTED_PROMPTS`.
-- `src/lib/smartboard/manualEdit/types.ts` — add `OperatorEvent`, `OperatorPhase`, `RootCause`, `Tactic`, extend `EditReport` with `events[]`.
-- `src/components/smartboard/AiEditWorkspace.tsx` — auto-run on open, phase timeline UI, Stop/Retry controls, escalation block.
-- `src/lib/smartboard/presentationAI/controller.ts` and `interface.ts` — expose the small read helpers listed in §8 if missing.
+- `src/lib/smartboard/manualEdit/operator.ts` — walk the extended ladder, emit richer events, stricter verify.
+- `src/lib/smartboard/manualEdit/strategies.ts` — plug pipeline tactics on top of the current ones per root cause.
+- `src/lib/smartboard/manualEdit/dispatch.ts` — no API change, just re-export.
+- `src/components/smartboard/AiEditWorkspace.tsx` — replace footer with **Fix Error** button, elapsed timer, status bar, mount `FixOverlay`.
+- `src/components/smartboard/PresenterPreviewPanel.tsx` — `data-note-button` / `data-chip` / `data-line-reveal` attributes.
+- `src/components/smartboard/PresentationView.tsx` — implement `rebuildRowOwnership`, `forceRepaintLine`, `getNoteButtonEl`, `getHashFabEl`, `getChipEl`; add `data-board-note-line` on rendered note rows; host `FixOverlay`.
+- `src/lib/smartboard/presentationAI/controller.ts` — new optional methods declared.
+- `src/hooks/usePresentationAI.ts` — escalate failed repairs through `runPipelineRepair`.
 
 **Untouched**
-- Presentation AI Autoplay, `usePresentationAI.ts`, `inspector.ts` internals, Presenter Preview panel selection layer, notebook data, backend/edge functions. No LLM call.
+- Notebook data, Preview content, backend, LLM. All fixes remain local, deterministic, additive.
 
 ### Out of scope
 
-- Sending diagnostics to an LLM. Everything is local and deterministic; a future upgrade can post the event trail to `notebook-ai`.
-- Changing what "correct" means — the Presenter Preview + existing `inspector.ts` remain the arbiter.
+- Rewriting the note/chip event system. Tactics 3–7 sit *around* the existing pipeline; they don't replace it.
+- Any change to lesson content or the Preview's rendering rules.
