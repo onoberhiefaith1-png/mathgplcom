@@ -1974,6 +1974,13 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownNotebookIdx, activeReservoirIdx]);
 
+  // Note-parity with the Presenter Preview: whenever the active line has a
+  // notebook note attached and it hasn't been shown yet, immediately surface
+  // it as "attention pending" so the note chip appears on the board without
+  // requiring the teacher to first press Next. The existing note-purity
+  // filter in `notebookFor` (below) still gates math-shaped strings.
+  // Guarded by `hasGuidedLines` so cover / prose beats are untouched.
+
   // Persist Lesson-Line cursor (beat + active logical line) so a reload
   // restores the teacher to the same teaching step.
   useEffect(() => {
