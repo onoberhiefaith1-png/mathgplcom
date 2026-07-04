@@ -166,6 +166,12 @@ export const applyMirror = async (
     case "question": {
       const idx = li(target);
       const eq = (target.text ?? "").trim();
+      // Already on the board? Just bring it into view.
+      if (idx >= 0 && ctrl.getBoardRowSignatureFor(idx)) {
+        ctrl.setActiveLineIdx(idx);
+        ctrl.scrollBoardTo?.(idx);
+        return;
+      }
       let row: number | undefined;
       if (idx >= 0) {
         ctrl.setActiveLineIdx(idx);
@@ -174,7 +180,7 @@ export const applyMirror = async (
       if (ctrl.writeQuestionLine && idx >= 0 && eq) {
         ctrl.writeQuestionLine(idx, eq);
       } else if (eq) {
-        ctrl.writeProseLineOnBoard(eq);
+        writeProseIfMissing(ctrl, eq);
       }
       if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
       else if (idx >= 0) ctrl.scrollBoardTo?.(idx);
@@ -184,6 +190,12 @@ export const applyMirror = async (
     case "solution-line": {
       const idx = li(target);
       if (idx < 0) return;
+      // Already on the board? Just bring it into view.
+      if (ctrl.getBoardRowSignatureFor(idx)) {
+        ctrl.setActiveLineIdx(idx);
+        ctrl.scrollBoardTo?.(idx);
+        return;
+      }
       ctrl.setActiveLineIdx(idx);
       const row = ctrl.moveSensorToSafeRow?.(idx);
       const line = ctrl.getActiveGuidedLines()[idx];
@@ -192,7 +204,7 @@ export const applyMirror = async (
         ctrl.writeEquationPrefix(idx, fillers.length);
       } else {
         const eq = (line?.equation ?? target.text ?? "").trim();
-        if (eq) ctrl.writeProseLineOnBoard(eq);
+        if (eq) writeProseIfMissing(ctrl, eq);
       }
       if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
       else ctrl.scrollBoardTo?.(idx);
