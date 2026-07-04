@@ -7,8 +7,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
-  Eraser, Undo2, Redo2, ScanEye,
+  Eraser, Undo2, Redo2, ScanEye, PanelLeftOpen, X as XIcon,
 } from "lucide-react";
+import PresenterPreviewPanel from "./PresenterPreviewPanel";
 
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
@@ -386,6 +387,26 @@ const PresentationView = ({
     if (leftToolsTimer.current) window.clearTimeout(leftToolsTimer.current);
     leftToolsTimer.current = window.setTimeout(() => setLeftToolsVisible(false), 5000);
   }, []);
+
+  // Presenter Preview side panel (teacher-only). Icon auto-hides after 10s.
+  const PRESENTER_PANEL_KEY = `smartboard:presenterPanelOpen:${notebookId ?? "_"}`;
+  const [presenterPanelOpen, setPresenterPanelOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem(PRESENTER_PANEL_KEY) === "1"; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(PRESENTER_PANEL_KEY, presenterPanelOpen ? "1" : "0"); }
+    catch { /* noop */ }
+  }, [presenterPanelOpen, PRESENTER_PANEL_KEY]);
+  const [presenterIconVisible, setPresenterIconVisible] = useState(false);
+  const presenterIconTimer = useRef<number | null>(null);
+  const revealPresenterIcon = useCallback(() => {
+    setPresenterIconVisible(true);
+    if (presenterIconTimer.current) window.clearTimeout(presenterIconTimer.current);
+    presenterIconTimer.current = window.setTimeout(() => setPresenterIconVisible(false), 10000);
+  }, []);
+  const [presenterManualScroll, setPresenterManualScroll] = useState(false);
   // Draggable eraser: lives at a home position; while dragging it follows the
   // pointer and wipes any line it crosses. On release it animates home.
   const [eraserDrag, setEraserDrag] = useState<{ x: number; y: number } | null>(null);
@@ -2751,6 +2772,15 @@ const PresentationView = ({
   // Surface bg as a single solid colour for sub-previews inside settings.
   const surfaceFlatBg = surface === "whiteboard" ? "#f1efe9" : "#181d1b";
 
+  // Presenter Preview panel sync — the live board's beat id already matches
+  // the preview panel's item id ("__cover__", "<secId>-text", "<subId>-q").
+  const activePreviewBeatId: string | null = current?.id ?? null;
+  const activePreviewLineIdx: number | null =
+    current && (current.kind === "problem" || current.kind === "exercise-prompt")
+      ? activeLineIdx
+      : null;
+  const showPresenterChrome = isTeacher && !!notebookId;
+
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
@@ -2778,6 +2808,99 @@ const PresentationView = ({
         className="pointer-events-none absolute inset-0"
         style={{ boxShadow: palette.inset }}
       />
+
+      {/* Presenter Preview — top-left expandable icon (teacher only).
+          The icon auto-hides after 10s; a hit-zone on the left edge reveals
+          it again on pointer activity. Clicking opens a 30vw side panel
+          overlaying the board; the board itself doesn't reflow. */}
+      {showPresenterChrome && (
+        <>
+          {/* Hit-zone: top-left corner. */}
+          <div
+            aria-hidden
+            onPointerEnter={revealPresenterIcon}
+            onPointerMove={revealPresenterIcon}
+            className="absolute z-30"
+            style={{ left: 0, top: 0, width: 72, height: 96 }}
+          />
+          <button
+            data-sb-chrome
+            data-sb-teacher-only
+            onClick={() => { setPresenterPanelOpen((v) => !v); revealPresenterIcon(); }}
+            aria-label={presenterPanelOpen ? "Close presenter preview" : "Open presenter preview"}
+            title={presenterPanelOpen ? "Close presenter preview" : "Open presenter preview"}
+            className="absolute z-40 grid place-items-center rounded-full border transition-opacity duration-300"
+            style={{
+              left: 12,
+              top: 12,
+              width: 40,
+              height: 40,
+              background: palette.chromeBg,
+              color: palette.chromeFg,
+              borderColor: palette.chromeBorder,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(10px)",
+              opacity: (presenterIconVisible || presenterPanelOpen) ? 0.95 : 0,
+              pointerEvents: (presenterIconVisible || presenterPanelOpen) ? "auto" : "none",
+            }}
+          >
+            <PanelLeftOpen className="h-5 w-5" />
+          </button>
+
+          {/* Side panel — 30vw overlay on the left. */}
+          <aside
+            data-sb-chrome
+            data-sb-teacher-only
+            className="fixed top-0 bottom-0 left-0 z-30 flex flex-col border-r transition-transform duration-300"
+            style={{
+              width: "30vw",
+              minWidth: 320,
+              maxWidth: 480,
+              background: "rgba(246,244,239,0.97)",
+              borderColor: "rgba(138,106,31,0.2)",
+              boxShadow: "8px 0 24px rgba(0,0,0,0.12)",
+              backdropFilter: "blur(10px)",
+              transform: presenterPanelOpen ? "translateX(0)" : "translateX(-102%)",
+            }}
+          >
+            <header
+              className="flex items-center gap-2 px-4 py-3 border-b"
+              style={{ borderColor: "rgba(138,106,31,0.2)" }}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[9px] uppercase tracking-[0.35em]" style={{ color: "#8a6a1f" }}>
+                  Presenter Preview
+                </p>
+                <p className="text-sm font-semibold truncate" style={{ color: "#1a2230" }}>
+                  {notebook?.title ?? "Untitled"}
+                </p>
+                <p
+                  className="text-[10px] mt-0.5"
+                  style={{ color: presenterManualScroll ? "#b45309" : "#15803d" }}
+                >
+                  {presenterManualScroll ? "Paused — manual scroll" : "Following teacher"}
+                </p>
+              </div>
+              <button
+                onClick={() => setPresenterPanelOpen(false)}
+                aria-label="Close presenter preview"
+                className="grid place-items-center rounded-full h-8 w-8 hover:bg-black/5"
+                style={{ color: "#1a2230" }}
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+            </header>
+            <div className="flex-1 min-h-0">
+              <PresenterPreviewPanel
+                notebookId={notebookId}
+                activeBeatId={activePreviewBeatId}
+                activeLineIdx={activePreviewLineIdx}
+                onManualScrollChange={setPresenterManualScroll}
+              />
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* Top chrome — narrow centered pill, slides out of view by default.
           Pull-tab at top-center reveals it. */}
