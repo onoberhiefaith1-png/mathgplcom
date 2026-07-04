@@ -53,6 +53,10 @@ export interface PresentationController {
   /** Scroll the Smartboard so `lineIdx` is in view. */
   scrollBoardTo?: (lineIdx: number) => void;
 
+  /** Scroll the board so a specific ROW (grid line) is in view — used by
+   *  Live Mirror after writing, since note rows have no line ownership. */
+  scrollBoardToRow?: (row: number) => void;
+
   /** Detect overlap between the row owning `lineIdx` and any other line. */
   detectOverlap?: (lineIdx: number) => { overlapsWith: number | null; kind: "row" | "note" };
 
@@ -66,6 +70,14 @@ export interface PresentationController {
   /** Wipe every mark from the Smartboard so autoplay starts from a blank
    *  surface. Does NOT touch reservoirs, plan, or lesson content. */
   resetBoard?: () => void;
+
+  /** Clear all ink/rows but KEEP the beat cursor where it is — used by
+   *  Live Mirror Mode so clearing never knocks the section back to 0. */
+  clearInkOnly?: () => void;
+
+  /** True iff some board row's ink signature matches `text`. Empty or
+   *  unrenderable text returns false — a missing write can never pass. */
+  boardHasTextRow?: (text: string) => boolean;
 
   /** Move the writing sensor by rows. Positive = down. */
   moveSensorUp?: (rows?: number) => void;

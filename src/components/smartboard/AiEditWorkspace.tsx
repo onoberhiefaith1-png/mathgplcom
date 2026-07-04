@@ -1,38 +1,38 @@
-// AiEditWorkspace — Live Mirror Mode status strip.
+// AiEditWorkspace — HEADLESS Live Mirror runner.
 //
-// Live Mirror Mode replaces the old autonomous operator drawer. The
-// Presenter Preview is the source of truth; clicking any preview item
-// mirrors that exact item onto the Smartboard via `runMirror`.
+// Renders NOTHING. (The old floating status strip at the top of the
+// screen physically covered the first lines of the Presenter Preview,
+// making Line 1's note unclickable — it is gone for good.)
 //
-// This component is now just a small header strip:
-//   • shows current selection + caption
-//   • shows ✓ mirrored / ✗ mapping broken status returned by verify
-//   • an Exit button that clears the Smartboard and closes mirror mode
-//
-// No timelines, no tactics, no repair — if a mapping produces nothing,
-// that IS the diagnostic and the teacher knows which function to fix.
+// Responsibilities:
+//   • when a preview item is selected, mirror it onto the Smartboard
+//     via the timing-safe mirror + 4-step auto-rectify ladder
+//   • report live status (mirroring / fixing step n/4 / ✓ / ✗) through
+//     `onStatus`, which the Presenter Preview shows as an inline badge
+//     on the clicked item itself
+//   • on exit, clear the board and resume normal playback
 
-import { useEffect, useRef, useState } from "react";
-import { X, Sparkles, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
-import type { EditTarget, MirrorResult } from "@/lib/smartboard/manualEdit/types";
-import { clearBoard, runMirror } from "@/lib/smartboard/manualEdit/dispatch";
-import { renderMathInline } from "@/lib/notebook/mathRender";
+import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
+import { editTargetKey } from "@/lib/smartboard/manualEdit/types";
+import { clearBoard } from "@/lib/smartboard/manualEdit/mirror";
+import { runMirrorWithAutofix } from "@/lib/smartboard/manualEdit/autofix";
 
 interface Props {
   open: boolean;
   target: EditTarget | null;
   controller: PresentationController | null;
-  onClose: () => void;
+  onStatus?: (status: MirrorUiStatus | null) => void;
 }
 
-const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<MirrorResult | null>(null);
+const AiEditWorkspace = ({ open, target, controller, onStatus }: Props) => {
   const runIdRef = useRef(0);
   const lastKeyRef = useRef<string | null>(null);
   const hasBeenOpenRef = useRef(false);
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
 
   // On open (and every fresh selection) mirror the target onto the board.
   useEffect(() => {
@@ -42,113 +42,44 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
     // Entering mirror mode with no selection yet — just clear the board.
     if (!target) {
       clearBoard(controller);
-      setResult(null);
+      onStatusRef.current?.(null);
       lastKeyRef.current = null;
       return;
     }
 
-    const key = [
-      target.kind,
-      target.beatId,
-      target.lineIdx ?? "",
-      target.fillerIdx ?? "",
-    ].join("|");
+    const key = editTargetKey(target);
     if (lastKeyRef.current === key) return;
     lastKeyRef.current = key;
 
     const myRun = ++runIdRef.current;
-    setBusy(true);
-    setResult(null);
     (async () => {
-      // Always start from a blank canvas so previous highlight ink is gone.
-      clearBoard(controller);
-      const r = await runMirror(target, controller);
+      const result = await runMirrorWithAutofix(target, controller, (p) => {
+        if (runIdRef.current === myRun) onStatusRef.current?.({ key, ...p });
+      });
       if (runIdRef.current === myRun) {
-        setResult(r);
-        setBusy(false);
+        onStatusRef.current?.({
+          key,
+          phase: result.ok ? "ok" : "failed",
+          label: result.message,
+          detail: result.detail,
+        });
       }
     })();
   }, [open, controller, target]);
 
   // On close — but ONLY after we were actually open once. This prevents
-  // wiping the Smartboard when the workspace mounts with open===false
-  // during normal playback.
+  // wiping the Smartboard when this mounts with open===false during
+  // normal playback.
   useEffect(() => {
     if (open) return;
     if (!hasBeenOpenRef.current) return;
-    if (controller) {
-      clearBoard(controller);
-    }
+    runIdRef.current += 1; // cancel any in-flight run
+    if (controller) clearBoard(controller);
     lastKeyRef.current = null;
-    setResult(null);
+    onStatusRef.current?.(null);
   }, [open, controller]);
 
-  if (!open) return null;
-
-  const badge = busy ? (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium" style={{ color: "#7c2d12" }}>
-      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Mirroring…
-    </span>
-  ) : result?.ok ? (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium" style={{ color: "#15803d" }}>
-      <CheckCircle2 className="h-3.5 w-3.5" /> {result.message}
-    </span>
-  ) : result ? (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium" style={{ color: "#b45309" }}>
-      <XCircle className="h-3.5 w-3.5" /> {result.message}
-    </span>
-  ) : (
-    <span className="text-[11px] opacity-70">
-      Click any item in the Presenter Preview to mirror it on the Smartboard.
-    </span>
-  );
-
-  return (
-    <aside
-      role="dialog"
-      aria-label="Live Mirror Mode"
-      className="fixed left-1/2 -translate-x-1/2 top-3 z-[80] max-w-[720px] w-[min(720px,92vw)] rounded-full shadow-xl border flex items-center gap-3 px-4 py-2"
-      style={{
-        background: "rgba(246,244,239,0.98)",
-        borderColor: "rgba(138,106,31,0.3)",
-        backdropFilter: "blur(10px)",
-        color: "#1a2230",
-      }}
-    >
-      <Sparkles className="h-4 w-4 shrink-0" style={{ color: "#8a6a1f" }} />
-      <div className="flex-1 min-w-0">
-        <p className="text-[9px] uppercase tracking-[0.35em]" style={{ color: "#8a6a1f" }}>
-          Live Mirror · Preview → Smartboard
-        </p>
-        <div className="flex items-center gap-3 min-w-0">
-          {target ? (
-            <p className="text-sm font-semibold truncate">
-              {target.caption}
-              {target.text && (
-                <span className="ml-2 opacity-60 font-normal font-serif">
-                  {renderMathInline(target.text.slice(0, 80))}
-                </span>
-              )}
-            </p>
-          ) : (
-            <p className="text-sm font-semibold opacity-60">No selection</p>
-          )}
-        </div>
-        <div className="mt-0.5">{badge}</div>
-        {result && !result.ok && result.detail && (
-          <p className="text-[10px] opacity-70 truncate">{result.detail}</p>
-        )}
-      </div>
-      <button
-        onClick={onClose}
-        aria-label="Exit Live Mirror Mode"
-        className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] hover:bg-black/5 shrink-0"
-        style={{ borderColor: "rgba(138,106,31,0.35)" }}
-      >
-        <X className="h-3.5 w-3.5" /> Exit
-      </button>
-    </aside>
-  );
+  return null;
 };
 
 export default AiEditWorkspace;

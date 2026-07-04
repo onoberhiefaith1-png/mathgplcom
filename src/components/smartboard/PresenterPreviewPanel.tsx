@@ -11,7 +11,18 @@
 //     after a 6s idle grace period.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StickyNote, Pencil, Check, EyeOff, Eye, Sparkles } from "lucide-react";
+import {
+  StickyNote,
+  Pencil,
+  Check,
+  EyeOff,
+  Eye,
+  Sparkles,
+  Loader2,
+  Wrench,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 
 import { useNotebook, type SectionRow } from "@/hooks/useNotebook";
 import {
@@ -27,7 +38,8 @@ import {
 } from "@/lib/smartboard/presentationPlan";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { SmartboardLessonText } from "@/components/smartboard/SmartboardLessonText";
-import type { EditTarget } from "@/lib/smartboard/manualEdit/types";
+import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
+import { editTargetKey } from "@/lib/smartboard/manualEdit/types";
 
 const INK = "#1a2230";
 const ACCENT = "#8a6a1f";
@@ -151,10 +163,12 @@ export interface PresenterPreviewPanelProps {
   /** Emits true when the teacher is manually scrolling the panel. */
   onManualScrollChange?: (isManual: boolean) => void;
   /** Fires whenever Live Mirror Mode toggles or its selection changes.
-   *  Host uses this to clear the Smartboard, mirror the selected object,
-   *  and show the Live Mirror status strip. When `active` is false the
-   *  Smartboard should exit mirror mode. */
+   *  Host uses this to clear the Smartboard and mirror the selected
+   *  object. When `active` is false the Smartboard exits mirror mode. */
   onMirrorChange?: (active: boolean, target: EditTarget | null) => void;
+  /** Live mirror/auto-fix status for the currently selected item —
+   *  rendered as an inline badge directly on the clicked item. */
+  mirrorStatus?: MirrorUiStatus | null;
 }
 
 const PresenterPreviewPanel = ({
@@ -163,6 +177,7 @@ const PresenterPreviewPanel = ({
   activeLineIdx,
   onManualScrollChange,
   onMirrorChange,
+  mirrorStatus,
 }: PresenterPreviewPanelProps) => {
   const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
 
@@ -181,11 +196,17 @@ const PresenterPreviewPanel = ({
   // Live Mirror Mode signalling — mirror mode is active whenever the
   // teacher is in Edit mode. Selection changes propagate immediately so
   // the host can mirror the picked object onto the Smartboard.
+  // The callback lives in a ref and we only emit when (mode, selection)
+  // ACTUALLY changed — an unstable inline callback from the host must
+  // never re-trigger this effect (it caused an update-depth loop).
+  const onMirrorChangeRef = useRef(onMirrorChange);
+  onMirrorChangeRef.current = onMirrorChange;
   useEffect(() => {
-    if (!onMirrorChange) return;
-    if (mode === "edit") onMirrorChange(true, selection);
-    else onMirrorChange(false, null);
-  }, [mode, selection, onMirrorChange]);
+    const cb = onMirrorChangeRef.current;
+    if (!cb) return;
+    if (mode === "edit") cb(true, selection);
+    else cb(false, null);
+  }, [mode, selection]);
 
   const toggleSkip = useCallback(
     (beatId: string) => {
@@ -413,11 +434,41 @@ const PresenterPreviewPanel = ({
       ? { cursor: "pointer" as const, outline: "1px dashed rgba(59,130,246,0.35)", outlineOffset: 2 }
       : {};
 
-  // Live Mirror Mode: no confirmation button — selecting an item mirrors
-  // it immediately via `onMirrorChange`. Keep the component as a no-op
-  // to preserve existing JSX slots without extra layout work.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const AiEditButton = (_: { target: EditTarget }) => null;
+  // Live Mirror Mode: selecting an item mirrors it immediately via
+  // `onMirrorChange`. The mirror/auto-fix status is shown as a small
+  // inline badge ON the clicked item itself — never a separate panel.
+  const AiEditButton = ({ target }: { target: EditTarget }) => {
+    if (mode !== "edit" || !mirrorStatus) return null;
+    if (mirrorStatus.key !== editTargetKey(target)) return null;
+    const s = mirrorStatus;
+    const palette =
+      s.phase === "ok"
+        ? { color: "#15803d", border: "rgba(21,128,61,0.35)", bg: "rgba(21,128,61,0.08)" }
+        : s.phase === "failed"
+        ? { color: "#b91c1c", border: "rgba(185,28,28,0.35)", bg: "rgba(185,28,28,0.08)" }
+        : s.phase === "fixing"
+        ? { color: "#b45309", border: "rgba(180,83,9,0.35)", bg: "rgba(180,83,9,0.08)" }
+        : { color: "#1e40af", border: "rgba(59,130,246,0.35)", bg: "rgba(59,130,246,0.08)" };
+    const icon =
+      s.phase === "ok" ? (
+        <CheckCircle2 className="h-3 w-3 shrink-0" />
+      ) : s.phase === "failed" ? (
+        <XCircle className="h-3 w-3 shrink-0" />
+      ) : s.phase === "fixing" ? (
+        <Wrench className="h-3 w-3 shrink-0 animate-pulse" />
+      ) : (
+        <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+      );
+    return (
+      <div
+        className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+        style={{ color: palette.color, borderColor: palette.border, background: palette.bg }}
+      >
+        {icon}
+        <span className="truncate">{s.label}</span>
+      </div>
+    );
+  };
 
   const SkipPill = ({ beatId }: { beatId: string }) => {
     if (mode !== "normal" || !notebookId) return null;
@@ -689,25 +740,27 @@ const PresenterPreviewPanel = ({
                               };
                               const chipSel = isSelected(chipTarget);
                               return (
-                                <button
-                                  key={fi}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    selectTarget(chipTarget);
-                                  }}
-                                  className="inline-flex items-center rounded-md border px-2.5 py-1 text-base font-serif"
-                                  style={{
-                                    borderColor: chipSel
-                                      ? selectedBorder
-                                      : "rgba(59,130,246,0.35)",
-                                    background: "rgba(59,130,246,0.08)",
-                                    color: "#1e3a8a",
-                                    boxShadow: chipSel ? selectedShadow : undefined,
-                                    ...editableOutline,
-                                  }}
-                                >
-                                  <InlineMath ascii={f} />
-                                </button>
+                                <span key={fi} className="inline-flex flex-col items-start">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      selectTarget(chipTarget);
+                                    }}
+                                    className="inline-flex items-center rounded-md border px-2.5 py-1 text-base font-serif"
+                                    style={{
+                                      borderColor: chipSel
+                                        ? selectedBorder
+                                        : "rgba(59,130,246,0.35)",
+                                      background: "rgba(59,130,246,0.08)",
+                                      color: "#1e3a8a",
+                                      boxShadow: chipSel ? selectedShadow : undefined,
+                                      ...editableOutline,
+                                    }}
+                                  >
+                                    <InlineMath ascii={f} />
+                                  </button>
+                                  <AiEditButton target={chipTarget} />
+                                </span>
                               );
                             })}
                           </div>

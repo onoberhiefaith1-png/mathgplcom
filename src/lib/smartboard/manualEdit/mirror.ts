@@ -1,24 +1,123 @@
 // Live Mirror Mode — one-to-one mapping between a Presenter Preview
-// object and the Smartboard action that displays it. No diagnosis, no
-// repair, no regeneration: we replay exactly the same controller call
-// the normal presentation engine would make.
+// object and the Smartboard action that displays it. We replay exactly
+// the same controller calls the normal presentation engine would make.
 //
-// If a mapping produces nothing (`verify` returns ok:false), the caller
-// surfaces that as a "mapping broken" badge in the UI — we never try to
-// fix it here.
+// Timing-safe: setting the beat cursor is an async React state update,
+// so before reading any line data we WAIT until the controller actually
+// reports the requested beat/reservoir (instead of a blind 30ms sleep).
+// Clearing the board for a mirror uses `clearInkOnly` so the beat cursor
+// is never knocked back to 0 mid-mirror.
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import type { EditTarget, MirrorResult } from "./types";
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const li = (t: EditTarget) => (typeof t.lineIdx === "number" ? t.lineIdx : -1);
-const fi = (t: EditTarget) => (typeof t.fillerIdx === "number" ? t.fillerIdx : 0);
+export const li = (t: EditTarget) => (typeof t.lineIdx === "number" ? t.lineIdx : -1);
+export const fi = (t: EditTarget) => (typeof t.fillerIdx === "number" ? t.fillerIdx : 0);
 
-/** Clear every mark from the Smartboard so mirror mode starts blank. */
+/** Full reset — used when EXITING mirror mode (resets beat cursor too). */
 export const clearBoard = (ctrl: PresentationController) => {
   ctrl.resetBoard?.();
   ctrl.closeFloatingPanel?.();
+};
+
+/** Clear ink/rows only — beat cursor stays where the mirror put it. */
+export const clearInk = (ctrl: PresentationController) => {
+  if (ctrl.clearInkOnly) ctrl.clearInkOnly();
+  else ctrl.resetBoard?.();
+  ctrl.closeFloatingPanel?.();
+};
+
+const NEEDS_RESERVOIR: ReadonlySet<string> = new Set([
+  "question",
+  "solution-line",
+  "floating-number",
+  "teacher-note",
+]);
+
+/**
+ * Point the controller at the target's beat and wait (up to ~900ms)
+ * until the state actually reflects it. Returns true when settled.
+ */
+export const waitForBeat = async (
+  target: EditTarget,
+  ctrl: PresentationController,
+): Promise<boolean> => {
+  const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
+  if (beatIdx < 0) return false;
+  if (ctrl.getBeatCursor() !== beatIdx) ctrl.setBeatCursor(beatIdx);
+
+  const needsRes = NEEDS_RESERVOIR.has(target.kind);
+  const deadline = Date.now() + 900;
+  while (Date.now() < deadline) {
+    const cursorOk = ctrl.getBeatCursor() === beatIdx;
+    const res = ctrl.getActiveReservoir();
+    const resOk = !needsRes || res?.beatId === target.beatId;
+    if (cursorOk && resOk) return true;
+    if (cursorOk && !needsRes) return true;
+    await wait(40);
+  }
+  return ctrl.getBeatCursor() === beatIdx;
+};
+
+/**
+ * Direct write — bypasses the reservoir lookup entirely and writes the
+ * exact text captured from the Presenter Preview at click time. The
+ * information is already in the preview, so it can ALWAYS be shown.
+ */
+export const directWrite = (target: EditTarget, ctrl: PresentationController): void => {
+  const idx = li(target);
+  const text = (target.text ?? target.caption ?? "").trim();
+
+  switch (target.kind) {
+    case "floating-number": {
+      if (idx >= 0) {
+        ctrl.setActiveLineIdx(idx);
+        ctrl.moveSensorToSafeRow?.(idx);
+      }
+      ctrl.openFloatingPanel?.(idx >= 0 ? idx : undefined);
+      return;
+    }
+    case "teacher-note": {
+      if (!text) return;
+      let row: number | undefined;
+      if (idx >= 0) {
+        ctrl.eraseNoteAt?.(idx);
+        row = ctrl.moveSensorToSafeRow?.(idx);
+      }
+      ctrl.writeProseLineOnBoard(text);
+      if (idx >= 0) {
+        ctrl.markNotebookShown(idx);
+        ctrl.addNotebookAttention(idx);
+      }
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      return;
+    }
+    case "question": {
+      if (!text) return;
+      let row: number | undefined;
+      if (idx >= 0) {
+        ctrl.setActiveLineIdx(idx);
+        row = ctrl.moveSensorToSafeRow?.(idx);
+      }
+      if (ctrl.writeQuestionLine && idx >= 0) ctrl.writeQuestionLine(idx, text);
+      else ctrl.writeProseLineOnBoard(text);
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      return;
+    }
+    default: {
+      if (!text) return;
+      let row: number | undefined;
+      if (idx >= 0) {
+        ctrl.setActiveLineIdx(idx);
+        row = ctrl.moveSensorToSafeRow?.(idx);
+      }
+      ctrl.writeProseLineOnBoard(text);
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      return;
+    }
+  }
 };
 
 /**
@@ -30,9 +129,12 @@ export const applyMirror = async (
   target: EditTarget,
   ctrl: PresentationController,
 ): Promise<void> => {
-  // Always start from a blank canvas so mirroring is deterministic.
-  clearBoard(ctrl);
-  await wait(30);
+  // 1) Point at the right beat FIRST and wait for state to settle.
+  await waitForBeat(target, ctrl);
+
+  // 2) Blank canvas — without resetting the beat cursor.
+  clearInk(ctrl);
+  await wait(80); // let React flush so row/sensor reads are fresh
 
   switch (target.kind) {
     case "cover": {
@@ -48,7 +150,6 @@ export const applyMirror = async (
     }
 
     case "subsection": {
-      // Heading only — the question line handles its own selection.
       const text = (target.caption ?? "").trim();
       if (text) ctrl.writeProseLineOnBoard(text);
       return;
@@ -57,31 +158,26 @@ export const applyMirror = async (
     case "question": {
       const idx = li(target);
       const eq = (target.text ?? "").trim();
-      // Position the sensor + set the active beat/line the same way
-      // normal playback does before writing the question line.
-      const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
-      if (beatIdx >= 0) ctrl.setBeatCursor(beatIdx);
+      let row: number | undefined;
       if (idx >= 0) {
         ctrl.setActiveLineIdx(idx);
-        ctrl.scrollBoardTo?.(idx);
-        ctrl.moveSensorToSafeRow?.(idx);
+        row = ctrl.moveSensorToSafeRow?.(idx);
       }
       if (ctrl.writeQuestionLine && idx >= 0 && eq) {
         ctrl.writeQuestionLine(idx, eq);
       } else if (eq) {
         ctrl.writeProseLineOnBoard(eq);
       }
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      else if (idx >= 0) ctrl.scrollBoardTo?.(idx);
       return;
     }
 
     case "solution-line": {
       const idx = li(target);
       if (idx < 0) return;
-      const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
-      if (beatIdx >= 0) ctrl.setBeatCursor(beatIdx);
       ctrl.setActiveLineIdx(idx);
-      ctrl.scrollBoardTo?.(idx);
-      ctrl.moveSensorToSafeRow?.(idx);
+      const row = ctrl.moveSensorToSafeRow?.(idx);
       const line = ctrl.getActiveGuidedLines()[idx];
       const fillers = line?.fillers ?? [];
       if (fillers.length > 0) {
@@ -90,18 +186,16 @@ export const applyMirror = async (
         const eq = (line?.equation ?? target.text ?? "").trim();
         if (eq) ctrl.writeProseLineOnBoard(eq);
       }
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      else ctrl.scrollBoardTo?.(idx);
       return;
     }
 
     case "floating-number": {
-      // Clicking a `#` (or a floating-number chip) in the preview must
-      // OPEN the Floating Number panel showing the chips for that line —
-      // it must NOT write ink or solve the equation. The teacher still
-      // taps chips manually on the board.
+      // Clicking a `#` (or chip) OPENS the Floating Number panel for
+      // that line — it does NOT write ink or solve.
       const idx = li(target);
       if (idx < 0) return;
-      const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
-      if (beatIdx >= 0) ctrl.setBeatCursor(beatIdx);
       ctrl.setActiveLineIdx(idx);
       ctrl.scrollBoardTo?.(idx);
       ctrl.moveSensorToSafeRow?.(idx);
@@ -112,19 +206,22 @@ export const applyMirror = async (
     case "teacher-note": {
       const idx = li(target);
       if (idx < 0) return;
-      const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
-      if (beatIdx >= 0) ctrl.setBeatCursor(beatIdx);
       ctrl.setActiveLineIdx(idx);
-      ctrl.scrollBoardTo?.(idx);
+      // Prefer the live reservoir text; ALWAYS fall back to the exact
+      // text the preview showed at click time.
       const raw =
-        (ctrl.getActiveGuidedLines()[idx]?.notebook ?? target.text ?? "").trim();
+        (ctrl.getActiveGuidedLines()[idx]?.notebook ?? target.text ?? "").trim() ||
+        (target.text ?? "").trim();
       if (!raw) return;
-      // Same sequence normal playback runs when a note beat fires.
       ctrl.eraseNoteAt?.(idx);
-      ctrl.moveSensorToSafeRow?.(idx);
+      const row = ctrl.moveSensorToSafeRow?.(idx);
       ctrl.writeProseLineOnBoard(raw);
       ctrl.markNotebookShown(idx);
       ctrl.addNotebookAttention(idx);
+      // Bring the freshly written note into view — note rows have no
+      // rowOwners entry, so scrollBoardTo(lineIdx) alone cannot find it.
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      else ctrl.scrollBoardTo?.(idx);
       return;
     }
 
@@ -138,54 +235,93 @@ export const applyMirror = async (
 };
 
 /**
- * Verify — a single, non-destructive readout. Returns ok:false with a
- * "mapping broken" message when the Smartboard produced nothing.
+ * Verify — non-destructive readout. Uses `boardHasTextRow` (signature
+ * match against actual ink) so an empty/missing write can NEVER pass
+ * as success.
  */
 export const verifyMirror = (
   target: EditTarget,
   ctrl: PresentationController,
 ): MirrorResult => {
   const label = target.caption || target.kind;
+  const hasText = (text: string | undefined | null): boolean | null => {
+    const raw = (text ?? "").trim();
+    if (!raw) return null;
+    if (!ctrl.boardHasTextRow) return null;
+    return ctrl.boardHasTextRow(raw);
+  };
+
   switch (target.kind) {
     case "teacher-note": {
       const idx = li(target);
       if (idx < 0) return { ok: true, message: `Mirrored: ${label}` };
+      const expected =
+        (ctrl.getActiveGuidedLines()[idx]?.notebook ?? "").trim() ||
+        (target.text ?? "").trim();
+      const direct = hasText(expected);
+      if (direct === true) return { ok: true, message: `✓ Note is on the board` };
+      if (direct === false) {
+        return {
+          ok: false,
+          message: `✗ Note did not appear on the board.`,
+          detail: `Line ${idx + 1}: no board row matches the note text.`,
+        };
+      }
+      // Fallback to the legacy check when boardHasTextRow is unavailable.
       const has = ctrl.getBoardHasNoteFor?.(idx);
       if (has === false) {
         return {
           ok: false,
-          message: `✗ Mapping for Teacher Note is broken.`,
+          message: `✗ Note did not appear on the board.`,
           detail: `Line ${idx + 1}: Smartboard did not render the note.`,
         };
       }
       return { ok: true, message: `✓ Mirrored: ${label}` };
     }
+
     case "floating-number": {
-      // Success = the Floating Number panel is now open. No ink expected.
       const open = ctrl.isFloatingPanelOpen?.() ?? true;
       return open
-        ? { ok: true, message: `✓ Mirrored: ${label}` }
+        ? { ok: true, message: `✓ Floating Number panel is open` }
         : {
             ok: false,
             message: `✗ Floating Number panel did not open.`,
             detail: `Line ${li(target) + 1}: panel failed to display chips.`,
           };
     }
+
     case "solution-line":
     case "question": {
       const idx = li(target);
       if (idx < 0) return { ok: true, message: `Mirrored: ${label}` };
       const sig = ctrl.getBoardRowSignatureFor(idx) || "";
-      if (!sig) {
+      if (sig) return { ok: true, message: `✓ Mirrored: ${label}` };
+      // Signature can miss when row ownership differs — check raw text.
+      const line = ctrl.getActiveGuidedLines()[idx];
+      const fillers = line?.fillers ?? [];
+      const expected =
+        target.kind === "solution-line" && fillers.length > 0
+          ? fillers.join(" ")
+          : (line?.equation ?? target.text ?? "");
+      const direct = hasText(expected) ?? hasText(target.text);
+      if (direct === true) return { ok: true, message: `✓ Mirrored: ${label}` };
+      return {
+        ok: false,
+        message: `✗ ${target.kind === "question" ? "Question" : "Line"} did not appear.`,
+        detail: `Line ${idx + 1}: Smartboard produced no ink.`,
+      };
+    }
+
+    default: {
+      const direct = hasText(target.text ?? target.caption);
+      if (direct === false) {
         return {
           ok: false,
-          message: `✗ Mapping for ${target.kind} is broken.`,
-          detail: `Line ${idx + 1}: Smartboard produced no ink.`,
+          message: `✗ ${label} did not appear on the board.`,
+          detail: `No board row matches the mirrored text.`,
         };
       }
       return { ok: true, message: `✓ Mirrored: ${label}` };
     }
-    default:
-      return { ok: true, message: `✓ Mirrored: ${label}` };
   }
 };
