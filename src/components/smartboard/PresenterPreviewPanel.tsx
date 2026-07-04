@@ -196,11 +196,17 @@ const PresenterPreviewPanel = ({
   // Live Mirror Mode signalling — mirror mode is active whenever the
   // teacher is in Edit mode. Selection changes propagate immediately so
   // the host can mirror the picked object onto the Smartboard.
+  // The callback lives in a ref and we only emit when (mode, selection)
+  // ACTUALLY changed — an unstable inline callback from the host must
+  // never re-trigger this effect (it caused an update-depth loop).
+  const onMirrorChangeRef = useRef(onMirrorChange);
+  onMirrorChangeRef.current = onMirrorChange;
   useEffect(() => {
-    if (!onMirrorChange) return;
-    if (mode === "edit") onMirrorChange(true, selection);
-    else onMirrorChange(false, null);
-  }, [mode, selection, onMirrorChange]);
+    const cb = onMirrorChangeRef.current;
+    if (!cb) return;
+    if (mode === "edit") cb(true, selection);
+    else cb(false, null);
+  }, [mode, selection]);
 
   const toggleSkip = useCallback(
     (beatId: string) => {
