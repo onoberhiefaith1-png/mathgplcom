@@ -83,34 +83,40 @@ export const directWrite = (target: EditTarget, ctrl: PresentationController): v
     }
     case "teacher-note": {
       if (!text) return;
+      let row: number | undefined;
       if (idx >= 0) {
         ctrl.eraseNoteAt?.(idx);
-        ctrl.moveSensorToSafeRow?.(idx);
+        row = ctrl.moveSensorToSafeRow?.(idx);
       }
       ctrl.writeProseLineOnBoard(text);
       if (idx >= 0) {
         ctrl.markNotebookShown(idx);
         ctrl.addNotebookAttention(idx);
       }
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
       return;
     }
     case "question": {
       if (!text) return;
+      let row: number | undefined;
       if (idx >= 0) {
         ctrl.setActiveLineIdx(idx);
-        ctrl.moveSensorToSafeRow?.(idx);
+        row = ctrl.moveSensorToSafeRow?.(idx);
       }
       if (ctrl.writeQuestionLine && idx >= 0) ctrl.writeQuestionLine(idx, text);
       else ctrl.writeProseLineOnBoard(text);
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
       return;
     }
     default: {
       if (!text) return;
+      let row: number | undefined;
       if (idx >= 0) {
         ctrl.setActiveLineIdx(idx);
-        ctrl.moveSensorToSafeRow?.(idx);
+        row = ctrl.moveSensorToSafeRow?.(idx);
       }
       ctrl.writeProseLineOnBoard(text);
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
       return;
     }
   }
