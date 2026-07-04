@@ -1,105 +1,92 @@
-
 ## Goal
 
-Add a left-side, expandable **Presenter Preview** panel to the live Smartboard Presentation page. It reuses the existing Smartboard Preview (from the Lesson Library) as a *read-only, synchronized teaching guide* — highlighting the teacher's current position and auto-scrolling to follow it, with support for temporary manual scrolling that snaps back when the teacher resumes.
+Replace the current floating-drawer Presenter Preview with a true **split-screen layout**: when the preview is open, the Preview occupies the left 30% and the entire Smartboard (board + every toolbar, floating control, and chrome button) resizes to the right 70%. Nothing overlays anything.
 
-Nothing about the existing preview page (`/smartboard/:id/preview`) or the live board's behavior changes. The panel is an additional view onto the same content.
+## Root problem
+
+`PresentationView` renders its chrome as many independent `position: fixed` elements (AssistantButtons, home button, chip toolbars, BottomPanel, toasts, presenter aside, etc.). `fixed` anchors to the browser viewport, so shrinking the board container does nothing — the buttons stay where they were and the preview overlays them.
+
+The fix is structural: introduce a positioned Smartboard **container** and reparent every Smartboard chrome element into it, converting `position: fixed` → `position: absolute`. Then wrap `[Preview | Smartboard]` in a flex row.
 
 ## Deliverables
 
-### 1. Extract the preview into a reusable component
-Move the render logic already inside `src/pages/SmartboardPreviewPage.tsx` (cover / prose / problem blocks, solution lines, HighlightBox, FloatingChips, NoteBlock) into a new component:
+### 1. Split-screen shell in `PresentationView.tsx`
 
-- `src/components/smartboard/PresenterPreviewPanel.tsx`
+Wrap the current top-level render in:
 
-Props:
-```
-{
-  notebookId: string;
-  activeBeatId?: string | null;   // e.g. "<subsectionId>-q", "<sectionId>-text", "__cover__"
-  activeLineIdx?: number | null;  // solution line index within active beat, if any
-  readOnly?: boolean;             // when true: no Present/Skip pills, no AI Edit, no Approve/Reset
-  onManualScrollChange?: (isManual: boolean) => void; // for auto-return logic
-}
+```text
+<div class="fixed inset-0 flex">
+  <aside style="width: 30%">   ← PresenterPreviewPanel (only when open)
+  <div id="sb-root" class="relative flex-1"   ← Smartboard container
+       style="width: presenterPanelOpen ? 70% : 100%">
+     ... existing board + all chrome ...
+  </div>
+</div>
 ```
 
-The existing `SmartboardPreviewPage` becomes a thin wrapper that renders `<PresenterPreviewPanel readOnly={false} />` plus its header (Reset / Approve & Go Live). This guarantees there is only **one** preview implementation in the system.
+- The `<aside>` renders inline in the flex row (not `position: fixed`). Width `30%`, min `320px`, max `520px`.
+- The Smartboard container is `position: relative` so every child using `position: absolute` is scoped to it.
+- Transition width/transform with `transition: width 280ms ease, transform 280ms ease` on both panes for the smooth slide.
 
-In `readOnly` mode the panel hides: Present/Skip toggle pills, AI Edit popovers, footer approve bar. It also removes the sticky header — the parent (side panel or page) supplies its own frame.
+Remove the current fixed-overlay `<aside>` (the one with `className="fixed top-0 bottom-0 left-0 z-30 …"` around line 2854) and the `translateX(-102%)` slide-in behavior. The panel is now part of the layout, not a drawer.
 
-### 2. Highlight the teacher's current position
-Inside `PresenterPreviewPanel`, each rendered item receives a stable `data-beat-id` and each solution line a `data-line-idx`. When `activeBeatId` matches an item, wrap it with a soft highlight ring:
+### 2. Reparent chrome so it lives inside the Smartboard container
 
-```
-background: rgba(138,106,31,0.08);
-box-shadow: inset 0 0 0 2px rgba(138,106,31,0.35);
-```
+Every Smartboard-owned control currently uses `position: fixed` and viewport-relative coords (`left: 12`, `right: 12`, `bottom: …`, `top: 50%`, etc.). Convert each to `position: absolute` inside `#sb-root`. Concretely:
 
-For the active solution line, apply the same subtle highlight to the `Line k` row. Colour is intentionally muted (amber-tint at 8%) — locator, not attention-grabber.
+- **AssistantButtons** (`src/components/smartboard/AssistantButtons.tsx`) — bottom-left Numbers pill, bottom-right Structures pill, right-edge Symbols pill. Change all three `className="fixed …"` to `absolute`. Their coordinates are already correct once the parent is the 70% container.
+- **PresentationView.tsx** fixed elements to convert to `absolute`:
+  - Presenter open/close button (~L2832) — currently `absolute` inside the wrong wrapper; anchor to `#sb-root`.
+  - Home / navigation floating button (~L3852, ~L3922) — `position: fixed` → `absolute`.
+  - Cursor / eraser / floating-number chip toolbars (~L3284, L3375, L3935, L3950, L4170) — `position: fixed` / `className="fixed …"` → `absolute`.
+  - BottomPanel container (rendered around L4194) — its outer wrapper switches from viewport-fixed to `absolute` at the bottom of `#sb-root`.
+  - Any `fixed left-1/2 top-3` toast/badge that is Smartboard-owned (L4242, L4343) → `absolute` inside `#sb-root`. (System-level toaster stays viewport-fixed.)
+- **BottomPanel.tsx** and its subcomponents: check for any inner `position: fixed`; convert to `absolute` so it docks to the resized container.
+- Anything using `100vw`/`100dvw` for a Smartboard child gets replaced with `100%` so widths follow the container.
 
-### 3. Auto-scroll + manual-scroll grace period
-`PresenterPreviewPanel` keeps an internal scroll container ref and a `userScrolling` flag:
+The presenter-preview button's auto-hide + left-edge reveal behavior is preserved; only the anchor changes.
 
-- On `activeBeatId` / `activeLineIdx` change, if `!userScrolling`, `scrollIntoView({ block: "center", behavior: "smooth" })` the active element.
-- When the panel detects a wheel / touch / pointer scroll originating inside it, set `userScrolling = true` and start/refresh a 6-second timeout.
-- When the teacher's active position advances (i.e. `activeBeatId`/`activeLineIdx` changes) *after* they went manual, clear `userScrolling` immediately and auto-scroll back — matching the spec's "as soon as the teacher continues teaching, the preview returns."
-- The 6-second timeout is a safety net for the case where no beat change occurs.
+### 3. Preview panel props unchanged
 
-Manual scrolling never mutates any board state — the panel is pure display.
+`PresenterPreviewPanel` already renders as a normal block. No prop or highlight-logic changes. It stops receiving the drawer-style `translateX` frame — the flex parent handles visibility by mounting/unmounting or by conditional width.
 
-### 4. Compute active beat from the live board
-In `src/components/smartboard/PresentationView.tsx`:
+Header/close-button inside the preview stays; the notebook title and "Following teacher" / "Paused — manual scroll" indicator stay.
 
-- Derive `activePreviewBeatId` from the existing `beats[beatCursor]`. `Beat` already carries an `id`; map beat ids to preview item ids using the same conventions the preview page uses:
-  - Cover beat → `"__cover__"`
-  - Prose beats (introduction/explanation/summary) → `"<sectionId>-text"`
-  - Problem beats → `"<subsectionId>-q"`
-- Pass `activeLineIdx` when the teacher is on a solution beat (already tracked in state near line 1961).
+### 4. Board coordinate math
 
-If the beat/reservoir structures don't already expose the source section/subsection ids on each beat, add a small `previewAnchor?: string` field when `buildBeats` constructs them (in `src/lib/smartboard/presentation.ts`) so the panel can look up items unambiguously. No behavioral change.
+The writing surface uses `useMeasureRef` / `getBoundingClientRect()` on the board root, so shrinking the container to 70% is safe: sensor, grid, and floating math already read the live rect. No coordinate constants need changing. Verify by:
 
-### 5. Left-side expandable panel on the live board
-In `PresentationView.tsx`, add:
+- Opening the panel and checking that pen strokes still register under the pointer.
+- Confirming floating-number chip positions align with their equation lines after resize.
 
-- A new expandable button in the top-left area, styled identically to the existing chrome buttons there (same size, same `chromeBg` / `chromeFg` / `chromeBorder` tokens from the `SURFACES` palette, same rounded pill). Icon: `PanelLeftOpen` (lucide) — matches the sibling chrome icons.
-- Reuse the same `useAutoHide(10000)` pattern already used for the left rail: the button fades after 10s of inactivity and re-appears when the pointer enters a hit zone on the left edge (mirroring `revealLeftTools` at line 384).
-- When clicked, open a `<aside>` docked to the left with `width: 30vw; min-width: 320px; max-width: 480px`. The board container's existing full-viewport rendering stays; the panel overlays with `position: fixed; inset: 0 auto 0 0; z-index: <one below settings sheet>`. A subtle right divider and `boxShadow` matches the existing `SettingsSheet`/`BottomPanel` chrome.
-- The panel header shows the notebook title, a close (`X`) button, and a small "Following teacher" indicator that dims to "Paused — manual scroll" while `userScrolling` is true.
-- Body: `<PresenterPreviewPanel notebookId={notebookId} activeBeatId={...} activeLineIdx={...} readOnly />`.
+If any legacy code caches `window.innerWidth`, replace with the container rect from the existing measure ref.
 
-The panel is teacher-only (`isTeacher === true`). Students never see it.
+### 5. Persistence + teacher-only + animation
 
-Panel open state is persisted per notebook in `localStorage` under `smartboard:presenterPanelOpen:<id>` so re-entering the board keeps the teacher's choice.
+- `smartboard:presenterPanelOpen:<id>` localStorage flag stays.
+- Panel + toggle button remain gated on `isTeacher`.
+- Both panes animate width in ~280ms; no `translateX` slide.
 
-### 6. Layout when open
-The Smartboard surface itself does **not** re-flow — the panel is an overlay on the left 30%. This preserves all coordinate math the writing surface relies on. Spec says "presentation remains visible on the remaining 70%": with an overlay of ~30vw the board is still fully rendered underneath and the right 70% is visually unobstructed. If the teacher wants the surface fully clear, they close the panel with the same button.
+### 6. Student view
 
-(Reflowing the board width would require touching grid, sensor, and freewrite coordinate systems — out of scope and explicitly a UI change only.)
-
-### 7. Read-only guarantees
-Inside `readOnly` mode the panel:
-- Renders no interactive controls except a scrollable container.
-- Does not call any Supabase mutation, does not touch `presentationPlan`, does not emit AI-edit toasts.
-- Uses `pointer-events: auto` only for scroll; everything else is presentational.
+Student board (`StudentSmartBoardPage`) is not affected — no panel, no split. The change is scoped to teacher-side `PresentationView`.
 
 ## Files touched
 
-- **new** `src/components/smartboard/PresenterPreviewPanel.tsx` — extracted, reusable preview body with active-highlight + auto-scroll logic.
-- **edit** `src/pages/SmartboardPreviewPage.tsx` — becomes a thin wrapper using the new component (no functional change for existing preview users).
-- **edit** `src/components/smartboard/PresentationView.tsx` — adds top-left expandable button (auto-hide 10s), left overlay panel, active-beat computation.
-- **edit (small)** `src/lib/smartboard/presentation.ts` — expose `previewAnchor` on each beat if not already derivable.
+- **edit** `src/components/smartboard/PresentationView.tsx` — introduce split shell, reparent all fixed chrome into `#sb-root`, remove drawer overlay.
+- **edit** `src/components/smartboard/AssistantButtons.tsx` — `fixed` → `absolute` on all three buttons.
+- **edit (small)** `src/components/smartboard/BottomPanel.tsx` — outer positioning `fixed` → `absolute` if present.
+- **edit (small)** `src/components/smartboard/PresenterPreviewPanel.tsx` — drop any assumption it lives inside a fixed drawer (paddings/borders unchanged).
 
-## Out of scope
-
-- Any change to the existing preview page's editing/approval flow.
-- Any change to the live board's writing surface, grid, sensor, floating math generation, or sync protocol.
-- Student-side view.
+No changes to student view, sync protocol, board data, or preview render logic.
 
 ## Acceptance checks
 
-1. Teacher opens `/smartboard/:id`, clicks the new left icon → 30%-wide panel slides in, shows the same content as `/smartboard/:id/preview` but with no Present/Skip/AI-Edit chrome.
-2. Advancing the board (Next beat, activating a floating line) moves the highlight in the panel and auto-scrolls it into view.
-3. Scrolling inside the panel with the wheel does not move the board; highlight stays where the teacher actually is; header switches to "Paused — manual scroll".
-4. Advancing the board after manual scroll immediately snaps the panel back to the current position.
-5. Idle for 10s with no pointer near the top-left → the expandable button fades. Moving the pointer to the left edge → it reappears. Panel state itself is unaffected.
-6. Students on the same board never see the button or panel.
+1. Panel closed: Smartboard is 100% width; all controls sit exactly where they do today.
+2. Panel opens: preview appears in left 30%, board smoothly shrinks and shifts right to 70%; nothing overlaps.
+3. Left-side controls (eraser, `#`, cursor toolbar) now sit against the **new** left edge of the shrunk board — not behind the preview.
+4. Right-side controls (Symbols pill, Structures pill, scrollbars) sit against the new right edge, which is the browser right edge.
+5. Bottom panel spans only the 70% width and stays attached to the board.
+6. Drawing, floating chips, and sensor hits all land correctly after resize.
+7. Closing the panel animates back to 100% in ~280ms with no jump.
+8. Students see no panel and no layout change.
