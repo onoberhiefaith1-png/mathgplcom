@@ -13,8 +13,10 @@ import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import { SmartboardRootContext } from "./SmartboardRoot";
 import AutoplayControl from "./AutoplayControl";
 import DiagnosisPanel from "./DiagnosisPanel";
+import AiEditWorkspace from "./AiEditWorkspace";
 import { usePresentationAI } from "@/hooks/usePresentationAI";
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
+import type { EditTarget } from "@/lib/smartboard/manualEdit/types";
 
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
@@ -405,6 +407,8 @@ const PresentationView = ({
     catch { /* noop */ }
   }, [presenterPanelOpen, PRESENTER_PANEL_KEY]);
   const [presenterIconVisible, setPresenterIconVisible] = useState(false);
+  // Manual AI Edit workspace — driven from the Presenter Preview's Edit mode.
+  const [aiEditTarget, setAiEditTarget] = useState<EditTarget | null>(null);
   // The 70% Smartboard pane element. Published via context so portals
   // (FloatingNumberPanel, SensorDPad) mount inside this container instead of
   // document.body, keeping every control anchored to the resized pane.
@@ -3365,6 +3369,7 @@ const PresentationView = ({
                   activeBeatId={activePreviewBeatId}
                   activeLineIdx={activePreviewLineIdx}
                   onManualScrollChange={setPresenterManualScroll}
+                  onOpenAiEdit={(t) => setAiEditTarget(t)}
                 />
               </div>
             </>
@@ -4961,6 +4966,12 @@ const PresentationView = ({
       )}
       </div>
       </SmartboardRootContext.Provider>
+      <AiEditWorkspace
+        open={!!aiEditTarget}
+        target={aiEditTarget}
+        controller={paiController}
+        onClose={() => setAiEditTarget(null)}
+      />
     </div>
   );
 };

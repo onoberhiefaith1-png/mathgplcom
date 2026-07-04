@@ -10,8 +10,8 @@
 //     auto-follow as soon as the teacher's position changes again, or
 //     after a 6s idle grace period.
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { StickyNote } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StickyNote, Pencil, Check, EyeOff, Eye, Sparkles } from "lucide-react";
 
 import { useNotebook, type SectionRow } from "@/hooks/useNotebook";
 import {
@@ -19,8 +19,15 @@ import {
   type Reservoir,
   type ReservoirLine,
 } from "@/lib/smartboard/presentation";
+import {
+  loadPlan,
+  toggleSkipped,
+  isSkipped,
+  type PresentationPlan,
+} from "@/lib/smartboard/presentationPlan";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { SmartboardLessonText } from "@/components/smartboard/SmartboardLessonText";
+import type { EditTarget } from "@/lib/smartboard/manualEdit/types";
 
 const INK = "#1a2230";
 const ACCENT = "#8a6a1f";
@@ -143,6 +150,10 @@ export interface PresenterPreviewPanelProps {
   activeLineIdx?: number | null;
   /** Emits true when the teacher is manually scrolling the panel. */
   onManualScrollChange?: (isManual: boolean) => void;
+  /** Fires when the teacher clicks the inline "AI Edit" button on the
+   *  currently selected target while Edit Mode is active. Host opens the
+   *  AI Edit Workspace drawer. */
+  onOpenAiEdit?: (target: EditTarget) => void;
 }
 
 const PresenterPreviewPanel = ({
@@ -150,8 +161,53 @@ const PresenterPreviewPanel = ({
   activeBeatId,
   activeLineIdx,
   onManualScrollChange,
+  onOpenAiEdit,
 }: PresenterPreviewPanelProps) => {
   const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
+
+  // ─── Mode + selection ────────────────────────────────────────────────
+  const [mode, setMode] = useState<"normal" | "edit">("normal");
+  const [selection, setSelection] = useState<EditTarget | null>(null);
+  const [plan, setPlan] = useState<PresentationPlan>(() => loadPlan(notebookId));
+  useEffect(() => {
+    setPlan(loadPlan(notebookId));
+  }, [notebookId]);
+  useEffect(() => {
+    // Clear selection when leaving edit mode.
+    if (mode !== "edit") setSelection(null);
+  }, [mode]);
+
+  const toggleSkip = useCallback(
+    (beatId: string) => {
+      if (!notebookId) return;
+      setPlan(toggleSkipped(notebookId, beatId));
+    },
+    [notebookId],
+  );
+
+  const selectTarget = useCallback(
+    (t: EditTarget) => {
+      if (mode !== "edit") return;
+      setSelection((cur) =>
+        cur &&
+        cur.kind === t.kind &&
+        cur.beatId === t.beatId &&
+        cur.lineIdx === t.lineIdx &&
+        cur.fillerIdx === t.fillerIdx
+          ? null
+          : t,
+      );
+    },
+    [mode],
+  );
+
+  const isSelected = (t: Partial<EditTarget>) =>
+    !!selection &&
+    selection.kind === t.kind &&
+    selection.beatId === t.beatId &&
+    selection.lineIdx === t.lineIdx &&
+    selection.fillerIdx === t.fillerIdx;
+
 
   const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
   const reservoirByBeat = useMemo(() => {
@@ -339,13 +395,99 @@ const PresenterPreviewPanel = ({
       ? { borderColor: HIGHLIGHT_BORDER, borderWidth: 2, boxShadow: HIGHLIGHT_SHADOW }
       : {};
 
+  // ─── Edit-mode helpers ───────────────────────────────────────────────
+  const selectedBorder = "rgba(59,130,246,0.9)";
+  const selectedShadow = "0 0 0 3px rgba(59,130,246,0.18)";
+  const editableOutline =
+    mode === "edit"
+      ? { cursor: "pointer" as const, outline: "1px dashed rgba(59,130,246,0.35)", outlineOffset: 2 }
+      : {};
+
+  const AiEditButton = ({ target }: { target: EditTarget }) =>
+    isSelected(target) && onOpenAiEdit ? (
+      <div className="mt-2">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenAiEdit(target);
+          }}
+          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold text-white shadow"
+          style={{ background: "#3b82f6" }}
+        >
+          <Sparkles className="h-3 w-3" /> AI Edit
+        </button>
+      </div>
+    ) : null;
+
+  const SkipPill = ({ beatId }: { beatId: string }) => {
+    if (mode !== "normal" || !notebookId) return null;
+    const skipped = isSkipped(plan, beatId);
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleSkip(beatId);
+        }}
+        aria-label={skipped ? "Unskip" : "Skip"}
+        className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-white/85 hover:bg-white"
+        style={{
+          borderColor: skipped ? "rgba(180,83,9,0.4)" : "rgba(138,106,31,0.35)",
+          color: skipped ? "#b45309" : "#524a3d",
+        }}
+      >
+        {skipped ? (
+          <>
+            <EyeOff className="h-3 w-3" /> Skipped
+          </>
+        ) : (
+          <>
+            <Eye className="h-3 w-3" /> Skip
+          </>
+        )}
+      </button>
+    );
+  };
+
   return (
-    <div
-      ref={scrollerRef}
-      tabIndex={0}
-      className="h-full w-full overflow-y-auto px-4 py-4 space-y-4 focus:outline-none"
-      style={{ color: INK }}
-    >
+    <div className="h-full w-full flex flex-col">
+      {/* Mode toolbar */}
+      <div
+        className="flex items-center justify-between gap-2 px-4 py-2 border-b shrink-0"
+        style={{ borderColor: "rgba(138,106,31,0.2)", background: "rgba(255,255,255,0.6)" }}
+      >
+        <p className="text-[10px] uppercase tracking-widest" style={{ color: ACCENT }}>
+          {mode === "edit" ? "Edit mode — select any item" : "Normal mode"}
+        </p>
+        <button
+          onClick={() => setMode((m) => (m === "edit" ? "normal" : "edit"))}
+          className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold hover:bg-black/5"
+          style={{
+            borderColor: mode === "edit" ? "rgba(59,130,246,0.5)" : "rgba(138,106,31,0.35)",
+            color: mode === "edit" ? "#1e40af" : INK,
+            background: mode === "edit" ? "rgba(59,130,246,0.08)" : "transparent",
+          }}
+        >
+          {mode === "edit" ? (
+            <>
+              <Check className="h-3.5 w-3.5" /> Done
+            </>
+          ) : (
+            <>
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </>
+          )}
+        </button>
+      </div>
+
+      <div
+        ref={scrollerRef}
+        tabIndex={0}
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4 focus:outline-none"
+        style={{
+          color: INK,
+          userSelect: mode === "edit" ? "text" : "none",
+        }}
+      >
       {items.map((it) => {
         const isActive = activeBeatId === it.id;
 
@@ -353,17 +495,23 @@ const PresenterPreviewPanel = ({
           const title = asDisplayString(notebook.title) || "Untitled";
           const subject = asDisplayString(notebook.subject);
           const subtopic = asDisplayString(notebook.subtopic);
+          const target: EditTarget = { kind: "cover", beatId: it.id, caption: "Cover", text: title };
+          const sel = isSelected(target);
           return (
             <section
               key={it.id}
               ref={setItemRef(it.id)}
-              className="rounded-2xl border p-6 text-center transition-colors"
+              onClick={() => selectTarget(target)}
+              className="relative rounded-2xl border p-6 text-center transition-colors"
               style={{
                 background: "rgba(255,255,255,0.7)",
-                borderColor: "rgba(138,106,31,0.15)",
-                ...activeStyle(isActive),
+                borderColor: sel ? selectedBorder : "rgba(138,106,31,0.15)",
+                boxShadow: sel ? selectedShadow : undefined,
+                ...activeStyle(isActive && !sel),
+                ...editableOutline,
               }}
             >
+              <SkipPill beatId={it.id} />
               <p className="text-[9px] uppercase tracking-[0.35em]" style={{ color: ACCENT }}>
                 Cover
               </p>
@@ -373,50 +521,102 @@ const PresenterPreviewPanel = ({
               {subject && <p className="mt-1 text-sm" style={{ color: "#524a3d" }}>{subject}</p>}
               {subtopic && <p className="text-sm" style={{ color: "#524a3d" }}>{subtopic}</p>}
               <p className="mt-2 text-[11px] text-neutral-500">{today()}</p>
+              <AiEditButton target={target} />
             </section>
           );
         }
 
         if (it.kind === "prose") {
+          const target: EditTarget = {
+            kind: "section",
+            beatId: it.id,
+            caption: it.caption,
+            text: it.text,
+          };
+          const sel = isSelected(target);
           return (
             <section
               key={it.id}
               ref={setItemRef(it.id)}
-              className="rounded-2xl border p-5 transition-colors"
+              onClick={() => selectTarget(target)}
+              className="relative rounded-2xl border p-5 transition-colors"
               style={{
                 background: "rgba(255,255,255,0.7)",
-                borderColor: "rgba(138,106,31,0.15)",
-                ...activeStyle(isActive),
+                borderColor: sel ? selectedBorder : "rgba(138,106,31,0.15)",
+                boxShadow: sel ? selectedShadow : undefined,
+                ...activeStyle(isActive && !sel),
+                ...editableOutline,
               }}
             >
+              <SkipPill beatId={it.id} />
               <h3 className="mb-2 text-sm font-semibold" style={{ color: INK }}>
                 {it.caption}
               </h3>
               <div className="text-[14px] leading-relaxed" style={{ color: INK }}>
                 <SmartboardLessonText>{it.text}</SmartboardLessonText>
               </div>
+              <AiEditButton target={target} />
             </section>
           );
         }
 
         const res = it.reservoir;
+        const subTarget: EditTarget = {
+          kind: "subsection",
+          beatId: it.id,
+          caption: it.caption,
+          text: it.problem,
+        };
+        const subSel = isSelected(subTarget);
         return (
           <section
             key={it.id}
             ref={setItemRef(it.id)}
-            className="rounded-2xl border p-5 transition-colors"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) selectTarget(subTarget);
+            }}
+            className="relative rounded-2xl border p-5 transition-colors"
             style={{
               background: "rgba(255,255,255,0.7)",
-              borderColor: "rgba(138,106,31,0.15)",
-              ...activeStyle(isActive && (activeLineIdx == null)),
+              borderColor: subSel ? selectedBorder : "rgba(138,106,31,0.15)",
+              boxShadow: subSel ? selectedShadow : undefined,
+              ...activeStyle(isActive && activeLineIdx == null && !subSel),
+              ...editableOutline,
             }}
           >
+            <SkipPill beatId={it.id} />
             <h3 className="mb-2 text-sm font-semibold" style={{ color: INK }}>
               {it.caption}
             </h3>
-            <div className="mb-3 text-[15px] leading-relaxed" style={{ color: INK }}>
-              <SmartboardLessonText>{it.problem}</SmartboardLessonText>
-            </div>
+            {/* Question / problem statement — selectable on its own. */}
+            {(() => {
+              const qTarget: EditTarget = {
+                kind: "question",
+                beatId: it.id,
+                caption: `${it.caption} · Question`,
+                lineIdx: 0,
+                text: it.problem,
+              };
+              const qSel = isSelected(qTarget);
+              return (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    selectTarget(qTarget);
+                  }}
+                  className="mb-3 rounded-md px-2 py-1 text-[15px] leading-relaxed transition-colors"
+                  style={{
+                    color: INK,
+                    border: `1px solid ${qSel ? selectedBorder : "transparent"}`,
+                    boxShadow: qSel ? selectedShadow : undefined,
+                    ...editableOutline,
+                  }}
+                >
+                  <SmartboardLessonText>{it.problem}</SmartboardLessonText>
+                  <AiEditButton target={qTarget} />
+                </div>
+              );
+            })()}
 
             {res && res.lines.length > 0 && (
               <div className="mt-3 space-y-3">
@@ -425,20 +625,39 @@ const PresenterPreviewPanel = ({
                   const note = asDisplayString(line.notebook).trim();
                   const lineActive = isActive && activeLineIdx === k;
                   const lineKey = `${it.id}::${k}`;
+                  const lineTarget: EditTarget = {
+                    kind: "solution-line",
+                    beatId: it.id,
+                    caption: `${it.caption} · Line ${k + 1}`,
+                    lineIdx: k,
+                    text: eq,
+                  };
+                  const lineSel = isSelected(lineTarget);
                   return (
                     <div
                       key={k}
                       ref={setLineRef(lineKey)}
-                      className="rounded-md pl-3 pr-2 py-1.5 transition-all border"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectTarget(lineTarget);
+                      }}
+                      className="relative rounded-md pl-3 pr-2 py-1.5 transition-all border"
                       style={{
-                        borderColor: lineActive
+                        borderColor: lineSel
+                          ? selectedBorder
+                          : lineActive
                           ? HIGHLIGHT_BORDER
                           : "rgba(138,106,31,0.15)",
-                        borderLeftWidth: lineActive ? 2 : 2,
-                        borderTopWidth: lineActive ? 2 : 0,
-                        borderRightWidth: lineActive ? 2 : 0,
-                        borderBottomWidth: lineActive ? 2 : 0,
-                        boxShadow: lineActive ? HIGHLIGHT_SHADOW : "none",
+                        borderLeftWidth: 2,
+                        borderTopWidth: lineActive || lineSel ? 2 : 0,
+                        borderRightWidth: lineActive || lineSel ? 2 : 0,
+                        borderBottomWidth: lineActive || lineSel ? 2 : 0,
+                        boxShadow: lineSel
+                          ? selectedShadow
+                          : lineActive
+                          ? HIGHLIGHT_SHADOW
+                          : "none",
+                        ...editableOutline,
                       }}
                     >
                       <div
@@ -456,25 +675,88 @@ const PresenterPreviewPanel = ({
                           </HighlightBox>
                         </div>
                       )}
-                      {!line.notebookOnly && eq && (
-                        it.hasFloatingData && line.fillers.length > 0 ? (
-                          <FloatingChips fillers={line.fillers} />
+                      {!line.notebookOnly && eq &&
+                        (it.hasFloatingData && line.fillers.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-2 pl-1">
+                            {line.fillers.map((f, fi) => {
+                              const chipTarget: EditTarget = {
+                                kind: "floating-number",
+                                beatId: it.id,
+                                caption: `${it.caption} · Line ${k + 1} · Chip ${fi + 1}`,
+                                lineIdx: k,
+                                fillerIdx: fi,
+                                text: f,
+                              };
+                              const chipSel = isSelected(chipTarget);
+                              return (
+                                <button
+                                  key={fi}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    selectTarget(chipTarget);
+                                  }}
+                                  className="inline-flex items-center rounded-md border px-2.5 py-1 text-base font-serif"
+                                  style={{
+                                    borderColor: chipSel
+                                      ? selectedBorder
+                                      : "rgba(59,130,246,0.35)",
+                                    background: "rgba(59,130,246,0.08)",
+                                    color: "#1e3a8a",
+                                    boxShadow: chipSel ? selectedShadow : undefined,
+                                    ...editableOutline,
+                                  }}
+                                >
+                                  <InlineMath ascii={f} />
+                                </button>
+                              );
+                            })}
+                          </div>
                         ) : (
                           <NotYetAvailable />
-                        )
-                      )}
-                      {note && <NoteBlock text={note} />}
+                        ))}
+                      {note &&
+                        (() => {
+                          const noteTarget: EditTarget = {
+                            kind: "teacher-note",
+                            beatId: it.id,
+                            caption: `${it.caption} · Line ${k + 1} · Note`,
+                            lineIdx: k,
+                            text: note,
+                          };
+                          const noteSel = isSelected(noteTarget);
+                          return (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                selectTarget(noteTarget);
+                              }}
+                              style={{
+                                border: `1px solid ${noteSel ? selectedBorder : "transparent"}`,
+                                boxShadow: noteSel ? selectedShadow : undefined,
+                                borderRadius: 6,
+                                ...editableOutline,
+                              }}
+                            >
+                              <NoteBlock text={note} />
+                              <AiEditButton target={noteTarget} />
+                            </div>
+                          );
+                        })()}
+                      <AiEditButton target={lineTarget} />
                     </div>
                   );
                 })}
               </div>
             )}
+            <AiEditButton target={subTarget} />
           </section>
         );
       })}
       <div className="h-40" />
+      </div>
     </div>
   );
 };
+
 
 export default PresenterPreviewPanel;
