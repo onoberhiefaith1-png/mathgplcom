@@ -4394,6 +4394,7 @@ const PresentationView = ({
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
       </div>
+      </SmartboardRootContext.Provider>
     </div>
   );
 };
