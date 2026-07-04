@@ -1998,17 +1998,38 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
-  // Auto-attention for notes: mirror the Presenter Preview, where every note
-  // is visible next to its line. On the board, mark the current line's note
-  // as pending the moment the line becomes active, so the note chip surfaces
-  // in the FloatingNumberPanel without waiting for a Next-press. The read-
-  // side purity filter (`notebookFor`) still rejects math-shaped strings.
+  // Note parity with the Presenter Preview: every line's authored note must
+  // appear on the board automatically — the same data, the same surface. As
+  // soon as a line becomes active, if it has a non-empty note (after the
+  // note-purity filter), commit it via `writeProseLineOnBoard` and record
+  // it in `shownNotebookIdx` so it never re-writes. The Note chip in the
+  // FloatingNumberPanel is also armed to reflect the state.
   useEffect(() => {
     if (!hasGuidedLines) return;
     const line = guidedLines[activeLineIdx] as { notebook?: string } | undefined;
-    const nb = (line?.notebook ?? "").trim();
-    if (!nb) return;
+    const rawNote = (line?.notebook ?? "").trim();
+    if (!rawNote) return;
+    // NOTE-PURITY LAW (same predicate as `notebookFor` below): reject notes
+    // whose any line reads as math so a phantom equation never renders.
+    const looksLikeMath = (l: string) => {
+      const s = l.trim();
+      if (!s) return false;
+      if (/[=+\-−×÷/^]/.test(s)) return true;
+      if (/^[\d\s.,()πθ]+$/.test(s)) return true;
+      return false;
+    };
+    const noteLines = rawNote.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (noteLines.some(looksLikeMath)) return;
     if (shownNotebookIdx.has(activeLineIdx)) return;
+    // Idempotent: `writeProseLineOnBoard` de-dupes via row signature, so
+    // re-runs after reload never double-write.
+    writeProseLineOnBoard(rawNote);
+    setShownNotebookIdx((prev) => {
+      if (prev.has(activeLineIdx)) return prev;
+      const next = new Set(prev);
+      next.add(activeLineIdx);
+      return next;
+    });
     setNotebookAttentionIdx((prev) => {
       if (prev.has(activeLineIdx)) return prev;
       const next = new Set(prev);
@@ -2801,13 +2822,18 @@ const PresentationView = ({
 
   // Presenter Preview panel sync — the live board's beat id already matches
   // the preview panel's item id ("__cover__", "<secId>-text", "<subId>-q").
-  // Never hand `null` to the preview while beats exist — otherwise the
-  // preview's first render stamps a "null" active key and later beat
-  // hydrations can silently no-op. Fall back to the first beat.
-  const activePreviewBeatId: string | null =
-    current?.id ?? (beats.length > 0 ? beats[0].id : null);
+  // Preview mirrors the board's cursor exactly — no fallback that could
+  // silently pin the highlight to beat 0 while `beatCursor` is transiently
+  // out of range.
+  const activePreviewBeatId: string | null = current?.id ?? null;
+  // Clamp the line index: only forward a value that actually addresses a
+  // line in the current reservoir. Anything else → `null`, which promotes
+  // the card-level border so the teacher always sees SOMETHING highlighted.
   const activePreviewLineIdx: number | null =
-    current && (current.kind === "problem" || current.kind === "exercise-prompt")
+    current &&
+    (current.kind === "problem" || current.kind === "exercise-prompt") &&
+    activeLineIdx >= 0 &&
+    activeLineIdx < guidedLines.length
       ? activeLineIdx
       : null;
   const showPresenterChrome = isTeacher && !!notebookId;

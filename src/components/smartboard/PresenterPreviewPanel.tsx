@@ -286,16 +286,18 @@ const PresenterPreviewPanel = ({
         : null;
 
     let cancelled = false;
-    let attempts = 0;
     const tryScroll = () => {
       if (cancelled) return;
       const target =
         (lineKey && lineRefs.current.get(lineKey)) ||
         itemRefs.current.get(activeBeatId);
       if (!target || !scrollerRef.current) {
-        if (attempts++ < 10) {
-          requestAnimationFrame(tryScroll);
-        }
+        // Retry indefinitely until either the target ref mounts or the
+        // active beat/line changes (cleanup flips `cancelled`). This is
+        // essential because the panel's own notebook fetch can take
+        // longer than a burst of rAF frames, and a stale bail-out would
+        // leave the preview stuck on the previously highlighted beat.
+        requestAnimationFrame(tryScroll);
         return;
       }
       const scroller = scrollerRef.current as HTMLDivElement & {
