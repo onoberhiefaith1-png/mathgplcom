@@ -3063,8 +3063,11 @@ const PresentationView = ({
       getBoardHasNoteFor,
       eraseNoteAt,
       scrollBoardTo,
-      pickFloatingNumber: (lineIdx: number, fillerIdx: number) =>
-        writeEquationPrefix(lineIdx, fillerIdx + 1),
+      pickFloatingNumber: pickFloatingNumberReal,
+      openFloatingPanel: openFloatingPanelReal,
+      closeFloatingPanel: closeFloatingPanelReal,
+      isFloatingPanelOpen: () => activeAssistant === "numbers",
+      resetBoard,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -3080,6 +3083,11 @@ const PresentationView = ({
       getBoardHasNoteFor,
       eraseNoteAt,
       scrollBoardTo,
+      pickFloatingNumberReal,
+      openFloatingPanelReal,
+      closeFloatingPanelReal,
+      resetBoard,
+      activeAssistant,
     ],
   );
   const ai = usePresentationAI(paiController);
