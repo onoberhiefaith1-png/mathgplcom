@@ -75,6 +75,26 @@ export const restorePersistedHighlights = (
  *   • before the first highlight → a notebook-only first row
  *   • between highlight A and B → notebook for highlight A
  *   • after the final highlight → notebook for the final highlight */
+/** NOTE-PURITY LAW: A note is prose. A line that carries math operators or
+ *  is nearly all digits/punctuation is NOT prose and must never be saved as
+ *  a note. This mirrors the read-side guard in PresentationView.notebookFor
+ *  so a stray unhighlighted equation cannot leak into `precedingNotebook`.
+ *  Universal — applies at line 1, line 12, line 1,000,000. */
+export const looksLikeMathLine = (line: string): boolean => {
+  const s = String(line ?? "").trim();
+  if (!s) return false;
+  if (/[=+\-−×÷/^]/.test(s)) return true;
+  if (/^[\d\s.,()πθ]+$/.test(s)) return true;
+  return false;
+};
+
+const stripMathLines = (text: string): string =>
+  String(text ?? "")
+    .split(/\r?\n/)
+    .filter((l) => l.trim() && !looksLikeMathLine(l))
+    .join("\n")
+    .trim();
+
 export const recomputeNotebooks = (source: Highlight[], lines: string[]): Highlight[] => {
   const realSource = source.filter((h) => !h.notebookOnly && h.tokens.length > 0);
   if (realSource.length === 0) return realSource;
@@ -91,12 +111,15 @@ export const recomputeNotebooks = (source: Highlight[], lines: string[]): Highli
       arr.push(t.src);
       byLine.set(t.line, arr);
     }
-    return Array.from(byLine.entries())
+    const joined = Array.from(byLine.entries())
       .sort((a, b) => a[0] - b[0])
       .map(([, toks]) => toks.join(" ").trim())
       .filter(Boolean)
       .join("\n")
       .trim();
+    // Note-purity: drop any math-shaped line so unhighlighted equations
+    // never surface as prose notes.
+    return stripMathLines(joined);
   };
   const ordered = realSource
     .map((h) => {
