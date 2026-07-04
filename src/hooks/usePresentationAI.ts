@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import {
   buildSteps,
+  isQuestionLine,
   lineSubStepCount,
   type PresentationStep,
 } from "@/lib/smartboard/presentationAI/model";
@@ -94,13 +95,27 @@ export const usePresentationAI = (
       }
       ctrl.setBeatCursor(step.beatIndex);
       ctrl.setActiveLineIdx(step.lineIdx);
+      // Rule 2 + 3: scroll target row into view and seat the sensor on a
+      // safe row before ANY write happens.
+      ctrl.scrollBoardTo?.(step.lineIdx);
+      ctrl.moveSensorToSafeRow?.(step.lineIdx);
       if (step.kind === "line-start") {
-        // Open the # panel and point it at this line — the visible teacher
-        // gesture. Fine to no-op if the controller doesn't expose it.
+        // Rule 4: for the question line, write it whole and skip the # panel.
+        if (isQuestionLine(step.lineIdx, step.line)) {
+          const eq = (step.line.equation ?? "").trim();
+          if (eq) {
+            if (ctrl.writeQuestionLine) ctrl.writeQuestionLine(step.lineIdx, eq);
+            else ctrl.writeProseLineOnBoard(eq);
+          }
+          return;
+        }
+        // Rule 5: open the # panel — the visible teacher gesture.
         ctrl.openFloatingPanel?.(step.lineIdx);
         return;
       }
       if (step.kind === "filler") {
+        // Question line has no filler substeps by construction — guard anyway.
+        if (isQuestionLine(step.lineIdx, step.line)) return;
         // Teacher move: click the chip on the # panel. Falls back to the
         // legacy prefix writer if the controller doesn't implement it.
         if (ctrl.pickFloatingNumber) ctrl.pickFloatingNumber(step.lineIdx, step.fillerIdx);
@@ -120,6 +135,7 @@ export const usePresentationAI = (
         return;
       }
       if (step.kind === "line-verify") {
+        if (isQuestionLine(step.lineIdx, step.line)) return;
         // Belt-and-braces: ensure the completed row is on the board even if
         // an earlier filler tick missed. Idempotent by row signature.
         const totalFillers = (step.line.fillers ?? []).length;

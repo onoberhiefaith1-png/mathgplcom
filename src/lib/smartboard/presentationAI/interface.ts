@@ -106,3 +106,25 @@ export const runTool = async (
       return;
   }
 };
+
+/** The AI's operating manual for driving the Smartboard.
+ *  Each diagnosis's `suggestedFix` may reference a rule number so the
+ *  Diagnosis Panel reads like teacher-style instructions. */
+export const SMARTBOARD_PROCEDURE: { n: number; rule: string }[] = [
+  { n: 1, rule: "Read the target line from the Presenter Preview (equation + fillers, in Preview order)." },
+  { n: 2, rule: "Scroll the Smartboard so the target row is visible below the Solution header." },
+  { n: 3, rule: "Move the sensor to a safe row. If the row above is a fraction denominator, drop one extra row." },
+  { n: 4, rule: "If this is the question line (line 1 of the section), write it whole via writeQuestionLine — do NOT open the # panel." },
+  { n: 5, rule: "Otherwise open the # (Floating Number) panel and click each chip in Preview order." },
+  { n: 6, rule: "After each chip, verify the row prefix equals the equation prefix up to that chip. On mismatch: erase this line's row, move sensor to a fresh safe row, retry once." },
+  { n: 7, rule: "If the line has a Teacher Note, close the # panel, scroll, place sensor, drop the note, mark shown." },
+  { n: 8, rule: "line-verify: compare board row signature to equation signature. On mismatch: erase the row and rewrite once, then raise line-mismatch." },
+  { n: 9, rule: "On any AI mistake, use the eraser on the AI's own row only — never a sibling row." },
+  { n: 10, rule: "Prev/Next chapter buttons are used only when the beat cursor drifts (beat-cursor-drift repair)." },
+];
+
+/** Human-readable rule text for a rule number, prefixed with the rule id. */
+export const rule = (n: number): string => {
+  const r = SMARTBOARD_PROCEDURE.find((x) => x.n === n);
+  return r ? `Rule ${r.n}: ${r.rule}` : `Rule ${n}`;
+};

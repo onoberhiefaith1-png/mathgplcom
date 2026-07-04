@@ -2882,22 +2882,159 @@ const PresentationView = ({
   }, []);
 
   const scrollBoardTo = useCallback((lineIdx: number) => {
-    const row = findBoardRowForLine(lineIdx);
-    if (row === null) return;
-    // Board scrolling is driven by `beatCursor` / `activeLineIdx`. Setting the
-    // active line ensures the row is in the visible band.
     setActiveLineIdx(lineIdx);
-  }, [findBoardRowForLine]);
+    // Bring the row physically into view. If we already own a board row
+    // for this line, scroll to its pixel Y; otherwise fall back to just
+    // updating the active line (band-driven scroll effect will follow).
+    const host = boardScrollRef.current;
+    const row = findBoardRowForLine(lineIdx);
+    if (!host) return;
+    if (row === null) return;
+    const y = lineToY(row, grid);
+    // Aim for row ~140px from the top (below the "Solution" header).
+    const target = Math.max(0, y - 140);
+    host.scrollTo({ top: target, behavior: "smooth" });
+  }, [findBoardRowForLine, grid]);
+
+  /** Row occupancy classification — used by the AI to decide whether the
+   *  next visual row is safe to write on. */
+  const getRowOccupancy = useCallback(
+    (row: number): "empty" | "ink" | "note" | "fraction-denominator" => {
+      const rows = freeLinesRef.current;
+      const whole = rows[row];
+      const half = rows[row + 0.5];
+      const hasInk = (!!whole && whole.length > 0) || (!!half && half.length > 0);
+      if (notebookRowLines.has(row)) return "note";
+      // Tall structures upstream cover this row (denominator zone).
+      for (const key of Object.keys(rows)) {
+        const src = Number(key);
+        if (!Number.isInteger(src) || src >= row) continue;
+        const r = rows[src];
+        if (!r || r.length === 0) continue;
+        if (rowHasTallStructure(r) && src + extraRowsFor(src) >= row) {
+          return "fraction-denominator";
+        }
+      }
+      return hasInk ? "ink" : "empty";
+    },
+    // extraRowsFor / rowHasTallStructure read refs; safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [notebookRowLines],
+  );
+
+  /** Move the sensor to the first row that is safe to write on for this
+   *  line. Skips notebook rows, existing ink, and rows covered by a tall
+   *  structure above (fraction denominator). Claims the row in rowOwners
+   *  so subsequent fillers append to the same row. */
+  const moveSensorToSafeRow = useCallback(
+    (lineIdx: number): number => {
+      const owners = rowOwnersRef.current;
+      // Existing owner wins.
+      for (const key of Object.keys(owners)) {
+        if (owners[Number(key) as unknown as number] === lineIdx) {
+          const r = Number(key);
+          setSensor({ line: r, x: 0 });
+          setLiveCursor({ path: [], index: 0 });
+          return r;
+        }
+      }
+      // Start below the last owned row (any line), else at current sensor.
+      let start = Math.max(0, Math.floor(sensor.line));
+      for (const key of Object.keys(owners)) {
+        const r = Number(key);
+        if (typeof owners[r] === "number") start = Math.max(start, r + 1);
+      }
+      let target = start;
+      // Walk down while blocked; give one extra row of clearance below a
+      // fraction denominator so descenders don't collide.
+      // Safety cap: 200 rows.
+      for (let guard = 0; guard < 200; guard++) {
+        const occ = getRowOccupancy(target);
+        if (occ === "empty") break;
+        if (occ === "fraction-denominator") target += 2;
+        else target += 1;
+      }
+      setRowOwners((prev) => (prev[target] === lineIdx ? prev : { ...prev, [target]: lineIdx }));
+      setSensor({ line: target, x: 0 });
+      setLiveCursor({ path: [], index: 0 });
+      return target;
+    },
+    [getRowOccupancy, sensor.line, setLiveCursor],
+  );
+
+  const moveSensorUp = useCallback((rows: number = 1) => {
+    setSensor((s) => ({ ...s, line: Math.max(0, s.line - rows) }));
+  }, []);
+  const moveSensorDown = useCallback((rows: number = 1) => {
+    setSensor((s) => ({ ...s, line: s.line + rows }));
+  }, []);
+
+  /** Erase all ink from a specific row and release row ownership. When
+   *  `row === -1`, erases the row currently owned by `guardOwnerLineIdx`. */
+  const eraseRow = useCallback(
+    (row: number, guardOwnerLineIdx?: number) => {
+      let target = row;
+      if (target < 0 && typeof guardOwnerLineIdx === "number") {
+        const owners = rowOwnersRef.current;
+        for (const key of Object.keys(owners)) {
+          if (owners[Number(key) as unknown as number] === guardOwnerLineIdx) {
+            target = Number(key);
+            break;
+          }
+        }
+      }
+      if (target < 0) return;
+      // Rule 9 guard: never erase a row owned by a different line.
+      if (typeof guardOwnerLineIdx === "number") {
+        const owner = rowOwnersRef.current[target];
+        if (typeof owner === "number" && owner !== guardOwnerLineIdx) return;
+      }
+      setFreeLines((prev) => {
+        if (prev[target] === undefined && prev[target + 0.5] === undefined) return prev;
+        const nx = { ...prev };
+        delete nx[target];
+        delete nx[target + 0.5];
+        return nx;
+      });
+      if (lineWidthsRef.current[target] !== undefined) {
+        const nx = { ...lineWidthsRef.current };
+        delete nx[target];
+        lineWidthsRef.current = nx;
+      }
+      setRowOwners((prev) => {
+        if (prev[target] === undefined) return prev;
+        const nx = { ...prev };
+        delete nx[target];
+        return nx;
+      });
+    },
+    [],
+  );
 
   const eraseNoteAt = useCallback((lineIdx: number) => {
-    // Best-effort: drop the note flag so a rewrite re-runs the effect.
+    // Best-effort: drop the note flag so a rewrite re-runs the effect, and
+    // erase the row that currently holds the note (guarded by owner).
     setShownNotebookIdx((prev) => {
       if (!prev.has(lineIdx)) return prev;
       const nx = new Set(prev);
       nx.delete(lineIdx);
       return nx;
     });
-  }, []);
+    eraseRow(-1, lineIdx);
+  }, [eraseRow]);
+
+  /** Write the question line (first line of a section) wholesale onto the
+   *  Smartboard. Different from filler-driven writes because it does not
+   *  open the # panel. */
+  const writeQuestionLine = useCallback(
+    (lineIdx: number, equation: string) => {
+      const eq = (equation ?? "").trim();
+      if (!eq) return;
+      moveSensorToSafeRow(lineIdx);
+      writeProseLineOnBoard(eq);
+    },
+    [moveSensorToSafeRow, writeProseLineOnBoard],
+  );
 
   // Wipe the Smartboard so Autoplay starts from a blank surface. Mirrors
   // the toolbar "Clear board" action and additionally clears PAI reveal
@@ -3068,6 +3205,12 @@ const PresentationView = ({
       closeFloatingPanel: closeFloatingPanelReal,
       isFloatingPanelOpen: () => activeAssistant === "numbers",
       resetBoard,
+      moveSensorUp,
+      moveSensorDown,
+      moveSensorToSafeRow,
+      eraseRow,
+      getRowOccupancy,
+      writeQuestionLine,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -3088,6 +3231,12 @@ const PresentationView = ({
       closeFloatingPanelReal,
       resetBoard,
       activeAssistant,
+      moveSensorUp,
+      moveSensorDown,
+      moveSensorToSafeRow,
+      eraseRow,
+      getRowOccupancy,
+      writeQuestionLine,
     ],
   );
   const ai = usePresentationAI(paiController);

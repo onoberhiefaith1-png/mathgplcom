@@ -4,10 +4,33 @@
 
 import type { PresentationController } from "./controller";
 import type { Issue } from "./types";
-import { isRenderableNote, type PresentationStep } from "./model";
+import { isRenderableNote, isQuestionLine, type PresentationStep } from "./model";
+import { rule } from "./interface";
 
 let idCounter = 0;
 const nextId = () => `ai-${Date.now().toString(36)}-${(idCounter++).toString(36)}`;
+
+/** Build the equation prefix a teacher would have on the board after
+ *  placing chips[0..=fillerIdx], in Preview order. Uses the equation text
+ *  as the source of truth so the diagnosis reads like what the teacher sees
+ *  on the Presenter Preview. */
+const equationPrefixFor = (equation: string, fillers: string[], fillerIdx: number): string => {
+  const eq = (equation ?? "").trim();
+  if (!eq) return fillers.slice(0, fillerIdx + 1).join(" ");
+  // Locate each chip's first occurrence and take everything up to the end
+  // of chip[fillerIdx]. Falls back to joined chips if a chip is not found.
+  let cursor = 0;
+  let endIdx = 0;
+  for (let k = 0; k <= fillerIdx; k++) {
+    const chip = (fillers[k] ?? "").trim();
+    if (!chip) continue;
+    const hit = eq.indexOf(chip, cursor);
+    if (hit < 0) return fillers.slice(0, fillerIdx + 1).join(" ");
+    endIdx = hit + chip.length;
+    cursor = endIdx;
+  }
+  return eq.slice(0, endIdx);
+};
 
 const captionFor = (step: PresentationStep): string =>
   step.kind === "beat"
@@ -100,21 +123,25 @@ export const inspectStep = (
   const line = step.line;
 
   if (step.kind === "filler") {
+    // Question line has no filler substeps by construction — guard anyway.
+    if (isQuestionLine(step.lineIdx, line)) return issues;
     // The board row for this line must now match the expected prefix
     // signature (fillers[0..=fillerIdx]).
     const prefixCount = step.fillerIdx + 1;
     const expected = ctrl.getExpectedPrefixSignatureFor(step.lineIdx, prefixCount);
     const actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
     if (expected && expected !== actual) {
+      const fillers = line.fillers ?? [];
+      const expectedText = equationPrefixFor(line.equation ?? "", fillers, step.fillerIdx);
       issues.push(
         mkIssue(step, {
           kind: "filler-missing",
           summary: `Floating Number ${prefixCount} did not land on the Smartboard.`,
-          expected: (line.fillers ?? []).slice(0, prefixCount).join(" "),
+          expected: expectedText,
           actual: actual || "(empty row)",
           probableCause:
-            "The AI did not click the chip on the # (Floating Number) panel, or the panel was closed when the chip was picked.",
-          suggestedFix: `Open the # panel for line ${step.lineIdx + 1} and click the chip "${(line.fillers ?? [])[step.fillerIdx] ?? ""}".`,
+            "The AI did not click the chip on the # (Floating Number) panel, the target row was off-screen, or the sensor was parked on an occupied row.",
+          suggestedFix: `${rule(2)} → ${rule(3)} → ${rule(5)}. Click chip "${fillers[step.fillerIdx] ?? ""}".`,
           repairable: true,
           fillerIdx: step.fillerIdx,
         }),
@@ -166,6 +193,28 @@ export const inspectStep = (
   }
 
   if (step.kind === "line-verify") {
+    // Question line: verify against the equation text — the AI writes it
+    // wholesale, so there are no filler substeps to fail. Missing = board
+    // has no row matching the equation signature.
+    if (isQuestionLine(step.lineIdx, line)) {
+      const expectedSig = ctrl.getExpectedRowSignatureFor(step.lineIdx);
+      const actualSig = ctrl.getBoardRowSignatureFor(step.lineIdx);
+      if (expectedSig && expectedSig !== actualSig) {
+        issues.push(
+          mkIssue(step, {
+            kind: "question-line-missing",
+            summary: "Question line not written on the Smartboard.",
+            expected: line.equation,
+            actual: actualSig || "(empty row)",
+            probableCause:
+              "writeQuestionLine did not run, or the target row was off-screen / occupied.",
+            suggestedFix: `${rule(2)} → ${rule(3)} → ${rule(4)}.`,
+            repairable: true,
+          }),
+        );
+      }
+      return issues;
+    }
     // Floating extraction gap — reservoir has no fillers for a non-note line.
     if (!line.notebookOnly && line.equation.trim() && (line.fillers ?? []).length === 0) {
       issues.push(
@@ -194,7 +243,7 @@ export const inspectStep = (
             actual: actual || "(empty row)",
             probableCause:
               "One or more filler placements failed, or the row was overwritten by another effect.",
-            suggestedFix: "Rewrite the full equation for this line and re-verify.",
+            suggestedFix: `${rule(8)}. Erase this line's row and rewrite the full equation.`,
             repairable: true,
           }),
         );
