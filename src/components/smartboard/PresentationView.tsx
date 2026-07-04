@@ -1998,17 +1998,38 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
-  // Auto-attention for notes: mirror the Presenter Preview, where every note
-  // is visible next to its line. On the board, mark the current line's note
-  // as pending the moment the line becomes active, so the note chip surfaces
-  // in the FloatingNumberPanel without waiting for a Next-press. The read-
-  // side purity filter (`notebookFor`) still rejects math-shaped strings.
+  // Note parity with the Presenter Preview: every line's authored note must
+  // appear on the board automatically — the same data, the same surface. As
+  // soon as a line becomes active, if it has a non-empty note (after the
+  // note-purity filter), commit it via `writeProseLineOnBoard` and record
+  // it in `shownNotebookIdx` so it never re-writes. The Note chip in the
+  // FloatingNumberPanel is also armed to reflect the state.
   useEffect(() => {
     if (!hasGuidedLines) return;
     const line = guidedLines[activeLineIdx] as { notebook?: string } | undefined;
-    const nb = (line?.notebook ?? "").trim();
-    if (!nb) return;
+    const rawNote = (line?.notebook ?? "").trim();
+    if (!rawNote) return;
+    // NOTE-PURITY LAW (same predicate as `notebookFor` below): reject notes
+    // whose any line reads as math so a phantom equation never renders.
+    const looksLikeMath = (l: string) => {
+      const s = l.trim();
+      if (!s) return false;
+      if (/[=+\-−×÷/^]/.test(s)) return true;
+      if (/^[\d\s.,()πθ]+$/.test(s)) return true;
+      return false;
+    };
+    const noteLines = rawNote.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (noteLines.some(looksLikeMath)) return;
     if (shownNotebookIdx.has(activeLineIdx)) return;
+    // Idempotent: `writeProseLineOnBoard` de-dupes via row signature, so
+    // re-runs after reload never double-write.
+    writeProseLineOnBoard(rawNote);
+    setShownNotebookIdx((prev) => {
+      if (prev.has(activeLineIdx)) return prev;
+      const next = new Set(prev);
+      next.add(activeLineIdx);
+      return next;
+    });
     setNotebookAttentionIdx((prev) => {
       if (prev.has(activeLineIdx)) return prev;
       const next = new Set(prev);
