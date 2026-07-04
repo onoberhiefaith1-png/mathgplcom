@@ -91,4 +91,13 @@ export interface PresentationController {
 
   /** Preview panel card element for a beat id (used for scroll checks). */
   getPreviewCardEl?: (beatId: string) => HTMLElement | null;
+
+  /* ── Pipeline-repair side doors (all optional) ─────────────────
+   * These let the AI Operator dispatch synthetic DOM events and force
+   * re-renders when the normal click/render path is silently broken. */
+  getNoteButtonEl?: (lineIdx: number) => HTMLElement | null;
+  getHashFabEl?: () => HTMLElement | null;
+  getChipEl?: (lineIdx: number, fillerIdx: number) => HTMLElement | null;
+  rebuildRowOwnership?: (lineIdx: number) => void;
+  forceRepaintLine?: (lineIdx: number) => void;
 }
