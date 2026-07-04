@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import {
   buildSteps,
+  isQuestionLine,
   lineSubStepCount,
   type PresentationStep,
 } from "@/lib/smartboard/presentationAI/model";
