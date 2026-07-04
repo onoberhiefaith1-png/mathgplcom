@@ -160,9 +160,19 @@ export const verifyMirror = (
       }
       return { ok: true, message: `✓ Mirrored: ${label}` };
     }
-    case "solution-line":
-    case "question":
     case "floating-number": {
+      // Success = the Floating Number panel is now open. No ink expected.
+      const open = ctrl.isFloatingPanelOpen?.() ?? true;
+      return open
+        ? { ok: true, message: `✓ Mirrored: ${label}` }
+        : {
+            ok: false,
+            message: `✗ Floating Number panel did not open.`,
+            detail: `Line ${li(target) + 1}: panel failed to display chips.`,
+          };
+    }
+    case "solution-line":
+    case "question": {
       const idx = li(target);
       if (idx < 0) return { ok: true, message: `Mirrored: ${label}` };
       const sig = ctrl.getBoardRowSignatureFor(idx) || "";
