@@ -2772,6 +2772,15 @@ const PresentationView = ({
   // Surface bg as a single solid colour for sub-previews inside settings.
   const surfaceFlatBg = surface === "whiteboard" ? "#f1efe9" : "#181d1b";
 
+  // Presenter Preview panel sync — the live board's beat id already matches
+  // the preview panel's item id ("__cover__", "<secId>-text", "<subId>-q").
+  const activePreviewBeatId: string | null = current?.id ?? null;
+  const activePreviewLineIdx: number | null =
+    current && (current.kind === "problem" || current.kind === "exercise-prompt")
+      ? activeLineIdx
+      : null;
+  const showPresenterChrome = isTeacher && !!notebookId;
+
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
