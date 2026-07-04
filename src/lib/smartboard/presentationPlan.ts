@@ -4,6 +4,8 @@
 // giving a 1:1 relationship between what the teacher approved in Preview
 // and what the classroom smartboard actually presents.
 
+import type { Beat, Reservoir } from "./presentation";
+
 const KEY = (notebookId: string) => `smartboard:presentationPlan:${notebookId}`;
 const APPROVED_KEY = (notebookId: string) => `smartboard:presentationApproved:${notebookId}`;
 
