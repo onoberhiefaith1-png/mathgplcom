@@ -2822,13 +2822,18 @@ const PresentationView = ({
 
   // Presenter Preview panel sync — the live board's beat id already matches
   // the preview panel's item id ("__cover__", "<secId>-text", "<subId>-q").
-  // Never hand `null` to the preview while beats exist — otherwise the
-  // preview's first render stamps a "null" active key and later beat
-  // hydrations can silently no-op. Fall back to the first beat.
-  const activePreviewBeatId: string | null =
-    current?.id ?? (beats.length > 0 ? beats[0].id : null);
+  // Preview mirrors the board's cursor exactly — no fallback that could
+  // silently pin the highlight to beat 0 while `beatCursor` is transiently
+  // out of range.
+  const activePreviewBeatId: string | null = current?.id ?? null;
+  // Clamp the line index: only forward a value that actually addresses a
+  // line in the current reservoir. Anything else → `null`, which promotes
+  // the card-level border so the teacher always sees SOMETHING highlighted.
   const activePreviewLineIdx: number | null =
-    current && (current.kind === "problem" || current.kind === "exercise-prompt")
+    current &&
+    (current.kind === "problem" || current.kind === "exercise-prompt") &&
+    activeLineIdx >= 0 &&
+    activeLineIdx < guidedLines.length
       ? activeLineIdx
       : null;
   const showPresenterChrome = isTeacher && !!notebookId;
