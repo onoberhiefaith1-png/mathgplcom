@@ -1974,6 +1974,8 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownNotebookIdx, activeReservoirIdx]);
 
+
+
   // Persist Lesson-Line cursor (beat + active logical line) so a reload
   // restores the teacher to the same teaching step.
   useEffect(() => {
@@ -1995,6 +1997,26 @@ const PresentationView = ({
   const activeReservoir = activeReservoirIdx >= 0 ? reservoirs[activeReservoirIdx] : undefined;
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
+
+  // Auto-attention for notes: mirror the Presenter Preview, where every note
+  // is visible next to its line. On the board, mark the current line's note
+  // as pending the moment the line becomes active, so the note chip surfaces
+  // in the FloatingNumberPanel without waiting for a Next-press. The read-
+  // side purity filter (`notebookFor`) still rejects math-shaped strings.
+  useEffect(() => {
+    if (!hasGuidedLines) return;
+    const line = guidedLines[activeLineIdx] as { notebook?: string } | undefined;
+    const nb = (line?.notebook ?? "").trim();
+    if (!nb) return;
+    if (shownNotebookIdx.has(activeLineIdx)) return;
+    setNotebookAttentionIdx((prev) => {
+      if (prev.has(activeLineIdx)) return prev;
+      const next = new Set(prev);
+      next.add(activeLineIdx);
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLineIdx, hasGuidedLines, activeReservoirIdx, guidedLines.length]);
 
   /** Equation labels like "(1)" may be added before/after the math at any
    *  time — line matching must succeed with or without them. */
@@ -2779,7 +2801,11 @@ const PresentationView = ({
 
   // Presenter Preview panel sync — the live board's beat id already matches
   // the preview panel's item id ("__cover__", "<secId>-text", "<subId>-q").
-  const activePreviewBeatId: string | null = current?.id ?? null;
+  // Never hand `null` to the preview while beats exist — otherwise the
+  // preview's first render stamps a "null" active key and later beat
+  // hydrations can silently no-op. Fall back to the first beat.
+  const activePreviewBeatId: string | null =
+    current?.id ?? (beats.length > 0 ? beats[0].id : null);
   const activePreviewLineIdx: number | null =
     current && (current.kind === "problem" || current.kind === "exercise-prompt")
       ? activeLineIdx
@@ -3923,10 +3949,20 @@ const PresentationView = ({
         // eraser never sits under (or near) any right-edge control.
         const HOME_BOTTOM = (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT) + 12 + 52;
         const wiping = !!eraserDrag;
+        // Convert viewport pointer coords to Smartboard-pane-local coords.
+        // The pane has `transform: translateZ(0)`, so any `position: fixed`
+        // descendant is contained by the pane's box. Using raw clientX/Y
+        // would draw the icon offset by the pane's viewport left/top —
+        // visible as a horizontal offset while the 30% preview is open.
+        const toLocal = (cx: number, cy: number) => {
+          const host = boardScrollRef.current;
+          const r = host?.getBoundingClientRect();
+          return { x: cx - (r?.left ?? 0), y: cy - (r?.top ?? 0) };
+        };
         const startEraserDrag = (e: React.PointerEvent) => {
           e.stopPropagation();
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
-          setEraserDrag({ x: e.clientX, y: e.clientY });
+          setEraserDrag(toLocal(e.clientX, e.clientY));
           const wipeAt = (cx: number, cy: number) => {
             const host = boardScrollRef.current;
             if (!host) return;
@@ -3936,7 +3972,7 @@ const PresentationView = ({
           };
           wipeAt(e.clientX, e.clientY);
           const onMove = (ev: PointerEvent) => {
-            setEraserDrag({ x: ev.clientX, y: ev.clientY });
+            setEraserDrag(toLocal(ev.clientX, ev.clientY));
             wipeAt(ev.clientX, ev.clientY);
           };
           const onUp = () => {
@@ -3951,7 +3987,7 @@ const PresentationView = ({
         };
         const style: React.CSSProperties = wiping
           ? {
-              position: "fixed",
+              position: "absolute",
               left: eraserDrag!.x - 22,
               top: eraserDrag!.y - 22,
               width: 44, height: 44,

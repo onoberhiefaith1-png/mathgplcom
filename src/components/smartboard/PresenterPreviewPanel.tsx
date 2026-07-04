@@ -260,10 +260,18 @@ const PresenterPreviewPanel = ({
   // Auto-scroll to the active item / line whenever it changes.
   // If the teacher was in manual mode, the position change itself pulls
   // them back — clear the manual flag immediately.
+  // A key that changes as items mount so the effect re-runs after refs
+  // are actually populated. Otherwise a fast beat update on first render
+  // can arrive before the target DOM node exists, and never retry.
+  const readyKey = items.map((i) => i.id).join("|");
+
   useEffect(() => {
     const key = `${activeBeatId ?? ""}::${activeLineIdx ?? ""}`;
+    // Skip if nothing changed AND we already scrolled — checked by whether
+    // the last stamped key matches AND we have no pending retry (we only
+    // stamp on success, so a stale early return doesn't lock us out).
+    if (!activeBeatId) return;
     if (key === lastActiveKey.current) return;
-    lastActiveKey.current = key;
 
     // Position changed → resume auto-follow.
     if (manualTimer.current) {
@@ -272,27 +280,41 @@ const PresenterPreviewPanel = ({
     }
     setManual(false);
 
-    if (!activeBeatId) return;
     const lineKey =
       typeof activeLineIdx === "number"
         ? `${activeBeatId}::${activeLineIdx}`
         : null;
-    const target =
-      (lineKey && lineRefs.current.get(lineKey)) ||
-      itemRefs.current.get(activeBeatId);
-    if (!target || !scrollerRef.current) return;
-    const scroller = scrollerRef.current as HTMLDivElement & {
-      __setProgrammatic?: (v: boolean) => void;
+
+    let cancelled = false;
+    let attempts = 0;
+    const tryScroll = () => {
+      if (cancelled) return;
+      const target =
+        (lineKey && lineRefs.current.get(lineKey)) ||
+        itemRefs.current.get(activeBeatId);
+      if (!target || !scrollerRef.current) {
+        if (attempts++ < 10) {
+          requestAnimationFrame(tryScroll);
+        }
+        return;
+      }
+      const scroller = scrollerRef.current as HTMLDivElement & {
+        __setProgrammatic?: (v: boolean) => void;
+      };
+      scroller.__setProgrammatic?.(true);
+      try {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      } catch {
+        target.scrollIntoView();
+      }
+      lastActiveKey.current = key;
+      window.setTimeout(() => scroller.__setProgrammatic?.(false), 600);
     };
-    scroller.__setProgrammatic?.(true);
-    try {
-      target.scrollIntoView({ block: "center", behavior: "smooth" });
-    } catch {
-      target.scrollIntoView();
-    }
-    // Release the programmatic flag after the smooth scroll settles.
-    window.setTimeout(() => scroller.__setProgrammatic?.(false), 600);
-  }, [activeBeatId, activeLineIdx, items.length]);
+    tryScroll();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBeatId, activeLineIdx, items.length, readyKey]);
 
   if (loading) {
     return (
