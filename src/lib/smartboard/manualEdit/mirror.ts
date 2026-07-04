@@ -160,16 +160,18 @@ export const applyMirror = async (
     case "question": {
       const idx = li(target);
       const eq = (target.text ?? "").trim();
+      let row: number | undefined;
       if (idx >= 0) {
         ctrl.setActiveLineIdx(idx);
-        ctrl.scrollBoardTo?.(idx);
-        ctrl.moveSensorToSafeRow?.(idx);
+        row = ctrl.moveSensorToSafeRow?.(idx);
       }
       if (ctrl.writeQuestionLine && idx >= 0 && eq) {
         ctrl.writeQuestionLine(idx, eq);
       } else if (eq) {
         ctrl.writeProseLineOnBoard(eq);
       }
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      else if (idx >= 0) ctrl.scrollBoardTo?.(idx);
       return;
     }
 
@@ -177,8 +179,7 @@ export const applyMirror = async (
       const idx = li(target);
       if (idx < 0) return;
       ctrl.setActiveLineIdx(idx);
-      ctrl.scrollBoardTo?.(idx);
-      ctrl.moveSensorToSafeRow?.(idx);
+      const row = ctrl.moveSensorToSafeRow?.(idx);
       const line = ctrl.getActiveGuidedLines()[idx];
       const fillers = line?.fillers ?? [];
       if (fillers.length > 0) {
@@ -187,6 +188,8 @@ export const applyMirror = async (
         const eq = (line?.equation ?? target.text ?? "").trim();
         if (eq) ctrl.writeProseLineOnBoard(eq);
       }
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      else ctrl.scrollBoardTo?.(idx);
       return;
     }
 
@@ -206,7 +209,6 @@ export const applyMirror = async (
       const idx = li(target);
       if (idx < 0) return;
       ctrl.setActiveLineIdx(idx);
-      ctrl.scrollBoardTo?.(idx);
       // Prefer the live reservoir text; ALWAYS fall back to the exact
       // text the preview showed at click time.
       const raw =
@@ -214,10 +216,14 @@ export const applyMirror = async (
         (target.text ?? "").trim();
       if (!raw) return;
       ctrl.eraseNoteAt?.(idx);
-      ctrl.moveSensorToSafeRow?.(idx);
+      const row = ctrl.moveSensorToSafeRow?.(idx);
       ctrl.writeProseLineOnBoard(raw);
       ctrl.markNotebookShown(idx);
       ctrl.addNotebookAttention(idx);
+      // Bring the freshly written note into view — note rows have no
+      // rowOwners entry, so scrollBoardTo(lineIdx) alone cannot find it.
+      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
+      else ctrl.scrollBoardTo?.(idx);
       return;
     }
 
