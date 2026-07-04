@@ -317,7 +317,16 @@ const SmartboardPreviewPage = () => {
   type Item =
     | { id: string; kind: "cover" }
     | { id: string; kind: "prose"; caption: string; text: string }
-    | { id: string; kind: "problem"; caption: string; problem: string; reservoir?: Reservoir; subsectionId: string };
+    | {
+        id: string;
+        kind: "problem";
+        caption: string;
+        problem: string;
+        reservoir?: Reservoir;
+        subsectionId: string;
+        /** Teacher has generated floating numbers on the Floating Number page. */
+        hasFloatingData: boolean;
+      };
 
   const items: Item[] = [];
   items.push({ id: "__cover__", kind: "cover" });
