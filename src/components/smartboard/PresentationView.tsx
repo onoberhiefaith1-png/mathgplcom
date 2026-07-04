@@ -387,6 +387,26 @@ const PresentationView = ({
     if (leftToolsTimer.current) window.clearTimeout(leftToolsTimer.current);
     leftToolsTimer.current = window.setTimeout(() => setLeftToolsVisible(false), 5000);
   }, []);
+
+  // Presenter Preview side panel (teacher-only). Icon auto-hides after 10s.
+  const PRESENTER_PANEL_KEY = `smartboard:presenterPanelOpen:${notebookId ?? "_"}`;
+  const [presenterPanelOpen, setPresenterPanelOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem(PRESENTER_PANEL_KEY) === "1"; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(PRESENTER_PANEL_KEY, presenterPanelOpen ? "1" : "0"); }
+    catch { /* noop */ }
+  }, [presenterPanelOpen, PRESENTER_PANEL_KEY]);
+  const [presenterIconVisible, setPresenterIconVisible] = useState(false);
+  const presenterIconTimer = useRef<number | null>(null);
+  const revealPresenterIcon = useCallback(() => {
+    setPresenterIconVisible(true);
+    if (presenterIconTimer.current) window.clearTimeout(presenterIconTimer.current);
+    presenterIconTimer.current = window.setTimeout(() => setPresenterIconVisible(false), 10000);
+  }, []);
+  const [presenterManualScroll, setPresenterManualScroll] = useState(false);
   // Draggable eraser: lives at a home position; while dragging it follows the
   // pointer and wipes any line it crosses. On release it animates home.
   const [eraserDrag, setEraserDrag] = useState<{ x: number; y: number } | null>(null);
