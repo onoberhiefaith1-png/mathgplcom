@@ -405,10 +405,16 @@ const PresenterPreviewPanel = ({
                     <div
                       key={k}
                       ref={setLineRef(lineKey)}
-                      className="rounded-md pl-3 py-1.5 transition-colors"
+                      className="rounded-md pl-3 pr-2 py-1.5 transition-all border"
                       style={{
-                        borderLeft: "2px solid rgba(138,106,31,0.15)",
-                        ...activeStyle(lineActive),
+                        borderColor: lineActive
+                          ? HIGHLIGHT_BORDER
+                          : "rgba(138,106,31,0.15)",
+                        borderLeftWidth: lineActive ? 2 : 2,
+                        borderTopWidth: lineActive ? 2 : 0,
+                        borderRightWidth: lineActive ? 2 : 0,
+                        borderBottomWidth: lineActive ? 2 : 0,
+                        boxShadow: lineActive ? HIGHLIGHT_SHADOW : "none",
                       }}
                     >
                       <div
