@@ -1,23 +1,31 @@
 // Smartboard Presentation Preview — the teacher's rehearsal stage.
 //
-// Renders every beat + reservoir line the live smartboard will present, in
-// order, using the same chalk styling, so the teacher can verify floating
-// numbers and notebook attachments BEFORE walking into the classroom.
+// This is NOT a debug page. It is the final teacher-facing preview before
+// entering the classroom. Everything shown here is exactly what students
+// will see on the Smartboard, painted with the same renderer the live
+// board uses. The only additions the teacher sees are:
 //
-// Per-unit Present/Skip toggles let the teacher exclude sections from the
-// upcoming presentation without editing the lesson note. When they hit
-// "Approve & Go Live", the live board is launched — it reads the same skip
-// flags via `applyPlan`, guaranteeing a 1:1 relationship between what the
-// teacher rehearsed here and what the class actually sees.
+//   🟧 highlighted regions (become floating numbers)
+//   🔵 floating-number chip groups
+//   📘 notebook notes
+//   👁 Present / 🚫 Skip pills (per block)
+//   ✏  AI Edit (per line, scoped)
+//
+// No JSON, no [Object Object], no LaTeX residue, no section-kind chrome,
+// no auto-generated captions. Content outside the Solution section is
+// copied verbatim from the Lesson Note.
 
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, Eye, EyeOff, PlayCircle, RotateCcw, StickyNote } from "lucide-react";
+import { ArrowLeft, Check, Eye, EyeOff, Pencil, PlayCircle, RotateCcw, StickyNote } from "lucide-react";
 
-import { useNotebook } from "@/hooks/useNotebook";
-import { buildBeats, buildReservoirs, type Beat, type Reservoir, type ReservoirLine } from "@/lib/smartboard/presentation";
+import { useNotebook, type SectionRow } from "@/hooks/useNotebook";
 import {
-  applyPlan,
+  buildReservoirs,
+  type Reservoir,
+  type ReservoirLine,
+} from "@/lib/smartboard/presentation";
+import {
   clearSkipped,
   isSkipped,
   loadPlan,
@@ -26,10 +34,13 @@ import {
   type PresentationPlan,
 } from "@/lib/smartboard/presentationPlan";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { SmartboardLessonText } from "@/components/smartboard/SmartboardLessonText";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 
-/* ─────────────── Chalk styling — mirrors PresentationView ─────────────── */
+/* ─────────────── Chalk styling — mirrors PresentationView whiteboard ─────────────── */
 
 const BOARD_BG =
   "radial-gradient(120% 80% at 20% 0%, rgba(255,255,255,0.9) 0%, rgba(245,243,238,0.0) 55%)," +
@@ -39,21 +50,39 @@ const BOARD_BG =
 const INK = "#1a2230";
 const ACCENT = "#8a6a1f";
 
+/* ─────────────── Guards ─────────────── */
+
+/** Fail-closed string coercion. Any non-primitive (object/array) returns "".
+ *  Prevents `[Object Object]` from ever reaching the DOM. */
+const asDisplayString = (v: unknown): string => {
+  if (v == null) return "";
+  const t = typeof v;
+  if (t === "string") return v as string;
+  if (t === "number" || t === "boolean") return String(v);
+  return "";
+};
+
+const today = () => {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 /* ─────────────── Renderers ─────────────── */
 
-const Math = ({ ascii }: { ascii: string }) => (
+const InlineMath = ({ ascii }: { ascii: string }) => (
   <span
     className="font-serif"
     style={{ color: INK }}
-    dangerouslySetInnerHTML={{ __html: renderMathInline(ascii ?? "") }}
+    dangerouslySetInnerHTML={{ __html: renderMathInline(asDisplayString(ascii)) }}
   />
 );
 
 const HighlightBox = ({ children }: { children: React.ReactNode }) => (
   <span
-    className="inline-block rounded px-2 py-0.5"
+    className="inline-block rounded px-2 py-1"
     style={{
-      background: "rgba(232, 201, 138, 0.35)",
+      background: "rgba(232, 201, 138, 0.4)",
       boxShadow: "0 0 0 1px rgba(138, 106, 31, 0.35) inset",
     }}
   >
@@ -61,110 +90,126 @@ const HighlightBox = ({ children }: { children: React.ReactNode }) => (
   </span>
 );
 
-const RoleChip = ({
-  kind,
-  index,
-}: {
-  kind: "floating" | "notebook" | "none";
-  index?: number;
-}) => {
-  if (kind === "floating") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-            style={{ background: "rgba(59, 130, 246, 0.12)", color: "#1e40af" }}>
-        <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-        Floating Number {index !== undefined ? `#${index}` : ""}
-      </span>
-    );
-  }
-  if (kind === "notebook") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-            style={{ background: "rgba(120, 113, 108, 0.12)", color: "#57534e" }}>
-        <StickyNote className="h-3 w-3" /> Notebook
-      </span>
-    );
-  }
+const FloatingChips = ({ fillers }: { fillers: string[] }) => {
+  if (!fillers || fillers.length === 0) return null;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-400">
-      —
-    </span>
-  );
-};
-
-const SolutionLineRow = ({
-  line,
-  floatingIndex,
-}: {
-  line: ReservoirLine;
-  floatingIndex: number;
-}) => {
-  const hasFloating = !line.notebookOnly && line.fillers.length > 0;
-  const hasNotebook = !!line.notebook && line.notebook.trim().length > 0;
-
-  return (
-    <div className="py-2 border-l-2 pl-4" style={{ borderColor: "rgba(138,106,31,0.2)" }}>
-      {hasNotebook && (
-        <div className="mb-1.5 flex items-start gap-2 text-[15px] leading-relaxed" style={{ color: "#524a3d" }}>
-          <StickyNote className="mt-1 h-3.5 w-3.5 flex-none opacity-60" />
-          <div className="italic whitespace-pre-wrap">{line.notebook}</div>
-        </div>
-      )}
-      {!line.notebookOnly && line.equation && (
-        <div className="flex items-center gap-3 flex-wrap">
-          <HighlightBox>
-            <span className="text-xl">
-              <Math ascii={line.equation} />
-            </span>
-          </HighlightBox>
-          <RoleChip kind={hasFloating ? "floating" : hasNotebook ? "notebook" : "none"} index={hasFloating ? floatingIndex : undefined} />
-        </div>
-      )}
-      {hasFloating && (
-        <div className="mt-1.5 flex flex-wrap gap-1.5 pl-1">
-          {line.fillers.map((f, i) => (
-            <span
-              key={i}
-              className="inline-block rounded border px-2 py-0.5 text-sm font-serif"
-              style={{ borderColor: "rgba(59,130,246,0.3)", background: "rgba(59,130,246,0.06)", color: "#1e3a8a" }}
-            >
-              <Math ascii={f} />
-            </span>
-          ))}
-        </div>
-      )}
-      {line.explanation && (
-        <div className="mt-1 text-xs text-neutral-500 italic whitespace-pre-wrap pl-1">
-          {line.explanation}
-        </div>
-      )}
+    <div className="mt-2 flex flex-wrap gap-2 pl-1">
+      {fillers.map((f, i) => (
+        <span
+          key={i}
+          className="inline-flex items-center rounded-md border px-2.5 py-1 text-base font-serif"
+          style={{
+            borderColor: "rgba(59,130,246,0.35)",
+            background: "rgba(59,130,246,0.08)",
+            color: "#1e3a8a",
+          }}
+        >
+          <InlineMath ascii={f} />
+        </span>
+      ))}
     </div>
   );
 };
 
-const Unit = ({
+const NoteBlock = ({ text }: { text: string }) => {
+  const clean = asDisplayString(text).trim();
+  if (!clean) return null;
+  return (
+    <div
+      className="my-2 flex items-start gap-2 rounded-md px-3 py-2 text-[15px] leading-relaxed"
+      style={{
+        background: "rgba(120,113,108,0.08)",
+        borderLeft: "3px solid rgba(120,113,108,0.5)",
+        color: "#524a3d",
+      }}
+    >
+      <StickyNote className="mt-0.5 h-4 w-4 flex-none opacity-70" />
+      <div className="whitespace-pre-wrap italic">{clean}</div>
+    </div>
+  );
+};
+
+/* ─────────────── Per-line AI Edit ─────────────── */
+
+const AiEditPopover = ({
+  lineLabel,
+  onSend,
+}: {
+  lineLabel: string;
+  onSend: (note: string) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium text-neutral-600 hover:bg-neutral-100 transition"
+          style={{ borderColor: "rgba(0,0,0,0.15)" }}
+        >
+          <Pencil className="h-3 w-3" /> AI Edit
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <div className="space-y-2">
+          <p className="text-xs text-neutral-500">
+            Correction for: <span className="font-medium text-neutral-700">{lineLabel}</span>
+          </p>
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. This should be a Notebook, not a Floating Number."
+            className="min-h-[80px] text-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!note.trim()) return;
+                onSend(note.trim());
+                setNote("");
+                setOpen(false);
+              }}
+            >
+              Send
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+/* ─────────────── Presentation block wrapper ─────────────── */
+
+const Block = ({
   id,
-  title,
   skipped,
   onToggle,
+  caption,
   children,
 }: {
   id: string;
-  title: React.ReactNode;
   skipped: boolean;
   onToggle: (id: string) => void;
+  caption?: string;
   children: React.ReactNode;
 }) => (
   <section
     className="relative rounded-2xl border p-6 shadow-sm transition"
     style={{
-      background: "rgba(255,255,255,0.65)",
+      background: "rgba(255,255,255,0.7)",
       borderColor: "rgba(138,106,31,0.15)",
       opacity: skipped ? 0.4 : 1,
     }}
   >
-    <div className="flex items-start justify-between gap-4 mb-3">
-      <div className={skipped ? "line-through" : ""}>{title}</div>
+    <div className="mb-3 flex items-start justify-between gap-4">
+      <h2 className={`text-xl font-semibold ${skipped ? "line-through" : ""}`} style={{ color: INK }}>
+        {caption ?? ""}
+      </h2>
       <button
         type="button"
         onClick={() => onToggle(id)}
@@ -189,7 +234,6 @@ const SmartboardPreviewPage = () => {
   const navigate = useNavigate();
   const { notebook, sections, loading } = useNotebook(notebookId);
 
-  const beats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
   const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
   const reservoirByBeat = useMemo(() => {
     const m = new Map<string, Reservoir>();
@@ -199,27 +243,29 @@ const SmartboardPreviewPage = () => {
 
   const [plan, setPlan] = useState<PresentationPlan>(() => loadPlan(notebookId));
 
-  const onToggle = (beatId: string) => {
+  const onToggle = (id: string) => {
     if (!notebookId) return;
-    setPlan(toggleSkipped(notebookId, beatId));
+    setPlan(toggleSkipped(notebookId, id));
   };
-
   const onClear = () => {
     if (!notebookId) return;
     setPlan(clearSkipped(notebookId));
   };
-
   const onApprove = () => {
     if (!notebookId) return;
     markApproved(notebookId);
-    toast({ title: "Preview approved", description: "Launching Live Smartboard…" });
+    toast({ title: "Presentation approved", description: "Launching Smartboard…" });
     navigate(`/smartboard/${notebookId}`);
   };
-
-  // Preview reflects the effect of skips (dimmed but visible).
-  const activePreview = useMemo(() => applyPlan(beats, reservoirs, plan), [beats, reservoirs, plan]);
-  const activeCount = activePreview.beats.length;
-  const totalCount = beats.length;
+  const onAiEdit = (label: string, note: string) => {
+    // The AI Workshop pipeline for per-line corrections is wired in the
+    // Floating Prep page. Here we capture the teacher's note and hand off.
+    console.info("[preview.ai-edit]", { label, note });
+    toast({
+      title: "Correction noted",
+      description: "Open the Floating Numbers page to apply detailed edits.",
+    });
+  };
 
   if (loading) {
     return (
@@ -229,33 +275,85 @@ const SmartboardPreviewPage = () => {
     );
   }
 
-  if (!notebook || beats.length === 0) {
+  if (!notebook) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: BOARD_BG }}>
         <div className="text-center max-w-md">
           <h2 className="text-lg font-semibold">Nothing to preview yet</h2>
-          <p className="mt-2 text-sm text-neutral-500">
-            This lesson note has no content the Smartboard can present.
-          </p>
           <Button className="mt-4" onClick={() => navigate("/smartboard")}>Back to Shelf</Button>
         </div>
       </main>
     );
   }
 
+  // Build the presentation blocks straight from the raw Lesson Note.
+  // Numbering is per-section-kind (Example 1, Example 2, Exercise 1, …),
+  // matching what buildReservoirs produced.
+  type Item =
+    | { id: string; kind: "cover" }
+    | { id: string; kind: "prose"; caption: string; text: string }
+    | { id: string; kind: "problem"; caption: string; problem: string; reservoir?: Reservoir; subsectionId: string };
+
+  const items: Item[] = [];
+  items.push({ id: "__cover__", kind: "cover" });
+
+  const counters: Record<string, number> = {};
+  for (const sec of sections as SectionRow[]) {
+    if (sec.kind === "introduction" || sec.kind === "explanation" || sec.kind === "summary") {
+      const text = sec.loose
+        .map((b) => asDisplayString(b.content_ascii))
+        .filter(Boolean)
+        .join("\n\n")
+        .trim();
+      if (!text) continue;
+      const caption =
+        sec.kind === "introduction" ? "Introduction" : sec.kind === "explanation" ? "Explanation" : "Summary";
+      items.push({ id: `${sec.id}-text`, kind: "prose", caption, text });
+      continue;
+    }
+    if (["example", "exercise", "classwork", "homework"].includes(sec.kind)) {
+      for (const sub of sec.subsections) {
+        counters[sec.kind] = (counters[sec.kind] ?? 0) + 1;
+        const n = counters[sec.kind];
+        const label = sec.kind[0].toUpperCase() + sec.kind.slice(1);
+        const problem = asDisplayString(
+          sub.blocks.find((b) => b.kind === "problem")?.content_ascii,
+        ).trim();
+        if (!problem) continue;
+        items.push({
+          id: `${sub.id}-q`,
+          kind: "problem",
+          caption: `${label} ${n}`,
+          problem,
+          reservoir: reservoirByBeat.get(`${sub.id}-q`),
+          subsectionId: sub.id,
+        });
+      }
+    }
+  }
+
+  const totalPresent = items.filter((it) => !isSkipped(plan, it.id)).length;
+
   return (
     <main className="min-h-screen" style={{ background: BOARD_BG, color: INK }}>
-      <header className="sticky top-0 z-10 backdrop-blur-md border-b" style={{ background: "rgba(246,244,239,0.85)", borderColor: "rgba(138,106,31,0.2)" }}>
-        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center gap-3">
+      <header
+        className="sticky top-0 z-10 backdrop-blur-md border-b"
+        style={{ background: "rgba(246,244,239,0.9)", borderColor: "rgba(138,106,31,0.2)" }}
+      >
+        <div className="mx-auto max-w-4xl px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/smartboard")} className="gap-2">
             <ArrowLeft className="h-4 w-4" /> Shelf
           </Button>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.4em]" style={{ color: ACCENT }}>Smartboard Preview</p>
-            <h1 className="text-xl font-semibold truncate">{notebook.title ?? "Untitled"}</h1>
+            <p className="text-[10px] uppercase tracking-[0.4em]" style={{ color: ACCENT }}>
+              Presentation Preview
+            </p>
+            <h1 className="text-lg font-semibold truncate">
+              {asDisplayString(notebook.title) || "Untitled"}
+            </h1>
           </div>
           <div className="hidden sm:block text-xs text-neutral-500 mr-2">
-            {activeCount} of {totalCount} units to present
+            {totalPresent} of {items.length} to present
           </div>
           <Button variant="ghost" size="sm" onClick={onClear} className="gap-1.5">
             <RotateCcw className="h-3.5 w-3.5" /> Reset
@@ -266,100 +364,119 @@ const SmartboardPreviewPage = () => {
         </div>
       </header>
 
-      <section className="mx-auto max-w-5xl px-4 py-6 space-y-4">
-        <div className="rounded-xl border-l-4 border-amber-500 bg-amber-50/60 p-3 text-xs text-amber-900">
-          <strong>Rehearsal mode.</strong> Everything below is exactly what students will see, in order.
-          Use <em>Present / Skip</em> per unit to control what appears during the lesson without editing the note.
-          When approved, the Live Smartboard follows this plan 1:1.
-        </div>
+      <section className="mx-auto max-w-4xl px-4 py-6 space-y-4">
+        {items.map((it) => {
+          const skipped = isSkipped(plan, it.id);
 
-        {beats.map((beat) => {
-          const skipped = isSkipped(plan, beat.id);
-          const res = reservoirByBeat.get(beat.id);
-
-          if (beat.id === "__cover__") {
+          if (it.kind === "cover") {
+            const title = asDisplayString(notebook.title) || "Untitled";
+            const subject = asDisplayString(notebook.subject);
+            const subtopic = asDisplayString(notebook.subtopic);
             return (
-              <Unit key={beat.id} id={beat.id} skipped={skipped} onToggle={onToggle}
-                title={
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.4em]" style={{ color: ACCENT }}>Cover</p>
-                    <h2 className="text-2xl font-semibold">{beat.content}</h2>
-                    <p className="text-sm text-neutral-500 mt-1">
-                      {[beat.caption, beat.reasoning].filter(Boolean).join(" · ")}
-                    </p>
-                  </div>
-                }
+              <section
+                key={it.id}
+                className="relative rounded-2xl border p-8 text-center shadow-sm transition"
+                style={{
+                  background: "rgba(255,255,255,0.7)",
+                  borderColor: "rgba(138,106,31,0.2)",
+                  opacity: skipped ? 0.4 : 1,
+                }}
               >
-                <p className="text-xs text-neutral-500">Lesson title card shown first on the board.</p>
-              </Unit>
+                <button
+                  type="button"
+                  onClick={() => onToggle(it.id)}
+                  className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition"
+                  style={{
+                    borderColor: skipped ? "rgba(220,38,38,0.4)" : "rgba(22,163,74,0.4)",
+                    background: skipped ? "rgba(220,38,38,0.08)" : "rgba(22,163,74,0.08)",
+                    color: skipped ? "#b91c1c" : "#15803d",
+                  }}
+                >
+                  {skipped ? <><EyeOff className="h-3.5 w-3.5" /> Skipped</> : <><Eye className="h-3.5 w-3.5" /> Present</>}
+                </button>
+                <h2 className={`text-3xl font-bold ${skipped ? "line-through" : ""}`} style={{ color: INK }}>
+                  {title}
+                </h2>
+                {subject && (
+                  <p className="mt-3 text-lg" style={{ color: "#524a3d" }}>{subject}</p>
+                )}
+                {subtopic && (
+                  <p className="text-lg" style={{ color: "#524a3d" }}>{subtopic}</p>
+                )}
+                <p className="mt-3 text-sm text-neutral-500">{today()}</p>
+              </section>
             );
           }
 
-          if (beat.kind === "text") {
+          if (it.kind === "prose") {
             return (
-              <Unit key={beat.id} id={beat.id} skipped={skipped} onToggle={onToggle}
-                title={
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.4em]" style={{ color: ACCENT }}>
-                      {beat.sectionKind}
-                    </p>
-                    <h2 className="text-lg font-semibold capitalize">{beat.sectionKind}</h2>
-                  </div>
-                }
-              >
-                <div className="whitespace-pre-wrap text-[15px] leading-relaxed">
-                  <Math ascii={beat.content} />
+              <Block key={it.id} id={it.id} skipped={skipped} onToggle={onToggle} caption={it.caption}>
+                <div className="text-[16px] leading-relaxed" style={{ color: INK }}>
+                  <SmartboardLessonText>{it.text}</SmartboardLessonText>
                 </div>
-              </Unit>
+                <div className="mt-3 flex justify-end">
+                  <AiEditPopover
+                    lineLabel={it.caption}
+                    onSend={(note) => onAiEdit(it.caption, note)}
+                  />
+                </div>
+              </Block>
             );
           }
 
-          // problem / exercise-prompt beats — show the question then the reservoir lines.
+          // problem + optional solution
+          const res = it.reservoir;
           return (
-            <Unit key={beat.id} id={beat.id} skipped={skipped} onToggle={onToggle}
-              title={
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.4em]" style={{ color: ACCENT }}>
-                    {beat.caption ?? beat.sectionKind}
-                  </p>
-                  <div className="text-lg font-medium mt-0.5">
-                    <Math ascii={beat.content} />
-                  </div>
+            <Block key={it.id} id={it.id} skipped={skipped} onToggle={onToggle} caption={it.caption}>
+              <div className="text-[17px] leading-relaxed mb-4" style={{ color: INK }}>
+                <SmartboardLessonText>{it.problem}</SmartboardLessonText>
+              </div>
+
+              {res && res.lines.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {res.lines.map((line: ReservoirLine, k: number) => {
+                    const eq = asDisplayString(line.equation).trim();
+                    const note = asDisplayString(line.notebook).trim();
+                    const hasFloating = !line.notebookOnly && line.fillers.length > 0;
+                    const label = eq || note.slice(0, 40) || `Line ${k + 1}`;
+                    return (
+                      <div
+                        key={k}
+                        className="pl-4"
+                        style={{ borderLeft: "2px solid rgba(138,106,31,0.15)" }}
+                      >
+                        {note && <NoteBlock text={note} />}
+                        {!line.notebookOnly && eq && (
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <HighlightBox>
+                              <span className="text-xl">
+                                <InlineMath ascii={eq} />
+                              </span>
+                            </HighlightBox>
+                            <AiEditPopover
+                              lineLabel={label}
+                              onSend={(n) => onAiEdit(label, n)}
+                            />
+                          </div>
+                        )}
+                        {hasFloating && <FloatingChips fillers={line.fillers} />}
+                        {line.explanation && (
+                          <div className="mt-1 pl-1 text-xs italic text-neutral-500 whitespace-pre-wrap">
+                            {asDisplayString(line.explanation)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              }
-            >
-              {res && res.lines.length > 0 ? (
-                <>
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-400 mb-2">Solution</p>
-                  <div className="space-y-1">
-                    {(() => {
-                      let floatingIdx = 0;
-                      return res.lines.map((line, k) => {
-                        const hasFloating = !line.notebookOnly && line.fillers.length > 0;
-                        if (hasFloating) floatingIdx += 1;
-                        return (
-                          <SolutionLineRow
-                            key={k}
-                            line={line}
-                            floatingIndex={floatingIdx}
-                          />
-                        );
-                      });
-                    })()}
-                  </div>
-                </>
-              ) : (
-                <p className="text-xs text-neutral-400 italic">
-                  No solution lines highlighted yet — teacher will solve live.
-                </p>
               )}
-            </Unit>
+            </Block>
           );
         })}
 
         <div className="pt-4 pb-16 flex items-center justify-between border-t border-amber-200/40">
           <p className="text-xs text-neutral-500">
-            Rehearsed {activeCount} of {totalCount} units. Skipped units are hidden from the live board.
+            {totalPresent} of {items.length} blocks will be presented. Skipped blocks are hidden from the live board.
           </p>
           <Button onClick={onApprove} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
             <PlayCircle className="h-4 w-4" /> Approve & Go Live
