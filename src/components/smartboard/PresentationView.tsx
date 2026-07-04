@@ -10,6 +10,7 @@ import {
   Eraser, Undo2, Redo2, ScanEye, PanelLeftOpen, X as XIcon,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
+import { SmartboardRootContext } from "./SmartboardRoot";
 
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
