@@ -2886,11 +2886,11 @@ const PresentationView = ({
 
       {/* Presenter Preview — top-left expandable icon (teacher only).
           The icon auto-hides after 10s; a hit-zone on the left edge reveals
-          it again on pointer activity. Clicking opens a 30vw side panel
-          overlaying the board; the board itself doesn't reflow. */}
+          it again on pointer activity. Clicking opens/closes the 30% split
+          preview pane (a flex sibling above — not an overlay). */}
       {showPresenterChrome && (
         <>
-          {/* Hit-zone: top-left corner. */}
+          {/* Hit-zone: top-left corner of the Smartboard pane. */}
           <div
             aria-hidden
             onPointerEnter={revealPresenterIcon}
@@ -2921,61 +2921,10 @@ const PresentationView = ({
           >
             <PanelLeftOpen className="h-5 w-5" />
           </button>
-
-          {/* Side panel — 30vw overlay on the left. */}
-          <aside
-            data-sb-chrome
-            data-sb-teacher-only
-            className="fixed top-0 bottom-0 left-0 z-30 flex flex-col border-r transition-transform duration-300"
-            style={{
-              width: "30vw",
-              minWidth: 320,
-              maxWidth: 480,
-              background: "rgba(246,244,239,0.97)",
-              borderColor: "rgba(138,106,31,0.2)",
-              boxShadow: "8px 0 24px rgba(0,0,0,0.12)",
-              backdropFilter: "blur(10px)",
-              transform: presenterPanelOpen ? "translateX(0)" : "translateX(-102%)",
-            }}
-          >
-            <header
-              className="flex items-center gap-2 px-4 py-3 border-b"
-              style={{ borderColor: "rgba(138,106,31,0.2)" }}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-[9px] uppercase tracking-[0.35em]" style={{ color: "#8a6a1f" }}>
-                  Presenter Preview
-                </p>
-                <p className="text-sm font-semibold truncate" style={{ color: "#1a2230" }}>
-                  {notebook?.title ?? "Untitled"}
-                </p>
-                <p
-                  className="text-[10px] mt-0.5"
-                  style={{ color: presenterManualScroll ? "#b45309" : "#15803d" }}
-                >
-                  {presenterManualScroll ? "Paused — manual scroll" : "Following teacher"}
-                </p>
-              </div>
-              <button
-                onClick={() => setPresenterPanelOpen(false)}
-                aria-label="Close presenter preview"
-                className="grid place-items-center rounded-full h-8 w-8 hover:bg-black/5"
-                style={{ color: "#1a2230" }}
-              >
-                <XIcon className="h-4 w-4" />
-              </button>
-            </header>
-            <div className="flex-1 min-h-0">
-              <PresenterPreviewPanel
-                notebookId={notebookId}
-                activeBeatId={activePreviewBeatId}
-                activeLineIdx={activePreviewLineIdx}
-                onManualScrollChange={setPresenterManualScroll}
-              />
-            </div>
-          </aside>
         </>
       )}
+
+
 
       {/* Top chrome — narrow centered pill, slides out of view by default.
           Pull-tab at top-center reveals it. */}
