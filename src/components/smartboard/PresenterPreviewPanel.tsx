@@ -726,6 +726,9 @@ const PresenterPreviewPanel = ({
                           const noteSel = isSelected(noteTarget);
                           return (
                             <div
+                              data-note-button="true"
+                              data-line-idx={k}
+                              data-beat-id={it.id}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 selectTarget(noteTarget);

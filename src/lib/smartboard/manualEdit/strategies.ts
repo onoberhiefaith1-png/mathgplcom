@@ -1,9 +1,15 @@
 // Manual AI Edit — strategy ladders. Each root cause maps to an ordered
 // list of tactics. The operator tries them in order until Verify passes.
+//
+// The heavy-hitting invasive tactics (synthetic DOM click, side-door
+// writes, force repaint, rebuild ownership) live in ./pipelineTactics
+// and are appended to every non-empty ladder so any repair run has
+// enough moves to actually land the change on the Smartboard.
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import type { EditTarget, RootCause } from "./types";
 import * as G from "./gestures";
+import { pipelineLadderFor } from "./pipelineTactics";
 
 export interface Tactic {
   name: string;
@@ -186,7 +192,7 @@ const panelTactics: Tactic[] = [
   },
 ];
 
-export const strategyFor = (cause: RootCause, target: EditTarget): Tactic[] => {
+const baseFor = (cause: RootCause, target: EditTarget): Tactic[] => {
   switch (cause) {
     case "click-not-fired":
       return target.kind === "teacher-note" ? notesTactics : lineTactics;
@@ -214,4 +220,26 @@ export const strategyFor = (cause: RootCause, target: EditTarget): Tactic[] => {
     default:
       return [];
   }
+};
+
+/** Deduplicate tactics by name, preserving order. */
+const dedupe = (arr: Tactic[]): Tactic[] => {
+  const seen = new Set<string>();
+  const out: Tactic[] = [];
+  for (const t of arr) {
+    if (seen.has(t.name)) continue;
+    seen.add(t.name);
+    out.push(t);
+  }
+  return out;
+};
+
+export const strategyFor = (cause: RootCause, target: EditTarget): Tactic[] => {
+  const base = baseFor(cause, target);
+  if (cause === "mapping-missing" || cause === "structural" || cause === "none") {
+    return base;
+  }
+  // Append the pipeline ladder so every repair run can escalate to
+  // synthetic DOM clicks, side-door writes, and force-repaint.
+  return dedupe([...base, ...pipelineLadderFor(target)]);
 };
