@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useSmartboardRoot } from "./SmartboardRoot";
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
@@ -423,22 +424,18 @@ export const FloatingNumberPanel = ({
       onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
       onClick={(e) => { e.stopPropagation(); }}
       style={{
-        position: "fixed",
+        position: "absolute",
         left: fixedLeft,
         bottom: fixedBottom,
         zIndex: 39,
         display: "flex",
         alignItems: "center",
         gap: 8,
-        // Generous invisible halo so taps *near* the floating-number strip
-        // never bleed through to the writing surface and reposition the
-        // caret. The visible chrome stays inside; only the hit zone grows.
         padding: "10px 12px",
         margin: 0,
-        maxWidth: `calc(100vw - ${fixedLeft + 12}px)`,
+        maxWidth: `calc(100% - ${fixedLeft + 12}px)`,
         cursor: "default",
         touchAction: "manipulation",
-        // No background — blends into the board.
       }}
     >
       {/* Leading column: ▲ line-up · drag grip · line badge · ▼ line-down */}
