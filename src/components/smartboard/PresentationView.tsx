@@ -3319,17 +3319,23 @@ const PresentationView = ({
               const nb = (guidedLines[k] as { notebook?: string } | undefined)?.notebook;
               const text = (nb ?? "").trim();
               if (!text) return "";
-              // Consistency guard: a legitimate line note is short prose
-              // authored for THIS line, never a chunk that contains
-              // multiple equations (which would mean stray solution tail
-              // got attached). If two or more lines look equation-shaped,
-              // refuse to render — no note is safer than a phantom one.
-              const eqLikeLines = text
-                .split(/\r?\n/)
-                .filter((l) => /[=+\-−×÷/^]/.test(l)).length;
-              if (eqLikeLines >= 2) return "";
+              // NOTE-PURITY LAW (read-side): a note is prose. If ANY line
+              // in the saved note is math-shaped (operators, or nearly all
+              // digits/punctuation), the whole note is rejected — a phantom
+              // equation must never render as a note. Universal across
+              // every line, at any depth.
+              const looksLikeMath = (l: string) => {
+                const s = l.trim();
+                if (!s) return false;
+                if (/[=+\-−×÷/^]/.test(s)) return true;
+                if (/^[\d\s.,()πθ]+$/.test(s)) return true;
+                return false;
+              };
+              const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+              if (lines.some(looksLikeMath)) return "";
               return text;
             };
+
             // Cursor movement: teacher may freely traverse every line up to
             // the last one. The down-chevron naturally disables at the bottom
             // (cur >= total) so the teacher sees the line is blocked.
