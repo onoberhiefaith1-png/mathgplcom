@@ -247,8 +247,7 @@ export const applyMirror = async (
 
     case "math-structure":
     default: {
-      const text = (target.text ?? "").trim();
-      if (text) ctrl.writeProseLineOnBoard(text);
+      writeProseIfMissing(ctrl, target.text ?? "");
       return;
     }
   }
