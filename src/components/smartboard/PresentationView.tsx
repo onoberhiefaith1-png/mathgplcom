@@ -2803,6 +2803,64 @@ const PresentationView = ({
     activeReservoir,
     guidedLines,
   };
+  // Row-signature helpers for the Presentation AI. `rowOwnersRef` and
+  // `freeLines` are already live in the render loop; we snapshot them via
+  // the ref so the AI reads the freshest board state at inspect-time.
+  const freeLinesRef = useRef(freeLines);
+  freeLinesRef.current = freeLines;
+
+  const findBoardRowForLine = useCallback((lineIdx: number): number | null => {
+    const owners = rowOwnersRef.current;
+    for (const [k, owner] of Object.entries(owners)) {
+      if (owner === lineIdx) return Number(k);
+    }
+    return null;
+  }, []);
+
+  const getBoardRowSignatureFor = useCallback((lineIdx: number): string => {
+    const row = findBoardRowForLine(lineIdx);
+    if (row === null) return "";
+    const ink = freeLinesRef.current[row] ?? freeLinesRef.current[row + 0.5];
+    if (!ink || ink.length === 0) return "";
+    return rowSignature(ink);
+  }, [findBoardRowForLine]);
+
+  const getExpectedRowSignatureFor = useCallback((lineIdx: number): string => {
+    const line = paiRefs.current.guidedLines[lineIdx];
+    if (!line) return "";
+    const text = (line.equation ?? "").trim();
+    if (!text) return "";
+    const m = mirrorLessonNoteRow(text);
+    return m.ok ? m.signature : "";
+  }, []);
+
+  const getExpectedPrefixSignatureFor = useCallback(
+    (lineIdx: number, prefixTokenCount: number): string => {
+      const line = paiRefs.current.guidedLines[lineIdx];
+      if (!line) return "";
+      const fillers = (line.fillers ?? []).slice(0, Math.max(0, prefixTokenCount));
+      if (fillers.length === 0) return "";
+      const text = fillers.join(" ");
+      const m = mirrorLessonNoteRow(text);
+      return m.ok ? m.signature : "";
+    },
+    [],
+  );
+
+  const writeEquationPrefix = useCallback(
+    (lineIdx: number, prefixTokenCount: number) => {
+      const line = paiRefs.current.guidedLines[lineIdx];
+      if (!line) return;
+      const fillers = (line.fillers ?? []).slice(0, Math.max(0, prefixTokenCount));
+      if (fillers.length === 0) return;
+      // writeProseLineOnBoard is idempotent by first-paragraph row signature,
+      // so re-issuing with an extended prefix rewrites into the same owned
+      // row rather than piling up new rows.
+      writeProseLineOnBoard(fillers.join(" "));
+    },
+    [writeProseLineOnBoard],
+  );
+
   const paiController = useMemo<PresentationController>(
     () => ({
       beats,
@@ -2831,9 +2889,23 @@ const PresentationView = ({
         }),
       getActiveReservoir: () => paiRefs.current.activeReservoir,
       getActiveGuidedLines: () => paiRefs.current.guidedLines,
+      writeEquationPrefix,
+      getBoardRowSignatureFor,
+      getExpectedRowSignatureFor,
+      getExpectedPrefixSignatureFor,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [beats, reservoirs, notebookId, notebook?.title, writeProseLineOnBoard],
+    [
+      beats,
+      reservoirs,
+      notebookId,
+      notebook?.title,
+      writeProseLineOnBoard,
+      writeEquationPrefix,
+      getBoardRowSignatureFor,
+      getExpectedRowSignatureFor,
+      getExpectedPrefixSignatureFor,
+    ],
   );
   const ai = usePresentationAI(paiController);
   useEffect(() => {
