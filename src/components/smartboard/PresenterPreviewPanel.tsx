@@ -10,8 +10,8 @@
 //     auto-follow as soon as the teacher's position changes again, or
 //     after a 6s idle grace period.
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { StickyNote } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StickyNote, Pencil, Check, EyeOff, Eye, Sparkles } from "lucide-react";
 
 import { useNotebook, type SectionRow } from "@/hooks/useNotebook";
 import {
@@ -19,8 +19,15 @@ import {
   type Reservoir,
   type ReservoirLine,
 } from "@/lib/smartboard/presentation";
+import {
+  loadPlan,
+  toggleSkipped,
+  isSkipped,
+  type PresentationPlan,
+} from "@/lib/smartboard/presentationPlan";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { SmartboardLessonText } from "@/components/smartboard/SmartboardLessonText";
+import type { EditTarget } from "@/lib/smartboard/manualEdit/types";
 
 const INK = "#1a2230";
 const ACCENT = "#8a6a1f";
