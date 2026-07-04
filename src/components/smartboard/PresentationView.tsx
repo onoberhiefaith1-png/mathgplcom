@@ -7,8 +7,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
-  Eraser, Undo2, Redo2, ScanEye,
+  Eraser, Undo2, Redo2, ScanEye, PanelLeftOpen, X as XIcon,
 } from "lucide-react";
+import PresenterPreviewPanel from "./PresenterPreviewPanel";
 
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
