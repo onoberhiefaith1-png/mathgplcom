@@ -32,15 +32,18 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
   const [result, setResult] = useState<MirrorResult | null>(null);
   const runIdRef = useRef(0);
   const lastKeyRef = useRef<string | null>(null);
+  const hasBeenOpenRef = useRef(false);
 
   // On open (and every fresh selection) mirror the target onto the board.
   useEffect(() => {
     if (!open || !controller) return;
+    hasBeenOpenRef.current = true;
 
     // Entering mirror mode with no selection yet — just clear the board.
     if (!target) {
       clearBoard(controller);
       setResult(null);
+      lastKeyRef.current = null;
       return;
     }
 
@@ -57,6 +60,8 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
     setBusy(true);
     setResult(null);
     (async () => {
+      // Always start from a blank canvas so previous highlight ink is gone.
+      clearBoard(controller);
       const r = await runMirror(target, controller);
       if (runIdRef.current === myRun) {
         setResult(r);
@@ -65,14 +70,17 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
     })();
   }, [open, controller, target]);
 
-  // On close, clear the board and reset selection state so re-entering
-  // starts blank.
+  // On close — but ONLY after we were actually open once. This prevents
+  // wiping the Smartboard when the workspace mounts with open===false
+  // during normal playback.
   useEffect(() => {
-    if (!open && controller) {
+    if (open) return;
+    if (!hasBeenOpenRef.current) return;
+    if (controller) {
       clearBoard(controller);
-      lastKeyRef.current = null;
-      setResult(null);
     }
+    lastKeyRef.current = null;
+    setResult(null);
   }, [open, controller]);
 
   if (!open) return null;

@@ -4764,6 +4764,24 @@ const PresentationView = ({
         />
       )}
 
+      {/* Cursor up/down rail — dedicated writing-sensor controller.
+          Rendered on the left rail so it never overlaps the assistant
+          buttons on the right. Only visible while the carrier (solving
+          workspace) is up. */}
+      {canEdit && carrierVisible && (
+        <CursorScrollbar
+          onUp={() => moveSensorUp(1)}
+          onDown={() => moveSensorDown(1)}
+          canUp={canCursorUp}
+          canDown={canCursorDown}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          leftPx={12}
+          topCss="50%"
+        />
+      )}
+
       {/* AI line-status verification toggle. Off by default; when on, the
           left-edge bulbs render (yellow → in progress, green → correct,
           red → mismatch, blue → whole problem solved). */}
