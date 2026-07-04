@@ -123,21 +123,25 @@ export const inspectStep = (
   const line = step.line;
 
   if (step.kind === "filler") {
+    // Question line has no filler substeps by construction — guard anyway.
+    if (isQuestionLine(step.lineIdx, line)) return issues;
     // The board row for this line must now match the expected prefix
     // signature (fillers[0..=fillerIdx]).
     const prefixCount = step.fillerIdx + 1;
     const expected = ctrl.getExpectedPrefixSignatureFor(step.lineIdx, prefixCount);
     const actual = ctrl.getBoardRowSignatureFor(step.lineIdx);
     if (expected && expected !== actual) {
+      const fillers = line.fillers ?? [];
+      const expectedText = equationPrefixFor(line.equation ?? "", fillers, step.fillerIdx);
       issues.push(
         mkIssue(step, {
           kind: "filler-missing",
           summary: `Floating Number ${prefixCount} did not land on the Smartboard.`,
-          expected: (line.fillers ?? []).slice(0, prefixCount).join(" "),
+          expected: expectedText,
           actual: actual || "(empty row)",
           probableCause:
-            "The AI did not click the chip on the # (Floating Number) panel, or the panel was closed when the chip was picked.",
-          suggestedFix: `Open the # panel for line ${step.lineIdx + 1} and click the chip "${(line.fillers ?? [])[step.fillerIdx] ?? ""}".`,
+            "The AI did not click the chip on the # (Floating Number) panel, the target row was off-screen, or the sensor was parked on an occupied row.",
+          suggestedFix: `${rule(2)} → ${rule(3)} → ${rule(5)}. Click chip "${fillers[step.fillerIdx] ?? ""}".`,
           repairable: true,
           fillerIdx: step.fillerIdx,
         }),
