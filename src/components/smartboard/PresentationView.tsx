@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import { SmartboardRootContext } from "./SmartboardRoot";
+import AutoplayControl from "./AutoplayControl";
+import DiagnosisPanel from "./DiagnosisPanel";
+import { usePresentationAI } from "@/hooks/usePresentationAI";
+import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
@@ -2780,6 +2784,67 @@ const PresentationView = ({
   const canAdvanceBeat = beatCursor < beats.length - 1;
   useEffect(() => { guidedIncompleteRef.current = guidedIncomplete; }, [guidedIncomplete]);
 
+  // ─── Presentation AI wiring ──────────────────────────────────────────
+  // A dedicated AI that presents the lesson automatically and verifies the
+  // Smartboard against the Presenter Preview (source of truth). See
+  // src/lib/smartboard/presentationAI/*.
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const paiRefs = useRef({
+    beatCursor,
+    activeLineIdx,
+    shownNotebookIdx,
+    activeReservoir,
+    guidedLines,
+  });
+  paiRefs.current = {
+    beatCursor,
+    activeLineIdx,
+    shownNotebookIdx,
+    activeReservoir,
+    guidedLines,
+  };
+  const paiController = useMemo<PresentationController>(
+    () => ({
+      beats,
+      reservoirs,
+      notebookId,
+      notebookTitle: notebook?.title ?? null,
+      getBeatCursor: () => paiRefs.current.beatCursor,
+      setBeatCursor: (n: number) => setBeatCursor(n),
+      getActiveLineIdx: () => paiRefs.current.activeLineIdx,
+      setActiveLineIdx: (n: number) => setActiveLineIdx(n),
+      getShownNotebookIdx: () => paiRefs.current.shownNotebookIdx,
+      markNotebookShown: (i: number) =>
+        setShownNotebookIdx((p) => {
+          if (p.has(i)) return p;
+          const nx = new Set(p);
+          nx.add(i);
+          return nx;
+        }),
+      writeProseLineOnBoard,
+      addNotebookAttention: (i: number) =>
+        setNotebookAttentionIdx((p) => {
+          if (p.has(i)) return p;
+          const nx = new Set(p);
+          nx.add(i);
+          return nx;
+        }),
+      getActiveReservoir: () => paiRefs.current.activeReservoir,
+      getActiveGuidedLines: () => paiRefs.current.guidedLines,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [beats, reservoirs, notebookId, notebook?.title, writeProseLineOnBoard],
+  );
+  const ai = usePresentationAI(paiController);
+  useEffect(() => {
+    if (ai.activeIssue) setAiPanelOpen(true);
+  }, [ai.activeIssue]);
+  useEffect(() => {
+    if (ai.state === "reporting") setAiPanelOpen(true);
+  }, [ai.state]);
+
+
+
 
 
   if (loading && !assessmentMode) {
@@ -2983,6 +3048,41 @@ const PresentationView = ({
           </button>
         </>
       )}
+
+      {/* Presentation AI — top-right controls (teacher only). Autoplay
+          button + speed popover; while running, a live AI Diagnosis chip
+          appears next to it. The DiagnosisPanel is a 30% overlay that
+          does NOT resize the Smartboard (unlike the Presenter Preview). */}
+      {showPresenterChrome && (
+        <div
+          data-sb-chrome
+          data-sb-teacher-only
+          className="absolute z-40"
+          style={{ right: 12, top: 12 }}
+        >
+          <AutoplayControl
+            state={ai.state}
+            speed={ai.speed}
+            setSpeed={ai.setSpeed}
+            onStart={(s) => ai.start(s)}
+            onStop={() => ai.stop()}
+            onOpenDiagnosis={() => setAiPanelOpen(true)}
+            hasActiveIssue={!!ai.activeIssue}
+          />
+        </div>
+      )}
+
+      {showPresenterChrome && (
+        <DiagnosisPanel
+          ai={ai}
+          open={aiPanelOpen}
+          onClose={() => setAiPanelOpen(false)}
+          notebookId={notebookId}
+          notebookTitle={notebook?.title ?? null}
+        />
+      )}
+
+
 
 
 
