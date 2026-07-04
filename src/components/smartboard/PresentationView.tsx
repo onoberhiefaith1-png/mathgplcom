@@ -1422,13 +1422,6 @@ const PresentationView = ({
   const profile = WRITING_PROFILES[profileId];
   const ink = resolveInk(inkColorId, surface);
   const current = beatCursor >= 0 ? beats[beatCursor] : undefined;
-  // The live board's beat id already matches the preview panel's item id
-  // convention ("__cover__", "<sectionId>-text", "<subsectionId>-q").
-  const activePreviewBeatId: string | null = current?.id ?? null;
-  const activePreviewLineIdx: number | null =
-    current && (current.kind === "problem" || current.kind === "exercise-prompt")
-      ? activeLineIdx
-      : null;
   const revealed = beatCursor >= 0 ? beats.slice(0, beatCursor + 1) : [];
   const phase = getPhase(current);
   const caps = phaseCapabilities(phase);
