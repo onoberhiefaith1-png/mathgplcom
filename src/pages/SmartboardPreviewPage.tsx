@@ -517,11 +517,10 @@ const SmartboardPreviewPage = () => {
                           )
                         )}
                         {note && <NoteBlock text={note} />}
-                        {line.explanation && (
-                          <div className="mt-1 pl-1 text-sm italic" style={{ color: "#524a3d" }}>
-                            {renderMathInline(asDisplayString(line.explanation), `exp-${k}`)}
-                          </div>
-                        )}
+                        {/* line.explanation intentionally NOT rendered here:
+                            on the live board it only surfaces behind the "+"
+                            marker, and its text duplicates equations that
+                            already appear as their own display lines. */}
                       </div>
                     );
                   })}
