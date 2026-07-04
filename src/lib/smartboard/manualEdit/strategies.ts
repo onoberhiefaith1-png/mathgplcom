@@ -1,8 +1,15 @@
 // Manual AI Edit — strategy ladders. Each root cause maps to an ordered
 // list of tactics. The operator tries them in order until Verify passes.
+//
+// The heavy-hitting invasive tactics (synthetic DOM click, side-door
+// writes, force repaint, rebuild ownership) live in ./pipelineTactics
+// and are appended to every non-empty ladder so any repair run has
+// enough moves to actually land the change on the Smartboard.
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import type { EditTarget, RootCause } from "./types";
+import * as G from "./gestures";
+import { pipelineLadderFor } from "./pipelineTactics";
 import * as G from "./gestures";
 
 export interface Tactic {
