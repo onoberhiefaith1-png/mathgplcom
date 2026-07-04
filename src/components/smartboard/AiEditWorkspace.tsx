@@ -1,23 +1,22 @@
 // AiEditWorkspace — HEADLESS Live Mirror runner.
 //
-// Renders NOTHING. (The old floating status strip at the top of the
-// screen physically covered the first lines of the Presenter Preview,
-// making Line 1's note unclickable — it is gone for good.)
-//
-// Responsibilities:
+// Renders NOTHING. Responsibilities:
 //   • when a preview item is selected, mirror it onto the Smartboard
-//     via the timing-safe mirror + 4-step auto-rectify ladder
+//     via the timing-safe mirror + auto-rectify ladder (additive — the
+//     board is never wiped by entering/leaving Edit mode)
 //   • report live status (mirroring / fixing step n/4 / ✓ / ✗) through
 //     `onStatus`, which the Presenter Preview shows as an inline badge
-//     on the clicked item itself
-//   • on exit, clear the board and resume normal playback
+//
+// LOOP SAFETY: the controller object is rebuilt by the host whenever
+// board state changes, so it must NEVER be an effect dependency here —
+// that caused an infinite clear→rebuild→clear render loop. The effect
+// keys ONLY on (open, targetKey); everything else is read via refs.
 
 import { useEffect, useRef } from "react";
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
 import { editTargetKey } from "@/lib/smartboard/manualEdit/types";
-import { clearBoard } from "@/lib/smartboard/manualEdit/mirror";
 import { runMirrorWithAutofix } from "@/lib/smartboard/manualEdit/autofix";
 
 interface Props {
@@ -30,32 +29,51 @@ interface Props {
 const AiEditWorkspace = ({ open, target, controller, onStatus }: Props) => {
   const runIdRef = useRef(0);
   const lastKeyRef = useRef<string | null>(null);
-  const hasBeenOpenRef = useRef(false);
+  const wasOpenRef = useRef(false);
+
+  // Live refs — never effect dependencies.
+  const controllerRef = useRef(controller);
+  controllerRef.current = controller;
   const onStatusRef = useRef(onStatus);
   onStatusRef.current = onStatus;
+  const targetRef = useRef(target);
+  targetRef.current = target;
 
-  // On open (and every fresh selection) mirror the target onto the board.
+  const key = open && target ? editTargetKey(target) : null;
+
   useEffect(() => {
-    if (!open || !controller) return;
-    hasBeenOpenRef.current = true;
-
-    // Entering mirror mode with no selection yet — just clear the board.
-    if (!target) {
-      clearBoard(controller);
-      onStatusRef.current?.(null);
-      lastKeyRef.current = null;
+    if (!open) {
+      // Close transition only — and never wipe the board: whatever the
+      // teacher forced onto the board in Edit mode STAYS there, and
+      // normal playback (Next/Prev) continues from the current beat.
+      if (wasOpenRef.current) {
+        wasOpenRef.current = false;
+        runIdRef.current += 1; // cancel any in-flight run
+        controllerRef.current?.closeFloatingPanel?.();
+        lastKeyRef.current = null;
+        onStatusRef.current?.(null);
+      }
       return;
     }
 
-    const key = editTargetKey(target);
+    wasOpenRef.current = true;
+    const ctrl = controllerRef.current;
+    const t = targetRef.current;
+
+    if (!ctrl || !t || !key) {
+      // Entering Edit with no selection — do nothing (board untouched).
+      lastKeyRef.current = null;
+      onStatusRef.current?.(null);
+      return;
+    }
+
     if (lastKeyRef.current === key) return;
     lastKeyRef.current = key;
 
     const myRun = ++runIdRef.current;
-    (async () => {
-      const result = await runMirrorWithAutofix(target, controller, (p) => {
-        if (runIdRef.current === myRun) onStatusRef.current?.({ key, ...p });
-      });
+    void runMirrorWithAutofix(t, ctrl, (p) => {
+      if (runIdRef.current === myRun) onStatusRef.current?.({ key, ...p });
+    }).then((result) => {
       if (runIdRef.current === myRun) {
         onStatusRef.current?.({
           key,
@@ -64,20 +82,8 @@ const AiEditWorkspace = ({ open, target, controller, onStatus }: Props) => {
           detail: result.detail,
         });
       }
-    })();
-  }, [open, controller, target]);
-
-  // On close — but ONLY after we were actually open once. This prevents
-  // wiping the Smartboard when this mounts with open===false during
-  // normal playback.
-  useEffect(() => {
-    if (open) return;
-    if (!hasBeenOpenRef.current) return;
-    runIdRef.current += 1; // cancel any in-flight run
-    if (controller) clearBoard(controller);
-    lastKeyRef.current = null;
-    onStatusRef.current?.(null);
-  }, [open, controller]);
+    });
+  }, [open, key]);
 
   return null;
 };
