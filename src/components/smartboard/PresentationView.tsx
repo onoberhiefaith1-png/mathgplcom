@@ -3369,6 +3369,7 @@ const PresentationView = ({
                   activeBeatId={activePreviewBeatId}
                   activeLineIdx={activePreviewLineIdx}
                   onManualScrollChange={setPresenterManualScroll}
+                  onOpenAiEdit={(t) => setAiEditTarget(t)}
                 />
               </div>
             </>
