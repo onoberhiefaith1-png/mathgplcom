@@ -361,6 +361,9 @@ const SmartboardPreviewPage = () => {
           problem,
           reservoir: reservoirByBeat.get(`${sub.id}-q`),
           subsectionId: sub.id,
+          hasFloatingData:
+            Array.isArray((sub as any).floating_lines) &&
+            ((sub as any).floating_lines as any[]).length > 0,
         });
       }
     }
