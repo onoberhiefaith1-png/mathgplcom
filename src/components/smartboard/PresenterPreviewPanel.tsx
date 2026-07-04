@@ -150,10 +150,11 @@ export interface PresenterPreviewPanelProps {
   activeLineIdx?: number | null;
   /** Emits true when the teacher is manually scrolling the panel. */
   onManualScrollChange?: (isManual: boolean) => void;
-  /** Fires when the teacher clicks the inline "AI Edit" button on the
-   *  currently selected target while Edit Mode is active. Host opens the
-   *  AI Edit Workspace drawer. */
-  onOpenAiEdit?: (target: EditTarget) => void;
+  /** Fires whenever Live Mirror Mode toggles or its selection changes.
+   *  Host uses this to clear the Smartboard, mirror the selected object,
+   *  and show the Live Mirror status strip. When `active` is false the
+   *  Smartboard should exit mirror mode. */
+  onMirrorChange?: (active: boolean, target: EditTarget | null) => void;
 }
 
 const PresenterPreviewPanel = ({
@@ -161,7 +162,7 @@ const PresenterPreviewPanel = ({
   activeBeatId,
   activeLineIdx,
   onManualScrollChange,
-  onOpenAiEdit,
+  onMirrorChange,
 }: PresenterPreviewPanelProps) => {
   const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
 
@@ -176,6 +177,15 @@ const PresenterPreviewPanel = ({
     // Clear selection when leaving edit mode.
     if (mode !== "edit") setSelection(null);
   }, [mode]);
+
+  // Live Mirror Mode signalling — mirror mode is active whenever the
+  // teacher is in Edit mode. Selection changes propagate immediately so
+  // the host can mirror the picked object onto the Smartboard.
+  useEffect(() => {
+    if (!onMirrorChange) return;
+    if (mode === "edit") onMirrorChange(true, selection);
+    else onMirrorChange(false, null);
+  }, [mode, selection, onMirrorChange]);
 
   const toggleSkip = useCallback(
     (beatId: string) => {
