@@ -16,7 +16,7 @@ import DiagnosisPanel from "./DiagnosisPanel";
 import AiEditWorkspace from "./AiEditWorkspace";
 import { usePresentationAI } from "@/hooks/usePresentationAI";
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
-import type { EditTarget } from "@/lib/smartboard/manualEdit/types";
+import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
 
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
@@ -410,6 +410,7 @@ const PresentationView = ({
   // Manual AI Edit workspace — driven from the Presenter Preview's Edit mode.
   const [aiEditTarget, setAiEditTarget] = useState<EditTarget | null>(null);
   const [mirrorActive, setMirrorActive] = useState(false);
+  const [mirrorStatus, setMirrorStatus] = useState<MirrorUiStatus | null>(null);
   // The 70% Smartboard pane element. Published via context so portals
   // (FloatingNumberPanel, SensorDPad) mount inside this container instead of
   // document.body, keeping every control anchored to the resized pane.
@@ -2886,6 +2887,25 @@ const PresentationView = ({
     return false;
   }, []);
 
+  // Strict text-presence check for Live Mirror verification: true iff
+  // some board row's ink signature matches `text`. Unlike the note check
+  // above, empty/unrenderable text returns FALSE — so a write that never
+  // happened can never pass verification.
+  const boardHasTextRow = useCallback((text: string): boolean => {
+    const raw = (text ?? "").trim();
+    if (!raw) return false;
+    const m = mirrorLessonNoteRow(raw);
+    if (!m.ok) return false;
+    const expected = m.signature;
+    const rows = freeLinesRef.current;
+    for (const key of Object.keys(rows)) {
+      const ink = rows[Number(key) as unknown as number];
+      if (!ink || ink.length === 0) continue;
+      if (rowSignature(ink) === expected) return true;
+    }
+    return false;
+  }, []);
+
   const scrollBoardTo = useCallback((lineIdx: number) => {
     setActiveLineIdx(lineIdx);
     // Bring the row physically into view. If we already own a board row
@@ -3041,11 +3061,10 @@ const PresentationView = ({
     [moveSensorToSafeRow, writeProseLineOnBoard],
   );
 
-  // Wipe the Smartboard so Autoplay starts from a blank surface. Mirrors
-  // the toolbar "Clear board" action and additionally clears PAI reveal
-  // state so the AI reconstructs everything from scratch.
-  const resetBoard = useCallback(() => {
-    setBeatCursor(0);
+  // Clear all ink/rows WITHOUT touching the beat cursor. Live Mirror Mode
+  // uses this so clearing before a mirror never knocks the section back
+  // to beat 0 (which made note/line lookups read the wrong reservoir).
+  const clearInkOnly = useCallback(() => {
     setFreeLines({});
     lineWidthsRef.current = {};
     setSensor({ line: 0, x: 0 });
@@ -3057,6 +3076,14 @@ const PresentationView = ({
     rowOwnersRef.current = {};
     setRowOwners({});
   }, [setLiveCursor]);
+
+  // Wipe the Smartboard so Autoplay starts from a blank surface. Mirrors
+  // the toolbar "Clear board" action and additionally clears PAI reveal
+  // state so the AI reconstructs everything from scratch.
+  const resetBoard = useCallback(() => {
+    setBeatCursor(0);
+    clearInkOnly();
+  }, [clearInkOnly]);
 
   // Real "click the # button" — opens the Numbers assistant panel and
   // points it at the target line so chips grey out as the AI picks them.
@@ -3203,6 +3230,7 @@ const PresentationView = ({
       getExpectedRowSignatureFor,
       getExpectedPrefixSignatureFor,
       getBoardHasNoteFor,
+      boardHasTextRow,
       eraseNoteAt,
       scrollBoardTo,
       pickFloatingNumber: pickFloatingNumberReal,
@@ -3210,6 +3238,7 @@ const PresentationView = ({
       closeFloatingPanel: closeFloatingPanelReal,
       isFloatingPanelOpen: () => activeAssistant === "numbers",
       resetBoard,
+      clearInkOnly,
       moveSensorUp,
       moveSensorDown,
       moveSensorToSafeRow,
@@ -3229,12 +3258,14 @@ const PresentationView = ({
       getExpectedRowSignatureFor,
       getExpectedPrefixSignatureFor,
       getBoardHasNoteFor,
+      boardHasTextRow,
       eraseNoteAt,
       scrollBoardTo,
       pickFloatingNumberReal,
       openFloatingPanelReal,
       closeFloatingPanelReal,
       resetBoard,
+      clearInkOnly,
       activeAssistant,
       moveSensorUp,
       moveSensorDown,
@@ -3370,6 +3401,7 @@ const PresentationView = ({
                   activeBeatId={activePreviewBeatId}
                   activeLineIdx={activePreviewLineIdx}
                   onManualScrollChange={setPresenterManualScroll}
+                  mirrorStatus={mirrorStatus}
                   onMirrorChange={(active, t) => {
                     setMirrorActive(active);
                     setAiEditTarget(active ? t : null);
@@ -4988,14 +5020,14 @@ const PresentationView = ({
       )}
       </div>
       </SmartboardRootContext.Provider>
+      {/* Headless Live Mirror runner — renders nothing (the old floating
+          strip covered the top of the Presenter Preview and blocked
+          Line 1 clicks). Status is shown inline on the clicked item. */}
       <AiEditWorkspace
         open={mirrorActive}
         target={aiEditTarget}
         controller={paiController}
-        onClose={() => {
-          setMirrorActive(false);
-          setAiEditTarget(null);
-        }}
+        onStatus={setMirrorStatus}
       />
     </div>
   );

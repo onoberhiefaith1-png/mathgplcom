@@ -67,6 +67,14 @@ export interface PresentationController {
    *  surface. Does NOT touch reservoirs, plan, or lesson content. */
   resetBoard?: () => void;
 
+  /** Clear all ink/rows but KEEP the beat cursor where it is — used by
+   *  Live Mirror Mode so clearing never knocks the section back to 0. */
+  clearInkOnly?: () => void;
+
+  /** True iff some board row's ink signature matches `text`. Empty or
+   *  unrenderable text returns false — a missing write can never pass. */
+  boardHasTextRow?: (text: string) => boolean;
+
   /** Move the writing sensor by rows. Positive = down. */
   moveSensorUp?: (rows?: number) => void;
   moveSensorDown?: (rows?: number) => void;
