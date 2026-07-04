@@ -3,9 +3,9 @@
 // Portaled into the Smartboard root so it overlays the board without
 // resizing it (unlike the Presenter Preview which is a flex sibling).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, CheckCircle2, Copy, X, Wrench, SkipForward, FileCode2, PlayCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, X, Wrench, SkipForward, FileCode2, PlayCircle, ChevronRight, ChevronLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useSmartboardRoot } from "@/components/smartboard/SmartboardRoot";
