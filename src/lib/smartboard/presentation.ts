@@ -392,7 +392,9 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           const explanation = (rl as any).explanation
             ?? parsedSolution.find((p) => p.equation === eq)?.explanation
             ?? parsedSolution[k]?.explanation;
-          const notebook = (rl as any).notebook || notebookByPayload.get(eq) || undefined;
+          // Notes come ONLY from the highlight itself — never from an
+          // equation-match fallback or from parsed solution prose.
+          const notebook = (rl as any).notebook || undefined;
           lines.push({
             equation: eq,
             fillers: fills,
