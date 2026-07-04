@@ -470,19 +470,36 @@ const SmartboardPreviewPage = () => {
               </div>
 
               {res && res.lines.length > 0 && (
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 space-y-4">
                   {res.lines.map((line: ReservoirLine, k: number) => {
                     const eq = asDisplayString(line.equation).trim();
                     const note = asDisplayString(line.notebook).trim();
-                    const hasFloating = !line.notebookOnly && line.fillers.length > 0;
-                    const label = eq || note.slice(0, 40) || `Line ${k + 1}`;
+                    const label = `Line ${k + 1}`;
+                    // Universal rule — same for line 1 or line 1,000,000:
+                    //   1. equation (highlighted) on top
+                    //   2. floating numbers underneath (exact chips from the
+                    //      Floating Number page; "not yet available" if the
+                    //      teacher hasn't generated them)
+                    //   3. note underneath, notebook icon style
+                    // One AI Edit per line — it covers all three segments.
                     return (
                       <div
                         key={k}
                         className="pl-4"
                         style={{ borderLeft: "2px solid rgba(138,106,31,0.15)" }}
                       >
-                        {note && <NoteBlock text={note} />}
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                          <span
+                            className="text-[10px] font-semibold uppercase tracking-[0.25em]"
+                            style={{ color: "rgba(138,106,31,0.65)" }}
+                          >
+                            {label}
+                          </span>
+                          <AiEditPopover
+                            lineLabel={label}
+                            onSend={(n) => onAiEdit(`${it.caption} · ${label}`, n)}
+                          />
+                        </div>
                         {!line.notebookOnly && eq && (
                           <div className="flex items-center gap-3 flex-wrap">
                             <HighlightBox>
@@ -490,16 +507,19 @@ const SmartboardPreviewPage = () => {
                                 <InlineMath ascii={eq} />
                               </span>
                             </HighlightBox>
-                            <AiEditPopover
-                              lineLabel={label}
-                              onSend={(n) => onAiEdit(label, n)}
-                            />
                           </div>
                         )}
-                        {hasFloating && <FloatingChips fillers={line.fillers} />}
+                        {!line.notebookOnly && eq && (
+                          it.hasFloatingData && line.fillers.length > 0 ? (
+                            <FloatingChips fillers={line.fillers} />
+                          ) : (
+                            <NotYetAvailable />
+                          )
+                        )}
+                        {note && <NoteBlock text={note} />}
                         {line.explanation && (
-                          <div className="mt-1 pl-1 text-xs italic text-neutral-500 whitespace-pre-wrap">
-                            {asDisplayString(line.explanation)}
+                          <div className="mt-1 pl-1 text-sm italic" style={{ color: "#524a3d" }}>
+                            {renderMathInline(asDisplayString(line.explanation), `exp-${k}`)}
                           </div>
                         )}
                       </div>
