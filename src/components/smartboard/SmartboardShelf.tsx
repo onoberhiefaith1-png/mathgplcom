@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, PlayCircle, Check } from "lucide-react";
+import { loadApprovedAt } from "@/lib/smartboard/presentationPlan";
 
 interface NotebookRow extends NotebookCoverData {
   id: string;
@@ -76,13 +77,39 @@ export const SmartboardShelf = () => {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
-              {pageItems.map((nb) => (
-                <NotebookCover
-                  key={nb.id}
-                  notebook={nb}
-                  onClick={() => navigate(`/smartboard/${nb.id}`)}
-                />
-              ))}
+              {pageItems.map((nb) => {
+                const approvedAt = loadApprovedAt(nb.id);
+                return (
+                  <div key={nb.id} className="relative group">
+                    <NotebookCover
+                      notebook={nb}
+                      onClick={() => navigate(`/smartboard/${nb.id}/preview`)}
+                    />
+                    {approvedAt && (
+                      <span className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
+                        <Check className="h-3 w-3" /> Approved
+                      </span>
+                    )}
+                    <div className="absolute inset-x-2 bottom-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="flex-1 gap-1 h-8 text-xs backdrop-blur-md bg-white/85 hover:bg-white"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/smartboard/${nb.id}/preview`); }}
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Preview
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 gap-1 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/smartboard/${nb.id}`); }}
+                      >
+                        <PlayCircle className="h-3.5 w-3.5" /> Present
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             {totalPages > 1 && (
               <div className="mt-6 flex items-center justify-center gap-3 text-sm">
