@@ -193,6 +193,28 @@ export const inspectStep = (
   }
 
   if (step.kind === "line-verify") {
+    // Question line: verify against the equation text — the AI writes it
+    // wholesale, so there are no filler substeps to fail. Missing = board
+    // has no row matching the equation signature.
+    if (isQuestionLine(step.lineIdx, line)) {
+      const expectedSig = ctrl.getExpectedRowSignatureFor(step.lineIdx);
+      const actualSig = ctrl.getBoardRowSignatureFor(step.lineIdx);
+      if (expectedSig && expectedSig !== actualSig) {
+        issues.push(
+          mkIssue(step, {
+            kind: "question-line-missing",
+            summary: "Question line not written on the Smartboard.",
+            expected: line.equation,
+            actual: actualSig || "(empty row)",
+            probableCause:
+              "writeQuestionLine did not run, or the target row was off-screen / occupied.",
+            suggestedFix: `${rule(2)} → ${rule(3)} → ${rule(4)}.`,
+            repairable: true,
+          }),
+        );
+      }
+      return issues;
+    }
     // Floating extraction gap — reservoir has no fillers for a non-note line.
     if (!line.notebookOnly && line.equation.trim() && (line.fillers ?? []).length === 0) {
       issues.push(
@@ -221,7 +243,7 @@ export const inspectStep = (
             actual: actual || "(empty row)",
             probableCause:
               "One or more filler placements failed, or the row was overwritten by another effect.",
-            suggestedFix: "Rewrite the full equation for this line and re-verify.",
+            suggestedFix: `${rule(8)}. Erase this line's row and rewrite the full equation.`,
             repairable: true,
           }),
         );
