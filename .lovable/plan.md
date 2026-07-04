@@ -1,57 +1,56 @@
-## 1. Eraser follows the cursor in split-screen mode
+## What is still broken
 
-**Root cause.** While dragging, the eraser icon renders with `position: fixed` and `left: clientX - 22, top: clientY - 22`. Because its parent `#sb-root` uses `transform: translateZ(0)`, CSS spec makes the transformed ancestor the containing block for `position: fixed`. So `left`/`top` are now measured from the 70% pane's top-left, but the numbers we feed are still viewport coordinates. When the 30% preview is open, the pane starts ~30% to the right of the viewport → the eraser draws that much left of the actual cursor. The same math is wrong for anything else that pins to `clientX/clientY` inside `#sb-root`.
+1. **Notes never appear on the Smartboard.** The board's `FloatingNumberPanel` receives `notebookText` but renders it only as a tap-target icon — the note text itself is written to the board only when the teacher taps the notebook icon (which calls `writeProseLineOnBoard`). The preview shows the note inline, so they diverge exactly as the user described.
+2. **Highlight stops after Introduction.** Two suspects, both real:
+   - **Stale `activeLineIdx` on problem beats.** For prose beats we pass `activePreviewLineIdx = null` and the card border shows. For problem beats we pass `activeLineIdx` as-is. The card highlight is suppressed whenever `activeLineIdx != null` (design intent — a line takes over). But if `activeLineIdx` is out of `guidedLines` range (previous reservoir's persisted value, or 0 before the reservoir hydrates), no line ref matches either → nothing is highlighted at all.
+   - **rAF retry gives up after 10 frames (~166 ms).** If the panel's independent `useNotebook` fetch hasn't finished when the beat changes, or the target ref hasn't mounted yet, the effect silently stops and `lastActiveKey` is not stamped (correct), but the next transition may still race against a slow render. Retrying forever until the beat changes is the safe behavior.
+3. **Fallback I added last turn is wrong.** `activePreviewBeatId = current?.id ?? beats[0].id` masks any transient out-of-range `beatCursor` by pinning the preview to the very first beat. That is likely why "only Introduction (or Cover) ever highlights." Revert to `current?.id ?? null`.
 
-**Fix.**
-- In `PresentationView.tsx` where the dragging eraser is rendered (~lines 3917-3985), convert to `position: absolute` and translate viewport coords into pane-local coords using `boardScrollRef.current!.getBoundingClientRect()`:
+## Fix 1 — Notes render on the board the same way the preview shows them
+
+In `PresentationView.tsx`, extend the existing "note-attention" effect (added last turn, right after `hasGuidedLines`) so it also auto-writes the note onto the board:
+
+- When `activeLineIdx` changes and `guidedLines[activeLineIdx].notebook` is present and not in `shownNotebookIdx`:
+  - Call `writeProseLineOnBoard(nb)` (existing paragraph-shaped writer that respects sensor row and locked ink).
+  - `setShownNotebookIdx(prev => prev ∪ {activeLineIdx})` so it never gets re-written.
+  - Still `setNotebookAttentionIdx` so the notebook chip in the panel reflects the state.
+- Idempotency: `writeProseLineOnBoard` already de-dupes via `rowSignature`, so re-runs on reload are safe.
+- `notebookOnly` lines are handled by the same path (their `notebook` is the whole payload; equation is empty). Nothing else to add.
+
+Do NOT change `FloatingNumberPanel.tsx` or `buildReservoirs`. Same source of truth (`ReservoirLine.notebook`), same output surface (board ink) — just no manual tap required.
+
+## Fix 2 — Highlight sync is reliable for every beat
+
+**In `PresentationView.tsx`:**
+- Revert last turn's fallback: `activePreviewBeatId = current?.id ?? null`. Never lie about the cursor.
+- Clamp `activePreviewLineIdx` so it's `null` unless the value is actually addressable in the current reservoir:
   ```
-  const r = boardScrollRef.current?.getBoundingClientRect();
-  const localX = e.clientX - (r?.left ?? 0);
-  const localY = e.clientY - (r?.top ?? 0);
-  setEraserDrag({ x: localX, y: localY });
+  const activePreviewLineIdx =
+    current && (current.kind === "problem" || current.kind === "exercise-prompt")
+      && activeLineIdx >= 0
+      && activeLineIdx < guidedLines.length
+      ? activeLineIdx
+      : null;
   ```
-  Store pane-local coords in `eraserDrag`; keep the viewport `clientX/clientY` only for `wipeAt` / `eraseAtPoint` since those use `getBoundingClientRect()` internally.
-- Audit `PresentationView.tsx` for any other place that assigns `clientX/clientY` directly to `left`/`top` on an element that lives inside `#sb-root`, and apply the same conversion. Sensor/hover/click hit-tests already use `rect.left`/`rect.top` subtraction, so they are unaffected; verify and leave them alone.
+  When the reservoir hasn't hydrated (`guidedLines.length === 0`) or the persisted index is stale, we pass `null`, which promotes the card border — the teacher always sees SOMETHING highlighted.
 
-## 2. Presenter Preview sync initializes reliably every time
+**In `PresenterPreviewPanel.tsx`:**
+- Replace the 10-frame rAF cap with an unbounded rAF loop that is cancelled only when `activeBeatId` changes (via the effect cleanup) or the target is found and scrolled. Stops instantly if the beat changes again.
+- Guard the loop against unmount / stale effect cycles with the existing `cancelled` flag.
+- Add a `sections`/`items`-driven retry: keep the current `readyKey` dependency so a late notebook fetch still re-arms the effect.
+- Stamp `lastActiveKey.current = key` only after a successful scroll (already done last turn — keep).
+- Do not touch the manual-scroll grace timer, the header status text, or the border-only highlight styles.
 
-**Symptoms.** After some page loads only the Introduction highlights; after others sync stops entirely until reload.
-
-**Root cause candidates in the current wiring.**
-- `activePreviewBeatId = current?.id ?? null`. On first render `beats` is empty (notebook still loading) so `current` is `undefined` and the preview receives `null`. The preview's auto-scroll effect early-returns on `!activeBeatId`, and `lastActiveKey.current` gets stamped as `"null::"`. When beats hydrate and `beatCursor` snaps to 0, the id transitions from `null` → `"__cover__"`, which should fire — but if the notebook fetch inside `PresenterPreviewPanel` hasn't rendered the item refs yet, `itemRefs.current.get(activeBeatId)` returns undefined and the scroll is skipped, and no retry ever happens. This matches the "only Introduction highlights" and "stops after restart" reports.
-- `PresenterPreviewPanel` uses its own `useNotebook(notebookId)` fetch, independent of the board. Two loaders means two race timelines.
-
-**Fix.**
-- In `PresenterPreviewPanel.tsx`, make the auto-scroll effect resilient:
-  - Depend on `activeBeatId`, `activeLineIdx`, and `items.length` (already true) AND on a `readyKey` computed from `items.map(i => i.id).join("|")` so it re-runs after items finally render.
-  - Inside the effect, if `activeBeatId` is set but the target ref is not yet mounted, schedule a `requestAnimationFrame` retry (up to ~10 frames) instead of returning silently. This eliminates the "refs not ready" race.
-  - Do not clear `lastActiveKey` on empty ids; only stamp it after a successful scroll so a real position update always gets processed.
-- In `PresentationView.tsx`, guarantee the preview always receives a real id once beats exist:
-  - When `beats.length > 0` and `beatCursor < 0`, treat the effective cursor as `0` for `activePreviewBeatId`. Never pass `null` while beats exist.
-- Header status ("Following teacher" / "Paused") remains driven by the manual-scroll flag; unchanged.
-
-No new store, no new sync channel. The preview stays a pure reader of `beatCursor` + `activeLineIdx`.
-
-## 3. Notes render on the Smartboard the same way as in the Preview
-
-**Root cause.** The preview draws every line's note inline under its floating chips. The board only surfaces a line's note as a badge/reveal action inside `FloatingNumberPanel` (`notebookText={revealNotebookText}` at ~line 3630). If the teacher never interacts with the panel, the note never appears on the board even though the preview shows it exists. Same underlying data (`ReservoirLine.notebook`), two different render pipelines.
-
-**Fix — unify the source of truth, not the rendering surface.**
-- Keep both views reading from the exact same `Reservoir` + `ReservoirLine[]` shape produced by `buildReservoirs(sections)`. No preview-only or board-only note field.
-- On the board, when the active line has a non-empty `notebook` (after the existing note-purity filter in `notebookFor`), auto-reveal the note as soon as the line becomes active, instead of gating it behind a "pending" interaction:
-  - In `PresentationView.tsx`, extend the effect that runs on `activeLineIdx` change (~line 2424) so that whenever `notebookFor(activeLineIdx)` is non-empty, the note is written to the board via the existing `writeProseLineOnBoard` path (or, minimally, `shownNotebookIdx.add(idx)` + `notebookAttentionIdx.add(idx)` so the reveal chip appears immediately without teacher input).
-  - Preserve the "Note only" case: if a line has `notebookOnly: true` (already produced by `buildReservoirs`), still advance through it and render the note without a floating equation.
-- Do not change `FloatingNumberPanel.tsx`, `SmartboardLessonText`, or `mathRender`. Do not change the preview's note rendering.
-
-Result: every line that has a note in the preview also shows the note on the board at the same beat, driven from `ReservoirLine.notebook`. Floating-only lines still render only the floating number. Note-only lines render only the note.
+**Highlight visibility check inside `PresenterPreviewPanel.tsx`:**
+- The problem-card branch currently does `activeStyle(isActive && activeLineIdx == null)`. Keep that — with the clamp above, `activeLineIdx` is now guaranteed to be either `null` (→ card border) or a valid line index (→ line border). No case will silently render zero highlight.
 
 ## Files to touch
 
 - `src/components/smartboard/PresentationView.tsx`
-  - Eraser drag: convert viewport → pane-local coords; drop `position: fixed` for the drag state.
-  - `activePreviewBeatId`: fall back to `beats[0]?.id ?? null` once beats exist.
-  - Line-change effect: auto-surface `notebook` text for the active line (no manual interaction required).
+  - Revert the `beats[0].id` fallback.
+  - Clamp `activePreviewLineIdx` against `guidedLines.length`.
+  - Extend the note-attention effect to call `writeProseLineOnBoard` + `shownNotebookIdx.add(activeLineIdx)`.
 - `src/components/smartboard/PresenterPreviewPanel.tsx`
-  - Auto-scroll effect: rAF retry when refs aren't mounted yet; add `readyKey` dependency; stamp `lastActiveKey` only after a successful scroll.
+  - Replace the 10-frame rAF cap with an unbounded rAF loop scoped to the current effect run.
 
-No schema, sync-protocol, student-view, or `buildReservoirs` changes.
+No changes to `buildBeats`, `buildReservoirs`, `FloatingNumberPanel`, sync protocol, student view, or note-purity filter.
