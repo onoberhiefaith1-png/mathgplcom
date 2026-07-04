@@ -1,14 +1,34 @@
-// AiEditWorkspace — right-side drawer opened from the Presenter Preview's
-// Edit mode. Loads the selected content, lets the teacher describe the
-// issue, and runs the local dispatcher against the shared
-// PresentationController to synchronize the Smartboard with the Preview.
+// AiEditWorkspace — autonomous Smartboard Operator drawer.
+//
+// Opens from the Presenter Preview's Edit mode. On open it immediately
+// runs a Diagnose → Reproduce → Root-cause → Repair → Verify loop against
+// the shared PresentationController. The teacher watches a live phase
+// timeline and can Stop, Retry, or Escalate.
 
-import { useEffect, useState } from "react";
-import { X, Sparkles, CheckCircle2, XCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  X,
+  Sparkles,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Wrench,
+  Search,
+  Zap,
+  Copy,
+} from "lucide-react";
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
-import type { EditTarget, EditReport } from "@/lib/smartboard/manualEdit/types";
-import { runManualEdit, SUGGESTED_PROMPTS } from "@/lib/smartboard/manualEdit/dispatch";
+import type {
+  EditReport,
+  EditTarget,
+  OperatorEvent,
+} from "@/lib/smartboard/manualEdit/types";
+import {
+  runManualEdit,
+  runSuggestedWorkflow,
+  SUGGESTED_WORKFLOWS,
+} from "@/lib/smartboard/manualEdit/dispatch";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 
 interface Props {
@@ -18,33 +38,127 @@ interface Props {
   onClose: () => void;
 }
 
+const phaseIcon = (phase: OperatorEvent["phase"]) => {
+  switch (phase) {
+    case "diagnose":
+      return <Search className="h-3.5 w-3.5" />;
+    case "root-cause":
+      return <Zap className="h-3.5 w-3.5" />;
+    case "repair":
+      return <Wrench className="h-3.5 w-3.5" />;
+    case "verify":
+      return <CheckCircle2 className="h-3.5 w-3.5" />;
+    default:
+      return <Sparkles className="h-3.5 w-3.5" />;
+  }
+};
+
 const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [events, setEvents] = useState<OperatorEvent[]>([]);
   const [report, setReport] = useState<EditReport | null>(null);
+  const stopRef = useRef(false);
+  const runIdRef = useRef(0);
 
+  // Auto-diagnose on open.
   useEffect(() => {
-    if (open) {
-      setPrompt("");
-      setReport(null);
-    }
+    if (!open || !controller || !target) return;
+    setPrompt("");
+    setEvents([]);
+    setReport(null);
+    stopRef.current = false;
+    runDiagnoseOnly();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, target?.beatId, target?.lineIdx, target?.fillerIdx, target?.kind]);
 
-  if (!open || !target) return null;
+  const pushEvent = (e: OperatorEvent) => {
+    if (stopRef.current) return;
+    setEvents((prev) => [...prev, e]);
+  };
 
-  const apply = async () => {
-    if (!controller) return;
+  const runDiagnoseOnly = async () => {
+    if (!controller || !target) return;
+    const myRun = ++runIdRef.current;
     setBusy(true);
-    const r = await runManualEdit(target, prompt, controller);
-    setReport(r);
+    // Use the operator with a "verify only" pass — simplest: run with no
+    // forced cause; if board matches Preview it returns ok immediately.
+    const r = await runManualEdit(target, "", controller, (e) => {
+      if (runIdRef.current === myRun) pushEvent(e);
+    });
+    if (runIdRef.current === myRun) {
+      setReport(r);
+      setBusy(false);
+    }
+  };
+
+  const runFreeform = async () => {
+    if (!controller || !target) return;
+    const myRun = ++runIdRef.current;
+    stopRef.current = false;
+    setBusy(true);
+    setEvents([]);
+    setReport(null);
+    const r = await runManualEdit(target, prompt, controller, (e) => {
+      if (runIdRef.current === myRun) pushEvent(e);
+    });
+    if (runIdRef.current === myRun) {
+      setReport(r);
+      setBusy(false);
+    }
+  };
+
+  const runWorkflow = async (wf: (typeof SUGGESTED_WORKFLOWS)[number]) => {
+    if (!controller || !target) return;
+    const myRun = ++runIdRef.current;
+    stopRef.current = false;
+    setBusy(true);
+    setEvents([]);
+    setReport(null);
+    const r = await runSuggestedWorkflow(target, wf, controller, (e) => {
+      if (runIdRef.current === myRun) pushEvent(e);
+    });
+    if (runIdRef.current === myRun) {
+      setReport(r);
+      setBusy(false);
+    }
+  };
+
+  const stop = () => {
+    stopRef.current = true;
+    runIdRef.current++;
     setBusy(false);
   };
+
+  const copyEscalation = async () => {
+    if (!report?.escalate) return;
+    const text = [
+      `AI Edit escalation — ${target?.caption ?? ""}`,
+      `Root cause: ${report.rootCause}`,
+      `Reason: ${report.escalate.reason}`,
+      "",
+      "Event trail:",
+      ...report.escalate.trail.map(
+        (e) =>
+          `- [${e.phase}] ${e.ok ? "✓" : "✗"} ${e.label}${
+            e.detail ? ` — ${e.detail}` : ""
+          }`,
+      ),
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* noop */
+    }
+  };
+
+  if (!open || !target) return null;
 
   return (
     <aside
       role="dialog"
       aria-label="AI Edit workspace"
-      className="fixed right-0 top-0 h-full w-[420px] z-[80] flex flex-col shadow-2xl border-l"
+      className="fixed right-0 top-0 h-full w-[440px] z-[80] flex flex-col shadow-2xl border-l"
       style={{
         background: "rgba(246,244,239,0.98)",
         borderColor: "rgba(138,106,31,0.25)",
@@ -59,7 +173,7 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
         <Sparkles className="h-4 w-4" style={{ color: "#8a6a1f" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[9px] uppercase tracking-[0.35em]" style={{ color: "#8a6a1f" }}>
-            AI Edit · Manual
+            AI Operator · Autonomous
           </p>
           <p className="text-sm font-semibold truncate">{target.caption}</p>
         </div>
@@ -73,7 +187,10 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
       </header>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
-        <section className="rounded-md border p-3" style={{ borderColor: "rgba(138,106,31,0.2)", background: "rgba(255,255,255,0.6)" }}>
+        <section
+          className="rounded-md border p-3"
+          style={{ borderColor: "rgba(138,106,31,0.2)", background: "rgba(255,255,255,0.6)" }}
+        >
           <p className="text-[10px] uppercase tracking-widest opacity-60 mb-1">Selection</p>
           <p className="text-[11px] opacity-70 mb-2">
             {target.kind}
@@ -88,32 +205,53 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
         </section>
 
         <section>
-          <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">Quick suggestions</p>
+          <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">Quick workflows</p>
           <div className="flex flex-wrap gap-1.5">
-            {SUGGESTED_PROMPTS.map((s) => (
+            {SUGGESTED_WORKFLOWS.map((wf) => (
               <button
-                key={s.label}
-                onClick={() => setPrompt(s.prompt)}
-                className="text-[11px] rounded-full border px-2.5 py-1 hover:bg-black/5"
+                key={wf.label}
+                disabled={busy || !controller}
+                onClick={() => runWorkflow(wf)}
+                title={wf.hint}
+                className="text-[11px] rounded-full border px-2.5 py-1 hover:bg-black/5 disabled:opacity-40"
                 style={{ borderColor: "rgba(138,106,31,0.35)" }}
               >
-                {s.label}
+                {wf.label}
               </button>
             ))}
           </div>
         </section>
 
-        <section>
-          <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">Describe the issue</p>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={4}
-            placeholder="e.g. This note did not appear on the Smartboard."
-            className="w-full rounded-md border px-3 py-2 text-sm bg-white"
-            style={{ borderColor: "rgba(138,106,31,0.3)" }}
-          />
-        </section>
+        {(busy || events.length > 0) && (
+          <section>
+            <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2 flex items-center gap-2">
+              Operator timeline
+              {busy && <Loader2 className="h-3 w-3 animate-spin" />}
+            </p>
+            <ol className="space-y-1">
+              {events.map((e, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2 text-[12px] rounded px-2 py-1"
+                  style={{
+                    background: e.ok ? "rgba(21,128,61,0.06)" : "rgba(180,83,9,0.08)",
+                  }}
+                >
+                  <span className="mt-0.5" style={{ color: e.ok ? "#15803d" : "#b45309" }}>
+                    {phaseIcon(e.phase)}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="font-medium">{e.label}</span>
+                    {e.detail && <span className="opacity-60"> — {e.detail}</span>}
+                  </span>
+                  <span className="text-[10px] opacity-40 shrink-0">
+                    {e.tookMs != null ? `${e.tookMs}ms` : ""}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
 
         {report && (
           <section
@@ -123,7 +261,7 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
               background: report.ok ? "rgba(21,128,61,0.08)" : "rgba(180,83,9,0.08)",
             }}
           >
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1">
               {report.ok ? (
                 <CheckCircle2 className="h-4 w-4" style={{ color: "#15803d" }} />
               ) : (
@@ -131,20 +269,37 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
               )}
               <p className="text-sm font-semibold">{report.message}</p>
             </div>
-            <p className="text-[10px] uppercase tracking-widest opacity-60 mb-1">Intent · {report.intent}</p>
-            <ul className="space-y-1">
-              {report.actions.map((a, i) => (
-                <li key={i} className="text-[12px] flex items-start gap-2">
-                  <span className={a.ok ? "text-green-700" : "text-amber-700"}>{a.ok ? "✓" : "•"}</span>
-                  <span>
-                    {a.label}
-                    {a.detail && <span className="opacity-60"> — {a.detail}</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <p className="text-[10px] uppercase tracking-widest opacity-60">
+              Intent · {report.intent}
+              {report.rootCause && ` · Cause · ${report.rootCause}`}
+            </p>
+            {report.escalate && (
+              <div className="mt-2 rounded border p-2" style={{ borderColor: "rgba(180,83,9,0.35)" }}>
+                <p className="text-[11px] font-semibold mb-1">Escalate to code fix</p>
+                <p className="text-[11px] opacity-80 mb-2">{report.escalate.reason}</p>
+                <button
+                  onClick={copyEscalation}
+                  className="inline-flex items-center gap-1.5 text-[11px] rounded-md border px-2 py-1 hover:bg-black/5"
+                  style={{ borderColor: "rgba(138,106,31,0.35)" }}
+                >
+                  <Copy className="h-3 w-3" /> Copy diagnostic trail
+                </button>
+              </div>
+            )}
           </section>
         )}
+
+        <section>
+          <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">Describe the issue (optional)</p>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={3}
+            placeholder="e.g. This note did not appear on the Smartboard."
+            className="w-full rounded-md border px-3 py-2 text-sm bg-white"
+            style={{ borderColor: "rgba(138,106,31,0.3)" }}
+          />
+        </section>
       </div>
 
       <footer
@@ -158,24 +313,22 @@ const AiEditWorkspace = ({ open, target, controller, onClose }: Props) => {
         >
           Cancel
         </button>
-        {report && !report.ok && (
+        {busy ? (
           <button
-            onClick={apply}
-            disabled={busy || !controller}
-            className="text-sm rounded-md px-3 py-1.5 text-white disabled:opacity-50"
-            style={{ background: "#8a6a1f" }}
+            onClick={stop}
+            className="text-sm rounded-md px-3 py-1.5 text-white"
+            style={{ background: "#b45309" }}
           >
-            Retry
+            Stop
           </button>
-        )}
-        {!report && (
+        ) : (
           <button
-            onClick={apply}
-            disabled={busy || !controller}
+            onClick={runFreeform}
+            disabled={!controller}
             className="text-sm rounded-md px-3 py-1.5 text-white disabled:opacity-50"
             style={{ background: "#8a6a1f" }}
           >
-            {busy ? "Applying…" : "Apply"}
+            {report ? "Retry" : "Run"}
           </button>
         )}
       </footer>
