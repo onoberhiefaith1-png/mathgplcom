@@ -1,42 +1,39 @@
-# Fix Line-1 Note Click + True Board Mirroring (No Top Strip)
+# Make the Smartboard + Presenter Preview smooth and reliable
 
-## Diagnosis (confirmed in code)
+## What is actually wrong (found via console logs + session replay)
 
-1. **Why Line 1's note isn't clickable:** when Edit mode is active, a status strip (`AiEditWorkspace`) is rendered as a fixed pill at the top of the screen (top: 12px, z-index 80, up to 92% of screen width). It floats right over the top of the Presenter Preview list — exactly where Line 1 sits. It swallows the clicks. Line 2 is lower on the page, outside the strip, so it works. This is also the "smaller board at the top" you don't want.
-2. **Why clicked items sometimes don't appear on the board:** when a selection is mirrored, the board is cleared first — but clearing resets the internal beat cursor to 0. The mirror then reads the note text before React has finished switching to the correct section, so it can read the wrong (or empty) section and silently write nothing. The 30ms wait is not reliable.
-3. **Verification lies:** the check that confirms "note is on the board" returns success when the note text is empty — so a missing note passes as ✓.
+1. **Infinite render loop** — the board is stuck in a "Maximum update depth exceeded" loop (`SmartLineLayer` ← `occupancyTick` ← repeated `freeLines`/`smartLines` state updates). While this loop runs, the app eats all its own CPU: Next clicks get dropped, notes randomly fail to appear, and behavior changes after every refresh. This is the "work / no work" stiffness.
+2. **Heavy work on every change** — the undo-history effect runs `JSON.stringify` on the entire board state after every keystroke/write, and localStorage is written synchronously on every change. This compounds the lag.
+3. **Live-sync echo risk** — the broadcast/apply-remote effects can ping-pong state (apply remote → broadcast → apply again), feeding the loop.
+4. **Edit mode exits to a blank board** — leaving Edit clears the board completely instead of restoring what playback had already presented, so Next appears "stuck on the first page" afterwards.
+5. **Edit only mirrors the clicked item** — it does not check that earlier lines (their floating numbers and notes) are on the board, which is the whole purpose you described.
 
-## Fixes
+## Plan
 
-### 1. Remove the top strip entirely (PresentationView.tsx, AiEditWorkspace.tsx)
-- Delete the floating fixed pill from the screen. No overlay over the board or the preview — clicks always land on the preview items.
-- The mirror logic it runs (clear → apply → verify) moves into a headless hook inside `PresentationView`, so mirroring still happens, just with no panel.
-- Status (✓ shown / ✗ failed / fixing…) is displayed as a small inline badge on the clicked item itself inside the Presenter Preview — not on a separate panel, and nothing drawn over the smartboard except the mirrored content itself.
+### Step 1 — Kill the render loop (root fix for stiffness)
+- Trace and break the `freeLines`/`smartLines` update cycle in `PresentationView.tsx`:
+  - Guard the occupancy-tick effect so it only bumps when content actually changed.
+  - Guard the live-sync pair (apply-remote / broadcast) so applying a remote snapshot can never immediately re-broadcast it, and identical snapshots are never re-applied.
+  - Stabilize the loop trigger in `SmartLineLayer` (remove the redundant internal tick state; occupancy is already re-evaluated by the prop change itself).
+- Verify with Playwright that the console stays clean (zero "Maximum update depth" warnings) while presenting.
 
-### 2. Make the mirror timing-safe (mirror.ts)
-- Set the beat cursor first, then wait until the controller actually reports the correct section (poll up to ~600ms) before reading line data — instead of a blind 30ms wait.
-- Only clear the board content (ink/free lines), without resetting the beat cursor to 0.
-- If the live section data still isn't ready, fall back to the exact text captured from the preview item at click time (it's already there — as you said, the information is in the preview, so it must show).
+### Step 2 — Remove the heavy per-keystroke work
+- Replace the full-board `JSON.stringify` comparison in the undo-history effect with cheap reference checks.
+- Debounce localStorage persistence (board ink, smart lines, sensor) to ~300ms instead of every change.
 
-### 3. Fix false-positive verification (PresentationView.tsx)
-- `getBoardHasNoteFor` must return false when nothing was written, so a failed mirror is actually detected.
+### Step 3 — Fix Next after Edit
+- When leaving Edit mode, do NOT blank the board. Instead restore the board to the current playback position (re-present everything up to the current beat/line from the Presenter Preview data), so Next continues exactly where the teacher was.
 
-### 4. Step-by-step auto-rectify ladder (new: manualEdit/autofix.ts)
-When a click is mirrored, verify it appeared. If not, run these steps in order, re-verifying after each:
-1. **Retry** the same mirror after waiting for the section state to settle.
-2. **Force section** — explicitly re-set the beat cursor and re-apply.
-3. **Direct write** — bypass the lookup and write the preview's own text/equation straight onto the board.
-4. **Board reset + rewrite** — clear ink fully and write again from the preview text.
-- Each step updates the inline badge on the clicked preview item ("Fixing… step 2/4"), and the final result shows ✓ (green) or ✗ (red). Everything covered: notes, question lines, solution lines, floating-number `#` handles, section headers — all go through the same mirror + autofix path.
+### Step 4 — Edit = "force it to show", including earlier lines
+- When the teacher clicks an item in Edit mode (e.g. Line 5), the mirror will:
+  1. Walk every earlier line in that section (Line 1…4) and verify each one's content is on the board.
+  2. For any missing line: first write its **floating numbers exactly as they are** (no solving), then write its **note**, using the existing direct-write + 4-step rectify ladder until it verifies.
+  3. Then present the clicked line itself the same way.
+- Because the source is always the Presenter Preview's own data (one-to-one), once an item verifies ✓ it is on the board for good — playback can count on it.
 
-## Result
-- Line 1's note (and every other item) is clickable — nothing overlaps the preview anymore.
-- Clicking any item in Edit mode shows it on the main smartboard itself — no mini board, no extra panel.
-- If something doesn't show, the app automatically walks the 4-step fix ladder until it does, and you see the progress right on the item you clicked.
+### Step 5 — End-to-end smoothness test
+- Use Playwright against the live preview: open a lesson, press Next repeatedly (must advance every time), open Edit, click a later line (earlier missing notes/floating numbers must appear), exit Edit, press Next again (must continue, not reset), refresh the page and repeat. Confirm zero console errors throughout.
 
-## Files
-- `src/components/smartboard/AiEditWorkspace.tsx` — remove floating UI; convert to headless mirror runner (or delete and inline into PresentationView)
-- `src/lib/smartboard/manualEdit/mirror.ts` — timing-safe apply, no beat-cursor reset, preview-text fallback
-- `src/lib/smartboard/manualEdit/autofix.ts` — new 4-step rectify ladder
-- `src/components/smartboard/PresenterPreviewPanel.tsx` — inline status badge on clicked item
-- `src/components/smartboard/PresentationView.tsx` — fix `getBoardHasNoteFor`, keep-ink-only clear, mount headless mirror
+## Technical details
+- Files touched: `src/components/smartboard/PresentationView.tsx`, `src/components/smartboard/SmartLineLayer.tsx`, `src/components/smartboard/AiEditWorkspace.tsx`, `src/lib/smartboard/manualEdit/mirror.ts`, `src/lib/smartboard/manualEdit/autofix.ts`.
+- No backend or data changes — this is all presentation/state-management code.
