@@ -43,6 +43,26 @@ export interface PresentationController {
   /** Expected prefix signature (first k fillers) for filler-level checks. */
   getExpectedPrefixSignatureFor: (lineIdx: number, prefixTokenCount: number) => string;
 
+  /** True iff the Smartboard currently has a row whose ink signature matches
+   *  the expected Teacher Note for `lineIdx`. Empty note → true. */
+  getBoardHasNoteFor?: (lineIdx: number) => boolean;
+
+  /** Erase the note row (if any) previously written for `lineIdx`. */
+  eraseNoteAt?: (lineIdx: number) => void;
+
+  /** Scroll the Smartboard so `lineIdx` is in view. */
+  scrollBoardTo?: (lineIdx: number) => void;
+
+  /** Detect overlap between the row owning `lineIdx` and any other line. */
+  detectOverlap?: (lineIdx: number) => { overlapsWith: number | null; kind: "row" | "note" };
+
+  /** Programmatic click of the Floating Number tile — used by the AI to
+   *  perform the same action a teacher would perform manually. */
+  pickFloatingNumber?: (lineIdx: number, fillerIdx: number) => void;
+  openFloatingPanel?: () => void;
+  closeFloatingPanel?: () => void;
+  isFloatingPanelOpen?: () => boolean;
+
   /** Preview panel card element for a beat id (used for scroll checks). */
   getPreviewCardEl?: (beatId: string) => HTMLElement | null;
 }
