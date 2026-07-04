@@ -15,6 +15,10 @@ export type IssueKind =
   | "line-cursor-drift"
   | "overlap-detected"
   | "sensor-misplaced"
+  | "sensor-collision"
+  | "filler-order-broken"
+  | "board-scroll-lost"
+  | "question-line-missing"
   | "section-missing"
   | "rendering-broken"
   | "structural";
