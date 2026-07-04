@@ -150,6 +150,10 @@ export interface PresenterPreviewPanelProps {
   activeLineIdx?: number | null;
   /** Emits true when the teacher is manually scrolling the panel. */
   onManualScrollChange?: (isManual: boolean) => void;
+  /** Fires when the teacher clicks the inline "AI Edit" button on the
+   *  currently selected target while Edit Mode is active. Host opens the
+   *  AI Edit Workspace drawer. */
+  onOpenAiEdit?: (target: EditTarget) => void;
 }
 
 const PresenterPreviewPanel = ({
@@ -157,8 +161,53 @@ const PresenterPreviewPanel = ({
   activeBeatId,
   activeLineIdx,
   onManualScrollChange,
+  onOpenAiEdit,
 }: PresenterPreviewPanelProps) => {
   const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
+
+  // ─── Mode + selection ────────────────────────────────────────────────
+  const [mode, setMode] = useState<"normal" | "edit">("normal");
+  const [selection, setSelection] = useState<EditTarget | null>(null);
+  const [plan, setPlan] = useState<PresentationPlan>(() => loadPlan(notebookId));
+  useEffect(() => {
+    setPlan(loadPlan(notebookId));
+  }, [notebookId]);
+  useEffect(() => {
+    // Clear selection when leaving edit mode.
+    if (mode !== "edit") setSelection(null);
+  }, [mode]);
+
+  const toggleSkip = useCallback(
+    (beatId: string) => {
+      if (!notebookId) return;
+      setPlan(toggleSkipped(notebookId, beatId));
+    },
+    [notebookId],
+  );
+
+  const selectTarget = useCallback(
+    (t: EditTarget) => {
+      if (mode !== "edit") return;
+      setSelection((cur) =>
+        cur &&
+        cur.kind === t.kind &&
+        cur.beatId === t.beatId &&
+        cur.lineIdx === t.lineIdx &&
+        cur.fillerIdx === t.fillerIdx
+          ? null
+          : t,
+      );
+    },
+    [mode],
+  );
+
+  const isSelected = (t: Partial<EditTarget>) =>
+    !!selection &&
+    selection.kind === t.kind &&
+    selection.beatId === t.beatId &&
+    selection.lineIdx === t.lineIdx &&
+    selection.fillerIdx === t.fillerIdx;
+
 
   const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
   const reservoirByBeat = useMemo(() => {
