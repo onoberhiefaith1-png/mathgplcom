@@ -3317,7 +3317,18 @@ const PresentationView = ({
             const lineCount = guidedLines.length;
             const notebookFor = (k: number): string => {
               const nb = (guidedLines[k] as { notebook?: string } | undefined)?.notebook;
-              return (nb ?? "").trim();
+              const text = (nb ?? "").trim();
+              if (!text) return "";
+              // Consistency guard: a legitimate line note is short prose
+              // authored for THIS line, never a chunk that contains
+              // multiple equations (which would mean stray solution tail
+              // got attached). If two or more lines look equation-shaped,
+              // refuse to render — no note is safer than a phantom one.
+              const eqLikeLines = text
+                .split(/\r?\n/)
+                .filter((l) => /[=+\-−×÷/^]/.test(l)).length;
+              if (eqLikeLines >= 2) return "";
+              return text;
             };
             // Cursor movement: teacher may freely traverse every line up to
             // the last one. The down-chevron naturally disables at the bottom

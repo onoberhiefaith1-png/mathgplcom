@@ -299,22 +299,15 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | RawFloatingLine[]
         | null
         | undefined;
-      // Highlights are the source of truth for "Notebook N" pairing — each
-      // highlight's `precedingNotebook` is the plain prose that sits above
-      // it in the lesson source. Matched into ReservoirLine by equation
-      // payload so notebooks survive line reordering.
+      // NOTE-ATTACHMENT CONSISTENCY LAW: a highlight owns ONLY its own
+      // `precedingNotebook`. There is no equation-keyed fallback map — a
+      // line has a note iff its own highlight authored one. Equation-match
+      // guessing caused stray notes (e.g. entire solution tails) to latch
+      // onto lines whose Floating Panel entry had no note. Never restore.
       const rawHighlights = (sub as any).floating_highlights as
         | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean }[]
         | null
         | undefined;
-      const notebookByPayload = new Map<string, string>();
-      if (rawHighlights && Array.isArray(rawHighlights)) {
-        for (const h of rawHighlights) {
-          const p = String(h?.payload ?? "").trim();
-          const nb = String(h?.precedingNotebook ?? "").trim();
-          if (p && nb) notebookByPayload.set(p, nb);
-        }
-      }
 
       // Per-line answer key — preferred path when the Lesson Note has been
       // saved with structured floating_lines. Each line contributes its
@@ -399,7 +392,9 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           const explanation = (rl as any).explanation
             ?? parsedSolution.find((p) => p.equation === eq)?.explanation
             ?? parsedSolution[k]?.explanation;
-          const notebook = (rl as any).notebook || notebookByPayload.get(eq) || undefined;
+          // Notes come ONLY from the highlight itself — never from an
+          // equation-match fallback or from parsed solution prose.
+          const notebook = (rl as any).notebook || undefined;
           lines.push({
             equation: eq,
             fillers: fills,
