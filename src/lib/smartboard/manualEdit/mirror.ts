@@ -120,38 +120,46 @@ export const directWrite = (target: EditTarget, ctrl: PresentationController): v
   }
 };
 
+/** Write prose only if the exact text is not already inked on the board —
+ *  keeps mirroring ADDITIVE and duplicate-free. */
+const writeProseIfMissing = (ctrl: PresentationController, text: string): void => {
+  const raw = text.trim();
+  if (!raw) return;
+  if (ctrl.boardHasTextRow?.(raw)) return; // already there — count on it
+  ctrl.writeProseLineOnBoard(raw);
+};
+
 /**
  * Apply the mirror action for a target. Uses the SAME controller
  * methods the normal presentation engine uses — never reconstructs or
  * regenerates content.
+ *
+ * ADDITIVE: mirroring never clears the board. Whatever is already
+ * presented stays; the mirror only writes what is missing (or rewrites
+ * the one item that was clicked). This keeps Next/Prev playback and
+ * previously-forced content intact.
  */
 export const applyMirror = async (
   target: EditTarget,
   ctrl: PresentationController,
 ): Promise<void> => {
-  // 1) Point at the right beat FIRST and wait for state to settle.
+  // Point at the right beat FIRST and wait for state to settle.
   await waitForBeat(target, ctrl);
-
-  // 2) Blank canvas — without resetting the beat cursor.
-  clearInk(ctrl);
-  await wait(80); // let React flush so row/sensor reads are fresh
+  await wait(40); // let React flush so row/sensor reads are fresh
 
   switch (target.kind) {
     case "cover": {
-      const text = (target.text ?? target.caption ?? "").trim();
-      if (text) ctrl.writeProseLineOnBoard(text);
+      writeProseIfMissing(ctrl, target.text ?? target.caption ?? "");
       return;
     }
 
     case "section": {
-      const text = (target.text ?? "").trim();
-      if (text) ctrl.writeProseLineOnBoard(text);
+      writeProseIfMissing(ctrl, target.text ?? "");
       return;
     }
 
     case "subsection": {
-      const text = (target.caption ?? "").trim();
-      if (text) ctrl.writeProseLineOnBoard(text);
+      writeProseIfMissing(ctrl, target.caption ?? "");
       return;
     }
 
