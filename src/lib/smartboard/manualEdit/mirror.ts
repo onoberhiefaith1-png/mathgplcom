@@ -45,7 +45,7 @@ export const waitForBeat = async (
   ctrl: PresentationController,
 ): Promise<boolean> => {
   const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
-  console.log("[MIRROR] waitForBeat", { beatId: target.beatId, beatIdx, cursor: ctrl.getBeatCursor(), beatIds: ctrl.beats.map((b) => b.id) });
+  console.log("[MIRROR] waitForBeat", { beatId: target.beatId, beatIdx, cursor: ctrl.getBeatCursor(), beatIds: JSON.stringify(ctrl.beats.map((b) => ({ id: b.id, kind: (b as any).kind }))) });
   if (beatIdx < 0) return false;
   if (ctrl.getBeatCursor() !== beatIdx) ctrl.setBeatCursor(beatIdx);
 
