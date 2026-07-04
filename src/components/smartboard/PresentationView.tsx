@@ -2003,6 +2003,26 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
+  // Auto-attention for notes: mirror the Presenter Preview, where every note
+  // is visible next to its line. On the board, mark the current line's note
+  // as pending the moment the line becomes active, so the note chip surfaces
+  // in the FloatingNumberPanel without waiting for a Next-press. The read-
+  // side purity filter (`notebookFor`) still rejects math-shaped strings.
+  useEffect(() => {
+    if (!hasGuidedLines) return;
+    const line = guidedLines[activeLineIdx] as { notebook?: string } | undefined;
+    const nb = (line?.notebook ?? "").trim();
+    if (!nb) return;
+    if (shownNotebookIdx.has(activeLineIdx)) return;
+    setNotebookAttentionIdx((prev) => {
+      if (prev.has(activeLineIdx)) return prev;
+      const next = new Set(prev);
+      next.add(activeLineIdx);
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLineIdx, hasGuidedLines, activeReservoirIdx, guidedLines.length]);
+
   /** Equation labels like "(1)" may be added before/after the math at any
    *  time — line matching must succeed with or without them. */
   const stripEqLabel = (s: string): string =>
