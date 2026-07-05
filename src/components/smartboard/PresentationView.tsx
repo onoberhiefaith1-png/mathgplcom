@@ -3254,6 +3254,7 @@ const PresentationView = ({
         }),
       writeProseLineOnBoard,
       insertTextAtSensor,
+      presentWriteAtSensor,
       addNotebookAttention: (i: number) =>
         setNotebookAttentionIdx((p) => {
           if (p.has(i)) return p;
