@@ -33,6 +33,7 @@ import { WritingSurface, WritingFilterDefs } from "./WritingSurface";
 import { Inked } from "./Inked";
 import { SettingsSheet } from "./SettingsSheet";
 import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
+import { PlaceholderModeProvider } from "./placeholderMode";
 import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
@@ -154,9 +155,6 @@ const SURFACES: Record<Surface, {
   chromeFg: string;
   chromeBorder: string;
   hoverBg: string;
-  /** Solid color that placeholder cubes take on when rendered on this
-   *  smartboard surface, so idle empty slots blend into the board. */
-  placeholderInk: string;
 }> = {
   whiteboard: {
     background:
@@ -170,7 +168,6 @@ const SURFACES: Record<Surface, {
     chromeFg: "#2b3344",
     chromeBorder: "rgba(0,0,0,0.08)",
     hoverBg: "rgba(0,0,0,0.06)",
-    placeholderInk: "#efece5",
   },
   blackboard: {
     background:
@@ -184,7 +181,6 @@ const SURFACES: Record<Surface, {
     chromeFg: "rgba(255,255,255,0.85)",
     chromeBorder: "rgba(255,255,255,0.08)",
     hoverBg: "rgba(255,255,255,0.08)",
-    placeholderInk: "#161c1a",
   },
 };
 
@@ -3755,11 +3751,8 @@ const PresentationView = ({
           transition: "width 280ms ease",
           background: palette.background,
           color: palette.ink,
-          // Scoped to #sb-root: on-board placeholder cubes read this
-          // color and blend into the board. Panels and previews live
-          // outside this subtree and keep the default (black).
-          ["--placeholder-ink" as string]: palette.placeholderInk,
         } as React.CSSProperties}
+
 
       >
       <WritingFilterDefs />
@@ -4237,7 +4230,13 @@ const PresentationView = ({
           {/* Invisible-grid free-writing overlay. Filtered to lines that
               fall inside some beat's writable band, so solution ink can
               never bleed above the section line into the cover / previous
-              sessions. */}
+              sessions. Wrapped in PlaceholderModeProvider="blend" so idle
+              empty sub-slots (fraction num/den, √ radicand, exponents,
+              matrix cells) render invisibly on the smartboard writing
+              surface while remaining structural + tappable. Panels and
+              previews outside this subtree stay on the default "visible"
+              mode and keep the full-strength black placeholder cube. */}
+          <PlaceholderModeProvider value="blend">
           <FreeWriteLayer
             lines={visibleFreeLines}
             offsets={lineOffsets}
@@ -4268,6 +4267,8 @@ const PresentationView = ({
               hiddenInputRef.current?.focus({ preventScroll: true });
             }}
           />
+          </PlaceholderModeProvider>
+
 
 
 
