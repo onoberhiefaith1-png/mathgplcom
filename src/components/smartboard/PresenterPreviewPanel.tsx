@@ -698,6 +698,7 @@ const PresenterPreviewPanel = ({
                       key={k}
                       ref={setLineRef(lineKey)}
                       onClick={(e) => {
+                        if (mode === "edit") return; // Present mode: line-level click is disabled — chips/notes carry their own handlers.
                         e.stopPropagation();
                         selectTarget(lineTarget);
                       }}
@@ -717,7 +718,7 @@ const PresenterPreviewPanel = ({
                           : lineActive
                           ? HIGHLIGHT_SHADOW
                           : "none",
-                        ...editableOutline,
+                        ...(mode === "edit" ? {} : editableOutline),
                       }}
                     >
                       <div
@@ -726,7 +727,7 @@ const PresenterPreviewPanel = ({
                       >
                         Line {k + 1}
                       </div>
-                      {!line.notebookOnly && eq && (
+                      {mode === "normal" && !line.notebookOnly && eq && (
                         <div className="flex items-center gap-3 flex-wrap">
                           <HighlightBox>
                             <span className="text-lg">
