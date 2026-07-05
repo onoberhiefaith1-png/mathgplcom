@@ -1997,14 +1997,7 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLineIdx, activeReservoirIdx]);
 
-  // Persist shownNotebookIdx whenever it changes.
-  useEffect(() => {
-    if (activeReservoirIdx < 0) return;
-    try {
-      window.localStorage.setItem(SHOWN_NB_KEY, JSON.stringify(Array.from(shownNotebookIdx)));
-    } catch { /* noop */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shownNotebookIdx, activeReservoirIdx]);
+  // shownNotebookIdx is intentionally NOT persisted — see note above.
 
 
 
