@@ -3063,112 +3063,153 @@ const PresentationView = ({
     [notebookRowLines],
   );
 
-  /** DIRECT NOTE CHANNEL — one-to-one write from the Presenter Preview
-   *  (or the # panel's notebook icon) to the board for a SPECIFIC line.
-   *  Anchors the note under the board row owned by this line — NEVER the
-   *  sensor row, which belongs to the Floating Number workflow. A failure
-   *  in the FN system can therefore never replicate into this route.
-   *  Always produces a visible result: writes the note, or scrolls to it
-   *  when it already exists on the board. Returns the note's row. */
-  const writeNoteForLine = useCallback(
-    (lineIdx: number, text: string): number | null => {
-      const raw = (text ?? "").trim();
-      if (!raw) return null;
-      let landedRow: number | null = null;
-      const existingRow = findTextRow(raw);
-      if (existingRow != null) {
-        // Already inked (possibly far off-screen) — scroll straight to it
-        // so the teacher SEES where it lives; the idempotent writer just
-        // re-marks the row as locked and parks the sensor below.
-        scrollBoardToRow(existingRow);
-        writeProseLineOnBoard(raw, existingRow, { advanceSensor: true });
-        landedRow = existingRow;
-      } else {
-        // Anchor STRICTLY under the note's own line footprint. Never
-        // scan the deepest ink anywhere on the board — that pulls the
-        // note far below unrelated ink and reads as "sensor jumped 10
-        // rows and nothing appeared". We look at:
-        //   (a) rows owned by this exact lineIdx, else the last row
-        //       owned by any line ≤ lineIdx (its predecessor's tail);
-        //   (b) live-typed ink sitting within a small window around
-        //       that owned anchor (catches a tall fraction the line
-        //       just typed at the sensor, which has no ownership yet).
-        const owners = rowOwnersRef.current;
-        let ownedAnchor = -1;
-        for (const key of Object.keys(owners)) {
-          const r = Number(key);
-          const owner = owners[r];
-          if (typeof owner !== "number") continue;
-          if (owner === lineIdx && r > ownedAnchor) ownedAnchor = r;
-        }
-        if (ownedAnchor < 0) {
-          for (const key of Object.keys(owners)) {
-            const r = Number(key);
-            const owner = owners[r];
-            if (typeof owner !== "number") continue;
-            if (owner < lineIdx && r > ownedAnchor) ownedAnchor = r;
-          }
-        }
-        let anchor = ownedAnchor;
-        if (anchor >= 0) {
-          // Small forward window so a freshly-typed tall fraction
-          // (no ownership yet) still counts. Bounded by 3 rows — never
-          // enough to drag the note far below the line.
-          const window = anchor + 3;
-          const rowsNow = freeLinesRef.current;
-          for (const key of Object.keys(rowsNow)) {
-            const rr = Math.floor(Number(key));
-            const ink = rowsNow[Number(key)];
-            if (!ink || !rowHasVisibleInk(ink)) continue;
-            if (rr > anchor && rr <= window) anchor = rr;
-          }
-        }
-        let targetRow: number;
-        if (anchor >= 0) {
-          targetRow = anchor + 1;
-        } else {
-          // Fresh section — first empty row of the band. NEVER deepest.
-          let t = activeLayout ? bandStart(activeLayout) : 0;
-          for (let g = 0; g < 200; g++) {
-            const occ = getRowOccupancy(t);
-            if (occ === "empty") break;
-            t += occ === "fraction-denominator" ? 2 : 1;
-          }
-          targetRow = t;
-        }
-        landedRow = writeProseLineOnBoard(raw, targetRow, {
-          advanceSensor: true,
-          noteAdvance: true,
-        });
-        // Verify at the SAME target — do not escape to "deepest + 2",
-        // which is what previously pushed the sensor ~10 rows down.
-        if (landedRow == null) {
-          landedRow = writeProseLineOnBoard(raw, targetRow, {
-            advanceSensor: true,
-            noteAdvance: true,
-          });
-        }
-        const showRow = landedRow ?? targetRow;
-        requestAnimationFrame(() => scrollBoardToRow(showRow));
-      }
-      // Note is shown — silence the note-gate glow for this line.
-      setShownNotebookIdx((prev) => {
-        if (prev.has(lineIdx)) return prev;
-        const nx = new Set(prev);
-        nx.add(lineIdx);
-        return nx;
-      });
-      setNotebookAttentionIdx((prev) => {
-        if (!prev.has(lineIdx)) return prev;
-        const nx = new Set(prev);
-        nx.delete(lineIdx);
-        return nx;
-      });
-      return landedRow;
-    },
-    // activeLayout/bandStart are recomputed each render; refs are stable.
+  /* ── BOARD WRITER — two independent channels, one ledger ─────────────
+   * The Presenter Preview channel and the Floating Number channel both
+   * read the SAME board snapshot and commit through the SAME dumb write
+   * primitive, but neither channel calls into the other. A bug in one
+   * can never replicate into its backup. */
+
+  const getBoardSnapshot = useCallback(
+    (): BoardSnapshot => ({
+      ink: freeLinesRef.current,
+      rowOwners: rowOwnersRef.current,
+      lockedRows: notebookRowLinesRef.current,
+      bandStartRow: activeLayout ? bandStart(activeLayout) : 0,
+    }),
+    // bandStart is a pure helper; refs are stable identities.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [findTextRow, writeProseLineOnBoard, scrollBoardToRow, getRowOccupancy, activeLayout],
+    [activeLayout],
+  );
+
+  /** Commit a WritePlan atomically: ink, locks, ownership, sensor,
+   *  scroll. The ONLY place channel writes touch board state. */
+  const commitWritePlan = useCallback(
+    (plan: WritePlan, opts: CommitOptions) => {
+      // Optimistically publish so a second write in the same tick sees
+      // these rows as taken.
+      const next = { ...freeLinesRef.current };
+      for (const { row, ink } of plan.rows) next[row] = ink;
+      freeLinesRef.current = next;
+      const placed = plan.rows;
+      setFreeLines((p) => {
+        const merged = { ...p };
+        for (const { row, ink } of placed) merged[row] = ink;
+        return merged;
+      });
+      if (opts.lock) {
+        const lockedNow = new Set(notebookRowLinesRef.current);
+        for (const { row } of placed) lockedNow.add(row);
+        notebookRowLinesRef.current = lockedNow;
+        setNotebookRowLines((prev) => {
+          const ns = new Set(prev);
+          for (const { row } of placed) ns.add(row);
+          return ns;
+        });
+      }
+      if (typeof opts.ownerLineIdx === "number") {
+        const owner = opts.ownerLineIdx;
+        const ownersNow = { ...rowOwnersRef.current };
+        for (const { row } of placed) ownersNow[row] = owner;
+        rowOwnersRef.current = ownersNow;
+        setRowOwners((prev) => {
+          const nx = { ...prev };
+          for (const { row } of placed) nx[row] = owner;
+          return nx;
+        });
+      }
+      // Park the sensor exactly where the plan says — no hunts.
+      setSensor({ line: plan.sensorRow, x: 0 });
+      setLiveCursor({ path: [], index: 0 });
+      manualSensorRef.current = { line: plan.sensorRow, x: 0 };
+      activeSensorPhysicalLineRef.current = plan.sensorRow;
+    },
+    [setLiveCursor],
+  );
+
+  /** Note is visible — silence the note-gate glow for this line. */
+  const markNoteShownForLine = useCallback((lineIdx: number) => {
+    setShownNotebookIdx((prev) => {
+      if (prev.has(lineIdx)) return prev;
+      const nx = new Set(prev);
+      nx.add(lineIdx);
+      return nx;
+    });
+    setNotebookAttentionIdx((prev) => {
+      if (!prev.has(lineIdx)) return prev;
+      const nx = new Set(prev);
+      nx.delete(lineIdx);
+      return nx;
+    });
+  }, []);
+
+  /** Jump the board to a beat by id, with type+ordinal fallback when
+   *  section ids were regenerated. */
+  const navigateToBeat = useCallback(
+    (beatId: string, beatOrdinal?: number) => {
+      let idx = beats.findIndex((b) => b.id === beatId);
+      if (idx < 0 && typeof beatOrdinal === "number") {
+        const suffix = beatId.endsWith("-q")
+          ? "-q"
+          : beatId.endsWith("-text")
+            ? "-text"
+            : null;
+        if (suffix) {
+          let n = 0;
+          for (let i = 0; i < beats.length; i++) {
+            if (beats[i].id.endsWith(suffix)) {
+              if (n === beatOrdinal) {
+                idx = i;
+                break;
+              }
+              n++;
+            }
+          }
+        }
+      }
+      if (idx >= 0) setBeatCursor(idx);
+    },
+    [beats],
+  );
+
+  /** PREVIEW CHANNEL host — Presenter Preview → board, one-to-one. */
+  const previewHost = useMemo<PreviewChannelHost>(
+    () => ({
+      getSnapshot: getBoardSnapshot,
+      commitPlan: commitWritePlan,
+      scrollToRow: scrollBoardToRow,
+      markNoteShown: markNoteShownForLine,
+      navigateToBeat,
+      insertTextAtSensor,
+      insertFractionAtSensor,
+    }),
+    [
+      getBoardSnapshot,
+      commitWritePlan,
+      scrollBoardToRow,
+      markNoteShownForLine,
+      navigateToBeat,
+      insertTextAtSensor,
+      insertFractionAtSensor,
+    ],
+  );
+
+  /** FLOATING CHANNEL host — Floating Number panel → board. */
+  const floatingHost = useMemo<FloatingChannelHost>(
+    () => ({
+      getSnapshot: getBoardSnapshot,
+      commitPlan: commitWritePlan,
+      scrollToRow: scrollBoardToRow,
+      markNoteShown: markNoteShownForLine,
+    }),
+    [getBoardSnapshot, commitWritePlan, scrollBoardToRow, markNoteShownForLine],
+  );
+
+  /** Note write entry for the # panel and the AI controller — delegates
+   *  to the FLOATING channel (the Preview writes through its own). */
+  const writeNoteForLine = useCallback(
+    (lineIdx: number, text: string): number | null =>
+      floatingWriteNote(lineIdx, text, floatingHost),
+    [floatingHost],
   );
 
 
