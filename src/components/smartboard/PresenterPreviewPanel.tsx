@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   StickyNote,
-  Pencil,
+  // Pencil removed — Present mode uses Sparkles icon.
   Check,
   EyeOff,
   Eye,
