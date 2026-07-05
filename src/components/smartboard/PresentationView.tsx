@@ -2027,10 +2027,10 @@ const PresentationView = ({
   // stop hanging around. If the teacher rewinds to an earlier line, they
   // can tap the chip again to bring a fresh placeholder back — the line
   // is unlocked and editable at that point.
-  const prevActiveLineIdxRef = useRef<number>(0);
+  const placeholderSweepPrevRef = useRef<number>(0);
   useEffect(() => {
-    const prev = prevActiveLineIdxRef.current;
-    prevActiveLineIdxRef.current = activeLineIdx;
+    const prev = placeholderSweepPrevRef.current;
+    placeholderSweepPrevRef.current = activeLineIdx;
     if (activeLineIdx <= prev) return; // only sweep on forward moves
 
     const stale: number[] = [];
