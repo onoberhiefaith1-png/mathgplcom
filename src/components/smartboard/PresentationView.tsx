@@ -587,7 +587,11 @@ const PresentationView = ({
     return [];
   });
   useEffect(() => {
-    try { localStorage.setItem(SMARTLINES_KEY, JSON.stringify(smartLines)); } catch { /* noop */ }
+    // Debounced — serializing on every stroke made writing feel stiff.
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(SMARTLINES_KEY, JSON.stringify(smartLines)); } catch { /* noop */ }
+    }, 300);
+    return () => window.clearTimeout(t);
   }, [smartLines, SMARTLINES_KEY]);
 
   // Magnet boxes — drop-in labelled cells that snap to a SmartLine when
