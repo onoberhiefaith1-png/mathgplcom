@@ -154,9 +154,6 @@ const SURFACES: Record<Surface, {
   chromeFg: string;
   chromeBorder: string;
   hoverBg: string;
-  /** Solid color that placeholder cubes take on when rendered on this
-   *  smartboard surface, so idle empty slots blend into the board. */
-  placeholderInk: string;
 }> = {
   whiteboard: {
     background:
@@ -170,7 +167,6 @@ const SURFACES: Record<Surface, {
     chromeFg: "#2b3344",
     chromeBorder: "rgba(0,0,0,0.08)",
     hoverBg: "rgba(0,0,0,0.06)",
-    placeholderInk: "#efece5",
   },
   blackboard: {
     background:
@@ -184,7 +180,6 @@ const SURFACES: Record<Surface, {
     chromeFg: "rgba(255,255,255,0.85)",
     chromeBorder: "rgba(255,255,255,0.08)",
     hoverBg: "rgba(255,255,255,0.08)",
-    placeholderInk: "#161c1a",
   },
 };
 
