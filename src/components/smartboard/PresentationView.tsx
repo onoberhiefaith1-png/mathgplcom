@@ -1214,11 +1214,12 @@ const PresentationView = ({
           extraNoteRows.has(r)
         );
       };
-      for (let guard = 0; guard < 200 && blocked(t); guard++) t += 1;
+      // For note writes, cap the hunt at 2 rows — never allow the sensor
+      // to drop far below the note (that read as "sensor jumped 10 rows").
+      const cap = opts?.noteAdvance ? 2 : 200;
+      for (let guard = 0; guard < cap && blocked(t); guard++) t += 1;
       setSensor({ line: t, x: 0 });
       setLiveCursor({ path: [], index: 0 });
-      // Sticky manual position: the auto-anchor must not snap the sensor
-      // back onto/above the note it just cleared.
       manualSensorRef.current = { line: t, x: 0 };
       activeSensorPhysicalLineRef.current = t;
       requestAnimationFrame(() => scrollBoardToRow(t));
