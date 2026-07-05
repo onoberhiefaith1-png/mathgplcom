@@ -1147,11 +1147,13 @@ const PresentationView = ({
       const cur = Math.floor(sensor.line);
       if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
         const t = stepPastLocked(cur);
+        ensureBandCoversRef.current(t);
         setSensor((s) => ({ ...s, line: t, x: 0 }));
       }
       insertTextAtSensor(text);
       if (opts?.advanceAfter) {
         const t = stepPastLocked(Math.floor(sensor.line));
+        ensureBandCoversRef.current(t);
         setSensor((s) => ({ ...s, line: t, x: 0 }));
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4502,6 +4504,7 @@ const PresentationView = ({
                     if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
                       let t = nextSensorRowBelow(cur);
                       for (let g = 0; g < 200 && (notebookRowLines.has(t) || isLockedInkRow(t)); g++) t += 1;
+                      ensureBandCovers(t);
                       setSensor((s) => ({ ...s, line: t, x: 0 }));
                     }
                     insertFractionAtSensor(p);
