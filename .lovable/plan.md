@@ -1,20 +1,29 @@
-# Fix: All Typing Landing on One Row + Duplicate Scroll Arrows
+# Fix Sensor Movement: Next-Line Jump + Note Advance
 
-## Root cause found (real diagnosis, not a guess)
+## Problems
 
-**Bug 1 — everything writes to one line.** `insertTextAtSensor` in `PresentationView.tsx` is wrapped in `useCallback(..., [])` with an **empty dependency list**. That freezes it with the very first render's copy of `editActive` — and that frozen copy remembers the sensor's *original* line forever. So every write routed through it (Present-mode chip clicks, floating-number inserts, AI writes) ignores where you moved the sensor and stacks onto that one frozen row. This is exactly why "x = …, = …, x = −b" all pile onto a single line.
+**1. Floating Number next line — sensor jumps 4–5 rows instead of 1**
+When you advance to the next floating line, the sensor-anchor effect in `PresentationView.tsx` computes the landing row by combining several "push down" rules: it starts below the last inked row, then also scans ALL row-ownership entries and pushes the sensor below each one (adding extra rows for tall structures), then skips any row it considers non-writable. Stale ownership entries and double-counted structure heights stack up, so instead of "one row below the last line" you land 4–5 rows down.
 
-**Bug 2 — duplicated up/down arrows.** Two sensor controllers are rendered at once: the left-rail `CursorScrollbar` (re-added in a recent fix) and the `SensorDPad` (the permanent sensor controller). Both do up/down — that's the duplicate you keep seeing come back.
+**2. Present view — clicking a note leaves the sensor before the note**
+When you click a note chip in Present, the note text is written onto the board, but the sensor is never moved. It stays where it was (before the note). Since note rows are locked (not editable), the sensor should land on the first empty row after the note.
 
-**Why the errors keep repeating.** Each past fix added another parallel write path instead of one shared one; the frozen callback silently re-broke whichever path was "fixed" last. The cleanup below removes the parallel paths for good.
+## Fix
 
-## Changes (all in `src/components/smartboard/PresentationView.tsx`)
+### A. Next-line advance = exactly one row (plus real structure height only)
+- In the sensor-anchor effect, compute the landing row as: one row below the last visibly inked row of the previous line, plus extra rows only if that specific row holds a genuinely tall structure (stacked fraction / matrix).
+- Remove the extra "max over all owned rows" push that double-counts rows already covered by the last-ink calculation, and prune stale `rowOwners` entries whose rows no longer have ink so they can't drag the sensor down.
+- Keep the note-row / tall-structure skip, but only as a minimal step-over (skip locked rows one at a time), not a compounding offset.
 
-1. **Live sensor dispatch (the real fix).** Store the current `editActive` and `insertIntoActiveBox` in refs updated every render. `insertTextAtSensor` stays stable (so the AI controller doesn't churn) but always calls the *live* editor — writes land exactly on the sensor's current line, every time.
-2. **Make `insertFractionAtSensor` use the same live dispatch** so fraction chips also always follow the sensor and never go stale.
-3. **Remove the duplicate scroller.** Delete the left-rail `CursorScrollbar` block (and its import); the `SensorDPad` remains the single sensor controller — up/down/left/right in one place.
-4. **Code cleanup.** Remove the now-dead `relocatedWriteRow` helper and any leftover unused imports from previous rounds so no stale path can resurrect this bug.
+### B. Note click moves the sensor below the note
+- Refactor `writeProseLineOnBoard` so the paragraph row placement is computed before committing state, and it returns the last row it wrote.
+- In the Present-mode note route (`applyMirror` teacher-note branch in `mirror.ts` and `directWrite`), after the note is written: move the sensor to the first empty writable row below the note's last paragraph (skipping locked note rows), and scroll the board there.
+- Same behavior for notes placed via the Floating Number workflow, so both paths are consistent.
 
-## Verification
+### Verification
+- Playwright run: place a note in Present view → confirm the sensor lands exactly one row below the note.
+- Playwright run: complete a floating line, advance to the next → confirm the sensor lands exactly one row below the previous line (two rows only when the previous line ends in a stacked fraction).
 
-- Typecheck, then drive the Present view with Playwright: move the sensor to line A, type, move to line B, tap a floating-number chip — confirm each write appears on its own sensor line, and confirm only one up/down control renders.
+## Technical notes
+- Files touched: `src/components/smartboard/PresentationView.tsx` (sensor-anchor effect ~line 2260–2320, `writeProseLineOnBoard` ~line 1154), `src/lib/smartboard/manualEdit/mirror.ts` (teacher-note branches), `src/lib/smartboard/presentationAI/controller.ts` (return type of the prose writer if needed).
+- No backend or data changes.
