@@ -40,7 +40,7 @@ import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
 import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
-import { CursorScrollbar } from "./CursorScrollbar";
+
 import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
@@ -1000,18 +1000,6 @@ const PresentationView = ({
     return !!row && rowHasVisibleInk(row);
   };
 
-  /** Relocation target for a write that hit a locked row: first empty
-   *  writable row below the last visible ink (structure-aware). */
-  const relocatedWriteRow = (): number | null => {
-    const L = activeLayout;
-    if (!L) return null;
-    const a = bandStart(L), b = bandEnd(L);
-    const li = lastVisibleInkRow(L);
-    let t = li >= a ? nextSensorRowBelow(li) : a;
-    while (t <= b && !isEmptyWritableRow(t, L)) t++;
-    return Math.min(b, t);
-  };
-
   /** Edit the active line's tree via a fn that returns next root + cursor. */
   const editActive = (
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
@@ -1040,6 +1028,15 @@ const PresentationView = ({
     hiddenInputRef.current?.focus({ preventScroll: true });
   };
 
+  // LIVE DISPATCH: `editActive` and `insertIntoActiveBox` are re-created on
+  // every render so they always see the CURRENT sensor line / active box.
+  // Stable callbacks (useCallback) must NEVER capture them directly — a
+  // frozen copy remembers the first render's sensor line forever, which is
+  // exactly the "everything writes onto one row" bug. They call through
+  // these refs instead, which always point at the latest closures.
+  const editActiveRef = useRef<typeof editActive>(() => {});
+  const insertIntoActiveBoxRef = useRef<(text: string, replace?: boolean) => boolean>(() => false);
+
   /** Append input into the active magnet box (if any) instead of the board.
    *  Returns true when handled. */
   const insertIntoActiveBox = (text: string, replace = false): boolean => {
@@ -1047,6 +1044,10 @@ const PresentationView = ({
     setBoxes((prev) => prev.map((b) => b.id === activeBoxId ? { ...b, text: replace ? text : b.text + text } : b));
     return true;
   };
+
+  // Keep the live-dispatch refs pointing at THIS render's closures.
+  editActiveRef.current = editActive;
+  insertIntoActiveBoxRef.current = insertIntoActiveBox;
 
   const insertCharAtSensor = (ch: string, mode: "mid" | "top" | "bot" = "mid") => {
     if (mode === "mid" && insertIntoActiveBox(ch)) return;
@@ -1083,12 +1084,16 @@ const PresentationView = ({
   /** Back-compat: FloatingMath calls this with a plain LaTeX-ish string.
    *  Never type that raw source onto the board: mirror it through the same
    *  Lesson Note renderer first so \frac / \sqrt / slash fractions become
-   *  real stacked structures before the teacher sees them. */
+   *  real stacked structures before the teacher sees them.
+   *
+   *  Identity is stable (for the AI controller memo) but it dispatches
+   *  through the live refs so writes ALWAYS land on the sensor's current
+   *  line — never on a line frozen from the first render. */
   const insertTextAtSensor = useCallback((text: string) => {
-    if (insertIntoActiveBox(text)) return;
+    if (insertIntoActiveBoxRef.current(text)) return;
     const mirror = mirrorLessonNoteRow(text);
     if (!mirror.ok || mirror.row.length === 0) return;
-    editActive((row, c) => {
+    editActiveRef.current((row, c) => {
       let r = row;
       let cur = exitCompletedScriptCursor(r, c);
       for (const node of mirror.row) {
@@ -1248,10 +1253,11 @@ const PresentationView = ({
 
   /** Insert a real stacked fraction at the sensor (no slash). Optional sign
    *  is typed first; the frac node is created with numerator/denominator
-   *  rows pre-filled so the bar shows immediately. */
-  const insertFractionAtSensor = (parts: { sign: string; num: string; den: string }) => {
-    if (insertIntoActiveBox(`${parts.sign}${parts.num}/${parts.den}`)) return;
-    editActive((row, c) => {
+   *  rows pre-filled so the bar shows immediately. Stable identity, live
+   *  dispatch — same pattern as insertTextAtSensor. */
+  const insertFractionAtSensor = useCallback((parts: { sign: string; num: string; den: string }) => {
+    if (insertIntoActiveBoxRef.current(`${parts.sign}${parts.num}/${parts.den}`)) return;
+    editActiveRef.current((row, c) => {
       let r = row, cur = c;
       if (parts.sign) {
         const sg = parts.sign === "-" ? "−" : parts.sign;
@@ -1264,7 +1270,7 @@ const PresentationView = ({
       const res = treeInsertNode(r, cur, fracNode, false);
       return res;
     });
-  };
+  }, []);
 
   const makeStructureNode = (kind: ContainerKind): Node | null => {
     switch (kind) {
@@ -2179,7 +2185,7 @@ const PresentationView = ({
     // sensor position). The Floating Number panel's ▲/▼ updates
     // `manualFloatingLineIdx` to change which chip set is shown, but it
     // must NEVER move the writing cursor — that is now the job of the
-    // dedicated CursorScrollbar on the left rail.
+    // SensorDPad (the single sensor controller).
     // Follow whichever line the FloatingNumberPanel is currently showing —
     // manual navigation (▲/▼ on the panel) takes precedence over the
     // auto-advanced floatingLineIdx so clicking "line 2" on the panel
@@ -4393,7 +4399,7 @@ const PresentationView = ({
 
           {/* Left-side line navigator REMOVED — the Floating Number panel's
               own ▲/▼ is now the single control for switching floating-number
-              sets. Cursor movement lives in <CursorScrollbar/> below. */}
+              sets. Cursor movement lives in the SensorDPad below. */}
 
 
 
@@ -4904,23 +4910,9 @@ const PresentationView = ({
         />
       )}
 
-      {/* Cursor up/down rail — dedicated writing-sensor controller.
-          Rendered on the left rail so it never overlaps the assistant
-          buttons on the right. Only visible while the carrier (solving
-          workspace) is up. */}
-      {canEdit && carrierVisible && (
-        <CursorScrollbar
-          onUp={() => moveSensorUp(1)}
-          onDown={() => moveSensorDown(1)}
-          canUp={canCursorUp}
-          canDown={canCursorDown}
-          chromeBg={palette.chromeBg}
-          chromeFg={palette.chromeFg}
-          chromeBorder={palette.chromeBorder}
-          leftPx={12}
-          topCss="50%"
-        />
-      )}
+      {/* Left-rail CursorScrollbar REMOVED — it duplicated the SensorDPad's
+          up/down controls. The SensorDPad is the single sensor controller. */}
+
 
 
       {/* AI line-status verification toggle. Off by default; when on, the
