@@ -2478,7 +2478,13 @@ const PresentationView = ({
         // Step past locked rows (notes / structure bodies) ONE row at a
         // time — a minimal step-over, never a compounding offset.
         while (t <= b && activeLayout && !isEmptyWritableRow(t, activeLayout)) t++;
-        target = Math.min(b, t);
+        if (t > b) {
+          // Band exhausted (dense board, line 6+): GROW the band instead
+          // of clamping onto the locked band-end row — the old clamp was
+          // the dead zone where nothing clicked.
+          ensureBandCoversRef.current(t);
+        }
+        target = t;
       } else {
         // No prior ink: land right below "Solution".
         target = a;
