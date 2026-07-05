@@ -4902,9 +4902,23 @@ const PresentationView = ({
         />
       )}
 
-      {/* Left-rail Cursor up/down was removed — the middle-of-board
-          arrows already cover this. moveSensorUp/Down stay for the
-          controller / keyboard shortcuts. */}
+      {/* Cursor up/down rail — dedicated writing-sensor controller.
+          Rendered on the left rail so it never overlaps the assistant
+          buttons on the right. Only visible while the carrier (solving
+          workspace) is up. */}
+      {canEdit && carrierVisible && (
+        <CursorScrollbar
+          onUp={() => moveSensorUp(1)}
+          onDown={() => moveSensorDown(1)}
+          canUp={canCursorUp}
+          canDown={canCursorDown}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          leftPx={12}
+          topCss="50%"
+        />
+      )}
 
 
       {/* AI line-status verification toggle. Off by default; when on, the
