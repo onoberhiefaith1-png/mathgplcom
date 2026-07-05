@@ -1,82 +1,41 @@
-# Rebuild: Two Independent Board Writers (Clean Channels)
+# Delete & Rebuild the Notebook (Teaching Note) Pipeline
 
-## Why the error keeps coming back
+## Diagnosis — the fundamental error, found
 
-Right now both writers go through the **same tangled pipeline** inside `PresentationView.tsx`:
+I checked your saved lesson data for this notebook: **line 4's highlight has NO note saved** (empty), which is why the Presenter Preview correctly shows no note there. That side is honest.
 
-```text
-Presenter Preview click ──► Live Mirror replay (mirror.ts) ──┐
-                                                             ├──► writeNoteForLine / writeProseLineOnBoard
-Floating Number panel ───────────────────────────────────────┘        (advanceBelow hunts, deep-ink scans,
-                                                                       verify-retry escapes, noteAdvance caps)
-```
+But the Floating Number panel has a **hidden fallback** in its notebook-icon code: when a line has no real note, it silently substitutes the line's "explanation" text — which is parsed out of the raw solution block and, for line 4, is the **entire solution tail (line 4, line 5 … to the end)**. So:
 
-Every fix for one path changes shared code the other path also runs through — so correcting the Floating Number breaks the Preview, and vice-versa. Patching further will not stop this. The shared write pipeline gets deleted and replaced.
+- A phantom notebook icon appears on line 4 even though no note exists.
+- Clicking it writes that whole multi-line solution tail onto the board.
+- The multi-row write drops the sensor a huge gap below.
 
-## Target architecture
+There is a second, related leak: the reservoir builder attaches `explanation` to each line using a **positional guess** (`parsedSolution[k]`) when no exact match is found — so wrong-line prose can latch onto any line.
 
-```text
-                 Notebook / Reservoirs  (ONE data source)
-                    /                  \
-     Preview Channel                    Floating Channel
-   (previewChannel.ts)                (floatingChannel.ts)
-          |                                   |
-          ▼                                   ▼
-        directWrite()  ← one tiny, dumb, deterministic board primitive
-```
+## What gets DELETED (no repair, clean removal)
 
-- **Same source, zero linkage.** Both channels read the same reservoir line data. Neither calls into the other. A bug in one channel file cannot affect the other.
-- **One dumb primitive.** `directWrite(row, tokens)` puts ink at exactly the row it is told — no searching, no retrying, no escaping, no sensor hunts. If the primitive is trivial, it cannot drift.
-- **One row ledger.** A single `nextFreeRow(lineIdx)` function answers "where does this line's ink go" from `rowOwners` + actual ink — computed the same way every time, for every line, for both channels. No special cases per line.
+1. **FloatingNumberPanel.tsx** — the notebook icon's fallback to `lines[activeLineIdx]?.explanation`. Deleted entirely. The icon renders from ONE input only.
+2. **PresentationView.tsx** — the inline `notebookFor` function with its ad-hoc purity filter. Deleted from the component.
+3. **presentation.ts (buildReservoirs)** — the positional `parsedSolution[k]?.explanation` fallback. Deleted. Explanations may only attach by exact equation match; they never feed the notebook icon.
 
-## What gets DELETED
+## What gets BUILT (fresh, one standard)
 
-In `PresentationView.tsx`:
-- `writeNoteForLine` (all anchor scans, forward windows, verify-retry rewrites)
-- The `advanceBelow` blocked-hunt loop and `noteAdvance` cap inside `writeProseLineOnBoard`
-- The "deepest ink" scanning logic and fallback escapes accumulated across the previous fixes
+**New module: `src/lib/smartboard/boardWriter/noteSource.ts`** — the single law for notes, used by BOTH sides:
 
-In `src/lib/smartboard/manualEdit/mirror.ts`:
-- The entire controller-replay approach (replaying beat-cursor waits + presentation-engine calls to mirror one item)
+- `noteForLine(line)` → returns the note **only** from the line's own saved highlight note (`precedingNotebook`). No explanation fallback, no positional guessing, no equation-match guessing.
+- Built-in purity check (a note is prose; math-shaped text is rejected) — one implementation instead of copies.
+- **Rule: no saved note ⇒ no icon, nothing to write. Ever.**
 
-In `controller.ts`: the `noteAdvance` opts and related plumbing.
-
-## What gets BUILT (fresh)
-
-New folder `src/lib/smartboard/boardWriter/`:
-
-1. **`ledger.ts`** — the single occupancy truth.
-   - `nextFreeRow(lineIdx, rowOwners, ink)`: last row owned by any line ≤ lineIdx, +1, then skip any row with visible ink (whole or half-row). First empty row wins. Same rule for line 1 and line 99.
-   - `rowOfLine(lineIdx)`: where a line's existing ink lives (for repeat clicks → just scroll there).
-
-2. **`directWrite.ts`** — the dumb primitive.
-   - Writes tokens at the exact row given. Marks ownership. Parks sensor at `row + rowsUsed`. Scrolls the written row into view. Returns the landed row. Never moves anywhere else.
-
-3. **`previewChannel.ts`** — Presenter Preview → board, one-to-one.
-   - Click a solution line → `directWrite(nextFreeRow(lineIdx), line tokens)`.
-   - Click a note → `directWrite(nextFreeRow(lineIdx), note text)` (or scroll to existing note if already inked).
-   - Click a chip/fraction → same pattern. No beat-cursor replay, no waiting loops.
-
-4. **`floatingChannel.ts`** — Floating Number panel → board.
-   - Chip picks and "write notebook line" use the same `nextFreeRow` + `directWrite`, through its own channel state. Data still comes from the preview/reservoir source — but no code path touches `previewChannel.ts`.
-
-Wiring in `PresentationView.tsx`: the preview's `onMirrorChange`/note clicks call `previewChannel`; the Floating panel's callbacks call `floatingChannel`. Both receive the same board-state refs (read-only) and the same `directWrite` setter.
-
-## Interleaving guarantee
-
-Because both channels ask the same `nextFreeRow` ledger before writing, you can alternate freely — Floating writes line 1, Preview writes line 2, Floating writes line 3 — and each write lands on the first free row below the previous line's ink. No clashes, no jumps.
+**Wiring:**
+- `PresentationView.tsx` → `notebookText = noteForLine(...)`; note gate uses the same function, so a line without a real note never blocks Next.
+- `FloatingNumberPanel.tsx` → renders the notebook icon iff `notebookText` is non-empty. Nothing else can summon it.
+- `PresenterPreviewPanel` already reads the highlight's own note — it will call the same `noteSource` so both sides are guaranteed identical (icon on the panel ⇔ note visible in the preview).
+- Writing stays on the clean channels you already have (`floatingChannel` / `previewChannel`) — one note click writes only that note's prose, sensor parks right below it.
 
 ## Verification
 
-Playwright end-to-end in Present mode:
-1. Write lines 1–6 alternating Floating / Preview — assert each lands exactly one band below the previous, screenshots per step.
-2. Click notes on lines 1, 3, 5 from the Preview — note ink appears directly under its own line, sensor at most 1 row below.
-3. Repeat-click every line and note — scrolls to existing ink, never rewrites, never jumps.
-4. Tall fraction case (the original Line 3 bug) — note still lands under the fraction's full height.
-Plus typecheck and full test suite. No backend changes.
+- Regression test: a line whose highlight has an empty note shows NO note on either side and never writes solution text.
+- Playwright on this quadratic lesson: line 4 shows no notebook icon; lines with real notes (1, 2, 5, 6…) write exactly their short prose with no sensor gap.
+- Full test suite + typecheck.
 
-## Files
-
-- **New:** `src/lib/smartboard/boardWriter/ledger.ts`, `directWrite.ts`, `previewChannel.ts`, `floatingChannel.ts`
-- **Rewritten:** `src/lib/smartboard/manualEdit/mirror.ts` (thin adapter → previewChannel)
-- **Edited:** `PresentationView.tsx` (delete old writers, wire channels), `controller.ts` (drop noteAdvance), `FloatingNumberPanel.tsx` / `PresenterPreviewPanel.tsx` (only callback wiring — UI untouched)
+No backend/data changes — your saved lesson data is correct; only the reading code was lying.
