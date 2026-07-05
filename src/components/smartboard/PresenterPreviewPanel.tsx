@@ -512,7 +512,7 @@ const PresenterPreviewPanel = ({
         style={{ borderColor: "rgba(138,106,31,0.2)", background: "rgba(255,255,255,0.6)" }}
       >
         <p className="text-[10px] uppercase tracking-widest" style={{ color: ACCENT }}>
-          {mode === "edit" ? "Edit mode — select any item" : "Normal mode"}
+          {mode === "edit" ? "Present mode — click any item to send it to the Smartboard" : "Normal mode"}
         </p>
         <button
           onClick={() => setMode((m) => (m === "edit" ? "normal" : "edit"))}
@@ -529,7 +529,7 @@ const PresenterPreviewPanel = ({
             </>
           ) : (
             <>
-              <Pencil className="h-3.5 w-3.5" /> Edit
+              <Sparkles className="h-3.5 w-3.5" /> Present
             </>
           )}
         </button>
