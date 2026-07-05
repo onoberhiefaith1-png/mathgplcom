@@ -2049,7 +2049,34 @@ const PresentationView = ({
     };
     const noteLines = rawNote.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (noteLines.some(looksLikeMath)) return;
+    // Skip if the note text is already inked on the board (idempotent even
+    // if `shownNotebookIdx` was cleared by a Prev/Next rewind).
+    if (boardHasTextRow(rawNote)) {
+      setShownNotebookIdx((prev) => {
+        if (prev.has(activeLineIdx)) return prev;
+        const next = new Set(prev);
+        next.add(activeLineIdx);
+        return next;
+      });
+      return;
+    }
     if (shownNotebookIdx.has(activeLineIdx)) return;
+
+    // PLACEMENT FIX: anchor the note directly under the row owning the
+    // active line (or the last owned row before it), never at a stale
+    // sensor position which could be many rows below on refresh.
+    const owners = rowOwnersRef.current;
+    let anchor = -1;
+    for (const key of Object.keys(owners)) {
+      const r = Number(key);
+      const owner = owners[r];
+      if (typeof owner !== "number") continue;
+      if (owner <= activeLineIdx && r > anchor) anchor = r;
+    }
+    if (anchor >= 0) {
+      setSensor((s) => (s.line === anchor + 1 && s.x === 0 ? s : { line: anchor + 1, x: 0 }));
+    }
+
     // Idempotent: `writeProseLineOnBoard` de-dupes via row signature, so
     // re-runs after reload never double-write.
     writeProseLineOnBoard(rawNote);
@@ -2059,12 +2086,17 @@ const PresentationView = ({
       next.add(activeLineIdx);
       return next;
     });
-    setNotebookAttentionIdx((prev) => {
-      if (prev.has(activeLineIdx)) return prev;
-      const next = new Set(prev);
-      next.add(activeLineIdx);
-      return next;
+    // Retry once on the next frame if the write silently dropped (racy
+    // ownership on refresh). Kills the "sometimes appears, sometimes not"
+    // flake reported by the teacher.
+    const retryId = requestAnimationFrame(() => {
+      if (boardHasTextRow(rawNote)) return;
+      if (anchor >= 0) {
+        setSensor((s) => (s.line === anchor + 1 && s.x === 0 ? s : { line: anchor + 1, x: 0 }));
+      }
+      writeProseLineOnBoard(rawNote);
     });
+    return () => cancelAnimationFrame(retryId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLineIdx, hasGuidedLines, activeReservoirIdx, guidedLines.length]);
 
@@ -4138,7 +4170,8 @@ const PresentationView = ({
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
               if (target > maxReachable) return; // out of reach — block the jump
-              const currentPending = notebookFor(curLineIdx) && !shownNotebookIdx.has(curLineIdx);
+              const noteHere = notebookFor(curLineIdx);
+              const currentPending = noteHere.length > 0 && !boardHasTextRow(noteHere);
               if (target > curLineIdx && currentPending) {
                 setNotebookAttentionIdx((prev) => {
                   const next = new Set(prev);
@@ -4189,7 +4222,7 @@ const PresentationView = ({
                 return;
               }
               const pending = notebookFor(curLineIdx);
-              if (pending && !shownNotebookIdx.has(curLineIdx)) {
+              if (pending && !boardHasTextRow(pending)) {
                 setNotebookAttentionIdx((prev) => {
                   const next = new Set(prev);
                   next.add(curLineIdx);
@@ -4201,7 +4234,7 @@ const PresentationView = ({
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
             const currentNotebookText = notebookFor(curLineIdx);
-            const currentNotebookPending = currentNotebookText.length > 0 && !shownNotebookIdx.has(curLineIdx);
+            const currentNotebookPending = currentNotebookText.length > 0 && !boardHasTextRow(currentNotebookText);
             const revealNotebookText =
               notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : currentNotebookText;
             const markCurrentNotebookRead = () => {
