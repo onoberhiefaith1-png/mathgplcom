@@ -1178,10 +1178,20 @@ const PresentationView = ({
     // Pre-compute the mirror rows once so the parity gate runs per
     // paragraph and any that fail are skipped rather than dropping the
     // whole note.
-    const mirrored = paragraphs
+    let mirrored = paragraphs
       .map((p) => mirrorLessonNoteRow(p))
       .filter((m) => m.ok && m.row.length > 0);
-    if (mirrored.length === 0) return null;
+    if (mirrored.length === 0) {
+      // Parity gate refused every paragraph. NEVER silently no-op — a note
+      // click must always produce visible ink, so fall back to writing the
+      // raw text as plain character rows.
+      mirrored = paragraphs.map((p) => ({
+        row: [...p].map((ch) => mkChar(ch)),
+        signature: p,
+        ok: true,
+      }));
+      if (mirrored.length === 0) return null;
+    }
 
     const prev = freeLinesRef.current;
 
@@ -1216,7 +1226,9 @@ const PresentationView = ({
 
     // Idempotency: if the FIRST paragraph is already on the board with
     // the exact same signature, treat the whole note as already
-    // committed and just re-mark it as sensor-restricted.
+    // committed, re-mark it as sensor-restricted, and SCROLL to it so
+    // the teacher can SEE the existing note (it may live off-screen —
+    // a bare sensor jump with no visible ink reads as "nothing happened").
     const firstSig = mirrored[0].signature;
     for (const k of Object.keys(prev)) {
       const n = Number(k);
@@ -1228,6 +1240,7 @@ const PresentationView = ({
           ns.add(existing);
           return ns;
         });
+        requestAnimationFrame(() => scrollBoardToRow(existing));
         if (opts?.advanceSensor) {
           advanceBelow(existing + mirrored.length - 1, prev, new Set([existing]));
         }
@@ -3036,6 +3049,76 @@ const PresentationView = ({
     [notebookRowLines],
   );
 
+  /** DIRECT NOTE CHANNEL — one-to-one write from the Presenter Preview
+   *  (or the # panel's notebook icon) to the board for a SPECIFIC line.
+   *  Anchors the note under the board row owned by this line — NEVER the
+   *  sensor row, which belongs to the Floating Number workflow. A failure
+   *  in the FN system can therefore never replicate into this route.
+   *  Always produces a visible result: writes the note, or scrolls to it
+   *  when it already exists on the board. Returns the note's row. */
+  const writeNoteForLine = useCallback(
+    (lineIdx: number, text: string): number | null => {
+      const raw = (text ?? "").trim();
+      if (!raw) return null;
+      let landedRow: number | null = null;
+      const existingRow = findTextRow(raw);
+      if (existingRow != null) {
+        // Already inked (possibly far off-screen) — scroll straight to it
+        // so the teacher SEES where it lives; the idempotent writer just
+        // re-marks the row as locked and parks the sensor below.
+        scrollBoardToRow(existingRow);
+        writeProseLineOnBoard(raw, existingRow, { advanceSensor: true });
+        landedRow = existingRow;
+      } else {
+        // Anchor under the last board row owned by this line or any
+        // earlier line, so the note lands directly below its equation.
+        const owners = rowOwnersRef.current;
+        let anchor = -1;
+        for (const key of Object.keys(owners)) {
+          const r = Number(key);
+          const owner = owners[r];
+          if (typeof owner !== "number") continue;
+          if (owner <= lineIdx && r > anchor) anchor = r;
+        }
+        let targetRow: number;
+        if (anchor >= 0) {
+          targetRow = anchor + 1;
+        } else {
+          // No owned rows yet — scan from the top of the section band for
+          // the first genuinely empty row. Never fall back to the sensor.
+          let t = activeLayout ? bandStart(activeLayout) : 0;
+          for (let g = 0; g < 200; g++) {
+            const occ = getRowOccupancy(t);
+            if (occ === "empty") break;
+            t += occ === "fraction-denominator" ? 2 : 1;
+          }
+          targetRow = t;
+        }
+        landedRow = writeProseLineOnBoard(raw, targetRow, { advanceSensor: true });
+        scrollBoardToRow(landedRow ?? targetRow);
+      }
+      // Note is shown — silence the note-gate glow for this line.
+      setShownNotebookIdx((prev) => {
+        if (prev.has(lineIdx)) return prev;
+        const nx = new Set(prev);
+        nx.add(lineIdx);
+        return nx;
+      });
+      setNotebookAttentionIdx((prev) => {
+        if (!prev.has(lineIdx)) return prev;
+        const nx = new Set(prev);
+        nx.delete(lineIdx);
+        return nx;
+      });
+      return landedRow;
+    },
+    // activeLayout/bandStart are recomputed each render; refs are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [findTextRow, writeProseLineOnBoard, scrollBoardToRow, getRowOccupancy, activeLayout],
+  );
+
+
+
   /** Move the sensor to the first row that is safe to write on for this
    *  line. Skips notebook rows, existing ink, and rows covered by a tall
    *  structure above (fraction denominator). Claims the row in rowOwners
@@ -3312,6 +3395,7 @@ const PresentationView = ({
           return nx;
         }),
       writeProseLineOnBoard,
+      writeNoteForLine,
       insertTextAtSensor,
       insertFractionAtSensor,
       presentWriteAtSensor,
@@ -3353,6 +3437,7 @@ const PresentationView = ({
       notebookId,
       notebook?.title,
       writeProseLineOnBoard,
+      writeNoteForLine,
       insertTextAtSensor,
       insertFractionAtSensor,
       presentWriteAtSensor,
@@ -4356,69 +4441,11 @@ const PresentationView = ({
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
                   onWriteNotebookToBoard={(text) => {
-                    // If this note's text is ALREADY inked somewhere (e.g. a
-                    // stale copy from an earlier session, possibly far below
-                    // the view), don't silently no-op — scroll straight to it
-                    // so the teacher can SEE where it lives.
-                    const existingRow = findTextRow(text);
-                    if (existingRow != null) {
-                      scrollBoardToRow(existingRow);
-                      // Still move the sensor below the (locked) note via the
-                      // writer's idempotent path.
-                      writeProseLineOnBoard(text, existingRow, { advanceSensor: true });
-                    } else {
-                      // Anchor the note under the row owning the active line
-                      // (never the stale sensor row) so it lands directly
-                      // below the equation, not 5–10 rows down.
-                      const owners = rowOwnersRef.current;
-                      let anchor = -1;
-                      for (const key of Object.keys(owners)) {
-                        const r = Number(key);
-                        const owner = owners[r];
-                        if (typeof owner !== "number") continue;
-                        if (owner <= curLineIdx && r > anchor) anchor = r;
-                      }
-                      // Pass the target row EXPLICITLY — setSensor is async,
-                      // so writing "at the sensor" in the same click would
-                      // still use the OLD sensor row (the note then lands
-                      // wherever the cursor last was, often off-screen).
-                      // With no anchor (line's equation not written yet),
-                      // NEVER fall back to the sensor row — the teacher may
-                      // have dragged the cursor far down the board. Scan for
-                      // the first empty row from the TOP of this section's
-                      // band instead, so the note always lands right under
-                      // the section header.
-                      let targetRow: number;
-                      if (anchor >= 0) {
-                        targetRow = anchor + 1;
-                      } else {
-                        let t = activeLayout
-                          ? bandStart(activeLayout)
-                          : Math.floor(sensor.line);
-                        for (let g = 0; g < 200; g++) {
-                          const occ = getRowOccupancy(t);
-                          if (occ === "empty") break;
-                          t += occ === "fraction-denominator" ? 2 : 1;
-                        }
-                        targetRow = t;
-                      }
-                      // Note rows are locked — the writer advances the
-                      // sensor to the first empty row BELOW the note.
-                      writeProseLineOnBoard(text, targetRow, { advanceSensor: true });
-                      scrollBoardToRow(targetRow);
-                    }
-                    setShownNotebookIdx((prev) => {
-                      if (prev.has(curLineIdx)) return prev;
-                      const nx = new Set(prev);
-                      nx.add(curLineIdx);
-                      return nx;
-                    });
-                    setNotebookAttentionIdx((prev) => {
-                      if (!prev.has(curLineIdx)) return prev;
-                      const nx = new Set(prev);
-                      nx.delete(curLineIdx);
-                      return nx;
-                    });
+                    // Same direct note channel the Presenter Preview uses:
+                    // anchors under the line's own board row, writes (or
+                    // scrolls to an existing copy), locks the row, and
+                    // clears the note-gate glow. Never a silent no-op.
+                    writeNoteForLine(curLineIdx, text);
                   }}
                   onNotebookRead={markCurrentNotebookRead}
                   frozen={false}

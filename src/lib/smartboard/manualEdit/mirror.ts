@@ -115,6 +115,12 @@ export const directWrite = (target: EditTarget, ctrl: PresentationController): v
     }
     case "teacher-note": {
       if (!text) return;
+      // Direct one-to-one note channel when available — anchored under the
+      // note's own line row, independent of the sensor/FN workflow.
+      if (idx >= 0 && ctrl.writeNoteForLine) {
+        ctrl.writeNoteForLine(idx, text);
+        return;
+      }
       let row: number | undefined;
       if (idx >= 0) {
         ctrl.eraseNoteAt?.(idx);
@@ -125,7 +131,6 @@ export const directWrite = (target: EditTarget, ctrl: PresentationController): v
       ctrl.writeProseLineOnBoard(text, row, { advanceSensor: true });
       if (idx >= 0) {
         ctrl.markNotebookShown(idx);
-        ctrl.addNotebookAttention(idx);
       }
       return;
     }
@@ -209,13 +214,18 @@ export const applyMirror = async (
     return;
   }
 
-  // Teacher-note — reveal on the board and silence the note-gate glow.
-  // Notes are locked (non-editable), so the sensor advances to the first
-  // empty row BELOW the note instead of staying parked before it.
+  // Teacher-note — DIRECT one-to-one channel: Presenter Preview → board.
+  // Anchored under the note's OWN line row via writeNoteForLine, fully
+  // independent of the sensor / Floating Number workflow, so an FN
+  // failure can never replicate into this backup route.
   if (target.kind === "teacher-note" && typeof target.lineIdx === "number") {
+    if (text && ctrl.writeNoteForLine) {
+      ctrl.writeNoteForLine(target.lineIdx, text);
+      return;
+    }
+    // Legacy fallback (older controllers without the direct channel).
     if (text) ctrl.writeProseLineOnBoard(text, undefined, { advanceSensor: true });
     ctrl.markNotebookShown?.(target.lineIdx);
-    ctrl.addNotebookAttention?.(target.lineIdx);
     return;
   }
 
