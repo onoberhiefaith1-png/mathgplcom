@@ -3094,16 +3094,18 @@ const PresentationView = ({
   // uses this so clearing before a mirror never knocks the section back
   // to beat 0 (which made note/line lookups read the wrong reservoir).
   const clearInkOnly = useCallback(() => {
-    setFreeLines({});
+    // No-op-safe: keep the same state references when already empty so
+    // a repeated clear can never trigger an update storm.
+    setFreeLines((p) => (Object.keys(p).length === 0 ? p : {}));
     lineWidthsRef.current = {};
-    setSensor({ line: 0, x: 0 });
+    setSensor((p) => (p.line === 0 && p.x === 0 ? p : { line: 0, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
-    setShownNotebookIdx(new Set());
-    setNotebookAttentionIdx(new Set());
-    setConsumedAbsIdx(new Set());
-    setNotebookRowLines(new Set());
+    setShownNotebookIdx((p) => (p.size === 0 ? p : new Set()));
+    setNotebookAttentionIdx((p) => (p.size === 0 ? p : new Set()));
+    setConsumedAbsIdx((p) => (p.size === 0 ? p : new Set()));
+    setNotebookRowLines((p) => (p.size === 0 ? p : new Set()));
     rowOwnersRef.current = {};
-    setRowOwners({});
+    setRowOwners((p) => (Object.keys(p).length === 0 ? p : {}));
   }, [setLiveCursor]);
 
   // Wipe the Smartboard so Autoplay starts from a blank surface. Mirrors
