@@ -1045,6 +1045,10 @@ const PresentationView = ({
     return true;
   };
 
+  // Keep the live-dispatch refs pointing at THIS render's closures.
+  editActiveRef.current = editActive;
+  insertIntoActiveBoxRef.current = insertIntoActiveBox;
+
   const insertCharAtSensor = (ch: string, mode: "mid" | "top" | "bot" = "mid") => {
     if (mode === "mid" && insertIntoActiveBox(ch)) return;
     editActive((row, c) => {
