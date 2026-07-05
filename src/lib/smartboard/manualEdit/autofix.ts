@@ -8,10 +8,16 @@
 //            the correct reservoir, re-apply.
 //   Step 3 — Direct write: bypass all lookups and write the preview's
 //            own captured text straight onto the board.
-//   Step 4 — Board reset + rewrite: clear ink fully, direct-write again.
+//   Step 4 — Ink clear + full rewrite: clear ink, restore every earlier
+//            line (floating numbers as-is, then notes), direct-write
+//            the item again.
 //
-// The information is already in the Presenter Preview, so by step 3/4
-// there is no remaining reason for it not to show.
+// Additionally, BEFORE mirroring the clicked item, every EARLIER line
+// of the same section is checked and any missing content is forced
+// onto the board: floating numbers first (written exactly as they are,
+// never solved), then the teacher note. The Presenter Preview is the
+// source of truth, so once an item verifies ✓ it is on the board and
+// playback can count on it.
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import type { EditTarget, MirrorResult, MirrorUiStatus } from "./types";
@@ -28,6 +34,63 @@ import {
 const TOTAL_STEPS = 4;
 
 export type MirrorProgress = Omit<MirrorUiStatus, "key">;
+
+/** Kinds that live inside a solution section and have "earlier lines". */
+const LINE_SCOPED: ReadonlySet<string> = new Set([
+  "solution-line",
+  "floating-number",
+  "teacher-note",
+]);
+
+/**
+ * Walk every line BEFORE the clicked one and force any missing content
+ * onto the board: floating numbers first (as-is, unsolved), then the
+ * teacher note. Additive — lines already on the board are untouched.
+ */
+export const ensurePriorLines = async (
+  target: EditTarget,
+  ctrl: PresentationController,
+  onProgress?: (p: MirrorProgress) => void,
+): Promise<void> => {
+  if (!LINE_SCOPED.has(target.kind)) return;
+  const idx = li(target);
+  if (idx <= 0) return;
+
+  const lines = ctrl.getActiveGuidedLines();
+  for (let i = 0; i < idx && i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+
+    // 1) The line's own content — floating numbers written exactly as
+    //    they are (never solved), or the plain equation.
+    const fillers = line.fillers ?? [];
+    const eq = (line.equation ?? "").trim();
+    const hasRow =
+      !!ctrl.getBoardRowSignatureFor(i) ||
+      (!!eq && (ctrl.boardHasTextRow?.(eq) ?? false));
+    if (!hasRow && (fillers.length > 0 || eq)) {
+      onProgress?.({ phase: "applying", label: `Restoring line ${i + 1}…` });
+      ctrl.setActiveLineIdx(i);
+      ctrl.moveSensorToSafeRow?.(i);
+      if (fillers.length > 0) ctrl.writeEquationPrefix(i, fillers.length);
+      else if (eq) ctrl.writeProseLineOnBoard(eq);
+      await wait(90);
+    }
+
+    // 2) The line's teacher note.
+    const note = (line.notebook ?? "").trim();
+    if (note && ctrl.boardHasTextRow && !ctrl.boardHasTextRow(note)) {
+      onProgress?.({ phase: "applying", label: `Restoring note ${i + 1}…` });
+      ctrl.setActiveLineIdx(i);
+      ctrl.eraseNoteAt?.(i);
+      ctrl.moveSensorToSafeRow?.(i);
+      ctrl.writeProseLineOnBoard(note);
+      ctrl.markNotebookShown(i);
+      await wait(90);
+    }
+  }
+  ctrl.setActiveLineIdx(idx);
+};
 
 /** Verify after a DIRECT write — success = the preview's exact text is on the board. */
 const verifyDirect = (target: EditTarget, ctrl: PresentationController): MirrorResult => {
@@ -58,7 +121,13 @@ export const runMirrorWithAutofix = async (
 ): Promise<MirrorResult> => {
   onProgress?.({ phase: "applying", label: "Mirroring…" });
 
-  // Initial 1:1 mirror.
+  // Point at the right section, then make sure every EARLIER line of
+  // this section is already on the board (floating numbers, notes).
+  await waitForBeat(target, ctrl);
+  await ensurePriorLines(target, ctrl, onProgress);
+
+  // Initial 1:1 mirror of the clicked item.
+  onProgress?.({ phase: "applying", label: "Mirroring…" });
   await applyMirror(target, ctrl);
   await wait(140);
   let r = verifyMirror(target, ctrl);
@@ -117,15 +186,16 @@ export const runMirrorWithAutofix = async (
     return { ...r, message: `${r.message} (fixed on step 3)` };
   }
 
-  // ── Step 4: full ink clear + rewrite from preview text ───────────
+  // ── Step 4: ink clear + full section rewrite from preview text ───
   onProgress?.({
     phase: "fixing",
     step: 4,
     totalSteps: TOTAL_STEPS,
-    label: "Fixing… step 4/4 — clearing board and rewriting",
+    label: "Fixing… step 4/4 — clearing ink and rewriting",
   });
   clearInk(ctrl);
   await wait(160);
+  await ensurePriorLines(target, ctrl, onProgress);
   directWrite(target, ctrl);
   await wait(220);
   r = verifyDirect(target, ctrl);
