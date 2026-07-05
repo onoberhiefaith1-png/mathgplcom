@@ -1937,10 +1937,10 @@ const PresentationView = ({
   const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
   const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
 
-  // Persist "notebook already shown" per reservoir across reloads so the
-  // teacher is never re-prompted to insert a notebook that's already on the
-  // board.
-  const SHOWN_NB_KEY = `smartboard:shownNotebooks:${notebookId ?? "_"}:${activeReservoirIdx}`;
+  // The "notebook shown" set is SESSION-ONLY. It used to be persisted in
+  // localStorage, which let stale "already clicked" flags from old sessions
+  // (auto-write era) silently satisfy the note gate forever — the line-1
+  // "never glows" bug. The gate below now checks the BOARD live instead.
 
   // Reset composer state every time the active example changes. We do NOT
   // force activeLineIdx back to 0: the resume effect below will scan the
@@ -1963,16 +1963,19 @@ const PresentationView = ({
     setManualFloatingLineIdx(null);
     setNotebookRevealIdx(null);
     setNotebookAttentionIdx(new Set());
-    // Hydrate persisted "notebook shown" set for this reservoir.
-    let restored: Set<number> = new Set();
+    // Purge legacy persisted "notebook shown" flags — they must never
+    // pre-satisfy the note gate again. Fresh session, fresh gates.
     try {
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem(SHOWN_NB_KEY) : null;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) restored = new Set(parsed.filter((n: unknown) => typeof n === "number"));
+      if (typeof window !== "undefined") {
+        const stale: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith("smartboard:shownNotebooks:")) stale.push(key);
+        }
+        stale.forEach((k) => window.localStorage.removeItem(k));
       }
     } catch { /* noop */ }
-    setShownNotebookIdx(restored);
+    setShownNotebookIdx(new Set());
     setConsumedAbsIdx(new Set());
     setConsumedStructures(new Set());
     setNotebookRowLines(new Set());
