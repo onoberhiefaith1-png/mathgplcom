@@ -4234,7 +4234,7 @@ const PresentationView = ({
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
             const currentNotebookText = notebookFor(curLineIdx);
-            const currentNotebookPending = currentNotebookText.length > 0 && !shownNotebookIdx.has(curLineIdx);
+            const currentNotebookPending = currentNotebookText.length > 0 && !boardHasTextRow(currentNotebookText);
             const revealNotebookText =
               notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : currentNotebookText;
             const markCurrentNotebookRead = () => {
