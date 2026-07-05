@@ -3033,10 +3033,14 @@ const PresentationView = ({
       const hasInk = (!!whole && whole.length > 0) || (!!half && half.length > 0);
       if (notebookRowLines.has(row)) return "note";
       // Tall structures upstream cover this row (denominator zone).
+      // Half-row ink (sensor parked on n.5) counts via its floor row —
+      // skipping fractional keys made tall fractions typed on half rows
+      // invisible here, letting notes land inside their footprint.
       for (const key of Object.keys(rows)) {
-        const src = Number(key);
-        if (!Number.isInteger(src) || src >= row) continue;
-        const r = rows[src];
+        const srcRaw = Number(key);
+        const src = Math.floor(srcRaw);
+        if (src >= row) continue;
+        const r = rows[srcRaw];
         if (!r || r.length === 0) continue;
         if (rowHasTallStructure(r) && src + extraRowsFor(src) >= row) {
           return "fraction-denominator";
