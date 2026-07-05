@@ -1,48 +1,66 @@
-## Present writes must land as live sensor ink, not dead notebook rows
+## Present clicks silently no-op because the sensor is on a locked/notebook row
 
 ### What's happening
-`writeProseLineOnBoard` (used by Present) commits the text as a **notebook row** — it's added to `notebookRowLines`, which is a sensor-restricted, locked-ink row: no cursor, not editable, no ability to add more ink or move around inside it. That's the "dead cell" you're seeing.
+`insertTextAtSensor` writes into whatever row `sensor.line` currently points at, via `editActive`. `editActive` has two silent‑swallow gates:
 
-The Floating Number chip path uses a completely different route: `insertTextAtSensor(text)`, which mirrors the text through the same lesson-note pipeline and then inserts each node into the **currently active sensor row** via `editActive` — same route as typing on a keyboard. That's why the floating-number one is alive: cursor inside, editable, further ink can be added.
+1. `notebookRowLines.has(floor(sensor.line))` — sensor is parked on a locked prose/notebook row → return without writing.
+2. `isLockedInkRow(sensor.line)` — sensor is on a completed earlier line → return without writing.
 
-### Fix — route Present through the same live path as floating chips
+On the earlier Present run those "dead cells" were `writeProseLineOnBoard` rows and got added to `notebookRowLines`. When the teacher clicks Present again, the sensor is still parked on one of those rows, so `editActive` silently swallows every click. That's why the status badge shows "✓ Written" (the mirror function ran) but nothing appears on the board.
+
+### Fix — Present always writes on its own fresh writable row
+
+Add one controller method that guarantees a live editable row before inserting, and route Present through it. Floating‑Number chip behaviour is untouched.
 
 **1. `src/components/smartboard/PresentationView.tsx`**
-Expose the already-existing local `insertTextAtSensor` on the controller memo (add it to the returned object and to the deps array). Wrap it in a `useCallback` so its identity is stable.
+Add a new `useCallback`:
+```ts
+const presentWriteAtSensor = useCallback((text: string) => {
+  if (!text.trim()) return;
+  // Snap the sensor to the first empty writable row below all ink,
+  // skipping notebook-locked and locked-ink rows. This is what makes
+  // every Present click land as LIVE, editable ink.
+  const L = activeLayout;
+  if (L) {
+    const a = bandStart(L), b = bandEnd(L);
+    const li = lastVisibleInkRow(L);
+    let t = li >= a ? nextSensorRowBelow(li) : a;
+    while (t <= b && (
+      notebookRowLines.has(t) ||
+      isLockedInkRow(t) ||
+      !isEmptyWritableRow(t, L)
+    )) t++;
+    if (t <= b) setSensor((s) => (s.line === t ? s : { ...s, line: t, x: 0 }));
+  }
+  insertTextAtSensor(text);
+}, [activeLayout, notebookRowLines, insertTextAtSensor]);
+```
+Expose it on the controller memo (add `presentWriteAtSensor` to returned object + deps).
 
 **2. `src/lib/smartboard/presentationAI/controller.ts`**
-Add one optional method to the `PresentationController` interface:
+Add:
 ```ts
-/** Insert text into the ACTIVE sensor row — same route as tapping a
- *  Floating Number chip. Result is live/editable, cursor stays inside. */
-insertTextAtSensor?: (text: string) => void;
+/** Present-mode write: snaps sensor to next free live row, then
+ *  inserts via the same route as a Floating Number chip. Result is
+ *  live/editable and never lands on a locked/notebook row. */
+presentWriteAtSensor?: (text: string) => void;
 ```
 
 **3. `src/lib/smartboard/manualEdit/mirror.ts` — `applyMirror`**
-Switch the write call:
+Prefer the new method; fall back to the previous ones so nothing else breaks:
 ```ts
-const text = (target.text ?? target.caption ?? "").trim();
-if (!text) return;
-if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
+if (ctrl.presentWriteAtSensor) ctrl.presentWriteAtSensor(text);
+else if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
 else ctrl.writeProseLineOnBoard(text);
 ```
-Everything else stays: teacher-note kind still marks the note-gate as satisfied so the glow stops.
 
-### Effect on each click
-- Cover / section / question / subsection captions → written into the active sensor row, sensor moves inside the text like normal typing. Teacher can keep adding to the same line, or move sensor down and click the next preview item.
-- Chip (`5x`, `x²`, `−(5)`, `√(b²−4ac)`, `2a`) → inserted at the current cursor position inside the active sensor row, exactly like tapping a Floating Number chip. Live, editable.
-- Teacher note → also written live; teacher can then move the sensor down and continue.
-
-### Not changed
-- Normal mode.
-- Floating Number workflow — completely untouched, runs in parallel.
-- No board clearing on entering/leaving Present.
-- Hidden equation lines inside Solution in Present mode (from prior turn).
-- No verification, no autofix — still a pure second writer.
+### Result per click
+- The sensor advances to the next empty writable row (below all existing ink, past any locked/notebook rows).
+- Text is inserted through the live `editActive` path — cursor lands inside, row is editable, teacher can add more, backspace, etc.
+- Multiple Present clicks accumulate as consecutive live rows (matching the "S = fraction, S = fraction" pattern you saw before, but now live not dead).
+- No board clearing. Floating Numbers still work in parallel. No verify, no autofix.
 
 ### Files touched
-- `src/components/smartboard/PresentationView.tsx` (add `insertTextAtSensor` to controller + deps, wrap in `useCallback`)
-- `src/lib/smartboard/presentationAI/controller.ts` (interface line)
-- `src/lib/smartboard/manualEdit/mirror.ts` (call the live inserter)
-
-Three small, surgical edits. No other file needs to change.
+- `src/components/smartboard/PresentationView.tsx` — one new `useCallback`, one controller field, one deps entry.
+- `src/lib/smartboard/presentationAI/controller.ts` — one optional method on the interface.
+- `src/lib/smartboard/manualEdit/mirror.ts` — swap the call site.

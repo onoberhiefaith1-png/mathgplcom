@@ -175,9 +175,11 @@ export const applyMirror = async (
 ): Promise<void> => {
   const text = (target.text ?? target.caption ?? "").trim();
   if (!text) return;
-  // Live sensor route — same path as tapping a Floating Number chip.
-  // Falls back to the prose writer only if the host hasn't exposed it.
-  if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
+  // Present-mode write: snaps sensor to next free live row, then inserts
+  // via the same route as a Floating Number chip. Falls back progressively
+  // so nothing else breaks.
+  if (ctrl.presentWriteAtSensor) ctrl.presentWriteAtSensor(text);
+  else if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
   else ctrl.writeProseLineOnBoard(text);
   // Teacher notes: silence the note-gate glow after a manual placement.
   if (target.kind === "teacher-note" && typeof target.lineIdx === "number") {

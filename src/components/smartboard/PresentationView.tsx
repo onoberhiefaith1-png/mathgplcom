@@ -1122,6 +1122,33 @@ const PresentationView = ({
     });
   }, []);
 
+  /** Present-mode write: snaps the sensor to the next empty writable row
+   *  below all existing ink — skipping notebook-locked and locked-ink rows —
+   *  then inserts through the same live route as a Floating Number chip.
+   *  Guarantees the write lands as live, editable ink instead of silently
+   *  being swallowed by `editActive`'s locked-row gates. */
+  const presentWriteAtSensor = useCallback((text: string) => {
+    if (!text.trim()) return;
+    const L = activeLayout;
+    if (L) {
+      const a = bandStart(L);
+      const b = bandEnd(L);
+      const li = lastVisibleInkRow(L);
+      let t = li >= a ? nextSensorRowBelow(li) : a;
+      while (
+        t <= b &&
+        (notebookRowLines.has(t) || isLockedInkRow(t) || !isEmptyWritableRow(t, L))
+      ) {
+        t++;
+      }
+      if (t <= b) {
+        setSensor((s) => (s.line === t ? s : { ...s, line: t, x: 0 }));
+      }
+    }
+    insertTextAtSensor(text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notebookRowLines, insertTextAtSensor]);
+
   /** Write a Lesson Note prose block onto the board as its own line, placed
    *  below the last currently-written line.
    *
@@ -3227,6 +3254,7 @@ const PresentationView = ({
         }),
       writeProseLineOnBoard,
       insertTextAtSensor,
+      presentWriteAtSensor,
       addNotebookAttention: (i: number) =>
         setNotebookAttentionIdx((p) => {
           if (p.has(i)) return p;
@@ -3266,6 +3294,7 @@ const PresentationView = ({
       notebook?.title,
       writeProseLineOnBoard,
       insertTextAtSensor,
+      presentWriteAtSensor,
       writeEquationPrefix,
       getBoardRowSignatureFor,
       getExpectedRowSignatureFor,
