@@ -1017,35 +1017,14 @@ const PresentationView = ({
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
   ) => {
     const line = sensor.line;
-    // Notebook-prose rows are sensor-restricted: they render auto-generated
-    // narration ("The quadratic formula is:") and must never be editable.
-    // The sensor must also never settle on one — if it has, swallow the
-    // edit. This is the partner of the click-gate on FreeWriteLayer below.
+    // Notebook-prose rows render auto-generated narration and are the only
+    // rows that stay non-writable. Every other row — including "locked-ink"
+    // rows — must honour the teacher's sensor position exactly. The silent
+    // relocation that used to jump writes to another row is removed: it
+    // caused keystrokes and Floating-Number chip taps to appear "somewhere
+    // else" instead of where the sensor was placed.
     const floorLine = Math.floor(line);
     if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
-      hiddenInputRef.current?.focus({ preventScroll: true });
-      return;
-    }
-    // LAW 2 — Locked-Ink Rule: a completed earlier line can never be
-    // replaced by a new write. If the sensor is still parked on one of
-    // its rows (e.g. the lower row of a fraction), relocate the write to
-    // the first empty row below the last ink instead of destroying it.
-    if (isLockedInkRow(line)) {
-      const t = relocatedWriteRow();
-      if (t === null) {
-        hiddenInputRef.current?.focus({ preventScroll: true });
-        return;
-      }
-      setSensor((s) => (s.line === t ? s : { ...s, line: t, x: 0 }));
-      setFreeLines((prev) => {
-        const row = prev[t] ?? [];
-        const res = fn(row, { path: [], index: row.length });
-        setLiveCursor(res.cursor);
-        const next = { ...prev };
-        if (res.root.length === 0) delete next[t];
-        else next[t] = res.root;
-        return next;
-      });
       hiddenInputRef.current?.focus({ preventScroll: true });
       return;
     }
