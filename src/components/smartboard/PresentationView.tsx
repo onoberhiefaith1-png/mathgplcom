@@ -4270,7 +4270,7 @@ const PresentationView = ({
                   notebookPending={
                     hasGuidedLines &&
                     notebookFor(curLineIdx).length > 0 &&
-                    !shownNotebookIdx.has(curLineIdx) &&
+                    !boardHasTextRow(notebookFor(curLineIdx)) &&
                     notebookAttentionIdx.has(curLineIdx)
                   }
                 />
