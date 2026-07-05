@@ -1,76 +1,64 @@
-## Typing lands somewhere other than the sensor — restore literal sensor writes and bring back the manual sensor rail
+## Route Present chip clicks through the exact Floating‑Number Panel path
 
-### Root causes
+### The divergence
 
-1. **`editActive` silently relocates writes.** When `sensor.line` sits on a "locked-ink" row (a completed earlier lesson line), `editActive` calls `relocatedWriteRow()` and (a) moves the sensor to that other row and (b) writes there. So any keystroke or Floating‑Number chip lands "somewhere else" instead of where the teacher parked the sensor. This is happening across the board — keyboard, chips, everything that funnels through `editActive`.
-2. **The left‑rail sensor up/down control was removed in the previous turn.** The middle‑of‑board arrows the user saw are the *board scroll* arrows, not sensor movers. With the rail gone, teachers can't reposition the sensor manually, so once it lands on a bad row they have no recovery.
+Two chip paths that should be identical are wired differently:
 
-### Fix
+| Path | What it calls | Where the chip lands |
+| --- | --- | --- |
+| Floating‑Number Panel tap | `onInsert → insertTextAtSensor(text)` or `onInsertFrac → insertFractionAtSensor(parts)` | The **current sensor row**, at the cursor, inserted as a real math tree (fractions get real numerator/denominator magnet boxes). |
+| Present‑mode chip click (current) | `ctrl.pickFloatingNumber(lineIdx, fillerIdx)` → `pickFloatingNumberReal` | A **line‑owned row** decided by the guided line's owner map; the chip is appended as a flat mirror row without magnet boxes. |
 
-**`src/components/smartboard/PresentationView.tsx` — `editActive`**
+Result: a `x = □/□` chip placed via Present produces an ink structure whose boxes aren't the same magnet‑box tree the panel builds, so typing/clicking into those boxes gets rejected — "the sensor keeps getting pushed out." A chip placed via the panel builds proper magnet boxes and typing lands inside.
 
-Remove the silent relocation. Writes always land at `sensor.line`. The only remaining gate is notebook‑prose rows (auto‑generated narration like "The quadratic formula is:"), which still swallow the write — those rows are structural, not writable. Locked‑ink rows lose their auto‑relocation.
+### Fix — one call path for chip taps
 
-Replace the body (roughly lines 1015–1062) with:
+`src/lib/smartboard/manualEdit/mirror.ts` — in `applyMirror`, replace the `floating-number` branch with the panel's own logic:
 
 ```ts
-const editActive = (
-  fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
-) => {
-  const line = sensor.line;
-  // Notebook-prose rows render auto-generated narration and are the only
-  // rows that stay non-writable. Every other row — including "locked-ink"
-  // rows — must honour the teacher's sensor position exactly.
-  const floorLine = Math.floor(line);
-  if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
-    hiddenInputRef.current?.focus({ preventScroll: true });
+if (target.kind === "floating-number") {
+  const label = (target.text ?? "").trim();
+  if (!label) return;
+  const frac = parseFractionChip(label);
+  if (frac && ctrl.insertFractionAtSensor) {
+    ctrl.insertFractionAtSensor(frac);
     return;
   }
-  setFreeLines((prev) => {
-    const row = prev[line] ?? [];
-    const res = fn(row, cursorRef.current);
-    setLiveCursor(res.cursor);
-    const next = { ...prev };
-    if (res.root.length === 0) delete next[line];
-    else next[line] = res.root;
-    return next;
-  });
-  hiddenInputRef.current?.focus({ preventScroll: true });
-};
+  // Panel wraps operator chips in spaces — parity.
+  const op = /^[+\-−×÷=]/.test(label);
+  const text = op ? ` ${label} ` : label;
+  if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
+  return;
+}
 ```
 
-Effect: keyboard typing, Floating‑Number chip taps (via `onInsert → insertTextAtSensor`), and every other route into `editActive` now write exactly where the sensor is. Teacher owns the placement.
+- Import `parseFractionChip` from `@/components/smartboard/FloatingNumberPanel` at the top of `mirror.ts`.
+- Drop the `pickFloatingNumber` call for chip taps entirely. (Leave the method on the controller — AI autoplay may still use it, but Present no longer does.)
 
-**Restore the manual sensor rail**
+`src/lib/smartboard/presentationAI/controller.ts` — expose the fraction inserter:
 
-Put the `CursorScrollbar` block back near line 4926 (the location it used to occupy):
-
-```tsx
-{canEdit && carrierVisible && (
-  <CursorScrollbar
-    onUp={() => moveSensorUp(1)}
-    onDown={() => moveSensorDown(1)}
-    canUp={canCursorUp}
-    canDown={canCursorDown}
-    chromeBg={palette.chromeBg}
-    chromeFg={palette.chromeFg}
-    chromeBorder={palette.chromeBorder}
-    leftPx={12}
-    topCss="50%"
-  />
-)}
+```ts
+/** Insert a fraction at the ACTIVE sensor — same route as the Floating
+ *  Number panel's fraction chip tap. */
+insertFractionAtSensor?: (parts: { sign: string; num: string; den: string }) => void;
 ```
 
-The import at the top of the file is still present, so no other change is needed.
+`src/components/smartboard/PresentationView.tsx` — controller memo: add
+```ts
+insertFractionAtSensor,
+```
+to the returned object and its dep array (right next to `insertTextAtSensor`). No new logic — the function already exists at line ~1252.
 
 ### What stays untouched
-- `applyMirror` — Present clicks still drive the beat cursor / floating panel / note reveal.
-- `pickFloatingNumberReal` — still places floating‑number chips onto the guided line's owned row (that path never touched `editActive`).
-- Notebook‑prose row protection.
-- Everything about Normal mode, verify, autofix, board clearing.
+- `pickFloatingNumberReal`, its owner‑row placement, its use by AI autoplay.
+- Beat‑cursor navigation for cover / section / subsection / question clicks (Next parity).
+- Teacher‑note reveal path.
+- Sensor writing path — `editActive` still writes literally at `sensor.line`.
+- The Floating Number panel itself.
 
 ### Result
-- Sensor sits at row R → typing appends at row R.
-- Floating‑Number chip tap → chip inserts at row R (sensor row).
-- Sensor visibly moves only when the teacher taps the left‑rail arrow buttons (or one of the other explicit sensor moves).
-- Silent jump‑to‑another‑row is gone.
+Clicking `x = □/□` in Present mode is now byte‑identical to tapping the same chip in the # panel:
+- Fraction chip → `insertFractionAtSensor` inserts a real fraction node with empty magnet boxes, sensor lands inside.
+- Non‑fraction chip → `insertTextAtSensor` inserts the tokens at the cursor.
+- Subsequent chips / typing enter the magnet boxes normally, no more "sensor pushed out."
+- Teacher can build any structure in either panel or Present with the same behaviour.
