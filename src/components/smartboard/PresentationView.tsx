@@ -2884,6 +2884,26 @@ const PresentationView = ({
     return false;
   }, []);
 
+  // Like boardHasTextRow, but returns WHICH row holds the text (or null).
+  // Used by the note-click handler to scroll to an already-inked note
+  // instead of silently doing nothing.
+  const findTextRow = useCallback((text: string): number | null => {
+    const raw = (text ?? "").trim();
+    if (!raw) return null;
+    const m = mirrorLessonNoteRow(raw);
+    if (!m.ok) return null;
+    const expected = m.signature;
+    const rows = freeLinesRef.current;
+    for (const key of Object.keys(rows)) {
+      const ink = rows[Number(key) as unknown as number];
+      if (!ink || ink.length === 0) continue;
+      if (rowSignature(ink) === expected) return Math.floor(Number(key));
+    }
+    return null;
+  }, []);
+
+
+
   const scrollBoardTo = useCallback((lineIdx: number) => {
     setActiveLineIdx(lineIdx);
     // Bring the row physically into view. If we already own a board row
