@@ -3395,6 +3395,7 @@ const PresentationView = ({
           return nx;
         }),
       writeProseLineOnBoard,
+      writeNoteForLine,
       insertTextAtSensor,
       insertFractionAtSensor,
       presentWriteAtSensor,
