@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   StickyNote,
-  Pencil,
+  // Pencil removed — Present mode uses Sparkles icon.
   Check,
   EyeOff,
   Eye,
@@ -512,7 +512,7 @@ const PresenterPreviewPanel = ({
         style={{ borderColor: "rgba(138,106,31,0.2)", background: "rgba(255,255,255,0.6)" }}
       >
         <p className="text-[10px] uppercase tracking-widest" style={{ color: ACCENT }}>
-          {mode === "edit" ? "Edit mode — select any item" : "Normal mode"}
+          {mode === "edit" ? "Present mode — click any item to send it to the Smartboard" : "Normal mode"}
         </p>
         <button
           onClick={() => setMode((m) => (m === "edit" ? "normal" : "edit"))}
@@ -529,7 +529,7 @@ const PresenterPreviewPanel = ({
             </>
           ) : (
             <>
-              <Pencil className="h-3.5 w-3.5" /> Edit
+              <Sparkles className="h-3.5 w-3.5" /> Present
             </>
           )}
         </button>
@@ -698,6 +698,7 @@ const PresenterPreviewPanel = ({
                       key={k}
                       ref={setLineRef(lineKey)}
                       onClick={(e) => {
+                        if (mode === "edit") return; // Present mode: line-level click is disabled — chips/notes carry their own handlers.
                         e.stopPropagation();
                         selectTarget(lineTarget);
                       }}
@@ -717,7 +718,7 @@ const PresenterPreviewPanel = ({
                           : lineActive
                           ? HIGHLIGHT_SHADOW
                           : "none",
-                        ...editableOutline,
+                        ...(mode === "edit" ? {} : editableOutline),
                       }}
                     >
                       <div
@@ -726,7 +727,7 @@ const PresenterPreviewPanel = ({
                       >
                         Line {k + 1}
                       </div>
-                      {!line.notebookOnly && eq && (
+                      {mode === "normal" && !line.notebookOnly && eq && (
                         <div className="flex items-center gap-3 flex-wrap">
                           <HighlightBox>
                             <span className="text-lg">
@@ -809,7 +810,7 @@ const PresenterPreviewPanel = ({
                             </div>
                           );
                         })()}
-                      <AiEditButton target={lineTarget} />
+                      {mode === "normal" && <AiEditButton target={lineTarget} />}
                     </div>
                   );
                 })}
