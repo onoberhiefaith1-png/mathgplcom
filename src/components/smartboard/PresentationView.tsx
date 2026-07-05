@@ -4229,7 +4229,13 @@ const PresentationView = ({
           {/* Invisible-grid free-writing overlay. Filtered to lines that
               fall inside some beat's writable band, so solution ink can
               never bleed above the section line into the cover / previous
-              sessions. */}
+              sessions. Wrapped in PlaceholderModeProvider="blend" so idle
+              empty sub-slots (fraction num/den, √ radicand, exponents,
+              matrix cells) render invisibly on the smartboard writing
+              surface while remaining structural + tappable. Panels and
+              previews outside this subtree stay on the default "visible"
+              mode and keep the full-strength black placeholder cube. */}
+          <PlaceholderModeProvider value="blend">
           <FreeWriteLayer
             lines={visibleFreeLines}
             offsets={lineOffsets}
@@ -4260,6 +4266,8 @@ const PresentationView = ({
               hiddenInputRef.current?.focus({ preventScroll: true });
             }}
           />
+          </PlaceholderModeProvider>
+
 
 
 
