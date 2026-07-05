@@ -4185,9 +4185,16 @@ const PresentationView = ({
                 setManualFloatingLineIdx(k);
                 return;
               }
+              // STRICT CLICK-GATE: if this line has a note that has not
+              // been clicked yet (or its ink was erased so it's re-armed),
+              // block Next and glow the note icon.
               const pending = notebookFor(curLineIdx);
-              if (pending && !boardHasTextRow(pending)) {
+              const noteClicked =
+                pending.length === 0 ||
+                (shownNotebookIdx.has(curLineIdx) && boardHasTextRow(pending));
+              if (!noteClicked) {
                 setNotebookAttentionIdx((prev) => {
+                  if (prev.has(curLineIdx)) return prev;
                   const next = new Set(prev);
                   next.add(curLineIdx);
                   return next;
@@ -4198,7 +4205,9 @@ const PresentationView = ({
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
             const currentNotebookText = notebookFor(curLineIdx);
-            const currentNotebookPending = currentNotebookText.length > 0 && !boardHasTextRow(currentNotebookText);
+            const currentNotebookPending =
+              currentNotebookText.length > 0 &&
+              (!shownNotebookIdx.has(curLineIdx) || !boardHasTextRow(currentNotebookText));
             const revealNotebookText =
               notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : currentNotebookText;
             const markCurrentNotebookRead = () => {
