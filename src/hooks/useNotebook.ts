@@ -78,6 +78,17 @@ export const SECTION_LABEL: Record<SectionKind, string> = {
 const NUMBERED_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework"];
 export const isNumberedKind = (k: SectionKind) => NUMBERED_KINDS.includes(k);
 
+// The on-open Lesson-Note → Smartboard sync DELETES and RECREATES the
+// notebook_sections/subsections rows (new IDs every run). When two hook
+// instances (Smartboard + Presenter Preview) each ran their own sync,
+// they raced each other and each side ended up holding a DIFFERENT
+// generation of section IDs — so the preview's items could never be
+// found among the board's beats ("work / no work"). Share ONE sync per
+// notebook per session and have every instance reload after it settles
+// so all consumers converge on the same generation of IDs.
+const onOpenSyncPromises = new Map<string, Promise<unknown>>();
+
+
 export function useNotebook(notebookId: string | undefined) {
   const [notebook, setNotebook] = useState<NotebookRow | null>(null);
   const [sections, setSections] = useState<SectionRow[]>([]);
