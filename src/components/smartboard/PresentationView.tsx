@@ -3049,6 +3049,76 @@ const PresentationView = ({
     [notebookRowLines],
   );
 
+  /** DIRECT NOTE CHANNEL — one-to-one write from the Presenter Preview
+   *  (or the # panel's notebook icon) to the board for a SPECIFIC line.
+   *  Anchors the note under the board row owned by this line — NEVER the
+   *  sensor row, which belongs to the Floating Number workflow. A failure
+   *  in the FN system can therefore never replicate into this route.
+   *  Always produces a visible result: writes the note, or scrolls to it
+   *  when it already exists on the board. Returns the note's row. */
+  const writeNoteForLine = useCallback(
+    (lineIdx: number, text: string): number | null => {
+      const raw = (text ?? "").trim();
+      if (!raw) return null;
+      let landedRow: number | null = null;
+      const existingRow = findTextRow(raw);
+      if (existingRow != null) {
+        // Already inked (possibly far off-screen) — scroll straight to it
+        // so the teacher SEES where it lives; the idempotent writer just
+        // re-marks the row as locked and parks the sensor below.
+        scrollBoardToRow(existingRow);
+        writeProseLineOnBoard(raw, existingRow, { advanceSensor: true });
+        landedRow = existingRow;
+      } else {
+        // Anchor under the last board row owned by this line or any
+        // earlier line, so the note lands directly below its equation.
+        const owners = rowOwnersRef.current;
+        let anchor = -1;
+        for (const key of Object.keys(owners)) {
+          const r = Number(key);
+          const owner = owners[r];
+          if (typeof owner !== "number") continue;
+          if (owner <= lineIdx && r > anchor) anchor = r;
+        }
+        let targetRow: number;
+        if (anchor >= 0) {
+          targetRow = anchor + 1;
+        } else {
+          // No owned rows yet — scan from the top of the section band for
+          // the first genuinely empty row. Never fall back to the sensor.
+          let t = activeLayout ? bandStart(activeLayout) : 0;
+          for (let g = 0; g < 200; g++) {
+            const occ = getRowOccupancy(t);
+            if (occ === "empty") break;
+            t += occ === "fraction-denominator" ? 2 : 1;
+          }
+          targetRow = t;
+        }
+        landedRow = writeProseLineOnBoard(raw, targetRow, { advanceSensor: true });
+        scrollBoardToRow(landedRow ?? targetRow);
+      }
+      // Note is shown — silence the note-gate glow for this line.
+      setShownNotebookIdx((prev) => {
+        if (prev.has(lineIdx)) return prev;
+        const nx = new Set(prev);
+        nx.add(lineIdx);
+        return nx;
+      });
+      setNotebookAttentionIdx((prev) => {
+        if (!prev.has(lineIdx)) return prev;
+        const nx = new Set(prev);
+        nx.delete(lineIdx);
+        return nx;
+      });
+      return landedRow;
+    },
+    // activeLayout/bandStart are recomputed each render; refs are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [findTextRow, writeProseLineOnBoard, scrollBoardToRow, getRowOccupancy, activeLayout],
+  );
+
+
+
   /** Move the sensor to the first row that is safe to write on for this
    *  line. Skips notebook rows, existing ink, and rows covered by a tall
    *  structure above (fraction denominator). Claims the row in rowOwners
