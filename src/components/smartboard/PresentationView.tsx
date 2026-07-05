@@ -2405,15 +2405,9 @@ const PresentationView = ({
       const eq = stripEqLabel(target.equation);
       if (equationsEquivalent(ascii, eq) || equationsMatch(ascii, eq)) {
         highestCompleted = k;
-        // Mark its notebook (if any) as already-shown so we never re-prompt.
-        if (target.notebook) {
-          setShownNotebookIdx((prev) => {
-            if (prev.has(k)) return prev;
-            const next = new Set(prev);
-            next.add(k);
-            return next;
-          });
-        }
+        // Deliberately do NOT mark its notebook as shown — the note gate
+        // requires an explicit click EVERY session, even on resumed lines.
+        // (Auto-marking here was the line-1 "never glows" bypass.)
       } else {
         break; // strict sequential — stop at the first gap
       }
@@ -4092,13 +4086,19 @@ const PresentationView = ({
               return text;
             };
 
-            // NOTE GATE — the single uniform rule. A line's gate is open iff
-            // it has no note OR the note's text is on the board RIGHT NOW.
-            // Live board check only: no clicked-flags, nothing persisted,
-            // identical for line 1 and every other line.
+            // NOTE GATE — the single uniform rule. A line with a note blocks
+            // Next until BOTH are true:
+            //   1. the teacher CLICKED the note icon THIS session
+            //      (shownNotebookIdx is session-only, never persisted), and
+            //   2. the note's text is on the board RIGHT NOW (live ink check
+            //      — erasing it closes the gate again).
+            // Stale ink from an old session can no longer open the gate on
+            // its own: a click is always required. Identical for line 1 and
+            // every other line.
             const noteGateOpen = (k: number): boolean => {
               const note = notebookFor(k);
-              return note.length === 0 || boardHasTextRow(note);
+              if (note.length === 0) return true;
+              return shownNotebookIdx.has(k) && boardHasTextRow(note);
             };
 
             // Cursor movement: teacher may freely traverse every line up to
@@ -4174,8 +4174,7 @@ const PresentationView = ({
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
             const currentNotebookText = notebookFor(curLineIdx);
-            const currentNotebookPending =
-              currentNotebookText.length > 0 && !boardHasTextRow(currentNotebookText);
+            const currentNotebookPending = !noteGateOpen(curLineIdx);
             const revealNotebookText =
               notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : currentNotebookText;
             const markCurrentNotebookRead = () => {
@@ -4269,8 +4268,7 @@ const PresentationView = ({
                   frozen={false}
                   notebookPending={
                     hasGuidedLines &&
-                    notebookFor(curLineIdx).length > 0 &&
-                    !boardHasTextRow(notebookFor(curLineIdx)) &&
+                    !noteGateOpen(curLineIdx) &&
                     notebookAttentionIdx.has(curLineIdx)
                   }
                 />
