@@ -1,83 +1,90 @@
-## Two fixes: Present must follow the sensor + remove the left-rail up/down
+## Present clicks drive the beat cursor — Next-button parity
 
-### 1) Present writes must land AT the sensor and advance like Floating Numbers do
+The Smartboard already fully renders every section, example, and note through one state variable: `beatCursor` (Next = `beatCursor + 1`). Present mode must dispatch clicks into that same pipe instead of writing text at the sensor.
 
-Current behaviour: `presentWriteAtSensor` snaps to the first empty row *below all ink* on every click, so everything piles onto one row and the teacher's sensor position is ignored.
+### New click semantics for `applyMirror`
 
-Desired behaviour (matches Floating‑Number semantics):
-
-- **Block items** (`kind = "cover" | "section" | "subsection" | "question" | "teacher-note"`): write **at the sensor's current row**, then advance the sensor down one writable row so the next click gets a fresh line.
-- **Chips / inline math** (everything else — `floating-number`, `solution-line`, chips like `5x`, `x²`, `+6`, `=0`): insert **at the sensor's cursor** on the current row and **do NOT advance** — teacher builds a line by tapping chips, exactly like Floating Number chip taps.
-- **Safety only**: if the current sensor row is a notebook‑locked row (prose like "The quadratic formula is:") or a locked‑ink row, snap the sensor to the next free writable row *before* inserting, so nothing is silently swallowed. This is the only automatic move — otherwise honour whatever row the teacher parked the sensor on.
-
-#### File changes
-
-**`src/components/smartboard/PresentationView.tsx`**
-Change `presentWriteAtSensor` to take an options object and drop the "snap to below all ink" logic:
-
-```ts
-const presentWriteAtSensor = useCallback(
-  (text: string, opts?: { advanceAfter?: boolean }) => {
-    if (!text.trim()) return;
-
-    // Safety only: if sensor is on a locked/notebook row, hop to the
-    // next writable row so the write isn't silently swallowed.
-    const L = activeLayout;
-    if (L) {
-      const cur = Math.floor(sensor.line);
-      if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
-        const b = bandEnd(L);
-        let t = nextSensorRowBelow(cur);
-        while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
-        if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
-      }
-    }
-
-    insertTextAtSensor(text);
-
-    // Block items advance the sensor down so the next click gets its
-    // own fresh row. Chips do NOT advance (parity with Floating Number
-    // chip taps).
-    if (opts?.advanceAfter && L) {
-      const b = bandEnd(L);
-      const from = Math.floor(sensor.line);
-      let t = nextSensorRowBelow(from);
-      while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
-      if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
-    }
-  },
-  [activeLayout, notebookRowLines, insertTextAtSensor, sensor.line]
-);
-```
-
-**`src/lib/smartboard/presentationAI/controller.ts`**
-Widen the signature:
-```ts
-presentWriteAtSensor?: (text: string, opts?: { advanceAfter?: boolean }) => void;
-```
-
-**`src/lib/smartboard/manualEdit/mirror.ts` — `applyMirror`**
 Classify by `target.kind`:
+
+| kind | action |
+| --- | --- |
+| `cover` | `setBeatCursor(idxOf(beatId))` |
+| `section` (prose block) | `setBeatCursor(idxOf(beatId))` |
+| `subsection` (example header) | `setBeatCursor(idxOf(beatId))` |
+| `question` | `setBeatCursor(idxOf(beatId))` (same beat as the subsection) |
+| `floating-number` chip | `pickFloatingNumber(lineIdx, fillerIdx)` — exact same call the # panel makes |
+| `teacher-note` | `writeProseLineOnBoard(text)` + `markNotebookShown(lineIdx)` + `addNotebookAttention(lineIdx)` — same effect as the Next-key note reveal |
+| `solution-line` | no-op (Present-mode line clicks are already disabled in `PresenterPreviewPanel`) |
+
+`idxOf(beatId) = ctrl.beats.findIndex(b => b.id === beatId)`. If not found, do nothing.
+
+Skipping works for free: `setBeatCursor(k)` jumps directly to k; beats between the old cursor and `k` never render (`Example 1 → Example 4` skips 2 and 3, exactly what the user described).
+
+Highlight parity is also automatic: `activeBeatId` in `PresenterPreviewPanel` reads from `beats[beatCursor]`, so the moment we set the cursor the panel highlights the same beat.
+
+### File changes
+
+**`src/lib/smartboard/manualEdit/mirror.ts` — replace the body of `applyMirror`:**
+
 ```ts
-const BLOCK_KINDS = new Set(["cover", "section", "subsection", "question", "teacher-note"]);
-const advanceAfter = BLOCK_KINDS.has(target.kind);
-if (ctrl.presentWriteAtSensor) ctrl.presentWriteAtSensor(text, { advanceAfter });
-else if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
-else ctrl.writeProseLineOnBoard(text);
+export const applyMirror = async (
+  target: EditTarget,
+  ctrl: PresentationController,
+): Promise<void> => {
+  const text = (target.text ?? target.caption ?? "").trim();
+
+  // Beat-navigation kinds — same route as pressing Next until the target
+  // beat is active. Instantly jumps; skipped beats are simply not shown.
+  if (
+    target.kind === "cover" ||
+    target.kind === "section" ||
+    target.kind === "subsection" ||
+    target.kind === "question"
+  ) {
+    if (!target.beatId) return;
+    const idx = ctrl.beats.findIndex((b) => b.id === target.beatId);
+    if (idx >= 0) ctrl.setBeatCursor(idx);
+    return;
+  }
+
+  // Floating-Number chip — same route as tapping the chip in the # panel.
+  if (
+    target.kind === "floating-number" &&
+    typeof target.lineIdx === "number" &&
+    typeof target.fillerIdx === "number"
+  ) {
+    ctrl.pickFloatingNumber?.(target.lineIdx, target.fillerIdx);
+    return;
+  }
+
+  // Teacher-note — reveal on the board and silence the note-gate glow.
+  if (target.kind === "teacher-note" && typeof target.lineIdx === "number") {
+    if (text) ctrl.writeProseLineOnBoard(text);
+    ctrl.markNotebookShown?.(target.lineIdx);
+    ctrl.addNotebookAttention?.(target.lineIdx);
+    return;
+  }
+
+  // Anything else (e.g. solution-line, unclassified) — intentional no-op.
+};
 ```
 
-Everything else in `applyMirror` (teacher-note note-gate silence) stays.
+Delete the `presentWriteAtSensor` / `insertTextAtSensor` / `writeProseLineOnBoard` fallback branch — Present is no longer a "second writer."
 
-### 2) Remove the left‑rail up/down icons
+**`src/components/smartboard/PresentationView.tsx`** — no logic change required. The `presentWriteAtSensor` and `insertTextAtSensor` methods stay on the controller (still used by the Floating Number panel's own chip taps and the free-write flow); we just stop calling them from Present clicks. Optionally drop the `presentWriteAtSensor` callback since nothing will call it any more, but leaving it is harmless.
 
-The left‑side `CursorScrollbar` at `leftPx={12}, topCss="50%"` duplicates the up/down arrows already present in the middle of the board.
+**`src/lib/smartboard/presentationAI/controller.ts`** — no change; every method we need is already there.
 
-**`src/components/smartboard/PresentationView.tsx`** — delete the `CursorScrollbar` block at lines ~4922–4938 (the "Cursor up/down rail" JSX). Leave `moveSensorUp` / `moveSensorDown` (still used elsewhere) and the middle arrows untouched.
+### What stays untouched
+- Floating Number panel behaviour, its chip taps, and the note-gate advance flow.
+- Normal-mode Smartboard rendering, sensor behaviour, and the Next button.
+- Board clearing, verify, autofix — none of them run.
+- The `PresenterPreviewPanel` selection UI: `selectTarget` still fires, still shows the selected outline, still calls `onMirrorChange` — only `applyMirror`'s downstream behaviour changes.
 
 ### Result
-
-- Click **Introduction** (section) → lands where the sensor sits, sensor moves down one row.
-- Click **Introduction** again → lands on the new sensor row, sensor moves down again.
-- Click chip `5x`, then `=`, then `0`, then `+6` → all land on the current sensor row inline, sensor stays put (Floating‑Number‑chip parity).
-- Left‑rail up/down icons gone; centre arrows remain.
-- Floating Number workflow, board clearing, and verify/autofix are untouched.
+- Click `Introduction` → beatCursor jumps to Introduction's beat → the smartboard renders Introduction and the panel highlights it, exactly like pressing Next.
+- Click `Example 1` → beatCursor jumps to Example 1's beat.
+- Click `Example 4` after `Example 1` → beatCursor jumps to 4, skipping 2 and 3.
+- Click a chip → same as tapping it in the # panel (opens / focuses # panel on that line, writes the chip into the sensor row).
+- Click a note → note appears on the board, glow stops.
+- No more "everything types on one row" — nothing types anywhere unless it's a chip or note, and those use the smartboard's own routes.

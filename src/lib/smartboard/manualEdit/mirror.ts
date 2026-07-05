@@ -174,21 +174,42 @@ export const applyMirror = async (
   ctrl: PresentationController,
 ): Promise<void> => {
   const text = (target.text ?? target.caption ?? "").trim();
-  if (!text) return;
-  // Block-kind items (captions, section titles, teacher notes) advance
-  // the sensor down after writing so the next click gets a fresh row.
-  // Chips / inline math insert at the sensor and stay put — Floating
-  // Number chip parity.
-  const BLOCK_KINDS = new Set(["cover", "section", "subsection", "question", "teacher-note"]);
-  const advanceAfter = BLOCK_KINDS.has(target.kind);
-  if (ctrl.presentWriteAtSensor) ctrl.presentWriteAtSensor(text, { advanceAfter });
-  else if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
-  else ctrl.writeProseLineOnBoard(text);
-  // Teacher notes: silence the note-gate glow after a manual placement.
+
+  // Beat-navigation kinds — same route as pressing Next until the target
+  // beat is active. Instantly jumps; skipped beats are simply not shown.
+  if (
+    target.kind === "cover" ||
+    target.kind === "section" ||
+    target.kind === "subsection" ||
+    target.kind === "question"
+  ) {
+    if (!target.beatId) return;
+    const idx = ctrl.beats.findIndex((b) => b.id === target.beatId);
+    if (idx >= 0) ctrl.setBeatCursor(idx);
+    return;
+  }
+
+  // Floating-Number chip — same route as tapping the chip in the # panel.
+  if (
+    target.kind === "floating-number" &&
+    typeof target.lineIdx === "number" &&
+    typeof target.fillerIdx === "number"
+  ) {
+    ctrl.pickFloatingNumber?.(target.lineIdx, target.fillerIdx);
+    return;
+  }
+
+  // Teacher-note — reveal on the board and silence the note-gate glow.
   if (target.kind === "teacher-note" && typeof target.lineIdx === "number") {
+    if (text) ctrl.writeProseLineOnBoard(text);
     ctrl.markNotebookShown?.(target.lineIdx);
     ctrl.addNotebookAttention?.(target.lineIdx);
+    return;
   }
+
+  // Anything else (e.g. solution-line, unclassified) — intentional no-op.
+  // Present is no longer a "second writer"; it drives the smartboard's own
+  // routes rather than writing at the sensor.
 };
 
 /**
