@@ -18,8 +18,9 @@ export interface WritePlan {
   rows: PlacedRow[];
   /** Last row that received ink. */
   landedRow: number;
-  /** Where the sensor parks after the write: first unblocked row below
-   *  the ink, bounded to a 4-row walk — never a long hunt. */
+  /** Where the sensor parks after the write: the FIRST unblocked row
+   *  below the ink — uncapped walk (same SCAN_CAP as placement), so it
+   *  is never left parked on a locked or inked row. */
   sensorRow: number;
 }
 
@@ -67,8 +68,13 @@ export const planDirectWrite = (
   }
 
   const landedRow = rows[rows.length - 1].row;
+  // Park on the first genuinely free row below the ink. UNCAPPED walk
+  // (same SCAN_CAP as placement) — the old 4-step cap left the sensor
+  // parked ON a locked row once the board got dense (line 6+ bug).
   let sensorRow = landedRow + 1;
-  for (let g = 0; g < 4 && blocked(sensorRow); g++) sensorRow += 1;
+  for (let g = 0; g < SCAN_CAP && blocked(sensorRow); g++) {
+    sensorRow += 1 + tallSpan(snap, sensorRow);
+  }
 
   return { rows, landedRow, sensorRow };
 };

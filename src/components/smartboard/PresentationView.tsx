@@ -62,6 +62,7 @@ import {
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
+import { parkRowBelow } from "@/lib/smartboard/boardWriter/parkSensor";
 import type { WritePlan } from "@/lib/smartboard/boardWriter/directWrite";
 import type { CommitOptions } from "@/lib/smartboard/boardWriter/host";
 import type { PreviewChannelHost } from "@/lib/smartboard/boardWriter/previewChannel";
@@ -1014,24 +1015,37 @@ const PresentationView = ({
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
   ) => {
     const line = sensor.line;
-    // Notebook-prose rows render auto-generated narration and are the only
-    // rows that stay non-writable. Every other row — including "locked-ink"
-    // rows — must honour the teacher's sensor position exactly. The silent
-    // relocation that used to jump writes to another row is removed: it
-    // caused keystrokes and Floating-Number chip taps to appear "somewhere
-    // else" instead of where the sensor was placed.
     const floorLine = Math.floor(line);
+    // NEVER swallow a write. If the sensor is parked on a locked
+    // notebook row (the old code silently returned here — the "nothing
+    // is clickable" dead zone), relocate to the first genuinely free
+    // row below using the ONE shared parking rule and write there.
+    let writeLine: number = line;
+    let relocated = false;
     if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
-      hiddenInputRef.current?.focus({ preventScroll: true });
-      return;
+      const t = parkRowBelow(
+        {
+          ink: freeLines,
+          rowOwners,
+          lockedRows: notebookRowLines,
+          bandStartRow: 0,
+        },
+        floorLine,
+      );
+      writeLine = t;
+      relocated = true;
+      setSensor({ line: t, x: 0 });
+      manualSensorRef.current = { line: t, x: 0 };
+      activeSensorPhysicalLineRef.current = t;
+      requestAnimationFrame(() => scrollBoardToRow(t));
     }
     setFreeLines((prev) => {
-      const row = prev[line] ?? [];
-      const res = fn(row, cursorRef.current);
+      const row = prev[writeLine] ?? [];
+      const res = fn(row, relocated ? { path: [], index: 0 } : cursorRef.current);
       setLiveCursor(res.cursor);
       const next = { ...prev };
-      if (res.root.length === 0) delete next[line];
-      else next[line] = res.root;
+      if (res.root.length === 0) delete next[writeLine];
+      else next[writeLine] = res.root;
       return next;
     });
     hiddenInputRef.current?.focus({ preventScroll: true });
@@ -1116,30 +1130,28 @@ const PresentationView = ({
   }, []);
 
   /** Present-mode write: honours the teacher's sensor position (parity with
-   *  Floating Number chip taps). Only auto-moves the sensor when the current
-   *  row is locked (notebook or locked-ink) so the write isn't silently
-   *  swallowed. Block-kind items advance the sensor down one row afterwards
-   *  so the next click gets a fresh line. */
+   *  Floating Number chip taps). If the current row is locked, the sensor
+   *  steps to the first free row below — UNCAPPED walk, never bounded to
+   *  the band, so line 6 behaves exactly like line 1. Block-kind items
+   *  advance the sensor down one row afterwards so the next click gets a
+   *  fresh line. */
   const presentWriteAtSensor = useCallback(
     (text: string, opts?: { advanceAfter?: boolean }) => {
       if (!text.trim()) return;
-      const L = activeLayout;
-      if (L) {
-        const cur = Math.floor(sensor.line);
-        if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
-          const b = bandEnd(L);
-          let t = nextSensorRowBelow(cur);
-          while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
-          if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
-        }
+      const stepPastLocked = (from: number): number => {
+        let t = nextSensorRowBelow(from);
+        for (let g = 0; g < 200 && (notebookRowLines.has(t) || isLockedInkRow(t)); g++) t += 1;
+        return t;
+      };
+      const cur = Math.floor(sensor.line);
+      if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
+        const t = stepPastLocked(cur);
+        setSensor((s) => ({ ...s, line: t, x: 0 }));
       }
       insertTextAtSensor(text);
-      if (opts?.advanceAfter && L) {
-        const b = bandEnd(L);
-        const from = Math.floor(sensor.line);
-        let t = nextSensorRowBelow(from);
-        while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
-        if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
+      if (opts?.advanceAfter) {
+        const t = stepPastLocked(Math.floor(sensor.line));
+        setSensor((s) => ({ ...s, line: t, x: 0 }));
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
@@ -1223,8 +1235,9 @@ const PresentationView = ({
           extraNoteRows.has(r)
         );
       };
-      // Bounded walk — the sensor never drops far below what was written.
-      for (let guard = 0; guard < 6 && blocked(t); guard++) t += 1;
+      // UNCAPPED walk — a bounded walk here used to expire on dense
+      // boards and park the sensor ON a locked row (dead zone).
+      for (let guard = 0; guard < 200 && blocked(t); guard++) t += 1;
       setSensor({ line: t, x: 0 });
       setLiveCursor({ path: [], index: 0 });
       manualSensorRef.current = { line: t, x: 0 };
@@ -3160,11 +3173,23 @@ const PresentationView = ({
           return nx;
         });
       }
-      // Park the sensor exactly where the plan says — no hunts.
-      setSensor({ line: plan.sensorRow, x: 0 });
+      // Park the sensor on the first genuinely free row below the ink,
+      // recomputed from the POST-commit snapshot (ink + locks as they
+      // are AFTER this write). Uncapped walk — the sensor is never left
+      // on a row this very write just locked. Same rule for every line.
+      const parked = parkRowBelow(
+        {
+          ink: freeLinesRef.current,
+          rowOwners: rowOwnersRef.current,
+          lockedRows: notebookRowLinesRef.current,
+          bandStartRow: 0,
+        },
+        plan.landedRow,
+      );
+      setSensor({ line: parked, x: 0 });
       setLiveCursor({ path: [], index: 0 });
-      manualSensorRef.current = { line: plan.sensorRow, x: 0 };
-      activeSensorPhysicalLineRef.current = plan.sensorRow;
+      manualSensorRef.current = { line: parked, x: 0 };
+      activeSensorPhysicalLineRef.current = parked;
     },
     [setLiveCursor],
   );
@@ -4431,15 +4456,13 @@ const PresentationView = ({
                     presentWriteAtSensor(t);
                   }}
                   onInsertFrac={(p) => {
-                    const L = activeLayout;
-                    if (L) {
-                      const cur = Math.floor(sensor.line);
-                      if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
-                        const b = bandEnd(L);
-                        let t = nextSensorRowBelow(cur);
-                        while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
-                        if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
-                      }
+                    // Same uncapped step-past-locked rule as every other
+                    // write path — never bounded to the band.
+                    const cur = Math.floor(sensor.line);
+                    if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
+                      let t = nextSensorRowBelow(cur);
+                      for (let g = 0; g < 200 && (notebookRowLines.has(t) || isLockedInkRow(t)); g++) t += 1;
+                      setSensor((s) => ({ ...s, line: t, x: 0 }));
                     }
                     insertFractionAtSensor(p);
                   }}
