@@ -1,137 +1,69 @@
-## Smartboard Refactor — Presenter Preview as Single Source of Truth
+## Goals from your test
 
-### Goal
-Make the Presenter Preview the ONLY validated lesson model. Floating Number Display and Present Mode become two fully independent rendering engines that both consume the Preview but share zero rendering code. A bug in one must never break the other.
-
----
-
-### New Architecture
-
-```text
-Lesson Notes ─► Highlighting ─► Generation ─► PRESENTER PREVIEW (authoritative model)
-                                                     │
-                                    ┌────────────────┴────────────────┐
-                                    ▼                                 ▼
-                        Engine A: Floating Number          Engine B: Present Mode
-                        Display (classroom mode)           (manual / student / fallback)
-                        — existing behavior kept —         — new independent renderer —
-```
-
-Rule: neither engine imports from the other. Their only shared dependency is the Preview model + the low-level board primitive (ink placement on rows).
+1. **Present Mode and Floating Number Display must be fully independent.** An error on one must never appear on the other. Right now, an error you introduced on Floating leaked into Present, so a shared path still exists.
+2. **Sensor is stiff** when starting a new line, especially after a fraction chip. First tap often doesn't "catch", or it drifts upward and needs to be nudged down manually.
+3. **Notes stop working partway through** (first few notes fine, later ones don't fire). The note-writing code must behave identically for line 1 and line N.
+4. **Remove Autoplay entirely** — no more speed picker, no AI diagnosis button, no autoplay controller.
 
 ---
 
-### Step 1 — Define the Authoritative Preview Model
-Create `src/lib/smartboard/preview/model.ts` exporting a single frozen type built ONCE from lesson notes + highlighting + generation:
+## Plan
 
-```ts
-LessonModel = {
-  beats: Beat[]                       // ordered cover/section/subsection/question/solution
-}
-Beat =
-  | DisplayBeat { kind: "cover"|"intro"|"explanation"|"objectives"|"summary"|"example"|"exercise", blocks: Block[] }
-  | SolutionBeat { kind: "solution", lines: SolutionLine[] }
+### A. Cut every remaining Present ↔ Floating link
 
-SolutionLine = {
-  id: string
-  lineIdx: number
-  note?: TeacherNote                  // strictly from precedingNotebook, via noteSource
-  objects: PresentationObject[]       // ordered: chips, fractions, symbols, full-equation
-  equationText: string                // canonical text for the whole line
-}
-TeacherNote = { paragraphs: string[] } // preserves paragraph breaks
-PresentationObject =
-  | { kind:"chip", text:string }
-  | { kind:"fraction", sign,num,den }
-  | { kind:"symbol", text:string }
-  | { kind:"equation", text:string }
-```
+Investigate and sever any code path where a click, error, or state on one side can reach the other:
 
-A single builder `buildLessonModel(notebook, highlights, generation)` produces this. It runs the existing validators (note purity, question lock, ordering) and freezes the result. This becomes the ONLY input to both engines.
+- Audit `PresentationView.tsx`, `FloatingNumberPanel.tsx`, `PresenterPreviewPanel.tsx`, `AiEditWorkspace.tsx`, and the two engines (`engines/floatingEngine`, `engines/presentEngine`).
+- Confirm each engine only touches its **own** channel (`floatingChannel` vs `previewChannel`) and its **own** ledger state. Any shared mutable state (e.g. a single row-owner map, a single `noteShown` set, one shared board snapshot cursor) gets **split into two independent copies** — one per engine.
+- Any shared helper (`noteSource`, `buildReservoirs`, etc.) is allowed **only** if it is pure/read-only against `LessonModel`. Anything that mutates board state gets duplicated per engine.
+- Add a static guard test extending `engineIndependence.test.ts` to also forbid cross-imports of shared board-mutating helpers, not just channels.
 
----
+Result: wiping the board and re-typing in Floating cannot alter what Present renders, and vice versa.
 
-### Step 2 — Delete the Tangled Paths
-Remove the code paths where Present Mode or Floating Number reach past the Preview:
+### B. Make the sensor flexible (fix "stiff" first tap and fraction stiffness)
 
-- Delete direct reads of `parsedSolution` / `precedingNotebook` from `PresentationView` and `FloatingNumberPanel`; both must go through `LessonModel`.
-- Delete `buildReservoirs` positional/equation-match branches that don't come from the model.
-- Retire whatever remains of the shared "one mode calls into the other" glue.
-- `noteSource.ts` stays (its purity law is enforced inside the model builder now).
+Root cause candidates to check and fix:
 
----
+1. **First-tap deadzone after a new line.** The sensor position is computed from "last visible ink + 1", but after a fraction the row may still be settling (fraction ink spans row + row+0.5). Fix: recompute sensor target on **every chip tap**, not once per line, and always read both integer and half-row keys.
+2. **Sensor drifting upward.** Enforce a monotonic floor: sensor row for line N is always ≥ (last committed row of line N-1) + tall-padding. Never allow it to move above the previous line's last ink.
+3. **Fraction chip stiffness.** When a chip is a fraction, the current code inserts and then waits for a render pass before advancing. Make chip inserts commit synchronously against the ledger so the next tap has an updated sensor immediately.
+4. **Manual nudge tolerance.** If the teacher taps and the sensor is already occupied, auto-relocate one row down instead of silently rejecting the click.
 
-### Step 3 — Two Independent Rendering Pipelines
+### C. Fix late notes (uniform behavior across all lines)
 
-Both pipelines share ONLY the dumb primitive `planDirectWrite` + `ledger` (row bookkeeping). They do NOT share high-level rendering.
+The symptom "first few notes work, last note fails" almost always means the note pipeline branches on state (e.g. "if already advanced past this line, skip note"). Fix:
 
-**Pipeline A — Floating Number Display** (`src/lib/smartboard/engines/floatingEngine/`)
-- Keeps today's UX: sensor, chip taps, note button, auto-advance.
-- Reads `LessonModel` for the active line's note + chips.
-- No changes to teacher-facing behavior.
+- Route **every** note write through a single function: `writeNoteForLine(lineIdx)` reading only `LessonModel.solutionLinesFor(beat)[lineIdx].note`.
+- Remove any short-circuit that skips notes when `noteShown` is already set for a later line, when the sensor is past that row, or when the line is "locked".
+- Notes are always allowed to write into their own dedicated row (below the equation), with LAW 2 relocation if occupied.
+- Add a regression test that clicks the note button on **every** line 1..N and asserts each writes ink.
 
-**Pipeline B — Present Mode** (`src/lib/smartboard/engines/presentEngine/`)
-- New, independent renderer. Reads `LessonModel` only.
-- Display beats: renders the beat's blocks as-is; no sensor, no cursor, no chips.
-- Solution beats:
-  - On entering a solution, places sensor one row below the "Solution" heading.
-  - Each preview item click = copy that `PresentationObject` (or `TeacherNote`) verbatim onto the board via `planDirectWrite`, then auto-advance sensor.
-  - Locks a line once the teacher advances to the next line (no back-edit).
-  - Notes render with paragraph breaks preserved (multi-row write, one paragraph per row group).
+### D. Delete Autoplay completely
 
-Present Mode never calls floatingEngine functions and vice versa.
+Remove:
+- `src/components/smartboard/AutoplayControl.tsx`
+- `src/hooks/usePresentationAI.ts`
+- `src/lib/smartboard/presentationAI/` (controller, types, speed presets, AI diagnosis)
+- Any imports/usages in `SmartBoardPage.tsx`, `PresentationView.tsx`, `AiEditWorkspace.tsx`
+- The AI Diagnosis modal and its state
+- Speed preset UI, keyboard shortcuts, and toolbar chips
+
+Keep only: manual Present Mode (click preview to write) and Floating Number Display.
+
+### E. Verification
+
+- All existing tests pass; add: engine-independence expansion, per-line note regression, fraction-chip sensor flexibility test.
+- Manual Playwright pass on the lesson from the current route: solve to the end via Floating, wipe, solve to the end via Present — errors introduced in one must not appear in the other.
 
 ---
 
-### Step 4 — Wiring
-- `PresentationView.tsx`: builds `LessonModel` once per notebook load; passes it to whichever engine is active.
-- Mode switch (Floating vs Present) picks the engine; both mount against the same board host (`BoardWriteHost`) but through their own controllers.
-- `AiEditWorkspace` becomes the Present Mode click handler only (renamed to `PresentModeRunner`).
+### Files expected to change
 
----
+- edit: `PresentationView.tsx`, `PresenterPreviewPanel.tsx`, `FloatingNumberPanel.tsx`, `AiEditWorkspace.tsx`, `SmartBoardPage.tsx`
+- edit: `engines/floatingEngine/index.ts`, `engines/presentEngine/index.ts`
+- edit: `boardWriter/floatingChannel.ts`, `boardWriter/previewChannel.ts`, `boardWriter/ledger.ts` (split shared state if found)
+- edit: `preview/model.ts` (single note accessor already exists; verify no branches)
+- delete: `AutoplayControl.tsx`, `usePresentationAI.ts`, `presentationAI/` folder
+- new tests: `enginePresentFloatingIsolation.test.ts`, `notesEveryLine.test.ts`, `sensorFlexibility.test.ts`
 
-### Step 5 — Bug Guards Baked In
-Enforced inside the model builder + Present engine:
-1. Missing/incorrect/merged/split notes → builder rejects and logs; icon absent when note absent.
-2. Paragraphs preserved: notes stored as `paragraphs[]`, written row-per-paragraph.
-3. Highlighted math never leaks into notes (purity law already in `noteSource`).
-4. Object ordering fixed at build time; engines cannot reorder.
-5. Sensor: solution beat entry always seeds sensor = headingRow + 1; auto-advance after every insert.
-6. Line lock: once `currentLineIdx` increments, prior rows are added to `lockedRows`.
-
----
-
-### Step 6 — Verification
-- Unit tests: `lessonModel.test.ts` (build correctness, note purity, ordering), `presentEngine.test.ts` (click → object copy, sensor advance, line lock), keep `floatingEngine` regression tests.
-- Playwright on the quadratic lesson (`5e086fbb…`): 
-  - Line 4 has no note icon in both engines.
-  - Present Mode: click each object on lines 1–6, verify board matches Preview verbatim, sensor advances, previous line locks.
-  - Kill-switch test: force floatingEngine to throw → Present Mode still completes the lesson.
-
----
-
-### Files
-**New**
-- `src/lib/smartboard/preview/model.ts` (LessonModel + builder)
-- `src/lib/smartboard/preview/buildFromNotebook.ts`
-- `src/lib/smartboard/engines/floatingEngine/index.ts` (thin wrapper over today's floating channel)
-- `src/lib/smartboard/engines/presentEngine/index.ts`
-- `src/lib/smartboard/engines/presentEngine/renderDisplayBeat.ts`
-- `src/lib/smartboard/engines/presentEngine/renderSolutionBeat.ts`
-- `src/test/lessonModel.test.ts`, `src/test/presentEngine.test.ts`
-
-**Edited**
-- `src/components/smartboard/PresentationView.tsx` (build model, route to engine)
-- `src/components/smartboard/PresenterPreviewPanel.tsx` (read from model)
-- `src/components/smartboard/FloatingNumberPanel.tsx` (read from model)
-- `src/components/smartboard/AiEditWorkspace.tsx` → renamed `PresentModeRunner.tsx`
-- `src/lib/smartboard/presentation.ts` (delete positional guessing; export model-friendly shape)
-
-**Kept as shared primitive only**
-- `boardWriter/ledger.ts`, `boardWriter/directWrite.ts`, `boardWriter/host.ts`, `boardWriter/noteSource.ts`
-
-**Deleted / retired**
-- Old `previewChannel.ts` / `floatingChannel.ts` (folded into their engines with no cross-imports)
-- Any lingering positional-fallback code in `buildReservoirs`
-
-No database or backend changes.
+Nothing in this plan touches lesson-note generation, backend, or the pedagogy pipeline — it is purely rendering + input handling on the Smartboard.

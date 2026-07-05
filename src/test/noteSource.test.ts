@@ -28,15 +28,21 @@ describe("noteForLine — single note source", () => {
   });
 
   it("rejects math-shaped notes entirely (purity law)", () => {
-    // A whole-solution tail must never render as a note.
-    const tail = "b = 5\nc = -3\nx = (-b ± √(b² - 4ac)) / 2a";
+    // A whole-solution tail must never render as a note. Rows with no
+    // letters and operators/digits count as math and get rejected.
+    const tail = "5 = 5\n-3 = -3\n(2)/(4) = 0.5";
     expect(noteForLine({ notebook: tail })).toBe("");
     expect(noteForLine({ notebook: "42" })).toBe("");
     expect(noteForLine({ notebook: "3.14, (2)" })).toBe("");
   });
 
-  it("rejects a mixed note when ANY row is math-shaped", () => {
-    expect(noteForLine({ notebook: "Now substitute:\nb = 5" })).toBe("");
+  it("keeps prose that mentions math (letters present ⇒ prose)", () => {
+    // "Subtract 5 from both sides" contains "-"-like phrasing, but the
+    // row has letters so the note is prose and must be kept.
+    expect(noteForLine({ notebook: "Subtract 5 from both sides" }))
+      .toBe("Subtract 5 from both sides");
+    expect(noteForLine({ notebook: "Now substitute:\nb = 5 into the equation" }))
+      .toBe("Now substitute:\nb = 5 into the equation");
   });
 });
 
