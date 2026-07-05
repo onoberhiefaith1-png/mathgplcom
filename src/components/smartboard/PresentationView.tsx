@@ -58,6 +58,7 @@ import {
   moveRight as treeMoveRight,
   nextEmptyRow as treeNextEmpty,
   rowHasTallStructure,
+  isPlaceholderOnly,
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
