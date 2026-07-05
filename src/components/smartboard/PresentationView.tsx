@@ -3043,11 +3043,16 @@ const PresentationView = ({
           return r;
         }
       }
-      // Start below the last owned row (any line), else at current sensor.
+      // Start below the last owned row that STILL carries content (stale
+      // ownership entries whose ink was erased must never drag the sensor
+      // further down), else at current sensor.
       let start = Math.max(0, Math.floor(sensor.line));
       for (const key of Object.keys(owners)) {
         const r = Number(key);
-        if (typeof owners[r] === "number") start = Math.max(start, r + 1);
+        if (typeof owners[r] !== "number") continue;
+        const row = freeLinesRef.current[r] ?? freeLinesRef.current[r + 0.5];
+        const live = (!!row && rowHasVisibleInk(row)) || notebookRowLines.has(r);
+        if (live) start = Math.max(start, r + 1);
       }
       let target = start;
       // Walk down while blocked; give one extra row of clearance below a
