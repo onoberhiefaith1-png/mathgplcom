@@ -872,11 +872,19 @@ const PresentationView = ({
   };
 
 
+  // Debounced persistence — synchronous JSON serialization on every
+  // keystroke/sensor move made the board feel stiff.
   useEffect(() => {
-    try { localStorage.setItem(SENSOR_KEY, JSON.stringify(sensor)); } catch { /* noop */ }
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(SENSOR_KEY, JSON.stringify(sensor)); } catch { /* noop */ }
+    }, 300);
+    return () => window.clearTimeout(t);
   }, [sensor, SENSOR_KEY]);
   useEffect(() => {
-    try { localStorage.setItem(FREEWRITE_KEY, JSON.stringify(freeLines)); } catch { /* noop */ }
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(FREEWRITE_KEY, JSON.stringify(freeLines)); } catch { /* noop */ }
+    }, 300);
+    return () => window.clearTimeout(t);
   }, [freeLines, FREEWRITE_KEY]);
   useEffect(() => { setOccupancyTick((n) => n + 1); }, [freeLines, smartLines]);
   useEffect(() => {
