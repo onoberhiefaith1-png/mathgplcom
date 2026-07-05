@@ -43,11 +43,12 @@ const ACCENT = "#8a6a1f";
 
 // Border-only active highlight. The card/line background and text colors
 // stay exactly the same; only the frame changes so the teacher can see which
-// element the Smartboard is currently presenting. Warm orange = "you are
-// here" for both the presenter preview and the floating-number strip.
-const HIGHLIGHT_BORDER = "rgba(234,88,12,0.95)"; // orange-600
+// element the Smartboard is currently presenting. Green = "go ahead" — this
+// is the only place the highlight appears (Smartboard + Floating Number
+// Display stay unadorned).
+const HIGHLIGHT_BORDER = "rgba(22,163,74,0.95)"; // green-600
 const HIGHLIGHT_SHADOW =
-  "0 0 0 4px rgba(234,88,12,0.20), 0 6px 22px rgba(234,88,12,0.22)";
+  "0 0 0 4px rgba(22,163,74,0.18), 0 6px 22px rgba(22,163,74,0.22)";
 
 const asDisplayString = (v: unknown): string => {
   if (v == null) return "";

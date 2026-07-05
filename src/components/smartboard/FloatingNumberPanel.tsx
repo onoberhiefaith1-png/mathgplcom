@@ -418,12 +418,6 @@ export const FloatingNumberPanel = ({
 
   if (!visible || reservoirs.length === 0) return null;
 
-  // Orange "you are here" ring around the whole active strip so the teacher
-  // always sees which line the floating-number display is currently feeding
-  // to the board. Only lights up when we're viewing the active reservoir in
-  // per-line mode; otherwise the panel keeps its ordinary look.
-  const activeRing = viewingActive && useLineMode;
-
   const panel = (
     <div
       data-sb-chrome
@@ -443,12 +437,6 @@ export const FloatingNumberPanel = ({
         maxWidth: `calc(100% - ${fixedLeft + 12}px)`,
         cursor: "default",
         touchAction: "manipulation",
-        borderRadius: 14,
-        border: activeRing ? "2px solid rgba(234,88,12,0.95)" : "2px solid transparent",
-        boxShadow: activeRing
-          ? "0 0 0 4px rgba(234,88,12,0.18), 0 6px 20px rgba(234,88,12,0.22)"
-          : "none",
-        transition: "border-color 200ms ease, box-shadow 200ms ease",
       }}
     >
       {/* Leading column: ▲ line-up · drag grip · line badge · ▼ line-down */}
