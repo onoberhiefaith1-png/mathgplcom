@@ -5324,13 +5324,13 @@ const PresentationView = ({
       )}
       </div>
       </SmartboardRootContext.Provider>
-      {/* Headless Live Mirror runner — renders nothing (the old floating
-          strip covered the top of the Presenter Preview and blocked
-          Line 1 clicks). Status is shown inline on the clicked item. */}
+      {/* Headless Preview Channel runner — renders nothing. One preview
+          click = one deterministic board write through the independent
+          preview channel (never through the Floating Number path). */}
       <AiEditWorkspace
         open={mirrorActive}
         target={aiEditTarget}
-        controller={paiController}
+        host={previewHost}
         onStatus={setMirrorStatus}
       />
     </div>

@@ -28,7 +28,7 @@ export interface PresentationController {
   writeProseLineOnBoard: (
     raw: string,
     atRow?: number,
-    opts?: { advanceSensor?: boolean; noteAdvance?: boolean },
+    opts?: { advanceSensor?: boolean },
   ) => number | null;
   /** Insert text into the ACTIVE sensor row — same route as tapping a
    *  Floating Number chip. Result is live/editable, cursor stays inside. */
