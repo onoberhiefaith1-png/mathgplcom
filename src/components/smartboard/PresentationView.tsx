@@ -4441,69 +4441,11 @@ const PresentationView = ({
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
                   onWriteNotebookToBoard={(text) => {
-                    // If this note's text is ALREADY inked somewhere (e.g. a
-                    // stale copy from an earlier session, possibly far below
-                    // the view), don't silently no-op — scroll straight to it
-                    // so the teacher can SEE where it lives.
-                    const existingRow = findTextRow(text);
-                    if (existingRow != null) {
-                      scrollBoardToRow(existingRow);
-                      // Still move the sensor below the (locked) note via the
-                      // writer's idempotent path.
-                      writeProseLineOnBoard(text, existingRow, { advanceSensor: true });
-                    } else {
-                      // Anchor the note under the row owning the active line
-                      // (never the stale sensor row) so it lands directly
-                      // below the equation, not 5–10 rows down.
-                      const owners = rowOwnersRef.current;
-                      let anchor = -1;
-                      for (const key of Object.keys(owners)) {
-                        const r = Number(key);
-                        const owner = owners[r];
-                        if (typeof owner !== "number") continue;
-                        if (owner <= curLineIdx && r > anchor) anchor = r;
-                      }
-                      // Pass the target row EXPLICITLY — setSensor is async,
-                      // so writing "at the sensor" in the same click would
-                      // still use the OLD sensor row (the note then lands
-                      // wherever the cursor last was, often off-screen).
-                      // With no anchor (line's equation not written yet),
-                      // NEVER fall back to the sensor row — the teacher may
-                      // have dragged the cursor far down the board. Scan for
-                      // the first empty row from the TOP of this section's
-                      // band instead, so the note always lands right under
-                      // the section header.
-                      let targetRow: number;
-                      if (anchor >= 0) {
-                        targetRow = anchor + 1;
-                      } else {
-                        let t = activeLayout
-                          ? bandStart(activeLayout)
-                          : Math.floor(sensor.line);
-                        for (let g = 0; g < 200; g++) {
-                          const occ = getRowOccupancy(t);
-                          if (occ === "empty") break;
-                          t += occ === "fraction-denominator" ? 2 : 1;
-                        }
-                        targetRow = t;
-                      }
-                      // Note rows are locked — the writer advances the
-                      // sensor to the first empty row BELOW the note.
-                      writeProseLineOnBoard(text, targetRow, { advanceSensor: true });
-                      scrollBoardToRow(targetRow);
-                    }
-                    setShownNotebookIdx((prev) => {
-                      if (prev.has(curLineIdx)) return prev;
-                      const nx = new Set(prev);
-                      nx.add(curLineIdx);
-                      return nx;
-                    });
-                    setNotebookAttentionIdx((prev) => {
-                      if (!prev.has(curLineIdx)) return prev;
-                      const nx = new Set(prev);
-                      nx.delete(curLineIdx);
-                      return nx;
-                    });
+                    // Same direct note channel the Presenter Preview uses:
+                    // anchors under the line's own board row, writes (or
+                    // scrolls to an existing copy), locks the row, and
+                    // clears the note-gate glow. Never a silent no-op.
+                    writeNoteForLine(curLineIdx, text);
                   }}
                   onNotebookRead={markCurrentNotebookRead}
                   frozen={false}
