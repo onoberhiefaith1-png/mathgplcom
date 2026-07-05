@@ -4258,10 +4258,16 @@ const PresentationView = ({
             // Stale ink from an old session can no longer open the gate on
             // its own: a click is always required. Identical for line 1 and
             // every other line.
+            // NOTE GATE — uniform for every line. A line with a note
+            // blocks Next until the teacher CLICKED the note icon this
+            // session (shownNotebookIdx is session-only). The click alone
+            // opens the gate — no live board scan — because notes now
+            // write on every click without dedupe. Identical for line 1
+            // and line ∞.
             const noteGateOpen = (k: number): boolean => {
               const note = notebookFor(k);
               if (note.length === 0) return true;
-              return shownNotebookIdx.has(k) && boardHasTextRow(note);
+              return shownNotebookIdx.has(k);
             };
 
             // Cursor movement: teacher may freely traverse every line up to
