@@ -1,66 +1,83 @@
-## Present clicks silently no-op because the sensor is on a locked/notebook row
+## Two fixes: Present must follow the sensor + remove the left-rail up/down
 
-### What's happening
-`insertTextAtSensor` writes into whatever row `sensor.line` currently points at, via `editActive`. `editActive` has two silent‑swallow gates:
+### 1) Present writes must land AT the sensor and advance like Floating Numbers do
 
-1. `notebookRowLines.has(floor(sensor.line))` — sensor is parked on a locked prose/notebook row → return without writing.
-2. `isLockedInkRow(sensor.line)` — sensor is on a completed earlier line → return without writing.
+Current behaviour: `presentWriteAtSensor` snaps to the first empty row *below all ink* on every click, so everything piles onto one row and the teacher's sensor position is ignored.
 
-On the earlier Present run those "dead cells" were `writeProseLineOnBoard` rows and got added to `notebookRowLines`. When the teacher clicks Present again, the sensor is still parked on one of those rows, so `editActive` silently swallows every click. That's why the status badge shows "✓ Written" (the mirror function ran) but nothing appears on the board.
+Desired behaviour (matches Floating‑Number semantics):
 
-### Fix — Present always writes on its own fresh writable row
+- **Block items** (`kind = "cover" | "section" | "subsection" | "question" | "teacher-note"`): write **at the sensor's current row**, then advance the sensor down one writable row so the next click gets a fresh line.
+- **Chips / inline math** (everything else — `floating-number`, `solution-line`, chips like `5x`, `x²`, `+6`, `=0`): insert **at the sensor's cursor** on the current row and **do NOT advance** — teacher builds a line by tapping chips, exactly like Floating Number chip taps.
+- **Safety only**: if the current sensor row is a notebook‑locked row (prose like "The quadratic formula is:") or a locked‑ink row, snap the sensor to the next free writable row *before* inserting, so nothing is silently swallowed. This is the only automatic move — otherwise honour whatever row the teacher parked the sensor on.
 
-Add one controller method that guarantees a live editable row before inserting, and route Present through it. Floating‑Number chip behaviour is untouched.
+#### File changes
 
-**1. `src/components/smartboard/PresentationView.tsx`**
-Add a new `useCallback`:
+**`src/components/smartboard/PresentationView.tsx`**
+Change `presentWriteAtSensor` to take an options object and drop the "snap to below all ink" logic:
+
 ```ts
-const presentWriteAtSensor = useCallback((text: string) => {
-  if (!text.trim()) return;
-  // Snap the sensor to the first empty writable row below all ink,
-  // skipping notebook-locked and locked-ink rows. This is what makes
-  // every Present click land as LIVE, editable ink.
-  const L = activeLayout;
-  if (L) {
-    const a = bandStart(L), b = bandEnd(L);
-    const li = lastVisibleInkRow(L);
-    let t = li >= a ? nextSensorRowBelow(li) : a;
-    while (t <= b && (
-      notebookRowLines.has(t) ||
-      isLockedInkRow(t) ||
-      !isEmptyWritableRow(t, L)
-    )) t++;
-    if (t <= b) setSensor((s) => (s.line === t ? s : { ...s, line: t, x: 0 }));
-  }
-  insertTextAtSensor(text);
-}, [activeLayout, notebookRowLines, insertTextAtSensor]);
+const presentWriteAtSensor = useCallback(
+  (text: string, opts?: { advanceAfter?: boolean }) => {
+    if (!text.trim()) return;
+
+    // Safety only: if sensor is on a locked/notebook row, hop to the
+    // next writable row so the write isn't silently swallowed.
+    const L = activeLayout;
+    if (L) {
+      const cur = Math.floor(sensor.line);
+      if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
+        const b = bandEnd(L);
+        let t = nextSensorRowBelow(cur);
+        while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
+        if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
+      }
+    }
+
+    insertTextAtSensor(text);
+
+    // Block items advance the sensor down so the next click gets its
+    // own fresh row. Chips do NOT advance (parity with Floating Number
+    // chip taps).
+    if (opts?.advanceAfter && L) {
+      const b = bandEnd(L);
+      const from = Math.floor(sensor.line);
+      let t = nextSensorRowBelow(from);
+      while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
+      if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
+    }
+  },
+  [activeLayout, notebookRowLines, insertTextAtSensor, sensor.line]
+);
 ```
-Expose it on the controller memo (add `presentWriteAtSensor` to returned object + deps).
 
-**2. `src/lib/smartboard/presentationAI/controller.ts`**
-Add:
+**`src/lib/smartboard/presentationAI/controller.ts`**
+Widen the signature:
 ```ts
-/** Present-mode write: snaps sensor to next free live row, then
- *  inserts via the same route as a Floating Number chip. Result is
- *  live/editable and never lands on a locked/notebook row. */
-presentWriteAtSensor?: (text: string) => void;
+presentWriteAtSensor?: (text: string, opts?: { advanceAfter?: boolean }) => void;
 ```
 
-**3. `src/lib/smartboard/manualEdit/mirror.ts` — `applyMirror`**
-Prefer the new method; fall back to the previous ones so nothing else breaks:
+**`src/lib/smartboard/manualEdit/mirror.ts` — `applyMirror`**
+Classify by `target.kind`:
 ```ts
-if (ctrl.presentWriteAtSensor) ctrl.presentWriteAtSensor(text);
+const BLOCK_KINDS = new Set(["cover", "section", "subsection", "question", "teacher-note"]);
+const advanceAfter = BLOCK_KINDS.has(target.kind);
+if (ctrl.presentWriteAtSensor) ctrl.presentWriteAtSensor(text, { advanceAfter });
 else if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
 else ctrl.writeProseLineOnBoard(text);
 ```
 
-### Result per click
-- The sensor advances to the next empty writable row (below all existing ink, past any locked/notebook rows).
-- Text is inserted through the live `editActive` path — cursor lands inside, row is editable, teacher can add more, backspace, etc.
-- Multiple Present clicks accumulate as consecutive live rows (matching the "S = fraction, S = fraction" pattern you saw before, but now live not dead).
-- No board clearing. Floating Numbers still work in parallel. No verify, no autofix.
+Everything else in `applyMirror` (teacher-note note-gate silence) stays.
 
-### Files touched
-- `src/components/smartboard/PresentationView.tsx` — one new `useCallback`, one controller field, one deps entry.
-- `src/lib/smartboard/presentationAI/controller.ts` — one optional method on the interface.
-- `src/lib/smartboard/manualEdit/mirror.ts` — swap the call site.
+### 2) Remove the left‑rail up/down icons
+
+The left‑side `CursorScrollbar` at `leftPx={12}, topCss="50%"` duplicates the up/down arrows already present in the middle of the board.
+
+**`src/components/smartboard/PresentationView.tsx`** — delete the `CursorScrollbar` block at lines ~4922–4938 (the "Cursor up/down rail" JSX). Leave `moveSensorUp` / `moveSensorDown` (still used elsewhere) and the middle arrows untouched.
+
+### Result
+
+- Click **Introduction** (section) → lands where the sensor sits, sensor moves down one row.
+- Click **Introduction** again → lands on the new sensor row, sensor moves down again.
+- Click chip `5x`, then `=`, then `0`, then `+6` → all land on the current sensor row inline, sensor stays put (Floating‑Number‑chip parity).
+- Left‑rail up/down icons gone; centre arrows remain.
+- Floating Number workflow, board clearing, and verify/autofix are untouched.
