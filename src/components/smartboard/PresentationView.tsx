@@ -2329,28 +2329,31 @@ const PresentationView = ({
       // Line K already has ink → park at its last owned row (end of ink).
       target = ownedRows[ownedRows.length - 1];
     } else {
-      // Line K has no ink yet → find the LAST row with VISIBLE ink on the
-      // board (actual content — never the ownership bookkeeping, whose
-      // stale entries used to park the sensor 2-3 rows too far down) and
-      // place the sensor EXACTLY ONE row below it. The notation decides
-      // extra space: only a genuinely tall structure (stacked fraction /
-      // matrix) on that row pushes the sensor further down, via
-      // extraRowsFor. Plain equations add nothing.
-      const lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
+      // Line K has no ink yet → land EXACTLY one row below the last
+      // visibly inked row AT OR ABOVE the sensor (the line just finished).
+      // Never below unrelated content further down the band — that is what
+      // used to fling the sensor 4-5 rows down. THE LAW: plain equation
+      // → +1 row; tall structure (stacked fraction / matrix) → +2, via
+      // nextSensorRowBelow. Nothing else may push it further.
+      const ceil = Math.max(Math.floor(sensor.line), a);
+      let lastInk = -1;
+      for (const key of Object.keys(freeLines)) {
+        const r = Math.floor(Number(key));
+        if (r < a || r > ceil) continue;
+        const row = freeLines[Number(key)];
+        if (row && rowHasVisibleInk(row)) lastInk = Math.max(lastInk, r);
+      }
+      for (const ln of notebookRowLines) {
+        const r = Math.floor(ln);
+        if (r >= a && r <= ceil) lastInk = Math.max(lastInk, r);
+      }
+      // Sensor parked above all ink (teacher scrolled up) → fall back to
+      // the band-wide last-ink row so we still land below the work.
+      if (lastInk < 0) lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
       if (lastInk >= a) {
         let t = nextSensorRowBelow(lastInk);
-        // A previous line's structure can occupy rows BELOW its baseline
-        // (fraction denominator, matrix body). The sensor must clear every
-        // row owned by earlier lines — it may never park inside line K−1.
-        for (const [rk, o] of Object.entries(rowOwners)) {
-          const rr = Math.floor(Number(rk));
-          if (!Number.isFinite(rr) || rr < a || rr > b) continue;
-          if ((o as number) >= idx) continue;
-          const row = freeLines[rr] ?? freeLines[rr + 0.5];
-          if (!row || !rowHasVisibleInk(row)) continue;
-          t = Math.max(t, rr + 1 + extraRowsFor(rr) + sensorGapRowsBelow(rr));
-        }
-        // Skip rows still covered by a tall structure or holding a note.
+        // Step past locked rows (notes / structure bodies) ONE row at a
+        // time — a minimal step-over, never a compounding offset.
         while (t <= b && activeLayout && !isEmptyWritableRow(t, activeLayout)) t++;
         target = Math.min(b, t);
       } else {
