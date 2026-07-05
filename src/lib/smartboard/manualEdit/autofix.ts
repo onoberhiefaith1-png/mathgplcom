@@ -173,7 +173,7 @@ export const runMirrorWithAutofix = async (
     totalSteps: TOTAL_STEPS,
     label: "Fixing… step 2/4 — forcing section",
   });
-  const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
+  const beatIdx = resolveBeatIdx(target, ctrl);
   if (beatIdx >= 0) ctrl.setBeatCursor(beatIdx);
   await wait(350);
   await waitForBeat(target, ctrl);
