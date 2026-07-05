@@ -23,6 +23,10 @@ export interface EditTarget {
   lineIdx?: number;
   fillerIdx?: number;
   text?: string;
+  /** Index of this beat among beats of the SAME type ("-q" / "-text").
+   *  Fallback matcher when section IDs have been regenerated and the
+   *  preview's beatId no longer exists in the board's beat list. */
+  beatOrdinal?: number;
 }
 
 /** Stable identity key for a target — used to route status badges. */
