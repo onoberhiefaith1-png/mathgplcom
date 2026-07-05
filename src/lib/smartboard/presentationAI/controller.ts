@@ -68,6 +68,13 @@ export interface PresentationController {
   /** Erase the note row (if any) previously written for `lineIdx`. */
   eraseNoteAt?: (lineIdx: number) => void;
 
+  /** DIRECT NOTE CHANNEL — one-to-one write of a teacher note for a
+   *  specific line. Anchors under the line's own board row, independent
+   *  of the sensor / Floating Number state. Writes the note (or scrolls
+   *  to it when already inked), locks the row, and clears the note-gate
+   *  glow. Returns the note's row, or null when nothing could land. */
+  writeNoteForLine?: (lineIdx: number, text: string) => number | null;
+
   /** Scroll the Smartboard so `lineIdx` is in view. */
   scrollBoardTo?: (lineIdx: number) => void;
 
