@@ -4381,12 +4381,9 @@ const PresentationView = ({
                         }
                         targetRow = t;
                       }
-                      setSensor((s) =>
-                        s.line === targetRow && s.x === 0
-                          ? s
-                          : { line: targetRow, x: 0 },
-                      );
-                      writeProseLineOnBoard(text, targetRow);
+                      // Note rows are locked — the writer advances the
+                      // sensor to the first empty row BELOW the note.
+                      writeProseLineOnBoard(text, targetRow, { advanceSensor: true });
                       scrollBoardToRow(targetRow);
                     }
                     setShownNotebookIdx((prev) => {
