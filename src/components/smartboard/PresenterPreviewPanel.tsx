@@ -143,8 +143,8 @@ const NoteBlock = ({ text }: { text: string }) => {
 };
 
 type Item =
-  | { id: string; kind: "cover" }
-  | { id: string; kind: "prose"; caption: string; text: string }
+  | { id: string; kind: "cover"; ordinal: number }
+  | { id: string; kind: "prose"; caption: string; text: string; ordinal: number }
   | {
       id: string;
       kind: "problem";
@@ -152,6 +152,8 @@ type Item =
       problem: string;
       reservoir?: Reservoir;
       hasFloatingData: boolean;
+      /** Index among problem beats — ID-drift-proof beat matcher. */
+      ordinal: number;
     };
 
 export interface PresenterPreviewPanelProps {
