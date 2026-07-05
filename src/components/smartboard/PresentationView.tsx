@@ -3692,38 +3692,8 @@ const PresentationView = ({
         </>
       )}
 
-      {/* Presentation AI — top-right controls (teacher only). Autoplay
-          button + speed popover; while running, a live AI Diagnosis chip
-          appears next to it. The DiagnosisPanel is a 30% overlay that
-          does NOT resize the Smartboard (unlike the Presenter Preview). */}
-      {showPresenterChrome && (
-        <div
-          data-sb-chrome
-          data-sb-teacher-only
-          className="absolute z-40"
-          style={{ right: 12, top: 12 }}
-        >
-          <AutoplayControl
-            state={ai.state}
-            speed={ai.speed}
-            setSpeed={ai.setSpeed}
-            onStart={(s) => ai.start(s)}
-            onStop={() => ai.stop()}
-            onOpenDiagnosis={() => setAiPanelOpen(true)}
-            hasActiveIssue={!!ai.activeIssue}
-          />
-        </div>
-      )}
+      {/* Presentation AI (Autoplay + Diagnosis) has been removed. */}
 
-      {showPresenterChrome && (
-        <DiagnosisPanel
-          ai={ai}
-          open={aiPanelOpen}
-          onClose={() => setAiPanelOpen(false)}
-          notebookId={notebookId}
-          notebookTitle={notebook?.title ?? null}
-        />
-      )}
 
 
 
