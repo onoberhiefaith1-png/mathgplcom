@@ -13,6 +13,7 @@ import {
 } from "react";
 import type { Cursor, Node, Row } from "@/lib/smartboard/mathTree";
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
+import { usePlaceholderMode } from "./placeholderMode";
 
 interface Common {
   cursor: Cursor;
