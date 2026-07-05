@@ -1151,9 +1151,18 @@ const PresentationView = ({
    *
    *  Idempotent — if the same text is already on a line, we do not
    *  duplicate it. */
-  const writeProseLineOnBoard = useCallback((rawFromLessonNote: string, atRow?: number) => {
+  // Live snapshot of freeLines so writers can compute placement
+  // synchronously (before React commits) and report the rows they used.
+  const freeLinesRef = useRef(freeLines);
+  freeLinesRef.current = freeLines;
+
+  const writeProseLineOnBoard = useCallback((
+    rawFromLessonNote: string,
+    atRow?: number,
+    opts?: { advanceSensor?: boolean },
+  ): number | null => {
     const raw = rawFromLessonNote ?? "";
-    if (!raw.trim()) return;
+    if (!raw.trim()) return null;
     // PARAGRAPH-SHAPED NOTES: the note must mirror the lesson-note's own
     // paragraph structure, not flatten onto one endlessly-scrolling row.
     // Split on blank lines first (real paragraph breaks); if none exist,
@@ -1164,7 +1173,7 @@ const PresentationView = ({
     )
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
-    if (paragraphs.length === 0) return;
+    if (paragraphs.length === 0) return null;
 
     // Pre-compute the mirror rows once so the parity gate runs per
     // paragraph and any that fail are skipped rather than dropping the
@@ -1172,82 +1181,128 @@ const PresentationView = ({
     const mirrored = paragraphs
       .map((p) => mirrorLessonNoteRow(p))
       .filter((m) => m.ok && m.row.length > 0);
-    if (mirrored.length === 0) return;
+    if (mirrored.length === 0) return null;
 
-    setFreeLines((prev) => {
-      // Idempotency: if the FIRST paragraph is already on the board with
-      // the exact same signature, treat the whole note as already
-      // committed and just re-mark it as sensor-restricted.
-      const firstSig = mirrored[0].signature;
-      for (const k of Object.keys(prev)) {
-        const n = Number(k);
-        const row = prev[n];
-        if (row && row.length > 0 && rowSignature(row) === firstSig) {
-          const existing = Math.floor(n);
-          setNotebookRowLines((prevSet) => {
-            const ns = new Set(prevSet);
-            ns.add(existing);
-            return ns;
-          });
-          return prev;
-        }
-      }
+    const prev = freeLinesRef.current;
 
-      // Insert paragraphs consecutively from the target row downward.
-      // The caller may pass an EXPLICIT row (atRow) — required when the
-      // sensor was just moved in the same event, because `sensor.line`
-      // in this closure is still the OLD value (React state is async).
-      // LAW 2 (Locked-Ink Rule) still applies: existing ink is never
-      // overwritten — each paragraph slides to the first free row below.
-      // POST-STRUCTURE GAP: writing directly under a tall structure
-      // (fraction, matrix, big-op, tall radicand) reserves at least one
-      // empty row so the note never collides with a denominator/body.
-      const next = { ...prev };
-      const newNotebookRows: number[] = [];
-      let target = Math.floor(atRow ?? sensor.line);
-      const rowIsTall = (r: number): boolean => {
-        const row = next[r] ?? next[r + 0.5];
-        return !!row && rowHasVisibleInk(row) && rowHasTallStructure(row);
-      };
-      // Initial gap enforcement: covers BOTH "sensor parked directly on
-      // the tall row" and "sensor parked one row below it". Either way
-      // the note must clear the structure's full footprint plus one
-      // empty breathing row before it may land.
-      if (rowIsTall(target)) {
-        target = nextSensorRowBelow(target);
-      } else if (target > 0 && rowIsTall(target - 1)) {
-        target = Math.max(target, nextSensorRowBelow(target - 1));
-      }
-      const occupied = (r: number): boolean => {
-        const whole = next[r];
-        const half = next[r + 0.5];
+    // Move the sensor to the first empty writable row BELOW lastRow.
+    // Note rows are locked (non-editable), so the sensor must never be
+    // left parked on/before a note — it lands on the next free row.
+    const advanceBelow = (
+      lastRow: number,
+      map: typeof prev,
+      extraNoteRows: Set<number>,
+    ): void => {
+      let t = lastRow + 1;
+      const blocked = (r: number): boolean => {
+        const whole = map[r];
+        const half = map[r + 0.5];
         return (
           (!!whole && rowHasVisibleInk(whole)) ||
           (!!half && rowHasVisibleInk(half)) ||
           notebookRowLines.has(r) ||
-          newNotebookRows.includes(r)
+          extraNoteRows.has(r)
         );
       };
-      for (const m of mirrored) {
-        // Skip occupied rows; when an occupant is a tall structure, jump
-        // past its full multi-row footprint + one empty breathing row so
-        // the paragraph never collides with a denominator/body.
-        while (occupied(target)) {
-          target = rowIsTall(target) ? nextSensorRowBelow(target) : target + 1;
-        }
-        next[target] = m.row;
-        newNotebookRows.push(target);
-        target += 1;
-      }
-      if (newNotebookRows.length > 0) {
+      for (let guard = 0; guard < 200 && blocked(t); guard++) t += 1;
+      setSensor({ line: t, x: 0 });
+      setLiveCursor({ path: [], index: 0 });
+      // Sticky manual position: the auto-anchor must not snap the sensor
+      // back onto/above the note it just cleared.
+      manualSensorRef.current = { line: t, x: 0 };
+      activeSensorPhysicalLineRef.current = t;
+      requestAnimationFrame(() => scrollBoardToRow(t));
+    };
+
+    // Idempotency: if the FIRST paragraph is already on the board with
+    // the exact same signature, treat the whole note as already
+    // committed and just re-mark it as sensor-restricted.
+    const firstSig = mirrored[0].signature;
+    for (const k of Object.keys(prev)) {
+      const n = Number(k);
+      const row = prev[n];
+      if (row && row.length > 0 && rowSignature(row) === firstSig) {
+        const existing = Math.floor(n);
         setNotebookRowLines((prevSet) => {
           const ns = new Set(prevSet);
-          for (const r of newNotebookRows) ns.add(r);
+          ns.add(existing);
           return ns;
         });
+        if (opts?.advanceSensor) {
+          advanceBelow(existing + mirrored.length - 1, prev, new Set([existing]));
+        }
+        return existing;
       }
-      return next;
+    }
+
+    // Insert paragraphs consecutively from the target row downward.
+    // The caller may pass an EXPLICIT row (atRow) — required when the
+    // sensor was just moved in the same event, because `sensor.line`
+    // in this closure is still the OLD value (React state is async).
+    // LAW 2 (Locked-Ink Rule) still applies: existing ink is never
+    // overwritten — each paragraph slides to the first free row below.
+    // POST-STRUCTURE GAP: writing directly under a tall structure
+    // (fraction, matrix, big-op, tall radicand) reserves at least one
+    // empty row so the note never collides with a denominator/body.
+    const next = { ...prev };
+    const newNotebookRows: number[] = [];
+    let target = Math.floor(atRow ?? sensor.line);
+    const rowIsTall = (r: number): boolean => {
+      const row = next[r] ?? next[r + 0.5];
+      return !!row && rowHasVisibleInk(row) && rowHasTallStructure(row);
+    };
+    // Initial gap enforcement: covers BOTH "sensor parked directly on
+    // the tall row" and "sensor parked one row below it". Either way
+    // the note must clear the structure's full footprint plus one
+    // empty breathing row before it may land.
+    if (rowIsTall(target)) {
+      target = nextSensorRowBelow(target);
+    } else if (target > 0 && rowIsTall(target - 1)) {
+      target = Math.max(target, nextSensorRowBelow(target - 1));
+    }
+    const occupied = (r: number): boolean => {
+      const whole = next[r];
+      const half = next[r + 0.5];
+      return (
+        (!!whole && rowHasVisibleInk(whole)) ||
+        (!!half && rowHasVisibleInk(half)) ||
+        notebookRowLines.has(r) ||
+        newNotebookRows.includes(r)
+      );
+    };
+    for (const m of mirrored) {
+      // Skip occupied rows; when an occupant is a tall structure, jump
+      // past its full multi-row footprint + one empty breathing row so
+      // the paragraph never collides with a denominator/body.
+      while (occupied(target)) {
+        target = rowIsTall(target) ? nextSensorRowBelow(target) : target + 1;
+      }
+      next[target] = m.row;
+      newNotebookRows.push(target);
+      target += 1;
+    }
+    // Optimistically publish the snapshot so a second write in the same
+    // tick sees these rows as taken, then merge into live state (never
+    // clobbering rows another queued updater may have touched).
+    freeLinesRef.current = next;
+    const placed = newNotebookRows.map((r) => [r, next[r]] as const);
+    setFreeLines((p) => {
+      const merged = { ...p };
+      for (const [r, rowInk] of placed) merged[r] = rowInk;
+      return merged;
     });
+    setNotebookRowLines((prevSet) => {
+      const ns = new Set(prevSet);
+      for (const r of newNotebookRows) ns.add(r);
+      return ns;
+    });
+    const lastRow = newNotebookRows[newNotebookRows.length - 1];
+    if (opts?.advanceSensor) {
+      advanceBelow(lastRow, next, new Set(newNotebookRows));
+    }
+    return lastRow;
+  // scrollBoardToRow / refs are stable identities read at call time.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sensor.line, notebookRowLines]);
 
 
@@ -2274,28 +2329,31 @@ const PresentationView = ({
       // Line K already has ink → park at its last owned row (end of ink).
       target = ownedRows[ownedRows.length - 1];
     } else {
-      // Line K has no ink yet → find the LAST row with VISIBLE ink on the
-      // board (actual content — never the ownership bookkeeping, whose
-      // stale entries used to park the sensor 2-3 rows too far down) and
-      // place the sensor EXACTLY ONE row below it. The notation decides
-      // extra space: only a genuinely tall structure (stacked fraction /
-      // matrix) on that row pushes the sensor further down, via
-      // extraRowsFor. Plain equations add nothing.
-      const lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
+      // Line K has no ink yet → land EXACTLY one row below the last
+      // visibly inked row AT OR ABOVE the sensor (the line just finished).
+      // Never below unrelated content further down the band — that is what
+      // used to fling the sensor 4-5 rows down. THE LAW: plain equation
+      // → +1 row; tall structure (stacked fraction / matrix) → +2, via
+      // nextSensorRowBelow. Nothing else may push it further.
+      const ceil = Math.max(Math.floor(sensor.line), a);
+      let lastInk = -1;
+      for (const key of Object.keys(freeLines)) {
+        const r = Math.floor(Number(key));
+        if (r < a || r > ceil) continue;
+        const row = freeLines[Number(key)];
+        if (row && rowHasVisibleInk(row)) lastInk = Math.max(lastInk, r);
+      }
+      for (const ln of notebookRowLines) {
+        const r = Math.floor(ln);
+        if (r >= a && r <= ceil) lastInk = Math.max(lastInk, r);
+      }
+      // Sensor parked above all ink (teacher scrolled up) → fall back to
+      // the band-wide last-ink row so we still land below the work.
+      if (lastInk < 0) lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
       if (lastInk >= a) {
         let t = nextSensorRowBelow(lastInk);
-        // A previous line's structure can occupy rows BELOW its baseline
-        // (fraction denominator, matrix body). The sensor must clear every
-        // row owned by earlier lines — it may never park inside line K−1.
-        for (const [rk, o] of Object.entries(rowOwners)) {
-          const rr = Math.floor(Number(rk));
-          if (!Number.isFinite(rr) || rr < a || rr > b) continue;
-          if ((o as number) >= idx) continue;
-          const row = freeLines[rr] ?? freeLines[rr + 0.5];
-          if (!row || !rowHasVisibleInk(row)) continue;
-          t = Math.max(t, rr + 1 + extraRowsFor(rr) + sensorGapRowsBelow(rr));
-        }
-        // Skip rows still covered by a tall structure or holding a note.
+        // Step past locked rows (notes / structure bodies) ONE row at a
+        // time — a minimal step-over, never a compounding offset.
         while (t <= b && activeLayout && !isEmptyWritableRow(t, activeLayout)) t++;
         target = Math.min(b, t);
       } else {
@@ -2803,11 +2861,9 @@ const PresentationView = ({
     activeReservoir,
     guidedLines,
   };
-  // Row-signature helpers for the Presentation AI. `rowOwnersRef` and
-  // `freeLines` are already live in the render loop; we snapshot them via
-  // the ref so the AI reads the freshest board state at inspect-time.
-  const freeLinesRef = useRef(freeLines);
-  freeLinesRef.current = freeLines;
+  // Row-signature helpers for the Presentation AI read `freeLinesRef`
+  // (declared next to writeProseLineOnBoard) for the freshest board state.
+
 
   const findBoardRowForLine = useCallback((lineIdx: number): number | null => {
     const owners = rowOwnersRef.current;
@@ -2987,11 +3043,16 @@ const PresentationView = ({
           return r;
         }
       }
-      // Start below the last owned row (any line), else at current sensor.
+      // Start below the last owned row that STILL carries content (stale
+      // ownership entries whose ink was erased must never drag the sensor
+      // further down), else at current sensor.
       let start = Math.max(0, Math.floor(sensor.line));
       for (const key of Object.keys(owners)) {
         const r = Number(key);
-        if (typeof owners[r] === "number") start = Math.max(start, r + 1);
+        if (typeof owners[r] !== "number") continue;
+        const row = freeLinesRef.current[r] ?? freeLinesRef.current[r + 0.5];
+        const live = (!!row && rowHasVisibleInk(row)) || notebookRowLines.has(r);
+        if (live) start = Math.max(start, r + 1);
       }
       let target = start;
       // Walk down while blocked; give one extra row of clearance below a
@@ -3008,7 +3069,7 @@ const PresentationView = ({
       setLiveCursor({ path: [], index: 0 });
       return target;
     },
-    [getRowOccupancy, sensor.line, setLiveCursor],
+    [getRowOccupancy, sensor.line, setLiveCursor, notebookRowLines],
   );
 
   const moveSensorUp = useCallback((rows: number = 1) => {
@@ -4284,6 +4345,9 @@ const PresentationView = ({
                     const existingRow = findTextRow(text);
                     if (existingRow != null) {
                       scrollBoardToRow(existingRow);
+                      // Still move the sensor below the (locked) note via the
+                      // writer's idempotent path.
+                      writeProseLineOnBoard(text, existingRow, { advanceSensor: true });
                     } else {
                       // Anchor the note under the row owning the active line
                       // (never the stale sensor row) so it lands directly
@@ -4320,12 +4384,9 @@ const PresentationView = ({
                         }
                         targetRow = t;
                       }
-                      setSensor((s) =>
-                        s.line === targetRow && s.x === 0
-                          ? s
-                          : { line: targetRow, x: 0 },
-                      );
-                      writeProseLineOnBoard(text, targetRow);
+                      // Note rows are locked — the writer advances the
+                      // sensor to the first empty row BELOW the note.
+                      writeProseLineOnBoard(text, targetRow, { advanceSensor: true });
                       scrollBoardToRow(targetRow);
                     }
                     setShownNotebookIdx((prev) => {

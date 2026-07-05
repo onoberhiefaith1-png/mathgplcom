@@ -21,7 +21,15 @@ export interface PresentationController {
   getShownNotebookIdx: () => Set<number>;
   markNotebookShown: (idx: number) => void;
 
-  writeProseLineOnBoard: (raw: string) => void;
+  /** Writes prose (a note) onto the board. Optional `atRow` pins the first
+   *  paragraph row; `opts.advanceSensor` moves the writing sensor to the
+   *  first empty row BELOW the note after it lands (note rows are locked).
+   *  Returns the last row written, or null when nothing was written. */
+  writeProseLineOnBoard: (
+    raw: string,
+    atRow?: number,
+    opts?: { advanceSensor?: boolean },
+  ) => number | null;
   /** Insert text into the ACTIVE sensor row — same route as tapping a
    *  Floating Number chip. Result is live/editable, cursor stays inside. */
   insertTextAtSensor?: (text: string) => void;
