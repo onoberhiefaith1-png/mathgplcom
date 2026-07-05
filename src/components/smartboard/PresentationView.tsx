@@ -3033,10 +3033,14 @@ const PresentationView = ({
       const hasInk = (!!whole && whole.length > 0) || (!!half && half.length > 0);
       if (notebookRowLines.has(row)) return "note";
       // Tall structures upstream cover this row (denominator zone).
+      // Half-row ink (sensor parked on n.5) counts via its floor row —
+      // skipping fractional keys made tall fractions typed on half rows
+      // invisible here, letting notes land inside their footprint.
       for (const key of Object.keys(rows)) {
-        const src = Number(key);
-        if (!Number.isInteger(src) || src >= row) continue;
-        const r = rows[src];
+        const srcRaw = Number(key);
+        const src = Math.floor(srcRaw);
+        if (src >= row) continue;
+        const r = rows[srcRaw];
         if (!r || r.length === 0) continue;
         if (rowHasTallStructure(r) && src + extraRowsFor(src) >= row) {
           return "fraction-denominator";
@@ -3071,7 +3075,10 @@ const PresentationView = ({
         landedRow = existingRow;
       } else {
         // Anchor under the last board row owned by this line or any
-        // earlier line, so the note lands directly below its equation.
+        // earlier line, AND under the deepest visibly-inked row. Chips
+        // typed live at the sensor never register ownership, so raw ink
+        // must count too — otherwise the note lands ON TOP of a freshly
+        // typed tall fraction (invisible/overlapped = "note didn't show").
         const owners = rowOwnersRef.current;
         let anchor = -1;
         for (const key of Object.keys(owners)) {
@@ -3080,12 +3087,20 @@ const PresentationView = ({
           if (typeof owner !== "number") continue;
           if (owner <= lineIdx && r > anchor) anchor = r;
         }
+        const rowsNow = freeLinesRef.current;
+        for (const key of Object.keys(rowsNow)) {
+          const rr = Math.floor(Number(key));
+          const ink = rowsNow[Number(key)];
+          if (ink && rowHasVisibleInk(ink) && rr > anchor) anchor = rr;
+        }
         let targetRow: number;
         if (anchor >= 0) {
+          // The writer's own tall-structure gap logic bumps past the
+          // anchor's footprint (fraction denominator etc.) from here.
           targetRow = anchor + 1;
         } else {
-          // No owned rows yet — scan from the top of the section band for
-          // the first genuinely empty row. Never fall back to the sensor.
+          // Blank board — scan from the top of the section band for the
+          // first genuinely empty row. Never fall back to the sensor.
           let t = activeLayout ? bandStart(activeLayout) : 0;
           for (let g = 0; g < 200; g++) {
             const occ = getRowOccupancy(t);
@@ -3095,6 +3110,22 @@ const PresentationView = ({
           targetRow = t;
         }
         landedRow = writeProseLineOnBoard(raw, targetRow, { advanceSensor: true });
+        // VERIFY the ink actually landed — the backup channel must NEVER
+        // silently fail. If nothing landed, force a second write below the
+        // deepest ink on the board (plain-text fallback inside the writer
+        // guarantees visible characters).
+        if (landedRow == null) {
+          const rows2 = freeLinesRef.current;
+          let deepest = -1;
+          for (const key of Object.keys(rows2)) {
+            const ink = rows2[Number(key)];
+            if (ink && rowHasVisibleInk(ink)) {
+              deepest = Math.max(deepest, Math.floor(Number(key)));
+            }
+          }
+          const forceRow = deepest + 2; // clears any tall footprint
+          landedRow = writeProseLineOnBoard(raw, forceRow, { advanceSensor: true });
+        }
         scrollBoardToRow(landedRow ?? targetRow);
       }
       // Note is shown — silence the note-gate glow for this line.
@@ -3116,6 +3147,8 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [findTextRow, writeProseLineOnBoard, scrollBoardToRow, getRowOccupancy, activeLayout],
   );
+
+
 
 
 
