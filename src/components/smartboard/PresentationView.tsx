@@ -1159,7 +1159,7 @@ const PresentationView = ({
   const writeProseLineOnBoard = useCallback((
     rawFromLessonNote: string,
     atRow?: number,
-    opts?: { advanceSensor?: boolean },
+    opts?: { advanceSensor?: boolean; noteAdvance?: boolean },
   ): number | null => {
     const raw = rawFromLessonNote ?? "";
     if (!raw.trim()) return null;
