@@ -1136,7 +1136,7 @@ const PresentationView = ({
    *
    *  Idempotent — if the same text is already on a line, we do not
    *  duplicate it. */
-  const writeProseLineOnBoard = useCallback((rawFromLessonNote: string) => {
+  const writeProseLineOnBoard = useCallback((rawFromLessonNote: string, atRow?: number) => {
     const raw = rawFromLessonNote ?? "";
     if (!raw.trim()) return;
     // PARAGRAPH-SHAPED NOTES: the note must mirror the lesson-note's own
@@ -1178,7 +1178,10 @@ const PresentationView = ({
         }
       }
 
-      // Insert paragraphs consecutively from the sensor row downward.
+      // Insert paragraphs consecutively from the target row downward.
+      // The caller may pass an EXPLICIT row (atRow) — required when the
+      // sensor was just moved in the same event, because `sensor.line`
+      // in this closure is still the OLD value (React state is async).
       // LAW 2 (Locked-Ink Rule) still applies: existing ink is never
       // overwritten — each paragraph slides to the first free row below.
       // POST-STRUCTURE GAP: writing directly under a tall structure
@@ -1186,7 +1189,7 @@ const PresentationView = ({
       // empty row so the note never collides with a denominator/body.
       const next = { ...prev };
       const newNotebookRows: number[] = [];
-      let target = Math.floor(sensor.line);
+      let target = Math.floor(atRow ?? sensor.line);
       const rowIsTall = (r: number): boolean => {
         const row = next[r] ?? next[r + 0.5];
         return !!row && rowHasVisibleInk(row) && rowHasTallStructure(row);
@@ -2881,6 +2884,26 @@ const PresentationView = ({
     return false;
   }, []);
 
+  // Like boardHasTextRow, but returns WHICH row holds the text (or null).
+  // Used by the note-click handler to scroll to an already-inked note
+  // instead of silently doing nothing.
+  const findTextRow = useCallback((text: string): number | null => {
+    const raw = (text ?? "").trim();
+    if (!raw) return null;
+    const m = mirrorLessonNoteRow(raw);
+    if (!m.ok) return null;
+    const expected = m.signature;
+    const rows = freeLinesRef.current;
+    for (const key of Object.keys(rows)) {
+      const ink = rows[Number(key) as unknown as number];
+      if (!ink || ink.length === 0) continue;
+      if (rowSignature(ink) === expected) return Math.floor(Number(key));
+    }
+    return null;
+  }, []);
+
+
+
   const scrollBoardTo = useCallback((lineIdx: number) => {
     setActiveLineIdx(lineIdx);
     // Bring the row physically into view. If we already own a board row
@@ -4232,25 +4255,57 @@ const PresentationView = ({
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
                   onWriteNotebookToBoard={(text) => {
-                    // Anchor the note under the row owning the active line
-                    // (never the stale sensor row) so it lands directly
-                    // below the equation, not 5–10 rows down.
-                    const owners = rowOwnersRef.current;
-                    let anchor = -1;
-                    for (const key of Object.keys(owners)) {
-                      const r = Number(key);
-                      const owner = owners[r];
-                      if (typeof owner !== "number") continue;
-                      if (owner <= curLineIdx && r > anchor) anchor = r;
-                    }
-                    if (anchor >= 0) {
+                    // If this note's text is ALREADY inked somewhere (e.g. a
+                    // stale copy from an earlier session, possibly far below
+                    // the view), don't silently no-op — scroll straight to it
+                    // so the teacher can SEE where it lives.
+                    const existingRow = findTextRow(text);
+                    if (existingRow != null) {
+                      scrollBoardToRow(existingRow);
+                    } else {
+                      // Anchor the note under the row owning the active line
+                      // (never the stale sensor row) so it lands directly
+                      // below the equation, not 5–10 rows down.
+                      const owners = rowOwnersRef.current;
+                      let anchor = -1;
+                      for (const key of Object.keys(owners)) {
+                        const r = Number(key);
+                        const owner = owners[r];
+                        if (typeof owner !== "number") continue;
+                        if (owner <= curLineIdx && r > anchor) anchor = r;
+                      }
+                      // Pass the target row EXPLICITLY — setSensor is async,
+                      // so writing "at the sensor" in the same click would
+                      // still use the OLD sensor row (the note then lands
+                      // wherever the cursor last was, often off-screen).
+                      // With no anchor (line's equation not written yet),
+                      // NEVER fall back to the sensor row — the teacher may
+                      // have dragged the cursor far down the board. Scan for
+                      // the first empty row from the TOP of this section's
+                      // band instead, so the note always lands right under
+                      // the section header.
+                      let targetRow: number;
+                      if (anchor >= 0) {
+                        targetRow = anchor + 1;
+                      } else {
+                        let t = activeLayout
+                          ? bandStart(activeLayout)
+                          : Math.floor(sensor.line);
+                        for (let g = 0; g < 200; g++) {
+                          const occ = getRowOccupancy(t);
+                          if (occ === "empty") break;
+                          t += occ === "fraction-denominator" ? 2 : 1;
+                        }
+                        targetRow = t;
+                      }
                       setSensor((s) =>
-                        s.line === anchor + 1 && s.x === 0
+                        s.line === targetRow && s.x === 0
                           ? s
-                          : { line: anchor + 1, x: 0 },
+                          : { line: targetRow, x: 0 },
                       );
+                      writeProseLineOnBoard(text, targetRow);
+                      scrollBoardToRow(targetRow);
                     }
-                    writeProseLineOnBoard(text);
                     setShownNotebookIdx((prev) => {
                       if (prev.has(curLineIdx)) return prev;
                       const nx = new Set(prev);
