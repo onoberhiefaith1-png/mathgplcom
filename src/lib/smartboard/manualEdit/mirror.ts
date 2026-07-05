@@ -210,8 +210,10 @@ export const applyMirror = async (
   }
 
   // Teacher-note — reveal on the board and silence the note-gate glow.
+  // Notes are locked (non-editable), so the sensor advances to the first
+  // empty row BELOW the note instead of staying parked before it.
   if (target.kind === "teacher-note" && typeof target.lineIdx === "number") {
-    if (text) ctrl.writeProseLineOnBoard(text);
+    if (text) ctrl.writeProseLineOnBoard(text, undefined, { advanceSensor: true });
     ctrl.markNotebookShown?.(target.lineIdx);
     ctrl.addNotebookAttention?.(target.lineIdx);
     return;
