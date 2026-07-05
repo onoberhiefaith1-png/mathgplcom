@@ -22,6 +22,9 @@ export interface PresentationController {
   markNotebookShown: (idx: number) => void;
 
   writeProseLineOnBoard: (raw: string) => void;
+  /** Insert text into the ACTIVE sensor row — same route as tapping a
+   *  Floating Number chip. Result is live/editable, cursor stays inside. */
+  insertTextAtSensor?: (text: string) => void;
   addNotebookAttention: (idx: number) => void;
 
   getActiveReservoir: () => Reservoir | undefined;
