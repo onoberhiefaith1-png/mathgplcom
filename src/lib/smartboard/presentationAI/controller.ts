@@ -28,7 +28,7 @@ export interface PresentationController {
   /** Present-mode write: snaps sensor to next free live row (skipping
    *  notebook-locked / locked-ink rows), then inserts via the same route
    *  as a Floating Number chip. Guarantees live, editable ink. */
-  presentWriteAtSensor?: (text: string) => void;
+  presentWriteAtSensor?: (text: string, opts?: { advanceAfter?: boolean }) => void;
   addNotebookAttention: (idx: number) => void;
 
   getActiveReservoir: () => Reservoir | undefined;
