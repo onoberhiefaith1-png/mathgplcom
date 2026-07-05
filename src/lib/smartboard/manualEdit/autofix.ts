@@ -123,7 +123,20 @@ export const runMirrorWithAutofix = async (
 
   // Point at the right section, then make sure every EARLIER line of
   // this section is already on the board (floating numbers, notes).
-  await waitForBeat(target, ctrl);
+  const settled = await waitForBeat(target, ctrl);
+  if (!settled && LINE_SCOPED.has(target.kind)) {
+    // The section could not be located AND settled — writing now would
+    // land on the wrong surface and falsely verify. Fail loudly.
+    if (resolveBeatIdx(target, ctrl) < 0) {
+      const failed: MirrorResult = {
+        ok: false,
+        message: "✗ Section not found on the board.",
+        detail: "The board and preview are out of sync — reopen the Smartboard.",
+      };
+      onProgress?.({ phase: "failed", label: failed.message, detail: failed.detail });
+      return failed;
+    }
+  }
   await ensurePriorLines(target, ctrl, onProgress);
 
   // Initial 1:1 mirror of the clicked item.
