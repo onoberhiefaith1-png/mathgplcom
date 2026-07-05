@@ -4367,8 +4367,29 @@ const PresentationView = ({
                   viewIdx={viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx)}
                   activeIdx={activeReservoirIdx}
                   visible={activeAssistant === "numbers" && reservoirs.length > 0}
-                  onInsert={(t) => insertTextAtSensor(t)}
-                  onInsertFrac={(p) => insertFractionAtSensor(p)}
+                  onInsert={(t) => {
+                    // Flex-nudge: if the sensor is parked on a locked or
+                    // already-inked row (very common right after a
+                    // fraction, whose ink spills onto row+0.5), slide it
+                    // down to the first safe row so the tap never
+                    // silently no-ops. Present Mode gets this for free
+                    // via presentWriteAtSensor; the Floating Number
+                    // panel now behaves the same way.
+                    presentWriteAtSensor(t);
+                  }}
+                  onInsertFrac={(p) => {
+                    const L = activeLayout;
+                    if (L) {
+                      const cur = Math.floor(sensor.line);
+                      if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
+                        const b = bandEnd(L);
+                        let t = nextSensorRowBelow(cur);
+                        while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
+                        if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
+                      }
+                    }
+                    insertFractionAtSensor(p);
+                  }}
                   activeLineIdx={hasGuidedLines ? curLineIdx : undefined}
                   consumedAbsIdx={consumedAbsIdx}
                   onUse={(absIdx) =>
