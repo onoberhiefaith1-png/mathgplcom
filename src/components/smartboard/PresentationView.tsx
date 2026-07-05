@@ -3265,6 +3265,7 @@ const PresentationView = ({
       notebookId,
       notebook?.title,
       writeProseLineOnBoard,
+      insertTextAtSensor,
       writeEquationPrefix,
       getBoardRowSignatureFor,
       getExpectedRowSignatureFor,
