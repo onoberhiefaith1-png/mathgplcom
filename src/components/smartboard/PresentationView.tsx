@@ -64,6 +64,14 @@ import {
   rowHasTallStructure,
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
+import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
+import type { WritePlan } from "@/lib/smartboard/boardWriter/directWrite";
+import type { CommitOptions } from "@/lib/smartboard/boardWriter/host";
+import type { PreviewChannelHost } from "@/lib/smartboard/boardWriter/previewChannel";
+import {
+  floatingWriteNote,
+  type FloatingChannelHost,
+} from "@/lib/smartboard/boardWriter/floatingChannel";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
@@ -523,6 +531,9 @@ const PresentationView = ({
   // stepping through guided lines. Reset whenever the active example changes
   // (handled alongside other per-example state below).
   const [notebookRowLines, setNotebookRowLines] = useState<Set<number>>(() => new Set());
+  // Live snapshot for the Board Writer channels (read at write time).
+  const notebookRowLinesRef = useRef<Set<number>>(new Set());
+  notebookRowLinesRef.current = notebookRowLines;
   const OFFSETS_KEY = `smartboard:offsets:${notebookId ?? "_"}`;
   const [lineOffsets, setLineOffsets] = useState<Record<number, number>>(() => {
     try {
@@ -1159,7 +1170,7 @@ const PresentationView = ({
   const writeProseLineOnBoard = useCallback((
     rawFromLessonNote: string,
     atRow?: number,
-    opts?: { advanceSensor?: boolean; noteAdvance?: boolean },
+    opts?: { advanceSensor?: boolean },
   ): number | null => {
     const raw = rawFromLessonNote ?? "";
     if (!raw.trim()) return null;
@@ -1214,10 +1225,8 @@ const PresentationView = ({
           extraNoteRows.has(r)
         );
       };
-      // For note writes, cap the hunt at 2 rows — never allow the sensor
-      // to drop far below the note (that read as "sensor jumped 10 rows").
-      const cap = opts?.noteAdvance ? 2 : 200;
-      for (let guard = 0; guard < cap && blocked(t); guard++) t += 1;
+      // Bounded walk — the sensor never drops far below what was written.
+      for (let guard = 0; guard < 6 && blocked(t); guard++) t += 1;
       setSensor({ line: t, x: 0 });
       setLiveCursor({ path: [], index: 0 });
       manualSensorRef.current = { line: t, x: 0 };
