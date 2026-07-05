@@ -163,126 +163,23 @@ const writeProseIfMissing = (ctrl: PresentationController, text: string): void =
 };
 
 /**
- * Apply the mirror action for a target. Uses the SAME controller
- * methods the normal presentation engine uses — never reconstructs or
- * regenerates content.
- *
- * ADDITIVE: mirroring never clears the board. Whatever is already
- * presented stays; the mirror only writes what is missing (or rewrites
- * the one item that was clicked). This keeps Next/Prev playback and
- * previously-forced content intact.
+ * Present mode = pure second writer. One click = one write at the
+ * current sensor position. No beat sync, no earlier-line restoration,
+ * no verification, no autofix. Whatever text the preview captured on
+ * the click is written verbatim onto the Smartboard, exactly like an
+ * extra keyboard alongside the Floating Number workflow.
  */
 export const applyMirror = async (
   target: EditTarget,
   ctrl: PresentationController,
 ): Promise<void> => {
-  // Point at the right beat FIRST and wait for state to settle.
-  await waitForBeat(target, ctrl);
-  await wait(40); // let React flush so row/sensor reads are fresh
-
-  switch (target.kind) {
-    case "cover": {
-      writeProseIfMissing(ctrl, target.text ?? target.caption ?? "");
-      return;
-    }
-
-    case "section": {
-      writeProseIfMissing(ctrl, target.text ?? "");
-      return;
-    }
-
-    case "subsection": {
-      writeProseIfMissing(ctrl, target.caption ?? "");
-      return;
-    }
-
-    case "question": {
-      const idx = li(target);
-      const eq = (target.text ?? "").trim();
-      // Already on the board? Just bring it into view.
-      if (idx >= 0 && ctrl.getBoardRowSignatureFor(idx)) {
-        ctrl.setActiveLineIdx(idx);
-        ctrl.scrollBoardTo?.(idx);
-        return;
-      }
-      let row: number | undefined;
-      if (idx >= 0) {
-        ctrl.setActiveLineIdx(idx);
-        row = ctrl.moveSensorToSafeRow?.(idx);
-      }
-      if (ctrl.writeQuestionLine && idx >= 0 && eq) {
-        ctrl.writeQuestionLine(idx, eq);
-      } else if (eq) {
-        writeProseIfMissing(ctrl, eq);
-      }
-      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
-      else if (idx >= 0) ctrl.scrollBoardTo?.(idx);
-      return;
-    }
-
-    case "solution-line": {
-      const idx = li(target);
-      if (idx < 0) return;
-      // Already on the board? Just bring it into view.
-      if (ctrl.getBoardRowSignatureFor(idx)) {
-        ctrl.setActiveLineIdx(idx);
-        ctrl.scrollBoardTo?.(idx);
-        return;
-      }
-      ctrl.setActiveLineIdx(idx);
-      const row = ctrl.moveSensorToSafeRow?.(idx);
-      const line = ctrl.getActiveGuidedLines()[idx];
-      const fillers = line?.fillers ?? [];
-      if (fillers.length > 0) {
-        ctrl.writeEquationPrefix(idx, fillers.length);
-      } else {
-        const eq = (line?.equation ?? target.text ?? "").trim();
-        if (eq) writeProseIfMissing(ctrl, eq);
-      }
-      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
-      else ctrl.scrollBoardTo?.(idx);
-      return;
-    }
-
-    case "floating-number": {
-      // Clicking a `#` (or chip) OPENS the Floating Number panel for
-      // that line — it does NOT write ink or solve.
-      const idx = li(target);
-      if (idx < 0) return;
-      ctrl.setActiveLineIdx(idx);
-      ctrl.scrollBoardTo?.(idx);
-      ctrl.moveSensorToSafeRow?.(idx);
-      ctrl.openFloatingPanel?.(idx);
-      return;
-    }
-
-    case "teacher-note": {
-      const idx = li(target);
-      if (idx < 0) return;
-      ctrl.setActiveLineIdx(idx);
-      // Prefer the live reservoir text; ALWAYS fall back to the exact
-      // text the preview showed at click time.
-      const raw =
-        (ctrl.getActiveGuidedLines()[idx]?.notebook ?? target.text ?? "").trim() ||
-        (target.text ?? "").trim();
-      if (!raw) return;
-      ctrl.eraseNoteAt?.(idx);
-      const row = ctrl.moveSensorToSafeRow?.(idx);
-      ctrl.writeProseLineOnBoard(raw);
-      ctrl.markNotebookShown(idx);
-      ctrl.addNotebookAttention(idx);
-      // Bring the freshly written note into view — note rows have no
-      // rowOwners entry, so scrollBoardTo(lineIdx) alone cannot find it.
-      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
-      else ctrl.scrollBoardTo?.(idx);
-      return;
-    }
-
-    case "math-structure":
-    default: {
-      writeProseIfMissing(ctrl, target.text ?? "");
-      return;
-    }
+  const text = (target.text ?? target.caption ?? "").trim();
+  if (!text) return;
+  ctrl.writeProseLineOnBoard(text);
+  // Teacher notes: silence the note-gate glow after a manual placement.
+  if (target.kind === "teacher-note" && typeof target.lineIdx === "number") {
+    ctrl.markNotebookShown?.(target.lineIdx);
+    ctrl.addNotebookAttention?.(target.lineIdx);
   }
 };
 
