@@ -1105,7 +1105,7 @@ const PresentationView = ({
    *  Never type that raw source onto the board: mirror it through the same
    *  Lesson Note renderer first so \frac / \sqrt / slash fractions become
    *  real stacked structures before the teacher sees them. */
-  const insertTextAtSensor = (text: string) => {
+  const insertTextAtSensor = useCallback((text: string) => {
     if (insertIntoActiveBox(text)) return;
     const mirror = mirrorLessonNoteRow(text);
     if (!mirror.ok || mirror.row.length === 0) return;
@@ -1120,7 +1120,7 @@ const PresentationView = ({
       }
       return { root: r, cursor: cur };
     });
-  };
+  }, []);
 
   /** Write a Lesson Note prose block onto the board as its own line, placed
    *  below the last currently-written line.

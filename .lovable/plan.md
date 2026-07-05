@@ -1,58 +1,48 @@
-## Present mode = pure second writer — no analysis, no autofix, just fill the board
+## Present writes must land as live sensor ink, not dead notebook rows
 
-Right now Present mode (formerly Edit) runs a heavy pipeline every click: it waits for the beat cursor to settle, walks every earlier line and "restores" missing content, mirrors, verifies against the ink, and if any verification fails runs a 4‑step auto‑rectify ladder that can even clear ink and rewrite. That's analysis. You want it gone.
+### What's happening
+`writeProseLineOnBoard` (used by Present) commits the text as a **notebook row** — it's added to `notebookRowLines`, which is a sensor-restricted, locked-ink row: no cursor, not editable, no ability to add more ink or move around inside it. That's the "dead cell" you're seeing.
 
-New behaviour: **one click = one write at the sensor.** No lookups, no verification, no repair, no earlier‑line restoration. Whatever the teacher clicks in the Presenter Preview is written verbatim onto the Smartboard at the current sensor row, exactly like an extra keyboard.
+The Floating Number chip path uses a completely different route: `insertTextAtSensor(text)`, which mirrors the text through the same lesson-note pipeline and then inserts each node into the **currently active sensor row** via `editActive` — same route as typing on a keyboard. That's why the floating-number one is alive: cursor inside, editable, further ink can be added.
 
-### What each click does
+### Fix — route Present through the same live path as floating chips
 
-| Preview click | Board action |
-|---|---|
-| Cover | Write cover title at sensor |
-| Section (Introduction, Explanation, Objectives, Summary, …) | Write that section's text at sensor |
-| Subsection heading (e.g. "Example 1") | Write the caption at sensor |
-| Example / Exercise Question | Write the question text at sensor |
-| Teacher Note | Write the note text at sensor |
-| Floating‑number chip (e.g. `5x`, `x²`, `−(5)`, `√(b²−4ac)`, `2a`) | Write that chip's text at sensor |
-| `LINE k` label / hidden equation | Nothing (there is no equation to click in Present mode) |
+**1. `src/components/smartboard/PresentationView.tsx`**
+Expose the already-existing local `insertTextAtSensor` on the controller memo (add it to the returned object and to the deps array). Wrap it in a `useCallback` so its identity is stable.
 
-Sensor advances after each write exactly like normal writing. Floating Numbers workflow is untouched and can be used in parallel.
+**2. `src/lib/smartboard/presentationAI/controller.ts`**
+Add one optional method to the `PresentationController` interface:
+```ts
+/** Insert text into the ACTIVE sensor row — same route as tapping a
+ *  Floating Number chip. Result is live/editable, cursor stays inside. */
+insertTextAtSensor?: (text: string) => void;
+```
 
-### Code changes
+**3. `src/lib/smartboard/manualEdit/mirror.ts` — `applyMirror`**
+Switch the write call:
+```ts
+const text = (target.text ?? target.caption ?? "").trim();
+if (!text) return;
+if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
+else ctrl.writeProseLineOnBoard(text);
+```
+Everything else stays: teacher-note kind still marks the note-gate as satisfied so the glow stops.
 
-**1. `src/lib/smartboard/manualEdit/mirror.ts` — `applyMirror`**
-Replace the switch's per‑kind logic with a single behaviour: pull the exact text the preview captured on the click (`target.text ?? target.caption`) and call `ctrl.writeProseLineOnBoard(text)`. No `waitForBeat`, no `setBeatCursor`, no `setActiveLineIdx`, no `eraseNoteAt`, no `moveSensorToSafeRow`, no `writeEquationPrefix`, no `writeQuestionLine`, no `openFloatingPanel`, no `boardHasTextRow` idempotency check, no `scrollBoardTo*`. Just write. This also means chip clicks NO LONGER open the Floating Number panel — they write the chip text (matching your "click 5x → 5x appears" spec). Teacher notes still get `markNotebookShown` + `addNotebookAttention` so the note‑gate glow stops.
+### Effect on each click
+- Cover / section / question / subsection captions → written into the active sensor row, sensor moves inside the text like normal typing. Teacher can keep adding to the same line, or move sensor down and click the next preview item.
+- Chip (`5x`, `x²`, `−(5)`, `√(b²−4ac)`, `2a`) → inserted at the current cursor position inside the active sensor row, exactly like tapping a Floating Number chip. Live, editable.
+- Teacher note → also written live; teacher can then move the sensor down and continue.
 
-**2. `src/lib/smartboard/manualEdit/autofix.ts` — bypass the ladder**
-`runMirrorWithAutofix` becomes a thin wrapper: emit `"Writing…"`, call `applyMirror`, emit `"✓ Written"`. No `ensurePriorLines`, no verify, no step 1–4, no ink clear, no rewrite. Kept as one file so `AiEditWorkspace` doesn't need to change.
+### Not changed
+- Normal mode.
+- Floating Number workflow — completely untouched, runs in parallel.
+- No board clearing on entering/leaving Present.
+- Hidden equation lines inside Solution in Present mode (from prior turn).
+- No verification, no autofix — still a pure second writer.
 
-**3. `src/lib/smartboard/manualEdit/mirror.ts` — `verifyMirror`**
-Left in place but no longer called from the Present path. Kept exported so nothing else that imports it breaks.
+### Files touched
+- `src/components/smartboard/PresentationView.tsx` (add `insertTextAtSensor` to controller + deps, wrap in `useCallback`)
+- `src/lib/smartboard/presentationAI/controller.ts` (interface line)
+- `src/lib/smartboard/manualEdit/mirror.ts` (call the live inserter)
 
-**4. `src/components/smartboard/PresenterPreviewPanel.tsx` — status badge**
-The `AiEditButton` inline badge currently shows "Mirroring… / Fixing step n/4 / ✓ / ✗". Simplified to just a brief `✓ Written` flash (or nothing) since there is no fixing anymore. Optional cosmetic change; can also leave it as `applying → ok` and it'll just show "Writing… → ✓".
-
-**5. `src/components/smartboard/AiEditWorkspace.tsx` — no change needed**
-It already just calls `runMirrorWithAutofix` and reports status. Since that function now just writes, the workspace becomes a pure passthrough.
-
-### What is explicitly removed (the "analysis" you don't want)
-
-- `ensurePriorLines` — no more scanning earlier lines and forcing missing floating numbers / notes onto the board.
-- 4‑step auto‑rectify ladder — no retries, no "force section", no direct‑write fallback, no ink‑clear rewrite.
-- `boardHasTextRow` verification — the board is never read back. If a click doesn't produce ink for some reason, the teacher just clicks again.
-- Beat‑cursor synchronization — Present mode no longer moves the board's beat. If the teacher is presenting Section 2 in the preview while the board's beat is on Section 1, clicks still write at the current sensor. That's the "second writer" model.
-- Row targeting per line — no `moveSensorToSafeRow`. The teacher already controls the sensor.
-
-### What stays
-
-- Normal mode is untouched.
-- Floating Number workflow is untouched and runs alongside.
-- The Smartboard is never cleared entering / leaving Present mode.
-- Hidden equation lines inside Solution (already implemented last turn).
-- Cover / prose section / question / note / chip click targets in the preview.
-
-### Out of scope
-
-- Making the completed equation clickable in Present mode. It's hidden by design so the teacher builds via chips + notes.
-- Splitting a rendered equation into atomic sub‑tokens beyond the authored floating‑number fillers.
-- Removing / renaming `manualEdit/` folder or `EditTarget` type names — internal only, no user impact.
+Three small, surgical edits. No other file needs to change.
