@@ -120,12 +120,13 @@ export const directWrite = (target: EditTarget, ctrl: PresentationController): v
         ctrl.eraseNoteAt?.(idx);
         row = ctrl.moveSensorToSafeRow?.(idx);
       }
-      ctrl.writeProseLineOnBoard(text);
+      // Notes are locked (non-editable) — the writer advances the sensor
+      // to the first empty row BELOW the note and scrolls there.
+      ctrl.writeProseLineOnBoard(text, row, { advanceSensor: true });
       if (idx >= 0) {
         ctrl.markNotebookShown(idx);
         ctrl.addNotebookAttention(idx);
       }
-      if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
       return;
     }
     case "question": {
