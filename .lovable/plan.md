@@ -1,57 +1,36 @@
-## What's changing
+# Fix: sensor dead-zone after placing a note (line 6+)
 
-1. **Delete the "note already on the board → skip" rule.** Every click of the note button writes a new copy. Ten clicks = ten copies. Undo (back) removes them. This is the fix for line 8/9 not showing.
-2. **Rebuild the note-write code from scratch.** Not amend — delete the existing note path in `floatingChannel.ts` and `previewChannel.ts` (and the ledger's `findTextRow` short-circuit for notes) and write a fresh, minimal function that runs identically for line 1 and line ∞.
-3. **Note-gate glow** on advance: if the teacher moves to the next line while the current line has an unclicked note, the note icon glows. The glow clears the moment the note is clicked. (Uniform for every line.)
-4. **Placeholder lifecycle tied to the line lock:**
-   - Line locks (teacher advanced past it) → any placeholder-only ink on that line is hidden.
-   - Teacher moves the Floating Number Display back to that line → the line unlocks, the placeholder reappears **editable**.
-5. **Green highlight follows the sensor, both directions:**
-   - As the sensor moves line 1 → 2 → 3, the Presenter Preview's green highlight advances line-for-line.
-   - As the Presenter Preview / Present Mode moves line 2 → 3 → 4, the board's live highlight advances too.
-   - The preview panel auto-scrolls so the highlighted line sits near the middle.
+## Root cause found — two pieces of code, both get deleted
 
-## How it will be built
+1. **Capped sensor walk** (`directWrite.ts`): after a note lands, the sensor is parked by a walk that gives up after **4 steps**. Lines 1–5: fewer than 4 blocked rows below → sensor lands on a free row → fine. Line 6+: the board below is dense with locked note rows and ink → the cap expires → the sensor is parked **on a locked row**, 4–5 rows down.
+2. **Silent click-swallow** (`editActive` in `PresentationView.tsx`): when the sensor sits on a locked row, every chip tap and keystroke is silently thrown away. No error, no movement — "nothing is clickable". That is the dead zone you escape by manually dragging the sensor.
 
-### A. Fresh note-write module
+So it isn't the Floating Number restricted area — it's a hard-coded 4-step limit plus a silent swallow. Deleting both makes line 6 identical to line 1.
 
-- New file `src/lib/smartboard/boardWriter/writeNote.ts` — one exported function `writeNoteOnce(lineIdx, text, host)`:
-  - trim, mirror to a row, ask the ledger for `nextFreeRow(lineIdx)`, commit through the dumb primitive, lock the landed rows, mark note shown for that line, scroll.
-  - **No** existing-signature check. **No** repeat-detection. Every call writes.
-- Delete the current note branches inside `floatingChannel.ts` and `previewChannel.ts` and route both to `writeNoteOnce`.
-- Delete the `findTextRow` usage for notes; keep `findTextRow` around only for beat/section navigation if still needed.
+## What will be rebuilt (delete, not patch)
 
-### B. Note-gate glow (uniform)
+### A. Sensor parking — one rule, no cap
+- Delete the capped `sensorRow` walk in `planDirectWrite`.
+- New tiny module `src/lib/smartboard/boardWriter/parkSensor.ts`: `parkRowBelow(snap, lastInkRow)` — walk down from the row below the ink using the **same** `rowIsBlocked` rule the ledger already uses for placement, with the same SCAN_CAP (200), so it can never expire early. First genuinely free, writable row wins — for line 1 and line ∞ alike.
+- `commitWritePlan` computes the park row from the **post-commit** snapshot (ink + locks as they are after the note lands), so the sensor can never be parked on a row the write itself just locked.
 
-- Single source: `noteGateOpen(lineIdx)` in `PresentationView`. Already exists — audit so it fires identically for every line: glow when Next is pressed on a line whose note text is non-empty and hasn't been clicked this session. Click clears the glow immediately.
+### B. No more silent swallow — relocate instead
+- Delete the "locked row → focus and return" swallow in `editActive`.
+- New behavior: if the sensor is on a locked/notebook row when a write arrives, auto-relocate the sensor to the first writable row below (same `parkRowBelow` rule) and write there. A click **always** produces ink somewhere sensible — never nothing.
+- Same fix applied to the sibling paths that share the swallow assumption: `presentWriteAtSensor` and the Floating Number chip tap path (both currently do their own bounded `while (t <= bandEnd)` hunts — replaced by the one shared rule).
 
-### C. Placeholder sweep and revive
+### C. Consistency guarantee
+- All four movers of the sensor after a write (note write, chip tap, present-mode write, D-pad-free auto-advance) end up on the SAME shared function. No per-path caps, no per-path hunts.
 
-- Add `isPlaceholderOnly(row)` in `mathTree`/`rowAscii`: row contains only structural nodes whose slots are empty.
-- On line lock (advance), sweep the just-locked line's owned rows: any row that is `isPlaceholderOnly` is removed from `freeLines` + `rowOwners` + any highlight state. Placeholder is gone from the screen.
-- On unlock (Floating Number Display moves back to that line), restore the placeholder by re-inserting the empty structural node at the line's own row. It's now editable — the line is no longer in `notebookRowLines`.
+## Verification
+- Unit tests: park row after a note when 0, 3, 6, 12 consecutive blocked rows follow — sensor always lands on the first free row, never on a locked one.
+- Unit test: write arriving while sensor is on a locked row relocates and lands ink (never a no-op).
+- Playwright on your lesson: place notes on lines 1→9 in sequence; after each note, assert the sensor row is not locked and a chip tap immediately lands ink. This reproduces your exact line-6 failure before the fix and proves it gone after.
 
-### D. Bi-directional green highlight + auto-scroll
+## Files
+- edit: `src/lib/smartboard/boardWriter/directWrite.ts` (remove capped walk from the plan)
+- new: `src/lib/smartboard/boardWriter/parkSensor.ts`
+- edit: `src/components/smartboard/PresentationView.tsx` (`commitWritePlan` post-commit park; `editActive` relocate-not-swallow; `presentWriteAtSensor` unified)
+- tests: `src/test/parkSensor.test.ts`
 
-- The `activePreviewLineIdx` prop already flows Smartboard → PresenterPreview. Verify it advances on every sensor move (not just chip taps) and that the preview panel scrolls the highlighted card to its vertical center on change.
-- The reverse (Preview click / Present Mode click → board highlight) is what `previewChannel` already does when it delegates chip/line writes. Confirm the board's `activeLineIdx` / sensor line updates on those clicks so the green highlight moves both ways.
-- Add a small `scrollIntoView({block: "center"})` in `PresenterPreviewPanel` on every `activeLineIdx` change (guarded by the existing "manual scroll paused" flag).
-
-### E. Verification
-
-- Unit test: click note 5x on the same line → 5 rows written, all owned by that line, all locked.
-- Unit test: `isPlaceholderOnly` — empty frac, empty √, empty power, empty bracket, mixed w/ whitespace.
-- Unit test: lock → sweep removes placeholder; unlock → placeholder reappears editable.
-- Playwright on the current lesson: solve past line 8, click every note 1..N (Floating & Present); tap fraction, leave empty, advance, confirm placeholder gone; move sensor 1→8, confirm preview highlight & auto-scroll follow; click preview line 6, confirm board highlight jumps to line 6.
-
-### Files touched
-
-- new: `src/lib/smartboard/boardWriter/writeNote.ts`
-- rewrite: note branches of `boardWriter/floatingChannel.ts`, `boardWriter/previewChannel.ts`
-- edit: `boardWriter/ledger.ts` (retire `findTextRow` for notes)
-- edit: `mathTree.ts` or `rowAscii.ts` (add `isPlaceholderOnly`)
-- edit: `PresentationView.tsx` (lock sweep, unlock revive, sensor→highlight wiring, remove any residual dedupe on note clicks)
-- edit: `PresenterPreviewPanel.tsx` (auto-scroll centering on `activeLineIdx` change)
-- tests: `writeNote.test.ts`, `placeholderLifecycle.test.ts`; extend `noteSource.test.ts` if needed
-
-Autoplay stays deleted. Sensor flex stays. Two-engine independence stays intact — this touches only the note write path, the placeholder lifecycle, and the highlight sync.
+Nothing else changes: notes still write every click (no dedupe), autoplay stays deleted, the two engines stay independent.
