@@ -2023,42 +2023,12 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
-  // Note parity with the Presenter Preview: every line's authored note must
-  // appear on the board automatically — the same data, the same surface. As
-  // soon as a line becomes active, if it has a non-empty note (after the
-  // note-purity filter), commit it via `writeProseLineOnBoard` and record
-  // it in `shownNotebookIdx` so it never re-writes. The Note chip in the
-  // FloatingNumberPanel is also armed to reflect the state.
-  // Notes are NEVER auto-written. Rule (per teacher): the note icon must
-  // be clicked before advancing past its line. This effect only handles
-  // RE-ARMING — if the teacher has erased a previously-clicked note from
-  // the board and scrolls back to that line, the "shown" flag is cleared
-  // so the icon glows again on the next Next attempt.
-  useEffect(() => {
-    if (!hasGuidedLines) return;
-    const line = guidedLines[activeLineIdx] as { notebook?: string } | undefined;
-    const rawNote = (line?.notebook ?? "").trim();
-    if (!rawNote) return;
-    const looksLikeMath = (l: string) => {
-      const s = l.trim();
-      if (!s) return false;
-      if (/[=+\-−×÷/^]/.test(s)) return true;
-      if (/^[\d\s.,()πθ]+$/.test(s)) return true;
-      return false;
-    };
-    const noteLines = rawNote.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (noteLines.some(looksLikeMath)) return;
-    if (!shownNotebookIdx.has(activeLineIdx)) return;
-    if (boardHasTextRow(rawNote)) return;
-    // Was clicked before, but the note ink is gone — re-arm the gate.
-    setShownNotebookIdx((prev) => {
-      if (!prev.has(activeLineIdx)) return prev;
-      const nx = new Set(prev);
-      nx.delete(activeLineIdx);
-      return nx;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLineIdx, hasGuidedLines, activeReservoirIdx, guidedLines.length]);
+  // NOTE GATE — one uniform live rule for every line, no special cases:
+  // a line with a note blocks Next until the note's TEXT IS ON THE BOARD
+  // (checked live via boardHasTextRow at press time). Clicking the note
+  // icon writes it onto the board, which opens the gate. Erasing the ink
+  // closes the gate again automatically — no flags to re-arm, nothing
+  // persisted, nothing inherited from previous sessions.
 
   /** Equation labels like "(1)" may be added before/after the math at any
    *  time — line matching must succeed with or without them. */
