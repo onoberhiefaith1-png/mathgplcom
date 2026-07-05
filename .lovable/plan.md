@@ -1,36 +1,51 @@
-# Fix: sensor dead-zone after placing a note (line 6+)
+# Plan: placeholder blends with the smartboard background — everywhere else it stays full-strength
 
-## Root cause found — two pieces of code, both get deleted
+## Rule (final)
 
-1. **Capped sensor walk** (`directWrite.ts`): after a note lands, the sensor is parked by a walk that gives up after **4 steps**. Lines 1–5: fewer than 4 blocked rows below → sensor lands on a free row → fine. Line 6+: the board below is dense with locked note rows and ink → the cap expires → the sensor is parked **on a locked row**, 4–5 rows down.
-2. **Silent click-swallow** (`editActive` in `PresentationView.tsx`): when the sensor sits on a locked row, every chip tap and keystroke is silently thrown away. No error, no movement — "nothing is clickable". That is the dead zone you escape by manually dragging the sensor.
+- **Floating Number generation page, Present preview, Floating Number display panel** → placeholder appears **exactly as it is today** — full-strength, clearly visible, default **black**. No faint styling. Nothing changes visually on these surfaces.
+- **Smartboard writing surface** → placeholder is **still there** (structural slot, still tappable), but its color = the board's current background color. On a white board it reads white, on a black board black, on a yellow board yellow. Invisible to the eye, present to the layout and to the pointer.
+- **Reactive to theme changes** → when the teacher switches the board background (white ↔ black ↔ yellow), placeholders on the board re-blend automatically. No code path to maintain, no re-render logic — the color is bound to the same CSS variable that drives the board background.
 
-So it isn't the Floating Number restricted area — it's a hard-coded 4-step limit plus a silent swallow. Deleting both makes line 6 identical to line 1.
+## Why this is safe (no rebuild)
 
-## What will be rebuilt (delete, not patch)
+The current placeholder cube in `RowView` (`src/components/smartboard/MathTreeRender.tsx`, empty sub-row branch) already works — it renders, it's tappable, it lays out correctly, structures behave. It's the color that's wrong on the board. So the surgical change is: **override only the color tokens on the board container**, leave the placeholder styling in `MathTreeRender.tsx` untouched. No rebuild of the empty-slot code, no risk of regressing the click/layout behavior you've stabilized.
 
-### A. Sensor parking — one rule, no cap
-- Delete the capped `sensorRow` walk in `planDirectWrite`.
-- New tiny module `src/lib/smartboard/boardWriter/parkSensor.ts`: `parkRowBelow(snap, lastInkRow)` — walk down from the row below the ink using the **same** `rowIsBlocked` rule the ledger already uses for placement, with the same SCAN_CAP (200), so it can never expire early. First genuinely free, writable row wins — for line 1 and line ∞ alike.
-- `commitWritePlan` computes the park row from the **post-commit** snapshot (ink + locks as they are after the note lands), so the sensor can never be parked on a row the write itself just locked.
+## Implementation — one small, additive change
 
-### B. No more silent swallow — relocate instead
-- Delete the "locked row → focus and return" swallow in `editActive`.
-- New behavior: if the sensor is on a locked/notebook row when a write arrives, auto-relocate the sensor to the first writable row below (same `parkRowBelow` rule) and write there. A click **always** produces ink somewhere sensible — never nothing.
-- Same fix applied to the sibling paths that share the swallow assumption: `presentWriteAtSensor` and the Floating Number chip tap path (both currently do their own bounded `while (t <= bandEnd)` hunts — replaced by the one shared rule).
+### 1. Confirm the board's background CSS variable
+The smartboard root already exposes its background as a CSS custom property (`--sb-bg`, used by `FloatingMath.tsx` and other panels). I'll verify it is set on the outermost smartboard wrapper and reflects the live theme (white/black/yellow). If for any reason it isn't already reactive to the theme toggle, wire it there once — one style prop on the wrapper.
 
-### C. Consistency guarantee
-- All four movers of the sensor after a write (note write, chip tap, present-mode write, D-pad-free auto-advance) end up on the SAME shared function. No per-path caps, no per-path hunts.
+### 2. Scope a placeholder-color token to the board only
+Add a single CSS variable **on the smartboard writing surface wrapper** (the element that hosts `FreeWriteLayer`):
+
+```css
+--placeholder-ink: var(--sb-bg);
+```
+
+This scoping matters: because the Floating Number panel, Present preview, and Floating Number generation page are rendered **outside** this wrapper, they never see `--placeholder-ink` — they keep the default (black), unchanged.
+
+### 3. Point the placeholder styles at the token
+In `RowView`'s existing empty-slot render, change **only** the three color-carrying properties to use the token with a black fallback:
+
+- `border-color: var(--placeholder-ink, #000)`
+- `background: var(--placeholder-ink, #000)` (currently transparent/tinted with caretColor — override with the token when idle so the cube fully blends; keep the active-focus glow driven by `caretColor` so a focused empty slot is still visible to the teacher)
+- Any inner glyph color if present → `var(--placeholder-ink, #000)`
+
+Everything else (dimensions, dashed style, radius, tap handler, caret, focus glow) stays. The fallback `#000` guarantees the panel/preview/generation-page render exactly as today.
+
+### 4. Active-slot exception
+When the sensor is actively parked in an empty slot on the board, the slot must still be visible so the teacher knows where the caret is. The current code already renders a focus glow using `caretColor`; keep that path exactly as-is so the *active* placeholder stays visible on the board. Only the **idle** placeholder blends with the background.
+
+## Files touched
+- `src/components/smartboard/MathTreeRender.tsx` — swap three hard-coded color references in the idle empty-slot render for `var(--placeholder-ink, #000)`. No structural change to the branch.
+- The smartboard wrapper file that owns the board-color state (likely `SmartBoardPage.tsx` or the wrapper inside `PresentationView.tsx` that sets `--sb-bg`) — add `--placeholder-ink: var(--sb-bg)` alongside the existing background style. One line.
+
+Nothing else edited. No delete-and-rebuild.
 
 ## Verification
-- Unit tests: park row after a note when 0, 3, 6, 12 consecutive blocked rows follow — sensor always lands on the first free row, never on a locked one.
-- Unit test: write arriving while sensor is on a locked row relocates and lands ink (never a no-op).
-- Playwright on your lesson: place notes on lines 1→9 in sequence; after each note, assert the sensor row is not locked and a chip tap immediately lands ink. This reproduces your exact line-6 failure before the fix and proves it gone after.
-
-## Files
-- edit: `src/lib/smartboard/boardWriter/directWrite.ts` (remove capped walk from the plan)
-- new: `src/lib/smartboard/boardWriter/parkSensor.ts`
-- edit: `src/components/smartboard/PresentationView.tsx` (`commitWritePlan` post-commit park; `editActive` relocate-not-swallow; `presentWriteAtSensor` unified)
-- tests: `src/test/parkSensor.test.ts`
-
-Nothing else changes: notes still write every click (no dedupe), autoplay stays deleted, the two engines stay independent.
+1. Default black theme: build a fraction on the board — bar visible, top/bottom slots invisible (black on black), both still tappable, typing in each works.
+2. Toggle board to white — the same fraction's empty slots turn white, still invisible, still tappable.
+3. Toggle to yellow — slots turn yellow, still invisible.
+4. Open Floating Number panel and Present preview — container chips (`□/□`, `√□`, `□²`) still render in default black, fully visible, unchanged.
+5. Tap an empty slot on the board — it gains the focus glow so the teacher can see the caret; typing dismisses the slot as usual.
+6. Rewind to an earlier line with a leftover empty slot — invisible on the board, still tappable if teacher returns to fill it.
