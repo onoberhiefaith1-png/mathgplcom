@@ -3069,7 +3069,7 @@ const PresentationView = ({
       setLiveCursor({ path: [], index: 0 });
       return target;
     },
-    [getRowOccupancy, sensor.line, setLiveCursor],
+    [getRowOccupancy, sensor.line, setLiveCursor, notebookRowLines],
   );
 
   const moveSensorUp = useCallback((rows: number = 1) => {
