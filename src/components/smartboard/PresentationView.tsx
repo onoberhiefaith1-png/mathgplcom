@@ -2871,25 +2871,8 @@ const PresentationView = ({
   const canAdvanceBeat = beatCursor < beats.length - 1;
   useEffect(() => { guidedIncompleteRef.current = guidedIncomplete; }, [guidedIncomplete]);
 
-  // ─── Presentation AI wiring ──────────────────────────────────────────
-  // A dedicated AI that presents the lesson automatically and verifies the
-  // Smartboard against the Presenter Preview (source of truth). See
-  // src/lib/smartboard/presentationAI/*.
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const paiRefs = useRef({
-    beatCursor,
-    activeLineIdx,
-    shownNotebookIdx,
-    activeReservoir,
-    guidedLines,
-  });
-  paiRefs.current = {
-    beatCursor,
-    activeLineIdx,
-    shownNotebookIdx,
-    activeReservoir,
-    guidedLines,
-  };
+  // Presentation AI (autoplay + diagnosis) has been removed. Present Mode
+  // and Floating Number Display are the only rendering surfaces.
   // Row-signature helpers for the Presentation AI read `freeLinesRef`
   // (declared next to writeProseLineOnBoard) for the freshest board state.
 
