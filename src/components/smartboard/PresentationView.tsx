@@ -40,7 +40,7 @@ import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
 import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
-import { CursorScrollbar } from "./CursorScrollbar";
+
 import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
@@ -1253,10 +1253,11 @@ const PresentationView = ({
 
   /** Insert a real stacked fraction at the sensor (no slash). Optional sign
    *  is typed first; the frac node is created with numerator/denominator
-   *  rows pre-filled so the bar shows immediately. */
-  const insertFractionAtSensor = (parts: { sign: string; num: string; den: string }) => {
-    if (insertIntoActiveBox(`${parts.sign}${parts.num}/${parts.den}`)) return;
-    editActive((row, c) => {
+   *  rows pre-filled so the bar shows immediately. Stable identity, live
+   *  dispatch — same pattern as insertTextAtSensor. */
+  const insertFractionAtSensor = useCallback((parts: { sign: string; num: string; den: string }) => {
+    if (insertIntoActiveBoxRef.current(`${parts.sign}${parts.num}/${parts.den}`)) return;
+    editActiveRef.current((row, c) => {
       let r = row, cur = c;
       if (parts.sign) {
         const sg = parts.sign === "-" ? "−" : parts.sign;
@@ -1269,7 +1270,7 @@ const PresentationView = ({
       const res = treeInsertNode(r, cur, fracNode, false);
       return res;
     });
-  };
+  }, []);
 
   const makeStructureNode = (kind: ContainerKind): Node | null => {
     switch (kind) {
@@ -4398,7 +4399,7 @@ const PresentationView = ({
 
           {/* Left-side line navigator REMOVED — the Floating Number panel's
               own ▲/▼ is now the single control for switching floating-number
-              sets. Cursor movement lives in <CursorScrollbar/> below. */}
+              sets. Cursor movement lives in the SensorDPad below. */}
 
 
 
@@ -4909,23 +4910,9 @@ const PresentationView = ({
         />
       )}
 
-      {/* Cursor up/down rail — dedicated writing-sensor controller.
-          Rendered on the left rail so it never overlaps the assistant
-          buttons on the right. Only visible while the carrier (solving
-          workspace) is up. */}
-      {canEdit && carrierVisible && (
-        <CursorScrollbar
-          onUp={() => moveSensorUp(1)}
-          onDown={() => moveSensorDown(1)}
-          canUp={canCursorUp}
-          canDown={canCursorDown}
-          chromeBg={palette.chromeBg}
-          chromeFg={palette.chromeFg}
-          chromeBorder={palette.chromeBorder}
-          leftPx={12}
-          topCss="50%"
-        />
-      )}
+      {/* Left-rail CursorScrollbar REMOVED — it duplicated the SensorDPad's
+          up/down controls. The SensorDPad is the single sensor controller. */}
+
 
 
       {/* AI line-status verification toggle. Off by default; when on, the
