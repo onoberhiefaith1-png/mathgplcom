@@ -1235,8 +1235,9 @@ const PresentationView = ({
           extraNoteRows.has(r)
         );
       };
-      // Bounded walk — the sensor never drops far below what was written.
-      for (let guard = 0; guard < 6 && blocked(t); guard++) t += 1;
+      // UNCAPPED walk — a bounded walk here used to expire on dense
+      // boards and park the sensor ON a locked row (dead zone).
+      for (let guard = 0; guard < 200 && blocked(t); guard++) t += 1;
       setSensor({ line: t, x: 0 });
       setLiveCursor({ path: [], index: 0 });
       manualSensorRef.current = { line: t, x: 0 };
