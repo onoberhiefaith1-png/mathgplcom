@@ -1159,7 +1159,7 @@ const PresentationView = ({
   const writeProseLineOnBoard = useCallback((
     rawFromLessonNote: string,
     atRow?: number,
-    opts?: { advanceSensor?: boolean },
+    opts?: { advanceSensor?: boolean; noteAdvance?: boolean },
   ): number | null => {
     const raw = rawFromLessonNote ?? "";
     if (!raw.trim()) return null;
@@ -1214,11 +1214,12 @@ const PresentationView = ({
           extraNoteRows.has(r)
         );
       };
-      for (let guard = 0; guard < 200 && blocked(t); guard++) t += 1;
+      // For note writes, cap the hunt at 2 rows — never allow the sensor
+      // to drop far below the note (that read as "sensor jumped 10 rows").
+      const cap = opts?.noteAdvance ? 2 : 200;
+      for (let guard = 0; guard < cap && blocked(t); guard++) t += 1;
       setSensor({ line: t, x: 0 });
       setLiveCursor({ path: [], index: 0 });
-      // Sticky manual position: the auto-anchor must not snap the sensor
-      // back onto/above the note it just cleared.
       manualSensorRef.current = { line: t, x: 0 };
       activeSensorPhysicalLineRef.current = t;
       requestAnimationFrame(() => scrollBoardToRow(t));
@@ -3074,33 +3075,50 @@ const PresentationView = ({
         writeProseLineOnBoard(raw, existingRow, { advanceSensor: true });
         landedRow = existingRow;
       } else {
-        // Anchor under the last board row owned by this line or any
-        // earlier line, AND under the deepest visibly-inked row. Chips
-        // typed live at the sensor never register ownership, so raw ink
-        // must count too — otherwise the note lands ON TOP of a freshly
-        // typed tall fraction (invisible/overlapped = "note didn't show").
+        // Anchor STRICTLY under the note's own line footprint. Never
+        // scan the deepest ink anywhere on the board — that pulls the
+        // note far below unrelated ink and reads as "sensor jumped 10
+        // rows and nothing appeared". We look at:
+        //   (a) rows owned by this exact lineIdx, else the last row
+        //       owned by any line ≤ lineIdx (its predecessor's tail);
+        //   (b) live-typed ink sitting within a small window around
+        //       that owned anchor (catches a tall fraction the line
+        //       just typed at the sensor, which has no ownership yet).
         const owners = rowOwnersRef.current;
-        let anchor = -1;
+        let ownedAnchor = -1;
         for (const key of Object.keys(owners)) {
           const r = Number(key);
           const owner = owners[r];
           if (typeof owner !== "number") continue;
-          if (owner <= lineIdx && r > anchor) anchor = r;
+          if (owner === lineIdx && r > ownedAnchor) ownedAnchor = r;
         }
-        const rowsNow = freeLinesRef.current;
-        for (const key of Object.keys(rowsNow)) {
-          const rr = Math.floor(Number(key));
-          const ink = rowsNow[Number(key)];
-          if (ink && rowHasVisibleInk(ink) && rr > anchor) anchor = rr;
+        if (ownedAnchor < 0) {
+          for (const key of Object.keys(owners)) {
+            const r = Number(key);
+            const owner = owners[r];
+            if (typeof owner !== "number") continue;
+            if (owner < lineIdx && r > ownedAnchor) ownedAnchor = r;
+          }
+        }
+        let anchor = ownedAnchor;
+        if (anchor >= 0) {
+          // Small forward window so a freshly-typed tall fraction
+          // (no ownership yet) still counts. Bounded by 3 rows — never
+          // enough to drag the note far below the line.
+          const window = anchor + 3;
+          const rowsNow = freeLinesRef.current;
+          for (const key of Object.keys(rowsNow)) {
+            const rr = Math.floor(Number(key));
+            const ink = rowsNow[Number(key)];
+            if (!ink || !rowHasVisibleInk(ink)) continue;
+            if (rr > anchor && rr <= window) anchor = rr;
+          }
         }
         let targetRow: number;
         if (anchor >= 0) {
-          // The writer's own tall-structure gap logic bumps past the
-          // anchor's footprint (fraction denominator etc.) from here.
           targetRow = anchor + 1;
         } else {
-          // Blank board — scan from the top of the section band for the
-          // first genuinely empty row. Never fall back to the sensor.
+          // Fresh section — first empty row of the band. NEVER deepest.
           let t = activeLayout ? bandStart(activeLayout) : 0;
           for (let g = 0; g < 200; g++) {
             const occ = getRowOccupancy(t);
@@ -3109,24 +3127,20 @@ const PresentationView = ({
           }
           targetRow = t;
         }
-        landedRow = writeProseLineOnBoard(raw, targetRow, { advanceSensor: true });
-        // VERIFY the ink actually landed — the backup channel must NEVER
-        // silently fail. If nothing landed, force a second write below the
-        // deepest ink on the board (plain-text fallback inside the writer
-        // guarantees visible characters).
+        landedRow = writeProseLineOnBoard(raw, targetRow, {
+          advanceSensor: true,
+          noteAdvance: true,
+        });
+        // Verify at the SAME target — do not escape to "deepest + 2",
+        // which is what previously pushed the sensor ~10 rows down.
         if (landedRow == null) {
-          const rows2 = freeLinesRef.current;
-          let deepest = -1;
-          for (const key of Object.keys(rows2)) {
-            const ink = rows2[Number(key)];
-            if (ink && rowHasVisibleInk(ink)) {
-              deepest = Math.max(deepest, Math.floor(Number(key)));
-            }
-          }
-          const forceRow = deepest + 2; // clears any tall footprint
-          landedRow = writeProseLineOnBoard(raw, forceRow, { advanceSensor: true });
+          landedRow = writeProseLineOnBoard(raw, targetRow, {
+            advanceSensor: true,
+            noteAdvance: true,
+          });
         }
-        scrollBoardToRow(landedRow ?? targetRow);
+        const showRow = landedRow ?? targetRow;
+        requestAnimationFrame(() => scrollBoardToRow(showRow));
       }
       // Note is shown — silence the note-gate glow for this line.
       setShownNotebookIdx((prev) => {
