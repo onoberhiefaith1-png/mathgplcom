@@ -16,13 +16,11 @@ export const runMirrorWithAutofix = async (
   ctrl: PresentationController,
   onProgress?: (p: MirrorProgress) => void,
 ): Promise<MirrorResult> => {
-  onProgress?.({ phase: "applying", label: "Writing…" });
+  // Success is silent — no "applying" / "written" chip in the panel. Only
+  // real failures surface, so the panel never repositions on a good click.
   try {
     await applyMirror(target, ctrl);
-    const label = target.caption || target.kind;
-    const msg = `✓ Written: ${label}`;
-    onProgress?.({ phase: "ok", label: msg });
-    return { ok: true, message: msg };
+    return { ok: true, message: "" };
   } catch (err) {
     const msg = "✗ Could not write to the board.";
     onProgress?.({ phase: "failed", label: msg, detail: String(err) });

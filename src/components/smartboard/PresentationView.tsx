@@ -2319,8 +2319,17 @@ const PresentationView = ({
     // of the multi-row equation). Advancing to a line that has no ink
     // yet parks the sensor immediately below the previous line's LAST
     // owned row — never in the middle of a stacked structure.
+    // Only trust rowOwners entries whose ink is still on the board — a
+    // deleted / erased row must not drag the sensor back to its old slot,
+    // and stale claims from earlier commits must not compound spacing
+    // (this is what caused lines 7+ to drift by extra rows).
     const ownedRows = Object.entries(rowOwners)
-      .filter(([, o]) => o === idx)
+      .filter(([k, o]) => {
+        if (o !== idx) return false;
+        const r = Number(k);
+        const row = freeLines[r] ?? freeLines[r + 0.5];
+        return !!row && rowHasVisibleInk(row);
+      })
       .map(([k]) => Number(k))
       .sort((x, y) => x - y);
     const isEquationLine = !guidedLines[idx]?.notebookOnly;

@@ -18,9 +18,6 @@ import {
   EyeOff,
   Eye,
   Sparkles,
-  Loader2,
-  Wrench,
-  CheckCircle2,
   XCircle,
 } from "lucide-react";
 
@@ -46,10 +43,11 @@ const ACCENT = "#8a6a1f";
 
 // Border-only active highlight. The card/line background and text colors
 // stay exactly the same; only the frame changes so the teacher can see which
-// element the Smartboard is currently presenting.
-const HIGHLIGHT_BORDER = "rgba(138,106,31,0.9)";
+// element the Smartboard is currently presenting. Warm orange = "you are
+// here" for both the presenter preview and the floating-number strip.
+const HIGHLIGHT_BORDER = "rgba(234,88,12,0.95)"; // orange-600
 const HIGHLIGHT_SHADOW =
-  "0 0 0 4px rgba(138,106,31,0.15), 0 6px 22px rgba(138,106,31,0.18)";
+  "0 0 0 4px rgba(234,88,12,0.20), 0 6px 22px rgba(234,88,12,0.22)";
 
 const asDisplayString = (v: unknown): string => {
   if (v == null) return "";
@@ -440,36 +438,21 @@ const PresenterPreviewPanel = ({
       : {};
 
   // Live Mirror Mode: selecting an item mirrors it immediately via
-  // `onMirrorChange`. The mirror/auto-fix status is shown as a small
-  // inline badge ON the clicked item itself — never a separate panel.
+  // `onMirrorChange`. Success is silent — the click writes to the board and
+  // NOTHING re-renders here (no green "Written" chip, no chip reflow). Only
+  // an outright failure surfaces, so the teacher notices real problems.
   const AiEditButton = ({ target }: { target: EditTarget }) => {
     if (mode !== "edit" || !mirrorStatus) return null;
     if (mirrorStatus.key !== editTargetKey(target)) return null;
     const s = mirrorStatus;
-    const palette =
-      s.phase === "ok"
-        ? { color: "#15803d", border: "rgba(21,128,61,0.35)", bg: "rgba(21,128,61,0.08)" }
-        : s.phase === "failed"
-        ? { color: "#b91c1c", border: "rgba(185,28,28,0.35)", bg: "rgba(185,28,28,0.08)" }
-        : s.phase === "fixing"
-        ? { color: "#b45309", border: "rgba(180,83,9,0.35)", bg: "rgba(180,83,9,0.08)" }
-        : { color: "#1e40af", border: "rgba(59,130,246,0.35)", bg: "rgba(59,130,246,0.08)" };
-    const icon =
-      s.phase === "ok" ? (
-        <CheckCircle2 className="h-3 w-3 shrink-0" />
-      ) : s.phase === "failed" ? (
-        <XCircle className="h-3 w-3 shrink-0" />
-      ) : s.phase === "fixing" ? (
-        <Wrench className="h-3 w-3 shrink-0 animate-pulse" />
-      ) : (
-        <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-      );
+    if (s.phase !== "failed") return null;
+    const palette = { color: "#b91c1c", border: "rgba(185,28,28,0.35)", bg: "rgba(185,28,28,0.08)" };
     return (
       <div
         className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
         style={{ color: palette.color, borderColor: palette.border, background: palette.bg }}
       >
-        {icon}
+        <XCircle className="h-3 w-3 shrink-0" />
         <span className="truncate">{s.label}</span>
       </div>
     );
