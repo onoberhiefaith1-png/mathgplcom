@@ -93,11 +93,19 @@ export const RowView = ({
         </span>
       );
     }
-    // Empty sub-rows render a visible dashed placeholder cube so the teacher
-    // can see — and tap — exactly where the sensor lands. The cube acts as a
-    // sensor magnet; once a character is typed the row is no longer empty and
-    // the cube disappears naturally. When the slot is *active* the cube glows
-    // to confirm focus.
+    // Empty sub-rows still occupy their natural slot so the surrounding
+    // structure (fraction bar, √ hook, brackets, matrix cell, …) lays
+    // out correctly whether the slot is filled or empty. The slot is
+    // always tappable — the pointer handler places the cursor at index
+    // 0 of this sub-row. Its color is driven by `--placeholder-ink`,
+    // which the smartboard root scopes to the current board background
+    // so on-board placeholders blend invisibly with the board. On every
+    // other surface (Floating Number panel, Present preview, lesson-
+    // note generation) the variable is not set and the fallback (#000)
+    // renders a full-strength black cube — exactly as before.
+    // When the slot is *active* the caret colour drives a visible glow
+    // so the teacher still sees where the sensor sits.
+    const placeholderColor = `var(--placeholder-ink, #000)`;
     return (
       <span
         onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
@@ -108,22 +116,24 @@ export const RowView = ({
           minWidth: "0.7em",
           minHeight: "0.85em",
           padding: "0 0.05em",
-          border: `1px dashed ${caretColor}`,
+          border: `1px dashed ${isActive ? caretColor : placeholderColor}`,
           borderRadius: 3,
-          background: isActive ? `${caretColor}1f` : "transparent",
-          opacity: isActive ? 0.95 : 0.5,
+          background: isActive ? `${caretColor}1f` : placeholderColor,
+          color: placeholderColor,
+          opacity: isActive ? 0.95 : 1,
           margin: "0 1px",
           boxShadow: isActive ? `0 0 5px ${caretColor}55` : "none",
           cursor: "text",
           verticalAlign: "baseline",
           touchAction: "manipulation",
-          transition: "opacity 120ms, background 120ms, box-shadow 120ms",
+          transition: "opacity 120ms, background 120ms, box-shadow 120ms, border-color 120ms",
         } as CSSProperties}
       >
         {isActive && <Caret color={caretColor} />}
       </span>
     );
   }
+
 
   // Once *any* node in this row carries content, empty `box` placeholder
   // siblings collapse to a zero-width tap zone (still focusable, but the
