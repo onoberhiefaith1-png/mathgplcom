@@ -77,6 +77,7 @@ export const RowView = ({
 }: RowProps) => {
   const isActive = pathEq(path, cursor.path);
   const empty = row.length === 0;
+  const mode = usePlaceholderMode();
 
   if (empty) {
     if (isRoot) {
@@ -94,46 +95,68 @@ export const RowView = ({
         </span>
       );
     }
-    // Empty sub-rows still occupy their natural slot so the surrounding
-    // structure (fraction bar, √ hook, brackets, matrix cell, …) lays
-    // out correctly whether the slot is filled or empty. The slot is
-    // always tappable — the pointer handler places the cursor at index
-    // 0 of this sub-row. Its color is driven by `--placeholder-ink`,
-    // which the smartboard root scopes to the current board background
-    // so on-board placeholders blend invisibly with the board. On every
-    // other surface (Floating Number panel, Present preview, lesson-
-    // note generation) the variable is not set and the fallback (#000)
-    // renders a full-strength black cube — exactly as before.
-    // When the slot is *active* the caret colour drives a visible glow
-    // so the teacher still sees where the sensor sits.
-    const placeholderColor = `var(--placeholder-ink, #000)`;
+
+    // Empty sub-slot. Two render modes:
+    //
+    //   "visible" — default. Full-strength black dashed cube (Floating
+    //   Number panel, Present preview, lesson-note generation). Unchanged
+    //   from the pre-blend design.
+    //
+    //   "blend"   — smartboard writing surface. Idle placeholder is
+    //   *invisible* (no border, no background, no glyph) but the span
+    //   still occupies its natural inline size so fraction bars, √, ^, and
+    //   matrix cells lay out correctly, and the pointer handler still
+    //   places the cursor at index 0 of the slot.
+    //
+    // The active (caret-parked) slot renders a soft caret-color glow in
+    // BOTH modes so the teacher never loses sight of the sensor.
+
+    const baseStyle: CSSProperties = {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: "0.7em",
+      minHeight: "0.85em",
+      padding: "0 0.05em",
+      margin: "0 1px",
+      cursor: "text",
+      verticalAlign: "baseline",
+      touchAction: "manipulation",
+      transition: "opacity 120ms, background 120ms, box-shadow 120ms, border-color 120ms",
+    };
+
+    if (mode === "blend" && !isActive) {
+      // Fully invisible idle placeholder on the smartboard writing surface.
+      return (
+        <span
+          onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
+          style={baseStyle}
+        />
+      );
+    }
+
+    // Active slot (either mode) OR idle visible-mode slot.
+    const showFill = mode === "visible" || isActive;
+    const borderColor = isActive ? caretColor : "#000";
+    const bg = isActive ? `${caretColor}1f` : (showFill ? "#000" : "transparent");
     return (
       <span
         onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
         style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minWidth: "0.7em",
-          minHeight: "0.85em",
-          padding: "0 0.05em",
-          border: `1px dashed ${isActive ? caretColor : placeholderColor}`,
+          ...baseStyle,
+          border: `1px dashed ${borderColor}`,
           borderRadius: 3,
-          background: isActive ? `${caretColor}1f` : placeholderColor,
-          color: placeholderColor,
+          background: bg,
+          color: showFill ? "#000" : "transparent",
           opacity: isActive ? 0.95 : 1,
-          margin: "0 1px",
           boxShadow: isActive ? `0 0 5px ${caretColor}55` : "none",
-          cursor: "text",
-          verticalAlign: "baseline",
-          touchAction: "manipulation",
-          transition: "opacity 120ms, background 120ms, box-shadow 120ms, border-color 120ms",
-        } as CSSProperties}
+        }}
       >
         {isActive && <Caret color={caretColor} />}
       </span>
     );
   }
+
 
 
   // Once *any* node in this row carries content, empty `box` placeholder
