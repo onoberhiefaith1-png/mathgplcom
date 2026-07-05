@@ -11,11 +11,7 @@ import {
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import { SmartboardRootContext } from "./SmartboardRoot";
-import AutoplayControl from "./AutoplayControl";
-import DiagnosisPanel from "./DiagnosisPanel";
 import AiEditWorkspace from "./AiEditWorkspace";
-import { usePresentationAI } from "@/hooks/usePresentationAI";
-import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
 
 import { useNotebook } from "@/hooks/useNotebook";
