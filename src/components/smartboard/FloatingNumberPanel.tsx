@@ -542,14 +542,17 @@ export const FloatingNumberPanel = ({
                 boxShadow: pulse
                   ? "0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45)"
                   : "0 1px 2px rgba(0,0,0,0.08)",
-                animation: pulse ? "fnp-notebook-pulse-once 1.4s ease-out 1" : "none",
+                // Continuous pulse while the gate is blocked — a single
+                // brief pulse was too easy to miss. It keeps glowing until
+                // the teacher taps the note onto the board.
+                animation: pulse ? "fnp-notebook-pulse 1.2s ease-in-out infinite" : "none",
                 transition: "box-shadow 240ms ease, background 240ms ease, border-color 240ms ease",
               }}
             >
-              <style>{`@keyframes fnp-notebook-pulse-once {
-                0% { transform: scale(1); }
-                40% { transform: scale(1.08); }
-                100% { transform: scale(1); }
+              <style>{`@keyframes fnp-notebook-pulse {
+                0% { transform: scale(1); box-shadow: 0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45); }
+                50% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(245,158,11,0.5), 0 0 22px 8px rgba(245,158,11,0.65); }
+                100% { transform: scale(1); box-shadow: 0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45); }
               }`}</style>
               {/* Fancy notebook: hard cover + binder rings + ruled lines +
                   red bookmark ribbon. Clearly reads as "Read lesson note". */}
