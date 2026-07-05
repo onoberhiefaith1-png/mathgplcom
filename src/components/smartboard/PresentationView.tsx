@@ -1937,10 +1937,10 @@ const PresentationView = ({
   const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
   const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
 
-  // Persist "notebook already shown" per reservoir across reloads so the
-  // teacher is never re-prompted to insert a notebook that's already on the
-  // board.
-  const SHOWN_NB_KEY = `smartboard:shownNotebooks:${notebookId ?? "_"}:${activeReservoirIdx}`;
+  // The "notebook shown" set is SESSION-ONLY. It used to be persisted in
+  // localStorage, which let stale "already clicked" flags from old sessions
+  // (auto-write era) silently satisfy the note gate forever — the line-1
+  // "never glows" bug. The gate below now checks the BOARD live instead.
 
   // Reset composer state every time the active example changes. We do NOT
   // force activeLineIdx back to 0: the resume effect below will scan the
@@ -1963,16 +1963,19 @@ const PresentationView = ({
     setManualFloatingLineIdx(null);
     setNotebookRevealIdx(null);
     setNotebookAttentionIdx(new Set());
-    // Hydrate persisted "notebook shown" set for this reservoir.
-    let restored: Set<number> = new Set();
+    // Purge legacy persisted "notebook shown" flags — they must never
+    // pre-satisfy the note gate again. Fresh session, fresh gates.
     try {
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem(SHOWN_NB_KEY) : null;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) restored = new Set(parsed.filter((n: unknown) => typeof n === "number"));
+      if (typeof window !== "undefined") {
+        const stale: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith("smartboard:shownNotebooks:")) stale.push(key);
+        }
+        stale.forEach((k) => window.localStorage.removeItem(k));
       }
     } catch { /* noop */ }
-    setShownNotebookIdx(restored);
+    setShownNotebookIdx(new Set());
     setConsumedAbsIdx(new Set());
     setConsumedStructures(new Set());
     setNotebookRowLines(new Set());
@@ -1994,14 +1997,7 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLineIdx, activeReservoirIdx]);
 
-  // Persist shownNotebookIdx whenever it changes.
-  useEffect(() => {
-    if (activeReservoirIdx < 0) return;
-    try {
-      window.localStorage.setItem(SHOWN_NB_KEY, JSON.stringify(Array.from(shownNotebookIdx)));
-    } catch { /* noop */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shownNotebookIdx, activeReservoirIdx]);
+  // shownNotebookIdx is intentionally NOT persisted — see note above.
 
 
 
@@ -2027,42 +2023,12 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
-  // Note parity with the Presenter Preview: every line's authored note must
-  // appear on the board automatically — the same data, the same surface. As
-  // soon as a line becomes active, if it has a non-empty note (after the
-  // note-purity filter), commit it via `writeProseLineOnBoard` and record
-  // it in `shownNotebookIdx` so it never re-writes. The Note chip in the
-  // FloatingNumberPanel is also armed to reflect the state.
-  // Notes are NEVER auto-written. Rule (per teacher): the note icon must
-  // be clicked before advancing past its line. This effect only handles
-  // RE-ARMING — if the teacher has erased a previously-clicked note from
-  // the board and scrolls back to that line, the "shown" flag is cleared
-  // so the icon glows again on the next Next attempt.
-  useEffect(() => {
-    if (!hasGuidedLines) return;
-    const line = guidedLines[activeLineIdx] as { notebook?: string } | undefined;
-    const rawNote = (line?.notebook ?? "").trim();
-    if (!rawNote) return;
-    const looksLikeMath = (l: string) => {
-      const s = l.trim();
-      if (!s) return false;
-      if (/[=+\-−×÷/^]/.test(s)) return true;
-      if (/^[\d\s.,()πθ]+$/.test(s)) return true;
-      return false;
-    };
-    const noteLines = rawNote.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (noteLines.some(looksLikeMath)) return;
-    if (!shownNotebookIdx.has(activeLineIdx)) return;
-    if (boardHasTextRow(rawNote)) return;
-    // Was clicked before, but the note ink is gone — re-arm the gate.
-    setShownNotebookIdx((prev) => {
-      if (!prev.has(activeLineIdx)) return prev;
-      const nx = new Set(prev);
-      nx.delete(activeLineIdx);
-      return nx;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLineIdx, hasGuidedLines, activeReservoirIdx, guidedLines.length]);
+  // NOTE GATE — one uniform live rule for every line, no special cases:
+  // a line with a note blocks Next until the note's TEXT IS ON THE BOARD
+  // (checked live via boardHasTextRow at press time). Clicking the note
+  // icon writes it onto the board, which opens the gate. Erasing the ink
+  // closes the gate again automatically — no flags to re-arm, nothing
+  // persisted, nothing inherited from previous sessions.
 
   /** Equation labels like "(1)" may be added before/after the math at any
    *  time — line matching must succeed with or without them. */
@@ -4126,6 +4092,15 @@ const PresentationView = ({
               return text;
             };
 
+            // NOTE GATE — the single uniform rule. A line's gate is open iff
+            // it has no note OR the note's text is on the board RIGHT NOW.
+            // Live board check only: no clicked-flags, nothing persisted,
+            // identical for line 1 and every other line.
+            const noteGateOpen = (k: number): boolean => {
+              const note = notebookFor(k);
+              return note.length === 0 || boardHasTextRow(note);
+            };
+
             // Cursor movement: teacher may freely traverse every line up to
             // the last one. The down-chevron naturally disables at the bottom
             // (cur >= total) so the teacher sees the line is blocked.
@@ -4134,11 +4109,7 @@ const PresentationView = ({
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
               if (target > maxReachable) return; // out of reach — block the jump
-              const noteHere = notebookFor(curLineIdx);
-              const currentPending =
-                noteHere.length > 0 &&
-                (!shownNotebookIdx.has(curLineIdx) || !boardHasTextRow(noteHere));
-              if (target > curLineIdx && currentPending) {
+              if (target > curLineIdx && !noteGateOpen(curLineIdx)) {
                 setNotebookAttentionIdx((prev) => {
                   if (prev.has(curLineIdx)) return prev;
                   const next = new Set(prev);
@@ -4188,14 +4159,9 @@ const PresentationView = ({
                 setManualFloatingLineIdx(k);
                 return;
               }
-              // STRICT CLICK-GATE: if this line has a note that has not
-              // been clicked yet (or its ink was erased so it's re-armed),
-              // block Next and glow the note icon.
-              const pending = notebookFor(curLineIdx);
-              const noteClicked =
-                pending.length === 0 ||
-                (shownNotebookIdx.has(curLineIdx) && boardHasTextRow(pending));
-              if (!noteClicked) {
+              // NOTE GATE: if this line has a note that is not on the board,
+              // block Next and glow the note icon. Live check, no flags.
+              if (!noteGateOpen(curLineIdx)) {
                 setNotebookAttentionIdx((prev) => {
                   if (prev.has(curLineIdx)) return prev;
                   const next = new Set(prev);
@@ -4209,8 +4175,7 @@ const PresentationView = ({
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
             const currentNotebookText = notebookFor(curLineIdx);
             const currentNotebookPending =
-              currentNotebookText.length > 0 &&
-              (!shownNotebookIdx.has(curLineIdx) || !boardHasTextRow(currentNotebookText));
+              currentNotebookText.length > 0 && !boardHasTextRow(currentNotebookText);
             const revealNotebookText =
               notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : currentNotebookText;
             const markCurrentNotebookRead = () => {
@@ -4305,7 +4270,7 @@ const PresentationView = ({
                   notebookPending={
                     hasGuidedLines &&
                     notebookFor(curLineIdx).length > 0 &&
-                    !shownNotebookIdx.has(curLineIdx) &&
+                    !boardHasTextRow(notebookFor(curLineIdx)) &&
                     notebookAttentionIdx.has(curLineIdx)
                   }
                 />

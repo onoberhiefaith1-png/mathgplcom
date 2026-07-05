@@ -1,42 +1,31 @@
-# Note-glow gate + reliable note placement
+# Delete & Rewrite the Line-1 Note Rule
 
-Two changes, both in the Smartboard presentation layer. No backend, no data model changes.
+## What is actually wrong with Line 1
 
-## 1. Note must be on the board before Next can advance past its line
+Nothing is wrong with the note text itself. The problem is leftover memory: back when notes auto-wrote themselves onto the board, line 1 was recorded as "already shown", and that record is **saved in the browser and re-loaded on every refresh**. So line 1's gate is permanently satisfied — it never glows, Next passes straight through. Lines 2 and 3 were never auto-written, so they glow correctly.
 
-Rule (from you):
-- Every line with a Teacher Note is a **checkpoint**. You cannot advance to the next line until that note's text is currently on the board.
-- Trying to advance while it isn't → the note icon **glows** and Next is blocked for that line only.
-- Clicking the note icon (glowing or not) writes the note; once its text is present on the board, the checkpoint clears and Next proceeds.
-- If the teacher later erases the note's ink and comes back (Prev then Next), the check re-runs against the *current* board — the note re-glows until it's written again.
-- The note icon remains freely clickable at any time regardless of the gate.
+## The fix — delete the old rule, write one clean rule
 
-How it's wired (in `PresentationView.tsx`):
-- Add a helper `hasNoteInkForLine(lineIdx)` that uses the existing `boardHasTextRow(noteText)` against the live reservoir's `notebook` text. Empty note → always true (no gate).
-- In the Next handler for guided lines (around the goNext / advance path near line 4170–4200):
-  - Before advancing from `curLineIdx`, if `notebookFor(curLineIdx)` exists AND `!hasNoteInkForLine(curLineIdx)`:
-    - Do **not** advance.
-    - `setNotebookAttentionIdx` to include `curLineIdx` (this is the existing glow state — the note button already renders the glow ring off `notebookAttentionIdx`).
-    - Optional short toast / status: "Show the note first."
-- When the note is written (via icon click, mirror, or edit), the existing `markNotebookShown` + attention-clear path already runs; add one line to *also* clear attention when `boardHasTextRow(noteText)` becomes true so scrolling back after erasing re-arms cleanly.
-- Prev/Next-section buttons are unaffected — the gate applies to the per-line Next only.
+**1. Purge the stale memory (the true line-1 killer)**
+- Stop saving/loading the "note already clicked" set from browser storage entirely, and clear any old saved entries on load.
+- Result: every note starts fresh — no line can inherit a "clicked" status from a previous session.
 
-## 2. Line-1 note appears far below (or not at all)
+**2. One uniform gate for every line (no special cases)**
+- A line with a note blocks Next until **the note's text is actually on the board** — checked live, every time.
+- Blocked → the note icon glows. Clicking the icon writes the note onto the board, gate opens.
+- Teacher erases the note ink later and scrolls back → gate closes again, icon re-glows. Automatic, because the check is always live against the board.
+- Same single function used by Next, the down-chevron, and the reveal flow — deleting the current mix of "clicked set AND board check" that behaves differently per line.
 
-Root cause: for the *first* line of a section the row that owns line 1 hasn't been claimed yet when the note is written, so `moveSensorToSafeRow` scans forward and lands on the first empty row it finds, which can be 5–10 rows below because the reset-to-top routine leaves the sensor high and the safety scan skips fraction rows aggressively. It's also racy on refresh: sometimes the equation row is claimed before the note write, sometimes after.
-
-Fix (in `PresentationView.tsx`, note-writing path near line 2033–2065 and in `moveSensorToSafeRow` around 2983):
-- Before writing a note for `lineIdx`, ensure the equation row for that line exists:
-  - If `getBoardRowSignatureFor(lineIdx)` is empty, first claim the row via `rebuildRowOwnership(lineIdx)` (or the internal equivalent) so the note anchors to "row-after-lineIdx".
-- Change note placement from "first safe row from the sensor" to **"row immediately after the row owning `lineIdx`, skipping only true blockers (ink, denominator-of-fraction, existing note row)"**. Cap the forward scan at 2 rows; if both are blocked, insert directly under the equation and let the existing occupancy tick re-flow.
-- Add a small retry: if the write's post-check (`boardHasTextRow(noteText)`) is false after one frame, re-run the placement once. This kills the "refresh → nothing → try again → works" flake.
-- No changes to note text, styling, or the icon behavior.
-
-## Technical details
-- Files touched: `src/components/smartboard/PresentationView.tsx` only.
-- Reuses existing state: `notebookAttentionIdx`, `shownNotebookIdx`, `boardHasTextRow`, `writeProseLineOnBoard`, `moveSensorToSafeRow`.
-- No controller-interface changes; `mirror.ts` and `autofix.ts` keep working unchanged.
-- No console-loop risk: attention state changes only on user gesture (Next click) or on note-write completion.
+**3. Delete line 1's note text so you can write it again**
+- Clear the saved note on line 1 in the database. Line 1 will have no note (no gate) until you re-author it in Floating Prep — exactly as you asked: delete it, you write it again.
+- When you save the new note, it goes through the same uniform gate as every other line.
 
 ## Verification
-- Playwright: open a lesson, on a line with a note press Next → note glows, board doesn't advance; click note icon → note appears on board directly under the equation, then Next advances. Erase note ink, Prev then Next → note re-glows. Line with no note advances immediately. Line 1 note: refresh 3× and click Next → note lands on the row right below Line 1 every time.
+- Refresh → go to line 1: with the note deleted, no gate (as requested).
+- Re-author a note on line 1 in Floating Prep → return to the board → press Next on line 1: icon glows, Next blocked; click icon → note appears under line 1 → Next works.
+- Erase the note ink, Prev then Next → icon re-glows.
+- Refresh again → the gate still behaves identically (no stale flags survive).
+
+## Technical details
+- `src/components/smartboard/PresentationView.tsx`: remove `SHOWN_NB_KEY` persistence + hydration (clear old keys once on mount); replace the `shownNotebookIdx && boardHasTextRow` compound gate in `goNext`/`stepTo` with a single `noteGateOpen(idx)` = `notebookFor(idx) === "" || boardHasTextRow(note)`; keep `notebookAttentionIdx` purely for the glow.
+- One small database update: set `floating_highlights[0].precedingNotebook = ""` for the affected subsection.
