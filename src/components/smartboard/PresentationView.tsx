@@ -1178,10 +1178,20 @@ const PresentationView = ({
     // Pre-compute the mirror rows once so the parity gate runs per
     // paragraph and any that fail are skipped rather than dropping the
     // whole note.
-    const mirrored = paragraphs
+    let mirrored = paragraphs
       .map((p) => mirrorLessonNoteRow(p))
       .filter((m) => m.ok && m.row.length > 0);
-    if (mirrored.length === 0) return null;
+    if (mirrored.length === 0) {
+      // Parity gate refused every paragraph. NEVER silently no-op — a note
+      // click must always produce visible ink, so fall back to writing the
+      // raw text as plain character rows.
+      mirrored = paragraphs.map((p) => ({
+        row: [...p].map((ch) => mkChar(ch)),
+        signature: p,
+        ok: true,
+      }));
+      if (mirrored.length === 0) return null;
+    }
 
     const prev = freeLinesRef.current;
 
