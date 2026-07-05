@@ -1226,7 +1226,9 @@ const PresentationView = ({
 
     // Idempotency: if the FIRST paragraph is already on the board with
     // the exact same signature, treat the whole note as already
-    // committed and just re-mark it as sensor-restricted.
+    // committed, re-mark it as sensor-restricted, and SCROLL to it so
+    // the teacher can SEE the existing note (it may live off-screen —
+    // a bare sensor jump with no visible ink reads as "nothing happened").
     const firstSig = mirrored[0].signature;
     for (const k of Object.keys(prev)) {
       const n = Number(k);
@@ -1238,6 +1240,7 @@ const PresentationView = ({
           ns.add(existing);
           return ns;
         });
+        requestAnimationFrame(() => scrollBoardToRow(existing));
         if (opts?.advanceSensor) {
           advanceBelow(existing + mirrored.length - 1, prev, new Set([existing]));
         }
