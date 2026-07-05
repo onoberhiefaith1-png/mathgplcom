@@ -1084,12 +1084,16 @@ const PresentationView = ({
   /** Back-compat: FloatingMath calls this with a plain LaTeX-ish string.
    *  Never type that raw source onto the board: mirror it through the same
    *  Lesson Note renderer first so \frac / \sqrt / slash fractions become
-   *  real stacked structures before the teacher sees them. */
+   *  real stacked structures before the teacher sees them.
+   *
+   *  Identity is stable (for the AI controller memo) but it dispatches
+   *  through the live refs so writes ALWAYS land on the sensor's current
+   *  line — never on a line frozen from the first render. */
   const insertTextAtSensor = useCallback((text: string) => {
-    if (insertIntoActiveBox(text)) return;
+    if (insertIntoActiveBoxRef.current(text)) return;
     const mirror = mirrorLessonNoteRow(text);
     if (!mirror.ok || mirror.row.length === 0) return;
-    editActive((row, c) => {
+    editActiveRef.current((row, c) => {
       let r = row;
       let cur = exitCompletedScriptCursor(r, c);
       for (const node of mirror.row) {
