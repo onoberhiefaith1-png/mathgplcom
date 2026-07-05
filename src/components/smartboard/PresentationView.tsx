@@ -154,6 +154,9 @@ const SURFACES: Record<Surface, {
   chromeFg: string;
   chromeBorder: string;
   hoverBg: string;
+  /** Solid color that placeholder cubes take on when rendered on this
+   *  smartboard surface, so idle empty slots blend into the board. */
+  placeholderInk: string;
 }> = {
   whiteboard: {
     background:
@@ -167,6 +170,7 @@ const SURFACES: Record<Surface, {
     chromeFg: "#2b3344",
     chromeBorder: "rgba(0,0,0,0.08)",
     hoverBg: "rgba(0,0,0,0.06)",
+    placeholderInk: "#efece5",
   },
   blackboard: {
     background:
@@ -180,8 +184,10 @@ const SURFACES: Record<Surface, {
     chromeFg: "rgba(255,255,255,0.85)",
     chromeBorder: "rgba(255,255,255,0.08)",
     hoverBg: "rgba(255,255,255,0.08)",
+    placeholderInk: "#161c1a",
   },
 };
+
 
 /** SVG noise turned into a tileable data URL for surface micro-texture. */
 const noiseUrl = (opacity: number) => {
@@ -3749,7 +3755,12 @@ const PresentationView = ({
           transition: "width 280ms ease",
           background: palette.background,
           color: palette.ink,
-        }}
+          // Scoped to #sb-root: on-board placeholder cubes read this
+          // color and blend into the board. Panels and previews live
+          // outside this subtree and keep the default (black).
+          ["--placeholder-ink" as string]: palette.placeholderInk,
+        } as React.CSSProperties}
+
       >
       <WritingFilterDefs />
 
