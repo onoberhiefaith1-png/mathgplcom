@@ -1000,18 +1000,6 @@ const PresentationView = ({
     return !!row && rowHasVisibleInk(row);
   };
 
-  /** Relocation target for a write that hit a locked row: first empty
-   *  writable row below the last visible ink (structure-aware). */
-  const relocatedWriteRow = (): number | null => {
-    const L = activeLayout;
-    if (!L) return null;
-    const a = bandStart(L), b = bandEnd(L);
-    const li = lastVisibleInkRow(L);
-    let t = li >= a ? nextSensorRowBelow(li) : a;
-    while (t <= b && !isEmptyWritableRow(t, L)) t++;
-    return Math.min(b, t);
-  };
-
   /** Edit the active line's tree via a fn that returns next root + cursor. */
   const editActive = (
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
@@ -1039,6 +1027,15 @@ const PresentationView = ({
     });
     hiddenInputRef.current?.focus({ preventScroll: true });
   };
+
+  // LIVE DISPATCH: `editActive` and `insertIntoActiveBox` are re-created on
+  // every render so they always see the CURRENT sensor line / active box.
+  // Stable callbacks (useCallback) must NEVER capture them directly — a
+  // frozen copy remembers the first render's sensor line forever, which is
+  // exactly the "everything writes onto one row" bug. They call through
+  // these refs instead, which always point at the latest closures.
+  const editActiveRef = useRef<typeof editActive>(() => {});
+  const insertIntoActiveBoxRef = useRef<(text: string, replace?: boolean) => boolean>(() => false);
 
   /** Append input into the active magnet box (if any) instead of the board.
    *  Returns true when handled. */
