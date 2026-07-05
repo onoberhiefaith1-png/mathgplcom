@@ -37,6 +37,38 @@ const NEEDS_RESERVOIR: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Resolve the board beat index for a target. Exact ID match first; if
+ * the IDs have been regenerated (the on-open lesson sync recreates
+ * section rows with new IDs), fall back to matching by TYPE + ORDINAL:
+ * "the 2nd problem beat" is the 2nd problem beat on both sides.
+ */
+export const resolveBeatIdx = (
+  target: EditTarget,
+  ctrl: PresentationController,
+): number => {
+  const exact = ctrl.beats.findIndex((b) => b.id === target.beatId);
+  if (exact >= 0) return exact;
+
+  if (target.beatId === "__cover__") {
+    return ctrl.beats.findIndex((b) => b.id === "__cover__");
+  }
+  const suffix = target.beatId.endsWith("-q")
+    ? "-q"
+    : target.beatId.endsWith("-text")
+      ? "-text"
+      : null;
+  if (!suffix || typeof target.beatOrdinal !== "number") return -1;
+  let n = 0;
+  for (let i = 0; i < ctrl.beats.length; i++) {
+    if (ctrl.beats[i].id.endsWith(suffix)) {
+      if (n === target.beatOrdinal) return i;
+      n++;
+    }
+  }
+  return -1;
+};
+
+/**
  * Point the controller at the target's beat and wait (up to ~900ms)
  * until the state actually reflects it. Returns true when settled.
  */
@@ -44,9 +76,9 @@ export const waitForBeat = async (
   target: EditTarget,
   ctrl: PresentationController,
 ): Promise<boolean> => {
-  const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
-  console.debug("[mirror] waitForBeat", { beatId: target.beatId, beatIdx, cursor: ctrl.getBeatCursor(), beats: JSON.stringify(ctrl.beats.map((b) => b.id)) });
+  const beatIdx = resolveBeatIdx(target, ctrl);
   if (beatIdx < 0) return false;
+  const beatId = ctrl.beats[beatIdx].id; // resolved board-side id
   if (ctrl.getBeatCursor() !== beatIdx) ctrl.setBeatCursor(beatIdx);
 
   const needsRes = NEEDS_RESERVOIR.has(target.kind);
@@ -54,7 +86,7 @@ export const waitForBeat = async (
   while (Date.now() < deadline) {
     const cursorOk = ctrl.getBeatCursor() === beatIdx;
     const res = ctrl.getActiveReservoir();
-    const resOk = !needsRes || res?.beatId === target.beatId;
+    const resOk = !needsRes || res?.beatId === beatId;
     if (cursorOk && resOk) return true;
     if (cursorOk && !needsRes) return true;
     await wait(40);
