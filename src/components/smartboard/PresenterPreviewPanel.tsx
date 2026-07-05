@@ -18,9 +18,6 @@ import {
   EyeOff,
   Eye,
   Sparkles,
-  Loader2,
-  Wrench,
-  CheckCircle2,
   XCircle,
 } from "lucide-react";
 
