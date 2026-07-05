@@ -2858,11 +2858,9 @@ const PresentationView = ({
     activeReservoir,
     guidedLines,
   };
-  // Row-signature helpers for the Presentation AI. `rowOwnersRef` and
-  // `freeLines` are already live in the render loop; we snapshot them via
-  // the ref so the AI reads the freshest board state at inspect-time.
-  const freeLinesRef = useRef(freeLines);
-  freeLinesRef.current = freeLines;
+  // Row-signature helpers for the Presentation AI read `freeLinesRef`
+  // (declared next to writeProseLineOnBoard) for the freshest board state.
+
 
   const findBoardRowForLine = useCallback((lineIdx: number): number | null => {
     const owners = rowOwnersRef.current;
