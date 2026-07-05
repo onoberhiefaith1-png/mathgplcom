@@ -37,6 +37,7 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import { SmartboardLessonText } from "@/components/smartboard/SmartboardLessonText";
 import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
 import { editTargetKey } from "@/lib/smartboard/manualEdit/types";
+import { noteForLine } from "@/lib/smartboard/boardWriter/noteSource";
 
 const INK = "#1a2230";
 const ACCENT = "#8a6a1f";
@@ -665,7 +666,8 @@ const PresenterPreviewPanel = ({
               <div className="mt-3 space-y-3">
                 {res.lines.map((line: ReservoirLine, k: number) => {
                   const eq = asDisplayString(line.equation).trim();
-                  const note = asDisplayString(line.notebook).trim();
+                  // Single note source — identical to the Floating panel.
+                  const note = noteForLine(line);
                   const lineActive = isActive && activeLineIdx === k;
                   const lineKey = `${it.id}::${k}`;
                   const lineTarget: EditTarget = {

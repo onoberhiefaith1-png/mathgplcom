@@ -389,9 +389,11 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
                 : dropContextualLeadingPlus(cleanFragments(ordered)));
           const start = fragmentsFromLines.length;
           fragmentsFromLines.push(...fills);
+          // Explanations attach by EXACT equation match only. The old
+          // positional fallback (parsedSolution[k]) let wrong-line prose
+          // (even whole solution tails) latch onto any line. Never restore.
           const explanation = (rl as any).explanation
-            ?? parsedSolution.find((p) => p.equation === eq)?.explanation
-            ?? parsedSolution[k]?.explanation;
+            ?? parsedSolution.find((p) => p.equation === eq)?.explanation;
           // Notes come ONLY from the highlight itself — never from an
           // equation-match fallback or from parsed solution prose.
           const notebook = (rl as any).notebook || undefined;

@@ -129,10 +129,10 @@ interface Props {
   lineCount?: number;
   onPrevLine?: () => void;
   onNextLine?: () => void;
-  /** When set, the page-icon will write this notebook prose onto the board
-   *  (as the next line under the last solved equation) instead of showing
-   *  a side-note tooltip. Empty/undefined → page icon falls back to the
-   *  current line's `explanation` text. */
+  /** The current line's teaching note, read through the single note
+   *  source (noteForLine). This is the ONLY input that can render the
+   *  notebook icon — empty/undefined means NO icon. There is no
+   *  fallback to `explanation` or any other text. */
   notebookText?: string;
   /** Writes a prose line onto the smartboard surface itself. Provided by
    *  the parent (PresentationView) so the FloatingNumberPanel never has to
@@ -505,18 +505,12 @@ export const FloatingNumberPanel = ({
           <ChevronDown size={16} />
         </button>
         {(() => {
-          // Notebook checkpoint icon — a larger, recognisable mini-notebook
-          // SVG. When the current line has an unread teaching note, it
-          // pulses to draw the teacher's attention. Tapping freezes the
-          // floating numbers (handled by parent) and writes the prose
-          // exactly as authored onto the board.
-          const prose =
-            (notebookText && notebookText.trim().length > 0)
-              ? notebookText
-              : (useLineMode && activeLineIdx != null
-                  ? lines[activeLineIdx]?.explanation
-                  : undefined);
-          if (!prose || !prose.trim()) return null;
+          // Notebook checkpoint icon — renders IFF the line's own saved
+          // note (notebookText, from the single note source) is non-empty.
+          // NO fallback: a line without a real note never shows an icon
+          // and can never write solution text onto the board.
+          const prose = (notebookText ?? "").trim();
+          if (!prose) return null;
           const pulse = notebookPending;
           return (
             <button

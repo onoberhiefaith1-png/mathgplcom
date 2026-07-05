@@ -72,6 +72,7 @@ import {
   floatingWriteNote,
   type FloatingChannelHost,
 } from "@/lib/smartboard/boardWriter/floatingChannel";
+import { noteForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
@@ -4371,26 +4372,10 @@ const PresentationView = ({
               ? Math.min(manualFloatingLineIdx ?? floatingLineIdx, guidedLines.length - 1)
               : 0;
             const lineCount = guidedLines.length;
-            const notebookFor = (k: number): string => {
-              const nb = (guidedLines[k] as { notebook?: string } | undefined)?.notebook;
-              const text = (nb ?? "").trim();
-              if (!text) return "";
-              // NOTE-PURITY LAW (read-side): a note is prose. If ANY line
-              // in the saved note is math-shaped (operators, or nearly all
-              // digits/punctuation), the whole note is rejected — a phantom
-              // equation must never render as a note. Universal across
-              // every line, at any depth.
-              const looksLikeMath = (l: string) => {
-                const s = l.trim();
-                if (!s) return false;
-                if (/[=+\-−×÷/^]/.test(s)) return true;
-                if (/^[\d\s.,()πθ]+$/.test(s)) return true;
-                return false;
-              };
-              const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-              if (lines.some(looksLikeMath)) return "";
-              return text;
-            };
+            // SINGLE NOTE SOURCE — same module the Presenter Preview uses.
+            // A line has a note iff its own saved highlight authored one.
+            const notebookFor = (k: number): string =>
+              noteForLine(guidedLines[k] as { notebook?: string } | undefined);
 
             // NOTE GATE — the single uniform rule. A line with a note blocks
             // Next until BOTH are true:
