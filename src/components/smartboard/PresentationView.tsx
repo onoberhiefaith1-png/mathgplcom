@@ -3437,6 +3437,7 @@ const PresentationView = ({
       notebookId,
       notebook?.title,
       writeProseLineOnBoard,
+      writeNoteForLine,
       insertTextAtSensor,
       insertFractionAtSensor,
       presentWriteAtSensor,
