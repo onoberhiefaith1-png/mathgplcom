@@ -252,8 +252,10 @@ const PresenterPreviewPanel = ({
   const items: Item[] = useMemo(() => {
     const out: Item[] = [];
     if (!notebook) return out;
-    out.push({ id: "__cover__", kind: "cover" });
+    out.push({ id: "__cover__", kind: "cover", ordinal: 0 });
     const counters: Record<string, number> = {};
+    let proseOrdinal = 0;
+    let problemOrdinal = 0;
     for (const sec of sections as SectionRow[]) {
       if (sec.kind === "introduction" || sec.kind === "explanation" || sec.kind === "summary") {
         const text = sec.loose
@@ -268,7 +270,7 @@ const PresenterPreviewPanel = ({
             : sec.kind === "explanation"
               ? "Explanation"
               : "Summary";
-        out.push({ id: `${sec.id}-text`, kind: "prose", caption, text });
+        out.push({ id: `${sec.id}-text`, kind: "prose", caption, text, ordinal: proseOrdinal++ });
         continue;
       }
       if (["example", "exercise", "classwork", "homework"].includes(sec.kind)) {
@@ -289,6 +291,7 @@ const PresenterPreviewPanel = ({
             hasFloatingData:
               Array.isArray((sub as any).floating_lines) &&
               ((sub as any).floating_lines as any[]).length > 0,
+            ordinal: problemOrdinal++,
           });
         }
       }
