@@ -818,7 +818,14 @@ const PresentationView = ({
     const h = histRef.current;
     const next: Snap = { freeLines, lineOffsets, smartLines, boxes };
     if (h.skip) { h.skip = false; h.prev = next; return; }
-    if (JSON.stringify(h.prev) === JSON.stringify(next)) return;
+    // Cheap reference comparison — the old full-board JSON.stringify on
+    // every keystroke was a major source of lag.
+    if (
+      h.prev.freeLines === freeLines &&
+      h.prev.lineOffsets === lineOffsets &&
+      h.prev.smartLines === smartLines &&
+      h.prev.boxes === boxes
+    ) return;
     h.past.push(h.prev);
     if (h.past.length > 200) h.past.shift();
     h.future = [];
