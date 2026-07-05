@@ -143,8 +143,8 @@ const NoteBlock = ({ text }: { text: string }) => {
 };
 
 type Item =
-  | { id: string; kind: "cover" }
-  | { id: string; kind: "prose"; caption: string; text: string }
+  | { id: string; kind: "cover"; ordinal: number }
+  | { id: string; kind: "prose"; caption: string; text: string; ordinal: number }
   | {
       id: string;
       kind: "problem";
@@ -152,6 +152,8 @@ type Item =
       problem: string;
       reservoir?: Reservoir;
       hasFloatingData: boolean;
+      /** Index among problem beats — ID-drift-proof beat matcher. */
+      ordinal: number;
     };
 
 export interface PresenterPreviewPanelProps {
@@ -250,8 +252,10 @@ const PresenterPreviewPanel = ({
   const items: Item[] = useMemo(() => {
     const out: Item[] = [];
     if (!notebook) return out;
-    out.push({ id: "__cover__", kind: "cover" });
+    out.push({ id: "__cover__", kind: "cover", ordinal: 0 });
     const counters: Record<string, number> = {};
+    let proseOrdinal = 0;
+    let problemOrdinal = 0;
     for (const sec of sections as SectionRow[]) {
       if (sec.kind === "introduction" || sec.kind === "explanation" || sec.kind === "summary") {
         const text = sec.loose
@@ -266,7 +270,7 @@ const PresenterPreviewPanel = ({
             : sec.kind === "explanation"
               ? "Explanation"
               : "Summary";
-        out.push({ id: `${sec.id}-text`, kind: "prose", caption, text });
+        out.push({ id: `${sec.id}-text`, kind: "prose", caption, text, ordinal: proseOrdinal++ });
         continue;
       }
       if (["example", "exercise", "classwork", "homework"].includes(sec.kind)) {
@@ -287,6 +291,7 @@ const PresenterPreviewPanel = ({
             hasFloatingData:
               Array.isArray((sub as any).floating_lines) &&
               ((sub as any).floating_lines as any[]).length > 0,
+            ordinal: problemOrdinal++,
           });
         }
       }
@@ -546,7 +551,7 @@ const PresenterPreviewPanel = ({
           const title = asDisplayString(notebook.title) || "Untitled";
           const subject = asDisplayString(notebook.subject);
           const subtopic = asDisplayString(notebook.subtopic);
-          const target: EditTarget = { kind: "cover", beatId: it.id, caption: "Cover", text: title };
+          const target: EditTarget = { kind: "cover", beatId: it.id, caption: "Cover", text: title, beatOrdinal: it.ordinal };
           const sel = isSelected(target);
           return (
             <section
@@ -581,6 +586,7 @@ const PresenterPreviewPanel = ({
           const target: EditTarget = {
             kind: "section",
             beatId: it.id,
+            beatOrdinal: it.ordinal,
             caption: it.caption,
             text: it.text,
           };
@@ -615,6 +621,7 @@ const PresenterPreviewPanel = ({
         const subTarget: EditTarget = {
           kind: "subsection",
           beatId: it.id,
+          beatOrdinal: it.ordinal,
           caption: it.caption,
           text: it.problem,
         };
@@ -644,6 +651,7 @@ const PresenterPreviewPanel = ({
               const qTarget: EditTarget = {
                 kind: "question",
                 beatId: it.id,
+                beatOrdinal: it.ordinal,
                 caption: `${it.caption} · Question`,
                 lineIdx: 0,
                 text: it.problem,
@@ -679,6 +687,7 @@ const PresenterPreviewPanel = ({
                   const lineTarget: EditTarget = {
                     kind: "solution-line",
                     beatId: it.id,
+                    beatOrdinal: it.ordinal,
                     caption: `${it.caption} · Line ${k + 1}`,
                     lineIdx: k,
                     text: eq,
@@ -733,6 +742,7 @@ const PresenterPreviewPanel = ({
                               const chipTarget: EditTarget = {
                                 kind: "floating-number",
                                 beatId: it.id,
+                                beatOrdinal: it.ordinal,
                                 caption: `${it.caption} · Line ${k + 1} · Chip ${fi + 1}`,
                                 lineIdx: k,
                                 fillerIdx: fi,
@@ -772,6 +782,7 @@ const PresenterPreviewPanel = ({
                           const noteTarget: EditTarget = {
                             kind: "teacher-note",
                             beatId: it.id,
+                            beatOrdinal: it.ordinal,
                             caption: `${it.caption} · Line ${k + 1} · Note`,
                             lineIdx: k,
                             text: note,

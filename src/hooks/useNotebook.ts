@@ -78,6 +78,17 @@ export const SECTION_LABEL: Record<SectionKind, string> = {
 const NUMBERED_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework"];
 export const isNumberedKind = (k: SectionKind) => NUMBERED_KINDS.includes(k);
 
+// The on-open Lesson-Note → Smartboard sync DELETES and RECREATES the
+// notebook_sections/subsections rows (new IDs every run). When two hook
+// instances (Smartboard + Presenter Preview) each ran their own sync,
+// they raced each other and each side ended up holding a DIFFERENT
+// generation of section IDs — so the preview's items could never be
+// found among the board's beats ("work / no work"). Share ONE sync per
+// notebook per session and have every instance reload after it settles
+// so all consumers converge on the same generation of IDs.
+const onOpenSyncPromises = new Map<string, Promise<unknown>>();
+
+
 export function useNotebook(notebookId: string | undefined) {
   const [notebook, setNotebook] = useState<NotebookRow | null>(null);
   const [sections, setSections] = useState<SectionRow[]>([]);
@@ -177,7 +188,10 @@ export function useNotebook(notebookId: string | undefined) {
   const syncedOnOpenRef = useRef<string | null>(null);
   useEffect(() => {
     if (!notebook || loading) return;
-    // One-time repair + sync of existing doc on first open.
+    // One-time repair + sync of existing doc on first open — shared
+    // across ALL hook instances (see onOpenSyncPromises above). Every
+    // instance reloads once the single sync settles so the Smartboard
+    // and the Presenter Preview hold the SAME section/subsection IDs.
     if (notebook.document_json && syncedOnOpenRef.current !== notebook.id) {
       syncedOnOpenRef.current = notebook.id;
       // Repair raw-LaTeX paragraphs written before the brace-aware tokenizer
@@ -187,10 +201,15 @@ export function useNotebook(notebookId: string | undefined) {
         setNotebook((prev) => prev ? { ...prev, document_json: repaired } : prev);
         supabase.from("notebooks").update({ document_json: repaired } as any).eq("id", notebook.id);
       }
-      syncDocumentToNotebook(notebook.id, repaired).catch((e) => {
-        // eslint-disable-next-line no-console
-        console.warn("[syncDocumentToNotebook on open] failed:", e);
-      });
+      let syncP = onOpenSyncPromises.get(notebook.id);
+      if (!syncP) {
+        syncP = syncDocumentToNotebook(notebook.id, repaired).catch((e) => {
+          // eslint-disable-next-line no-console
+          console.warn("[syncDocumentToNotebook on open] failed:", e);
+        });
+        onOpenSyncPromises.set(notebook.id, syncP);
+      }
+      void syncP.then(() => reload());
     }
     if (notebook.document_json) { migratedRef.current = true; return; }
     if (migratedRef.current) return;

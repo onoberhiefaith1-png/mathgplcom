@@ -69,10 +69,11 @@ export const SmartLineLayer = ({ lines, ink, onChange, cellPx, isLineOccupied, o
     Object.values(lenTimers.current).forEach((t) => window.clearTimeout(t));
   }, []);
 
-  // Recompute occupancy on tick — by reading the prop reference we keep
-  // the render in sync with board edits.
-  const [, setOccTick] = useState(0);
-  useEffect(() => { setOccTick((n) => n + 1); }, [occupancyTick]);
+  // `occupancyTick` changing already re-renders this component (it's a
+  // prop), so occupancy is re-evaluated naturally — no internal setState
+  // echo needed. (The old echo state amplified parent update storms into
+  // "Maximum update depth exceeded".)
+  void occupancyTick;
 
   const startDrag = (e: React.PointerEvent, line: SmartLine) => {
     e.preventDefault();

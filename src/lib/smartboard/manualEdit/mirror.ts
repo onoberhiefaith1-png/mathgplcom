@@ -37,6 +37,38 @@ const NEEDS_RESERVOIR: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Resolve the board beat index for a target. Exact ID match first; if
+ * the IDs have been regenerated (the on-open lesson sync recreates
+ * section rows with new IDs), fall back to matching by TYPE + ORDINAL:
+ * "the 2nd problem beat" is the 2nd problem beat on both sides.
+ */
+export const resolveBeatIdx = (
+  target: EditTarget,
+  ctrl: PresentationController,
+): number => {
+  const exact = ctrl.beats.findIndex((b) => b.id === target.beatId);
+  if (exact >= 0) return exact;
+
+  if (target.beatId === "__cover__") {
+    return ctrl.beats.findIndex((b) => b.id === "__cover__");
+  }
+  const suffix = target.beatId.endsWith("-q")
+    ? "-q"
+    : target.beatId.endsWith("-text")
+      ? "-text"
+      : null;
+  if (!suffix || typeof target.beatOrdinal !== "number") return -1;
+  let n = 0;
+  for (let i = 0; i < ctrl.beats.length; i++) {
+    if (ctrl.beats[i].id.endsWith(suffix)) {
+      if (n === target.beatOrdinal) return i;
+      n++;
+    }
+  }
+  return -1;
+};
+
+/**
  * Point the controller at the target's beat and wait (up to ~900ms)
  * until the state actually reflects it. Returns true when settled.
  */
@@ -44,8 +76,9 @@ export const waitForBeat = async (
   target: EditTarget,
   ctrl: PresentationController,
 ): Promise<boolean> => {
-  const beatIdx = ctrl.beats.findIndex((b) => b.id === target.beatId);
+  const beatIdx = resolveBeatIdx(target, ctrl);
   if (beatIdx < 0) return false;
+  const beatId = ctrl.beats[beatIdx].id; // resolved board-side id
   if (ctrl.getBeatCursor() !== beatIdx) ctrl.setBeatCursor(beatIdx);
 
   const needsRes = NEEDS_RESERVOIR.has(target.kind);
@@ -53,7 +86,7 @@ export const waitForBeat = async (
   while (Date.now() < deadline) {
     const cursorOk = ctrl.getBeatCursor() === beatIdx;
     const res = ctrl.getActiveReservoir();
-    const resOk = !needsRes || res?.beatId === target.beatId;
+    const resOk = !needsRes || res?.beatId === beatId;
     if (cursorOk && resOk) return true;
     if (cursorOk && !needsRes) return true;
     await wait(40);
@@ -120,44 +153,58 @@ export const directWrite = (target: EditTarget, ctrl: PresentationController): v
   }
 };
 
+/** Write prose only if the exact text is not already inked on the board —
+ *  keeps mirroring ADDITIVE and duplicate-free. */
+const writeProseIfMissing = (ctrl: PresentationController, text: string): void => {
+  const raw = text.trim();
+  if (!raw) return;
+  if (ctrl.boardHasTextRow?.(raw)) return; // already there — count on it
+  ctrl.writeProseLineOnBoard(raw);
+};
+
 /**
  * Apply the mirror action for a target. Uses the SAME controller
  * methods the normal presentation engine uses — never reconstructs or
  * regenerates content.
+ *
+ * ADDITIVE: mirroring never clears the board. Whatever is already
+ * presented stays; the mirror only writes what is missing (or rewrites
+ * the one item that was clicked). This keeps Next/Prev playback and
+ * previously-forced content intact.
  */
 export const applyMirror = async (
   target: EditTarget,
   ctrl: PresentationController,
 ): Promise<void> => {
-  // 1) Point at the right beat FIRST and wait for state to settle.
+  // Point at the right beat FIRST and wait for state to settle.
   await waitForBeat(target, ctrl);
-
-  // 2) Blank canvas — without resetting the beat cursor.
-  clearInk(ctrl);
-  await wait(80); // let React flush so row/sensor reads are fresh
+  await wait(40); // let React flush so row/sensor reads are fresh
 
   switch (target.kind) {
     case "cover": {
-      const text = (target.text ?? target.caption ?? "").trim();
-      if (text) ctrl.writeProseLineOnBoard(text);
+      writeProseIfMissing(ctrl, target.text ?? target.caption ?? "");
       return;
     }
 
     case "section": {
-      const text = (target.text ?? "").trim();
-      if (text) ctrl.writeProseLineOnBoard(text);
+      writeProseIfMissing(ctrl, target.text ?? "");
       return;
     }
 
     case "subsection": {
-      const text = (target.caption ?? "").trim();
-      if (text) ctrl.writeProseLineOnBoard(text);
+      writeProseIfMissing(ctrl, target.caption ?? "");
       return;
     }
 
     case "question": {
       const idx = li(target);
       const eq = (target.text ?? "").trim();
+      // Already on the board? Just bring it into view.
+      if (idx >= 0 && ctrl.getBoardRowSignatureFor(idx)) {
+        ctrl.setActiveLineIdx(idx);
+        ctrl.scrollBoardTo?.(idx);
+        return;
+      }
       let row: number | undefined;
       if (idx >= 0) {
         ctrl.setActiveLineIdx(idx);
@@ -166,7 +213,7 @@ export const applyMirror = async (
       if (ctrl.writeQuestionLine && idx >= 0 && eq) {
         ctrl.writeQuestionLine(idx, eq);
       } else if (eq) {
-        ctrl.writeProseLineOnBoard(eq);
+        writeProseIfMissing(ctrl, eq);
       }
       if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
       else if (idx >= 0) ctrl.scrollBoardTo?.(idx);
@@ -176,6 +223,12 @@ export const applyMirror = async (
     case "solution-line": {
       const idx = li(target);
       if (idx < 0) return;
+      // Already on the board? Just bring it into view.
+      if (ctrl.getBoardRowSignatureFor(idx)) {
+        ctrl.setActiveLineIdx(idx);
+        ctrl.scrollBoardTo?.(idx);
+        return;
+      }
       ctrl.setActiveLineIdx(idx);
       const row = ctrl.moveSensorToSafeRow?.(idx);
       const line = ctrl.getActiveGuidedLines()[idx];
@@ -184,7 +237,7 @@ export const applyMirror = async (
         ctrl.writeEquationPrefix(idx, fillers.length);
       } else {
         const eq = (line?.equation ?? target.text ?? "").trim();
-        if (eq) ctrl.writeProseLineOnBoard(eq);
+        if (eq) writeProseIfMissing(ctrl, eq);
       }
       if (typeof row === "number") ctrl.scrollBoardToRow?.(row);
       else ctrl.scrollBoardTo?.(idx);
@@ -227,8 +280,7 @@ export const applyMirror = async (
 
     case "math-structure":
     default: {
-      const text = (target.text ?? "").trim();
-      if (text) ctrl.writeProseLineOnBoard(text);
+      writeProseIfMissing(ctrl, target.text ?? "");
       return;
     }
   }

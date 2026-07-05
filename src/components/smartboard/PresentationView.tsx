@@ -587,7 +587,11 @@ const PresentationView = ({
     return [];
   });
   useEffect(() => {
-    try { localStorage.setItem(SMARTLINES_KEY, JSON.stringify(smartLines)); } catch { /* noop */ }
+    // Debounced — serializing on every stroke made writing feel stiff.
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(SMARTLINES_KEY, JSON.stringify(smartLines)); } catch { /* noop */ }
+    }, 300);
+    return () => window.clearTimeout(t);
   }, [smartLines, SMARTLINES_KEY]);
 
   // Magnet boxes — drop-in labelled cells that snap to a SmartLine when
@@ -814,7 +818,14 @@ const PresentationView = ({
     const h = histRef.current;
     const next: Snap = { freeLines, lineOffsets, smartLines, boxes };
     if (h.skip) { h.skip = false; h.prev = next; return; }
-    if (JSON.stringify(h.prev) === JSON.stringify(next)) return;
+    // Cheap reference comparison — the old full-board JSON.stringify on
+    // every keystroke was a major source of lag.
+    if (
+      h.prev.freeLines === freeLines &&
+      h.prev.lineOffsets === lineOffsets &&
+      h.prev.smartLines === smartLines &&
+      h.prev.boxes === boxes
+    ) return;
     h.past.push(h.prev);
     if (h.past.length > 200) h.past.shift();
     h.future = [];
@@ -861,11 +872,19 @@ const PresentationView = ({
   };
 
 
+  // Debounced persistence — synchronous JSON serialization on every
+  // keystroke/sensor move made the board feel stiff.
   useEffect(() => {
-    try { localStorage.setItem(SENSOR_KEY, JSON.stringify(sensor)); } catch { /* noop */ }
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(SENSOR_KEY, JSON.stringify(sensor)); } catch { /* noop */ }
+    }, 300);
+    return () => window.clearTimeout(t);
   }, [sensor, SENSOR_KEY]);
   useEffect(() => {
-    try { localStorage.setItem(FREEWRITE_KEY, JSON.stringify(freeLines)); } catch { /* noop */ }
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(FREEWRITE_KEY, JSON.stringify(freeLines)); } catch { /* noop */ }
+    }, 300);
+    return () => window.clearTimeout(t);
   }, [freeLines, FREEWRITE_KEY]);
   useEffect(() => { setOccupancyTick((n) => n + 1); }, [freeLines, smartLines]);
   useEffect(() => {
@@ -3075,16 +3094,18 @@ const PresentationView = ({
   // uses this so clearing before a mirror never knocks the section back
   // to beat 0 (which made note/line lookups read the wrong reservoir).
   const clearInkOnly = useCallback(() => {
-    setFreeLines({});
+    // No-op-safe: keep the same state references when already empty so
+    // a repeated clear can never trigger an update storm.
+    setFreeLines((p) => (Object.keys(p).length === 0 ? p : {}));
     lineWidthsRef.current = {};
-    setSensor({ line: 0, x: 0 });
+    setSensor((p) => (p.line === 0 && p.x === 0 ? p : { line: 0, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
-    setShownNotebookIdx(new Set());
-    setNotebookAttentionIdx(new Set());
-    setConsumedAbsIdx(new Set());
-    setNotebookRowLines(new Set());
+    setShownNotebookIdx((p) => (p.size === 0 ? p : new Set<number>()));
+    setNotebookAttentionIdx((p) => (p.size === 0 ? p : new Set<number>()));
+    setConsumedAbsIdx((p) => (p.size === 0 ? p : new Set<number>()));
+    setNotebookRowLines((p) => (p.size === 0 ? p : new Set<number>()));
     rowOwnersRef.current = {};
-    setRowOwners({});
+    setRowOwners((p) => (Object.keys(p).length === 0 ? p : {}));
   }, [setLiveCursor]);
 
   // Wipe the Smartboard so Autoplay starts from a blank surface. Mirrors
