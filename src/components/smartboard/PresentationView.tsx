@@ -2033,13 +2033,16 @@ const PresentationView = ({
   // note-purity filter), commit it via `writeProseLineOnBoard` and record
   // it in `shownNotebookIdx` so it never re-writes. The Note chip in the
   // FloatingNumberPanel is also armed to reflect the state.
+  // Notes are NEVER auto-written. Rule (per teacher): the note icon must
+  // be clicked before advancing past its line. This effect only handles
+  // RE-ARMING — if the teacher has erased a previously-clicked note from
+  // the board and scrolls back to that line, the "shown" flag is cleared
+  // so the icon glows again on the next Next attempt.
   useEffect(() => {
     if (!hasGuidedLines) return;
     const line = guidedLines[activeLineIdx] as { notebook?: string } | undefined;
     const rawNote = (line?.notebook ?? "").trim();
     if (!rawNote) return;
-    // NOTE-PURITY LAW (same predicate as `notebookFor` below): reject notes
-    // whose any line reads as math so a phantom equation never renders.
     const looksLikeMath = (l: string) => {
       const s = l.trim();
       if (!s) return false;
@@ -2049,54 +2052,15 @@ const PresentationView = ({
     };
     const noteLines = rawNote.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (noteLines.some(looksLikeMath)) return;
-    // Skip if the note text is already inked on the board (idempotent even
-    // if `shownNotebookIdx` was cleared by a Prev/Next rewind).
-    if (boardHasTextRow(rawNote)) {
-      setShownNotebookIdx((prev) => {
-        if (prev.has(activeLineIdx)) return prev;
-        const next = new Set(prev);
-        next.add(activeLineIdx);
-        return next;
-      });
-      return;
-    }
-    if (shownNotebookIdx.has(activeLineIdx)) return;
-
-    // PLACEMENT FIX: anchor the note directly under the row owning the
-    // active line (or the last owned row before it), never at a stale
-    // sensor position which could be many rows below on refresh.
-    const owners = rowOwnersRef.current;
-    let anchor = -1;
-    for (const key of Object.keys(owners)) {
-      const r = Number(key);
-      const owner = owners[r];
-      if (typeof owner !== "number") continue;
-      if (owner <= activeLineIdx && r > anchor) anchor = r;
-    }
-    if (anchor >= 0) {
-      setSensor((s) => (s.line === anchor + 1 && s.x === 0 ? s : { line: anchor + 1, x: 0 }));
-    }
-
-    // Idempotent: `writeProseLineOnBoard` de-dupes via row signature, so
-    // re-runs after reload never double-write.
-    writeProseLineOnBoard(rawNote);
+    if (!shownNotebookIdx.has(activeLineIdx)) return;
+    if (boardHasTextRow(rawNote)) return;
+    // Was clicked before, but the note ink is gone — re-arm the gate.
     setShownNotebookIdx((prev) => {
-      if (prev.has(activeLineIdx)) return prev;
-      const next = new Set(prev);
-      next.add(activeLineIdx);
-      return next;
+      if (!prev.has(activeLineIdx)) return prev;
+      const nx = new Set(prev);
+      nx.delete(activeLineIdx);
+      return nx;
     });
-    // Retry once on the next frame if the write silently dropped (racy
-    // ownership on refresh). Kills the "sometimes appears, sometimes not"
-    // flake reported by the teacher.
-    const retryId = requestAnimationFrame(() => {
-      if (boardHasTextRow(rawNote)) return;
-      if (anchor >= 0) {
-        setSensor((s) => (s.line === anchor + 1 && s.x === 0 ? s : { line: anchor + 1, x: 0 }));
-      }
-      writeProseLineOnBoard(rawNote);
-    });
-    return () => cancelAnimationFrame(retryId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLineIdx, hasGuidedLines, activeReservoirIdx, guidedLines.length]);
 
