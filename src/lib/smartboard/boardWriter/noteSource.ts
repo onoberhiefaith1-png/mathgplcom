@@ -16,12 +16,18 @@ export interface NoteCarrier {
   notebook?: string;
 }
 
-/** NOTE-PURITY LAW: a note is prose. If ANY line in the saved note is
- *  math-shaped (operators, or nearly all digits/punctuation), the whole
- *  note is rejected — a phantom equation must never render as a note. */
+/** NOTE-PURITY LAW: a note is prose. A row is treated as math-shaped
+ *  only when it has NO alphabetic characters at all and is dominated by
+ *  digits/operators (e.g. "3 + 4 = 7", "x = -2"). Rows that contain any
+ *  letters are always considered prose — so notes like "Subtract 5 from
+ *  both sides" or "Divide by 2" are kept, while phantom equation tails
+ *  are still rejected. */
 const looksLikeMath = (l: string): boolean => {
   const s = l.trim();
   if (!s) return false;
+  if (/[A-Za-z]/.test(s)) return false; // any letter → prose
+  // No letters. If it has an operator or is entirely digits/punctuation,
+  // it's a math row masquerading as a note — reject it.
   if (/[=+\-−×÷/^]/.test(s)) return true;
   if (/^[\d\s.,()πθ]+$/.test(s)) return true;
   return false;
