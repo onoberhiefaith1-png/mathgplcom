@@ -1034,6 +1034,7 @@ const PresentationView = ({
       );
       writeLine = t;
       relocated = true;
+      ensureBandCovers(t);
       setSensor({ line: t, x: 0 });
       manualSensorRef.current = { line: t, x: 0 };
       activeSensorPhysicalLineRef.current = t;
@@ -1146,11 +1147,13 @@ const PresentationView = ({
       const cur = Math.floor(sensor.line);
       if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
         const t = stepPastLocked(cur);
+        ensureBandCoversRef.current(t);
         setSensor((s) => ({ ...s, line: t, x: 0 }));
       }
       insertTextAtSensor(text);
       if (opts?.advanceAfter) {
         const t = stepPastLocked(Math.floor(sensor.line));
+        ensureBandCoversRef.current(t);
         setSensor((s) => ({ ...s, line: t, x: 0 }));
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1238,6 +1241,9 @@ const PresentationView = ({
       // UNCAPPED walk — a bounded walk here used to expire on dense
       // boards and park the sensor ON a locked row (dead zone).
       for (let guard = 0; guard < 200 && blocked(t); guard++) t += 1;
+      // BAND-FOLLOWS-INK: the parked row must be INSIDE the writable
+      // band, or clicks there are dead (hidden rows below bandEnd).
+      ensureBandCovers(t, extraNoteRows);
       setSensor({ line: t, x: 0 });
       setLiveCursor({ path: [], index: 0 });
       manualSensorRef.current = { line: t, x: 0 };
@@ -1331,6 +1337,9 @@ const PresentationView = ({
       return ns;
     });
     const lastRow = newNotebookRows[newNotebookRows.length - 1];
+    // The note rows themselves must be inside the writable band —
+    // rows below bandEnd are hidden and unclickable.
+    ensureBandCovers(lastRow, new Set(newNotebookRows));
     if (opts?.advanceSensor) {
       advanceBelow(lastRow, next, new Set(newNotebookRows));
     }
@@ -1828,7 +1837,9 @@ const PresentationView = ({
         const row = next[key];
         if (!row || row.length === 0) continue;
         if (rowOwnersRef.current[r] !== undefined) continue; // committed lesson line
-        if (notebookRowLines.has(r) || notebookRowLines.has(key)) continue; // placed note
+        // Read locks through the REF (updated synchronously on note
+        // commits) so a note written in this same tick is never purged.
+        if (notebookRowLinesRef.current.has(r) || notebookRowLinesRef.current.has(key as number)) continue; // placed note
         delete next[key];
         changed = true;
       }
@@ -1845,6 +1856,29 @@ const PresentationView = ({
     purgeHiddenInkRow(bandEnd(activeLayout) + 1);
     setBandExtra((m) => ({ ...m, [activeLayout.id]: (m[activeLayout.id] ?? 0) + 1 }));
   };
+
+  /** BAND-FOLLOWS-INK LAW: any write that lands ink or parks the sensor
+   *  at/below the band's last row grows the band so every landed row AND
+   *  the sensor row stay inside writable space. Rows below bandEnd are
+   *  hidden and unclickable — THAT was the line-6+ dead zone: lines 1-5
+   *  fit inside the initial band, line 6+ overflowed it. Identical for
+   *  every line. `skipPurge` = rows written this very tick. */
+  const ensureBandCovers = (maxRow: number, skipPurge?: ReadonlySet<number>) => {
+    const L = activeLayout;
+    if (!L || L.bandLines <= 0) return;
+    const b = bandEnd(L);
+    const need = Math.ceil(maxRow);
+    if (need <= b) return;
+    for (let r = b + 1; r <= need; r++) {
+      if (skipPurge?.has(r)) continue;
+      purgeHiddenInkRow(r);
+    }
+    setBandExtra((m) => ({ ...m, [L.id]: (m[L.id] ?? 0) + (need - b) }));
+  };
+  // Live-dispatch ref so stable callbacks (commitWritePlan, note paths)
+  // always call THIS render's ensureBandCovers — never a stale layout.
+  const ensureBandCoversRef = useRef<typeof ensureBandCovers>(() => {});
+  ensureBandCoversRef.current = ensureBandCovers;
 
 
 
@@ -2444,7 +2478,13 @@ const PresentationView = ({
         // Step past locked rows (notes / structure bodies) ONE row at a
         // time — a minimal step-over, never a compounding offset.
         while (t <= b && activeLayout && !isEmptyWritableRow(t, activeLayout)) t++;
-        target = Math.min(b, t);
+        if (t > b) {
+          // Band exhausted (dense board, line 6+): GROW the band instead
+          // of clamping onto the locked band-end row — the old clamp was
+          // the dead zone where nothing clicked.
+          ensureBandCoversRef.current(t);
+        }
+        target = t;
       } else {
         // No prior ink: land right below "Solution".
         target = a;
@@ -3185,6 +3225,14 @@ const PresentationView = ({
           bandStartRow: 0,
         },
         plan.landedRow,
+      );
+      // BAND-FOLLOWS-INK: the written rows and the parked sensor row
+      // must all be INSIDE the writable band — rows below bandEnd are
+      // hidden and unclickable (the line-6+ dead zone).
+      const writtenRows = new Set(placed.map((p) => Math.floor(p.row)));
+      ensureBandCoversRef.current(
+        Math.max(parked, ...placed.map((p) => p.row)),
+        writtenRows,
       );
       setSensor({ line: parked, x: 0 });
       setLiveCursor({ path: [], index: 0 });
@@ -4462,6 +4510,7 @@ const PresentationView = ({
                     if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
                       let t = nextSensorRowBelow(cur);
                       for (let g = 0; g < 200 && (notebookRowLines.has(t) || isLockedInkRow(t)); g++) t += 1;
+                      ensureBandCovers(t);
                       setSensor((s) => ({ ...s, line: t, x: 0 }));
                     }
                     insertFractionAtSensor(p);
