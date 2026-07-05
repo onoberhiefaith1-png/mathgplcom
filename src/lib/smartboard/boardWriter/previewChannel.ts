@@ -9,8 +9,9 @@
 import type { EditTarget } from "@/lib/smartboard/manualEdit/types";
 import { parseFractionChip } from "@/components/smartboard/FloatingNumberPanel";
 import type { BoardWriteHost } from "./host";
-import { findTextRow, nextFreeRow } from "./ledger";
+import { nextFreeRow } from "./ledger";
 import { planDirectWrite } from "./directWrite";
+import { writeNoteOnce } from "./writeNote";
 
 export interface PreviewChannelHost extends BoardWriteHost {
   /** Jump the board to a beat (cover/section/subsection/question). */
@@ -22,26 +23,20 @@ export interface PreviewChannelHost extends BoardWriteHost {
 
 const li = (t: EditTarget): number => (typeof t.lineIdx === "number" ? t.lineIdx : 0);
 
-/** Write `text` for `lineIdx` through the ledger + dumb primitive.
- *  Repeat clicks scroll to the existing ink — never rewrite, never jump. */
-const writeLineText = (
+/** Write a SOLUTION-LINE equation for `lineIdx`. Always writes — no
+ *  dedupe. Line 1 and line ∞ take the exact same code path. */
+const writeSolutionLine = (
   host: PreviewChannelHost,
   lineIdx: number,
   text: string,
-  opts: { ownerLineIdx?: number; lock?: boolean },
 ): number | null => {
   const raw = (text ?? "").trim();
   if (!raw) return null;
   const snap = host.getSnapshot();
-  const existing = findTextRow(snap, raw);
-  if (existing != null) {
-    host.scrollToRow(existing);
-    return existing;
-  }
   const start = nextFreeRow(snap, lineIdx);
   const plan = planDirectWrite(snap, start, raw);
   if (!plan) return null;
-  host.commitPlan(plan, opts);
+  host.commitPlan(plan, { ownerLineIdx: lineIdx, lock: true });
   host.scrollToRow(plan.rows[0].row);
   return plan.landedRow;
 };
