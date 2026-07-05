@@ -3438,12 +3438,21 @@ const PresentationView = ({
   // Clamp the line index: only forward a value that actually addresses a
   // line in the current reservoir. Anything else → `null`, which promotes
   // the card-level border so the teacher always sees SOMETHING highlighted.
+  // Prefer `displayedGuidedIdx` — the line the writing sensor is currently
+  // sitting on (via rowOwners). That way the Presenter Preview highlight
+  // follows typing on the current line whether the teacher got there via a
+  // Present chip, the D-pad, or the Floating Number panel. Fall back to the
+  // FN-driven activeLineIdx when the sensor's row isn't owned yet.
+  const sensorLineIdx =
+    displayedGuidedIdx >= 0 && displayedGuidedIdx < guidedLines.length
+      ? displayedGuidedIdx
+      : activeLineIdx;
   const activePreviewLineIdx: number | null =
     current &&
     (current.kind === "problem" || current.kind === "exercise-prompt") &&
-    activeLineIdx >= 0 &&
-    activeLineIdx < guidedLines.length
-      ? activeLineIdx
+    sensorLineIdx >= 0 &&
+    sensorLineIdx < guidedLines.length
+      ? sensorLineIdx
       : null;
   const showPresenterChrome = isTeacher && !!notebookId;
 
