@@ -1,64 +1,20 @@
-## Route Present chip clicks through the exact Floating‑Number Panel path
+# Fix: All Typing Landing on One Row + Duplicate Scroll Arrows
 
-### The divergence
+## Root cause found (real diagnosis, not a guess)
 
-Two chip paths that should be identical are wired differently:
+**Bug 1 — everything writes to one line.** `insertTextAtSensor` in `PresentationView.tsx` is wrapped in `useCallback(..., [])` with an **empty dependency list**. That freezes it with the very first render's copy of `editActive` — and that frozen copy remembers the sensor's *original* line forever. So every write routed through it (Present-mode chip clicks, floating-number inserts, AI writes) ignores where you moved the sensor and stacks onto that one frozen row. This is exactly why "x = …, = …, x = −b" all pile onto a single line.
 
-| Path | What it calls | Where the chip lands |
-| --- | --- | --- |
-| Floating‑Number Panel tap | `onInsert → insertTextAtSensor(text)` or `onInsertFrac → insertFractionAtSensor(parts)` | The **current sensor row**, at the cursor, inserted as a real math tree (fractions get real numerator/denominator magnet boxes). |
-| Present‑mode chip click (current) | `ctrl.pickFloatingNumber(lineIdx, fillerIdx)` → `pickFloatingNumberReal` | A **line‑owned row** decided by the guided line's owner map; the chip is appended as a flat mirror row without magnet boxes. |
+**Bug 2 — duplicated up/down arrows.** Two sensor controllers are rendered at once: the left-rail `CursorScrollbar` (re-added in a recent fix) and the `SensorDPad` (the permanent sensor controller). Both do up/down — that's the duplicate you keep seeing come back.
 
-Result: a `x = □/□` chip placed via Present produces an ink structure whose boxes aren't the same magnet‑box tree the panel builds, so typing/clicking into those boxes gets rejected — "the sensor keeps getting pushed out." A chip placed via the panel builds proper magnet boxes and typing lands inside.
+**Why the errors keep repeating.** Each past fix added another parallel write path instead of one shared one; the frozen callback silently re-broke whichever path was "fixed" last. The cleanup below removes the parallel paths for good.
 
-### Fix — one call path for chip taps
+## Changes (all in `src/components/smartboard/PresentationView.tsx`)
 
-`src/lib/smartboard/manualEdit/mirror.ts` — in `applyMirror`, replace the `floating-number` branch with the panel's own logic:
+1. **Live sensor dispatch (the real fix).** Store the current `editActive` and `insertIntoActiveBox` in refs updated every render. `insertTextAtSensor` stays stable (so the AI controller doesn't churn) but always calls the *live* editor — writes land exactly on the sensor's current line, every time.
+2. **Make `insertFractionAtSensor` use the same live dispatch** so fraction chips also always follow the sensor and never go stale.
+3. **Remove the duplicate scroller.** Delete the left-rail `CursorScrollbar` block (and its import); the `SensorDPad` remains the single sensor controller — up/down/left/right in one place.
+4. **Code cleanup.** Remove the now-dead `relocatedWriteRow` helper and any leftover unused imports from previous rounds so no stale path can resurrect this bug.
 
-```ts
-if (target.kind === "floating-number") {
-  const label = (target.text ?? "").trim();
-  if (!label) return;
-  const frac = parseFractionChip(label);
-  if (frac && ctrl.insertFractionAtSensor) {
-    ctrl.insertFractionAtSensor(frac);
-    return;
-  }
-  // Panel wraps operator chips in spaces — parity.
-  const op = /^[+\-−×÷=]/.test(label);
-  const text = op ? ` ${label} ` : label;
-  if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
-  return;
-}
-```
+## Verification
 
-- Import `parseFractionChip` from `@/components/smartboard/FloatingNumberPanel` at the top of `mirror.ts`.
-- Drop the `pickFloatingNumber` call for chip taps entirely. (Leave the method on the controller — AI autoplay may still use it, but Present no longer does.)
-
-`src/lib/smartboard/presentationAI/controller.ts` — expose the fraction inserter:
-
-```ts
-/** Insert a fraction at the ACTIVE sensor — same route as the Floating
- *  Number panel's fraction chip tap. */
-insertFractionAtSensor?: (parts: { sign: string; num: string; den: string }) => void;
-```
-
-`src/components/smartboard/PresentationView.tsx` — controller memo: add
-```ts
-insertFractionAtSensor,
-```
-to the returned object and its dep array (right next to `insertTextAtSensor`). No new logic — the function already exists at line ~1252.
-
-### What stays untouched
-- `pickFloatingNumberReal`, its owner‑row placement, its use by AI autoplay.
-- Beat‑cursor navigation for cover / section / subsection / question clicks (Next parity).
-- Teacher‑note reveal path.
-- Sensor writing path — `editActive` still writes literally at `sensor.line`.
-- The Floating Number panel itself.
-
-### Result
-Clicking `x = □/□` in Present mode is now byte‑identical to tapping the same chip in the # panel:
-- Fraction chip → `insertFractionAtSensor` inserts a real fraction node with empty magnet boxes, sensor lands inside.
-- Non‑fraction chip → `insertTextAtSensor` inserts the tokens at the cursor.
-- Subsequent chips / typing enter the magnet boxes normally, no more "sensor pushed out."
-- Teacher can build any structure in either panel or Present with the same behaviour.
+- Typecheck, then drive the Present view with Playwright: move the sensor to line A, type, move to line B, tap a floating-number chip — confirm each write appears on its own sensor line, and confirm only one up/down control renders.
