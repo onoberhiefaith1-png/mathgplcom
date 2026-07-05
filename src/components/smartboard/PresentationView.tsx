@@ -1130,30 +1130,28 @@ const PresentationView = ({
   }, []);
 
   /** Present-mode write: honours the teacher's sensor position (parity with
-   *  Floating Number chip taps). Only auto-moves the sensor when the current
-   *  row is locked (notebook or locked-ink) so the write isn't silently
-   *  swallowed. Block-kind items advance the sensor down one row afterwards
-   *  so the next click gets a fresh line. */
+   *  Floating Number chip taps). If the current row is locked, the sensor
+   *  steps to the first free row below — UNCAPPED walk, never bounded to
+   *  the band, so line 6 behaves exactly like line 1. Block-kind items
+   *  advance the sensor down one row afterwards so the next click gets a
+   *  fresh line. */
   const presentWriteAtSensor = useCallback(
     (text: string, opts?: { advanceAfter?: boolean }) => {
       if (!text.trim()) return;
-      const L = activeLayout;
-      if (L) {
-        const cur = Math.floor(sensor.line);
-        if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
-          const b = bandEnd(L);
-          let t = nextSensorRowBelow(cur);
-          while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
-          if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
-        }
+      const stepPastLocked = (from: number): number => {
+        let t = nextSensorRowBelow(from);
+        for (let g = 0; g < 200 && (notebookRowLines.has(t) || isLockedInkRow(t)); g++) t += 1;
+        return t;
+      };
+      const cur = Math.floor(sensor.line);
+      if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
+        const t = stepPastLocked(cur);
+        setSensor((s) => ({ ...s, line: t, x: 0 }));
       }
       insertTextAtSensor(text);
-      if (opts?.advanceAfter && L) {
-        const b = bandEnd(L);
-        const from = Math.floor(sensor.line);
-        let t = nextSensorRowBelow(from);
-        while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
-        if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
+      if (opts?.advanceAfter) {
+        const t = stepPastLocked(Math.floor(sensor.line));
+        setSensor((s) => ({ ...s, line: t, x: 0 }));
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
