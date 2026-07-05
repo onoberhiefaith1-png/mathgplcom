@@ -1146,7 +1146,8 @@ const PresentationView = ({
       }
     }
     insertTextAtSensor(text);
-  }, [activeLayout, notebookRowLines, insertTextAtSensor, isEmptyWritableRow, lastVisibleInkRow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notebookRowLines, insertTextAtSensor]);
 
   /** Write a Lesson Note prose block onto the board as its own line, placed
    *  below the last currently-written line.
