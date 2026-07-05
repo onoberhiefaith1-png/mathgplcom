@@ -3100,10 +3100,10 @@ const PresentationView = ({
     lineWidthsRef.current = {};
     setSensor((p) => (p.line === 0 && p.x === 0 ? p : { line: 0, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
-    setShownNotebookIdx((p) => (p.size === 0 ? p : new Set()));
-    setNotebookAttentionIdx((p) => (p.size === 0 ? p : new Set()));
-    setConsumedAbsIdx((p) => (p.size === 0 ? p : new Set()));
-    setNotebookRowLines((p) => (p.size === 0 ? p : new Set()));
+    setShownNotebookIdx((p) => (p.size === 0 ? p : new Set<number>()));
+    setNotebookAttentionIdx((p) => (p.size === 0 ? p : new Set<number>()));
+    setConsumedAbsIdx((p) => (p.size === 0 ? p : new Set<number>()));
+    setNotebookRowLines((p) => (p.size === 0 ? p : new Set<number>()));
     rowOwnersRef.current = {};
     setRowOwners((p) => (Object.keys(p).length === 0 ? p : {}));
   }, [setLiveCursor]);
