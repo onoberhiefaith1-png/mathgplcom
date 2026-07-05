@@ -4170,7 +4170,8 @@ const PresentationView = ({
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
               if (target > maxReachable) return; // out of reach — block the jump
-              const currentPending = notebookFor(curLineIdx) && !shownNotebookIdx.has(curLineIdx);
+              const noteHere = notebookFor(curLineIdx);
+              const currentPending = noteHere.length > 0 && !boardHasTextRow(noteHere);
               if (target > curLineIdx && currentPending) {
                 setNotebookAttentionIdx((prev) => {
                   const next = new Set(prev);
