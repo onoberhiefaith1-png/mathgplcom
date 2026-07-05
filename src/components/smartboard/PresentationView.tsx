@@ -2018,6 +2018,52 @@ const PresentationView = ({
      dimmed in the structures strip. */
   const [activeLineIdx, setActiveLineIdx] = useState<number>(0);
   const [floatingLineIdx, setFloatingLineIdx] = useState<number>(0);
+
+  // ─── Placeholder sweep on advance ────────────────────────────────────
+  // When the teacher moves forward (activeLineIdx increases), any row on
+  // the board that is now "placeholder-only" (an empty fraction, empty
+  // √, empty power, …) belongs to a chip the teacher tapped but never
+  // filled. We hide it now that the line is locked, so orphaned □ boxes
+  // stop hanging around. If the teacher rewinds to an earlier line, they
+  // can tap the chip again to bring a fresh placeholder back — the line
+  // is unlocked and editable at that point.
+  const prevActiveLineIdxRef = useRef<number>(0);
+  useEffect(() => {
+    const prev = prevActiveLineIdxRef.current;
+    prevActiveLineIdxRef.current = activeLineIdx;
+    if (activeLineIdx <= prev) return; // only sweep on forward moves
+
+    const stale: number[] = [];
+    for (const key of Object.keys(freeLinesRef.current)) {
+      const r = Number(key);
+      const row = freeLinesRef.current[r];
+      if (!row || row.length === 0) continue;
+      if (isPlaceholderOnly(row)) stale.push(r);
+    }
+    if (stale.length === 0) return;
+
+    const nextFree = { ...freeLinesRef.current };
+    for (const r of stale) delete nextFree[r];
+    freeLinesRef.current = nextFree;
+    setFreeLines((p) => {
+      const nx = { ...p };
+      for (const r of stale) delete nx[r];
+      return nx;
+    });
+    setRowOwners((p) => {
+      let changed = false;
+      const nx = { ...p };
+      for (const r of stale) if (r in nx) { delete nx[r]; changed = true; }
+      return changed ? nx : p;
+    });
+    setNotebookRowLines((p) => {
+      if (p.size === 0) return p;
+      let changed = false;
+      const nx = new Set(p);
+      for (const r of stale) if (nx.delete(r)) changed = true;
+      return changed ? nx : p;
+    });
+  }, [activeLineIdx]);
   // Teacher-controlled override of which floating-number line shows in the
   // FloatingNumberPanel (via the left-side line navigator). null = auto-follow.
   const [manualFloatingLineIdx, setManualFloatingLineIdx] = useState<number | null>(null);
