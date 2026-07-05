@@ -69,18 +69,18 @@ export const previewWrite = (target: EditTarget, host: PreviewChannelHost): void
       return;
     }
 
-    // Teacher note — direct write under the note's own line.
+    // Teacher note — direct write under the note's own line. Always
+    // writes: two clicks write two copies. Undo removes them.
     case "teacher-note": {
       const idx = li(target);
-      const row = writeLineText(host, idx, text, { lock: true });
-      if (row != null) host.markNoteShown?.(idx);
+      writeNoteOnce(idx, text, host);
       return;
     }
 
     // Solution line — direct write of the line's equation text.
     case "solution-line": {
       const idx = li(target);
-      writeLineText(host, idx, text, { ownerLineIdx: idx, lock: true });
+      writeSolutionLine(host, idx, text);
       return;
     }
 
