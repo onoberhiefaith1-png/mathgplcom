@@ -810,7 +810,7 @@ const PresenterPreviewPanel = ({
                             </div>
                           );
                         })()}
-                      <AiEditButton target={lineTarget} />
+                      {mode === "normal" && <AiEditButton target={lineTarget} />}
                     </div>
                   );
                 })}
