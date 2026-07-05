@@ -3172,11 +3172,23 @@ const PresentationView = ({
           return nx;
         });
       }
-      // Park the sensor exactly where the plan says — no hunts.
-      setSensor({ line: plan.sensorRow, x: 0 });
+      // Park the sensor on the first genuinely free row below the ink,
+      // recomputed from the POST-commit snapshot (ink + locks as they
+      // are AFTER this write). Uncapped walk — the sensor is never left
+      // on a row this very write just locked. Same rule for every line.
+      const parked = parkRowBelow(
+        {
+          ink: freeLinesRef.current,
+          rowOwners: rowOwnersRef.current,
+          lockedRows: notebookRowLinesRef.current,
+          bandStartRow: 0,
+        },
+        plan.landedRow,
+      );
+      setSensor({ line: parked, x: 0 });
       setLiveCursor({ path: [], index: 0 });
-      manualSensorRef.current = { line: plan.sensorRow, x: 0 };
-      activeSensorPhysicalLineRef.current = plan.sensorRow;
+      manualSensorRef.current = { line: parked, x: 0 };
+      activeSensorPhysicalLineRef.current = parked;
     },
     [setLiveCursor],
   );
