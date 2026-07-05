@@ -175,10 +175,13 @@ export const applyMirror = async (
 ): Promise<void> => {
   const text = (target.text ?? target.caption ?? "").trim();
   if (!text) return;
-  // Present-mode write: snaps sensor to next free live row, then inserts
-  // via the same route as a Floating Number chip. Falls back progressively
-  // so nothing else breaks.
-  if (ctrl.presentWriteAtSensor) ctrl.presentWriteAtSensor(text);
+  // Block-kind items (captions, section titles, teacher notes) advance
+  // the sensor down after writing so the next click gets a fresh row.
+  // Chips / inline math insert at the sensor and stay put — Floating
+  // Number chip parity.
+  const BLOCK_KINDS = new Set(["cover", "section", "subsection", "question", "teacher-note"]);
+  const advanceAfter = BLOCK_KINDS.has(target.kind);
+  if (ctrl.presentWriteAtSensor) ctrl.presentWriteAtSensor(text, { advanceAfter });
   else if (ctrl.insertTextAtSensor) ctrl.insertTextAtSensor(text);
   else ctrl.writeProseLineOnBoard(text);
   // Teacher notes: silence the note-gate glow after a manual placement.
