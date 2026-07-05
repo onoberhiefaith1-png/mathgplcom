@@ -4278,15 +4278,31 @@ const PresentationView = ({
                       // so writing "at the sensor" in the same click would
                       // still use the OLD sensor row (the note then lands
                       // wherever the cursor last was, often off-screen).
-                      const targetRow =
-                        anchor >= 0 ? anchor + 1 : Math.floor(sensor.line);
+                      // With no anchor (line's equation not written yet),
+                      // NEVER fall back to the sensor row — the teacher may
+                      // have dragged the cursor far down the board. Scan for
+                      // the first empty row from the TOP of this section's
+                      // band instead, so the note always lands right under
+                      // the section header.
+                      let targetRow: number;
                       if (anchor >= 0) {
-                        setSensor((s) =>
-                          s.line === anchor + 1 && s.x === 0
-                            ? s
-                            : { line: anchor + 1, x: 0 },
-                        );
+                        targetRow = anchor + 1;
+                      } else {
+                        let t = activeLayout
+                          ? bandStart(activeLayout)
+                          : Math.floor(sensor.line);
+                        for (let g = 0; g < 200; g++) {
+                          const occ = getRowOccupancy(t);
+                          if (occ === "empty") break;
+                          t += occ === "fraction-denominator" ? 2 : 1;
+                        }
+                        targetRow = t;
                       }
+                      setSensor((s) =>
+                        s.line === targetRow && s.x === 0
+                          ? s
+                          : { line: targetRow, x: 0 },
+                      );
                       writeProseLineOnBoard(text, targetRow);
                       scrollBoardToRow(targetRow);
                     }
