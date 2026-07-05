@@ -115,6 +115,12 @@ export const directWrite = (target: EditTarget, ctrl: PresentationController): v
     }
     case "teacher-note": {
       if (!text) return;
+      // Direct one-to-one note channel when available — anchored under the
+      // note's own line row, independent of the sensor/FN workflow.
+      if (idx >= 0 && ctrl.writeNoteForLine) {
+        ctrl.writeNoteForLine(idx, text);
+        return;
+      }
       let row: number | undefined;
       if (idx >= 0) {
         ctrl.eraseNoteAt?.(idx);
@@ -125,7 +131,6 @@ export const directWrite = (target: EditTarget, ctrl: PresentationController): v
       ctrl.writeProseLineOnBoard(text, row, { advanceSensor: true });
       if (idx >= 0) {
         ctrl.markNotebookShown(idx);
-        ctrl.addNotebookAttention(idx);
       }
       return;
     }
