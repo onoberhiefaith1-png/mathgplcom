@@ -62,6 +62,7 @@ import {
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
+import { parkRowBelow } from "@/lib/smartboard/boardWriter/parkSensor";
 import type { WritePlan } from "@/lib/smartboard/boardWriter/directWrite";
 import type { CommitOptions } from "@/lib/smartboard/boardWriter/host";
 import type { PreviewChannelHost } from "@/lib/smartboard/boardWriter/previewChannel";
@@ -1014,24 +1015,37 @@ const PresentationView = ({
     fn: (row: Row, c: Cursor) => { root: Row; cursor: Cursor },
   ) => {
     const line = sensor.line;
-    // Notebook-prose rows render auto-generated narration and are the only
-    // rows that stay non-writable. Every other row — including "locked-ink"
-    // rows — must honour the teacher's sensor position exactly. The silent
-    // relocation that used to jump writes to another row is removed: it
-    // caused keystrokes and Floating-Number chip taps to appear "somewhere
-    // else" instead of where the sensor was placed.
     const floorLine = Math.floor(line);
+    // NEVER swallow a write. If the sensor is parked on a locked
+    // notebook row (the old code silently returned here — the "nothing
+    // is clickable" dead zone), relocate to the first genuinely free
+    // row below using the ONE shared parking rule and write there.
+    let writeLine: number = line;
+    let relocated = false;
     if (notebookRowLines.has(floorLine) || notebookRowLines.has(line)) {
-      hiddenInputRef.current?.focus({ preventScroll: true });
-      return;
+      const t = parkRowBelow(
+        {
+          ink: freeLines,
+          rowOwners,
+          lockedRows: notebookRowLines,
+          bandStartRow: 0,
+        },
+        floorLine,
+      );
+      writeLine = t;
+      relocated = true;
+      setSensor({ line: t, x: 0 });
+      manualSensorRef.current = { line: t, x: 0 };
+      activeSensorPhysicalLineRef.current = t;
+      requestAnimationFrame(() => scrollBoardToRow(t));
     }
     setFreeLines((prev) => {
-      const row = prev[line] ?? [];
-      const res = fn(row, cursorRef.current);
+      const row = prev[writeLine] ?? [];
+      const res = fn(row, relocated ? { path: [], index: 0 } : cursorRef.current);
       setLiveCursor(res.cursor);
       const next = { ...prev };
-      if (res.root.length === 0) delete next[line];
-      else next[line] = res.root;
+      if (res.root.length === 0) delete next[writeLine];
+      else next[writeLine] = res.root;
       return next;
     });
     hiddenInputRef.current?.focus({ preventScroll: true });
