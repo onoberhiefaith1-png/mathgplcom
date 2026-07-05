@@ -4455,15 +4455,13 @@ const PresentationView = ({
                     presentWriteAtSensor(t);
                   }}
                   onInsertFrac={(p) => {
-                    const L = activeLayout;
-                    if (L) {
-                      const cur = Math.floor(sensor.line);
-                      if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
-                        const b = bandEnd(L);
-                        let t = nextSensorRowBelow(cur);
-                        while (t <= b && (notebookRowLines.has(t) || isLockedInkRow(t))) t++;
-                        if (t <= b) setSensor((s) => ({ ...s, line: t, x: 0 }));
-                      }
+                    // Same uncapped step-past-locked rule as every other
+                    // write path — never bounded to the band.
+                    const cur = Math.floor(sensor.line);
+                    if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
+                      let t = nextSensorRowBelow(cur);
+                      for (let g = 0; g < 200 && (notebookRowLines.has(t) || isLockedInkRow(t)); g++) t += 1;
+                      setSensor((s) => ({ ...s, line: t, x: 0 }));
                     }
                     insertFractionAtSensor(p);
                   }}
