@@ -73,6 +73,24 @@ export const isContainer = (n: Node): boolean => n.kind !== "char";
 export const subRowsOf = (n: Node): Row[] =>
   n.kind === "char" ? [] : (n as Exclude<Node, { kind: "char" }>).rows;
 
+/** A row is "placeholder-only" when it has no chars and every container
+ *  it holds has empty sub-rows. This is the leftover shape after tapping
+ *  a structure chip (fraction/root/power/…) and never filling it. Used
+ *  by the line-lock sweep to hide orphaned □ boxes once a line is
+ *  locked; when the teacher moves back to the line it unlocks and the
+ *  placeholder can be brought back editable. */
+export const isPlaceholderOnly = (row: Row): boolean => {
+  if (!row || row.length === 0) return false;
+  for (const n of row) {
+    if (n.kind === "char") return false;
+    const subs = subRowsOf(n);
+    for (const sub of subs) {
+      if (sub.length > 0 && !isPlaceholderOnly(sub)) return false;
+    }
+  }
+  return true;
+};
+
 const SCRIPT_SUBROWS: Record<string, Set<number>> = {
   sup: new Set([0]),
   sub: new Set([0]),

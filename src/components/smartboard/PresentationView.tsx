@@ -58,6 +58,7 @@ import {
   moveRight as treeMoveRight,
   nextEmptyRow as treeNextEmpty,
   rowHasTallStructure,
+  isPlaceholderOnly,
 } from "@/lib/smartboard/mathTree";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
@@ -2017,6 +2018,52 @@ const PresentationView = ({
      dimmed in the structures strip. */
   const [activeLineIdx, setActiveLineIdx] = useState<number>(0);
   const [floatingLineIdx, setFloatingLineIdx] = useState<number>(0);
+
+  // ─── Placeholder sweep on advance ────────────────────────────────────
+  // When the teacher moves forward (activeLineIdx increases), any row on
+  // the board that is now "placeholder-only" (an empty fraction, empty
+  // √, empty power, …) belongs to a chip the teacher tapped but never
+  // filled. We hide it now that the line is locked, so orphaned □ boxes
+  // stop hanging around. If the teacher rewinds to an earlier line, they
+  // can tap the chip again to bring a fresh placeholder back — the line
+  // is unlocked and editable at that point.
+  const placeholderSweepPrevRef = useRef<number>(0);
+  useEffect(() => {
+    const prev = placeholderSweepPrevRef.current;
+    placeholderSweepPrevRef.current = activeLineIdx;
+    if (activeLineIdx <= prev) return; // only sweep on forward moves
+
+    const stale: number[] = [];
+    for (const key of Object.keys(freeLinesRef.current)) {
+      const r = Number(key);
+      const row = freeLinesRef.current[r];
+      if (!row || row.length === 0) continue;
+      if (isPlaceholderOnly(row)) stale.push(r);
+    }
+    if (stale.length === 0) return;
+
+    const nextFree = { ...freeLinesRef.current };
+    for (const r of stale) delete nextFree[r];
+    freeLinesRef.current = nextFree;
+    setFreeLines((p) => {
+      const nx = { ...p };
+      for (const r of stale) delete nx[r];
+      return nx;
+    });
+    setRowOwners((p) => {
+      let changed = false;
+      const nx = { ...p };
+      for (const r of stale) if (r in nx) { delete nx[r]; changed = true; }
+      return changed ? nx : p;
+    });
+    setNotebookRowLines((p) => {
+      if (p.size === 0) return p;
+      let changed = false;
+      const nx = new Set(p);
+      for (const r of stale) if (nx.delete(r)) changed = true;
+      return changed ? nx : p;
+    });
+  }, [activeLineIdx]);
   // Teacher-controlled override of which floating-number line shows in the
   // FloatingNumberPanel (via the left-side line navigator). null = auto-follow.
   const [manualFloatingLineIdx, setManualFloatingLineIdx] = useState<number | null>(null);
@@ -4258,10 +4305,16 @@ const PresentationView = ({
             // Stale ink from an old session can no longer open the gate on
             // its own: a click is always required. Identical for line 1 and
             // every other line.
+            // NOTE GATE — uniform for every line. A line with a note
+            // blocks Next until the teacher CLICKED the note icon this
+            // session (shownNotebookIdx is session-only). The click alone
+            // opens the gate — no live board scan — because notes now
+            // write on every click without dedupe. Identical for line 1
+            // and line ∞.
             const noteGateOpen = (k: number): boolean => {
               const note = notebookFor(k);
               if (note.length === 0) return true;
-              return shownNotebookIdx.has(k) && boardHasTextRow(note);
+              return shownNotebookIdx.has(k);
             };
 
             // Cursor movement: teacher may freely traverse every line up to
