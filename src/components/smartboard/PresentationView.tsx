@@ -2185,7 +2185,7 @@ const PresentationView = ({
     // sensor position). The Floating Number panel's ▲/▼ updates
     // `manualFloatingLineIdx` to change which chip set is shown, but it
     // must NEVER move the writing cursor — that is now the job of the
-    // dedicated CursorScrollbar on the left rail.
+    // SensorDPad (the single sensor controller).
     // Follow whichever line the FloatingNumberPanel is currently showing —
     // manual navigation (▲/▼ on the panel) takes precedence over the
     // auto-advanced floatingLineIdx so clicking "line 2" on the panel
