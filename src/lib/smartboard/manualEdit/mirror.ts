@@ -10,6 +10,7 @@
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import type { EditTarget, MirrorResult } from "./types";
+import { parseFractionChip } from "@/components/smartboard/FloatingNumberPanel";
 
 export const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
