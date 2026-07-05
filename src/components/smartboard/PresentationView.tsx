@@ -3750,11 +3750,8 @@ const PresentationView = ({
           transition: "width 280ms ease",
           background: palette.background,
           color: palette.ink,
-          // Scoped to #sb-root: on-board placeholder cubes read this
-          // color and blend into the board. Panels and previews live
-          // outside this subtree and keep the default (black).
-          ["--placeholder-ink" as string]: palette.placeholderInk,
         } as React.CSSProperties}
+
 
       >
       <WritingFilterDefs />
