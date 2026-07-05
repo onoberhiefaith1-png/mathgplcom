@@ -25,6 +25,9 @@ export interface PresentationController {
   /** Insert text into the ACTIVE sensor row — same route as tapping a
    *  Floating Number chip. Result is live/editable, cursor stays inside. */
   insertTextAtSensor?: (text: string) => void;
+  /** Insert a fraction at the ACTIVE sensor — same route as the Floating
+   *  Number panel's fraction chip tap. */
+  insertFractionAtSensor?: (parts: { sign: string; num: string; den: string }) => void;
   /** Present-mode write: snaps sensor to next free live row (skipping
    *  notebook-locked / locked-ink rows), then inserts via the same route
    *  as a Floating Number chip. Guarantees live, editable ink. */

@@ -10,6 +10,7 @@
 
 import type { PresentationController } from "@/lib/smartboard/presentationAI/controller";
 import type { EditTarget, MirrorResult } from "./types";
+import { parseFractionChip } from "@/components/smartboard/FloatingNumberPanel";
 
 export const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -189,13 +190,21 @@ export const applyMirror = async (
     return;
   }
 
-  // Floating-Number chip — same route as tapping the chip in the # panel.
-  if (
-    target.kind === "floating-number" &&
-    typeof target.lineIdx === "number" &&
-    typeof target.fillerIdx === "number"
-  ) {
-    ctrl.pickFloatingNumber?.(target.lineIdx, target.fillerIdx);
+  // Floating-Number chip — byte-identical to tapping the same chip in
+  // the # panel: insert at the current sensor via the sensor-based
+  // inserter (fraction chips become real math-tree fractions with empty
+  // magnet boxes; other chips go through insertTextAtSensor).
+  if (target.kind === "floating-number") {
+    const label = (target.text ?? "").trim();
+    if (!label) return;
+    const frac = parseFractionChip(label);
+    if (frac && ctrl.insertFractionAtSensor) {
+      ctrl.insertFractionAtSensor(frac);
+      return;
+    }
+    const op = /^[+\-−×÷=]/.test(label);
+    const spaced = op ? ` ${label} ` : label;
+    ctrl.insertTextAtSensor?.(spaced);
     return;
   }
 

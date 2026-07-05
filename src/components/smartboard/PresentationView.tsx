@@ -3237,6 +3237,7 @@ const PresentationView = ({
         }),
       writeProseLineOnBoard,
       insertTextAtSensor,
+      insertFractionAtSensor,
       presentWriteAtSensor,
       addNotebookAttention: (i: number) =>
         setNotebookAttentionIdx((p) => {
@@ -3277,6 +3278,7 @@ const PresentationView = ({
       notebook?.title,
       writeProseLineOnBoard,
       insertTextAtSensor,
+      insertFractionAtSensor,
       presentWriteAtSensor,
       writeEquationPrefix,
       getBoardRowSignatureFor,
