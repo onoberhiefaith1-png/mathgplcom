@@ -26,6 +26,7 @@ import {
   clearInk,
   directWrite,
   li,
+  resolveBeatIdx,
   verifyMirror,
   wait,
   waitForBeat,
