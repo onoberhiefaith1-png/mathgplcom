@@ -4267,7 +4267,39 @@ const PresentationView = ({
                   onPrevLine={goPrev}
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
-                  onWriteNotebookToBoard={writeProseLineOnBoard}
+                  onWriteNotebookToBoard={(text) => {
+                    // Anchor the note under the row owning the active line
+                    // (never the stale sensor row) so it lands directly
+                    // below the equation, not 5–10 rows down.
+                    const owners = rowOwnersRef.current;
+                    let anchor = -1;
+                    for (const key of Object.keys(owners)) {
+                      const r = Number(key);
+                      const owner = owners[r];
+                      if (typeof owner !== "number") continue;
+                      if (owner <= curLineIdx && r > anchor) anchor = r;
+                    }
+                    if (anchor >= 0) {
+                      setSensor((s) =>
+                        s.line === anchor + 1 && s.x === 0
+                          ? s
+                          : { line: anchor + 1, x: 0 },
+                      );
+                    }
+                    writeProseLineOnBoard(text);
+                    setShownNotebookIdx((prev) => {
+                      if (prev.has(curLineIdx)) return prev;
+                      const nx = new Set(prev);
+                      nx.add(curLineIdx);
+                      return nx;
+                    });
+                    setNotebookAttentionIdx((prev) => {
+                      if (!prev.has(curLineIdx)) return prev;
+                      const nx = new Set(prev);
+                      nx.delete(curLineIdx);
+                      return nx;
+                    });
+                  }}
                   onNotebookRead={markCurrentNotebookRead}
                   frozen={false}
                   notebookPending={
