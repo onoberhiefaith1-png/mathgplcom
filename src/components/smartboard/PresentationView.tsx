@@ -4092,6 +4092,15 @@ const PresentationView = ({
               return text;
             };
 
+            // NOTE GATE — the single uniform rule. A line's gate is open iff
+            // it has no note OR the note's text is on the board RIGHT NOW.
+            // Live board check only: no clicked-flags, nothing persisted,
+            // identical for line 1 and every other line.
+            const noteGateOpen = (k: number): boolean => {
+              const note = notebookFor(k);
+              return note.length === 0 || boardHasTextRow(note);
+            };
+
             // Cursor movement: teacher may freely traverse every line up to
             // the last one. The down-chevron naturally disables at the bottom
             // (cur >= total) so the teacher sees the line is blocked.
@@ -4100,11 +4109,7 @@ const PresentationView = ({
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
               if (target > maxReachable) return; // out of reach — block the jump
-              const noteHere = notebookFor(curLineIdx);
-              const currentPending =
-                noteHere.length > 0 &&
-                (!shownNotebookIdx.has(curLineIdx) || !boardHasTextRow(noteHere));
-              if (target > curLineIdx && currentPending) {
+              if (target > curLineIdx && !noteGateOpen(curLineIdx)) {
                 setNotebookAttentionIdx((prev) => {
                   if (prev.has(curLineIdx)) return prev;
                   const next = new Set(prev);
