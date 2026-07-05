@@ -4222,7 +4222,7 @@ const PresentationView = ({
                 return;
               }
               const pending = notebookFor(curLineIdx);
-              if (pending && !shownNotebookIdx.has(curLineIdx)) {
+              if (pending && !boardHasTextRow(pending)) {
                 setNotebookAttentionIdx((prev) => {
                   const next = new Set(prev);
                   next.add(curLineIdx);
