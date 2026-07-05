@@ -4345,6 +4345,9 @@ const PresentationView = ({
                     const existingRow = findTextRow(text);
                     if (existingRow != null) {
                       scrollBoardToRow(existingRow);
+                      // Still move the sensor below the (locked) note via the
+                      // writer's idempotent path.
+                      writeProseLineOnBoard(text, existingRow, { advanceSensor: true });
                     } else {
                       // Anchor the note under the row owning the active line
                       // (never the stale sensor row) so it lands directly
