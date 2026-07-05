@@ -2873,6 +2873,22 @@ const PresentationView = ({
 
   // Presentation AI (autoplay + diagnosis) has been removed. Present Mode
   // and Floating Number Display are the only rendering surfaces.
+  // `paiRefs` is retained purely as a live snapshot bag consumed by the
+  // row-signature / guided-line helpers below — it no longer feeds any AI.
+  const paiRefs = useRef({
+    beatCursor,
+    activeLineIdx,
+    shownNotebookIdx,
+    activeReservoir,
+    guidedLines,
+  });
+  paiRefs.current = {
+    beatCursor,
+    activeLineIdx,
+    shownNotebookIdx,
+    activeReservoir,
+    guidedLines,
+  };
   // Row-signature helpers for the Presentation AI read `freeLinesRef`
   // (declared next to writeProseLineOnBoard) for the freshest board state.
 
