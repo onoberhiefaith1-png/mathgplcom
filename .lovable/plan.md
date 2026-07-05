@@ -1,18 +1,33 @@
-## Changes
+# Diagnosis: why the note doesn't appear and the sensor jumps ~4 rows
 
-1. **Highlight only on the Presenter Preview.** Nothing on the Smartboard, nothing on the Floating Number Display strip lights up. Remove the orange ring currently drawn around the Floating Number panel in `FloatingNumberPanel.tsx`.
+Both note buttons — the notebook icon on the Floating Number Display AND the note item in Presenter Preview (Present mode) — currently end up in the **same shared writer** (`writeProseLineOnBoard`), and the Presenter Preview route additionally depends on the **sensor position that the Floating Number workflow controls**. That's why the same error appears in both: they are not independent channels.
 
-2. **Recolor the Presenter Preview highlight to green.** In `PresenterPreviewPanel.tsx`, swap `HIGHLIGHT_BORDER` / `HIGHLIGHT_SHADOW` from orange to Tailwind green-600 (`rgba(22,163,74,…)`) — "go ahead" green.
+Inside that shared writer there are two "silent failure" paths that match exactly what you saw:
 
-3. **Highlight follows the writing sensor, not just Floating Number Display.** Today the Presenter Preview receives `activeLineIdx` from `floatingLineIdx` / `manualFloatingLineIdx`, so it only moves when the FN panel moves. When the teacher clicks a Present chip on line 2 and starts typing there, the sensor is on line 2 but the preview keeps highlighting line 1. Fix: in `PresentationView.tsx`, derive the "current line" from the sensor's row via the existing `rowOwners` map (already exposed as `displayedGuidedIdx`) and pass that as `activeLineIdx` to `PresenterPreviewPanel`. When the sensor row has no owner yet, fall back to the FN idx so nothing regresses. This makes the green ring follow writing on the current line regardless of whether the teacher got there via a Present chip, D-pad move, or FN advance.
+1. **False "already on the board" match.** Before writing, the writer checks whether a board row already has the same signature as the note's first line. When it *thinks* it finds a match, it writes NOTHING and only advances the sensor below the supposed existing note — skipping over every occupied row. Result: no note appears, sensor jumps several rows down.
+2. **Parity-gate refusal.** If the note text fails the mirror gate, the writer silently returns without inking anything.
+
+And the Presenter Preview note route (`applyMirror`, kind `teacher-note`) writes "at the current sensor position" — i.e. wherever the Floating Number workflow last left the sensor — instead of anchoring the note under its own line. So the preview is NOT one-to-one with the board today; it inherits the FN system's state.
+
+# Changes
+
+1. **Dedicated direct channel: Presenter Preview note → board.**
+   In `applyMirror` (teacher-note case), stop writing "at the sensor". Compute the target row from the note's OWN line: find the board row owned by that line (via the row-owners map, same anchoring the board uses internally) and place the note directly below it. No sensor dependency, no Floating Number state involved. The click carries `lineIdx` + verbatim `text` — a one-to-one write.
+
+2. **Kill the silent no-op paths in the note writer.**
+   - When the "already on board" signature match fires, verify the matched row is genuinely this note's ink; scroll to it so the teacher SEES it. If the match is stale/wrong, write the note anyway instead of only moving the sensor.
+   - When the parity gate refuses, fall back to writing the note as plain text characters — a note click must ALWAYS produce visible ink, never a bare sensor jump.
+
+3. **Floating Number Display note icon benefits too.** It calls the same writer, so fixing the silent no-op paths repairs the FN route as well — but the two routes remain independent: FN anchors via its own flow; Presenter Preview anchors via its own lineIdx. An FN failure can no longer replicate into the backup channel.
 
 ## Files touched
-- `src/components/smartboard/FloatingNumberPanel.tsx` — drop the active-strip ring entirely (revert the panel to its plain border).
-- `src/components/smartboard/PresenterPreviewPanel.tsx` — recolor `HIGHLIGHT_BORDER` / `HIGHLIGHT_SHADOW` to green.
-- `src/components/smartboard/PresentationView.tsx` — feed `displayedGuidedIdx ?? floatingLineIdx` into the `activeLineIdx` prop passed to `PresenterPreviewPanel`.
+- `src/lib/smartboard/manualEdit/mirror.ts` — teacher-note case: anchor under the note's own line row, direct write, no sensor read.
+- `src/lib/smartboard/presentationAI/controller.ts` — expose a `writeNoteForLine(lineIdx, text)` (or equivalent) so the mirror can write without touching sensor/FN state.
+- `src/components/smartboard/PresentationView.tsx` — implement the anchored note write; fix the idempotency false-positive and parity-gate silent-fail in `writeProseLineOnBoard`.
 
-## Verification
-- Playwright: click a Present chip on line 2, confirm Presenter Preview line 2 turns green while typing, before touching the FN panel. Screenshot both Smartboard and FN strip — assert neither shows any highlight ring. Move FN to line 3, confirm only the Presenter Preview highlight follows.
-- Typecheck + `sensorSpacing.test.ts`.
+## Verification (done in build mode, before claiming fixed)
+- Playwright reproduction first: open the notebook, go to line 3, click the note on the Presenter Preview (Present mode) — confirm the current bug (no ink, sensor jump), then confirm after the fix the note text appears directly under line 3's row.
+- Repeat via the Floating Number Display notebook icon — note must appear there too.
+- Screenshot evidence for both routes + typecheck + existing sensor/note tests (`sensorSpacing`, `noteAttachmentConsistency`).
 
 No backend changes.
