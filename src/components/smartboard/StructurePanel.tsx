@@ -24,6 +24,7 @@ const STRUCTURE_GLYPH: Record<ContainerKind, string> = {
 
 interface Props {
   chromeFg: string;
+  placeholderColor: string;
   visible: boolean;
   /** Structures tagged to the CURRENT line only. Empty = nothing to insert. */
   requiredStructures?: ContainerKind[];
@@ -47,7 +48,7 @@ interface Props {
 }
 
 export const StructurePanel = ({
-  chromeFg, visible,
+  chromeFg, placeholderColor, visible,
   requiredStructures, consumedStructures, onStructureInsert,
   rightPx, defaultYPx, topYPx, bottomYPx, finalLineBottomPx,
   rememberedY, onCommitY, onPing, beatId,
@@ -97,6 +98,37 @@ export const StructurePanel = ({
   if (!visible) return null;
   const items = requiredStructures ?? [];
 
+  const slot = (key: string) => (
+    <span
+      key={key}
+      aria-hidden
+      style={{
+        display: "inline-block",
+        width: "0.78em",
+        height: "0.78em",
+        border: `1px dashed ${placeholderColor}`,
+        borderRadius: 2,
+        background: placeholderColor,
+        verticalAlign: "-0.08em",
+      }}
+    />
+  );
+
+  const renderGlyph = (kind: ContainerKind) => {
+    const text = STRUCTURE_GLYPH[kind] ?? kind;
+    if (!text.includes("□")) return text;
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+        {text.split("□").flatMap((part, index, parts) => {
+          const nodes: React.ReactNode[] = [];
+          if (part) nodes.push(<span key={`t-${index}`}>{part}</span>);
+          if (index < parts.length - 1) nodes.push(slot(`s-${index}`));
+          return nodes;
+        })}
+      </span>
+    );
+  };
+
   return (
     <div
       data-sb-chrome
@@ -134,7 +166,7 @@ export const StructurePanel = ({
               }}
               title={kind}
             >
-              {STRUCTURE_GLYPH[kind] ?? kind}
+              {renderGlyph(kind)}
             </button>
           );
         })}

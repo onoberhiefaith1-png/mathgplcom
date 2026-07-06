@@ -49,6 +49,44 @@ const Caret = ({ color }: { color: string }) => (
   />
 );
 
+const PlaceholderSlot = ({
+  color,
+  active,
+  caretColor,
+  onPointerDown,
+}: {
+  color: string;
+  active: boolean;
+  caretColor: string;
+  onPointerDown: (e: RPointerEvent) => void;
+}) => (
+  <span
+    data-sb-placeholder="math-tree"
+    onPointerDown={onPointerDown}
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: "0.7em",
+      minHeight: "0.85em",
+      padding: "0 0.05em",
+      margin: "0 1px",
+      border: `1px dashed ${color}`,
+      borderRadius: 3,
+      background: color,
+      color,
+      opacity: 1,
+      boxShadow: "none",
+      cursor: "text",
+      verticalAlign: "baseline",
+      touchAction: "manipulation",
+      transition: "opacity 120ms, background 120ms, box-shadow 120ms, border-color 120ms",
+    }}
+  >
+    {active && <Caret color={caretColor} />}
+  </span>
+);
+
 /* ─────────── height-measuring hook ─────────── */
 
 const useMeasuredHeight = <T extends HTMLElement>() => {
@@ -96,38 +134,16 @@ export const RowView = ({
       );
     }
 
-    // Empty sub-slot. Structure ink stays on `currentColor`; this placeholder
-    // gets its own colour so it can blend into the board independently.
+    // Empty sub-slot. Structure ink stays on `currentColor`; placeholders are
+    // the exception and always use the dedicated placeholder colour.
     const slotColor = placeholderColor ?? PLACEHOLDER_COLOR;
-    const baseStyle: CSSProperties = {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minWidth: "0.7em",
-      minHeight: "0.85em",
-      padding: "0 0.05em",
-      margin: "0 1px",
-      cursor: "text",
-      verticalAlign: "baseline",
-      touchAction: "manipulation",
-      transition: "opacity 120ms, background 120ms, box-shadow 120ms, border-color 120ms",
-    };
-
     return (
-      <span
-        data-sb-placeholder="math-tree"
+      <PlaceholderSlot
+        color={slotColor}
+        active={isActive}
+        caretColor={caretColor}
         onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
-        style={{
-          ...baseStyle,
-          border: `1px dashed ${slotColor}`,
-          borderRadius: 3,
-          background: slotColor,
-          opacity: 1,
-          boxShadow: "none",
-        }}
-      >
-        {isActive && <Caret color={caretColor} />}
-      </span>
+      />
     );
   }
 
@@ -144,7 +160,8 @@ export const RowView = ({
   // sub-row is empty (e.g. a freshly inserted power/frac/sqrt). Such nodes
   // collapse to a zero-width tap zone when a sibling on the same row has
   // real content, matching the classroom rule: as soon as the teacher
-  // writes next to a placeholder, that placeholder disappears.
+  // writes next to a placeholder, that placeholder disappears. Structure
+  // visibility rules never recolour placeholders; they only hide/show them.
   const isStructurallyEmpty = (n: Node): boolean => {
     if (n.kind === "char") return false;
     if (n.kind === "box") return true;

@@ -34,6 +34,7 @@ import {
   PLACEHOLDER_COLOR_STORAGE_KEY,
   PlaceholderColorId,
   resolvePlaceholderColor,
+  sanitizePlaceholderColorId,
 } from "@/lib/smartboard/placeholderColor";
 import { WritingSurface, WritingFilterDefs } from "./WritingSurface";
 import { Inked } from "./Inked";
@@ -388,7 +389,7 @@ const PresentationView = ({
   });
   const [placeholderColorId, setPlaceholderColorId] = useState<PlaceholderColorId>(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(PLACEHOLDER_COLOR_STORAGE_KEY) : null;
-    return (saved as PlaceholderColorId) || DEFAULT_PLACEHOLDER_COLOR;
+    return sanitizePlaceholderColorId(saved ?? DEFAULT_PLACEHOLDER_COLOR);
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [topOpen, setTopOpen] = useState(false);
@@ -929,7 +930,7 @@ const PresentationView = ({
     if (incoming.surface) setSurface(incoming.surface as Surface);
     if (incoming.profileId) setProfileId(incoming.profileId as WritingProfileId);
     if (incoming.inkColorId) setInkColorId(incoming.inkColorId as InkColorId);
-    if (incoming.placeholderColorId) setPlaceholderColorId(incoming.placeholderColorId as PlaceholderColorId);
+    if (incoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(incoming.placeholderColorId));
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
   }, [incoming, syncEnabled, selfId]);
@@ -4580,11 +4581,13 @@ const PresentationView = ({
                     !noteGateOpen(curLineIdx) &&
                     notebookAttentionIdx.has(curLineIdx)
                   }
+                  placeholderColor={placeholderColor}
                 />
 
 
                 <StructurePanel
                   chromeFg={palette.chromeFg}
+                  placeholderColor={placeholderColor}
                   visible={activeAssistant === "structures"}
                   requiredStructures={lineContainers}
                   consumedStructures={consumedStructures}

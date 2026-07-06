@@ -306,6 +306,7 @@ function emptySlotBox(idx: number, ctx: RenderCtx, key: string): ReactNode {
         borderRadius: 3,
         opacity: focused ? 1 : 0.95,
         background: placeholderColor,
+        color: placeholderColor,
         cursor: click ? "text" : "default",
         boxShadow: focused
           ? `0 0 6px ${ctx.opts.caretColor ?? "currentColor"}66`
@@ -316,6 +317,13 @@ function emptySlotBox(idx: number, ctx: RenderCtx, key: string): ReactNode {
     } as React.HTMLAttributes<HTMLSpanElement> & Record<string, unknown>,
   );
 }
+
+const emptyIfBlank = (raw: string, key: string, ctx: RenderCtx): ReactNode[] => {
+  if (raw.trim().length === 0) {
+    return [emptySlotBox(ctx.slotCounter.n++, ctx, key)];
+  }
+  return renderInner(raw, key, ctx);
+};
 
 function filledSlotSpan(idx: number, content: ReactNode[], ctx: RenderCtx, key: string): ReactNode {
   const focused = ctx.opts.focusedSlot === idx;
@@ -518,7 +526,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
         flush();
         const idx = ctx.slotCounter.n++;
         if (ctx.opts.editable) {
-          if (a.inner.length === 0) {
+          if (a.inner.trim().length === 0) {
             out.push(emptySlotBox(idx, ctx, `${keyBase}-sl-${k++}`));
           } else {
             const inner = renderInner(a.inner, `${keyBase}-slb${k}`, ctx);
@@ -527,7 +535,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
         } else {
           // Non-editable callers still render placeholders with the dedicated
           // placeholder colour, never with inherited ink/currentColor.
-          if (a.inner.length === 0) {
+          if (a.inner.trim().length === 0) {
             out.push(emptySlotBox(idx, ctx, `${keyBase}-sl-${k++}`));
           } else {
             out.push(...renderInner(a.inner, `${keyBase}-slb${k}`, ctx));
@@ -573,8 +581,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
         flush();
         out.push(
           fractionSpan(
-            renderInner(a.inner, `${keyBase}-n${k}`, ctx),
-            renderInner(b.inner, `${keyBase}-d${k}`, ctx),
+            emptyIfBlank(a.inner, `${keyBase}-n${k}`, ctx),
+            emptyIfBlank(b.inner, `${keyBase}-d${k}`, ctx),
             `${keyBase}-f-${k++}`,
             true,
             `\\frac{${a.inner}}{${b.inner}}`,
@@ -636,7 +644,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
           flush();
           out.push(connectedRadical(
             `${keyBase}-rn-${k++}`,
-            renderInner(a.inner, `${keyBase}-rnb${k}`, ctx),
+            emptyIfBlank(a.inner, `${keyBase}-rnb${k}`, ctx),
             indexNodes,
             `\\sqrt[${idxStr}]{${a.inner}}`,
           ));
@@ -653,7 +661,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
         flush();
         out.push(connectedRadical(
           `${keyBase}-r-${k++}`,
-          renderInner(a.inner, `${keyBase}-rb${k}`, ctx),
+          emptyIfBlank(a.inner, `${keyBase}-rb${k}`, ctx),
           null,
           `\\sqrt{${a.inner}}`,
         ));

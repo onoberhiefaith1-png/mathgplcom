@@ -1,6 +1,5 @@
-// Placeholder colours are independent from ink colours. Structure strokes
-// (fraction bars, radicals, brackets, digits) still inherit ink; only empty
-// editable slots/boxes use this palette.
+// Placeholder colours are independent from ink colours. Every structure rule
+// must read as: "use ink/currentColor, except placeholder slots".
 export const PLACEHOLDER_COLOR = "#efece5";
 export const BLACKBOARD_PLACEHOLDER_COLOR = "#161c1a";
 
@@ -32,7 +31,13 @@ export const PLACEHOLDER_COLOR_LIST: PlaceholderColor[] = Object.values(PLACEHOL
 export const DEFAULT_PLACEHOLDER_COLOR: PlaceholderColorId = "board";
 export const PLACEHOLDER_COLOR_STORAGE_KEY = "smartboard:placeholder-color";
 
+export const isPlaceholderColorId = (value: unknown): value is PlaceholderColorId =>
+  typeof value === "string" && value in PLACEHOLDER_COLORS;
+
+export const sanitizePlaceholderColorId = (value: unknown): PlaceholderColorId =>
+  isPlaceholderColorId(value) ? value : DEFAULT_PLACEHOLDER_COLOR;
+
 export const resolvePlaceholderColor = (
   id: PlaceholderColorId,
   surface: "whiteboard" | "blackboard",
-): string => PLACEHOLDER_COLORS[id]?.[surface] ?? PLACEHOLDER_COLORS.board[surface];
+): string => PLACEHOLDER_COLORS[sanitizePlaceholderColorId(id)][surface];
