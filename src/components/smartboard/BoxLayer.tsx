@@ -10,7 +10,7 @@
 
 import { useEffect, useRef } from "react";
 import type { SmartLine } from "./SmartLineLayer";
-import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
+import { PLACEHOLDER_COLOR, smartboardPlaceholderStyle } from "@/lib/smartboard/placeholderColor";
 
 export interface MagnetBox {
   id: string;
@@ -188,9 +188,15 @@ const BoxView = ({
   const top = box.side === "top" ? box.y - GAP - height : box.y + GAP;
   const left = box.x; // we centre horizontally via translateX(-50%)
 
+  const emptySlotStyle = smartboardPlaceholderStyle(placeholderColor, {
+    size: "box",
+    active,
+    caretColor: ink,
+    cursor: "grab",
+  });
   const borderStyle = filled
     ? "1.5px solid transparent"
-    : `1.5px dashed ${placeholderColor}`;
+    : String(emptySlotStyle.border ?? `1.5px dashed ${placeholderColor}`);
 
   return (
     <div
@@ -198,6 +204,7 @@ const BoxView = ({
       data-sb-placeholder={!filled ? "box-layer" : undefined}
       data-erase-box-id={box.id}
       style={{
+        ...(!filled ? emptySlotStyle : {}),
         position: "absolute",
         top,
         left,
@@ -207,7 +214,7 @@ const BoxView = ({
         padding: "0 4px",
         border: borderStyle,
         borderRadius: 4,
-        color: ink,
+        color: filled ? ink : placeholderColor,
         background: filled ? "transparent" : placeholderColor,
         pointerEvents: "auto",
         zIndex: 26,

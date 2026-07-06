@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
+import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
 const STRUCTURE_GLYPH: Record<ContainerKind, string> = {
   fraction: "□/□",
@@ -99,18 +100,11 @@ export const StructurePanel = ({
   const items = requiredStructures ?? [];
 
   const slot = (key: string) => (
-    <span
+    <SmartboardPlaceholderSlot
       key={key}
-      aria-hidden
-      style={{
-        display: "inline-block",
-        width: "0.78em",
-        height: "0.78em",
-        border: `1px dashed ${placeholderColor}`,
-        borderRadius: 2,
-        background: placeholderColor,
-        verticalAlign: "-0.08em",
-      }}
+      color={placeholderColor}
+      size="compact"
+      source="structure-panel"
     />
   );
 
