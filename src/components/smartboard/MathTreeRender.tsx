@@ -84,7 +84,6 @@ export const RowView = ({
 }: RowProps) => {
   const isActive = pathEq(path, cursor.path);
   const empty = row.length === 0;
-  const mode = usePlaceholderMode();
 
   if (empty) {
     if (isRoot) {
@@ -103,21 +102,12 @@ export const RowView = ({
       );
     }
 
-    // Empty sub-slot. Two render modes:
-    //
-    //   "visible" — default. Full-strength black dashed cube (Floating
-    //   Number panel, Present preview, lesson-note generation). Unchanged
-    //   from the pre-blend design.
-    //
-    //   "blend"   — smartboard writing surface. Idle placeholder is
-    //   *invisible* (no border, no background, no glyph) but the span
-    //   still occupies its natural inline size so fraction bars, √, ^, and
-    //   matrix cells lay out correctly, and the pointer handler still
-    //   places the cursor at index 0 of the slot.
-    //
-    // The active (caret-parked) slot renders a soft caret-color glow in
-    // BOTH modes so the teacher never loses sight of the sensor.
-
+    // Empty sub-slot. The frame is drawn in the whiteboard color
+    // (`PLACEHOLDER_COLOR`) so it blends invisibly with the white smartboard
+    // surface while staying visible on every other panel (Floating Number
+    // generator, Present preview, lesson-note pages) whose backgrounds are a
+    // different color. The active (caret-parked) slot swaps to `caretColor`
+    // so the teacher never loses sight of the sensor.
     const baseStyle: CSSProperties = {
       display: "inline-flex",
       alignItems: "center",
@@ -132,20 +122,8 @@ export const RowView = ({
       transition: "opacity 120ms, background 120ms, box-shadow 120ms, border-color 120ms",
     };
 
-    if (mode === "blend" && !isActive) {
-      // Fully invisible idle placeholder on the smartboard writing surface.
-      return (
-        <span
-          onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
-          style={baseStyle}
-        />
-      );
-    }
-
-    // Active slot (either mode) OR idle visible-mode slot.
-    const showFill = mode === "visible" || isActive;
-    const borderColor = isActive ? caretColor : "#000";
-    const bg = isActive ? `${caretColor}1f` : (showFill ? "#000" : "transparent");
+    const borderColor = isActive ? caretColor : PLACEHOLDER_COLOR;
+    const bg = isActive ? `${caretColor}1f` : PLACEHOLDER_COLOR;
     return (
       <span
         onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
@@ -154,7 +132,6 @@ export const RowView = ({
           border: `1px dashed ${borderColor}`,
           borderRadius: 3,
           background: bg,
-          color: showFill ? "#000" : "transparent",
           opacity: isActive ? 0.95 : 1,
           boxShadow: isActive ? `0 0 5px ${caretColor}55` : "none",
         }}
