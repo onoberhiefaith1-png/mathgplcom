@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import type { Beat } from "@/lib/smartboard/presentation";
 import type { LessonPhase } from "@/lib/smartboard/lessonPhase";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 
 interface Props {
   phase: LessonPhase;
@@ -24,6 +25,7 @@ interface Props {
   /** Handwriting profile font stack (so intro/topic/summary look handwritten). */
   fontStack?: string;
   letterSpacing?: string;
+  placeholderColor?: string;
 }
 
 const today = () => {
@@ -34,7 +36,7 @@ const today = () => {
 
 export const PhaseStage = ({
   phase, beat, notebookTitle, topic, subtopic, dateLabel, ink, accent,
-  fontStack, letterSpacing,
+  fontStack, letterSpacing, placeholderColor = PLACEHOLDER_COLOR,
 }: Props) => {
   // Re-trigger entry animation when phase changes.
   const [enterKey, setEnterKey] = useState(0);
@@ -97,7 +99,7 @@ export const PhaseStage = ({
               {beat.caption ?? "Homework"}
             </div>
             <div className="text-2xl md:text-3xl">
-              {renderMathInline(beat.content, beat.id)}
+              {renderMathInline(beat.content, beat.id, { placeholderColor })}
             </div>
           </div>
         )}
