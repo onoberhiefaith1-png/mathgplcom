@@ -38,6 +38,7 @@ import { SmartboardLessonText } from "@/components/smartboard/SmartboardLessonTe
 import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
 import { editTargetKey } from "@/lib/smartboard/manualEdit/types";
 import { noteForLine } from "@/lib/smartboard/boardWriter/noteSource";
+import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 
 const INK = "#1a2230";
 const ACCENT = "#8a6a1f";
@@ -65,9 +66,9 @@ const today = () => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
-const InlineMath = ({ ascii }: { ascii: string }) => (
+const InlineMath = ({ ascii, placeholderColor = PLACEHOLDER_COLOR }: { ascii: string; placeholderColor?: string }) => (
   <span className="font-serif" style={{ color: INK }}>
-    {renderMathInline(asDisplayString(ascii))}
+    {renderMathInline(asDisplayString(ascii), "preview-inline", { placeholderColor })}
   </span>
 );
 
@@ -83,7 +84,7 @@ const HighlightBox = ({ children }: { children: React.ReactNode }) => (
   </span>
 );
 
-const FloatingChips = ({ fillers }: { fillers: string[] }) => {
+const FloatingChips = ({ fillers, placeholderColor }: { fillers: string[]; placeholderColor: string }) => {
   if (!fillers || fillers.length === 0) return null;
   return (
     <div className="mt-2 flex flex-wrap gap-2 pl-1">
@@ -97,7 +98,7 @@ const FloatingChips = ({ fillers }: { fillers: string[] }) => {
             color: "#1e3a8a",
           }}
         >
-          <InlineMath ascii={f} />
+          <InlineMath ascii={f} placeholderColor={placeholderColor} />
         </span>
       ))}
     </div>
@@ -119,7 +120,7 @@ const NotYetAvailable = () => (
   </div>
 );
 
-const NoteBlock = ({ text }: { text: string }) => {
+const NoteBlock = ({ text, placeholderColor }: { text: string; placeholderColor: string }) => {
   const clean = asDisplayString(text).trim();
   if (!clean) return null;
   const noteLines = clean.split(/\r?\n+/).filter((l) => l.trim());
@@ -135,7 +136,7 @@ const NoteBlock = ({ text }: { text: string }) => {
       <StickyNote className="mt-0.5 h-4 w-4 flex-none opacity-70" />
       <div className="italic">
         {noteLines.map((l, i) => (
-          <div key={i}>{renderMathInline(l, `note-${i}`)}</div>
+          <div key={i}>{renderMathInline(l, `note-${i}`, { placeholderColor })}</div>
         ))}
       </div>
     </div>
@@ -171,6 +172,7 @@ export interface PresenterPreviewPanelProps {
   /** Live mirror/auto-fix status for the currently selected item —
    *  rendered as an inline badge directly on the clicked item. */
   mirrorStatus?: MirrorUiStatus | null;
+  placeholderColor?: string;
 }
 
 const PresenterPreviewPanel = ({
@@ -180,6 +182,7 @@ const PresenterPreviewPanel = ({
   onManualScrollChange,
   onMirrorChange,
   mirrorStatus,
+  placeholderColor = PLACEHOLDER_COLOR,
 }: PresenterPreviewPanelProps) => {
   const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
 
@@ -595,7 +598,7 @@ const PresenterPreviewPanel = ({
                 {it.caption}
               </h3>
               <div className="text-[14px] leading-relaxed" style={{ color: INK }}>
-                <SmartboardLessonText>{it.text}</SmartboardLessonText>
+                <SmartboardLessonText placeholderColor={placeholderColor}>{it.text}</SmartboardLessonText>
               </div>
               <AiEditButton target={target} />
             </section>
@@ -656,7 +659,7 @@ const PresenterPreviewPanel = ({
                     ...editableOutline,
                   }}
                 >
-                  <SmartboardLessonText>{it.problem}</SmartboardLessonText>
+                  <SmartboardLessonText placeholderColor={placeholderColor}>{it.problem}</SmartboardLessonText>
                   <AiEditButton target={qTarget} />
                 </div>
               );
@@ -717,7 +720,7 @@ const PresenterPreviewPanel = ({
                         <div className="flex items-center gap-3 flex-wrap">
                           <HighlightBox>
                             <span className="text-lg">
-                              <InlineMath ascii={eq} />
+                              <InlineMath ascii={eq} placeholderColor={placeholderColor} />
                             </span>
                           </HighlightBox>
                         </div>
@@ -754,7 +757,7 @@ const PresenterPreviewPanel = ({
                                       ...editableOutline,
                                     }}
                                   >
-                                    <InlineMath ascii={f} />
+                                    <InlineMath ascii={f} placeholderColor={placeholderColor} />
                                   </button>
                                   <AiEditButton target={chipTarget} />
                                 </span>
@@ -791,7 +794,7 @@ const PresenterPreviewPanel = ({
                                 ...editableOutline,
                               }}
                             >
-                              <NoteBlock text={note} />
+                              <NoteBlock text={note} placeholderColor={placeholderColor} />
                               <AiEditButton target={noteTarget} />
                             </div>
                           );

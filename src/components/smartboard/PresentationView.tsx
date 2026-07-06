@@ -3734,6 +3734,7 @@ const PresentationView = ({
                   notebookId={notebookId}
                   activeBeatId={activePreviewBeatId}
                   activeLineIdx={activePreviewLineIdx}
+                  placeholderColor={placeholderColor}
                   onManualScrollChange={setPresenterManualScroll}
                   mirrorStatus={mirrorStatus}
                   onMirrorChange={(active, t) => {
