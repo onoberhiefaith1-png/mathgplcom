@@ -75,6 +75,7 @@ import JoinClassPage from "./pages/JoinClassPage.tsx";
 import StudentClassPage from "./pages/student/StudentClassPage.tsx";
 import StudentSmartBoardPage from "./pages/student/StudentSmartBoardPage.tsx";
 import AssessmentBoardPage from "./pages/student/AssessmentBoardPage.tsx";
+import OAuthConsent from "./pages/OAuthConsent.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
 import { FullscreenToggle } from "./components/common/FullscreenToggle";
 
@@ -110,6 +111,7 @@ const App = () => (
           <Route path="/student/class/:classId/smartboard" element={<StudentSmartBoardPage />} />
           <Route path="/student/class/:classId/assessment/:assessmentId" element={<AssessmentBoardPage />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
           <Route path="/backgrounds" element={<Backgrounds />} />
           <Route path="/games/tally" element={<TallyGame />} />
           <Route path="/games/roman" element={<RomanGame />} />
