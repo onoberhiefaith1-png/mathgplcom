@@ -55,6 +55,7 @@ interface Props {
   /** Optional inline style applied to the wrapper. */
   style?: React.CSSProperties;
   className?: string;
+  placeholderColor?: string;
 }
 
 /** Split text into alternating prose/math runs.
@@ -70,7 +71,7 @@ const splitRuns = (line: string): { kind: "prose" | "math"; text: string }[] => 
 };
 
 export const SmartboardLessonText = ({
-  children, seed = 1, jitter = 0.08, style, className,
+  children, seed = 1, jitter = 0.08, style, className, placeholderColor,
 }: Props): ReactNode => {
   const cleaned = safeLessonText(children);
   if (cleaned == null) return null;
@@ -93,7 +94,7 @@ export const SmartboardLessonText = ({
             // Math run: render through the Lesson Note renderer.
             return (
               <span key={ri} style={{ display: "inline" }}>
-                {renderMathInline(run.text, `sblt-${seed}-${li}-${ri}`)}
+                {renderMathInline(run.text, `sblt-${seed}-${li}-${ri}`, { placeholderColor })}
               </span>
             );
           })}

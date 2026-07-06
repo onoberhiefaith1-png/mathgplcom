@@ -23,6 +23,7 @@ export type BoardSnapshot = {
   surface: string;
   profileId: string;
   inkColorId: string;
+  placeholderColorId?: string;
 };
 
 export type BoardState = Omit<BoardSnapshot, "v" | "author" | "ts">;

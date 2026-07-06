@@ -13,6 +13,11 @@ import {
   WritingProfileId,
 } from "@/lib/smartboard/writingProfiles";
 import { COLOR_LIST, InkColorId, resolveInk } from "@/lib/smartboard/inkColors";
+import {
+  PLACEHOLDER_COLOR_LIST,
+  PlaceholderColorId,
+  resolvePlaceholderColor,
+} from "@/lib/smartboard/placeholderColor";
 import { clampRowSpacing, clampTextScale } from "@/lib/smartboard/grid";
 import { WritingSurface } from "./WritingSurface";
 import { WritingLab } from "./WritingLab";
@@ -28,6 +33,8 @@ interface Props {
   setProfileId: (id: WritingProfileId) => void;
   inkColorId: InkColorId;
   setInkColorId: (id: InkColorId) => void;
+  placeholderColorId: PlaceholderColorId;
+  setPlaceholderColorId: (id: PlaceholderColorId) => void;
   chromeBg: string;
   chromeFg: string;
   chromeBorder: string;
@@ -51,6 +58,8 @@ export const SettingsSheet = ({
   setProfileId,
   inkColorId,
   setInkColorId,
+  placeholderColorId,
+  setPlaceholderColorId,
   chromeBg,
   chromeFg,
   chromeBorder,
@@ -71,6 +80,7 @@ export const SettingsSheet = ({
   if (!open) return null;
 
   const activeInk = resolveInk(inkColorId, surface);
+  const activePlaceholder = resolvePlaceholderColor(placeholderColorId, surface);
 
   return (
     <>
@@ -168,10 +178,47 @@ export const SettingsSheet = ({
                       <WritingSurface profile={p} inkColor={activeInk} surface={surface}>
                         <div className="text-sm leading-snug">The Smartboard</div>
                         <div style={{ fontSize: 18 }}>
-                          {renderMathInline(SAMPLE_SRC, `samp-${p.id}`)}
+                          {renderMathInline(SAMPLE_SRC, `samp-${p.id}`, { placeholderColor: activePlaceholder })}
                         </div>
                       </WritingSurface>
                     </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* ── Placeholder Color ─────────────────────────── */}
+          <section>
+            <p className="text-[10px] uppercase tracking-[0.25em] opacity-60 mb-2">
+              Placeholder Color
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {PLACEHOLDER_COLOR_LIST.map((c) => {
+                const swatch = c[surface];
+                const active = c.id === placeholderColorId;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setPlaceholderColorId(c.id)}
+                    className="rounded-md border flex flex-col items-center gap-1 px-2 py-1.5"
+                    style={{
+                      borderColor: active ? chromeFg : chromeBorder,
+                      background: active ? "rgba(0,0,0,0.05)" : "transparent",
+                      minWidth: 56,
+                    }}
+                    title={c.label}
+                  >
+                    <span
+                      className="block rounded-full"
+                      style={{
+                        width: 22,
+                        height: 22,
+                        background: swatch,
+                        boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.12)",
+                      }}
+                    />
+                    <span className="text-[10px] opacity-70">{c.label}</span>
                   </button>
                 );
               })}
