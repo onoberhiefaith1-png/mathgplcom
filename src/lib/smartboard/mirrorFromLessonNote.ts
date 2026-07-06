@@ -245,6 +245,14 @@ const latexToRow = (src: string): Row => {
       i++; continue;
     }
 
+    // Literal slot glyphs from Lesson Note/floating safety paths must become
+    // real placeholder nodes. They are the exception to ink/currentColor.
+    if (ch === "□") {
+      out.push({ kind: "box", rows: [[]] } as Node);
+      i++;
+      continue;
+    }
+
     // Stray ASCII operators → classroom glyphs.
     if (ch === "*") { out.push(mkChar("×")); i++; continue; }
     if (ch === "$") { i++; continue; }
