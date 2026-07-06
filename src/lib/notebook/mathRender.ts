@@ -519,6 +519,17 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
   };
 
   while (i < src.length) {
+    // ---- literal placeholder glyph ----
+    // Some lesson-note/floating generator safety paths produce `□` directly
+    // (for example an incomplete fraction shell). Treat it as a real
+    // placeholder slot, never as ink-coloured text.
+    if (src[i] === "□") {
+      flush();
+      out.push(emptySlotBox(ctx.slotCounter.n++, ctx, `${keyBase}-sq-${k++}`));
+      i++;
+      continue;
+    }
+
     // ---- editable slot ----
     if (src.startsWith("\\sl{", i)) {
       const a = readBraced(src, i + 3);
