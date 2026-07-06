@@ -33,7 +33,7 @@ import { WritingSurface, WritingFilterDefs } from "./WritingSurface";
 import { Inked } from "./Inked";
 import { SettingsSheet } from "./SettingsSheet";
 import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
-import { PlaceholderModeProvider } from "./placeholderMode";
+
 import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
@@ -4230,13 +4230,10 @@ const PresentationView = ({
           {/* Invisible-grid free-writing overlay. Filtered to lines that
               fall inside some beat's writable band, so solution ink can
               never bleed above the section line into the cover / previous
-              sessions. Wrapped in PlaceholderModeProvider="blend" so idle
-              empty sub-slots (fraction num/den, √ radicand, exponents,
-              matrix cells) render invisibly on the smartboard writing
-              surface while remaining structural + tappable. Panels and
-              previews outside this subtree stay on the default "visible"
-              mode and keep the full-strength black placeholder cube. */}
-          <PlaceholderModeProvider value="blend">
+              sessions. Empty math-tree sub-slots (fraction num/den, √
+              radicand, exponents, matrix cells) are drawn in the whiteboard
+              color everywhere, so they blend invisibly with the white board
+              surface and stay visible against darker panels. */}
           <FreeWriteLayer
             lines={visibleFreeLines}
             offsets={lineOffsets}
@@ -4267,7 +4264,6 @@ const PresentationView = ({
               hiddenInputRef.current?.focus({ preventScroll: true });
             }}
           />
-          </PlaceholderModeProvider>
 
 
 
