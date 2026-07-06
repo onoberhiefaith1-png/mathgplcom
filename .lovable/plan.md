@@ -1,44 +1,47 @@
 ## Goal
 
-Delete the current empty-sub-row placeholder in `MathTreeRender.tsx` and rewrite it from scratch so the placeholder frame is drawn in **the whiteboard's own color** (`#efece5`) — the same cream/off-white used by the white smartboard surface. When the placeholder later appears on the whiteboard, its color matches the board and it becomes invisible. On every other surface (Floating Number generator, Present preview, Lesson Note generation), the cream frame stays visible because those panels have a different background.
+Make every empty placeholder cube on the smartboard, in the Floating Number generator, and in the Preview panel render in the whiteboard colour `#efece5` so it blends invisibly on the board and is only faintly visible on lighter panels. Any old placeholder colour must be removed.
 
-No dynamic context, no CSS variable, no palette lookup — one hardcoded color, everywhere.
+## What I found
 
-## What to change
+The whiteboard surface is actually a soft gradient of `#f6f4ef → #eeece6 → #e8e6df` (see `BOARD_BG` in `src/pages/SmartboardPreviewPage.tsx`). `#efece5` sits inside that range, so a solid `#efece5` cube reads as invisible on the real board. The reason placeholders still look dark in the Floating Number generator / Preview panel is that there are **two** placeholder renderers, and only one was updated last turn:
 
-### 1. `src/components/smartboard/MathTreeRender.tsx`
+1. `src/components/smartboard/MathTreeRender.tsx` — already uses `PLACEHOLDER_COLOR = "#efece5"` ✅
+2. `src/components/smartboard/BoxLayer.tsx` — the line-anchored chip boxes (numerator/denominator/±/√ slots that ride on the writing line, visible in screenshot 2 next to "The quadratic formula is:") still use `1.5px dashed ${ink}`, where `ink` is the current pen colour (black on the whiteboard, black on the preview). This is the "black box" the user is describing.
 
-Delete the entire empty-sub-row block (roughly lines 99–157 — the `"visible"`/`"blend"` branching, `usePlaceholderMode` call, and the `baseStyle` + active/idle rendering).
+The Floating Number generator's Preview also uses `BoxLayer` chips, which is why the box next to "±" and "√" reads as a darker outline in screenshot 1.
 
-Rewrite it with a single, unconditional render:
+## Plan
 
-- One constant at the top of the file: `const PLACEHOLDER_COLOR = "#efece5";` (whiteboard surface color).
-- Empty sub-slot always renders the same dashed cube:
-  - `border: 1px dashed ${PLACEHOLDER_COLOR}`
-  - `background: ${PLACEHOLDER_COLOR}`
-  - Same dimensions as today (`minWidth: 0.7em`, `minHeight: 0.85em`, padding, margin, cursor, tap zone).
-- Active slot (caret parked here) keeps its glow: border switches to `caretColor`, background gets the `${caretColor}1f` tint, and the `<Caret>` renders inside — identical to today's active branch.
+**1. Introduce a single source of truth.**
+Create `src/lib/smartboard/placeholderColor.ts`:
 
-Remove the `import { usePlaceholderMode } from "./placeholderMode";` line and the `const mode = usePlaceholderMode();` call — neither is used anymore.
+```ts
+// Whiteboard surface colour. Every empty placeholder cube (math-tree
+// sub-slot, BoxLayer chip, future placeholder renderers) draws its border
+// and fill in this exact colour so it blends invisibly on the smartboard
+// and stays faintly visible on lighter surfaces.
+export const PLACEHOLDER_COLOR = "#efece5";
+```
 
-### 2. `src/components/smartboard/PresentationView.tsx`
+**2. `MathTreeRender.tsx`** — delete the local `const PLACEHOLDER_COLOR = "#efece5"` and import it from the new module. Behaviour unchanged. This is the "delete existing, rewrite with this function" step the user asked for.
 
-Remove the `<PlaceholderModeProvider value="blend">` wrapper around `FreeWriteLayer` and the matching import. No longer needed.
+**3. `BoxLayer.tsx`** — the "black box" the user is complaining about.
+- Import `PLACEHOLDER_COLOR`.
+- Change `borderStyle` for the empty chip from `` `1.5px dashed ${ink}` `` to `` `1.5px dashed ${PLACEHOLDER_COLOR}` ``.
+- Once the teacher types into the chip (`filled === true`), keep today's behaviour (`1.5px solid transparent`), so the ink stays black and readable.
+- Leave the division bar / drawn strokes / typed content colour untouched — those keep their current `ink` colour (per the user's "the division sign is black as it is").
 
-### 3. `src/components/smartboard/placeholderMode.tsx`
-
-Delete the file. Nothing references it after step 1 and step 2.
-
-## Why this works
-
-- The whiteboard surface background is already `#efece5`. A `#efece5` cream frame on top of a `#efece5` board reads as invisible — the placeholder is "there" for layout (so fractions, exponents, √, matrix cells structure correctly) but the teacher sees a clean board.
-- The Floating Number generator, Present preview, and lesson-note pages use different backgrounds (dark panels, white paper), so the same cream frame is clearly visible against them — exactly what the user asked for.
-- If the user later switches the board to black (or any other color), the placeholder stays cream and remains visible on that board too. This is intentional per the request: "just use that color" — the whiteboard color, fixed.
+**4. Nothing else changes.**
+- No layout, tap-zone, cursor, or caret changes.
+- Floating Number generator, Preview panel, and lesson-note pages all pick up the new colour automatically because they render through the same `MathTreeRender` + `BoxLayer` components.
+- On the whiteboard the chip and math-tree cube both blend into the board (`#efece5` on a `#f6f4ef → #eeece6 → #e8e6df` gradient reads as invisible).
+- On the Floating Number generator and Preview (white-ish panels), the chip and math-tree cube stay faintly visible as a cream outline — visible enough for the teacher to know where to type, but no longer "black".
 
 ## Files touched
 
-- `src/components/smartboard/MathTreeRender.tsx` — delete empty-slot block, rewrite with `PLACEHOLDER_COLOR = "#efece5"`.
-- `src/components/smartboard/PresentationView.tsx` — remove `PlaceholderModeProvider` wrapper and import.
-- `src/components/smartboard/placeholderMode.tsx` — delete.
+- **new** `src/lib/smartboard/placeholderColor.ts`
+- edit `src/components/smartboard/MathTreeRender.tsx` (replace local constant with import)
+- edit `src/components/smartboard/BoxLayer.tsx` (swap `ink` for `PLACEHOLDER_COLOR` on the empty-chip dashed border only)
 
-No structural, layout, cursor, or tap-target changes. Fractions, roots, powers, and matrix layout stay byte-identical.
+After this the user can generate any floating number (fraction, ±, √, matrix): every empty cube on the board is invisible, and the same cube is faintly cream on the generator / preview panels — as requested.

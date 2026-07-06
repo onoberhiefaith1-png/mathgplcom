@@ -10,6 +10,7 @@
 
 import { useEffect, useRef } from "react";
 import type { SmartLine } from "./SmartLineLayer";
+import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 
 export interface MagnetBox {
   id: string;
@@ -183,7 +184,7 @@ const BoxView = ({
 
   const borderStyle = filled
     ? "1.5px solid transparent"
-    : `1.5px dashed ${ink}`;
+    : `1.5px dashed ${PLACEHOLDER_COLOR}`;
 
   return (
     <div
