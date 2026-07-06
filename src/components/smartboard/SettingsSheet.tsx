@@ -47,7 +47,7 @@ interface Props {
   setTextScale?: (v: number) => void;
 }
 
-const SAMPLE_SRC = "x^{2} + 5x - 7";
+const SAMPLE_SRC = "x = \\frac{\\sl{}}{\\sl{}}";
 
 export const SettingsSheet = ({
   open,
@@ -320,6 +320,7 @@ export const SettingsSheet = ({
             <WritingLab
               profile={profile}
               inkColor={activeInk}
+              placeholderColor={activePlaceholder}
               surface={surface}
               surfaceBg={surfaceBg}
               chromeFg={chromeFg}

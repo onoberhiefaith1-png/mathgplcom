@@ -65,11 +65,11 @@ export const parseFractionChip = (label: string): FractionParts | null => {
 /** Render a chip's label as JSX. When the chip is a recognised fraction,
  *  draw a real stacked fraction with the variable riding on the numerator
  *  (so `¹⁰⁄₃x` reads as "10x over 3", never as "10 over 3 x"). */
-const ChipLabel = ({ label, color }: { label: string; color: string }) => {
+const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: string; placeholderColor?: string }) => {
   const safe = assertDisplaySafe(label).cleaned;
   const frac = parseFractionChip(label);
   if (!frac) {
-    return <span>{renderMathInline(safe, `fn-chip-${safe}`)}</span>;
+    return <span>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor })}</span>;
   }
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
@@ -145,6 +145,7 @@ interface Props {
   /** True when the current line has an unread notebook checkpoint — the
    *  Notebook icon pulses to draw the teacher's eye. */
   notebookPending?: boolean;
+  placeholderColor?: string;
 }
 
 export const FloatingNumberPanel = ({
@@ -160,6 +161,7 @@ export const FloatingNumberPanel = ({
   onNotebookRead,
   frozen = false,
   notebookPending = false,
+  placeholderColor,
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const [offset, setOffset] = useState<number>(0);
@@ -654,7 +656,7 @@ export const FloatingNumberPanel = ({
                 }}
                 title={used ? "Already used — tap to return it" : "Tap to use"}
               >
-                <ChipLabel label={label} color={ink} />
+                <ChipLabel label={label} color={ink} placeholderColor={placeholderColor} />
                 {lineNo != null && (
                   <span
                     aria-hidden

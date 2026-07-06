@@ -19,6 +19,7 @@ const PRESETS: { label: string; src: string }[] = [
 interface Props {
   profile: WritingProfile;
   inkColor: string;
+  placeholderColor: string;
   surface: "whiteboard" | "blackboard";
   /** background for the lab preview (matches active surface) */
   surfaceBg: string;
@@ -26,7 +27,7 @@ interface Props {
   chromeBorder: string;
 }
 
-export const WritingLab = ({ profile, inkColor, surface, surfaceBg, chromeFg, chromeBorder }: Props) => {
+export const WritingLab = ({ profile, inkColor, placeholderColor, surface, surfaceBg, chromeFg, chromeBorder }: Props) => {
   const [src, setSrc] = useState(PRESETS[1].src);
 
   return (
@@ -63,7 +64,7 @@ export const WritingLab = ({ profile, inkColor, surface, surfaceBg, chromeFg, ch
             <Inked jitter={profile.strokeJitter} seed={src.length}>
               {"\u00A0"}
             </Inked>
-            {renderMathInline(src, `lab-${src.length}`)}
+            {renderMathInline(src, `lab-${src.length}`, { placeholderColor })}
           </div>
         </WritingSurface>
       </div>
