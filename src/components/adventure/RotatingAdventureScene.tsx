@@ -220,8 +220,9 @@ const Showcase = () => {
     camera.lookAt(0, 0, 0);
   });
 
-  const handleActivate = () => {
-    const academy = academies[frontIndexRef.current];
+  const handleActivate = (clickedIndex?: number) => {
+    const idx = typeof clickedIndex === "number" ? clickedIndex : frontIndexRef.current;
+    const academy = academies[idx];
     if (academy) navigate(academy.route);
   };
 
