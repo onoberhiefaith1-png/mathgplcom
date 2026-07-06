@@ -17,6 +17,7 @@ interface Props {
   activeLine: number | null;
   cursor: Cursor;
   caretColor: string;
+  placeholderColor: string;
   onCursorChange: (line: number, c: Cursor) => void;
   onMeasure?: (line: number, width: number, height: number) => void;
 }
@@ -24,7 +25,7 @@ interface Props {
 const INACTIVE_CURSOR: Cursor = { path: [-1], index: 0 };
 
 export const FreeWriteLayer = ({
-  lines, offsets, grid, activeLine, cursor, caretColor, onCursorChange, onMeasure,
+  lines, offsets, grid, activeLine, cursor, caretColor, placeholderColor, onCursorChange, onMeasure,
 }: Props) => {
   const set = new Set<number>();
   if (activeLine != null && Number.isFinite(activeLine)) set.add(activeLine);
@@ -44,6 +45,7 @@ export const FreeWriteLayer = ({
           grid={grid}
           cursor={line === activeLine ? cursor : INACTIVE_CURSOR}
           caretColor={caretColor}
+          placeholderColor={placeholderColor}
           onCursorChange={(c) => onCursorChange(line, c)}
           onMeasure={onMeasure}
         />
@@ -53,7 +55,7 @@ export const FreeWriteLayer = ({
 };
 
 const LineRender = ({
-  line, row, xOffset, grid, cursor, caretColor, onCursorChange, onMeasure,
+  line, row, xOffset, grid, cursor, caretColor, placeholderColor, onCursorChange, onMeasure,
 }: {
   line: number;
   row: Row;
@@ -61,6 +63,7 @@ const LineRender = ({
   grid: Grid;
   cursor: Cursor;
   caretColor: string;
+  placeholderColor: string;
   onCursorChange: (c: Cursor) => void;
   onMeasure?: (line: number, w: number, h: number) => void;
 }) => {
@@ -103,6 +106,7 @@ const LineRender = ({
         cursor={cursor}
         onCursorChange={onCursorChange}
         caretColor={caretColor}
+        placeholderColor={placeholderColor}
       />
     </div>
   );

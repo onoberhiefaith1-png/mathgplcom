@@ -19,6 +19,7 @@ interface Common {
   cursor: Cursor;
   onCursorChange: (c: Cursor) => void;
   caretColor: string;
+  placeholderColor?: string;
 }
 
 const pathEq = (a: number[], b: number[]) =>
@@ -73,7 +74,7 @@ interface RowProps extends Common {
 }
 
 export const RowView = ({
-  row, path, isRoot, cursor, onCursorChange, caretColor,
+  row, path, isRoot, cursor, onCursorChange, caretColor, placeholderColor,
 }: RowProps) => {
   const isActive = pathEq(path, cursor.path);
   const empty = row.length === 0;
@@ -95,12 +96,9 @@ export const RowView = ({
       );
     }
 
-    // Empty sub-slot. The frame is drawn in the whiteboard color
-    // (`PLACEHOLDER_COLOR`) so it blends invisibly with the white smartboard
-    // surface while staying visible on every other panel (Floating Number
-    // generator, Present preview, lesson-note pages) whose backgrounds are a
-    // different color. The active (caret-parked) slot swaps to `caretColor`
-    // so the teacher never loses sight of the sensor.
+    // Empty sub-slot. Structure ink stays on `currentColor`; this placeholder
+    // gets its own colour so it can blend into the board independently.
+    const slotColor = placeholderColor ?? PLACEHOLDER_COLOR;
     const baseStyle: CSSProperties = {
       display: "inline-flex",
       alignItems: "center",
@@ -115,18 +113,17 @@ export const RowView = ({
       transition: "opacity 120ms, background 120ms, box-shadow 120ms, border-color 120ms",
     };
 
-    const borderColor = isActive ? caretColor : PLACEHOLDER_COLOR;
-    const bg = isActive ? `${caretColor}1f` : PLACEHOLDER_COLOR;
     return (
       <span
+        data-sb-placeholder="math-tree"
         onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
         style={{
           ...baseStyle,
-          border: `1px dashed ${borderColor}`,
+          border: `1px dashed ${slotColor}`,
           borderRadius: 3,
-          background: bg,
-          opacity: isActive ? 0.95 : 1,
-          boxShadow: isActive ? `0 0 5px ${caretColor}55` : "none",
+          background: slotColor,
+          opacity: 1,
+          boxShadow: "none",
         }}
       >
         {isActive && <Caret color={caretColor} />}
@@ -205,6 +202,7 @@ export const RowView = ({
                 cursor={cursor}
                 onCursorChange={onCursorChange}
                 caretColor={caretColor}
+                placeholderColor={placeholderColor}
               />
             )}
           </span>
@@ -260,7 +258,7 @@ interface ContainerProps extends Common {
 }
 
 const SqrtView = ({
-  node, parentPath, idxInRow, cursor, onCursorChange, caretColor,
+  node, parentPath, idxInRow, cursor, onCursorChange, caretColor, placeholderColor,
 }: ContainerProps & { node: Extract<Node, { kind: "sqrt" }> }) => {
   const hasIndex = node.rows.length === 2;
   const subPath = (i: number) => [...parentPath, idxInRow, i];
@@ -272,18 +270,18 @@ const SqrtView = ({
     <ConnectedRadical
       degree={hasIndex ? (
         <RowView row={node.rows[1] ?? []} path={subPath(1)}
-          cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
+          cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
       ) : undefined}
     >
       <RowView row={node.rows[0] ?? []} path={subPath(0)}
-        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
+        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
       <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
     </ConnectedRadical>
   );
 };
 
 const BracketView = ({
-  node, parentPath, idxInRow, cursor, onCursorChange, caretColor,
+  node, parentPath, idxInRow, cursor, onCursorChange, caretColor, placeholderColor,
 }: ContainerProps & { node: Extract<Node, { kind: "bracket" }> }) => {
   const { ref, height } = useMeasuredHeight<HTMLSpanElement>();
   const bodyH = height > 0 ? `${height}px` : "1em";
@@ -295,7 +293,7 @@ const BracketView = ({
       <BracketGlyph kind={node.left} side="L" heightCss={bodyH} />
       <span ref={ref} style={{ padding: "0 3px", display: "inline-flex", alignItems: "center" }}>
         <RowView row={node.rows[0] ?? []} path={[...parentPath, idxInRow, 0]}
-          cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
+          cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
       </span>
       <BracketGlyph kind={node.right} side="R" heightCss={bodyH} />
       <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
@@ -304,7 +302,7 @@ const BracketView = ({
 };
 
 const MatrixView = ({
-  node, parentPath, idxInRow, cursor, onCursorChange, caretColor,
+  node, parentPath, idxInRow, cursor, onCursorChange, caretColor, placeholderColor,
 }: ContainerProps & { node: Extract<Node, { kind: "matrix" }> }) => {
   const { ref, height } = useMeasuredHeight<HTMLSpanElement>();
   const bodyH = height > 0 ? `${height}px` : "1em";
@@ -316,7 +314,7 @@ const MatrixView = ({
       rowCells.push(
         <span key={c} style={{ padding: "3px 8px", display: "inline-flex", justifyContent: "center" }}>
           <RowView row={node.rows[r * node.nCols + c] ?? []} path={cellPath}
-            cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
+            cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
         </span>,
       );
     }
@@ -338,7 +336,7 @@ const MatrixView = ({
 };
 
 const BinomView = ({
-  node, parentPath, idxInRow, cursor, onCursorChange, caretColor,
+  node, parentPath, idxInRow, cursor, onCursorChange, caretColor, placeholderColor,
 }: ContainerProps & { node: Extract<Node, { kind: "binom" }> }) => {
   const { ref, height } = useMeasuredHeight<HTMLSpanElement>();
   const bodyH = height > 0 ? `${height}px` : "1em";
@@ -354,9 +352,9 @@ const BinomView = ({
         padding: "0 4px", lineHeight: 1.1,
       }}>
         <RowView row={node.rows[0] ?? []} path={subPath(0)}
-          cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
+          cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
         <RowView row={node.rows[1] ?? []} path={subPath(1)}
-          cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />
+          cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
       </span>
       <BracketGlyph kind=")" side="R" heightCss={bodyH} />
       <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
@@ -365,7 +363,7 @@ const BinomView = ({
 };
 
 const NodeView = ({
-  node, parentPath, idxInRow, cursor, onCursorChange, caretColor,
+  node, parentPath, idxInRow, cursor, onCursorChange, caretColor, placeholderColor,
 }: NodeProps) => {
   const subPath = (subIdx: number) => [...parentPath, idxInRow, subIdx];
   const R = (subIdx: number) => (
@@ -375,6 +373,7 @@ const NodeView = ({
       cursor={cursor}
       onCursorChange={onCursorChange}
       caretColor={caretColor}
+      placeholderColor={placeholderColor}
     />
   );
 
@@ -407,7 +406,7 @@ const NodeView = ({
 
     case "sqrt":
       return <SqrtView node={node} parentPath={parentPath} idxInRow={idxInRow}
-        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />;
+        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />;
 
     case "power":
       return (
@@ -457,7 +456,7 @@ const NodeView = ({
 
     case "bracket":
       return <BracketView node={node} parentPath={parentPath} idxInRow={idxInRow}
-        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />;
+        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />;
 
     case "bigop": {
       const glyph =
@@ -497,7 +496,7 @@ const NodeView = ({
 
     case "matrix":
       return <MatrixView node={node} parentPath={parentPath} idxInRow={idxInRow}
-        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />;
+        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />;
 
     case "accent":
       return (
@@ -514,7 +513,7 @@ const NodeView = ({
 
     case "binom":
       return <BinomView node={node} parentPath={parentPath} idxInRow={idxInRow}
-        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} />;
+        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />;
 
     case "box": {
       // A box node is only a cursor target. Do not draw a second outer cube:
@@ -603,7 +602,7 @@ interface Props extends Common {
 }
 
 export const MathTreeRender = ({
-  root, cursor, onCursorChange, caretColor,
+  root, cursor, onCursorChange, caretColor, placeholderColor = PLACEHOLDER_COLOR,
 }: Props) => (
   <RowView
     row={root}
@@ -612,6 +611,7 @@ export const MathTreeRender = ({
     cursor={cursor}
     onCursorChange={onCursorChange}
     caretColor={caretColor}
+    placeholderColor={placeholderColor}
   />
 );
 

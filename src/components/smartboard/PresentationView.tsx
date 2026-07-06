@@ -29,6 +29,12 @@ import {
 import {
   DEFAULT_INK_COLOR, INK_COLOR_STORAGE_KEY, InkColorId, resolveInk,
 } from "@/lib/smartboard/inkColors";
+import {
+  DEFAULT_PLACEHOLDER_COLOR,
+  PLACEHOLDER_COLOR_STORAGE_KEY,
+  PlaceholderColorId,
+  resolvePlaceholderColor,
+} from "@/lib/smartboard/placeholderColor";
 import { WritingSurface, WritingFilterDefs } from "./WritingSurface";
 import { Inked } from "./Inked";
 import { SettingsSheet } from "./SettingsSheet";
@@ -379,6 +385,10 @@ const PresentationView = ({
   const [inkColorId, setInkColorId] = useState<InkColorId>(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(INK_COLOR_STORAGE_KEY) : null;
     return (saved as InkColorId) || DEFAULT_INK_COLOR;
+  });
+  const [placeholderColorId, setPlaceholderColorId] = useState<PlaceholderColorId>(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem(PLACEHOLDER_COLOR_STORAGE_KEY) : null;
+    return (saved as PlaceholderColorId) || DEFAULT_PLACEHOLDER_COLOR;
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [topOpen, setTopOpen] = useState(false);
@@ -919,6 +929,7 @@ const PresentationView = ({
     if (incoming.surface) setSurface(incoming.surface as Surface);
     if (incoming.profileId) setProfileId(incoming.profileId as WritingProfileId);
     if (incoming.inkColorId) setInkColorId(incoming.inkColorId as InkColorId);
+    if (incoming.placeholderColorId) setPlaceholderColorId(incoming.placeholderColorId as PlaceholderColorId);
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
   }, [incoming, syncEnabled, selfId]);
@@ -929,12 +940,12 @@ const PresentationView = ({
     if (applyingRemoteRef.current) return;
     pushSnapshot({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
-      sensor, zoom, surface, profileId, inkColorId,
+      sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     });
   }, [
     syncEnabled, canEdit, pushSnapshot,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
-    sensor, zoom, surface, profileId, inkColorId,
+    sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
   ]);
 
 
@@ -1464,6 +1475,7 @@ const PresentationView = ({
   useEffect(() => { try { localStorage.setItem(SURFACE_KEY, surface); } catch { /* noop */ } }, [surface]);
   useEffect(() => { try { localStorage.setItem(PROFILE_STORAGE_KEY, profileId); } catch { /* noop */ } }, [profileId]);
   useEffect(() => { try { localStorage.setItem(INK_COLOR_STORAGE_KEY, inkColorId); } catch { /* noop */ } }, [inkColorId]);
+  useEffect(() => { try { localStorage.setItem(PLACEHOLDER_COLOR_STORAGE_KEY, placeholderColorId); } catch { /* noop */ } }, [placeholderColorId]);
 
   // Chrome is manual now — pull-tabs open/close the header and styles rail.
   // No auto-hide on activity; the board stays plain while typing.
@@ -1574,6 +1586,7 @@ const PresentationView = ({
   const isDark = surface === "blackboard";
   const profile = WRITING_PROFILES[profileId];
   const ink = resolveInk(inkColorId, surface);
+  const placeholderColor = resolvePlaceholderColor(placeholderColorId, surface);
   const current = beatCursor >= 0 ? beats[beatCursor] : undefined;
   const revealed = beatCursor >= 0 ? beats.slice(0, beatCursor + 1) : [];
   const phase = getPhase(current);
@@ -4006,6 +4019,8 @@ const PresentationView = ({
         setProfileId={setProfileId}
         inkColorId={inkColorId}
         setInkColorId={setInkColorId}
+        placeholderColorId={placeholderColorId}
+        setPlaceholderColorId={setPlaceholderColorId}
         chromeBg={palette.chromeBg}
         chromeFg={palette.chromeFg}
         chromeBorder={palette.chromeBorder}
@@ -4216,6 +4231,7 @@ const PresentationView = ({
                   beat={L.beat}
                   isCurrent={i === layouts.length - 1}
                   ink={ink}
+                  placeholderColor={placeholderColor}
                   accent={palette.accent}
                   jitter={profile.strokeJitter}
                   notebookTitle={notebook?.title ?? "Untitled"}
@@ -4241,6 +4257,7 @@ const PresentationView = ({
             activeLine={!solvingMode ? null : (activeBoxId ? null : sensor.line)}
             cursor={cursor}
             caretColor={ink}
+            placeholderColor={placeholderColor}
             onMeasure={handleLineMeasure}
             onCursorChange={(line, c) => {
               if (!solvingMode) return;
@@ -4290,6 +4307,7 @@ const PresentationView = ({
             activeBoxId={activeBoxId}
             onActivate={setActiveBoxId}
             fontPx={grid.FONT_PX}
+            placeholderColor={placeholderColor}
           />
 
           {/* Dot-tool first-point marker — shown after tap 1 until tap 2. */}
@@ -5353,12 +5371,13 @@ const PresentationView = ({
 /* ─────────────── Beat renderer ─────────────── */
 
 const BeatBlock = ({
-  beat, isCurrent, ink, accent, jitter,
+  beat, isCurrent, ink, placeholderColor, accent, jitter,
   notebookTitle, topic, subtopic, dateLabel,
 }: {
   beat: Beat;
   isCurrent: boolean;
   ink: string;
+  placeholderColor: string;
   accent: string;
   jitter: number;
   notebookTitle?: string;
@@ -5399,7 +5418,7 @@ const BeatBlock = ({
     return (
       <div data-sb-beat className={`transition-opacity duration-300 ${opacityClass} ${revealClass}`}>
         <div style={{ color: ink, fontSize: "1em" }}>
-          <SmartboardLessonText jitter={jitter} seed={beat.id.length}>
+          <SmartboardLessonText jitter={jitter} seed={beat.id.length} placeholderColor={placeholderColor}>
             {beat.content}
           </SmartboardLessonText>
         </div>
@@ -5420,7 +5439,7 @@ const BeatBlock = ({
           </div>
         )}
         <div style={{ color: ink, fontSize: "1em" }}>
-          <SmartboardLessonText jitter={jitter * 0.6} seed={beat.id.length + 11}>
+          <SmartboardLessonText jitter={jitter * 0.6} seed={beat.id.length + 11} placeholderColor={placeholderColor}>
             {beat.content}
           </SmartboardLessonText>
         </div>
@@ -5452,7 +5471,7 @@ const BeatBlock = ({
             flexWrap: "wrap",
           }}
         >
-          <SmartboardLessonText jitter={jitter * 0.6} seed={beat.id.length + 23}>
+          <SmartboardLessonText jitter={jitter * 0.6} seed={beat.id.length + 23} placeholderColor={placeholderColor}>
             {beat.content}
           </SmartboardLessonText>
         </span>
@@ -5462,7 +5481,7 @@ const BeatBlock = ({
           className="flex-none max-w-[40%] pt-2"
           style={{ color: accent, fontStyle: "italic", fontSize: "0.55em" }}
         >
-          → <SmartboardLessonText jitter={jitter * 0.7} seed={beat.id.length + 1}>
+          → <SmartboardLessonText jitter={jitter * 0.7} seed={beat.id.length + 1} placeholderColor={placeholderColor}>
             {beat.reasoning}
           </SmartboardLessonText>
         </div>

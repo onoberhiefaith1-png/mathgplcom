@@ -14,6 +14,7 @@
 // non-empty slots render their contents transparently (no border).
 
 import { createElement, type CSSProperties, type ReactNode } from "react";
+import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 
 /* ─── Connected radical helper ─────────────────────────────────────────────
  * Builds the SAME shape as <ConnectedRadical/>: an inline-flex with a
@@ -231,6 +232,8 @@ export interface RenderOptions {
   onSlotClick?: (slotIndex: number) => void;
   /** Ink colour used to paint the focused slot caret. */
   caretColor?: string;
+  /** Empty placeholder colour. Kept separate from ink/structure colour. */
+  placeholderColor?: string;
 }
 
 interface RenderCtx {
@@ -277,11 +280,13 @@ function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string,
 function emptySlotBox(idx: number, ctx: RenderCtx, key: string): ReactNode {
   const focused = ctx.opts.focusedSlot === idx;
   const click = ctx.opts.onSlotClick;
+  const placeholderColor = ctx.opts.placeholderColor ?? PLACEHOLDER_COLOR;
   return createElement(
     "span",
     {
       key,
       "data-slot-idx": idx,
+      "data-sb-placeholder": "math-render",
       onPointerDown: click
         ? (e: React.PointerEvent) => {
             // preventDefault so the browser doesn't focus this span and
@@ -297,12 +302,10 @@ function emptySlotBox(idx: number, ctx: RenderCtx, key: string): ReactNode {
         width: "0.85em",
         height: "1em",
         margin: "0 1px",
-        border: `1.4px dashed ${focused ? (ctx.opts.caretColor ?? "currentColor") : "currentColor"}`,
+        border: `1.4px dashed ${placeholderColor}`,
         borderRadius: 3,
-        opacity: focused ? 0.95 : 0.45,
-        background: focused
-          ? `${ctx.opts.caretColor ?? "currentColor"}1a`
-          : "transparent",
+        opacity: focused ? 1 : 0.95,
+        background: placeholderColor,
         cursor: click ? "text" : "default",
         boxShadow: focused
           ? `0 0 6px ${ctx.opts.caretColor ?? "currentColor"}66`
@@ -522,12 +525,10 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             out.push(filledSlotSpan(idx, inner, ctx, `${keyBase}-sl-${k++}`));
           }
         } else {
-          // non-editable callers: render contents transparently
+          // Non-editable callers still render placeholders with the dedicated
+          // placeholder colour, never with inherited ink/currentColor.
           if (a.inner.length === 0) {
-            out.push(createElement("span", {
-              key: `${keyBase}-sl-${k++}`,
-              style: { display: "inline-block", minWidth: "0.7em" },
-            }, "□"));
+            out.push(emptySlotBox(idx, ctx, `${keyBase}-sl-${k++}`));
           } else {
             out.push(...renderInner(a.inner, `${keyBase}-slb${k}`, ctx));
           }

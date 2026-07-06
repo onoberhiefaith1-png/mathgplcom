@@ -46,6 +46,7 @@ interface Props {
   activeBoxId?: string | null;
   onActivate?: (id: string | null) => void;
   fontPx?: number;
+  placeholderColor?: string;
 }
 
 /** Pixel gap between the line and the text edge. */
@@ -69,7 +70,10 @@ const projectOnLine = (px: number, py: number, l: SmartLine) => {
   return { cx, cy, dist, side: cross >= 0 ? "bottom" : ("top" as "top" | "bottom") };
 };
 
-export const BoxLayer = ({ boxes, ink, onChange, smartLines, activeBoxId, onActivate, fontPx }: Props) => {
+export const BoxLayer = ({
+  boxes, ink, onChange, smartLines, activeBoxId, onActivate, fontPx,
+  placeholderColor = PLACEHOLDER_COLOR,
+}: Props) => {
   const dragRef = useRef<{ id: string; pid: number; moved: boolean } | null>(null);
 
   const startDrag = (e: React.PointerEvent, b: MagnetBox) => {
@@ -130,6 +134,7 @@ export const BoxLayer = ({ boxes, ink, onChange, smartLines, activeBoxId, onActi
           ink={ink}
           active={activeBoxId === b.id}
           fontPx={fontPx}
+          placeholderColor={placeholderColor}
           onActivate={onActivate}
           onPointerDown={(e) => startDrag(e, b)}
           onPointerMove={onMove}
@@ -143,13 +148,14 @@ export const BoxLayer = ({ boxes, ink, onChange, smartLines, activeBoxId, onActi
 };
 
 const BoxView = ({
-  box, ink, active, fontPx, onActivate,
+  box, ink, active, fontPx, placeholderColor, onActivate,
   onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onTextChange,
 }: {
   box: MagnetBox;
   ink: string;
   active: boolean;
   fontPx?: number;
+  placeholderColor: string;
   onActivate?: (id: string | null) => void;
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
@@ -184,11 +190,12 @@ const BoxView = ({
 
   const borderStyle = filled
     ? "1.5px solid transparent"
-    : `1.5px dashed ${PLACEHOLDER_COLOR}`;
+    : `1.5px dashed ${placeholderColor}`;
 
   return (
     <div
       data-sb-chrome
+      data-sb-placeholder={!filled ? "box-layer" : undefined}
       data-erase-box-id={box.id}
       style={{
         position: "absolute",
@@ -201,7 +208,7 @@ const BoxView = ({
         border: borderStyle,
         borderRadius: 4,
         color: ink,
-        background: "transparent",
+        background: filled ? "transparent" : placeholderColor,
         pointerEvents: "auto",
         zIndex: 26,
         display: "flex",
