@@ -4,7 +4,7 @@
 // Shows only the structures tagged to the CURRENT floating-number line,
 // with its own ▲/▼ line navigator mirroring FloatingNumberPanel.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 
@@ -120,7 +120,7 @@ export const StructurePanel = ({
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
         {text.split("□").flatMap((part, index, parts) => {
-          const nodes: React.ReactNode[] = [];
+          const nodes: ReactNode[] = [];
           if (part) nodes.push(<span key={`t-${index}`}>{part}</span>);
           if (index < parts.length - 1) nodes.push(slot(`s-${index}`));
           return nodes;
