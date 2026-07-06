@@ -1,38 +1,44 @@
-## Rebuild the placeholder from scratch in `MathTreeRender.tsx`
+## Goal
 
-### Why the current approach didn't blend
+Delete the current empty-sub-row placeholder in `MathTreeRender.tsx` and rewrite it from scratch so the placeholder frame is drawn in **the whiteboard's own color** (`#efece5`) — the same cream/off-white used by the white smartboard surface. When the placeholder later appears on the whiteboard, its color matches the board and it becomes invisible. On every other surface (Floating Number generator, Present preview, Lesson Note generation), the cream frame stays visible because those panels have a different background.
 
-The board isn't a flat color — `#sb-root` layers a noise texture and subtle gradients over `palette.background`. A dashed cube painted with a flat `--placeholder-ink` (equal to `palette.background`) sits **under** those overlays on the writing layer, so the eye still sees a slightly off-tone rectangle. No amount of color-matching to `palette.background` will match the textured surface pixel-for-pixel. The only way to truly blend is to **paint nothing at all** on the board — while still keeping the slot structural, sized, and tappable.
+No dynamic context, no CSS variable, no palette lookup — one hardcoded color, everywhere.
 
-### Plan
+## What to change
 
-1. **Delete** the current empty-sub-row branch in `RowView` (`src/components/smartboard/MathTreeRender.tsx`, roughly lines 96–135 — the dashed-cube render that uses `--placeholder-ink`). Remove the `placeholderColor` local and all border/background/color styling tied to it.
+### 1. `src/components/smartboard/MathTreeRender.tsx`
 
-2. **Rebuild** the empty-sub-row branch with a two-mode rule driven by a React context (`PlaceholderMode = "visible" | "blend"`):
+Delete the entire empty-sub-row block (roughly lines 99–157 — the `"visible"`/`"blend"` branching, `usePlaceholderMode` call, and the `baseStyle` + active/idle rendering).
 
-   - **`"visible"` (default — Floating Number panel, Present preview, lesson-note generation, everywhere except the live smartboard writing surface):** render exactly today's full-strength black dashed cube. Same dimensions, same dashed border, same fill, same tap target, same active-focus glow driven by `caretColor`. No visual change on these surfaces.
-   - **`"blend"` (smartboard writing surface only):** render an **invisible** slot — no border, no background, no glyph. Just an inline-flex span of the same intrinsic size (`min-width: 0.7em; min-height: 0.85em; margin: 0 1px`) with the pointer-down handler that focuses the slot. Structurally identical to the visible mode so `2a`, exponents, fraction bars, radicals still lay out correctly. When the slot is *active*, keep a soft `caretColor` glow (dashed border + `${caretColor}1f` fill + box-shadow) so the teacher can see where the caret sits — only the *idle* placeholder is fully invisible.
+Rewrite it with a single, unconditional render:
 
-3. **Wire the context provider:**
-   - Create a tiny module `src/components/smartboard/placeholderMode.tsx` exporting the context, provider, and a `usePlaceholderMode()` hook. Default value: `"visible"`.
-   - In `PresentationView.tsx`, wrap the `FreeWriteLayer` render (inside `#sb-root`'s writing area) with `<PlaceholderModeProvider value="blend">`. Everything outside this wrapper — the Floating Number panel, the Present-preview panel that sits alongside the board, the lesson-note generation page — remains in the default `"visible"` mode.
-   - Remove the now-unused `--placeholder-ink` CSS variable and the `placeholderInk` fields from `palette` in `PresentationView.tsx` (whiteboard/blackboard entries) since the new approach doesn't need a color token at all.
+- One constant at the top of the file: `const PLACEHOLDER_COLOR = "#efece5";` (whiteboard surface color).
+- Empty sub-slot always renders the same dashed cube:
+  - `border: 1px dashed ${PLACEHOLDER_COLOR}`
+  - `background: ${PLACEHOLDER_COLOR}`
+  - Same dimensions as today (`minWidth: 0.7em`, `minHeight: 0.85em`, padding, margin, cursor, tap zone).
+- Active slot (caret parked here) keeps its glow: border switches to `caretColor`, background gets the `${caretColor}1f` tint, and the `<Caret>` renders inside — identical to today's active branch.
 
-4. **Active-slot exception is preserved:** the `isActive` branch still renders the caret + soft glow in both modes, so the teacher never loses sight of where the sensor is parked.
+Remove the `import { usePlaceholderMode } from "./placeholderMode";` line and the `const mode = usePlaceholderMode();` call — neither is used anymore.
 
-### Files touched
+### 2. `src/components/smartboard/PresentationView.tsx`
 
-- `src/components/smartboard/MathTreeRender.tsx` — delete + rewrite the empty-sub-row branch; read `usePlaceholderMode()`; two render paths.
-- `src/components/smartboard/placeholderMode.tsx` — new file, context + provider + hook.
-- `src/components/smartboard/PresentationView.tsx` — wrap the board's `FreeWriteLayer` subtree in `<PlaceholderModeProvider value="blend">`; drop the `placeholderInk` palette fields and the `--placeholder-ink` inline-style entry on `#sb-root`.
+Remove the `<PlaceholderModeProvider value="blend">` wrapper around `FreeWriteLayer` and the matching import. No longer needed.
 
-Nothing else changes. No structural rewrite of fractions/roots/powers. No cursor/focus logic touched.
+### 3. `src/components/smartboard/placeholderMode.tsx`
 
-### Verification (after implementing, please regenerate the equation and test)
+Delete the file. Nothing references it after step 1 and step 2.
 
-1. Board on default (black) theme → build a fraction: numerator and denominator empty slots are completely invisible, but the bar renders, layout is stable, and tapping either slot places the caret with a visible glow.
-2. Switch board to white → same fraction's empty slots stay invisible against the white surface (no leftover tinted rectangle from a flat color).
-3. Switch to yellow → still invisible.
-4. Open the Floating Number panel and the Present preview panel → container chips (`□/□`, `√□`, `□²`) render as today's full-strength black dashed cubes, fully visible.
-5. Lesson-note generation page → placeholders render as today's black cubes.
-6. Tap an empty slot on the board → focus glow appears; type a digit → glow disappears, digit replaces the slot; delete → invisible placeholder returns.
+## Why this works
+
+- The whiteboard surface background is already `#efece5`. A `#efece5` cream frame on top of a `#efece5` board reads as invisible — the placeholder is "there" for layout (so fractions, exponents, √, matrix cells structure correctly) but the teacher sees a clean board.
+- The Floating Number generator, Present preview, and lesson-note pages use different backgrounds (dark panels, white paper), so the same cream frame is clearly visible against them — exactly what the user asked for.
+- If the user later switches the board to black (or any other color), the placeholder stays cream and remains visible on that board too. This is intentional per the request: "just use that color" — the whiteboard color, fixed.
+
+## Files touched
+
+- `src/components/smartboard/MathTreeRender.tsx` — delete empty-slot block, rewrite with `PLACEHOLDER_COLOR = "#efece5"`.
+- `src/components/smartboard/PresentationView.tsx` — remove `PlaceholderModeProvider` wrapper and import.
+- `src/components/smartboard/placeholderMode.tsx` — delete.
+
+No structural, layout, cursor, or tap-target changes. Fractions, roots, powers, and matrix layout stay byte-identical.

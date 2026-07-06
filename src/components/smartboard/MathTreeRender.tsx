@@ -13,7 +13,14 @@ import {
 } from "react";
 import type { Cursor, Node, Row } from "@/lib/smartboard/mathTree";
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
-import { usePlaceholderMode } from "./placeholderMode";
+
+// Whiteboard surface color. The math-tree placeholder frame is drawn in this
+// exact color everywhere it appears. On the white smartboard surface it blends
+// with the board and becomes invisible (the frame is still "there" for
+// layout — fractions, √, ^, matrix cells — but the teacher sees a clean
+// board). On the Floating Number generator, Present preview, and lesson-note
+// pages, the cream frame stays visible against those darker/whiter backgrounds.
+const PLACEHOLDER_COLOR = "#efece5";
 
 interface Common {
   cursor: Cursor;
