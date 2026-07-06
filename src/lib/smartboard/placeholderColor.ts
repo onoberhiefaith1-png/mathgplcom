@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 // Placeholder colours are independent from ink colours. Every structure rule
 // must read as: "use ink/currentColor, except placeholder slots".
 export const PLACEHOLDER_COLOR = "#efece5";
@@ -41,3 +43,47 @@ export const resolvePlaceholderColor = (
   id: PlaceholderColorId,
   surface: "whiteboard" | "blackboard",
 ): string => PLACEHOLDER_COLORS[sanitizePlaceholderColorId(id)][surface];
+
+export type PlaceholderSlotSize = "inline" | "compact" | "panel" | "box";
+
+const SLOT_SIZE: Record<PlaceholderSlotSize, Pick<CSSProperties, "width" | "height" | "minWidth" | "minHeight" | "padding" | "borderRadius">> = {
+  inline: { minWidth: "0.78em", minHeight: "0.9em", padding: "0 0.05em", borderRadius: 3 },
+  compact: { width: "0.78em", height: "0.78em", borderRadius: 2 },
+  panel: { minWidth: "0.82em", minHeight: "0.82em", padding: "0 0.04em", borderRadius: 3 },
+  box: { minWidth: "0.7em", minHeight: "1em", padding: "0 0.12em", borderRadius: 4 },
+};
+
+export const smartboardPlaceholderStyle = (
+  color: string,
+  opts: {
+    size?: PlaceholderSlotSize;
+    active?: boolean;
+    caretColor?: string;
+    cursor?: CSSProperties["cursor"];
+    verticalAlign?: CSSProperties["verticalAlign"];
+  } = {},
+): CSSProperties => {
+  const size = opts.size ?? "inline";
+  return {
+    ...SLOT_SIZE[size],
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
+    margin: "0 1px",
+    border: `1.4px dashed ${color}`,
+    background: color,
+    color,
+    opacity: 1,
+    textShadow: "none",
+    filter: "none",
+    WebkitFilter: "none",
+    mixBlendMode: "normal",
+    isolation: "isolate",
+    boxShadow: opts.active && opts.caretColor ? `0 0 0 1px ${opts.caretColor}55, 0 0 6px ${opts.caretColor}55` : "none",
+    cursor: opts.cursor ?? "text",
+    verticalAlign: opts.verticalAlign ?? "baseline",
+    touchAction: "manipulation",
+    transition: "background 120ms, border-color 120ms, box-shadow 120ms",
+  };
+};

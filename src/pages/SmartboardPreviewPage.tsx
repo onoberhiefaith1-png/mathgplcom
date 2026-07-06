@@ -35,6 +35,7 @@ import {
 } from "@/lib/smartboard/presentationPlan";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { SmartboardLessonText } from "@/components/smartboard/SmartboardLessonText";
+import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
@@ -76,7 +77,7 @@ const today = () => {
 // element array to "[object Object],[object Object]").
 const InlineMath = ({ ascii }: { ascii: string }) => (
   <span className="font-serif" style={{ color: INK }}>
-    {renderMathInline(asDisplayString(ascii))}
+    {renderMathInline(asDisplayString(ascii), "preview-page-inline", { placeholderColor: PLACEHOLDER_COLOR })}
   </span>
 );
 
@@ -147,7 +148,7 @@ const NoteBlock = ({ text }: { text: string }) => {
       <StickyNote className="mt-0.5 h-4 w-4 flex-none opacity-70" />
       <div className="italic">
         {noteLines.map((l, i) => (
-          <div key={i}>{renderMathInline(l, `note-${i}`)}</div>
+          <div key={i}>{renderMathInline(l, `note-${i}`, { placeholderColor: PLACEHOLDER_COLOR })}</div>
         ))}
       </div>
     </div>
@@ -449,7 +450,7 @@ const SmartboardPreviewPage = () => {
             return (
               <Block key={it.id} id={it.id} skipped={skipped} onToggle={onToggle} caption={it.caption}>
                 <div className="text-[16px] leading-relaxed" style={{ color: INK }}>
-                  <SmartboardLessonText>{it.text}</SmartboardLessonText>
+                  <SmartboardLessonText placeholderColor={PLACEHOLDER_COLOR}>{it.text}</SmartboardLessonText>
                 </div>
                 <div className="mt-3 flex justify-end">
                   <AiEditPopover
@@ -466,7 +467,7 @@ const SmartboardPreviewPage = () => {
           return (
             <Block key={it.id} id={it.id} skipped={skipped} onToggle={onToggle} caption={it.caption}>
               <div className="text-[17px] leading-relaxed mb-4" style={{ color: INK }}>
-                <SmartboardLessonText>{it.problem}</SmartboardLessonText>
+                <SmartboardLessonText placeholderColor={PLACEHOLDER_COLOR}>{it.problem}</SmartboardLessonText>
               </div>
 
               {res && res.lines.length > 0 && (

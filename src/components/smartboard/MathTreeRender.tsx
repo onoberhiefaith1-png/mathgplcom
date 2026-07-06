@@ -14,6 +14,7 @@ import {
 import type { Cursor, Node, Row } from "@/lib/smartboard/mathTree";
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
 import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
+import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
 interface Common {
   cursor: Cursor;
@@ -47,44 +48,6 @@ const Caret = ({ color }: { color: string }) => (
       transform: "translateY(0.05em)",
     }}
   />
-);
-
-const PlaceholderSlot = ({
-  color,
-  active,
-  caretColor,
-  onPointerDown,
-}: {
-  color: string;
-  active: boolean;
-  caretColor: string;
-  onPointerDown: (e: RPointerEvent) => void;
-}) => (
-  <span
-    data-sb-placeholder="math-tree"
-    onPointerDown={onPointerDown}
-    style={{
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minWidth: "0.7em",
-      minHeight: "0.85em",
-      padding: "0 0.05em",
-      margin: "0 1px",
-      border: `1px dashed ${color}`,
-      borderRadius: 3,
-      background: color,
-      color,
-      opacity: 1,
-      boxShadow: "none",
-      cursor: "text",
-      verticalAlign: "baseline",
-      touchAction: "manipulation",
-      transition: "opacity 120ms, background 120ms, box-shadow 120ms, border-color 120ms",
-    }}
-  >
-    {active && <Caret color={caretColor} />}
-  </span>
 );
 
 /* ─────────── height-measuring hook ─────────── */
@@ -138,47 +101,19 @@ export const RowView = ({
     // the exception and always use the dedicated placeholder colour.
     const slotColor = placeholderColor ?? PLACEHOLDER_COLOR;
     return (
-      <PlaceholderSlot
+      <SmartboardPlaceholderSlot
         color={slotColor}
         active={isActive}
         caretColor={caretColor}
+        source="math-tree"
         onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: 0 }))}
       />
     );
   }
 
-
-
-  // Once *any* node in this row carries content, empty `box` placeholder
-  // siblings collapse to a zero-width tap zone (still focusable, but the
-  // dashed cube disappears). This matches the classroom rule: as soon as
-  // the teacher has filled the numerator, leftover template cubes around
-  // it must vanish — the denominator's own empty cube is unaffected
-  // because it lives in a different row.
-  // A node is "structurally empty" if it would only render as a dashed
-  // placeholder cube — i.e. a `box` node, or any container whose every
-  // sub-row is empty (e.g. a freshly inserted power/frac/sqrt). Such nodes
-  // collapse to a zero-width tap zone when a sibling on the same row has
-  // real content, matching the classroom rule: as soon as the teacher
-  // writes next to a placeholder, that placeholder disappears. Structure
-  // visibility rules never recolour placeholders; they only hide/show them.
-  const isStructurallyEmpty = (n: Node): boolean => {
-    if (n.kind === "char") return false;
-    if (n.kind === "box") return true;
-    // A square root is a *deliberate* structure the teacher placed — it must
-    // be visible (hook + overline + dashed radicand slot) the instant it is
-    // inserted, even while its radicand is still empty. Only anonymous
-    // placeholder-like containers collapse.
-    if (n.kind === "sqrt") return false;
-    const sub = (n as { rows?: Row[] }).rows;
-    return !!sub && sub.every((r) => r.length === 0);
-  };
-  const rowHasContent = row.some((n) => !isStructurallyEmpty(n));
-
   return (
     <span style={{ display: "inline-flex", alignItems: "baseline" }}>
       {row.map((node, i) => {
-        const isEmptyBoxSibling = rowHasContent && isStructurallyEmpty(node);
         return (
           <span
             key={i}
@@ -201,27 +136,15 @@ export const RowView = ({
               }}
               aria-hidden
             />
-            {isEmptyBoxSibling ? (
-              // Collapsed invisible placeholder — keeps the path stable
-              // but removes the visual dashed cube once the row is filled.
-              <span
-                onPointerDown={(e) =>
-                  stopAnd(e, () => onCursorChange({ path, index: i }))
-                }
-                style={{ display: "inline-block", width: 0, height: "1em" }}
-                aria-hidden
-              />
-            ) : (
-              <NodeView
-                node={node}
-                parentPath={path}
-                idxInRow={i}
-                cursor={cursor}
-                onCursorChange={onCursorChange}
-                caretColor={caretColor}
-                placeholderColor={placeholderColor}
-              />
-            )}
+            <NodeView
+              node={node}
+              parentPath={path}
+              idxInRow={i}
+              cursor={cursor}
+              onCursorChange={onCursorChange}
+              caretColor={caretColor}
+              placeholderColor={placeholderColor}
+            />
           </span>
         );
       })}

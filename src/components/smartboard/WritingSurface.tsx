@@ -51,7 +51,11 @@ const pickFilter = (surface: "whiteboard" | "blackboard", edgeSoftness: number) 
 export const WritingSurface = ({
   profile, inkColor, surface, zoom = 1, children, className, style,
 }: Props) => {
-  const filter = pickFilter(surface, profile.edgeSoftness);
+  // Do not apply SVG filters/opacity to the root. A root filter is rendered
+  // after all descendants are composited, which means placeholder slots cannot
+  // opt out and cannot blend with the board. Ink may still use the profile font,
+  // but placeholders must remain raw surface colour.
+  void pickFilter(surface, profile.edgeSoftness);
   const textShadow =
     surface === "whiteboard"
       ? "0 0.4px 0.4px rgba(0,0,0,0.06)"
@@ -82,9 +86,9 @@ export const WritingSurface = ({
         fontWeight: profile.weight as any,
         fontSize: `${fontSizePx}px`,
         color: inkColor,
-        opacity: profile.inkOpacity,
+        opacity: 1,
         textShadow,
-        filter,
+        filter: "none",
         WebkitFontSmoothing: "antialiased",
       }}
     >

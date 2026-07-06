@@ -14,7 +14,7 @@
 // non-empty slots render their contents transparently (no border).
 
 import { createElement, type CSSProperties, type ReactNode } from "react";
-import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
+import { PLACEHOLDER_COLOR, smartboardPlaceholderStyle } from "@/lib/smartboard/placeholderColor";
 
 /* ─── Connected radical helper ─────────────────────────────────────────────
  * Builds the SAME shape as <ConnectedRadical/>: an inline-flex with a
@@ -296,24 +296,12 @@ function emptySlotBox(idx: number, ctx: RenderCtx, key: string): ReactNode {
             click(idx);
           }
         : undefined,
-      style: {
-        display: "inline-block",
-        verticalAlign: "baseline",
-        width: "0.85em",
-        height: "1em",
-        margin: "0 1px",
-        border: `1.4px dashed ${placeholderColor}`,
-        borderRadius: 3,
-        opacity: focused ? 1 : 0.95,
-        background: placeholderColor,
-        color: placeholderColor,
+      style: smartboardPlaceholderStyle(placeholderColor, {
+        size: "inline",
+        active: focused,
+        caretColor: ctx.opts.caretColor,
         cursor: click ? "text" : "default",
-        boxShadow: focused
-          ? `0 0 6px ${ctx.opts.caretColor ?? "currentColor"}66`
-          : "none",
-        transition: "opacity 120ms, box-shadow 120ms, background 120ms",
-        touchAction: "manipulation",
-      } as CSSProperties,
+      }) as CSSProperties,
     } as React.HTMLAttributes<HTMLSpanElement> & Record<string, unknown>,
   );
 }
