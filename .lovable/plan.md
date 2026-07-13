@@ -1,46 +1,71 @@
-## Diagnosis
 
-The placeholder setting is currently reaching the Settings preview and some preview-style renderers, but the live whiteboard still has older placeholder behavior in the actual board render paths:
+## Goal
 
-- The whiteboard math tree still has collapse/visibility rules mixed into placeholder rendering.
-- The floating number display has its own chip/fraction rendering, so it can show the new color in one place but write old-style structures onto the board after a click.
-- Present/preview note writes convert lesson-note math into Smartboard rows, but the final board renderer still decides how empty slots look, so the setting can be lost at the last step.
-- There are multiple placeholder implementations: `MathTreeRender`, `mathRender`, `BoxLayer`, `StructurePanel`, and floating chip rendering. That is the blockage.
+Bring the upgraded, simplified game builder from **Remix of gamedraft** into this project, and mount it on this project's existing Adventure games layout (the header/dashboard shell you like here). Every setting that already works in gamedraft must survive the port — nothing gets left behind.
 
-## Plan
+## What's over there vs what's here
 
-1. **Create one fresh placeholder renderer**
-   - Replace scattered placeholder box styling with one shared Smartboard placeholder primitive.
-   - It will accept only `placeholderColor`, `active`, `caretColor`, and size.
-   - It will not use `currentColor`, ink color, or inherited text color.
+**Remix of gamedraft (source, upgraded features)**
+- Pages: `GamesListPage.tsx`, `GameEditorPage.tsx`
+- Components: `src/components/gamebuilder/` — `GameCanvas`, `GameCard`, `AssetLibraryModal`, `AssetsPanel`, `EffectsRail`, `SceneStrip`, `SettingsPanel`, `ProgressColumn`, `CanvasElementView`, `ChromaVideo`, `SignedMedia`
+- Lib: `src/lib/games/` — `types.ts`, `games.ts`, `gameQuestions.ts`, `assets.ts`, `urls.ts`, `progressPresets.ts`, `removeBackground.ts`, `classGames.ts`
+- Backend: `games` + `game_assets` tables, `game-assets` storage bucket, `generate-game-cover` edge function, game-questions notebook wiring
+- Feature set to preserve verbatim:
+  - Scenes (multi-scene canvas with per-scene background + elements)
+  - Element kinds: `background`, `reward`, `progress_bar`, `effect`
+  - Progress bar (built-in 10-slot tower): presets, `totalMarks`, `currentMarks`, `segments`, `fillStyle` (`plain` / `effect`), per-slot energy overrides (`slotEffects`), default energy, glow, effectScale, plainColor, question-notebook wiring
+  - Compositing: `blend`, `bgRemoval` (`none` / `screen-black` / `chroma`), auto chroma-key detection, `keyColor` + `keyTolerance`
+  - Directional tint (`color`, `strength`, `direction`, `softness`)
+  - Three-axis slant (`lean` / `slide` / `tilt`) with legacy migration
+  - Animation (`type`, `amplitude`, `speed`, `loop`, `delay`, `fadeIn`, `fadeOut`, `trigger`)
+  - Camera target per scene
+  - Asset library (upload + URL pick), energy-mode picking, per-game asset import
+  - AI game-cover generation
+  - Meta dialog (title + topic + subtopic) required so AI question generation has context
 
-2. **Rewrite the whiteboard math-tree placeholder path**
-   - Rebuild the empty-slot handling in `MathTreeRender`.
-   - Fraction bars, radicals, brackets, digits, operators, and normal math stay ink-colored.
-   - Every empty numerator/denominator/radicand/exponent/box slot uses only the placeholder color.
-   - Remove old collapse/old-style dashed-box logic that can override the selected color.
+**This project (target layout to keep)**
+- Pages: `src/pages/adventure/AdventureGamesDashboard.tsx`, `src/pages/adventure/AdventureGameEditor.tsx`
+- Routes already exist under `/adventure/games` and `/adventure/games/:gameId`
+- The current editor is the older complex scene system (obstacle/door/vault, `SceneFrame`, `ChallengeTypePicker`, layout items, motion/playback/trigger). This is the "complex game structure" you asked to retire.
 
-3. **Force the floating number display to use the same placeholder style**
-   - Replace floating display placeholder glyph rendering with the shared placeholder primitive.
-   - For generated chips containing `□`, render real placeholder boxes, not black text squares.
-   - For fraction chips, keep the fraction bar ink-colored, but placeholder parts use placeholder color.
+## Approach
 
-4. **Force Present-click writes to land as clean board structures**
-   - Keep present/preview writing through the existing write channel, but ensure converted `□` slots become real `box` nodes.
-   - Make the board renderer, not the preview text renderer, responsible for the final live-board slot color.
-   - This fixes the case where Present shows the right color, but clicking it produces old-style board slots.
+Replace the complex Adventure editor with the simplified gamedraft builder, but re-skin its outer chrome (header, dashboard grid, breadcrumbs, page background) to match this project's current Adventure look — so the pages *feel* like the rest of MATHGPL while the inner canvas/settings are the upgraded gamedraft ones.
 
-5. **Rewrite manual fraction/box slots on the whiteboard**
-   - Update `BoxLayer` so empty manual numerator/denominator boxes use the same shared placeholder primitive/color.
-   - Filled boxes remain ink-colored text with transparent background.
+### 1. Backend port
+- Copy every gamedraft migration under `supabase/migrations/` that touches `games`, `game_assets`, `game-assets` bucket, RLS, GRANTs. Rewrite as one fresh migration in this project so `games` / `game_assets` exist here with identical columns, RLS, GRANTs, and bucket policies.
+- Port the `generate-game-cover` edge function into `supabase/functions/generate-game-cover/`.
+- Preserve the "game questions notebook" wiring (`gameQuestions.ts`) so the progress bar's hidden lesson-note still gets created.
 
-6. **Keep settings/state propagation simple**
-   - Keep `placeholderColorId` stored once.
-   - Resolve `placeholderColor` once in `PresentationView` and pass it to every renderer: whiteboard, floating number display, structure panel, settings samples, lesson text, and sync snapshot.
+### 2. Code port (verbatim, then re-skin)
+- Copy `src/lib/games/**` from gamedraft → this project unchanged.
+- Copy `src/components/gamebuilder/**` from gamedraft → this project unchanged.
+- Copy `GameEditorPage.tsx` from gamedraft → this project as `src/pages/adventure/AdventureGameEditor.tsx` (overwriting the current complex editor). Keep the internal canvas / rails / settings panel exactly as gamedraft has them.
+- Copy `GamesListPage.tsx` from gamedraft → merge into `src/pages/adventure/AdventureGamesDashboard.tsx`, keeping this project's page header/back-nav styling but swapping the card grid to `GameCard` from gamebuilder.
 
-7. **Verify the exact failure case**
-   - Open the smartboard route.
-   - Set placeholder color to a visible color.
-   - Check Settings sample, floating number display, Present preview, and actual whiteboard after clicking Present/fraction.
-   - Confirm: placeholders change color everywhere; fraction bars and normal ink do not change.
-   - Set placeholder back to Board/whiteboard color and confirm slots blend into the whiteboard while bars remain ink-colored.
+### 3. Layout blend
+- Reuse this project's existing header pattern (sticky top bar with `ArrowLeft → Games` back-nav, project typography, muted-foreground breadcrumb of topic · subtopic).
+- Keep this project's dashboard framing (page padding, empty-state card style, Add button placement) around the new `GameCard` grid.
+- Everything inside the editor stage (canvas, EffectsRail, SettingsPanel, SceneStrip, AssetLibraryModal, meta dialog) ships as-is from gamedraft — no visual changes to the builder controls, since those are the "settings that must all be there".
+
+### 4. Route wiring
+- Keep the existing route paths `/adventure/games` and `/adventure/games/:gameId` in `App.tsx`. Point them at the ported pages.
+- Delete the now-unused complex-editor pieces (`SceneFrame`, `ChallengeTypePicker`, `src/lib/adventure/**` scene APIs) only after confirming nothing else in this project imports them; otherwise leave them dormant.
+
+### 5. Verification
+- Build passes; `/adventure/games` lists games, create → opens the new editor.
+- Add background, add reward, drop a progress tower, apply an effect as energy, tweak `blend` / `bgRemoval` / `chroma` / `tint` / `slant` / `animation` — every panel from gamedraft renders and persists.
+- Progress bar: set `totalMarks=100`, `segments=10` → each 10-mark step lights a slot (same as gamedraft).
+- Autosave writes to `games.canvas`; reload restores scenes.
+
+## Technical notes
+
+- `src/integrations/supabase/client.ts` and `src/integrations/supabase/types.ts` are auto-generated in this project — the migration will regenerate `types.ts` so `games` / `game_assets` become typed automatically.
+- The gamedraft `AssetKind` enum (`background | reward | progress_bar | effect`) fully replaces this project's `SceneKind` (`obstacle | door | vault`). No data migration is needed because this project's `adventure_*` tables and the gamedraft `games` table are independent — old adventure data stays untouched.
+- No user-facing routes change, so bookmarks in `/adventure/games/...` keep working.
+- No frontend business logic beyond what already exists in gamedraft is added; this is a straight port + shell blend.
+
+## Out of scope
+
+- No changes to the rotating academy scene, Algebra subject pages, or any of the existing math games.
+- No changes to lesson notes / smartboard / floating numbers.
