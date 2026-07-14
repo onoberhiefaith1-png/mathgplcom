@@ -90,6 +90,20 @@ function GeometryDiagramView({
   const W = scene.bounds.width + PAD * 2;
   const H = scene.bounds.height + PAD * 2;
 
+  // Auto-hide AI action row: show on hover/select, hide 10s after last activity.
+  const [aiVisible, setAiVisible] = useState(false);
+  const hideTimer = useRef<number | null>(null);
+  const kickAi = () => {
+    setAiVisible(true);
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setAiVisible(false), 10_000);
+  };
+  useEffect(() => {
+    if (selected) kickAi();
+    return () => { if (hideTimer.current) window.clearTimeout(hideTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
   return (
     <NodeViewWrapper
       data-geometry-diagram-node="true"
