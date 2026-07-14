@@ -1,8 +1,9 @@
-// Place-Value Chart — Units-locked, expandable left. Columns can only be
-// added or removed from the LEFT; the Units column cannot be removed.
-// No visible vertical grid lines; invisible alignment guides keep every
-// digit centred beneath its heading. Editing lives in the right-hand
-// Properties Panel — no floating chip toolbars.
+// Place-Value Chart — Units-locked, expandable to the LEFT. Starts as
+// H | T | U with a single empty row. Columns can only be added or removed
+// from the LEFT; Units cannot be removed. No visible vertical borders —
+// invisible fixed-width cells keep every digit centred beneath its heading.
+// Advanced properties live in the right-hand Properties Panel; row/column
+// buttons live in an inline bottom toolbar under the asset.
 
 import { useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
@@ -11,12 +12,13 @@ import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
+import { AssetBottomToolbar } from "@/components/lessonnotes/panel/AssetBottomToolbar";
 
 interface Attrs {
   wholeHeaders?: string[];
   decimalHeaders?: string[];
-  values?: string[];
-  decValues?: string[];
+  rows?: string[][];       // rows × wholeHeaders.length
+  decRows?: string[][];    // rows × decimalHeaders.length
   fontSize?: number;
   headingSize?: number;
   colWidth?: number;
@@ -32,35 +34,63 @@ interface Props {
   selected?: boolean;
 }
 
-// Left-to-right column names as columns are added.
+// Left-expansion order. As the teacher presses Add Column, we pick the
+// next name that isn't already present.
 const LEFT_EXPANSION = ["T", "H", "Th", "TTh", "HTh", "M", "TM", "HM", "B"];
 
 function normalize(a: Record<string, unknown>): Required<Attrs> {
-  const wholeHeaders = Array.isArray(a.wholeHeaders) && a.wholeHeaders.length
-    ? (a.wholeHeaders as string[])
-    : ["HTh", "TTh", "Th", "H", "T", "U"];
-  // Ensure the rightmost header is Units and can never be removed.
-  if (wholeHeaders[wholeHeaders.length - 1] !== "U") {
-    wholeHeaders.push("U");
-  }
+  let wholeHeaders = Array.isArray(a.wholeHeaders) && a.wholeHeaders.length
+    ? (a.wholeHeaders as string[]).slice()
+    : ["H", "T", "U"];
+  if (wholeHeaders[wholeHeaders.length - 1] !== "U") wholeHeaders.push("U");
+
   const decimalHeaders = Array.isArray(a.decimalHeaders) ? (a.decimalHeaders as string[]) : [];
-  const values = Array.isArray(a.values) ? (a.values as string[]) : [];
-  const decValues = Array.isArray(a.decValues) ? (a.decValues as string[]) : [];
-  while (values.length < wholeHeaders.length) values.push("");
-  values.length = wholeHeaders.length;
-  while (decValues.length < decimalHeaders.length) decValues.push("");
-  decValues.length = decimalHeaders.length;
+
+  // Migrate legacy single-row shape (`values: string[]`) → `rows: string[][]`.
+  let rows: string[][];
+  if (Array.isArray(a.rows)) {
+    rows = (a.rows as string[][]).map((r) => (Array.isArray(r) ? [...r] : []));
+  } else if (Array.isArray((a as any).values)) {
+    rows = [((a as any).values as string[]).slice()];
+  } else {
+    rows = [[]];
+  }
+  rows = rows.map((r) => {
+    const out = [...r];
+    while (out.length < wholeHeaders.length) out.push("");
+    out.length = wholeHeaders.length;
+    return out;
+  });
+  if (rows.length === 0) rows = [Array.from({ length: wholeHeaders.length }, () => "")];
+
+  let decRows: string[][];
+  if (Array.isArray(a.decRows)) {
+    decRows = (a.decRows as string[][]).map((r) => (Array.isArray(r) ? [...r] : []));
+  } else if (Array.isArray((a as any).decValues)) {
+    decRows = [((a as any).decValues as string[]).slice()];
+  } else {
+    decRows = rows.map(() => []);
+  }
+  while (decRows.length < rows.length) decRows.push([]);
+  decRows.length = rows.length;
+  decRows = decRows.map((r) => {
+    const out = [...r];
+    while (out.length < decimalHeaders.length) out.push("");
+    out.length = decimalHeaders.length;
+    return out;
+  });
+
   return {
     wholeHeaders,
     decimalHeaders,
-    values,
-    decValues,
-    fontSize: Number(a.fontSize) || 18,
-    headingSize: Number(a.headingSize) || 11,
-    colWidth: Number(a.colWidth) || 44,
-    rowHeight: Number(a.rowHeight) || 40,
+    rows,
+    decRows,
+    fontSize: Number(a.fontSize) || 22,
+    headingSize: Number(a.headingSize) || 13,
+    colWidth: Number(a.colWidth) || 52,
+    rowHeight: Number(a.rowHeight) || 44,
     showGuides: a.showGuides === undefined ? false : Boolean(a.showGuides),
-    headingColor: typeof a.headingColor === "string" ? a.headingColor : "#64748b",
+    headingColor: typeof a.headingColor === "string" ? a.headingColor : "#0f172a",
     digitColor: typeof a.digitColor === "string" ? a.digitColor : "#0f172a",
   };
 }
@@ -69,38 +99,45 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
   const m = useMemo(() => normalize(attrs), [attrs]);
   const patch = useCallback((p: Partial<Attrs>) => onChange({ ...p }), [onChange]);
 
-  const setValue = (i: number, v: string) => {
-    const a = [...m.values]; a[i] = v; patch({ values: a });
+  const setCell = (r: number, c: number, v: string) => {
+    const rows = m.rows.map((row) => [...row]); rows[r][c] = v; patch({ rows });
   };
-  const setDecValue = (i: number, v: string) => {
-    const a = [...m.decValues]; a[i] = v; patch({ decValues: a });
+  const setDecCell = (r: number, c: number, v: string) => {
+    const decRows = m.decRows.map((row) => [...row]); decRows[r][c] = v; patch({ decRows });
   };
 
-  // Add a place value on the LEFT. Choose the next unused expansion name
-  // that isn't already present.
+  // Add ONE column on the LEFT.
   const addLeft = () => {
     const used = new Set(m.wholeHeaders);
     const next = LEFT_EXPANSION.find((h) => !used.has(h)) ?? "?";
     patch({
       wholeHeaders: [next, ...m.wholeHeaders],
-      values: ["", ...m.values],
+      rows: m.rows.map((r) => ["", ...r]),
     });
   };
-  // Remove the LEFTMOST column, but never remove U.
+  // Remove the LEFTMOST column, but never Units.
   const removeLeft = () => {
     if (m.wholeHeaders.length <= 1) return;
     patch({
       wholeHeaders: m.wholeHeaders.slice(1),
-      values: m.values.slice(1),
+      rows: m.rows.map((r) => r.slice(1)),
     });
+  };
+  const addRow = () => patch({
+    rows: [...m.rows, Array.from({ length: m.wholeHeaders.length }, () => "")],
+    decRows: [...m.decRows, Array.from({ length: m.decimalHeaders.length }, () => "")],
+  });
+  const removeRow = () => {
+    if (m.rows.length <= 1) return;
+    patch({ rows: m.rows.slice(0, -1), decRows: m.decRows.slice(0, -1) });
   };
   const addDecCol = () => patch({
     decimalHeaders: [...m.decimalHeaders, ["t", "h", "th", "tth"][m.decimalHeaders.length] ?? ""],
-    decValues: [...m.decValues, ""],
+    decRows: m.decRows.map((r) => [...r, ""]),
   });
   const removeDecCol = () => m.decimalHeaders.length > 0 && patch({
     decimalHeaders: m.decimalHeaders.slice(0, -1),
-    decValues: m.decValues.slice(0, -1),
+    decRows: m.decRows.map((r) => r.slice(0, -1)),
   });
 
   const cellStyle: React.CSSProperties = {
@@ -116,28 +153,23 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
     ...cellStyle,
     fontSize: m.headingSize,
     color: m.headingColor,
-    fontWeight: 600,
+    fontWeight: 700,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
-    borderBottom: "2px solid hsl(var(--foreground) / 0.85)",
+    borderBottom: `3px solid ${m.headingColor}`,
   };
   const digitStyle: React.CSSProperties = {
     ...cellStyle,
     fontSize: m.fontSize,
     color: m.digitColor,
-    fontWeight: 500,
+    fontWeight: 600,
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
   };
 
   const editor = (
     <div>
-      <PanelGroup label="Columns">
-        <PanelButton full onClick={addLeft}><Plus className="h-3 w-3" /> Add place value (left)</PanelButton>
-        <PanelButton full onClick={removeLeft}
-          variant={m.wholeHeaders.length <= 1 ? "default" : "default"}>
-          <Minus className="h-3 w-3" /> Remove left column
-        </PanelButton>
-        <PanelRow label="Decimal columns">
+      <PanelGroup label="Decimal columns">
+        <PanelRow label="Count">
           <PanelButton onClick={removeDecCol}><Minus className="h-3 w-3" /></PanelButton>
           <span className="tabular-nums w-4 text-center">{m.decimalHeaders.length}</span>
           <PanelButton onClick={addDecCol}><Plus className="h-3 w-3" /></PanelButton>
@@ -162,7 +194,7 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
 
   return (
     <div className="not-prose inline-block">
-      <table className="border-collapse text-foreground" style={{ borderCollapse: "collapse" }}>
+      <table style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr>
             {m.wholeHeaders.map((h, i) => (
@@ -177,23 +209,35 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
           </tr>
         </thead>
         <tbody>
-          <tr>
-            {m.values.map((v, i) => (
-              <td key={"wv" + i} style={digitStyle}>
-                <SmartCell value={v} onChange={(nv) => setValue(i, nv)} align="center" />
-              </td>
-            ))}
-            {m.decimalHeaders.length > 0 && (
-              <td style={{ ...digitStyle, width: 14, minWidth: 14, fontWeight: 900 }}>.</td>
-            )}
-            {m.decValues.map((v, i) => (
-              <td key={"dv" + i} style={digitStyle}>
-                <SmartCell value={v} onChange={(nv) => setDecValue(i, nv)} align="center" />
-              </td>
-            ))}
-          </tr>
+          {m.rows.map((row, r) => (
+            <tr key={r}>
+              {row.map((v, c) => (
+                <td key={"wv" + r + "-" + c} style={digitStyle}>
+                  <SmartCell value={v} onChange={(nv) => setCell(r, c, nv)} align="center" />
+                </td>
+              ))}
+              {m.decimalHeaders.length > 0 && (
+                <td style={{ ...digitStyle, width: 14, minWidth: 14, fontWeight: 900 }}>·</td>
+              )}
+              {(m.decRows[r] ?? []).map((v, c) => (
+                <td key={"dv" + r + "-" + c} style={digitStyle}>
+                  <SmartCell value={v} onChange={(nv) => setDecCell(r, c, nv)} align="center" />
+                </td>
+              ))}
+            </tr>
+          ))}
         </tbody>
       </table>
+
+      <AssetBottomToolbar
+        visible={!!selected}
+        actions={[
+          { label: "Column", icon: <Plus className="h-3 w-3" />, onClick: addLeft },
+          { label: "Column", icon: <Minus className="h-3 w-3" />, onClick: removeLeft, disabled: m.wholeHeaders.length <= 1, tone: "danger" },
+          { label: "Row", icon: <Plus className="h-3 w-3" />, onClick: addRow },
+          { label: "Row", icon: <Minus className="h-3 w-3" />, onClick: removeRow, disabled: m.rows.length <= 1, tone: "danger" },
+        ]}
+      />
     </div>
   );
 }

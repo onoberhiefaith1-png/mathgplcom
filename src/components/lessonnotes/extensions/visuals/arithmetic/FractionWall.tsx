@@ -1,5 +1,6 @@
 // Fraction Wall — stacked strips, each split into N equal partitions.
-// Editing lives in the right-hand Properties Panel.
+// Opens empty: no default rows. The teacher adds rows via the bottom
+// toolbar and configures denominators/colour in the right-hand panel.
 
 import { useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
@@ -7,6 +8,7 @@ import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor,
 } from "@/components/lessonnotes/panel/panelPrimitives";
+import { AssetBottomToolbar } from "@/components/lessonnotes/panel/AssetBottomToolbar";
 
 interface Row {
   parts: number;
@@ -37,12 +39,7 @@ function normalizeRow(r: Partial<Row>): Row {
 }
 
 function normalize(a: Record<string, unknown>): Required<Attrs> {
-  const rows = Array.isArray(a.rows) ? (a.rows as Row[]).map(normalizeRow) : [
-    normalizeRow({ parts: 1 }),
-    normalizeRow({ parts: 2 }),
-    normalizeRow({ parts: 3 }),
-    normalizeRow({ parts: 4 }),
-  ];
+  const rows = Array.isArray(a.rows) ? (a.rows as Row[]).map(normalizeRow) : [];
   return {
     rows,
     width: Number(a.width) || 340,
@@ -64,57 +61,61 @@ export function FractionWall({ attrs, onChange, selected }: Props) {
     patch({ rows });
   };
   const addRow = () => {
-    const nextParts = Math.min(m.maxDenominator, (m.rows[m.rows.length - 1]?.parts ?? 4) + 1);
+    const nextParts = Math.min(m.maxDenominator, (m.rows[m.rows.length - 1]?.parts ?? 0) + 1 || 1);
     patch({ rows: [...m.rows, normalizeRow({ parts: nextParts })] });
   };
-  const delRow = () => m.rows.length > 1 && patch({ rows: m.rows.slice(0, -1) });
+  const delRow = () => m.rows.length > 0 && patch({ rows: m.rows.slice(0, -1) });
 
   const editor = (
     <div>
-      <PanelGroup label="Rows">
-        <PanelRow label="Number of rows">
-          <PanelButton onClick={delRow}><Minus className="h-3 w-3" /></PanelButton>
-          <span className="tabular-nums w-4 text-center">{m.rows.length}</span>
-          <PanelButton onClick={addRow}><Plus className="h-3 w-3" /></PanelButton>
-        </PanelRow>
+      <PanelGroup label="Wall">
         <PanelRow label="Max denominator">
           <PanelNumber value={m.maxDenominator} min={2} max={24} onChange={(v) => patch({ maxDenominator: v })} />
         </PanelRow>
       </PanelGroup>
-      <PanelGroup label="Per-row">
-        {m.rows.map((row, i) => (
-          <div key={i} className="flex items-center gap-1 text-xs">
-            <span className="w-10 text-foreground/60">{row.label}</span>
-            <PanelButton onClick={() => setRow(i, { parts: Math.max(1, row.parts - 1) })}><Minus className="h-3 w-3" /></PanelButton>
-            <span className="tabular-nums w-6 text-center">{row.parts}</span>
-            <PanelButton onClick={() => setRow(i, { parts: Math.min(m.maxDenominator, row.parts + 1) })}><Plus className="h-3 w-3" /></PanelButton>
-            <PanelColor value={row.color} onChange={(v) => setRow(i, { color: v })} />
-          </div>
-        ))}
-      </PanelGroup>
+      {m.rows.length > 0 && (
+        <PanelGroup label="Per-row">
+          {m.rows.map((row, i) => (
+            <div key={i} className="flex items-center gap-1 text-xs">
+              <span className="w-10 text-foreground/60">{row.label}</span>
+              <PanelButton onClick={() => setRow(i, { parts: Math.max(1, row.parts - 1) })}><Minus className="h-3 w-3" /></PanelButton>
+              <span className="tabular-nums w-6 text-center">{row.parts}</span>
+              <PanelButton onClick={() => setRow(i, { parts: Math.min(m.maxDenominator, row.parts + 1) })}><Plus className="h-3 w-3" /></PanelButton>
+              <PanelColor value={row.color} onChange={(v) => setRow(i, { color: v })} />
+            </div>
+          ))}
+        </PanelGroup>
+      )}
     </div>
   );
   useRegisterAssetEditor(!!selected, "fractionWall", "Fraction wall", editor);
 
   return (
     <div className="not-prose inline-block">
-      <div style={{ width: m.width }} className="space-y-1">
+      <div style={{ width: m.width, minHeight: m.rows.length === 0 ? 30 : undefined }} className="space-y-1">
+        {m.rows.length === 0 && selected && (
+          <div className="text-xs text-foreground/50 italic px-1">Add a row to start.</div>
+        )}
         {m.rows.map((row, ri) => (
           <div key={ri} className="flex items-center gap-2">
             <input
               value={row.label}
               onChange={(e) => setRow(ri, { label: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className="w-14 text-xs bg-transparent border-b border-foreground/20 focus:border-primary outline-none px-1 py-0.5 text-foreground"
+              className="w-14 text-xs bg-transparent border-b border-foreground/30 focus:border-primary outline-none px-1 py-0.5"
+              style={{ color: "#0f172a" }}
             />
-            <div className="flex-1 flex border-2 border-foreground/70 rounded overflow-hidden" style={{ height: 26 }}>
+            <div className="flex-1 flex rounded overflow-hidden" style={{ height: 30, border: "2px solid #0f172a" }}>
               {row.shaded.map((on, ci) => (
                 <button
                   key={ci}
                   type="button"
                   onClick={(e) => { e.stopPropagation(); toggleCell(ri, ci); }}
-                  className={"flex-1 border-r border-foreground/50 last:border-r-0 transition-colors " + (on ? "" : "hover:bg-foreground/5")}
-                  style={{ background: on ? row.color : "transparent" }}
+                  className="flex-1 transition-colors hover:bg-foreground/5"
+                  style={{
+                    background: on ? row.color : "transparent",
+                    borderRight: ci < row.shaded.length - 1 ? "1.5px solid #0f172a" : undefined,
+                  }}
                   aria-label={`row ${ri + 1} cell ${ci + 1}`}
                 />
               ))}
@@ -122,6 +123,14 @@ export function FractionWall({ attrs, onChange, selected }: Props) {
           </div>
         ))}
       </div>
+
+      <AssetBottomToolbar
+        visible={!!selected}
+        actions={[
+          { label: "Row", icon: <Plus className="h-3 w-3" />, onClick: addRow },
+          { label: "Row", icon: <Minus className="h-3 w-3" />, onClick: delRow, disabled: m.rows.length === 0, tone: "danger" },
+        ]}
+      />
     </div>
   );
 }

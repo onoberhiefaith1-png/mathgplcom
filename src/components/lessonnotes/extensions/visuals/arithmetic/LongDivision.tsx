@@ -1,16 +1,17 @@
-// Long Division — classic ") ‾‾‾‾" bracket layout.
-// Editable divisor, dividend, quotient (over the bar), and unlimited
-// working rows below. Every two working rows automatically get a
-// subtraction line + minus sign when Auto mode is on.
-// Editing lives in the right-hand Properties Panel.
+// Long Division — classic ") ‾‾‾‾" bracket layout. Opens empty: no
+// preset divisor, dividend, quotient, or working rows. Each press of
+// "+ Step" adds a pair of working rows: row 1 (product), row 2
+// (subtraction — automatically gets a minus sign and a horizontal line).
+// Advanced settings live in the right-hand Properties Panel.
 
 import { Fragment, useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
 import { SmartCell } from "../smarttable/SmartCell";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
-  PanelGroup, PanelRow, PanelButton, PanelNumber, PanelToggle,
+  PanelGroup, PanelRow, PanelNumber, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
+import { AssetBottomToolbar } from "@/components/lessonnotes/panel/AssetBottomToolbar";
 
 interface Attrs {
   divisor?: string;
@@ -32,15 +33,15 @@ interface Props {
 
 function normalize(a: Record<string, unknown>): Required<Attrs> {
   return {
-    divisor: typeof a.divisor === "string" ? a.divisor : "12",
-    dividend: typeof a.dividend === "string" ? a.dividend : "3648",
+    divisor: typeof a.divisor === "string" ? a.divisor : "",
+    dividend: typeof a.dividend === "string" ? a.dividend : "",
     quotient: typeof a.quotient === "string" ? a.quotient : "",
-    workingRows: Array.isArray(a.workingRows) ? (a.workingRows as string[]) : ["", ""],
+    workingRows: Array.isArray(a.workingRows) ? (a.workingRows as string[]) : [],
     showWorking: a.showWorking === undefined ? true : Boolean(a.showWorking),
     autoMinus: a.autoMinus === undefined ? true : Boolean(a.autoMinus),
     autoLine: a.autoLine === undefined ? true : Boolean(a.autoLine),
-    lineThickness: Number(a.lineThickness) || 2,
-    rowHeight: Number(a.rowHeight) || 28,
+    lineThickness: Number(a.lineThickness) || 3,
+    rowHeight: Number(a.rowHeight) || 36,
   };
 }
 
@@ -51,23 +52,20 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
   const setRow = (i: number, v: string) => {
     const rows = [...m.workingRows]; rows[i] = v; patch({ workingRows: rows });
   };
-  const addRow = () => patch({ workingRows: [...m.workingRows, ""] });
-  const delRow = () => m.workingRows.length > 0 &&
-    patch({ workingRows: m.workingRows.slice(0, -1) });
+  // Each "step" is a pair of rows: product line + subtraction line.
+  const addStep = () => patch({ workingRows: [...m.workingRows, "", ""] });
+  const delStep = () => m.workingRows.length > 0 &&
+    patch({ workingRows: m.workingRows.slice(0, Math.max(0, m.workingRows.length - 2)) });
 
   const editor = (
     <div>
-      <PanelGroup label="Rows">
-        <PanelButton full onClick={addRow}><Plus className="h-3 w-3" /> Add working row</PanelButton>
-        <PanelButton full onClick={delRow}><Minus className="h-3 w-3" /> Delete last row</PanelButton>
-      </PanelGroup>
       <PanelGroup label="Behaviour">
         <PanelRow label="Auto minus (every 2 rows)"><PanelToggle value={m.autoMinus} onChange={(v) => patch({ autoMinus: v })} /></PanelRow>
         <PanelRow label="Auto horizontal line"><PanelToggle value={m.autoLine} onChange={(v) => patch({ autoLine: v })} /></PanelRow>
         <PanelRow label="Show working"><PanelToggle value={m.showWorking} onChange={(v) => patch({ showWorking: v })} /></PanelRow>
       </PanelGroup>
       <PanelGroup label="Sizing">
-        <PanelRow label="Line thickness"><PanelNumber value={m.lineThickness} min={1} max={5} onChange={(v) => patch({ lineThickness: v })} /></PanelRow>
+        <PanelRow label="Line thickness"><PanelNumber value={m.lineThickness} min={1} max={6} onChange={(v) => patch({ lineThickness: v })} /></PanelRow>
         <PanelRow label="Row height"><PanelNumber value={m.rowHeight} min={20} max={60} onChange={(v) => patch({ rowHeight: v })} /></PanelRow>
       </PanelGroup>
     </div>
@@ -75,55 +73,56 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
   useRegisterAssetEditor(!!selected, "longDivision", "Long division", editor);
 
   return (
-    <div className="not-prose inline-block font-mono text-foreground">
+    <div className="not-prose inline-block font-mono" style={{ color: "#0f172a" }}>
       {/* Quotient (above the bar) */}
-      <div className="grid" style={{ gridTemplateColumns: "auto auto 1fr", alignItems: "end" }}>
+      <div className="grid" style={{ gridTemplateColumns: "auto auto 1fr", alignItems: "end", fontSize: 22 }}>
         <div />
         <div />
         <div className="text-right pr-2 pb-0.5">
-          <SmartCell value={m.quotient} onChange={(v) => patch({ quotient: v })} placeholder="quotient" align="right" />
+          <SmartCell value={m.quotient} onChange={(v) => patch({ quotient: v })} placeholder="" align="right" />
         </div>
 
         {/* Divisor ) dividend */}
-        <div className="pr-1 self-center text-lg">
-          <SmartCell value={m.divisor} onChange={(v) => patch({ divisor: v })} align="right" placeholder="d" />
+        <div className="pr-1 self-center">
+          <SmartCell value={m.divisor} onChange={(v) => patch({ divisor: v })} align="right" placeholder="" />
         </div>
-        <div className="self-center text-lg pr-1">)</div>
+        <div className="self-center pr-1" style={{ fontSize: 26, fontWeight: 700 }}>)</div>
         <div
           className="text-right pr-2"
           style={{
-            borderTop: `${m.lineThickness}px solid hsl(var(--foreground))`,
+            borderTop: `${m.lineThickness}px solid #0f172a`,
             paddingTop: 2,
+            minWidth: "5ch",
           }}
         >
-          <SmartCell value={m.dividend} onChange={(v) => patch({ dividend: v })} align="right" placeholder="dividend" />
+          <SmartCell value={m.dividend} onChange={(v) => patch({ dividend: v })} align="right" placeholder="" />
         </div>
       </div>
 
       {/* Working rows */}
       {m.showWorking && m.workingRows.length > 0 && (
-        <div className="grid mt-0.5" style={{ gridTemplateColumns: "auto auto 1fr" }}>
+        <div className="grid mt-0.5" style={{ gridTemplateColumns: "auto auto 1fr", fontSize: 22 }}>
           {m.workingRows.map((row, i) => {
             const showMinus = m.autoMinus && i % 2 === 0;
             const showLine = m.autoLine && i % 2 === 1;
             return (
               <Fragment key={i}>
                 <div />
-                <div className="text-right self-center pr-1 text-foreground/70">
+                <div className="text-right self-center pr-1" style={{ fontWeight: 700 }}>
                   {showMinus ? "−" : ""}
                 </div>
                 <div
                   className="text-right pr-2 py-0.5"
                   style={{
                     height: m.rowHeight,
-                    borderTop: showLine ? `${m.lineThickness}px solid hsl(var(--foreground))` : undefined,
+                    borderTop: showLine ? `${m.lineThickness}px solid #0f172a` : undefined,
                   }}
                 >
                   <SmartCell
                     value={row}
                     onChange={(v) => setRow(i, v)}
                     align="right"
-                    placeholder="working"
+                    placeholder=""
                     minWidth="6ch"
                   />
                 </div>
@@ -132,6 +131,14 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
           })}
         </div>
       )}
+
+      <AssetBottomToolbar
+        visible={!!selected}
+        actions={[
+          { label: "Working step", icon: <Plus className="h-3 w-3" />, onClick: addStep },
+          { label: "Working step", icon: <Minus className="h-3 w-3" />, onClick: delStep, disabled: m.workingRows.length === 0, tone: "danger" },
+        ]}
+      />
     </div>
   );
 }
