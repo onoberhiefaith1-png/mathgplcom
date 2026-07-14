@@ -337,10 +337,11 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
   const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
 
   // ----- Layout -----
-  // Shared grid template: [minus gutter] [divisor+")" gutter] [nCols cells].
-  // Divisor/")" gutter is `auto` so it grows with the divisor text but the
-  // cell columns after it stay perfectly aligned across rows.
-  const gridTemplate = `1.5ch auto repeat(${nCols}, ${COL_W})`;
+  // Shared grid template: [minus gutter] [divisor] [hook] [nCols cells].
+  // The hook column holds an SVG curve that flows into the vinculum, so the
+  // whole long-division sign reads as ONE continuous symbol (like a radical).
+  const HOOK_W = 12;
+  const gridTemplate = `1.5ch auto ${HOOK_W}px repeat(${nCols}, ${COL_W})`;
 
   return (
     <div
