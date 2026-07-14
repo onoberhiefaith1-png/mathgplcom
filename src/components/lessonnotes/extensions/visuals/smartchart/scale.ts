@@ -74,6 +74,43 @@ export function resolveYScale(
   return niceDomain(lo, hi, false);
 }
 
+/** Manual "cm : unit" scale. Returns an AxisScale plus derived pxPerUnit
+ *  and numSteps so the plot can size itself in centimetre units. */
+export interface ManualScaleResult extends AxisScale {
+  numSteps: number;
+  pxPerUnit: number;
+  cmPerStep: number;
+  unitPerStep: number;
+}
+
+const PX_PER_CM = 12; // internal SVG "cm"; visual scale is uniform to viewBox
+
+export function resolveManualScale(y: {
+  min: number; max: number; cmPerStep: number; unitPerStep: number;
+}): ManualScaleResult {
+  const min = Math.min(y.min, y.max);
+  const max = Math.max(y.min, y.max);
+  const unitPerStep = y.unitPerStep > 0 && Number.isFinite(y.unitPerStep) ? y.unitPerStep : 1;
+  const cmPerStep = y.cmPerStep > 0 && Number.isFinite(y.cmPerStep) ? y.cmPerStep : 1;
+  const numSteps = Math.max(1, Math.ceil((max - min) / unitPerStep));
+  const ticks: number[] = [];
+  for (let i = 0; i <= numSteps; i++) {
+    ticks.push(Number((min + i * unitPerStep).toFixed(10)));
+    if (ticks.length > 200) break;
+  }
+  const pxPerUnit = (cmPerStep * PX_PER_CM) / unitPerStep;
+  return {
+    min,
+    max: min + numSteps * unitPerStep,
+    step: unitPerStep,
+    ticks,
+    numSteps,
+    pxPerUnit,
+    cmPerStep,
+    unitPerStep,
+  };
+}
+
 /** Minor tick values between major ticks (exclusive of majors). */
 export function minorTicks(scale: AxisScale, divisions: number): number[] {
   if (!Number.isFinite(divisions) || divisions <= 1) return [];
