@@ -26,6 +26,13 @@ import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
 import { SmartCalcNode, type SmartCalcAttrs } from "./extensions/SmartCalc";
 import { MathObjectNode } from "./extensions/MathObject";
+import { MathStructure, MathSlot } from "./extensions/MathStructure";
+import { MathVisual } from "./extensions/MathVisual";
+import { AtCommand, type AtCommandState } from "./extensions/AtCommand";
+import { AtCommandMenu } from "./AtCommandMenu";
+import { AssetLibraryDialog } from "./AssetLibraryDialog";
+import { MatrixToolbar } from "./MatrixToolbar";
+import { LayoutGrid } from "lucide-react";
 import { StepAnimationNode, type AnimationFrame } from "./extensions/StepAnimation";
 import { MathTablesPicker } from "./math-tools/MathTablesPicker";
 import { SmartCalculator } from "./math-tools/SmartCalculator";
@@ -765,7 +772,8 @@ function DocumentEditorInner({
     toast({ title: "Animation started", description: "Edit, then press Capture Step again to add the next frame." });
   };
 
-
+  const [atState, setAtState] = useState<AtCommandState>({ active: false, query: "", from: 0, to: 0, coords: null });
+  const [assetLibOpen, setAssetLibOpen] = useState(false);
 
 
 
@@ -791,6 +799,10 @@ function DocumentEditorInner({
       SmartCalcNode,
       MathObjectNode,
       StepAnimationNode,
+      MathSlot,
+      MathStructure,
+      MathVisual,
+      AtCommand.configure({ onChange: setAtState }),
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
@@ -1379,6 +1391,7 @@ function DocumentEditorInner({
         <Btn active={editor?.isActive("orderedList")} onClick={() => editor?.chain().focus().toggleOrderedList().run()} title="Numbered list"><ListOrdered className="h-4 w-4" /></Btn>
         <Divider />
         <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
+        <Btn onClick={() => setAssetLibOpen(true)} title="Asset Library — browse all symbols & structures"><LayoutGrid className="h-4 w-4" /></Btn>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="p-1.5 rounded hover:bg-foreground/10 inline-flex items-center gap-1 text-xs" title="Add a section">
@@ -1572,6 +1585,9 @@ function DocumentEditorInner({
         onClose={closeAiEdit}
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
+      <AtCommandMenu editor={editor} state={atState} onClose={() => setAtState({ active: false, query: "", from: 0, to: 0, coords: null })} />
+      <AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />
+      <MatrixToolbar editor={editor} />
       <GeometryAiPanel />
       <GeometryToolbox />
       <MathTablesPicker

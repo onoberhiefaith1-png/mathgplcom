@@ -1,71 +1,90 @@
-
 ## Goal
 
-Bring the upgraded, simplified game builder from **Remix of gamedraft** into this project, and mount it on this project's existing Adventure games layout (the header/dashboard shell you like here). Every setting that already works in gamedraft must survive the port — nothing gets left behind.
+Bring the Asset Library (200+ math symbols, elastic structures, parametric diagrams, grids/charts, manipulatives) from the **mathgpl structure** project into this project's Lesson Notes editor, so the teacher can:
 
-## What's over there vs what's here
+- Click the Asset Library button in the editor toolbar to open a full-screen gallery of every asset.
+- Type `@` inside the document to summon the inline command menu that searches the same registry and inserts on Enter.
 
-**Remix of gamedraft (source, upgraded features)**
-- Pages: `GamesListPage.tsx`, `GameEditorPage.tsx`
-- Components: `src/components/gamebuilder/` — `GameCanvas`, `GameCard`, `AssetLibraryModal`, `AssetsPanel`, `EffectsRail`, `SceneStrip`, `SettingsPanel`, `ProgressColumn`, `CanvasElementView`, `ChromaVideo`, `SignedMedia`
-- Lib: `src/lib/games/` — `types.ts`, `games.ts`, `gameQuestions.ts`, `assets.ts`, `urls.ts`, `progressPresets.ts`, `removeBackground.ts`, `classGames.ts`
-- Backend: `games` + `game_assets` tables, `game-assets` storage bucket, `generate-game-cover` edge function, game-questions notebook wiring
-- Feature set to preserve verbatim:
-  - Scenes (multi-scene canvas with per-scene background + elements)
-  - Element kinds: `background`, `reward`, `progress_bar`, `effect`
-  - Progress bar (built-in 10-slot tower): presets, `totalMarks`, `currentMarks`, `segments`, `fillStyle` (`plain` / `effect`), per-slot energy overrides (`slotEffects`), default energy, glow, effectScale, plainColor, question-notebook wiring
-  - Compositing: `blend`, `bgRemoval` (`none` / `screen-black` / `chroma`), auto chroma-key detection, `keyColor` + `keyTolerance`
-  - Directional tint (`color`, `strength`, `direction`, `softness`)
-  - Three-axis slant (`lean` / `slide` / `tilt`) with legacy migration
-  - Animation (`type`, `amplitude`, `speed`, `loop`, `delay`, `fadeIn`, `fadeOut`, `trigger`)
-  - Camera target per scene
-  - Asset library (upload + URL pick), energy-mode picking, per-game asset import
-  - AI game-cover generation
-  - Meta dialog (title + topic + subtopic) required so AI question generation has context
+Behaviour, tiles, sections, matrix dialogs, and keyboard flow all match the source project exactly.
 
-**This project (target layout to keep)**
-- Pages: `src/pages/adventure/AdventureGamesDashboard.tsx`, `src/pages/adventure/AdventureGameEditor.tsx`
-- Routes already exist under `/adventure/games` and `/adventure/games/:gameId`
-- The current editor is the older complex scene system (obstacle/door/vault, `SceneFrame`, `ChallengeTypePicker`, layout items, motion/playback/trigger). This is the "complex game structure" you asked to retire.
+## Scope
 
-## Approach
+Only the Lesson Notes editor is touched. Nothing else (rotating academy, adventure games, smartboard, floating numbers) changes.
 
-Replace the complex Adventure editor with the simplified gamedraft builder, but re-skin its outer chrome (header, dashboard grid, breadcrumbs, page background) to match this project's current Adventure look — so the pages *feel* like the rest of MATHGPL while the inner canvas/settings are the upgraded gamedraft ones.
+## What gets copied from `mathgpl structure`
 
-### 1. Backend port
-- Copy every gamedraft migration under `supabase/migrations/` that touches `games`, `game_assets`, `game-assets` bucket, RLS, GRANTs. Rewrite as one fresh migration in this project so `games` / `game_assets` exist here with identical columns, RLS, GRANTs, and bucket policies.
-- Port the `generate-game-cover` edge function into `supabase/functions/generate-game-cover/`.
-- Preserve the "game questions notebook" wiring (`gameQuestions.ts`) so the progress bar's hidden lesson-note still gets created.
+### 1. Asset registry (data)
+- `src/lib/lessonnotes/assets/types.ts`
+- `src/lib/lessonnotes/assets/registry.ts`
+- `src/lib/lessonnotes/assets/insert.ts`
+- `src/lib/lessonnotes/assets/symbols.ts`
+- `src/lib/lessonnotes/assets/structures.ts`
+- `src/lib/lessonnotes/assets/diagrams.ts`
+- `src/lib/lessonnotes/assets/graphs.ts`
+- `src/lib/lessonnotes/assets/tables.ts`
+- `src/lib/lessonnotes/assets/manipulatives.ts`
+- `src/lib/lessonnotes/assets/measurement.ts`
+- `src/lib/lessonnotes/assets/realworld.ts`
 
-### 2. Code port (verbatim, then re-skin)
-- Copy `src/lib/games/**` from gamedraft → this project unchanged.
-- Copy `src/components/gamebuilder/**` from gamedraft → this project unchanged.
-- Copy `GameEditorPage.tsx` from gamedraft → this project as `src/pages/adventure/AdventureGameEditor.tsx` (overwriting the current complex editor). Keep the internal canvas / rails / settings panel exactly as gamedraft has them.
-- Copy `GamesListPage.tsx` from gamedraft → merge into `src/pages/adventure/AdventureGamesDashboard.tsx`, keeping this project's page header/back-nav styling but swapping the card grid to `GameCard` from gamebuilder.
+### 2. Structure + matrix support
+- `src/lib/lessonnotes/structureValidator.ts`
+- `src/lib/lessonnotes/matrixOps.ts`
 
-### 3. Layout blend
-- Reuse this project's existing header pattern (sticky top bar with `ArrowLeft → Games` back-nav, project typography, muted-foreground breadcrumb of topic · subtopic).
-- Keep this project's dashboard framing (page padding, empty-state card style, Add button placement) around the new `GameCard` grid.
-- Everything inside the editor stage (canvas, EffectsRail, SettingsPanel, SceneStrip, AssetLibraryModal, meta dialog) ships as-is from gamedraft — no visual changes to the builder controls, since those are the "settings that must all be there".
+### 3. New TipTap extensions
+- `src/components/lessonnotes/extensions/AtCommand.ts`
+- `src/components/lessonnotes/extensions/MathStructure.tsx` (adds `mathStructure` + `mathSlot` nodes)
+- `src/components/lessonnotes/extensions/MathVisual.tsx`
 
-### 4. Route wiring
-- Keep the existing route paths `/adventure/games` and `/adventure/games/:gameId` in `App.tsx`. Point them at the ported pages.
-- Delete the now-unused complex-editor pieces (`SceneFrame`, `ChallengeTypePicker`, `src/lib/adventure/**` scene APIs) only after confirming nothing else in this project imports them; otherwise leave them dormant.
+### 4. Visuals dispatch tree
+- `src/components/lessonnotes/extensions/visuals/visualDispatch.tsx`
+- `src/components/lessonnotes/extensions/visuals/arithmetic/**`
+- `src/components/lessonnotes/extensions/visuals/circleEngine/**`
+- `src/components/lessonnotes/extensions/visuals/coord/**`
+- `src/components/lessonnotes/extensions/visuals/lineEngine/**`
+- `src/components/lessonnotes/extensions/visuals/living/**`
+- `src/components/lessonnotes/extensions/visuals/smarttable/**`
+- `src/components/lessonnotes/extensions/visuals/solidEngine/**`
+- `src/components/lessonnotes/extensions/visuals/vennEngine/**`
 
-### 5. Verification
-- Build passes; `/adventure/games` lists games, create → opens the new editor.
-- Add background, add reward, drop a progress tower, apply an effect as energy, tweak `blend` / `bgRemoval` / `chroma` / `tint` / `slant` / `animation` — every panel from gamedraft renders and persists.
-- Progress bar: set `totalMarks=100`, `segments=10` → each 10-mark step lights a slot (same as gamedraft).
-- Autosave writes to `games.canvas`; reload restores scenes.
+### 5. UI components
+- `src/components/lessonnotes/AssetLibraryDialog.tsx`
+- `src/components/lessonnotes/AtCommandMenu.tsx`
+- `src/components/lessonnotes/MatrixCreateDialog.tsx`
+- `src/components/lessonnotes/MatrixToolbar.tsx`
+
+### 6. CSS
+Append the `.math-struct`, `.math-slot`, `.math-struct--preview`, matrix bracket, and related rules from the source project's `src/index.css` into this project's `src/index.css`.
+
+## Wire-up inside this project
+
+Edit only `src/components/lessonnotes/DocumentEditor.tsx`:
+
+1. Import `MathStructure`, `MathSlot`, `MathVisual`, `AtCommand`, `AtCommandMenu`, `AssetLibraryDialog`, `MatrixToolbar`.
+2. Register `MathSlot`, `MathStructure`, `MathVisual`, `AtCommand.configure({ onChange: setAtState })` in the `useEditor` extensions array — added alongside the existing extensions (SolutionRow, MathObject, MathTable, SmartGraph, SmartCalc, StepAnimation, GeometryDiagram); nothing is removed.
+3. Add `atState` + `assetLibOpen` React state.
+4. Add a toolbar button (LayoutGrid icon) next to the existing math tools that opens the Asset Library.
+5. Mount `<AtCommandMenu editor={editor} state={atState} onClose={...} />` and `<AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />` near the editor content.
+6. Mount `<MatrixToolbar editor={editor} />` so structural matrix edits work.
+
+No changes to backend, database, storage, edge functions, or any other page.
 
 ## Technical notes
 
-- `src/integrations/supabase/client.ts` and `src/integrations/supabase/types.ts` are auto-generated in this project — the migration will regenerate `types.ts` so `games` / `game_assets` become typed automatically.
-- The gamedraft `AssetKind` enum (`background | reward | progress_bar | effect`) fully replaces this project's `SceneKind` (`obstacle | door | vault`). No data migration is needed because this project's `adventure_*` tables and the gamedraft `games` table are independent — old adventure data stays untouched.
-- No user-facing routes change, so bookmarks in `/adventure/games/...` keep working.
-- No frontend business logic beyond what already exists in gamedraft is added; this is a straight port + shell blend.
+- `mathStructure` and `mathSlot` are new inline ProseMirror nodes. They coexist with the existing `mathInline`, `mathBlock`, `solutionRow`, `mathObject`, etc. — TipTap allows multiple inline node types, so nothing conflicts.
+- The `@` trigger only fires when preceded by start-of-line or whitespace, so it won't collide with user prose containing `@`.
+- Asset tiles that need extra input (matrices, piecewise, systems) open `MatrixCreateDialog` before insertion — same UX as the source.
+- Existing lesson-note documents remain valid: no schema migration is needed, the new nodes are additive.
+- The visuals tree is self-contained (pure SVG/React) and doesn't depend on anything outside `lessonnotes/`.
+
+## Verification
+
+- `bun run build` succeeds.
+- Open a lesson note → new Asset Library button appears in the toolbar → clicking it opens the full-screen gallery with all 5 sections and search.
+- Typing `@frac` in the document opens the inline menu; Enter inserts a fraction structure with the caret in the numerator slot.
+- Inserting a matrix opens `MatrixCreateDialog`; confirming inserts a matrix and the `MatrixToolbar` appears when it's selected.
+- No regressions in existing SolutionRow / GeometryDiagram / SmartGraph flows.
 
 ## Out of scope
 
-- No changes to the rotating academy scene, Algebra subject pages, or any of the existing math games.
-- No changes to lesson notes / smartboard / floating numbers.
+- Any changes to the rotating academy, adventure games, smartboard, floating numbers, or curriculum data.
+- Adding new assets — the port copies the existing 200+ registry as-is.
