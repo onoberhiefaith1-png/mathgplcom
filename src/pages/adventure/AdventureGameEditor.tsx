@@ -48,9 +48,9 @@ const AdventureGameEditor = () => {
   const [assetOpen, setAssetOpen] = useState(false);
   const [energyRefreshKey, setEnergyRefreshKey] = useState(0);
   const energyModeRef = useRef(false);
-  const [topBarOpen, setTopBarOpen] = useState(true);
+  const [topBarOpen, setTopBarOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [railOpen, setRailOpen] = useState(true);
+  const [railOpen, setRailOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [stageFull, setStageFull] = useState(false);
@@ -276,6 +276,7 @@ const AdventureGameEditor = () => {
   const moveElement = useCallback((id: string, x: number, y: number) => {
     const snap = (v: number) => (Math.abs(v - 0.5) < 0.02 ? 0.5 : v);
     setElements((els) => els.map((e) => (e.id === id ? { ...e, x: snap(x), y: snap(y) } : e)));
+    setTopBarOpen(false);
   }, [setElements]);
 
   const deleteSelected = useCallback(() => {
@@ -435,89 +436,118 @@ const AdventureGameEditor = () => {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      {/* Floating collapsed handle — always available, tiny */}
+      {!topBarOpen && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setTopBarOpen(true)}
+            className="pointer-events-auto mt-2 flex items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow backdrop-blur transition hover:bg-muted/70 hover:text-foreground"
+            title="Show toolbar"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+            <span>Scene {activeIndex + 1}/{scenes.length}</span>
+            <span className="mx-1 h-3 w-px bg-border/60" />
+            <span>{title || "Editor"}</span>
+          </button>
+        </div>
+      )}
+
       {topBarOpen && (
-        <header className="z-20 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-2.5 backdrop-blur">
-          <Link to="/adventure/games" className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Games
+        <header className="z-20 flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/50 bg-background/95 px-3 py-1 backdrop-blur">
+          <Link to="/adventure/games" className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" /> Games
           </Link>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={saveTitle} placeholder="Game title"
-            className="h-8 max-w-[11rem] border-transparent bg-transparent text-base font-semibold focus-visible:border-border" />
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={saveTitle} placeholder="Title"
+            className="h-6 max-w-[9rem] border-transparent bg-transparent px-1.5 text-xs font-semibold focus-visible:border-border" />
+          <span className="text-[11px] text-muted-foreground">·</span>
           <Input value={topic} onChange={(e) => setTopic(e.target.value)} onBlur={saveTopic} placeholder="Topic"
-            className="h-8 max-w-[9rem] border-transparent bg-transparent text-sm text-muted-foreground focus-visible:border-border" />
+            className="h-6 max-w-[7rem] border-transparent bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:border-border" />
           <Input value={subtopic} onChange={(e) => setSubtopic(e.target.value)} onBlur={saveSubtopic} placeholder="Subtopic"
-            className="h-8 max-w-[10rem] border-transparent bg-transparent text-sm text-muted-foreground focus-visible:border-border" />
-          <div className="mx-1 h-6 w-px bg-border/60" />
-          <Button size="sm" variant="ghost" onClick={focusCamera}><Crosshair className="mr-1.5 h-4 w-4" /> Focus</Button>
-          <Button size="sm" variant="ghost" onClick={enterFullscreen}><Maximize className="mr-1.5 h-4 w-4" /> Full Screen</Button>
-          <div className="mx-1 h-6 w-px bg-border/60" />
-          <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60"><Play className="mr-1.5 h-4 w-4" /> Play Preview</Button>
-          <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60"><Radio className="mr-1.5 h-4 w-4" /> Live</Button>
-          <div className="ml-auto flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              {saving ? (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>) : (<><Check className="h-3.5 w-3.5 text-primary" /> Saved</>)}
+            className="h-6 max-w-[8rem] border-transparent bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:border-border" />
+          <div className="mx-1 h-4 w-px bg-border/60" />
+
+          {/* Scene selector */}
+          <span className="text-[11px] font-semibold text-muted-foreground">
+            Scene {activeIndex + 1}/{scenes.length}
+          </span>
+          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={addScene}>
+            <Plus className="mr-1 h-3.5 w-3.5" />Scene
+          </Button>
+          <div className="mx-1 h-4 w-px bg-border/60" />
+
+          {slots.map((s) => { const Icon = s.icon; return (
+            <Button key={s.kind} size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => openAsset(s.kind)}>
+              <Icon className="mr-1 h-3.5 w-3.5" />{s.label}
+            </Button>
+          );})}
+          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={addProgressTower}>
+            <TowerControl className="mr-1 h-3.5 w-3.5" />Progress
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => openAsset("effect")}>
+            <Layers className="mr-1 h-3.5 w-3.5" />Effect
+          </Button>
+          <Button size="sm" variant="ghost" disabled className="h-6 px-1.5 text-xs opacity-60">
+            <HelpCircle className="mr-1 h-3.5 w-3.5" />Questions
+          </Button>
+          <div className="mx-1 h-4 w-px bg-border/60" />
+          <Button size="sm" variant={drawerOpen ? "default" : "ghost"} className="h-6 px-1.5 text-xs" onClick={() => setDrawerOpen((v) => !v)}>
+            <Sliders className="mr-1 h-3.5 w-3.5" />Settings
+          </Button>
+          <Button size="sm" variant={railOpen ? "default" : "ghost"} className="h-6 px-1.5 text-xs" onClick={() => setRailOpen((v) => !v)}>
+            <Layers className="mr-1 h-3.5 w-3.5" />Layers
+          </Button>
+
+          <div className="ml-auto flex items-center gap-2">
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              {saving ? (<><Loader2 className="h-3 w-3 animate-spin" />Saving</>) : (<><Check className="h-3 w-3 text-primary" />Saved</>)}
             </span>
+            <button type="button" onClick={() => setTopBarOpen(false)}
+              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Hide toolbar">
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
           </div>
         </header>
       )}
 
-      <button type="button" onClick={() => setTopBarOpen((v) => !v)}
-        className="z-20 flex w-full shrink-0 items-center justify-center gap-1.5 border-b border-border/50 bg-background/80 py-1 text-xs font-medium text-muted-foreground backdrop-blur transition hover:bg-muted/50 hover:text-foreground"
-        title={topBarOpen ? "Hide toolbar" : "Show toolbar"}>
-        {topBarOpen ? (<><ChevronUp className="h-3.5 w-3.5" /> Hide toolbar</>) : (<><ChevronDown className="h-3.5 w-3.5" /> Show toolbar</>)}
-      </button>
-
-      <SceneStrip scenes={scenes} activeId={activeScene?.id ?? null} onSelect={setActiveSceneId} onAdd={addScene} onDuplicate={duplicateScene} onDelete={deleteScene} />
-
-      <div className="z-10 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/40 bg-background/80 px-4 py-2 backdrop-blur">
-        <span className="mr-1 text-xs font-semibold text-muted-foreground">Scene {activeIndex + 1} / {scenes.length}</span>
-        {slots.map((s) => { const Icon = s.icon; return (
-          <Button key={s.kind} size="sm" variant="secondary" onClick={() => openAsset(s.kind)}>
-            <Icon className="mr-1.5 h-4 w-4" />{s.label}
-          </Button>
-        );})}
-        <Button size="sm" variant="secondary" onClick={addProgressTower}><TowerControl className="mr-1.5 h-4 w-4" /> Progress Bar</Button>
-        <Button size="sm" onClick={() => openAsset("effect")}><Layers className="mr-1.5 h-4 w-4" /> Add Effect</Button>
-        <div className="mx-1 h-6 w-px bg-border/60" />
-        <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60"><HelpCircle className="mr-1.5 h-4 w-4" /> Questions</Button>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant={selected && selected.kind !== "background" ? "secondary" : "ghost"}
-            disabled={!selected || selected.kind === "background"} onClick={setCameraTarget}>
-            <Camera className="mr-1.5 h-4 w-4" /> Set Camera Target
-          </Button>
-          <Button size="sm" variant={drawerOpen ? "default" : "secondary"} onClick={() => setDrawerOpen((v) => !v)}>
-            <Sliders className="mr-1.5 h-4 w-4" /> Settings
-          </Button>
-          {!railOpen && (
-            <Button size="sm" variant="secondary" onClick={() => setRailOpen(true)}><Layers className="mr-1.5 h-4 w-4" /> Layers</Button>
-          )}
+      {topBarOpen && (
+        <div className="shrink-0">
+          <SceneStrip scenes={scenes} activeId={activeScene?.id ?? null} onSelect={setActiveSceneId} onAdd={addScene} onDuplicate={duplicateScene} onDelete={deleteScene} />
         </div>
-      </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <main ref={stageWrapRef}
           className={stageFull ? "fixed inset-0 z-50 overflow-hidden bg-background" : "relative min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_center,hsl(var(--muted)/0.35),transparent)]"}>
           <div className="h-full w-full overflow-auto" onPointerDown={onStagePointerDown} onPointerMove={onStagePointerMove} onPointerUp={onStagePointerUp} onWheel={onWheel}>
-            <div className={stageFull ? "flex h-full w-full items-center justify-center p-0" : "flex min-h-full w-full items-start justify-center p-4"}>
+            <div className={stageFull ? "flex h-full w-full items-center justify-center p-0" : "flex h-full w-full items-center justify-center p-2"}>
               <div ref={canvasWrapRef}
-                className={stageFull ? "flex h-full w-full items-center justify-center transition-transform" : "w-full max-w-6xl transition-transform"}
-                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: stageFull ? "center center" : "top center" }}>
+                className={stageFull ? "flex h-full w-full items-center justify-center transition-transform" : "w-full max-w-[min(100%,calc((100vh-4rem)*16/9))] transition-transform"}
+                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "center center" }}>
                 <GameCanvas elements={elements} selectedId={selectedId} editable onSelect={setSelectedId} onMove={moveElement}
                   className={stageFull ? "h-full max-h-full w-auto max-w-full" : undefined} />
               </div>
             </div>
           </div>
 
-          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/90 p-1 text-xs shadow backdrop-blur">
-            {stageFull && (<button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={enterFullscreen} title="Exit fullscreen">Exit</button>)}
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))} title="Zoom out"><Minus className="h-4 w-4" /></Button>
-            <button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={resetView} title="Fit">Fit</button>
-            <button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={() => setZoom(1)} title="100%">100%</button>
-            <button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={() => setZoom(2)} title="200%">200%</button>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom((z) => Math.min(3, +(z + 0.1).toFixed(2)))} title="Zoom in"><Plus className="h-4 w-4" /></Button>
-            <span className="w-10 text-center text-muted-foreground">{Math.round(zoom * 100)}%</span>
+          {/* Floating overlays */}
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/80 p-1 text-xs shadow backdrop-blur">
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={focusCamera} title="Focus"><Crosshair className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={setCameraTarget} disabled={!selected || selected?.kind === "background"} title="Set camera target"><Camera className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={enterFullscreen} title="Fullscreen"><Maximize className="h-3.5 w-3.5" /></Button>
           </div>
-          <p className="pointer-events-none absolute bottom-4 right-4 z-10 rounded bg-background/70 px-2 py-1 text-[10px] text-muted-foreground backdrop-blur">
-            Alt-drag to pan · scroll or Ctrl+wheel
+
+          <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/80 p-1 text-xs shadow backdrop-blur">
+            {stageFull && (<button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={enterFullscreen} title="Exit fullscreen">Exit</button>)}
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))} title="Zoom out"><Minus className="h-3.5 w-3.5" /></Button>
+            <button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={resetView} title="Fit">Fit</button>
+            <button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={() => setZoom(1)}>100%</button>
+            <button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={() => setZoom(2)}>200%</button>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setZoom((z) => Math.min(3, +(z + 0.1).toFixed(2)))} title="Zoom in"><Plus className="h-3.5 w-3.5" /></Button>
+            <span className="w-9 text-center text-muted-foreground">{Math.round(zoom * 100)}%</span>
+          </div>
+          <p className="pointer-events-none absolute bottom-3 right-3 z-10 rounded bg-background/60 px-2 py-0.5 text-[10px] text-muted-foreground backdrop-blur">
+            Alt-drag to pan · Ctrl+wheel to zoom
           </p>
         </main>
 
@@ -528,9 +558,9 @@ const AdventureGameEditor = () => {
 
         {drawerOpen && (
           <aside className="flex h-full w-80 flex-col border-l border-border/50 bg-background/95 shadow-xl backdrop-blur">
-            <div className="flex items-center justify-between border-b border-border/50 px-3 py-2.5">
+            <div className="flex items-center justify-between border-b border-border/50 px-3 py-1.5">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Edit item</h2>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDrawerOpen(false)} title="Fold panel">
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setDrawerOpen(false)} title="Fold panel">
                 <X className="h-4 w-4" />
               </Button>
             </div>
