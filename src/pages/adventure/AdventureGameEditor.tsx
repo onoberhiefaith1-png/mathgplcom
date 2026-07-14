@@ -276,6 +276,7 @@ const AdventureGameEditor = () => {
   const moveElement = useCallback((id: string, x: number, y: number) => {
     const snap = (v: number) => (Math.abs(v - 0.5) < 0.02 ? 0.5 : v);
     setElements((els) => els.map((e) => (e.id === id ? { ...e, x: snap(x), y: snap(y) } : e)));
+    setTopBarOpen(false);
   }, [setElements]);
 
   const deleteSelected = useCallback(() => {
