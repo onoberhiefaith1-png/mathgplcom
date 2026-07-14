@@ -1,57 +1,71 @@
+## Long Division — Column-Aligned Digit Cells
 
-## 1. Long Division — sensor direction (left → right)
+Refactor `LongDivision.tsx` so the dividend, quotient, and every working row use a shared invisible digit-column grid. Each digit occupies exactly one column; typing snaps digits into cells; working rows auto-align to the dividend.
 
-**File:** `src/components/lessonnotes/extensions/visuals/arithmetic/LongDivision.tsx` (+ helpers in `src/lib/division.ts` if needed)
+### Data model (attrs)
 
-- Cursor / sensor entry point is the **leftmost writable cell** of the current row, and advances **rightwards** (col index increasing). Never right-to-left.
-- Arrow keys / auto-advance move `col + 1`, wrapping to next row's leftmost cell.
-- **Space bar** = "skip / push forward one column" (advance one cell without writing). Currently the sensor jumps to the highest place value; that anchor is removed — the teacher can begin at any column (e.g. tens) by pressing Space to move rightwards from the far-left position.
-- Backspace moves one column left (opposite direction only for correction).
-- Fix `buildSteps` traversal so `targetCol` order is ascending within each row.
+Replace free-text `dividend`, `quotient`, `workingRows: string[]` with column-indexed arrays:
 
-## 2. Lock table structure — no split on double-click
+- `dividendDigits: string[]` — one entry per column (source of truth for column count)
+- `quotientDigits: string[]` — same length as dividendDigits
+- `divisor: string` — stays free text (sits outside the grid, right of the bracket's left side)
+- `workingRows: string[][]` — each row is `string[]` sized to `dividendDigits.length`
+- keep `showWorking`, `autoMinus`, `autoLine`, `lineThickness`, `rowHeight`
 
-**Problem:** Double-clicking a cell in SmartTable / PlaceValueChart / LongDivision / DivisionLadder / BaseConversion / FractionWall causes the underlying ProseMirror node to fragment (e.g. `98` becomes detached).
+Column count = `dividendDigits.length` (min 1). Grows automatically as the teacher types past the current width; shrinks when trailing columns become empty (only via backspace at the tail, never mid-row).
 
-**Fix (applies to every arithmetic + smart table asset):**
-- In the `MathVisual` NodeView wrapper (`src/components/lessonnotes/extensions/MathVisual.tsx`) and each asset's `SelectionFrame`:
-  - Add `atom: true` semantics — the visual is treated as a single indivisible node.
-  - Intercept `dblclick` on the asset container: `e.preventDefault()` + `e.stopPropagation()`, then route to "enter edit mode" (open right-hand Properties Panel) instead of letting ProseMirror descend into the DOM.
-  - Add `contentEditable={false}` on all internal table wrappers so ProseMirror never merges/splits them.
-- Cells that ARE editable (digit inputs) keep their own `contentEditable` / `<input>` — only the *structural chrome* is locked.
+### Layout
 
-## 3. Auto-show / auto-hide bottom toolbar (Add/Remove Row/Column)
+One CSS grid per horizontal line, all sharing:
 
-**File:** `src/components/lessonnotes/panel/AssetBottomToolbar.tsx` + host wrappers.
+```
+gridTemplateColumns: `repeat(${nCols}, var(--ld-col))`
+```
 
-Current behavior: requires multiple clicks; disappears on first interaction.
+where `--ld-col` is a fixed width (e.g. `1.1ch` at the current font size) — this is what guarantees column alignment across rows without visible gridlines.
 
-New behavior (applied to **every** tabular asset — SmartTable, PlaceValueChart, LongDivision, DivisionLadder, BaseConversion, FractionWall, FractionStrip):
+Structure top-to-bottom:
 
-- Toolbar becomes visible whenever the **pointer/sensor enters the asset's bounding box** (or asset is selected) — no click required.
-- Toolbar **stays visible** while the pointer is over the asset OR the toolbar itself, OR any of its buttons was used in the last 10 s.
-- **10-second idle auto-hide timer:** resets on any pointer move / button click within the asset. When idle > 10 s AND pointer is not over the asset, fade out.
-- Removes the current "hide on any click" behavior.
+1. Quotient row — grid of `nCols` cells above the bar.
+2. Bracket row — divisor (free text, right-aligned before `)`) + `)` + bar (top border) + dividend grid of `nCols` cells.
+3. For each working row: an offset grid of `nCols` cells; optional leading `−` in a fixed-width gutter column; optional top border for subtraction rows.
 
-Implementation:
-- New hook `useHoverIdleVisibility({ idleMs: 10000 })` returning `{ visible, bind }` — attaches `onPointerEnter`, `onPointerMove`, `onPointerLeave` handlers and manages a timeout ref.
-- `AssetBottomToolbar` consumes this hook; wrapper attaches `bind` to both the asset container and the toolbar so moving between them counts as one hover region.
+The `−` sign and the divisor/`)` live in fixed side gutters (`grid-template-columns: [gutter] auto [gutter] auto [cells] repeat(nCols, var(--ld-col))`) so cell columns line up exactly across quotient, dividend, and every working row.
 
-## 4. Files touched
+### Digit cell component
 
-- `src/components/lessonnotes/extensions/visuals/arithmetic/LongDivision.tsx` — cursor direction, Space-to-skip
-- `src/lib/division.ts` — step order (left→right target cols)
-- `src/components/lessonnotes/extensions/MathVisual.tsx` — atomic node, dblclick guard
-- `src/components/lessonnotes/extensions/visuals/living/SelectionFrame.tsx` — contentEditable=false on chrome
-- `src/components/lessonnotes/panel/AssetBottomToolbar.tsx` — hover + 10s idle visibility
-- `src/hooks/useHoverIdleVisibility.ts` (new)
-- Each arithmetic asset (`PlaceValueChart`, `LongDivision`, `DivisionLadder`, `BaseConversion`, `FractionWall`, `FractionStrip`, `Base10Blocks`) + `SmartTable` — wrap with the shared hover region and pass `bind` to their `AssetBottomToolbar`.
+New tiny `DigitCell` (local to the file):
 
-## 5. Also fixes
+- Renders a single-character input styled as plain text (no border, transparent bg, centered, width = `var(--ld-col)`).
+- `maxLength=1`; accepts digits, `.`, `,`, or blank.
+- Key handling:
+  - digit → write to this column, focus next column (create column if this is the dividend and we're at the last col).
+  - Backspace on empty cell → focus previous column; Backspace on filled cell → clear this column only.
+  - ArrowLeft/ArrowRight → move focus; Space → move to next column without writing (matches existing LTR behavior).
+- Focus is tracked by `data-ld-row` + `data-ld-col` attributes so keyboard nav can find neighbors via `querySelector`.
 
-- The `BaseConversion` "Maximum update depth exceeded" console error (setState-in-effect loop) — will refactor its init effect to run once, not on every parent render.
+### Column growth / shrink rules
 
-## Out of scope
+- Dividend row: typing in the last column appends a new column (all rows extended with `""`).
+- Backspace clearing the last dividend column when all rows' last column are empty → drop that column from every row and from quotient.
+- Working rows never change column count on their own.
 
-- No changes to Properties Panel layout, styling, or existing right-hand editing surface (already correct per universal editing rule).
-- No changes to data schemas or backend.
+### Toolbar
+
+Keep existing `+ / −` working-step buttons. New rows are created as `Array(nCols).fill("")`.
+
+### Migration
+
+On mount, if `attrs.dividend` (string) exists but `dividendDigits` doesn't, split the string into chars → `dividendDigits`. Same for `quotient`. For legacy `workingRows: string[]`, map each string to a right-aligned char array padded to `nCols`. Persist the migrated shape via `onChange` once (guarded by ref to avoid loops).
+
+### Files
+
+- `src/components/lessonnotes/extensions/visuals/arithmetic/LongDivision.tsx` — rewrite render + attrs handling; add `DigitCell` and keyboard nav.
+- No changes to `src/lib/division.ts` (that engine is for the guided-solver flow, not this teacher-editable asset).
+- No changes to other assets or the properties panel.
+
+### Out of scope
+
+- Auto-computing quotient/product/remainder (still teacher-typed).
+- Visible gridlines.
+- Any change to LCM/HCF ladder or other tabular assets.
