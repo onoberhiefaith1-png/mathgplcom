@@ -1,10 +1,9 @@
-// Smart Table — a single editable data grid that becomes any statistical
-// table. Table style (padding, border, color, opacity, blur, text) is
-// controlled from a settings popover so teachers can dial the look on the
-// fly and bring the table forward when they want it visible.
+// Smart Table — a single editable data grid. All settings live in the
+// universal right-hand Properties Panel; there is NO inline toolbar. The
+// table is high-contrast and readable by default.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Minus, Plus, Settings2 } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { evaluate, formatNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
@@ -12,18 +11,18 @@ import {
 } from "@/components/lessonnotes/panel/panelPrimitives";
 
 export interface SmartTableStyle {
-  cellPadX: number;      // px
-  cellPadY: number;      // px
-  borderWidth: number;   // px
-  borderColor: string;   // css color
-  opacity: number;       // 0..1
-  blur: number;          // px
-  textSize: number;      // px
+  cellPadX: number;
+  cellPadY: number;
+  borderWidth: number;
+  borderColor: string;
+  opacity: number;
+  blur: number;
+  textSize: number;
   textAlign: "left" | "center" | "right";
   headerBold: boolean;
   striped: boolean;
   showGridlines: boolean;
-  headerFill: string;    // css color, "transparent" allowed
+  headerFill: string;
 }
 
 export interface SmartTableAttrs {
@@ -44,14 +43,15 @@ interface Props {
 const DEFAULT_ROWS = 3;
 const DEFAULT_COLS = 3;
 
+// Defaults chosen for immediate readability on the paper background.
 const DEFAULT_STYLE: SmartTableStyle = {
-  cellPadX: 8,
-  cellPadY: 6,
+  cellPadX: 10,
+  cellPadY: 8,
   borderWidth: 1,
-  borderColor: "#e0b060",
-  opacity: 0.85,
+  borderColor: "#1f2937",   // slate-800 — clearly visible on paper
+  opacity: 1,
   blur: 0,
-  textSize: 13,
+  textSize: 15,
   textAlign: "center",
   headerBold: true,
   striped: false,
@@ -120,10 +120,6 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const [active, setActive] = useState<{ r: number; c: number } | null>(null);
   const [buffer, setBuffer] = useState<string>("");
-  const [hover, setHover] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [dimensionMode, setDimensionMode] = useState<"rows" | "cols">("rows");
-  const settingsRef = useRef<HTMLDivElement | null>(null);
 
   const patch = useCallback((next: Partial<SmartTableAttrs>) => {
     onChange({ ...next });
@@ -174,26 +170,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     if (active?.c === at) cancelEdit();
   };
 
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (!settingsRef.current?.contains(e.target as Node)) setSettingsOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [settingsOpen]);
-
-  const addSelectedDimension = () => {
-    if (dimensionMode === "rows") addRow(active && active.r >= 0 ? active.r + 1 : rows);
-    else addCol(active ? active.c + 1 : cols);
-  };
-  const removeSelectedDimension = () => {
-    if (dimensionMode === "rows") delRow(active && active.r >= 0 ? active.r : rows - 1);
-    else delCol(active ? active.c : cols - 1);
-  };
-
   const isEditing = (r: number, c: number) => !!active && active.r === r && active.c === c;
-
   const colStyle = (c: number) => ({ width: colWidths?.[c] ?? undefined, minWidth: 72 });
 
   const borderCss = style.showGridlines
@@ -205,6 +182,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     fontSize: `${style.textSize}px`,
     borderCollapse: "collapse",
     border: borderCss,
+    color: "#0f172a", // dark ink by default — always visible on paper
   };
   const cellCss: React.CSSProperties = {
     border: borderCss,
@@ -212,6 +190,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     textAlign: style.textAlign,
     verticalAlign: "middle",
     background: "transparent",
+    color: "#0f172a",
   };
   const headerCss: React.CSSProperties = {
     ...cellCss,
@@ -242,7 +221,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       <PanelGroup label="Appearance">
         <PanelRow label="Border thickness"><PanelNumber value={style.borderWidth} min={0} max={6} onChange={(v) => patchStyle({ borderWidth: v })} /></PanelRow>
         <PanelRow label="Border colour"><PanelColor value={style.borderColor} onChange={(v) => patchStyle({ borderColor: v })} /></PanelRow>
-        <PanelRow label="Text size"><PanelNumber value={style.textSize} min={9} max={24} onChange={(v) => patchStyle({ textSize: v })} /></PanelRow>
+        <PanelRow label="Text size"><PanelNumber value={style.textSize} min={9} max={28} onChange={(v) => patchStyle({ textSize: v })} /></PanelRow>
         <PanelRow label="Opacity">
           <PanelNumber value={Math.round(style.opacity * 100)} min={10} max={100}
             onChange={(v) => patchStyle({ opacity: v / 100 })} />
@@ -270,14 +249,8 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   );
   useRegisterAssetEditor(!!selected || active !== null, "smartTable", "Smart table", editor);
 
-  const controlsVisible = selected || hover || active !== null || settingsOpen;
-
   return (
-    <div
-      className="smart-table not-prose relative inline-block align-middle text-foreground"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
+    <div className="smart-table not-prose relative inline-block align-middle">
       <table style={tableStyle}>
         <thead>
           <tr>
@@ -292,7 +265,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                   <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
                 ) : (
                   <span className="block min-h-[1.4em]">
-                    {h || <span className="text-foreground/30">header</span>}
+                    {h || <span style={{ color: "#94a3b8" }}>header</span>}
                   </span>
                 )}
               </th>
@@ -301,21 +274,21 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
         </thead>
         <tbody>
           {cells.map((row, r) => (
-            <tr key={r} style={style.striped && r % 2 === 1 ? { background: "rgba(255,255,255,0.03)" } : undefined}>
+            <tr key={r} style={style.striped && r % 2 === 1 ? { background: "rgba(15,23,42,0.04)" } : undefined}>
               {row.map((raw, c) => {
                 const editing = isEditing(r, c);
                 return (
                   <td
                     key={c}
                     style={{ ...cellCss, ...colStyle(c) }}
-                    className="cursor-text hover:bg-foreground/5"
+                    className="cursor-text hover:bg-black/5"
                     onClick={(e) => { e.stopPropagation(); if (!editing) beginEdit(r, c); }}
                   >
                     {editing ? (
                       <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
                     ) : (
                       <span className="block min-h-[1.4em]">
-                        {cellDisplay(raw) || <span className="text-foreground/20">·</span>}
+                        {cellDisplay(raw) || <span style={{ color: "#cbd5e1" }}>·</span>}
                       </span>
                     )}
                   </td>
@@ -325,134 +298,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           ))}
         </tbody>
       </table>
-
-      {controlsVisible && (
-        <div
-          ref={settingsRef}
-          className="relative mt-2 flex justify-center"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center gap-1.5 rounded-full border border-border bg-popover px-1.5 py-1 text-popover-foreground shadow-lg">
-            <div className="flex rounded-full bg-muted p-0.5" aria-label="Choose table direction">
-              <button
-                type="button"
-                aria-pressed={dimensionMode === "rows"}
-                onClick={() => setDimensionMode("rows")}
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${dimensionMode === "rows" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Rows
-              </button>
-              <button
-                type="button"
-                aria-pressed={dimensionMode === "cols"}
-                onClick={() => setDimensionMode("cols")}
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${dimensionMode === "cols" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Cols
-              </button>
-            </div>
-            <button
-              type="button"
-              aria-label={`Remove ${dimensionMode === "rows" ? "row" : "column"}`}
-              onClick={removeSelectedDimension}
-              className="grid h-6 w-6 place-items-center rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-95"
-            >
-              <Minus className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              aria-label={`Add ${dimensionMode === "rows" ? "row" : "column"}`}
-              onClick={addSelectedDimension}
-              className="grid h-6 w-6 place-items-center rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-95"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              aria-expanded={settingsOpen}
-              onClick={() => setSettingsOpen((v) => !v)}
-              className="flex h-6 items-center gap-1 rounded-full bg-foreground px-2.5 text-[10px] font-medium text-background hover:opacity-90 active:scale-95"
-            >
-              <Settings2 className="h-3 w-3" />
-              Edit
-            </button>
-          </div>
-
-          {settingsOpen && (
-            <div className="absolute left-1/2 top-9 z-20 w-72 -translate-x-1/2 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-xl">
-              {editor}
-            </div>
-          )}
-        </div>
-      )}
     </div>
-  );
-}
-
-function Range({ label, value, min, max, onChange, suffix }: {
-  label: string; value: number; min: number; max: number; onChange: (v: number) => void; suffix?: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <label className="text-foreground/70 w-24">{label}</label>
-      <input
-        type="range" min={min} max={max} value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1"
-      />
-      <span className="w-10 text-right tabular-nums text-foreground/60">{value}{suffix ?? ""}</span>
-    </div>
-  );
-}
-
-function ColorRow({ label, value, onChange, extra }: {
-  label: string; value: string; onChange: (v: string) => void; extra?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <label className="text-foreground/70 w-24">{label}</label>
-      <input
-        type="color" value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-6 w-8 rounded border border-foreground/20 bg-transparent cursor-pointer"
-      />
-      <input
-        type="text" value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex-1 min-w-0 bg-background border border-foreground/20 rounded px-1 py-0.5 font-mono text-[11px]"
-      />
-      {extra}
-    </div>
-  );
-}
-
-function Toggle({ label, value, onChange }: {
-  label: string; value: boolean; onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 cursor-pointer select-none">
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
-      <span className="text-foreground/80">{label}</span>
-    </label>
-  );
-}
-
-function GutterBtn({ children, onClick, title, danger }: {
-  children: React.ReactNode; onClick: () => void; title?: string; danger?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      title={title}
-      className={
-        "h-4 w-4 grid place-items-center rounded text-[10px] " +
-        (danger
-          ? "bg-red-500/20 text-red-500 hover:bg-red-500/30"
-          : "bg-primary/20 text-primary hover:bg-primary/30")
-      }
-    >{children}</button>
   );
 }
 
@@ -472,6 +318,7 @@ function InlineEditor({ value, onChange, onCommit, onCancel }: {
       }}
       onClick={(e) => e.stopPropagation()}
       className="w-full min-w-[3rem] px-1 py-0.5 text-center bg-transparent outline-none border-b border-primary"
+      style={{ color: "#0f172a" }}
     />
   );
 }
