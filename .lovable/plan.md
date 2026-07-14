@@ -1,94 +1,79 @@
-## Goal
+## Rework Bar Chart / Histogram to behave like a graph with a Y-axis scale
 
-Turn the Bar Chart into a true mathematics graph constructor, and make Histogram share the same engine — differing only in whether bars touch. The teacher never draws bars; they define scale, categories, and values, and the software plots.
+Fix three concrete problems with the current Smart Chart:
 
-## Scope
+1. **Bar width is stuck at ~50%** and cannot be reduced from the panel.
+2. **Y-axis "scale" is a chart-style auto-tick**, not a mathematical scale like `2 cm : 1 unit`.
+3. **Gap between bars is arbitrary**; it should mathematically equal the bar width in Bar Chart mode, and be zero in Histogram mode.
 
-- Rewrite `smartchart/BarChart.tsx` as a **mathematical bar/histogram renderer**.
-- Extend `smartchart/types.ts` with the extra attrs the panel needs (minor divisions, display mode, axis styling, tick/grid/label controls, data-label position, examination mode, presets).
-- Extend `smartchart/scale.ts` with a minor-division helper.
-- Wire `histogram` chart kind in `SmartChart.tsx` to the same renderer with `displayMode: "histogram"` so gap is forced to 0.
-- Everything drives from the right-hand Properties Panel via `useRegisterAssetEditor` (per Universal editing rule). Nothing on-canvas draws bars.
+---
 
-Out of scope: pie/scatter/box/line/dotplot/ogive (still placeholders), backend, AI, other visuals.
+### 1. Bar width as a % of the plot area (default 10%)
 
-## Data model (types.ts additions)
+- Remove the current "Bar width (px)" + "Gap (px)" model.
+- Replace with a single control: **Bar width = N% of plot width** (default `10`, range `1–50`, step `0.5`).
+- Layout math per row (Bar Chart mode):
+  - `barPx = plotWidth * barWidthPct / 100`
+  - `gapPx = barPx`  (rule: gap = width)
+  - `slotPx = barPx + gapPx = 2 * barPx`
+  - Bars are laid out left-to-right at their category X position; the plot area can therefore hold `plotWidth / slotPx` bars before overflow (≈ 5 at 10%, up to ~50 at 1%).
+- Histogram mode: `gapPx = 0`, bars touch, `slotPx = barPx`. Everything else identical.
+- New `SmartChartAttrs` fields (in `types.ts`):
+  - `barWidthPct: number` (default 10)
+  - Deprecate `bar.barWidth` and `bar.gap` — kept only for back-compat read, ignored on render.
+- Panel section **Bar Layout** becomes: `Bar width (%)` slider/number only. `Equal width` toggle stays.
 
-Add to `SmartChartAttrs`:
+### 2. Y-axis "cm : unit" scale (graph-style)
 
-```text
-displayMode: "bar" | "histogram"
-yMinorDivisions: number          // subdivisions per major interval, default 5
-xAxis / yAxis:  { show, arrow, thickness, color, title }   // title already exists
-grid:           { showMajor, showMinor, color, thickness }
-ticks:          { show, length, thickness }
-numbers:        { show, fontSize, decimals, side: "left" | "right" }
-dataLabels:     { show, position: "above" | "inside" | "below" }
-barStyle:       { borderColor, borderThickness, opacity, uniformColor: string | null }
-fonts:          { family, size, bold, italic }             // axis/category/scale/labels
-legend:         { show, position: "top" | "bottom" | "left" | "right" }
-plotArea:       { background, border, borderThickness, padding }
-examMode:       { hideValues, hideCategoryLabels, hideAxisTitles, blank }
-preset:         "custom" | "waec" | "neco" | "gcse" | "alevel"
-```
+Replace the current `yAuto / yMin / yMax / yStep` UI in the Scale group with a real mathematical scale definition:
 
-`bar.rows` stays `{ label, value, color?, width?, showLabel? }`. `equalWidth`, `gap`, `barWidth`, `showValuesAbove` remain (showValuesAbove replaced by `dataLabels.show`, kept for back-compat and migrated on load).
+- **Scale mode**: `Auto` | `Manual`.
+- When **Manual**:
+  - `cm per step` (default 1) — visual size of one grid step, in the same "cm" units the geometry graph already uses.
+  - `unit per step` (default 1) — how many data units one step represents.
+  - `Y max` (default 10) — the top of the axis in data units.
+  - `Y min` (default 0).
+  - Derived: `stepValue = unitPerStep`, `numSteps = (yMax - yMin) / stepValue`, major ticks at `yMin, yMin+step, …, yMax`.
+  - Plot height in px is derived from `cmPerStep * numSteps * PX_PER_CM` so `5 cm : 1 unit` with max 40 produces 8 major intervals each 5 cm tall, labelled 0, 5, 10, …, 40 (matching the user's spoken example when read as `5 units per 1 step, max 40`).
+- When **Auto**: current `resolveYScale` behaviour, but the label above the mode row shows the derived `"1 cm : X unit"` so it still reads like a graph.
+- New `SmartChartAttrs` fields:
+  - `yScale: { mode: "auto" | "manual"; cmPerStep: number; unitPerStep: number; min: number; max: number }`
+  - Legacy `yAuto/yMin/yMax/yStep` migrated into `yScale` in `normalizeChart`.
+- `scale.ts` gets a new `resolveManualScale(yScale)` returning `{ min, max, step, ticks, pxPerUnit }`, and `BarChart.tsx` uses `pxPerUnit` for both the plot height and every `yToPx` call so ticks land on exact centimetre boundaries.
+- Minor divisions stay (default 5) — they subdivide one `unitPerStep`.
 
-All new fields are optional with sane defaults resolved at render, so existing documents keep working.
+### 3. Bar chart vs Histogram spacing rule
 
-## Renderer (BarChart.tsx)
+- In Bar Chart mode: `gap = width` always (no separate gap control; remove "Gap between bars" from the panel).
+- In Histogram mode: `gap = 0` always; bars share borders.
+- `displayMode` toggle in the panel keeps its current place under **Display Mode**.
 
-- **Scale-first**: Y-axis uses `resolveYScale(values, yAuto, yMin, yMax, yStep)` for majors, and a new `minorTicks(scale, yMinorDivisions)` helper adds sub-grid lines between majors. Bar heights come from `yToPx(value) − yToPx(baseline)` where baseline = clamped 0.
-- **Categories drive X**: X positions come from `bar.rows[i].label`. No dragging bars on canvas (drag handle removed — teacher edits values in the panel). Cursor over a bar just highlights it.
-- **Histogram vs bar**: when `displayMode === "histogram"` (or chart kind is `histogram`), gap is forced to 0 and border collapses between adjacent bars. Otherwise `bar.gap` applies. Same code path.
-- Axis, tick, grid, number, data-label, legend, and plot-area rendering all read from the new attrs. Fonts applied via inline `style` on SVG text.
-- Exam mode hides values/labels/titles per its flags; `blank` hides everything except axes and scale.
-- Presets (WAEC/NECO/GCSE/A-Level/Custom) are one-click attr bundles applied through a small `applyPreset(name)` helper — they set gridlines, fonts, colours, tick style, number style. Custom = no-op.
+### 4. Panel changes (right-hand Properties Panel)
 
-## Properties Panel layout
+Inside the existing 17-section layout, only these sections change:
 
-Rewritten in section order matching the request, one `PanelGroup` per section:
+- **Scale** — becomes: Mode (Auto/Manual), cm per step, unit per step, Y min, Y max, Minor divisions. Live readout: `1 cm : X unit`.
+- **Bar Layout** — becomes: Bar width (%), Equal width toggle. Remove Bar width (px) and Gap fields.
+- **Display Mode** — unchanged (Bar chart / Histogram).
 
-1. Scale — auto/manual toggle, min, max, major interval, minor divisions
-2. Axes — Y and X sub-blocks: title, show, arrow, thickness, colour
-3. Categories (X-Axis) — add / rename / reorder (↑ ↓) / delete
-4. Bars — per-row: category (dropdown of categories), value, width, colour, border colour, border thickness, label, show-label, remove; buttons: Add Bar, Duplicate, Delete
-5. Bar Layout — width, gap, equal width, automatic width
-6. Display Mode — Bar Chart / Histogram (radio)
-7. Grid — show/hide, major, minor, colour, thickness
-8. Tick Marks — show, length, thickness
-9. Numbers — show, font size, decimals, side
-10. Data Labels — show, position (above / inside / below)
-11. Colours — uniform vs individual, opacity, border colour, border thickness
-12. Fonts — family, size, bold, italic
-13. Legend — show, position
-14. Graph Area — background, border, thickness, padding
-15. Examination Mode — hide values, hide labels, hide axis titles, blank
-16. Presets — WAEC / NECO / GCSE / A-Level / Custom
-17. Universal Tools — existing CSV import/export, reset, presentation, lock, answers, duplicate (from `UniversalTools.tsx`, unchanged)
+All other sections (Axes, Grid, Ticks, Numbers, Data Labels, Colours, Fonts, Legend, Graph Area, Exam Mode, Presets, Universal Tools) stay as they are.
 
-Categories and Bars are decoupled in UI but stored in one array: adding a category creates a bar with value 0; the "Bars" section edits the value/style of the same row. This mirrors the mental model in the request while keeping the data model simple.
+---
 
-## Files to change
+### Files touched
 
-- `src/components/lessonnotes/extensions/visuals/smartchart/types.ts` — extend `SmartChartAttrs` with new optional fields + defaults helper
-- `src/components/lessonnotes/extensions/visuals/smartchart/scale.ts` — add `minorTicks(scale, divisions)` helper
-- `src/components/lessonnotes/extensions/visuals/smartchart/BarChart.tsx` — rewrite render + panel per above
-- `src/components/lessonnotes/extensions/visuals/smartchart/SmartChart.tsx` — route `kind === "histogram"` to the bar renderer with `displayMode: "histogram"` (remove histogram placeholder)
-- `src/components/lessonnotes/extensions/visuals/smartchart/UniversalTools.tsx` — no change (reused)
-- `.lovable/plan.md` — record the phase
+- `src/components/lessonnotes/extensions/visuals/smartchart/types.ts` — add `barWidthPct`, `yScale`; migrate legacy fields in `normalizeChart`.
+- `src/components/lessonnotes/extensions/visuals/smartchart/scale.ts` — add `resolveManualScale`; keep `niceDomain` for Auto mode.
+- `src/components/lessonnotes/extensions/visuals/smartchart/BarChart.tsx` — new layout math (percent width, gap=width or 0), new Scale panel section, new Bar Layout panel section, `pxPerUnit`-driven Y mapping.
+- `.lovable/plan.md` — record the change.
 
-No changes to `LivingDiagram.tsx`, `graphs.ts`, tests, or backend.
+No other assets, no backend, no AI-flow changes.
 
-## Migration / back-compat
+---
 
-- Missing new attrs resolved via a `withDefaults(attrs)` function inside `BarChart.tsx` before render — old documents load unchanged.
-- `bar.showValuesAbove` maps to `dataLabels.show` on first render if `dataLabels` is absent.
+### Acceptance checks
 
-## Verification
-
-- Add a Bar Chart from the palette: panel shows the 17 sections in the listed order; scale controls set 0/20/5/5 and Y-axis renders `0,5,10,15,20` with 4 minor gridlines between each pair.
-- Add categories A–E, set values 4,7,10,6,8 — bars plot at correct heights without dragging.
-- Toggle Display Mode → Histogram: gaps collapse, bars touch, everything else identical.
-- Toggle Exam Mode → blank: values, category labels, and axis titles disappear; scale and axes remain.
-- Apply WAEC preset: font/gridlines/tick style switch in one click.
+- Default insert of a Bar Chart produces bars whose width is ~10% of plot width and whose spacing equals that width.
+- Panel slider "Bar width (%)" moves bars from thin (~1%) to wide (~50%) live.
+- Setting Manual scale `cm per step = 5`, `unit per step = 1`, `Y max = 40` produces exactly the axis labels `0, 5, 10, 15, 20, 25, 30, 35, 40` with equal 5-cm gaps.
+- Switching to Histogram mode collapses the gap to zero and the bar edges touch, without changing the Y scale.
