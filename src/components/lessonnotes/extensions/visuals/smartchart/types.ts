@@ -237,6 +237,14 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     examMode: mergeObj(a.examMode, EXAM_DEFAULT),
     preset: (["custom","waec","neco","gcse","alevel"].includes(String(a.preset))
       ? a.preset : "custom") as PresetName,
+    barWidthPct: Math.max(0.5, Math.min(50, num(a.barWidthPct, 10))),
+    yScale: mergeObj(a.yScale, {
+      mode: bool(a.yAuto, true) ? "auto" as const : "manual" as const,
+      cmPerStep: 1,
+      unitPerStep: num(a.yStep, 1),
+      min: a.yMin == null ? 0 : num(a.yMin, 0),
+      max: a.yMax == null ? 10 : num(a.yMax, 10),
+    }),
     bar: {
       rows: barRows,
       equalWidth: bool(bar?.equalWidth, true),
