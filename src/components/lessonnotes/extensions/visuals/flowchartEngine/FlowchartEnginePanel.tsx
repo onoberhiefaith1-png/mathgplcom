@@ -58,9 +58,9 @@ export function FlowchartEnginePanel({ open, onClose, model, selectedId, onSelec
     onSelect(n.id);
   };
 
-  const patchNode = (patch: Partial<typeof sel>) => {
+  const patchNode = (p: Partial<FlowNode>) => {
     if (!sel) return;
-    onChange({ ...model, nodes: model.nodes.map((n) => n.id === sel.id ? { ...n, ...patch } : n) });
+    onChange({ ...model, nodes: model.nodes.map((n) => n.id === sel.id ? { ...n, ...p } : n) });
   };
 
   const duplicate = () => {
