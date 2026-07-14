@@ -60,6 +60,8 @@ import { MathSymbolPanel } from "./MathSymbolPanel";
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
+import { AssetSelectionProvider } from "@/hooks/useAssetSelection";
+import { PropertiesPanel } from "./PropertiesPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   PAPER_LABELS, PAPER_SIZES,
