@@ -1369,7 +1369,9 @@ function DocumentEditorInner({
   }, [ribbonOpen]);
 
   return (
+    <AssetSelectionProvider>
     <div className="flex flex-col h-full">
+
       {/* Word-style ribbon — fixed to the viewport so the center handle is always reachable */}
       <div ref={ribbonShellRef} className="lesson-ribbon-shell">
         <div
