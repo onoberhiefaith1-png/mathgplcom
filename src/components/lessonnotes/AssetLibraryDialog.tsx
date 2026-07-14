@@ -63,14 +63,24 @@ function StructurePreview({ a }: { a: AssetDef }) {
 
 function VisualPreview({ a }: { a: AssetDef }) {
   if (a.render.kind !== "visual") return null;
+  // Arithmetic assets get a larger, higher-contrast preview so they are
+  // immediately recognisable in the library.
+  const isArithmetic = a.group === "Arithmetic";
   return (
-    <span className="block w-full h-14 flex items-center justify-center text-foreground overflow-hidden">
+    <span
+      className={
+        "block w-full flex items-center justify-center overflow-hidden text-foreground " +
+        (isArithmetic ? "h-24 [&_*]:!text-foreground" : "h-14")
+      }
+      style={isArithmetic ? { fontWeight: 500 } : undefined}
+    >
       {renderVisual(a.render.visual, a.render.attrs ?? {}, {})}
     </span>
   );
 }
 
 function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
+  const isArithmetic = a.group === "Arithmetic" && a.render.kind === "visual";
   const preview =
     a.render.kind === "symbol" ? (
       <span className="text-2xl leading-none">{a.render.char}</span>
@@ -87,7 +97,10 @@ function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
       type="button"
       onClick={() => onPick(a)}
       title={`@${a.id}`}
-      className="group flex flex-col items-center justify-between gap-1.5 h-28 rounded-lg border border-foreground/10 bg-background hover:border-primary/60 hover:bg-primary/5 transition p-2 text-center"
+      className={
+        "group flex flex-col items-center justify-between gap-1.5 rounded-lg border border-foreground/10 bg-background hover:border-primary/60 hover:bg-primary/5 transition p-2 text-center " +
+        (isArithmetic ? "h-40" : "h-28")
+      }
     >
       <div className="flex-1 flex items-center justify-center w-full min-h-[2rem] text-foreground overflow-hidden">
         {preview}
@@ -98,6 +111,7 @@ function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
     </button>
   );
 }
+
 
 function groupByKey(defs: AssetDef[], fallback = "Other"): Array<[string, AssetDef[]]> {
   const map = new Map<string, AssetDef[]>();
