@@ -84,7 +84,9 @@ export function BarChart({ attrs, onChange, selected }: Props) {
       const rect = svg.getBoundingClientRect();
       const localY = ((ev.clientY - rect.top) / rect.height) * H;
       const v = pxToY(localY);
-      const rounded = Math.round(v * 10) / 10;
+      const snap = Math.max(1e-6, scale.step / 10);
+      const snapped = Math.round(v / snap) * snap;
+      const rounded = Number(snapped.toFixed(4));
       setRow(i, { value: Math.max(scale.min, Math.min(scale.max, rounded)) });
     };
     const onUp = () => {
