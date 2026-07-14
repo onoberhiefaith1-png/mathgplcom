@@ -44,6 +44,13 @@ export interface BarStyle {
 export interface FontStyle { family: string; size: number; bold: boolean; italic: boolean }
 export interface LegendStyle { show: boolean; position: LegendPos }
 export interface PlotAreaStyle { background: string; border: string; borderThickness: number; padding: number }
+export interface YScale {
+  mode: "auto" | "manual";
+  cmPerStep: number;   // visual cm per one major step
+  unitPerStep: number; // data units per one major step
+  min: number;
+  max: number;
+}
 export interface ExamMode {
   hideValues: boolean;
   hideCategoryLabels: boolean;
