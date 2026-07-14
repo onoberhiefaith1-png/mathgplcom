@@ -1391,6 +1391,7 @@ function DocumentEditorInner({
         <Btn active={editor?.isActive("orderedList")} onClick={() => editor?.chain().focus().toggleOrderedList().run()} title="Numbered list"><ListOrdered className="h-4 w-4" /></Btn>
         <Divider />
         <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
+        <Btn onClick={() => setAssetLibOpen(true)} title="Asset Library — browse all symbols & structures"><LayoutGrid className="h-4 w-4" /></Btn>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="p-1.5 rounded hover:bg-foreground/10 inline-flex items-center gap-1 text-xs" title="Add a section">
