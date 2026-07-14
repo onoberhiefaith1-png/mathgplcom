@@ -523,7 +523,7 @@ export function BarChart({ attrs, onChange, selected }: Props) {
         {/* Bars */}
         {!blank && rows.map((r, i) => {
           const bx = xForBar(i);
-          const w = bar.equalWidth ? barWidth : (r.width ?? bar.barWidth);
+          const w = barWidth;
           const yTop = yToPx(Math.max(scale.min, Math.min(scale.max, r.value)));
           const h = Math.abs(yBaseline - yTop);
           const color =
