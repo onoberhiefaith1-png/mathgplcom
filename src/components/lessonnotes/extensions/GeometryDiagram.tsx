@@ -146,13 +146,22 @@ function GeometryDiagramView({
               </p>
             )}
 
-            {/* Action row — no frame, just tools when the diagram itself is selected. */}
-            {selected && (
-              <div className="absolute -top-7 right-0 flex items-center gap-1 bg-background/95 border border-foreground/15 rounded-md shadow px-1 py-0.5">
+            {/* AI action row — sits BELOW the diagram, away from the top
+                manual Edit chip. Auto-hides 10s after last activity. */}
+            {(selected || aiVisible) && (
+              <div
+                className={cn(
+                  "absolute left-1/2 -translate-x-1/2 -bottom-9 flex items-center gap-1 bg-background/95 border border-foreground/15 rounded-md shadow px-1 py-0.5 transition-opacity duration-200",
+                  aiVisible ? "opacity-100" : "opacity-0 pointer-events-none",
+                )}
+                onMouseEnter={kickAi}
+                onMouseMove={kickAi}
+              >
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    kickAi();
                     openGeometryAiEdit({
                       scene,
                       topic,
@@ -168,6 +177,7 @@ function GeometryDiagramView({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    kickAi();
                     const pos = typeof getPos === "function" ? getPos() : null;
                     if (pos == null) return;
                     editor.chain().focus().insertContentAt(pos + node.nodeSize, {
@@ -184,6 +194,7 @@ function GeometryDiagramView({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    kickAi();
                     navigator.clipboard?.writeText(JSON.stringify({ type: "geometryDiagram", attrs: { scene, topic, align } })).catch(() => {});
                   }}
                   className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
