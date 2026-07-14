@@ -76,7 +76,18 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
     padding: 0,
     color: "#0f172a",
     fontWeight: 500,
+    boxSizing: "border-box",
   };
+
+  const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
+  const hoverStyle = (r: number, c: number): React.CSSProperties =>
+    hover && hover.r === r && hover.c === c
+      ? {
+          borderLeft: "1px dashed rgba(15,23,42,0.35)",
+          borderRight: "1px dashed rgba(15,23,42,0.35)",
+          background: "rgba(15,23,42,0.04)",
+        }
+      : {};
 
   return (
     <div
@@ -88,37 +99,46 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
       onPointerDown={bind.onPointerDown}
       onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
     >
-      <table style={{ borderCollapse: "collapse" }}>
+      <table style={{ borderCollapse: "collapse" }} onPointerLeave={() => setHover(null)}>
         <tbody>
-          {m.rows.map((row, i) => (
+          {m.rows.map((row, i) => {
+            const baseHover = hover && hover.r === i && hover.c === 0;
+            return (
             <tr key={i}>
               <td
+                onPointerEnter={() => setHover({ r: i, c: 0 })}
                 style={{
                   ...cellBase,
                   width: 44, minWidth: 44,
                   textAlign: "right",
                   paddingRight: 10,
                   borderRight: `${m.dividerThickness}px solid #0f172a`,
+                  borderLeft: baseHover ? "1px dashed rgba(15,23,42,0.35)" : undefined,
+                  background: baseHover ? "rgba(15,23,42,0.04)" : undefined,
                 }}
               >
                 <SmartCell value={m.base} onChange={(v) => patch({ base: v })} align="right" placeholder="" />
               </td>
               <td
+                onPointerEnter={() => setHover({ r: i, c: 1 })}
                 style={{
                   ...cellBase,
                   width: m.colWidth, minWidth: m.colWidth,
                   textAlign: "right",
                   paddingLeft: 14, paddingRight: 14,
+                  ...hoverStyle(i, 1),
                 }}
               >
                 <SmartCell value={row.q} onChange={(v) => setQ(i, v)} align="right" placeholder="" />
               </td>
               <td
+                onPointerEnter={() => setHover({ r: i, c: 2 })}
                 style={{
                   ...cellBase,
                   width: m.colWidth * 0.9, minWidth: m.colWidth * 0.9,
                   textAlign: "left",
                   paddingLeft: 4,
+                  ...hoverStyle(i, 2),
                 }}
               >
                 {i > 0 && (
@@ -129,9 +149,11 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
                 )}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
+
 
       <AssetBottomToolbar
         visible={toolbarVisible}
