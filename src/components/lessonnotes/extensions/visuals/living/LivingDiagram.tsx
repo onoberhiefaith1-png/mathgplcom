@@ -318,7 +318,6 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={selected}
-        onEdit={() => { /* inline editing */ }}
         presenting={presenting && !selected}
         onActivity={bumpActivity}
       >

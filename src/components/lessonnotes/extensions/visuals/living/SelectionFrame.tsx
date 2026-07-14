@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 interface Props {
   selected: boolean;
-  onEdit: () => void;
+  onEdit?: () => void;
   children: ReactNode;
   /** When true, hide outline + chip (auto-hides after idle). */
   presenting?: boolean;
@@ -27,7 +27,7 @@ export function SelectionFrame({ selected, onEdit, children, presenting = false,
   }, []);
 
   const chromeVisible = !presenting;
-  const showChip = chromeVisible && (hover || selected);
+  const showChip = !!onEdit && chromeVisible && (hover || selected);
 
   return (
     <div
