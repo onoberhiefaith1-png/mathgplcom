@@ -387,7 +387,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
         })}
       </div>
 
-      {/* Bracket row: divisor ) dividend (with top bar) */}
+      {/* Bracket row: divisor input, ")", then dividend cells under one continuous vinculum */}
       <div
         className="grid"
         style={{
@@ -397,18 +397,49 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
       >
         <div /> {/* minus gutter */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.15ch", paddingRight: "0.25ch" }}>
-          <span>{m.divisor}</span>
+          <input
+            type="text"
+            value={m.divisor}
+            placeholder=" "
+            onChange={(e) => patch({ divisor: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") {
+                const el = e.currentTarget;
+                if (el.selectionStart === el.value.length) {
+                  e.preventDefault();
+                  focusCell(rootRef.current, "dividend", 0);
+                }
+              }
+            }}
+            style={{
+              width: `${Math.max(1.5, (m.divisor?.length || 0) + 0.5)}ch`,
+              padding: 0,
+              margin: 0,
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              textAlign: "right",
+              fontFamily: "inherit",
+              fontSize: "inherit",
+              color: "inherit",
+              caretColor: "#0f172a",
+            }}
+          />
           <span style={{ fontWeight: 700, fontSize: "1.1em" }}>)</span>
         </div>
-        {m.dividendDigits.map((d, c) => (
-          <div
-            key={c}
-            style={{
-              borderTop: `${m.lineThickness}px solid #0f172a`,
-              paddingTop: 2,
-            }}
-          >
+        {/* One continuous vinculum spanning ALL dividend cells */}
+        <div
+          style={{
+            gridColumn: `3 / span ${nCols}`,
+            display: "grid",
+            gridTemplateColumns: `repeat(${nCols}, ${COL_W})`,
+            borderTop: `${m.lineThickness}px solid #0f172a`,
+            paddingTop: 2,
+          }}
+        >
+          {m.dividendDigits.map((d, c) => (
             <DigitCell
+              key={c}
               value={d ?? ""}
               row="dividend"
               col={c}
@@ -419,8 +450,8 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
               onAppendCol={appendCol}
               onTrimTail={trimTail}
             />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Working rows */}
