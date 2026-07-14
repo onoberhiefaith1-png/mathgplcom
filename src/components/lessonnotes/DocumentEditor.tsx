@@ -772,7 +772,8 @@ function DocumentEditorInner({
     toast({ title: "Animation started", description: "Edit, then press Capture Step again to add the next frame." });
   };
 
-
+  const [atState, setAtState] = useState<AtCommandState>({ active: false, query: "", from: 0, to: 0, coords: null });
+  const [assetLibOpen, setAssetLibOpen] = useState(false);
 
 
 
@@ -798,6 +799,10 @@ function DocumentEditorInner({
       SmartCalcNode,
       MathObjectNode,
       StepAnimationNode,
+      MathSlot,
+      MathStructure,
+      MathVisual,
+      AtCommand.configure({ onChange: setAtState }),
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
