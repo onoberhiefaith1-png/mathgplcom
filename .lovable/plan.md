@@ -1,71 +1,49 @@
-## Long Division — Column-Aligned Digit Cells
+## Long Division — usability fixes
 
-Refactor `LongDivision.tsx` so the dividend, quotient, and every working row use a shared invisible digit-column grid. Each digit occupies exactly one column; typing snaps digits into cells; working rows auto-align to the dividend.
+All changes are contained in `src/components/lessonnotes/extensions/visuals/arithmetic/LongDivision.tsx` plus a small tweak to the hover-idle hook. No changes to `src/lib/division.ts` or other assets.
 
-### Data model (attrs)
+### 1. Inline divisor input (left of the ")" bracket)
 
-Replace free-text `dividend`, `quotient`, `workingRows: string[]` with column-indexed arrays:
+Right now the divisor can only be edited from the right-hand panel, so there's nowhere on the board to type `35` before the bracket. Replace the read-only `<span>{m.divisor}</span>` in the bracket row with a real `<input>`:
 
-- `dividendDigits: string[]` — one entry per column (source of truth for column count)
-- `quotientDigits: string[]` — same length as dividendDigits
-- `divisor: string` — stays free text (sits outside the grid, right of the bracket's left side)
-- `workingRows: string[][]` — each row is `string[]` sized to `dividendDigits.length`
-- keep `showWorking`, `autoMinus`, `autoLine`, `lineThickness`, `rowHeight`
+- Auto-sized to its content (`width: ${max(1, m.divisor.length)}ch`, min ~1.5ch).
+- Same font, color, transparent background, no border.
+- Right-aligned so the bracket sits flush against the last divisor character.
+- Accepts letters/digits/`.` `,` `-` (same permissive set as the cells — see §4).
+- Keeps the right-hand panel "Divisor" field as an alternative editor; both stay in sync via `patch({ divisor })`.
 
-Column count = `dividendDigits.length` (min 1). Grows automatically as the teacher types past the current width; shrinks when trailing columns become empty (only via backspace at the tail, never mid-row).
+Focus behaviour: clicking the space just left of the ")" focuses this input. Pressing `ArrowRight` at end-of-text jumps into the dividend's first cell; pressing `Backspace` on an empty divisor does nothing (does not delete columns).
 
-### Layout
+### 2. Vinculum (top bar) always visible as a complete structure
 
-One CSS grid per horizontal line, all sharing:
+Currently the top bar is drawn per-cell (`borderTop` on each dividend cell), so before any digits are typed there are zero cells and no bar appears — the structure looks incomplete.
 
-```
-gridTemplateColumns: `repeat(${nCols}, var(--ld-col))`
-```
+Fix:
 
-where `--ld-col` is a fixed width (e.g. `1.1ch` at the current font size) — this is what guarantees column alignment across rows without visible gridlines.
+- Ensure the dividend always has at least `MIN_COLS = 3` cells on first mount (bump from 1 to 3) so the bar has visible width from the start.
+- Draw the vinculum as **one continuous element** that spans the whole dividend region, not per cell. Implementation: wrap the dividend cells in a single grid container whose `borderTop` provides the bar; the cells sit under that shared bar. This guarantees the line is unbroken and expands automatically as columns are appended.
+- The bar visually connects to the top of the ")" bracket (small negative left offset so it meets the bracket's inner curve).
 
-Structure top-to-bottom:
+### 3. Allow letters as well as digits
 
-1. Quotient row — grid of `nCols` cells above the bar.
-2. Bracket row — divisor (free text, right-aligned before `)`) + `)` + bar (top border) + dividend grid of `nCols` cells.
-3. For each working row: an offset grid of `nCols` cells; optional leading `−` in a fixed-width gutter column; optional top border for subtraction rows.
+Change the accepted-key regex in `DigitCell` from `/[0-9.,\-]/` to `/^[\p{L}\p{N}.,\-]$/u` so any single letter or digit (including unicode) types into a cell. Also:
 
-The `−` sign and the divisor/`)` live in fixed side gutters (`grid-template-columns: [gutter] auto [gutter] auto [cells] repeat(nCols, var(--ld-col))`) so cell columns line up exactly across quotient, dividend, and every working row.
+- Remove `inputMode="numeric"` (or set to `"text"`) so mobile keyboards show letters.
+- Space still advances one column without writing (unchanged).
+- Backspace behaviour unchanged.
 
-### Digit cell component
+Same permissive set is applied to the inline divisor input.
 
-New tiny `DigitCell` (local to the file):
+### 4. Easier-to-summon bottom toolbar ("the sensor")
 
-- Renders a single-character input styled as plain text (no border, transparent bg, centered, width = `var(--ld-col)`).
-- `maxLength=1`; accepts digits, `.`, `,`, or blank.
-- Key handling:
-  - digit → write to this column, focus next column (create column if this is the dividend and we're at the last col).
-  - Backspace on empty cell → focus previous column; Backspace on filled cell → clear this column only.
-  - ArrowLeft/ArrowRight → move focus; Space → move to next column without writing (matches existing LTR behavior).
-- Focus is tracked by `data-ld-row` + `data-ld-col` attributes so keyboard nav can find neighbors via `querySelector`.
+Two changes make it much easier to trigger and keep open:
 
-### Column growth / shrink rules
-
-- Dividend row: typing in the last column appends a new column (all rows extended with `""`).
-- Backspace clearing the last dividend column when all rows' last column are empty → drop that column from every row and from quotient.
-- Working rows never change column count on their own.
-
-### Toolbar
-
-Keep existing `+ / −` working-step buttons. New rows are created as `Array(nCols).fill("")`.
-
-### Migration
-
-On mount, if `attrs.dividend` (string) exists but `dividendDigits` doesn't, split the string into chars → `dividendDigits`. Same for `quotient`. For legacy `workingRows: string[]`, map each string to a right-aligned char array padded to `nCols`. Persist the migrated shape via `onChange` once (guarded by ref to avoid loops).
-
-### Files
-
-- `src/components/lessonnotes/extensions/visuals/arithmetic/LongDivision.tsx` — rewrite render + attrs handling; add `DigitCell` and keyboard nav.
-- No changes to `src/lib/division.ts` (that engine is for the guided-solver flow, not this teacher-editable asset).
-- No changes to other assets or the properties panel.
+- **Larger hit area:** render a ~28px tall transparent hover strip directly under the asset (part of the toolbar wrapper, not the buttons) so the pointer doesn't have to land exactly on the small pill.
+- **Shorter reveal delay + longer idle window:** update `useHoverIdleVisibility` so the toolbar appears on `pointerenter` immediately (no debounce) and the idle-hide timer is reset by *any* pointer movement inside the asset root, not just movement over the toolbar itself. Idle timeout stays at 10s.
+- Keep force-visible while the asset is selected (unchanged).
 
 ### Out of scope
 
-- Auto-computing quotient/product/remainder (still teacher-typed).
-- Visible gridlines.
-- Any change to LCM/HCF ladder or other tabular assets.
+- No auto-computed quotient/product/remainder — teacher-typed only.
+- LCM/HCF ladder and other tabular assets unchanged.
+- No visible column gridlines.
