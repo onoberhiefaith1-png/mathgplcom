@@ -141,7 +141,7 @@ export function GeometryAiPanel() {
 
   return (
     <div
-      className="fixed right-0 top-0 bottom-0 z-40 w-[420px] max-w-[95vw] bg-background border-l border-foreground/15 shadow-2xl flex flex-col"
+      className="fixed left-1/2 -translate-x-1/2 bottom-0 z-40 w-[min(960px,96vw)] max-h-[55vh] bg-background border-t border-x border-foreground/15 rounded-t-lg shadow-2xl flex flex-col"
       role="dialog"
       aria-label="Geometry AI editor"
     >
