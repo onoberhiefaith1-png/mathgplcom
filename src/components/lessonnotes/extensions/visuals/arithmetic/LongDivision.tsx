@@ -497,6 +497,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
               {showMinus ? "−" : ""}
             </div>
             <div /> {/* divisor gutter */}
+            <div /> {/* hook gutter */}
             {Array.from({ length: nCols }).map((_, c) => (
               <div
                 key={c}
