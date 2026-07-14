@@ -43,15 +43,49 @@ export const GRAPHS: AssetDef[] = [
   V("inequalityOpen", "Inequality (open circle)", "numberline", "Number Lines", ["line"]),
   V("inequalityClosed", "Inequality (closed circle)", "numberline", "Number Lines", ["line"]),
 
-  // Data Charts
-  V("barchart", "Bar chart", "chart", "Data Charts", ["bar", "data"]),
-  V("piechart", "Pie chart", "chart", "Data Charts", ["pie", "data"]),
-  V("histogram", "Histogram", "chart", "Data Charts", ["hist", "data"]),
-  V("scatter", "Scatter plot", "chart", "Data Charts", ["data"]),
-  V("boxplot", "Box and whisker", "chart", "Data Charts", ["box", "data"]),
-  V("linegraph", "Line graph", "chart", "Data Charts", ["line", "time series"]),
-  V("dotplot", "Dot plot", "chart", "Data Charts", ["dot"]),
-  V("ogive", "Cumulative frequency (ogive)", "chart", "Data Charts", ["cumulative"]),
+  // Data Charts — Smart Chart (interactive). Phase 1: Bar Chart is fully
+  // interactive; the other kinds route to the same node with a
+  // placeholder view and will be upgraded in follow-up phases.
+  {
+    id: "barchart", label: "Bar chart", category: "Graphs", group: "Data Charts",
+    keywords: ["bar", "data", "chart"], hint: "Smart",
+    render: { kind: "visual", visual: "smartChart", attrs: { kind: "bar" } },
+  },
+  {
+    id: "piechart", label: "Pie chart", category: "Graphs", group: "Data Charts",
+    keywords: ["pie", "data"], hint: "Smart",
+    render: { kind: "visual", visual: "smartChart", attrs: { kind: "pie" } },
+  },
+  {
+    id: "histogram", label: "Histogram", category: "Graphs", group: "Data Charts",
+    keywords: ["hist", "data"], hint: "Smart",
+    render: { kind: "visual", visual: "smartChart", attrs: { kind: "histogram" } },
+  },
+  {
+    id: "scatter", label: "Scatter plot", category: "Graphs", group: "Data Charts",
+    keywords: ["data", "scatter"], hint: "Smart",
+    render: { kind: "visual", visual: "smartChart", attrs: { kind: "scatter" } },
+  },
+  {
+    id: "boxplot", label: "Box and whisker", category: "Graphs", group: "Data Charts",
+    keywords: ["box", "data"], hint: "Smart",
+    render: { kind: "visual", visual: "smartChart", attrs: { kind: "boxplot" } },
+  },
+  {
+    id: "linegraph", label: "Line graph", category: "Graphs", group: "Data Charts",
+    keywords: ["line", "time series"], hint: "Smart",
+    render: { kind: "visual", visual: "smartChart", attrs: { kind: "line" } },
+  },
+  {
+    id: "dotplot", label: "Dot plot", category: "Graphs", group: "Data Charts",
+    keywords: ["dot"], hint: "Smart",
+    render: { kind: "visual", visual: "smartChart", attrs: { kind: "dotplot" } },
+  },
+  {
+    id: "ogive", label: "Cumulative frequency (ogive)", category: "Graphs", group: "Data Charts",
+    keywords: ["cumulative"], hint: "Smart",
+    render: { kind: "visual", visual: "smartChart", attrs: { kind: "ogive" } },
+  },
 
   // Function & Kinematics
   V("sinegraph", "Sine curve", "plot", "Function & Kinematics", ["trig"]),
