@@ -101,7 +101,7 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const clearData = () => patchBar({ rows: [] });
   const reset = () => onChange({
     bar: { rows: [], equalWidth: true, gap: 12, barWidth: 40, showValuesAbove: false },
-    xLabel: "", yLabel: "", yAuto: true, yMin: null, yMax: null,
+    xLabel: "", yLabel: "", yAuto: true, yMin: null, yMax: null, yStep: null,
     gridlines: true, showAxisLabels: true, showTicks: true,
   });
   const importCSV = (text: string) => {
