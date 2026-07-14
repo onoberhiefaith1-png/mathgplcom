@@ -134,7 +134,8 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
       </table>
 
       <AssetBottomToolbar
-        visible={!!selected}
+        visible={toolbarVisible}
+        bind={bind}
         actions={[
           { label: "Row", icon: <Plus className="h-3 w-3" />, onClick: addRow },
           { label: "Row", icon: <Minus className="h-3 w-3" />, onClick: delRow, disabled: m.rows.length <= 1, tone: "danger" },
