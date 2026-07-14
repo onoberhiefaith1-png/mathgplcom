@@ -5,6 +5,7 @@
 import { useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor,
 } from "@/components/lessonnotes/panel/panelPrimitives";
@@ -66,7 +67,7 @@ export function FractionWall({ attrs, onChange, selected }: Props) {
   };
   const delRow = () => m.rows.length > 0 && patch({ rows: m.rows.slice(0, -1) });
 
-  const editor = (
+  const editor = useMemo(() => (
     <div>
       <PanelGroup label="Wall">
         <PanelRow label="Max denominator">
@@ -87,11 +88,20 @@ export function FractionWall({ attrs, onChange, selected }: Props) {
         </PanelGroup>
       )}
     </div>
-  );
+  ), [m.maxDenominator, m.rows, patch]);
   useRegisterAssetEditor(!!selected, "fractionWall", "Fraction wall", editor);
 
+  const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
+
   return (
-    <div className="not-prose inline-block">
+    <div
+      className="not-prose inline-block"
+      onPointerEnter={bind.onPointerEnter}
+      onPointerMove={bind.onPointerMove}
+      onPointerLeave={bind.onPointerLeave}
+      onPointerDown={bind.onPointerDown}
+      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    >
       <div style={{ width: m.width, minHeight: m.rows.length === 0 ? 30 : undefined }} className="space-y-1">
         {m.rows.length === 0 && selected && (
           <div className="text-xs text-foreground/50 italic px-1">Add a row to start.</div>
