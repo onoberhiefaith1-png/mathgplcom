@@ -89,6 +89,8 @@ export function BarChart({ attrs, onChange, selected }: Props) {
     bar: { rows: [], equalWidth: true, gap: 12, barWidth: 40, showValuesAbove: false },
     xLabel: "", yLabel: "",
     barWidthPct: 10,
+    canvasWidth: DEFAULT_W,
+    canvasHeight: DEFAULT_H,
     yScale: { mode: "manual", cmPerStep: 1, unitPerStep: 1, min: 0, max: 10 },
     yMinorDivisions: 5,
     displayMode: attrs.kind === "histogram" ? "histogram" : "bar",
