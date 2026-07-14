@@ -378,3 +378,193 @@ All colors MUST be HSL.
 .gb-slot-glow {
   animation: gb-slot-glow 2.4s ease-in-out infinite;
 }
+
+/* ── Elastic math structures (mathStructure NodeView) ─────────────── */
+.math-struct {
+  display: inline-grid;
+  vertical-align: middle;
+  width: max-content;
+  max-width: 100%;
+  line-height: 1.12;
+  padding: 0 2px;
+  color: currentColor;
+}
+.math-struct__slots,
+.math-struct__slots > [data-node-view-content-react] { display: contents; }
+.math-slot {
+  display: inline-block;
+  min-width: 0.82em;
+  min-height: 1.08em;
+  padding: 0 2px;
+  border-bottom: 1px dashed transparent;
+  cursor: text;
+  text-align: center;
+  white-space: nowrap;
+}
+.math-slot:hover { border-bottom-color: hsl(var(--muted-foreground) / 0.3); }
+.math-slot:focus-within { border-bottom-color: hsl(var(--primary) / 0.6); outline: none; }
+.math-slot[data-empty="true"]::before,
+.math-slot:empty::before {
+  content: "▯";
+  opacity: 0.28;
+  font-size: 0.9em;
+  pointer-events: none;
+}
+.math-struct__op,
+.math-struct__mark,
+.math-struct__index { pointer-events: none; user-select: none; }
+
+.math-struct--fraction { grid-template-columns: max-content; grid-template-rows: auto auto; align-items: center; text-align: center; }
+.math-struct--fraction .math-slot { padding: 0 5px; }
+.math-struct--fraction .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; border-bottom: 1.5px solid currentColor; }
+.math-struct--fraction .math-slot:nth-child(2) { grid-column: 1; grid-row: 2; }
+
+.math-struct--slanted { grid-template-columns: max-content max-content max-content; align-items: baseline; text-align: center; }
+.math-struct--slanted::before { content: "/"; grid-column: 2; grid-row: 1; padding: 0 2px; transform: skewX(-8deg); }
+.math-struct--slanted .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; transform: translateY(-0.15em); }
+.math-struct--slanted .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; transform: translateY(0.15em); }
+
+.math-struct--mixed { grid-template-columns: max-content max-content; grid-template-rows: auto auto; align-items: center; column-gap: 3px; text-align: center; }
+.math-struct--mixed .math-slot:nth-child(1) { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+.math-struct--mixed .math-slot:nth-child(2) { grid-column: 2; grid-row: 1; border-bottom: 1.5px solid currentColor; padding: 0 5px; }
+.math-struct--mixed .math-slot:nth-child(3) { grid-column: 2; grid-row: 2; padding: 0 5px; }
+
+.math-struct--sqrt { grid-template-columns: max-content max-content; align-items: stretch; }
+.math-struct--sqrt::before { content: "√"; grid-column: 1; grid-row: 1; font-size: 1.28em; line-height: 1; align-self: stretch; display: inline-flex; align-items: center; transform: scaleY(1.08); }
+.math-struct--sqrt .math-slot:nth-child(1) { grid-column: 2; grid-row: 1; border-top: 1.5px solid currentColor; padding: 2px 5px 0; }
+
+.math-struct--cuberoot, .math-struct--nroot { grid-template-columns: max-content max-content max-content; align-items: stretch; }
+.math-struct--cuberoot::before, .math-struct--nroot::before { content: "√"; grid-column: 2; grid-row: 1; font-size: 1.28em; line-height: 1; align-self: stretch; display: inline-flex; align-items: center; transform: scaleY(1.08); }
+.math-struct--cuberoot .math-struct__index { grid-column: 1; grid-row: 1; font-size: 0.62em; align-self: start; justify-self: end; transform: translate(0.35em, -0.25em); z-index: 1; }
+.math-struct--cuberoot .math-slot:nth-child(1) { grid-column: 3; grid-row: 1; border-top: 1.5px solid currentColor; padding: 2px 5px 0; }
+.math-struct--nroot .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; border-bottom: 0; font-size: 0.62em; align-self: start; justify-self: end; transform: translate(0.35em, -0.25em); z-index: 1; }
+.math-struct--nroot .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; border-top: 1.5px solid currentColor; padding: 2px 5px 0; }
+
+.math-struct--power, .math-struct--sub { grid-template-columns: max-content max-content; align-items: baseline; }
+.math-struct--power .math-slot:nth-child(1), .math-struct--sub .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; }
+.math-struct--power .math-slot:nth-child(2) { grid-column: 2; grid-row: 1; font-size: 0.68em; align-self: start; transform: translateY(-0.42em); }
+.math-struct--sub .math-slot:nth-child(2) { grid-column: 2; grid-row: 1; font-size: 0.68em; align-self: end; transform: translateY(0.34em); }
+.math-struct--subsup { grid-template-columns: max-content max-content; grid-template-rows: auto auto; align-items: center; }
+.math-struct--subsup .math-slot:nth-child(1) { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+.math-struct--subsup .math-slot:nth-child(2) { grid-column: 2; grid-row: 2; font-size: 0.68em; }
+.math-struct--subsup .math-slot:nth-child(3) { grid-column: 2; grid-row: 1; font-size: 0.68em; }
+
+.math-struct--abs, .math-struct--norm, .math-struct--floor, .math-struct--ceil, .math-struct--paren, .math-struct--sqbracket, .math-struct--brace { grid-template-columns: max-content max-content max-content; align-items: stretch; }
+.math-struct--abs::before, .math-struct--abs::after { content: "|"; }
+.math-struct--norm::before, .math-struct--norm::after { content: "‖"; }
+.math-struct--floor::before, .math-struct--floor::after, .math-struct--ceil::before, .math-struct--ceil::after { content: ""; width: 0.32em; margin: 0 1px; }
+.math-struct--floor::before { border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; }
+.math-struct--floor::after { border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; }
+.math-struct--ceil::before { border-left: 1.5px solid currentColor; border-top: 1.5px solid currentColor; }
+.math-struct--ceil::after { border-right: 1.5px solid currentColor; border-top: 1.5px solid currentColor; }
+.math-struct--paren::before { content: "("; } .math-struct--paren::after { content: ")"; }
+.math-struct--sqbracket::before { content: "["; } .math-struct--sqbracket::after { content: "]"; }
+.math-struct--brace::before { content: "{"; } .math-struct--brace::after { content: "}"; }
+.math-struct--abs::before, .math-struct--abs::after,
+.math-struct--norm::before, .math-struct--norm::after,
+.math-struct--floor::before, .math-struct--floor::after,
+.math-struct--ceil::before, .math-struct--ceil::after,
+.math-struct--paren::before, .math-struct--paren::after,
+.math-struct--sqbracket::before, .math-struct--sqbracket::after,
+.math-struct--brace::before, .math-struct--brace::after { display: inline-flex; align-items: center; font-size: 1.22em; line-height: 1; padding: 0 1px; }
+.math-struct--abs .math-slot:nth-child(1),
+.math-struct--norm .math-slot:nth-child(1),
+.math-struct--floor .math-slot:nth-child(1),
+.math-struct--ceil .math-slot:nth-child(1),
+.math-struct--paren .math-slot:nth-child(1),
+.math-struct--sqbracket .math-slot:nth-child(1),
+.math-struct--brace .math-slot:nth-child(1) { grid-column: 2; }
+
+.math-struct--bigop { grid-template-columns: max-content max-content; grid-template-rows: auto auto auto; align-items: center; text-align: center; column-gap: 3px; }
+.math-struct--bigop .math-struct__op { grid-column: 1; grid-row: 2; font-size: 1.65em; line-height: 1; padding: 0 3px; }
+.math-struct--bigop .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; font-size: 0.68em; padding: 0 3px; }
+.math-struct--bigop .math-slot:nth-child(2) { grid-column: 1; grid-row: 3; font-size: 0.68em; padding: 0 3px; }
+.math-struct--bigop .math-slot:nth-child(3) { grid-column: 2; grid-row: 2; padding-left: 4px; text-align: left; }
+
+.math-struct--limit { grid-template-columns: max-content max-content; grid-template-rows: auto auto; align-items: center; column-gap: 5px; }
+.math-struct--limit::before { content: "lim"; grid-column: 1; grid-row: 1; font-style: normal; font-size: 0.92em; text-align: center; }
+.math-struct--limit .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; font-size: 0.66em; text-align: center; }
+.math-struct--limit .math-slot:nth-child(2) { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-align: left; }
+
+.math-struct--matrix { grid-auto-flow: row; grid-auto-columns: 0; grid-auto-rows: 0; align-items: center; justify-items: center; column-gap: 2px; row-gap: 1px; padding: 0 2px; position: relative; }
+.math-struct--matrix .math-slot { padding: 1px 6px; min-width: 1.15em; }
+.math-struct--matrix::before, .math-struct--matrix::after { grid-row: 1 / -1; align-self: stretch; display: inline-flex; align-items: center; font-size: 1.75em; line-height: 1; }
+.math-struct--matrix::before { grid-column: 1 / span 1; }
+.math-struct--matrix::after  { grid-column: -2 / -1; }
+.math-struct--matrix[data-bracket="("]::before { content: "("; }
+.math-struct--matrix[data-bracket="("]::after  { content: ")"; }
+.math-struct--matrix[data-bracket="["]::before { content: "["; }
+.math-struct--matrix[data-bracket="["]::after  { content: "]"; }
+.math-struct--matrix[data-bracket="{"]::before { content: "{"; }
+.math-struct--matrix[data-bracket="{"]::after  { content: "}"; }
+.math-struct--matrix[data-bracket="|"]::before,
+.math-struct--matrix[data-bracket="|"]::after { content: "|"; }
+.math-struct__divider { width: 0; border-left: 1.5px solid currentColor; align-self: stretch; justify-self: start; margin: 0 3px; }
+.math-struct--matrix[data-locked="true"] { outline: 1px dashed hsl(var(--muted-foreground) / 0.35); outline-offset: 2px; }
+
+.math-struct--piecewise, .math-struct--system { grid-template-columns: max-content max-content max-content; grid-auto-rows: auto; align-items: center; }
+.math-struct--piecewise::before, .math-struct--system::before { content: "{"; grid-column: 1; grid-row: 1 / -1; align-self: stretch; display: inline-flex; align-items: center; font-size: 2.1em; line-height: 1; padding-right: 4px; }
+.math-struct--system .math-slot { grid-column: 2; display: block; text-align: left; padding: 2px 5px; }
+.math-struct--piecewise .math-slot { display: block; text-align: left; padding: 2px 5px; }
+.math-struct--piecewise .math-slot:nth-child(1) { grid-column: 2; grid-row: 1; }
+.math-struct--piecewise .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; }
+.math-struct--piecewise .math-slot:nth-child(3) { grid-column: 2; grid-row: 2; }
+.math-struct--piecewise .math-slot:nth-child(4) { grid-column: 3; grid-row: 2; }
+.math-struct--system .math-slot:nth-child(1) { grid-row: 1; }
+.math-struct--system .math-slot:nth-child(2) { grid-row: 2; }
+
+.math-struct--binom { grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto; text-align: center; align-items: stretch; }
+.math-struct--binom::before { content: "("; grid-column: 1; grid-row: 1 / span 2; }
+.math-struct--binom::after  { content: ")"; grid-column: 3; grid-row: 1 / span 2; }
+.math-struct--binom::before, .math-struct--binom::after { display: inline-flex; align-items: center; font-size: 1.75em; line-height: 1; }
+.math-struct--binom .math-slot:nth-child(1) { grid-column: 2; grid-row: 1; padding: 0 5px; }
+.math-struct--binom .math-slot:nth-child(2) { grid-column: 2; grid-row: 2; padding: 0 5px; }
+
+.math-struct--vector, .math-struct--accent { grid-template-columns: max-content; grid-template-rows: auto auto; text-align: center; align-items: center; }
+.math-struct--vector::before { content: "→"; grid-column: 1; grid-row: 1; font-size: 0.88em; line-height: 0.65; }
+.math-struct--vector .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; }
+.math-struct--accent .math-struct__mark { grid-column: 1; grid-row: 1; line-height: 0.65; font-size: 0.92em; justify-self: center; }
+.math-struct--accent .math-struct__mark:where(:not(:empty)) { min-width: 0.9em; text-align: center; }
+.math-struct--accent .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; }
+
+.math-struct--log { grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto; align-items: end; column-gap: 2px; }
+.math-struct--log::before { content: "log"; grid-column: 1; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 0.92em; }
+.math-struct--log .math-slot:nth-child(1) { grid-column: 2; grid-row: 2; font-size: 0.66em; padding: 0 1px; }
+.math-struct--log .math-slot:nth-child(2) { grid-column: 3; grid-row: 1 / span 2; align-self: center; text-align: left; }
+
+.math-struct--ln { grid-template-columns: max-content max-content; align-items: baseline; column-gap: 3px; }
+.math-struct--ln::before { content: "ln"; font-style: normal; font-size: 0.92em; }
+.math-struct--ln .math-slot:nth-child(1) { grid-column: 2; }
+
+.math-struct--func { grid-template-columns: max-content max-content max-content max-content; align-items: baseline; }
+.math-struct--func::before { content: "("; grid-column: 2; grid-row: 1; }
+.math-struct--func::after  { content: ")"; grid-column: 4; grid-row: 1; }
+.math-struct--func .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; font-style: italic; padding-right: 1px; }
+.math-struct--func .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; }
+
+.math-struct--deriv, .math-struct--partial { grid-template-columns: max-content; grid-template-rows: auto auto; text-align: center; }
+.math-struct--deriv .math-slot:nth-child(1), .math-struct--partial .math-slot:nth-child(1) { grid-row: 1; border-bottom: 1.5px solid currentColor; padding: 0 5px; }
+.math-struct--deriv .math-slot:nth-child(2), .math-struct--partial .math-slot:nth-child(2) { grid-row: 2; padding: 0 5px; }
+.math-struct--deriv .math-slot:nth-child(1)::before { content: "d"; padding-right: 1px; opacity: 0.9; }
+.math-struct--deriv .math-slot:nth-child(2)::before { content: "d"; padding-right: 1px; opacity: 0.9; }
+.math-struct--partial .math-slot:nth-child(1)::before { content: "∂"; padding-right: 1px; opacity: 0.9; }
+.math-struct--partial .math-slot:nth-child(2)::before { content: "∂"; padding-right: 1px; opacity: 0.9; }
+
+.math-struct--evalbar { grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto auto; align-items: center; column-gap: 3px; }
+.math-struct--evalbar::before { content: "|"; grid-column: 2; grid-row: 1 / span 3; align-self: stretch; display: inline-flex; align-items: center; font-size: 1.75em; line-height: 1; }
+.math-struct--evalbar .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; }
+.math-struct--evalbar .math-slot:nth-child(2) { grid-column: 3; grid-row: 3; font-size: 0.68em; }
+.math-struct--evalbar .math-slot:nth-child(3) { grid-column: 3; grid-row: 1; font-size: 0.68em; }
+
+.math-struct--longdiv { grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto; align-items: end; column-gap: 1px; }
+.math-struct--longdiv::before { content: ")"; grid-column: 2; grid-row: 2; font-size: 1.18em; align-self: start; }
+.math-struct--longdiv .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; padding-right: 2px; }
+.math-struct--longdiv .math-slot:nth-child(2) { grid-column: 3; grid-row: 2; border-top: 1.5px solid currentColor; padding: 2px 6px 0; text-align: left; }
+.math-struct--longdiv .math-slot:nth-child(3) { grid-column: 3; grid-row: 1; padding: 0 6px; }
+
+.math-struct--poly { grid-template-columns: max-content; }
+.math-struct--poly .math-slot:nth-child(1) { text-align: left; min-width: 3em; }
+
+.math-struct--preview { font-size: 0.95rem; color: hsl(var(--foreground)); }
+.math-struct--preview .math-slot { min-width: 0.78em; min-height: 0.9em; padding: 0 2px; }
+.math-struct--preview .math-slot::before { content: "▯"; opacity: 0.35; font-size: 0.85em; }
