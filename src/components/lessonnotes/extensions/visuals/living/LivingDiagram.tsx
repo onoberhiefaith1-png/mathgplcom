@@ -19,6 +19,9 @@ import { LineEngineNode } from "../lineEngine/LineEngineNode";
 import { CircleEngineNode } from "../circleEngine/CircleEngineNode";
 import { SolidEngineNode } from "../solidEngine/SolidEngineNode";
 import { VennEngineNode } from "../vennEngine/VennEngineNode";
+import { TreeEngineNode } from "../treeEngine/TreeEngineNode";
+import { FlowchartEngineNode } from "../flowchartEngine/FlowchartEngineNode";
+import { OrgEngineNode } from "../orgEngine/OrgEngineNode";
 
 import { SelectionFrame } from "./SelectionFrame";
 import { PropertyPanel } from "./panel/PropertyPanel";
