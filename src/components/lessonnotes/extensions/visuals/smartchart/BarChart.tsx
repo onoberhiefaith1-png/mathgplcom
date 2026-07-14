@@ -245,10 +245,8 @@ export function BarChart({ attrs, onChange, selected }: Props) {
               <line x1={PAD.left - 4} x2={PAD.left} y1={yToPx(t)} y2={yToPx(t)}
                 stroke={axisColor} strokeWidth={1} />
             )}
-            {attrs.showAxisLabels && (
-              <text x={PAD.left - 8} y={yToPx(t)} dy="0.32em" textAnchor="end"
-                fontSize={12} fill={axisColor}>{formatTick(t)}</text>
-            )}
+            <text x={PAD.left - 8} y={yToPx(t)} dy="0.32em" textAnchor="end"
+              fontSize={12} fill={axisColor}>{formatTick(t)}</text>
           </g>
         ))}
 
