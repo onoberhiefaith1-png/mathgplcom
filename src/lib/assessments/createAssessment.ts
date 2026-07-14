@@ -39,10 +39,69 @@ interface AnswerKeyLine {
   tokens: string[];
 }
 
+export interface CompiledSection {
+  questions: QuestionPayload[];
+  answerKey: AnswerKeyLine[];
+  total: number;
+}
+
 const cleanFillers = (fillers: string[] | undefined): string[] =>
   (fillers ?? [])
     .map((f) => toUnicodeMath(String(f ?? "")))
     .filter((f) => f && !isStillDirty(f));
+
+/**
+ * Compile every subsection in a section into shuffled student questions plus a
+ * hidden answer key. Shared by class assignments and game questions.
+ */
+export async function compileSectionQuestions(sectionId: string): Promise<CompiledSection> {
+  const { data: subs } = await supabase
+    .from("notebook_subsections")
+    .select("id, order_index, floating_lines")
+    .eq("section_id", sectionId)
+    .order("order_index", { ascending: true });
+
+  const subIds = (subs ?? []).map((s: any) => s.id as string);
+
+  const { data: blocks } = await supabase
+    .from("notebook_blocks")
+    .select("subsection_id, kind, content_ascii")
+    .in("subsection_id", subIds.length ? subIds : ["00000000-0000-0000-0000-000000000000"]);
+  const problemBySub = new Map<string, string>();
+  for (const b of blocks ?? []) {
+    if ((b as any).kind === "problem" && (b as any).subsection_id) {
+      problemBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
+    }
+  }
+
+  const questions: QuestionPayload[] = [];
+  const answerKey: AnswerKeyLine[] = [];
+  let total = 0;
+
+  for (const s of subs ?? []) {
+    const sid = (s as any).id as string;
+    const flLines = ((s as any).floating_lines ?? []) as FloatingLine[];
+    const lines: QuestionPayload["lines"] = [];
+    for (const line of flLines) {
+      const tokens = cleanFillers(line.fillers);
+      if (tokens.length < 2) continue;
+      const marks = Math.max(0, Number(line.marks) || 0);
+      total += marks;
+      lines.push({
+        lineId: line.lineId,
+        chips: rearrangeStream(tokens),
+        marks,
+        containers: (line.containers ?? []) as ContainerKind[],
+      });
+      answerKey.push({ questionId: sid, lineId: line.lineId, tokens });
+    }
+    if (lines.length === 0) continue;
+    questions.push({ id: sid, questionText: problemBySub.get(sid) ?? "", lines });
+  }
+
+  return { questions, answerKey, total };
+}
+
 
 /** Create the assessment + hidden answer key. Returns the new assessment id. */
 export async function createAssessmentFromSubsection(
