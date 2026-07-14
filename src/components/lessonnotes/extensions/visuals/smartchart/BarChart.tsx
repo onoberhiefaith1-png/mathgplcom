@@ -123,17 +123,21 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   // ── Right-hand Properties Panel content ────────────────────────────
   const editor = (
     <div>
-      <PanelGroup label="Data">
+      <PanelGroup label="Bars (X, Y)">
         {rows.length === 0 && (
           <div className="px-2 py-1 text-xs text-muted-foreground">No bars yet — click "Add bar".</div>
         )}
         {rows.map((r, i) => (
           <div key={i} className="mb-1 border-l-2 border-foreground/10 pl-2">
-            <PanelRow label={`Bar ${i + 1} label`}>
+            <PanelRow label="X position (category)">
               <PanelText value={r.label} onChange={(v) => setRow(i, { label: v })} />
             </PanelRow>
-            <PanelRow label="Value">
-              <PanelNumber value={r.value} step={1} onChange={(v) => setRow(i, { value: v })} />
+            <PanelRow label="Y value">
+              <PanelNumber
+                value={r.value}
+                step={Math.max(0.1, scale.step / 10)}
+                onChange={(v) => setRow(i, { value: v })}
+              />
             </PanelRow>
             <PanelRow label="Colour">
               <PanelColor
@@ -157,23 +161,30 @@ export function BarChart({ attrs, onChange, selected }: Props) {
         </PanelRow>
       </PanelGroup>
 
-      <PanelGroup label="Axes">
-        <PanelRow label="X-axis title"><PanelText value={attrs.xLabel} onChange={(v) => patch({ xLabel: v })} /></PanelRow>
+      <PanelGroup label="Y-axis (scale)">
         <PanelRow label="Y-axis title"><PanelText value={attrs.yLabel} onChange={(v) => patch({ yLabel: v })} /></PanelRow>
-        <PanelRow label="Show axis labels"><PanelToggle value={attrs.showAxisLabels} onChange={(v) => patch({ showAxisLabels: v })} /></PanelRow>
-        <PanelRow label="Show tick marks"><PanelToggle value={attrs.showTicks} onChange={(v) => patch({ showTicks: v })} /></PanelRow>
-        <PanelRow label="Show values above bars"><PanelToggle value={bar.showValuesAbove} onChange={(v) => patchBar({ showValuesAbove: v })} /></PanelRow>
-        <PanelRow label="Auto-scale Y"><PanelToggle value={attrs.yAuto} onChange={(v) => patch({ yAuto: v })} /></PanelRow>
+        <PanelRow label="Auto-scale"><PanelToggle value={attrs.yAuto} onChange={(v) => patch({ yAuto: v })} /></PanelRow>
         {!attrs.yAuto && (
           <>
-            <PanelRow label="Y minimum">
+            <PanelRow label="Minimum">
               <PanelNumber value={attrs.yMin ?? 0} onChange={(v) => patch({ yMin: v })} />
             </PanelRow>
-            <PanelRow label="Y maximum">
+            <PanelRow label="Maximum">
               <PanelNumber value={attrs.yMax ?? 10} onChange={(v) => patch({ yMax: v })} />
+            </PanelRow>
+            <PanelRow label="Interval">
+              <PanelNumber value={attrs.yStep ?? 1} min={0} step={0.1}
+                onChange={(v) => patch({ yStep: v > 0 ? v : null })} />
             </PanelRow>
           </>
         )}
+        <PanelRow label="Show tick marks"><PanelToggle value={attrs.showTicks} onChange={(v) => patch({ showTicks: v })} /></PanelRow>
+        <PanelRow label="Show values above bars"><PanelToggle value={bar.showValuesAbove} onChange={(v) => patchBar({ showValuesAbove: v })} /></PanelRow>
+      </PanelGroup>
+
+      <PanelGroup label="X-axis">
+        <PanelRow label="X-axis title"><PanelText value={attrs.xLabel} onChange={(v) => patch({ xLabel: v })} /></PanelRow>
+        <PanelRow label="Show category labels"><PanelToggle value={attrs.showAxisLabels} onChange={(v) => patch({ showAxisLabels: v })} /></PanelRow>
       </PanelGroup>
 
       <PanelGroup label="Appearance">
