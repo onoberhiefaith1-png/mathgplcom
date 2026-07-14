@@ -568,3 +568,21 @@ All colors MUST be HSL.
 .math-struct--preview { font-size: 0.95rem; color: hsl(var(--foreground)); }
 .math-struct--preview .math-slot { min-width: 0.78em; min-height: 0.9em; padding: 0 2px; }
 .math-struct--preview .math-slot::before { content: "▯"; opacity: 0.35; font-size: 0.85em; }
+
+/* Diagram settings panel controls — used by every engine panel
+   (Venn/Tree/Flowchart/Org/Property). Ensures values in inputs,
+   selects, and buttons are always visible against the panel bg. */
+.input-panel {
+  @apply h-8 w-full px-2 text-xs rounded border border-border bg-background text-foreground
+         placeholder:text-muted-foreground
+         focus:outline-none focus:ring-1 focus:ring-primary;
+}
+select.input-panel { @apply pr-6 appearance-none; }
+.input-panel:disabled { @apply opacity-60; }
+input[type="color"].input-panel { @apply p-0.5 h-8; }
+input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent border-0; }
+
+.btn-panel {
+  @apply h-8 px-2 text-xs rounded border border-border bg-background text-foreground
+         hover:bg-muted/60 inline-flex items-center justify-center gap-1;
+}
