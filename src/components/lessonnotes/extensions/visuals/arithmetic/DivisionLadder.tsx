@@ -3,7 +3,7 @@
 // number column, no seeded values. Advanced settings live in the right-hand
 // Properties Panel; add/remove rows and columns in the bottom toolbar.
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Plus, Minus } from "lucide-react";
 import { SmartCell } from "../smarttable/SmartCell";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";

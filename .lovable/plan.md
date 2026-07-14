@@ -1,33 +1,30 @@
-## Long-division as a single symbol (like √)
+## Goal
+Make invisible cells in **Division Ladder** and **Base Conversion** reveal themselves as the pointer ("sensor") moves over them, so teachers can see where they will insert a number. The outline disappears when the pointer leaves.
 
-**Problem:** Right now the symbol is drawn as two pieces — a text `)` character next to a separate CSS top-border for the overbar. They don't visually connect, so it reads as "divisor ) …" plus a floating line.
+## Behavior
+- As the pointer moves over a cell, that cell shows a faint **vertical guide** (left + right thin borders) plus a subtle background tint.
+- Only **one cell** highlights at a time (the one directly under the pointer).
+- On pointer leave (or when the pointer moves outside the table), the guide disappears.
+- No click required. No change to focus, typing, or existing behavior.
+- The permanent divider line (left vertical rule) stays exactly as it is.
+- Toolbar hover-idle behavior is untouched.
 
-**Goal:** One continuous glyph, same idea as the square-root radical: a curved left hook that flows into the horizontal vinculum stretching over the dividend, expanding as more digits are added. The divisor sits **outside** the symbol on the left (the symbol borrows only the expression the way √ does).
+## Files to change
+1. `src/components/lessonnotes/extensions/visuals/arithmetic/DivisionLadder.tsx`
+2. `src/components/lessonnotes/extensions/visuals/arithmetic/BaseConversion.tsx`
 
-### Fix (LongDivision.tsx only)
+## Technical details
+- Add local state `hover: { r: number; c: number } | null` in each component.
+- On each `<td>` add `onPointerEnter={() => setHover({r,c})}` and on the `<table>` add `onPointerLeave={() => setHover(null)}`.
+- When `hover.r === r && hover.c === c`, apply an inline style overlay:
+  - `borderLeft: "1px dashed rgba(15,23,42,0.35)"`
+  - `borderRight: "1px dashed rgba(15,23,42,0.35)"`
+  - `background: "rgba(15,23,42,0.04)"`
+- Use `box-sizing: border-box` (or negative margin) so adding a 1px border doesn't shift column width.
+- Do NOT override the existing `borderRight` on the divider column — keep that cell's solid divider intact and only add the top/bottom hover tint there.
+- Skip highlighting on cells that are intentionally empty (e.g. the result-row divisor cell in DivisionLadder) — pointer enter still sets hover, but the cell already renders no input so it's harmless; keep it consistent.
 
-1. **Delete the text `)` and the separate `borderTop` vinculum.** Replace them with a single inline SVG "radical-style" long-division bracket:
-   - `<svg>` sized as `height = rowHeight`, `width = nCols * cellWidth + hookWidth`.
-   - A single `<path>` draws: start at bottom-left of the hook, curve up-and-right into the top-left corner, then a straight horizontal line across the full dividend span. Stroke uses `m.lineThickness` and `currentColor`.
-   - Rounded stroke caps/joins so the corner reads as one continuous glyph.
-
-2. **Overlay dividend cells under the vinculum.**
-   - Wrap the SVG + the dividend digit-cell grid in a `position: relative` container.
-   - SVG is `position: absolute; inset: 0; pointer-events: none;` so the digit inputs stay clickable.
-   - The digit grid keeps `gridTemplateColumns: repeat(nCols, COL_W)` and sits directly under the horizontal part of the SVG, with padding-top equal to `lineThickness + 2px`.
-   - Left padding on the container equals the hook width so digits start just inside the hook, exactly like digits sit under √.
-
-3. **Divisor input stays outside the symbol** (to its left), no `)` character next to it. Same auto-width `ch` sizing, right-aligned, flush to the hook.
-
-4. **Quotient row** keeps its grid alignment above the vinculum (unchanged columns), so each quotient digit still sits directly above its dividend digit.
-
-5. **Working-step rows** keep the same digit-column grid as today, so subtraction and intermediate rows still align perfectly under the dividend.
-
-### Technical details
-
-- New helper component `LongDivBracket({ nCols, colW, hookW, thickness })` returning the SVG. Hook is a quadratic curve, e.g. `M hookW,rowHeight Q 0,rowHeight 0,rowHeight/2 Q 0,0 hookW,0 H hookW + nCols*colW`.
-- `COL_W` stays `1.15ch`; convert to px via a measured ref or a fixed `chToPx` estimate for SVG width. Simpler: render SVG with `width: 100%` inside a container whose width is `hookW + nCols * COL_W`, `preserveAspectRatio="none"` on the horizontal segment, but keep the hook portion in fixed px by splitting the SVG into two absolutely-positioned pieces: a fixed-width hook SVG on the left and a full-width top-border line for the vinculum — both share the same stroke so they read as one glyph.
-
-### Out of scope
-
-No changes to quotient logic, working-step rows, keyboard nav, letters-allowed rule, hover-idle toolbar, or other assets.
+## Out of scope
+- LongDivision (already has its own layout).
+- No changes to Properties Panel, toolbar, keyboard nav, or data model.
+- No column-wide or row-wide highlighting — only the single cell under the pointer.
