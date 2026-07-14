@@ -197,46 +197,60 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     fontWeight: style.headerBold ? 700 : 400,
   };
 
-  const settingsRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
-        setSettingsOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [settingsOpen]);
-
-  const showChrome = selected || active !== null || settingsOpen;
+  const editor = (
+    <div>
+      <PanelGroup label="Rows">
+        <PanelRow label="Number of rows">
+          <PanelButton onClick={() => delRow(rows - 1)}><Minus className="h-3 w-3" /></PanelButton>
+          <span className="tabular-nums w-6 text-center">{rows}</span>
+          <PanelButton onClick={() => addRow(rows)}><Plus className="h-3 w-3" /></PanelButton>
+        </PanelRow>
+      </PanelGroup>
+      <PanelGroup label="Columns">
+        <PanelRow label="Number of columns">
+          <PanelButton onClick={() => delCol(cols - 1)}><Minus className="h-3 w-3" /></PanelButton>
+          <span className="tabular-nums w-6 text-center">{cols}</span>
+          <PanelButton onClick={() => addCol(cols)}><Plus className="h-3 w-3" /></PanelButton>
+        </PanelRow>
+      </PanelGroup>
+      <PanelGroup label="Cell spacing">
+        <PanelRow label="Padding X"><PanelNumber value={style.cellPadX} min={0} max={32} onChange={(v) => patchStyle({ cellPadX: v })} /></PanelRow>
+        <PanelRow label="Padding Y"><PanelNumber value={style.cellPadY} min={0} max={32} onChange={(v) => patchStyle({ cellPadY: v })} /></PanelRow>
+      </PanelGroup>
+      <PanelGroup label="Appearance">
+        <PanelRow label="Border thickness"><PanelNumber value={style.borderWidth} min={0} max={6} onChange={(v) => patchStyle({ borderWidth: v })} /></PanelRow>
+        <PanelRow label="Border colour"><PanelColor value={style.borderColor} onChange={(v) => patchStyle({ borderColor: v })} /></PanelRow>
+        <PanelRow label="Text size"><PanelNumber value={style.textSize} min={9} max={24} onChange={(v) => patchStyle({ textSize: v })} /></PanelRow>
+        <PanelRow label="Opacity">
+          <PanelNumber value={Math.round(style.opacity * 100)} min={10} max={100}
+            onChange={(v) => patchStyle({ opacity: v / 100 })} />
+        </PanelRow>
+        <PanelRow label="Alignment">
+          <select
+            value={style.textAlign}
+            onChange={(e) => patchStyle({ textAlign: e.target.value as SmartTableStyle["textAlign"] })}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground"
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </PanelRow>
+        <PanelRow label="Bold headers"><PanelToggle value={style.headerBold} onChange={(v) => patchStyle({ headerBold: v })} /></PanelRow>
+        <PanelRow label="Striped rows"><PanelToggle value={style.striped} onChange={(v) => patchStyle({ striped: v })} /></PanelRow>
+        <PanelRow label="Show gridlines"><PanelToggle value={style.showGridlines} onChange={(v) => patchStyle({ showGridlines: v })} /></PanelRow>
+      </PanelGroup>
+      <PanelGroup>
+        <PanelButton full onClick={() => patch({ style: DEFAULT_STYLE })}>Reset style</PanelButton>
+      </PanelGroup>
+    </div>
+  );
+  useRegisterAssetEditor(!!selected || active !== null, "smartTable", "Smart table", editor);
 
   return (
     <div className="smart-table not-prose relative inline-block align-middle text-foreground">
-      {/* Edit trigger — only visible when table/cell is selected */}
-      {showChrome && (
-        <div className="absolute -top-7 right-0 flex items-center gap-1">
-          {active && (
-            <div className="flex items-center gap-0.5 mr-1">
-              <GutterBtn onClick={() => addRow(active.r)} title="Insert row above"><Plus className="h-3 w-3" /></GutterBtn>
-              <GutterBtn onClick={() => addRow(active.r + 1)} title="Insert row below"><Plus className="h-3 w-3" /></GutterBtn>
-              <GutterBtn onClick={() => delRow(active.r)} title="Delete row" danger><Minus className="h-3 w-3" /></GutterBtn>
-              <span className="mx-1 h-3 w-px bg-foreground/20" />
-              <GutterBtn onClick={() => addCol(active.c)} title="Insert column left"><Plus className="h-3 w-3" /></GutterBtn>
-              <GutterBtn onClick={() => addCol(active.c + 1)} title="Insert column right"><Plus className="h-3 w-3" /></GutterBtn>
-              <GutterBtn onClick={() => delCol(active.c)} title="Delete column" danger><Minus className="h-3 w-3" /></GutterBtn>
-            </div>
-          )}
-          <button
-            type="button"
-            onMouseDown={(e) => { e.stopPropagation(); setSettingsOpen((v) => !v); }}
-            className="inline-flex items-center gap-1 rounded-full border border-foreground/30 bg-background/80 px-2 py-0.5 text-[11px] hover:bg-foreground/10"
-            title="Edit table"
-          >
-            <Settings2 className="h-3 w-3" /> Edit
-          </button>
-        </div>
-      )}
+
 
       <table style={tableStyle}>
         <thead>
