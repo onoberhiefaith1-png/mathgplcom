@@ -33,8 +33,8 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const editable = !attrs.locked && !attrs.presentation;
 
   const scale = useMemo(
-    () => resolveYScale(rows.map((r) => r.value), attrs.yAuto, attrs.yMin, attrs.yMax),
-    [rows, attrs.yAuto, attrs.yMin, attrs.yMax],
+    () => resolveYScale(rows.map((r) => r.value), attrs.yAuto, attrs.yMin, attrs.yMax, attrs.yStep),
+    [rows, attrs.yAuto, attrs.yMin, attrs.yMax, attrs.yStep],
   );
 
   const yToPx = useCallback(
