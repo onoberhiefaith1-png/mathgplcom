@@ -1,18 +1,21 @@
 // Fraction Wall — stacked strips, each split into N equal partitions.
-// Teacher can add/remove rows, change partitions per row, edit label,
-// toggle shaded cells.
+// Editing lives in the right-hand Properties Panel.
 
 import { useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
+import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import {
+  PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor,
+} from "@/components/lessonnotes/panel/panelPrimitives";
 
 interface Row {
   parts: number;
   label: string;
-  shaded: boolean[];   // length = parts
+  shaded: boolean[];
   color: string;
 }
 
-interface Attrs { rows?: Row[]; width?: number }
+interface Attrs { rows?: Row[]; width?: number; maxDenominator?: number }
 
 interface Props {
   attrs: Record<string, unknown>;
@@ -29,7 +32,7 @@ function normalizeRow(r: Partial<Row>): Row {
     parts,
     label: typeof r.label === "string" ? r.label : (parts === 1 ? "1" : `1/${parts}`),
     shaded,
-    color: typeof r.color === "string" ? r.color : "hsl(var(--primary))",
+    color: typeof r.color === "string" ? r.color : "#3b82f6",
   };
 }
 
@@ -40,7 +43,11 @@ function normalize(a: Record<string, unknown>): Required<Attrs> {
     normalizeRow({ parts: 3 }),
     normalizeRow({ parts: 4 }),
   ];
-  return { rows, width: Number(a.width) || 320 };
+  return {
+    rows,
+    width: Number(a.width) || 340,
+    maxDenominator: Number(a.maxDenominator) || 12,
+  };
 }
 
 export function FractionWall({ attrs, onChange, selected }: Props) {
@@ -56,17 +63,41 @@ export function FractionWall({ attrs, onChange, selected }: Props) {
     rows[i].shaded[c] = !rows[i].shaded[c];
     patch({ rows });
   };
-  const addRow = () => patch({ rows: [...m.rows, normalizeRow({ parts: (m.rows[m.rows.length-1]?.parts ?? 4) + 1 })] });
+  const addRow = () => {
+    const nextParts = Math.min(m.maxDenominator, (m.rows[m.rows.length - 1]?.parts ?? 4) + 1);
+    patch({ rows: [...m.rows, normalizeRow({ parts: nextParts })] });
+  };
   const delRow = () => m.rows.length > 1 && patch({ rows: m.rows.slice(0, -1) });
 
+  const editor = (
+    <div>
+      <PanelGroup label="Rows">
+        <PanelRow label="Number of rows">
+          <PanelButton onClick={delRow}><Minus className="h-3 w-3" /></PanelButton>
+          <span className="tabular-nums w-4 text-center">{m.rows.length}</span>
+          <PanelButton onClick={addRow}><Plus className="h-3 w-3" /></PanelButton>
+        </PanelRow>
+        <PanelRow label="Max denominator">
+          <PanelNumber value={m.maxDenominator} min={2} max={24} onChange={(v) => patch({ maxDenominator: v })} />
+        </PanelRow>
+      </PanelGroup>
+      <PanelGroup label="Per-row">
+        {m.rows.map((row, i) => (
+          <div key={i} className="flex items-center gap-1 text-xs">
+            <span className="w-10 text-foreground/60">{row.label}</span>
+            <PanelButton onClick={() => setRow(i, { parts: Math.max(1, row.parts - 1) })}><Minus className="h-3 w-3" /></PanelButton>
+            <span className="tabular-nums w-6 text-center">{row.parts}</span>
+            <PanelButton onClick={() => setRow(i, { parts: Math.min(m.maxDenominator, row.parts + 1) })}><Plus className="h-3 w-3" /></PanelButton>
+            <PanelColor value={row.color} onChange={(v) => setRow(i, { color: v })} />
+          </div>
+        ))}
+      </PanelGroup>
+    </div>
+  );
+  useRegisterAssetEditor(!!selected, "fractionWall", "Fraction wall", editor);
+
   return (
-    <div className="not-prose inline-block relative">
-      {selected && (
-        <div className="absolute -top-6 right-0 flex items-center gap-1">
-          <Chip onClick={addRow}><Plus className="h-3 w-3"/> row</Chip>
-          <Chip onClick={delRow}><Minus className="h-3 w-3"/> row</Chip>
-        </div>
-      )}
+    <div className="not-prose inline-block">
       <div style={{ width: m.width }} className="space-y-1">
         {m.rows.map((row, ri) => (
           <div key={ri} className="flex items-center gap-2">
@@ -76,44 +107,22 @@ export function FractionWall({ attrs, onChange, selected }: Props) {
               onClick={(e) => e.stopPropagation()}
               className="w-14 text-xs bg-transparent border-b border-foreground/20 focus:border-primary outline-none px-1 py-0.5 text-foreground"
             />
-            <div className="flex-1 flex border border-foreground/60 rounded overflow-hidden" style={{ height: 22 }}>
+            <div className="flex-1 flex border-2 border-foreground/70 rounded overflow-hidden" style={{ height: 26 }}>
               {row.shaded.map((on, ci) => (
                 <button
                   key={ci}
                   type="button"
                   onClick={(e) => { e.stopPropagation(); toggleCell(ri, ci); }}
-                  className={"flex-1 border-r border-foreground/40 last:border-r-0 transition-colors " + (on ? "" : "hover:bg-foreground/5")}
+                  className={"flex-1 border-r border-foreground/50 last:border-r-0 transition-colors " + (on ? "" : "hover:bg-foreground/5")}
                   style={{ background: on ? row.color : "transparent" }}
-                  aria-label={`row ${ri+1} cell ${ci+1}`}
+                  aria-label={`row ${ri + 1} cell ${ci + 1}`}
                 />
               ))}
             </div>
-            {selected && (
-              <div className="flex items-center gap-0.5">
-                <Chip onClick={() => setRow(ri, { parts: row.parts + 1 })}><Plus className="h-3 w-3"/></Chip>
-                <Chip onClick={() => setRow(ri, { parts: Math.max(1, row.parts - 1) })}><Minus className="h-3 w-3"/></Chip>
-                <input
-                  type="color" value={/^#/.test(row.color) ? row.color : "#3b82f6"}
-                  onChange={(e) => setRow(ri, { color: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
-                  className="h-4 w-4 rounded border border-foreground/30 bg-transparent cursor-pointer"
-                />
-              </div>
-            )}
           </div>
         ))}
       </div>
     </div>
-  );
-}
-
-function Chip({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="inline-flex items-center gap-0.5 rounded border border-foreground/30 bg-background/60 px-1.5 py-0.5 text-[10px] hover:bg-foreground/10"
-    >{children}</button>
   );
 }
 
