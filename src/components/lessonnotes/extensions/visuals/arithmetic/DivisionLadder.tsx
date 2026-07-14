@@ -96,6 +96,7 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
   useRegisterAssetEditor(!!selected, "divisionLadder", "Division ladder", editor);
 
   const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
+  const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
 
   const cellBase: React.CSSProperties = {
     height: m.rowHeight,
@@ -107,7 +108,17 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
     textAlign: "right",
     color: "#0f172a",
     fontWeight: 500,
+    boxSizing: "border-box",
   };
+
+  const hoverStyle = (r: number, c: number): React.CSSProperties =>
+    hover && hover.r === r && hover.c === c
+      ? {
+          borderLeft: "1px dashed rgba(15,23,42,0.35)",
+          borderRight: "1px dashed rgba(15,23,42,0.35)",
+          background: "rgba(15,23,42,0.04)",
+        }
+      : {};
 
   return (
     <div
@@ -119,18 +130,22 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
       onPointerDown={bind.onPointerDown}
       onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
     >
-      <table style={{ borderCollapse: "collapse" }}>
+      <table style={{ borderCollapse: "collapse" }} onPointerLeave={() => setHover(null)}>
         <tbody>
           {m.values.map((row, r) => {
             const isResult = r === m.values.length - 1;
+            const divHover = hover && hover.r === r && hover.c === -1;
             return (
               <tr key={r}>
                 <td
+                  onPointerEnter={() => setHover({ r, c: -1 })}
                   style={{
                     ...cellBase,
                     width: 48, minWidth: 48,
                     paddingRight: 10,
                     borderRight: `${m.dividerThickness}px solid #0f172a`,
+                    borderLeft: divHover ? "1px dashed rgba(15,23,42,0.35)" : undefined,
+                    background: divHover ? "rgba(15,23,42,0.04)" : undefined,
                   }}
                 >
                   {isResult ? (
@@ -142,10 +157,12 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
                 {row.map((v, c) => (
                   <td
                     key={c}
+                    onPointerEnter={() => setHover({ r, c })}
                     style={{
                       ...cellBase,
                       paddingLeft: 14,
                       fontWeight: 600,
+                      ...hoverStyle(r, c),
                     }}
                   >
                     <SmartCell value={v} onChange={(nv) => setCell(r, c, nv)} align="right" />
@@ -156,6 +173,7 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
           })}
         </tbody>
       </table>
+
 
       <AssetBottomToolbar
         visible={toolbarVisible}
