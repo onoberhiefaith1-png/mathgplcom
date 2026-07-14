@@ -1,14 +1,17 @@
-// Base-10 Blocks — one/ten/hundred/thousand tiles with add / remove and
-// a live count of the represented value.
+// Base-10 Blocks — auto-generate ones/tens/hundreds/thousands from a
+// number the teacher enters in the Properties Panel.
 
 import { useCallback, useMemo } from "react";
-import { Plus, Minus } from "lucide-react";
+import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import {
+  PanelGroup, PanelRow, PanelToggle, PanelText,
+} from "@/components/lessonnotes/panel/panelPrimitives";
 
 interface Attrs {
-  ones?: number;
-  tens?: number;
-  hundreds?: number;
-  thousands?: number;
+  value?: string;
+  showLabels?: boolean;
+  stack?: boolean;
+  animateRegroup?: boolean;
 }
 
 interface Props {
@@ -18,104 +21,107 @@ interface Props {
 }
 
 function normalize(a: Record<string, unknown>): Required<Attrs> {
-  const clamp = (n: unknown, d: number) => {
-    const v = Number(n); return Number.isFinite(v) && v >= 0 ? Math.min(50, Math.floor(v)) : d;
-  };
   return {
-    ones: clamp(a.ones, 3),
-    tens: clamp(a.tens, 2),
-    hundreds: clamp(a.hundreds, 1),
-    thousands: clamp(a.thousands, 0),
+    value: typeof a.value === "string" ? a.value : "2456",
+    showLabels: a.showLabels === undefined ? true : Boolean(a.showLabels),
+    stack: a.stack === undefined ? false : Boolean(a.stack),
+    animateRegroup: Boolean(a.animateRegroup),
+  };
+}
+
+function digitsOf(value: string) {
+  const n = Math.max(0, Math.min(9999, parseInt(value, 10) || 0));
+  return {
+    thousands: Math.floor(n / 1000) % 10,
+    hundreds: Math.floor(n / 100) % 10,
+    tens: Math.floor(n / 10) % 10,
+    ones: n % 10,
+    total: n,
   };
 }
 
 export function Base10Blocks({ attrs, onChange, selected }: Props) {
   const m = useMemo(() => normalize(attrs), [attrs]);
   const patch = useCallback((p: Partial<Attrs>) => onChange({ ...p }), [onChange]);
-  const total = m.ones + m.tens * 10 + m.hundreds * 100 + m.thousands * 1000;
+  const d = digitsOf(m.value);
 
-  const Slot = ({ label, count, kind, value, onAdd, onDel }: {
-    label: string; count: number; kind: "one"|"ten"|"hundred"|"thousand"; value: number;
-    onAdd: () => void; onDel: () => void;
+  const editor = (
+    <div>
+      <PanelGroup label="Number">
+        <PanelRow label="Value (0–9999)">
+          <PanelText value={m.value} onChange={(v) => patch({ value: v.replace(/[^\d]/g, "") })} placeholder="2456" />
+        </PanelRow>
+        <div className="text-[10px] text-foreground/60">
+          {d.thousands} Th · {d.hundreds} H · {d.tens} T · {d.ones} U
+        </div>
+      </PanelGroup>
+      <PanelGroup label="Appearance">
+        <PanelRow label="Show labels"><PanelToggle value={m.showLabels} onChange={(v) => patch({ showLabels: v })} /></PanelRow>
+        <PanelRow label="Stack mode"><PanelToggle value={m.stack} onChange={(v) => patch({ stack: v })} /></PanelRow>
+        <PanelRow label="Animate regrouping"><PanelToggle value={m.animateRegroup} onChange={(v) => patch({ animateRegroup: v })} /></PanelRow>
+      </PanelGroup>
+    </div>
+  );
+  useRegisterAssetEditor(!!selected, "base10Blocks", "Base-10 blocks", editor);
+
+  const Slot = ({ label, count, kind }: {
+    label: string; count: number; kind: "one" | "ten" | "hundred" | "thousand";
   }) => (
     <div className="flex flex-col items-center gap-1">
-      <div className="text-[10px] uppercase tracking-widest text-foreground/60">{label}</div>
-      <div className="min-h-[64px] flex flex-wrap items-end justify-center gap-1 max-w-[140px]">
+      {m.showLabels && (
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">{label}</div>
+      )}
+      <div className={"min-h-[64px] flex items-end justify-center gap-1 max-w-[140px] " + (m.stack ? "flex-col-reverse" : "flex-wrap")}>
         {Array.from({ length: count }).map((_, i) => <Block key={i} kind={kind} />)}
       </div>
-      <div className="flex items-center gap-1">
-        <Chip onClick={onDel}><Minus className="h-3 w-3"/></Chip>
-        <span className="text-[10px] tabular-nums text-foreground/60 w-8 text-center">{count}×{value}</span>
-        <Chip onClick={onAdd}><Plus className="h-3 w-3"/></Chip>
-      </div>
+      {m.showLabels && (
+        <div className="text-[11px] tabular-nums text-foreground">{count}</div>
+      )}
     </div>
   );
 
   return (
-    <div className="not-prose inline-block relative text-foreground">
-      {selected && (
-        <div className="absolute -top-6 right-0 text-[10px] text-foreground/60">
-          Total: <span className="font-bold text-foreground">{total}</span>
-        </div>
-      )}
+    <div className="not-prose inline-block text-foreground">
       <div className="flex items-end gap-4">
-        <Slot label="Thousands" count={m.thousands} kind="thousand" value={1000}
-          onAdd={() => patch({ thousands: m.thousands + 1 })}
-          onDel={() => patch({ thousands: Math.max(0, m.thousands - 1) })} />
-        <Slot label="Hundreds" count={m.hundreds} kind="hundred" value={100}
-          onAdd={() => patch({ hundreds: m.hundreds + 1 })}
-          onDel={() => patch({ hundreds: Math.max(0, m.hundreds - 1) })} />
-        <Slot label="Tens" count={m.tens} kind="ten" value={10}
-          onAdd={() => patch({ tens: m.tens + 1 })}
-          onDel={() => patch({ tens: Math.max(0, m.tens - 1) })} />
-        <Slot label="Ones" count={m.ones} kind="one" value={1}
-          onAdd={() => patch({ ones: m.ones + 1 })}
-          onDel={() => patch({ ones: Math.max(0, m.ones - 1) })} />
+        <Slot label="Thousands" count={d.thousands} kind="thousand" />
+        <Slot label="Hundreds"  count={d.hundreds}  kind="hundred" />
+        <Slot label="Tens"      count={d.tens}      kind="ten" />
+        <Slot label="Ones"      count={d.ones}      kind="one" />
       </div>
     </div>
   );
 }
 
-function Block({ kind }: { kind: "one"|"ten"|"hundred"|"thousand" }) {
+function Block({ kind }: { kind: "one" | "ten" | "hundred" | "thousand" }) {
   const s = "currentColor";
   if (kind === "one") {
     return (
-      <svg width={12} height={12} viewBox="0 0 10 10"><rect x={0.5} y={0.5} width={9} height={9} stroke={s} fill="none" strokeWidth={1}/></svg>
+      <svg width={14} height={14} viewBox="0 0 10 10"><rect x={0.5} y={0.5} width={9} height={9} stroke={s} fill="none" strokeWidth={1.2} /></svg>
     );
   }
   if (kind === "ten") {
     return (
-      <svg width={12} height={62} viewBox="0 0 10 100">
-        <rect x={0.5} y={0.5} width={9} height={99} stroke={s} fill="none" strokeWidth={1}/>
-        {Array.from({length:9}).map((_,i)=><line key={i} x1={0.5} y1={(i+1)*10} x2={9.5} y2={(i+1)*10} stroke={s} strokeWidth={0.5}/>)}
+      <svg width={14} height={70} viewBox="0 0 10 100">
+        <rect x={0.5} y={0.5} width={9} height={99} stroke={s} fill="none" strokeWidth={1.2} />
+        {Array.from({ length: 9 }).map((_, i) => <line key={i} x1={0.5} y1={(i + 1) * 10} x2={9.5} y2={(i + 1) * 10} stroke={s} strokeWidth={0.6} />)}
       </svg>
     );
   }
   if (kind === "hundred") {
     return (
-      <svg width={40} height={40} viewBox="0 0 100 100">
-        <rect x={0.5} y={0.5} width={99} height={99} stroke={s} fill="none" strokeWidth={1}/>
-        {Array.from({length:9}).map((_,i)=><line key={"v"+i} x1={(i+1)*10} y1={0.5} x2={(i+1)*10} y2={99.5} stroke={s} strokeWidth={0.5}/>)}
-        {Array.from({length:9}).map((_,i)=><line key={"h"+i} x1={0.5} y1={(i+1)*10} x2={99.5} y2={(i+1)*10} stroke={s} strokeWidth={0.5}/>)}
+      <svg width={44} height={44} viewBox="0 0 100 100">
+        <rect x={0.5} y={0.5} width={99} height={99} stroke={s} fill="none" strokeWidth={1.2} />
+        {Array.from({ length: 9 }).map((_, i) => <line key={"v" + i} x1={(i + 1) * 10} y1={0.5} x2={(i + 1) * 10} y2={99.5} stroke={s} strokeWidth={0.6} />)}
+        {Array.from({ length: 9 }).map((_, i) => <line key={"h" + i} x1={0.5} y1={(i + 1) * 10} x2={99.5} y2={(i + 1) * 10} stroke={s} strokeWidth={0.6} />)}
       </svg>
     );
   }
   return (
-    <svg width={54} height={54} viewBox="0 0 100 100">
-      <path d="M10 30 H70 V90 H10 Z" stroke={s} fill="none" strokeWidth={1.5}/>
-      <path d="M10 30 L30 10 H90 L70 30" stroke={s} fill="none" strokeWidth={1.5}/>
-      <path d="M70 90 L90 70 V10" stroke={s} fill="none" strokeWidth={1.5}/>
+    <svg width={58} height={58} viewBox="0 0 100 100">
+      <path d="M10 30 H70 V90 H10 Z" stroke={s} fill="none" strokeWidth={1.8} />
+      <path d="M10 30 L30 10 H90 L70 30" stroke={s} fill="none" strokeWidth={1.8} />
+      <path d="M70 90 L90 70 V10" stroke={s} fill="none" strokeWidth={1.8} />
     </svg>
-  );
-}
-
-function Chip({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="inline-flex items-center gap-0.5 rounded border border-foreground/30 bg-background/60 px-1.5 py-0.5 text-[10px] hover:bg-foreground/10"
-    >{children}</button>
   );
 }
 

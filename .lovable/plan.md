@@ -1,65 +1,95 @@
-# Universal Builders: Tree, Flowchart, Logic/Organisation
+## Goal
 
-Replace fixed tree/flowchart/logic tiles in the Lesson Notes asset library with three intelligent, expandable builders. Each follows the same pattern already used by `circleEngine`, `lineEngine`, `vennEngine`, `solidEngine`: a model stored on the mathVisual node, a canvas, a right-hand panel, and auto-layout.
+Make every editable asset in the lesson-notes editor edit through a single, universal right-hand Properties Panel, and redesign the arithmetic assets (Place Value, Long Division, Division Ladder, Base Conversion, Fraction Strip/Wall, Base-10 Blocks, Abacus) so they are clearly visible in the library and behave to the spec below.
 
-## 1. Universal Tree Engine (`treeEngine`)
+This is a large, multi-part change. Because it touches almost every asset type, I'll deliver it in three ordered phases so you can review after each one.
 
-New folder: `src/components/lessonnotes/extensions/visuals/treeEngine/`
+---
 
-Files:
-- `types.ts` — `TreeModel { root: TreeNode; direction; defaults }`, `TreeNode { id, label, prob, expr, color, size, children, branchStyle }`, `BranchStyle { length, angle, thickness, arrow, label, prob }`.
-- `presets.ts` — `buildTreePreset("tree2" | "tree3" | "treeBlank")` seeds levels × branches.
-- `layout.ts` — Reingold–Tilford-style walker computing non-overlapping x/y per node from `direction` (TB / LR / Radial) plus per-node subtree width. Guarantees no overlap when branches added/removed.
-- `TreeEngineCanvas.tsx` — SVG canvas, click-to-select node/branch, "+" affordance on selected node adds child, "×" deletes and re-layouts. Reveal toggle hides subtrees for classroom drip-reveal.
-- `TreeEnginePanel.tsx` — right rail (matches Venn/Circle panel styling): Levels stepper, Branches-per-node stepper (applies to selected node or globally), Node section (Label / Probability / Expression / Colour / Size), Branch section (Length / Angle / Thickness / Arrow / Label / Probability), Add-Branch / Delete-Branch / Duplicate / Reveal-Next.
-- `TreeEngineNode.tsx` — tiptap wrapper mirroring `VennEngineNode`.
+## Phase 1 — Universal Properties Panel infrastructure
 
-Registry: in `src/lib/lessonnotes/assets/diagrams.ts` replace `tree2` / `tree3` with a single tile `V("tree", "Tree diagram", "treeEngine", "Logic & Organisation", ["tree","probability","branch"], { preset: "tree2" })`.
+**New file: `src/components/lessonnotes/PropertiesPanel.tsx`**
+A single right-hand docked panel (sibling of the editor column) that renders the property editor for the currently-selected asset. It replaces every existing floating/absolute edit widget.
 
-## 2. Universal Flowchart Engine (`flowchartEngine`)
+- Uses a registry pattern: `registerPropertiesEditor(assetType, Editor)` — one entry per asset (smarttable, placeValueChart, longDivision, divisionLadder, baseConversion, fractionStrip, fractionWall, base10Blocks, abacusManipulative, geometry, tree, org, flowchart, venn, circle, solid, line, matrix, …).
+- Reads current selection from a new `useAssetSelection()` store (Zustand-style context) that every asset writes into on click.
+- Shows a placeholder ("Select an asset to edit its properties") when nothing is selected.
+- Docks to the right of `DocumentEditor`, matching the existing GeometryAiPanel column width; collapsible.
 
-New folder: `src/components/lessonnotes/extensions/visuals/flowchartEngine/`
+**Selection wiring**
+- Add `onSelect(attrs, patch)` hookup at each asset root. Clicking an asset (or its `⚙ Edit` chip) sets it as the active selection instead of opening a local popup.
+- Remove the in-place `<div className="absolute -top-6 …">` chip toolbars from: `PlaceValueChart`, `LongDivision`, `DivisionLadder`, `BaseConversion`, `FractionWall`, `FractionStrip`, `Base10Blocks`, `SmartTable`, and the per-engine node overlays (Tree/Org/Flowchart/Venn/Circle/Solid/Line). Their controls move into the panel editor.
+- Keep the manual `⚙ Edit` chip on the selection frame — but it now just activates the right-hand panel, no popover.
 
-Files:
-- `types.ts` — `FlowModel { nodes: FlowNode[]; edges: FlowEdge[]; layout }`. `FlowNode { id, kind: "process"|"decision"|"io"|"connector"|"start"|"end"|"comment", x, y, w, h, text, fill, border, radius, align }`. `FlowEdge { from, to, style: "straight"|"orthogonal"|"curved", arrow, label }`.
-- `presets.ts` — `buildFlowPreset("flowBlank")` returns a single Start node.
-- `layout.ts` — auto-align engine with modes `horizontal | vertical | tree | radial | free`; only `free` disables auto-layout.
-- `routing.ts` — edge routing (straight / right-angle / curved) recomputed whenever endpoints move so lines stay connected.
-- `FlowchartEngineCanvas.tsx` — drag shapes, drag-from-port to another shape to create edge, marquee select, resize handles, snap grid.
-- `FlowchartEnginePanel.tsx` — Insert palette (Process / Decision / Input-Output / Connector / Start / End / Arrow / Comment), per-shape edit (Text / Resize / Border / Fill / Radius / Alignment / Duplicate / Delete), Layout selector, edge style selector.
-- `FlowchartEngineNode.tsx` — tiptap wrapper.
+**Existing engine panels (`TreeEnginePanel`, `OrgEnginePanel`, `FlowchartEnginePanel`, `VennEnginePanel`, `CircleEnginePanel`, `SolidEnginePanel`, `LineEnginePanel`)**
+- Convert from `createPortal` floating panels into plain editor components registered in the properties-panel registry. Same fields, same handlers — just rendered inside the docked panel instead of a portal.
 
-Registry: replace `flowchart` tile with `V("flowchart", "Flowchart", "flowchartEngine", "Logic & Organisation", ["flow","algorithm","decision"], { preset: "flowBlank" })`.
+**GeometryAiPanel**
+- Stays where it is (AI edit panel, separate concern). Not touched.
 
-## 3. Universal Logic & Organisation Engine (`orgEngine`)
+---
 
-New folder: `src/components/lessonnotes/extensions/visuals/orgEngine/`
+## Phase 2 — Arithmetic asset redesigns
 
-Handles hierarchy, classification, mind map, org chart, logic map, relationship map, concept map — one model, different layouts.
+Each asset is rewritten to the spec, and its property editor lives only in the right-hand panel.
 
-Files:
-- `types.ts` — `OrgModel { root; direction: "TB"|"BT"|"LR"|"RL"|"radial"|"free"; edgeDefaults }`. `OrgNode { id, text, color, border, shape: "rect"|"roundedRect"|"circle"|"diamond"|"hexagon"|"customSvg", children, collapsed }`. `OrgEdge { style: straight|curved, arrow: none|single|double, dash: solid|dashed, label }`.
-- `presets.ts` — `buildOrgPreset("mindmap" | "hierarchy" | "concept")`.
-- `layout.ts` — reuses the tree walker; radial mode wraps around root; free mode keeps stored coords.
-- `OrgEngineCanvas.tsx` — click node for actions (Add Child / Delete / Duplicate / Collapse / Expand). Auto-repositions on every mutation.
-- `OrgEnginePanel.tsx` — Node (Text / Colour / Border / Shape picker) / Connection (Straight / Curved / Arrow / Double / Dashed / Label) / Layout selector.
-- `OrgEngineNode.tsx` — tiptap wrapper.
+**Place Value Chart** (`PlaceValueChart.tsx`)
+- Always starts with `U`. Columns added/removed only from the left. `U` can never be removed.
+- No visible vertical grid lines; invisible alignment guides keep digits centred under headings.
+- Panel: Add Place Value, Remove Left Column, Font Size, Heading Size, Column Width, Row Height, Show Alignment Guides, Colours.
 
-Registry: keep a single tile `V("orgDiagram", "Logic / organisation diagram", "orgEngine", "Logic & Organisation", ["hierarchy","mindmap","concept","org","classification","relationship"], { preset: "mindmap" })`. Drop redundant fixed tiles.
+**Long Division** (`LongDivision.tsx`)
+- Natural writing flow. Every two working rows auto-inserts a subtraction line + minus sign.
+- Panel: Add Working Row, Delete Last Row, Line Thickness, Row Height, Auto Minus (toggle), Auto Horizontal Line (toggle).
 
-## Wiring
+**Division Ladder** (`DivisionLadder.tsx`)
+- One visible vertical divider; rest uses invisible alignment columns.
+- Panel: Add/Delete Row, Add/Remove Number Column, Row Height, Column Width, Divider Thickness, Font Size.
 
-- `src/components/lessonnotes/extensions/visuals/visualDispatch.tsx` — add three new family branches `treeEngine`, `flowchartEngine`, `orgEngine` returning their respective `*EngineNode`, mirroring how `circleEngine` / `vennEngine` are wired today.
-- `MathVisual.tsx` needs no changes — dispatch is data-driven.
-- No DB migration: models live inside the existing `attrs` blob on the `mathVisual` node.
+**Base Conversion** (`BaseConversion.tsx`)
+- Remove the `→` arrow entirely. Use text `R` for remainder, right-aligned in its own invisible column.
+- Vertical divider auto-extends as rows are added.
+- Panel: Add/Delete Row, Divider Thickness, Column Width, Row Height, Font Size.
 
-## Shared conventions
+**Fraction Strip** (`FractionStrip.tsx`)
+- Single strip with: Number of Equal Parts, Highlight Numerator, Colour, Border, Show Fraction Label, Animate Equal Partition, Show Equivalent Fraction.
 
-- Panel styling and open/close behaviour copied from `VennEnginePanel` for visual consistency.
-- All auto-layout runs on every mutation; `free` mode is opt-in.
-- Reveal / collapse state stored on the node (`revealDepth`, `collapsed`), so classroom drip-reveal survives save/reload.
-- Existing documents remain valid — the three retired tiles (`tree2`, `tree3`, `flowchart`) map to the new engines via `preset` on open, so old notes still render.
+**Fraction Wall** (`FractionWall.tsx`)
+- Panel: Number of Rows, Maximum Denominator, Highlight Fraction, Compare Fractions, Colour Theme.
 
-## Out of scope
+**Base-10 Blocks** (`Base10Blocks.tsx`)
+- Teacher types a number (e.g. `2456`); the component auto-generates the correct count of Thousands/Hundreds/Tens/Units.
+- Panel: Labels (toggle), Colours, Stack Mode / Flat Mode toggle, Animate Regrouping.
 
-Adventure games, smartboard, floating numbers, curriculum data, and every other lesson-note tool are untouched.
+**Abacus** (`AbacusAsset.tsx` wrapper)
+- Panel: Number of Rods, Beads per Rod, Decimal Mode, Place Value Labels, Show Numeric Value, Reset, Animate Beads.
+- The underlying game `Abacus` component gains the extra props it needs to support those settings (rods/beads/decimal).
+
+---
+
+## Phase 3 — Asset Library previews
+
+In `src/lib/lessonnotes/assets/tables.ts` (and the library preview renderer) each arithmetic asset gets a dedicated preview instance sized to be clearly readable in the picker:
+
+- Larger preview box, centred, min-height ~120px.
+- Thicker strokes (2px on rules/dividers), higher-contrast text (`text-foreground`, not `text-foreground/60`).
+- Representative attrs (e.g. Place Value shows `HTh TTh Th H T U / 4 8 3 7 5`; Long Division shows the sample `12 ) 3648` with one subtraction line).
+- Same visual style used consistently across every arithmetic asset preview.
+
+---
+
+## Out of scope for this plan
+
+- No backend/edge-function changes.
+- No changes to AI panel behaviour, geometry sketch pipeline, or Smart Table architecture (only its edit surface moves into the shared panel).
+- No changes to adventure/games/smartboard pages.
+
+---
+
+## Files touched (summary)
+
+- **New:** `src/components/lessonnotes/PropertiesPanel.tsx`, `src/components/lessonnotes/propertiesRegistry.ts`, `src/hooks/useAssetSelection.ts`.
+- **Edited:** `DocumentEditor.tsx` (mount panel + selection provider), all seven engine panels, all eight arithmetic assets, `SmartTable.tsx`, `SelectionFrame.tsx`, `tables.ts` previews, `index.css` (panel tokens already added).
+- **Removed:** in-place absolute chip toolbars inside each asset.
+
+Ready to build in the order Phase 1 → 2 → 3.

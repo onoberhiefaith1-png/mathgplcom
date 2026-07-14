@@ -308,7 +308,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
       case "fractionWall":     return <FractionWall attrs={attrs} onChange={onChange} selected={selected} />;
       case "fractionStrip":    return <FractionStrip attrs={attrs} onChange={onChange} selected={selected} />;
       case "base10Blocks":     return <Base10Blocks attrs={attrs} onChange={onChange} selected={selected} />;
-      case "abacusManipulative": return <AbacusAsset attrs={attrs} onChange={onChange} />;
+      case "abacusManipulative": return <AbacusAsset attrs={attrs} onChange={onChange} selected={selected} />;
       case "coordPlane":       return <CoordinatePlane attrs={attrs} onChange={onChange} selected={selected} />;
 
       default: return null;
