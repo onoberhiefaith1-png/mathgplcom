@@ -493,10 +493,10 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
               minHeight: m.rowHeight,
             }}
           >
-            <div style={{ textAlign: "right", fontWeight: 700, paddingRight: "0.25ch" }}>
+            <div /> {/* minus gutter */}
+            <div style={{ textAlign: "center", fontWeight: 700 }}>
               {showMinus ? "−" : ""}
             </div>
-            <div /> {/* divisor gutter */}
             <div /> {/* hook gutter */}
             {Array.from({ length: nCols }).map((_, c) => (
               <div
