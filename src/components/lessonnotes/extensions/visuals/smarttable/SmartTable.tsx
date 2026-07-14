@@ -1,9 +1,9 @@
-// Smart Table — a single editable data grid. All settings live in the
-// universal right-hand Properties Panel; there is NO inline toolbar. The
-// table is high-contrast and readable by default.
+// Smart Table — a single editable data grid. Quick row/column controls sit
+// directly under the table; the Edit button opens the universal right-hand
+// Properties Panel. The table is high-contrast and readable by default.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Settings2 } from "lucide-react";
 import { evaluate, formatNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
@@ -120,6 +120,12 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const [active, setActive] = useState<{ r: number; c: number } | null>(null);
   const [buffer, setBuffer] = useState<string>("");
+  const [dimensionMode, setDimensionMode] = useState<"rows" | "cols">("rows");
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  useEffect(() => {
+    if (!selected) setPanelOpen(false);
+  }, [selected]);
 
   const patch = useCallback((next: Partial<SmartTableAttrs>) => {
     onChange({ ...next });
@@ -247,10 +253,20 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       </PanelGroup>
     </div>
   );
-  useRegisterAssetEditor(!!selected || active !== null, "smartTable", "Smart table", editor);
+  useRegisterAssetEditor((!!selected && panelOpen) || active !== null, "smartTable", "Smart table", editor);
+
+  const adjustDown = () => {
+    if (dimensionMode === "rows") delRow(rows - 1);
+    else delCol(cols - 1);
+  };
+
+  const adjustUp = () => {
+    if (dimensionMode === "rows") addRow(rows);
+    else addCol(cols);
+  };
 
   return (
-    <div className="smart-table not-prose relative inline-block align-middle">
+    <div className="smart-table not-prose relative inline-block align-middle" onClick={(e) => e.stopPropagation()}>
       <table style={tableStyle}>
         <thead>
           <tr>
@@ -298,6 +314,68 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           ))}
         </tbody>
       </table>
+      {selected && (
+        <div
+          className="mt-2 flex w-full items-center justify-center gap-1.5"
+          contentEditable={false}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="inline-flex overflow-hidden rounded-md border border-foreground/25 bg-background shadow-sm">
+            <button
+              type="button"
+              aria-label="Edit rows"
+              onClick={() => setDimensionMode("rows")}
+              className={
+                "h-7 px-2 text-[11px] font-medium transition-colors " +
+                (dimensionMode === "rows" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-foreground/10")
+              }
+            >
+              Row
+            </button>
+            <button
+              type="button"
+              aria-label="Edit columns"
+              onClick={() => setDimensionMode("cols")}
+              className={
+                "h-7 border-l border-foreground/15 px-2 text-[11px] font-medium transition-colors " +
+                (dimensionMode === "cols" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-foreground/10")
+              }
+            >
+              Column
+            </button>
+          </div>
+          <button
+            type="button"
+            aria-label={dimensionMode === "rows" ? "Remove row" : "Remove column"}
+            onClick={adjustDown}
+            disabled={dimensionMode === "rows" ? rows <= 1 : cols <= 1}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 bg-background text-foreground shadow-sm hover:bg-foreground/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <span className="min-w-6 text-center text-[11px] font-semibold tabular-nums text-foreground">
+            {dimensionMode === "rows" ? rows : cols}
+          </span>
+          <button
+            type="button"
+            aria-label={dimensionMode === "rows" ? "Add row" : "Add column"}
+            onClick={adjustUp}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 bg-background text-foreground shadow-sm hover:bg-foreground/10"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Open Smart table edit panel"
+            onClick={() => setPanelOpen(true)}
+            className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-foreground px-2.5 text-[11px] font-semibold text-background shadow-sm hover:bg-foreground/90"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            Edit
+          </button>
+        </div>
+      )}
     </div>
   );
 }
