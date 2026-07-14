@@ -1553,28 +1553,31 @@ function DocumentEditorInner({
       </div>
       <div aria-hidden="true" style={{ height: ribbonSpacerHeight }} />
 
-      <div className="flex-1 overflow-auto bg-[hsl(220_15%_94%)]">
-        <PageFrame size={paperSize} style={paperStyle} zoom={zoom}>
-          <div
-            ref={paperLayerRef}
-            style={{ cursor: "text", flex: 1, minHeight: "60vh", position: "relative" }}
-            onMouseDown={handlePaperMouseDown}
-          >
-            <EditorContent editor={editor} />
-            {canvasBoxes.map((b) => (
-              <CanvasBoxView
-                key={b.id}
-                box={b}
-                active={activeBoxId === b.id}
-                onActivate={() => setActiveBoxId(b.id)}
-                onChange={(text) => updateBoxText(b.id, text)}
-                onRemove={() => removeBox(b.id)}
-              />
-            ))}
-          </div>
-
-        </PageFrame>
+      <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 overflow-auto bg-[hsl(220_15%_94%)]">
+          <PageFrame size={paperSize} style={paperStyle} zoom={zoom}>
+            <div
+              ref={paperLayerRef}
+              style={{ cursor: "text", flex: 1, minHeight: "60vh", position: "relative" }}
+              onMouseDown={handlePaperMouseDown}
+            >
+              <EditorContent editor={editor} />
+              {canvasBoxes.map((b) => (
+                <CanvasBoxView
+                  key={b.id}
+                  box={b}
+                  active={activeBoxId === b.id}
+                  onActivate={() => setActiveBoxId(b.id)}
+                  onChange={(text) => updateBoxText(b.id, text)}
+                  onRemove={() => removeBox(b.id)}
+                />
+              ))}
+            </div>
+          </PageFrame>
+        </div>
+        <PropertiesPanel />
       </div>
+
 
       <SelectionToolbar
         editor={editor}
