@@ -10,7 +10,7 @@ import {
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import type { SmartChartAttrs, BarRow, DisplayMode, LabelPos, NumberSide, LegendPos, PresetName } from "./types";
 import { DEFAULT_PALETTE } from "./types";
-import { resolveYScale, minorTicks } from "./scale";
+import { resolveYScale, minorTicks, resolveManualScale } from "./scale";
 import { UniversalTools } from "./UniversalTools";
 
 interface Props {
