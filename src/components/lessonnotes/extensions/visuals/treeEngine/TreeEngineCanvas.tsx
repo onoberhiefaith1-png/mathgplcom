@@ -93,16 +93,25 @@ export function TreeEngineCanvas({ model, selectedId, onSelect, onAddChild, onDe
               stroke={node.color}
               strokeWidth={selected ? 3 : 1.8}
             />
-            <text x={cx} y={cy + 4} textAnchor="middle" fontSize={12} fill={node.color}>
+            <text
+              x={cx} y={cy + 4}
+              textAnchor="middle"
+              fontSize={Math.max(12, Math.round(r * 0.7))}
+              fontWeight={600}
+              fill="hsl(var(--foreground))"
+              style={{ paintOrder: "stroke", stroke: "hsl(var(--background))", strokeWidth: 3 }}
+            >
               {node.label}
             </text>
             {node.expr && (
-              <text x={cx} y={cy + r + 12} textAnchor="middle" fontSize={10} fill={node.color}>
+              <text x={cx} y={cy + r + 12} textAnchor="middle" fontSize={11} fontWeight={500}
+                fill="hsl(var(--foreground))">
                 {node.expr}
               </text>
             )}
             {node.prob && (
-              <text x={cx + r + 4} y={cy - r + 4} fontSize={10} fill={node.color}>
+              <text x={cx + r + 4} y={cy - r + 4} fontSize={11} fontWeight={500}
+                fill="hsl(var(--foreground))">
                 {node.prob}
               </text>
             )}
