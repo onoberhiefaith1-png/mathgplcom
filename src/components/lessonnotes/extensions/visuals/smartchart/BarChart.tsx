@@ -49,8 +49,8 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const barWidth = (plotW * barWidthPct) / 100;
   const gap = isHistogram ? 0 : barWidth;
   const slot = barWidth + gap;
-  const totalW = n * barWidth + Math.max(0, n - 1) * gap;
-  const startX = PAD.left + Math.max(0, (plotW - totalW) / 2);
+  // Leading gap between Y-axis and the first bar = bar width (bar + histogram).
+  const startX = PAD.left + barWidth;
   const xForBar = (i: number) => startX + i * slot;
 
   const patch = useCallback((p: Partial<SmartChartAttrs>) => onChange(p), [onChange]);
