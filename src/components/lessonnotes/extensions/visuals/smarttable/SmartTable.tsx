@@ -120,7 +120,6 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const [active, setActive] = useState<{ r: number; c: number } | null>(null);
   const [buffer, setBuffer] = useState<string>("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const patch = useCallback((next: Partial<SmartTableAttrs>) => {
     onChange({ ...next });
