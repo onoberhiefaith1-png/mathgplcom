@@ -358,6 +358,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
       <div className="grid" style={{ gridTemplateColumns: gridTemplate, alignItems: "end" }}>
         <div /> {/* minus gutter */}
         <div /> {/* divisor gutter */}
+        <div /> {/* hook gutter */}
         {m.quotientDigits.slice(0, nCols).map((d, c) => (
           <DigitCell
             key={c}
