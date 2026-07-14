@@ -141,17 +141,39 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   // ── Panel content ─────────────────────────────────────────────────
   const editor = (
     <div>
-      {/* 1. Scale */}
+      {/* 1. Scale — mathematical "cm : unit" graph scale */}
       <PanelGroup label="Scale">
-        <PanelRow label="Auto scale"><PanelToggle value={attrs.yAuto} onChange={(v) => patch({ yAuto: v })} /></PanelRow>
-        {!attrs.yAuto && (
+        <PanelRow label="Mode">
+          <select
+            value={attrs.yScale.mode}
+            onChange={(e) => patch({ yScale: { ...attrs.yScale, mode: e.target.value as "auto" | "manual" } })}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground"
+          >
+            <option value="auto">Auto</option>
+            <option value="manual">Manual (cm : unit)</option>
+          </select>
+        </PanelRow>
+        {attrs.yScale.mode === "manual" && (
           <>
-            <PanelRow label="Minimum"><PanelNumber value={attrs.yMin ?? 0} onChange={(v) => patch({ yMin: v })} /></PanelRow>
-            <PanelRow label="Maximum"><PanelNumber value={attrs.yMax ?? 20} onChange={(v) => patch({ yMax: v })} /></PanelRow>
-            <PanelRow label="Major interval">
-              <PanelNumber value={attrs.yStep ?? 5} min={0} step={0.1}
-                onChange={(v) => patch({ yStep: v > 0 ? v : null })} />
+            <PanelRow label="cm per step">
+              <PanelNumber value={attrs.yScale.cmPerStep} min={0.1} step={0.1}
+                onChange={(v) => patch({ yScale: { ...attrs.yScale, cmPerStep: Math.max(0.1, v) } })} />
             </PanelRow>
+            <PanelRow label="unit per step">
+              <PanelNumber value={attrs.yScale.unitPerStep} min={0.001} step={0.1}
+                onChange={(v) => patch({ yScale: { ...attrs.yScale, unitPerStep: Math.max(0.001, v) } })} />
+            </PanelRow>
+            <PanelRow label="Y min">
+              <PanelNumber value={attrs.yScale.min}
+                onChange={(v) => patch({ yScale: { ...attrs.yScale, min: v } })} />
+            </PanelRow>
+            <PanelRow label="Y max">
+              <PanelNumber value={attrs.yScale.max}
+                onChange={(v) => patch({ yScale: { ...attrs.yScale, max: v } })} />
+            </PanelRow>
+            <div className="px-2 py-1 text-[11px] text-muted-foreground">
+              {attrs.yScale.cmPerStep} cm : {attrs.yScale.unitPerStep} unit
+            </div>
           </>
         )}
         <PanelRow label="Minor divisions">
