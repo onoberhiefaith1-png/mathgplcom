@@ -99,6 +99,11 @@ export interface SmartChartAttrs {
   examMode: ExamMode;
   preset: PresetName;
 
+  // Bar width as a percentage of the plot area width (default 10 %).
+  barWidthPct: number;
+  // Structured graph-style scale (Auto or Manual "cm : unit").
+  yScale: YScale;
+
   // per-kind payload
   bar: {
     rows: BarRow[];
