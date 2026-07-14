@@ -4,7 +4,7 @@
 // settings in the right-hand Properties Panel; row buttons in the bottom
 // toolbar.
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import { Plus, Minus } from "lucide-react";
 import { SmartCell } from "../smarttable/SmartCell";
