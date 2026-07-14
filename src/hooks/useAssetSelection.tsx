@@ -14,7 +14,7 @@ interface Registration {
 
 interface Ctx {
   reg: Registration | null;
-  setReg: (r: Registration | null) => void;
+  setReg: React.Dispatch<React.SetStateAction<Registration | null>>;
 }
 
 const AssetSelectionContext = createContext<Ctx | null>(null);
