@@ -9,6 +9,7 @@ import { useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
 import { SmartCell } from "../smarttable/SmartCell";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
@@ -166,7 +167,7 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
   };
 
-  const editor = (
+  const editor = useMemo(() => (
     <div>
       <PanelGroup label="Decimal columns">
         <PanelRow label="Count">
@@ -189,11 +190,20 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
         <PanelRow label="Digit colour"><PanelColor value={m.digitColor} onChange={(v) => patch({ digitColor: v })} /></PanelRow>
       </PanelGroup>
     </div>
-  );
+  ), [m.decimalHeaders.length, m.fontSize, m.headingSize, m.colWidth, m.rowHeight, m.showGuides, m.headingColor, m.digitColor, patch, addDecCol, removeDecCol]);
   useRegisterAssetEditor(!!selected, "placeValueChart", "Place-value chart", editor);
 
+  const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
+
   return (
-    <div className="not-prose inline-block">
+    <div
+      className="not-prose inline-block"
+      onPointerEnter={bind.onPointerEnter}
+      onPointerMove={bind.onPointerMove}
+      onPointerLeave={bind.onPointerLeave}
+      onPointerDown={bind.onPointerDown}
+      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    >
       <table style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr>
@@ -230,7 +240,8 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
       </table>
 
       <AssetBottomToolbar
-        visible={!!selected}
+        visible={toolbarVisible}
+        bind={bind}
         actions={[
           { label: "Column", icon: <Plus className="h-3 w-3" />, onClick: addLeft },
           { label: "Column", icon: <Minus className="h-3 w-3" />, onClick: removeLeft, disabled: m.wholeHeaders.length <= 1, tone: "danger" },

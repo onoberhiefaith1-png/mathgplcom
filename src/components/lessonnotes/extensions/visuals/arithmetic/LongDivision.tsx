@@ -8,6 +8,7 @@ import { Fragment, useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
 import { SmartCell } from "../smarttable/SmartCell";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import {
   PanelGroup, PanelRow, PanelNumber, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
@@ -57,7 +58,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
   const delStep = () => m.workingRows.length > 0 &&
     patch({ workingRows: m.workingRows.slice(0, Math.max(0, m.workingRows.length - 2)) });
 
-  const editor = (
+  const editor = useMemo(() => (
     <div>
       <PanelGroup label="Behaviour">
         <PanelRow label="Auto minus (every 2 rows)"><PanelToggle value={m.autoMinus} onChange={(v) => patch({ autoMinus: v })} /></PanelRow>
@@ -69,37 +70,47 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
         <PanelRow label="Row height"><PanelNumber value={m.rowHeight} min={20} max={60} onChange={(v) => patch({ rowHeight: v })} /></PanelRow>
       </PanelGroup>
     </div>
-  );
+  ), [m.autoMinus, m.autoLine, m.showWorking, m.lineThickness, m.rowHeight, patch]);
   useRegisterAssetEditor(!!selected, "longDivision", "Long division", editor);
 
+  const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
+
   return (
-    <div className="not-prose inline-block font-mono" style={{ color: "#0f172a" }}>
-      {/* Quotient (above the bar) */}
+    <div
+      className="not-prose inline-block font-mono"
+      style={{ color: "#0f172a" }}
+      onPointerEnter={bind.onPointerEnter}
+      onPointerMove={bind.onPointerMove}
+      onPointerLeave={bind.onPointerLeave}
+      onPointerDown={bind.onPointerDown}
+      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    >
+      {/* Quotient (above the bar) — left-aligned so digits flow left→right. */}
       <div className="grid" style={{ gridTemplateColumns: "auto auto 1fr", alignItems: "end", fontSize: 22 }}>
         <div />
         <div />
-        <div className="text-right pr-2 pb-0.5">
-          <SmartCell value={m.quotient} onChange={(v) => patch({ quotient: v })} placeholder="" align="right" />
+        <div className="text-left pl-2 pb-0.5">
+          <SmartCell value={m.quotient} onChange={(v) => patch({ quotient: v })} placeholder="" align="left" />
         </div>
 
         {/* Divisor ) dividend */}
         <div className="pr-1 self-center">
-          <SmartCell value={m.divisor} onChange={(v) => patch({ divisor: v })} align="right" placeholder="" />
+          <SmartCell value={m.divisor} onChange={(v) => patch({ divisor: v })} align="left" placeholder="" />
         </div>
         <div className="self-center pr-1" style={{ fontSize: 26, fontWeight: 700 }}>)</div>
         <div
-          className="text-right pr-2"
+          className="text-left pl-2"
           style={{
             borderTop: `${m.lineThickness}px solid #0f172a`,
             paddingTop: 2,
             minWidth: "5ch",
           }}
         >
-          <SmartCell value={m.dividend} onChange={(v) => patch({ dividend: v })} align="right" placeholder="" />
+          <SmartCell value={m.dividend} onChange={(v) => patch({ dividend: v })} align="left" placeholder="" />
         </div>
       </div>
 
-      {/* Working rows */}
+      {/* Working rows — left-aligned; teacher can use Space to push forward. */}
       {m.showWorking && m.workingRows.length > 0 && (
         <div className="grid mt-0.5" style={{ gridTemplateColumns: "auto auto 1fr", fontSize: 22 }}>
           {m.workingRows.map((row, i) => {
@@ -112,7 +123,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
                   {showMinus ? "−" : ""}
                 </div>
                 <div
-                  className="text-right pr-2 py-0.5"
+                  className="text-left pl-2 py-0.5"
                   style={{
                     height: m.rowHeight,
                     borderTop: showLine ? `${m.lineThickness}px solid #0f172a` : undefined,
@@ -121,7 +132,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
                   <SmartCell
                     value={row}
                     onChange={(v) => setRow(i, v)}
-                    align="right"
+                    align="left"
                     placeholder=""
                     minWidth="6ch"
                   />
@@ -133,7 +144,8 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
       )}
 
       <AssetBottomToolbar
-        visible={!!selected}
+        visible={toolbarVisible}
+        bind={bind}
         actions={[
           { label: "Working step", icon: <Plus className="h-3 w-3" />, onClick: addStep },
           { label: "Working step", icon: <Minus className="h-3 w-3" />, onClick: delStep, disabled: m.workingRows.length === 0, tone: "danger" },

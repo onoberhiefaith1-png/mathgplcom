@@ -1,68 +1,57 @@
-## Goal
 
-Make every arithmetic asset classroom-ready: empty by default, highly visible, with basic row/column controls under the asset and advanced settings in a collapsible right-hand Properties Panel.
+## 1. Long Division — sensor direction (left → right)
 
-## 1. Properties Panel — collapsible drag/toggle
+**File:** `src/components/lessonnotes/extensions/visuals/arithmetic/LongDivision.tsx` (+ helpers in `src/lib/division.ts` if needed)
 
-File: `src/components/lessonnotes/PropertiesPanel.tsx`
+- Cursor / sensor entry point is the **leftmost writable cell** of the current row, and advances **rightwards** (col index increasing). Never right-to-left.
+- Arrow keys / auto-advance move `col + 1`, wrapping to next row's leftmost cell.
+- **Space bar** = "skip / push forward one column" (advance one cell without writing). Currently the sensor jumps to the highest place value; that anchor is removed — the teacher can begin at any column (e.g. tens) by pressing Space to move rightwards from the far-left position.
+- Backspace moves one column left (opposite direction only for correction).
+- Fix `buildSteps` traversal so `targetCol` order is ascending within each row.
 
-- Keep the current fold/expand button but move it onto a visible **vertical handle strip** on the panel's left edge, so it reads as a drag/close bar. Icon rotates (« expanded / » collapsed).
-- Panel state persists across selections (no auto re-open on every reselect once user has folded it).
-- When collapsed, show a slim 32px rail with the settings icon + "Settings" label — click anywhere on the rail to reopen.
-- Header still shows asset title + close button.
+## 2. Lock table structure — no split on double-click
 
-## 2. Global rules applied to every arithmetic asset
+**Problem:** Double-clicking a cell in SmartTable / PlaceValueChart / LongDivision / DivisionLadder / BaseConversion / FractionWall causes the underlying ProseMirror node to fragment (e.g. `98` becomes detached).
 
-- **Remove all seeded placeholder values.** Every asset opens empty (no `"45"`, `"2456"`, `"48 60"`, `"3648"`, etc. in `normalize()`).
-- **Bump default visibility**: heading colour → `#0f172a`, digit colour → `#0f172a`, heading font ≥ 13px, digit font ≥ 20px, row height ≥ 44px, divider thickness ≥ 3px, header underline 3px.
-- **Inline bottom toolbar** rendered only when the asset is selected, positioned directly under the asset (not top). Contains only the primitives needed for that asset (Add Row / Add Col / Delete Row / Delete Col). Everything else stays in the right-hand panel. Reused shared component `AssetBottomToolbar` in `src/components/lessonnotes/panel/AssetBottomToolbar.tsx`.
+**Fix (applies to every arithmetic + smart table asset):**
+- In the `MathVisual` NodeView wrapper (`src/components/lessonnotes/extensions/MathVisual.tsx`) and each asset's `SelectionFrame`:
+  - Add `atom: true` semantics — the visual is treated as a single indivisible node.
+  - Intercept `dblclick` on the asset container: `e.preventDefault()` + `e.stopPropagation()`, then route to "enter edit mode" (open right-hand Properties Panel) instead of letting ProseMirror descend into the DOM.
+  - Add `contentEditable={false}` on all internal table wrappers so ProseMirror never merges/splits them.
+- Cells that ARE editable (digit inputs) keep their own `contentEditable` / `<input>` — only the *structural chrome* is locked.
 
-## 3. Per-asset changes
+## 3. Auto-show / auto-hide bottom toolbar (Add/Remove Row/Column)
 
-### PlaceValueChart
-- Default headers: `["H", "T", "U"]`, all values empty.
-- `Add column` inserts one column on the LEFT using ordered names `T, H, Th, TTh, HTh, M, TM, HM, B` (skipping any already present, walking down the list).
-- `Delete column` removes the LEFTMOST non-U column. U is locked.
-- No visible vertical borders (`showGuides` default false, remove `borderLeft` when guides off — already true, but also remove `borderCollapse`/table default lines). Header underline stays as the only visible rule.
-- Bottom toolbar: `+ Column`, `− Column`, `+ Row`, `− Row` (support multiple invisible rows — extend `values` to `string[][]`).
+**File:** `src/components/lessonnotes/panel/AssetBottomToolbar.tsx` + host wrappers.
 
-### LongDivision
-- Defaults: `divisor: ""`, `dividend: ""`, `quotient: ""`, `workingRows: []`.
-- Bottom toolbar: `+ Working Step`, `− Working Step`.
-- Each "step" adds a pair of rows: row 1 (product, no line), row 2 (subtraction, gets minus sign + top border automatically). Existing autoMinus/autoLine logic already covers this; just make one press add two rows.
+Current behavior: requires multiple clicks; disappears on first interaction.
 
-### DivisionLadder
-- Defaults: `divisors: [""]`, `values: [[""], [""]]`, `cols: 1`. Only the single vertical divider visible.
-- Bottom toolbar: `+ Row`, `− Row`, `+ Column`, `− Column`.
-- Remove the top-border "result row" styling; treat every row uniformly (invisible).
+New behavior (applied to **every** tabular asset — SmartTable, PlaceValueChart, LongDivision, DivisionLadder, BaseConversion, FractionWall, FractionStrip):
 
-### BaseConversion
-- Defaults: `base: ""`, `rows: [{q:"", r:""}]`.
-- Bottom toolbar: `+ Row`, `− Row`. Keep the invisible R column already implemented.
+- Toolbar becomes visible whenever the **pointer/sensor enters the asset's bounding box** (or asset is selected) — no click required.
+- Toolbar **stays visible** while the pointer is over the asset OR the toolbar itself, OR any of its buttons was used in the last 10 s.
+- **10-second idle auto-hide timer:** resets on any pointer move / button click within the asset. When idle > 10 s AND pointer is not over the asset, fade out.
+- Removes the current "hide on any click" behavior.
 
-### FractionWall
-- Defaults: `rows: []` (empty until teacher adds).
-- Bottom toolbar: `+ Row`, `− Row`. Denominator/colour still in right panel.
+Implementation:
+- New hook `useHoverIdleVisibility({ idleMs: 10000 })` returning `{ visible, bind }` — attaches `onPointerEnter`, `onPointerMove`, `onPointerLeave` handlers and manages a timeout ref.
+- `AssetBottomToolbar` consumes this hook; wrapper attaches `bind` to both the asset container and the toolbar so moving between them counts as one hover region.
 
-### Base10Blocks
-- Default `value: ""`. When empty, render nothing (no zero blocks).
-- No bottom toolbar needed; number input is in right panel.
+## 4. Files touched
 
-### AbacusAsset
-- Default digits all 0 (already is), no `showValue` numeric until teacher acts. Leave otherwise; only remove any preset examples if present.
+- `src/components/lessonnotes/extensions/visuals/arithmetic/LongDivision.tsx` — cursor direction, Space-to-skip
+- `src/lib/division.ts` — step order (left→right target cols)
+- `src/components/lessonnotes/extensions/MathVisual.tsx` — atomic node, dblclick guard
+- `src/components/lessonnotes/extensions/visuals/living/SelectionFrame.tsx` — contentEditable=false on chrome
+- `src/components/lessonnotes/panel/AssetBottomToolbar.tsx` — hover + 10s idle visibility
+- `src/hooks/useHoverIdleVisibility.ts` (new)
+- Each arithmetic asset (`PlaceValueChart`, `LongDivision`, `DivisionLadder`, `BaseConversion`, `FractionWall`, `FractionStrip`, `Base10Blocks`) + `SmartTable` — wrap with the shared hover region and pass `bind` to their `AssetBottomToolbar`.
 
-### FractionStrip
-- If a `FractionStrip` component exists under arithmetic, apply same rule: start with one empty strip, denominator/numerator configured only via right panel. (Confirm during implementation; skip if the component isn't present.)
+## 5. Also fixes
 
-## 4. Technical notes
-
-- New file `src/components/lessonnotes/panel/AssetBottomToolbar.tsx` exporting `<AssetBottomToolbar>` with pill buttons using existing design tokens (`bg-background`, `border-border`, `text-foreground`), rendered inside each asset's root when `selected` is true, positioned `mt-2 flex gap-1 justify-center`.
-- PlaceValueChart values become `string[][]` (`rows × cols`); migration: if `values` is `string[]`, wrap as `[values]`.
-- PropertiesPanel: replace auto-expand-on-select `useEffect` with a persistent user preference held in component state; only auto-expand when there was no prior selection.
-- No changes to `useRegisterAssetEditor` API.
-- Typecheck after edits; Playwright spot-check PlaceValueChart (add column, add row, fold panel) and LongDivision (add step) to verify.
+- The `BaseConversion` "Maximum update depth exceeded" console error (setState-in-effect loop) — will refactor its init effect to run once, not on every parent render.
 
 ## Out of scope
 
-- Non-arithmetic assets (geometry, living diagrams, smart table) — untouched.
-- Persisting panel fold state across page reloads.
+- No changes to Properties Panel layout, styling, or existing right-hand editing surface (already correct per universal editing rule).
+- No changes to data schemas or backend.

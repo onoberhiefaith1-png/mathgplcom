@@ -45,15 +45,18 @@ export function useRegisterAssetEditor(
 ) {
   const ctx = useContext(AssetSelectionContext);
   useEffect(() => {
-    if (!ctx) return;
-    if (active) {
-      ctx.setReg({ id, title, editor });
-      return () => {
-        ctx.setReg((prev) => (prev && prev.id === id ? null : prev));
-      };
-    }
-    return;
-    // Editor node changes each render — we want to push the latest.
+    if (!ctx || !active) return;
+    // Functional update: only replace when something meaningful changed.
+    // Prevents an infinite render loop when callers pass a fresh JSX
+    // `editor` each render — we still push the latest editor, but only
+    // trigger a state update if it's actually different.
+    ctx.setReg((prev) => {
+      if (prev && prev.id === id && prev.title === title && prev.editor === editor) return prev;
+      return { id, title, editor };
+    });
+    return () => {
+      ctx.setReg((prev) => (prev && prev.id === id ? null : prev));
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, id, title, editor]);
 }
