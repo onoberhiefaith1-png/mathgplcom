@@ -1,95 +1,44 @@
-## Goal
+## Universal Asset Editing Rule (to be enforced everywhere)
 
-Make every editable asset in the lesson-notes editor edit through a single, universal right-hand Properties Panel, and redesign the arithmetic assets (Place Value, Long Division, Division Ladder, Base Conversion, Fraction Strip/Wall, Base-10 Blocks, Abacus) so they are clearly visible in the library and behave to the spec below.
+Two non-negotiable conditions for every editable asset in the app:
 
-This is a large, multi-part change. Because it touches almost every asset type, I'll deliver it in three ordered phases so you can review after each one.
+1. **Settings live in the Right-Hand Properties Panel only.**
+   - The foldable right-hand panel (already implemented for 3D solids, triangle, and other geometry assets via `useRegisterAssetEditor` + `PropertiesPanel`) is the single home for all edit controls.
+   - No floating popovers, no inline "Edit" chips, no bottom toolbars, no settings dialogs anywhere else.
+   - Clicking an asset (or its selection frame) opens/focuses the right panel with that asset's controls.
 
----
+2. **Assets and their content must be visible by default.**
+   - Default text colour, size, stroke, and contrast must be readable on the page background without the user changing anything.
+   - Grid lines, borders, and cell text in tables must have sufficient contrast (dark ink on light paper, not faint greys).
+   - Previews in the asset library must clearly show the asset.
 
-## Phase 1 — Universal Properties Panel infrastructure
+## What I will change
 
-**New file: `src/components/lessonnotes/PropertiesPanel.tsx`**
-A single right-hand docked panel (sibling of the editor column) that renders the property editor for the currently-selected asset. It replaces every existing floating/absolute edit widget.
+### A. Save the rule as a Core project memory
+Add to `mem://index.md` Core so every future edit respects it, and drop a `mem://design/universal-editing-rule` file with the full text.
 
-- Uses a registry pattern: `registerPropertiesEditor(assetType, Editor)` — one entry per asset (smarttable, placeValueChart, longDivision, divisionLadder, baseConversion, fractionStrip, fractionWall, base10Blocks, abacusManipulative, geometry, tree, org, flowchart, venn, circle, solid, line, matrix, …).
-- Reads current selection from a new `useAssetSelection()` store (Zustand-style context) that every asset writes into on click.
-- Shows a placeholder ("Select an asset to edit its properties") when nothing is selected.
-- Docks to the right of `DocumentEditor`, matching the existing GeometryAiPanel column width; collapsible.
+### B. Fix Smart Table to comply (current violation)
+- Remove the bottom inline toolbar (Rows/Cols switch, +/−, Edit button) that was just re-added.
+- Move all Smart Table controls back into the right-hand Properties Panel via `useRegisterAssetEditor`, matching the pattern used by the 3D solid / triangle assets.
+- Panel contents: Add/Remove Row (+ / −), Add/Remove Column (+ / −), cell padding, border thickness, border colour, text size, alignment, bold headers, striped rows, show gridlines, reset style.
+- Ensure the panel opens automatically on selection and folds away when deselected (same behaviour as geometry assets).
+- Fix default visibility: darker default border colour, darker default text colour, minimum readable font size so table content is legible immediately after insertion.
 
-**Selection wiring**
-- Add `onSelect(attrs, patch)` hookup at each asset root. Clicking an asset (or its `⚙ Edit` chip) sets it as the active selection instead of opening a local popup.
-- Remove the in-place `<div className="absolute -top-6 …">` chip toolbars from: `PlaceValueChart`, `LongDivision`, `DivisionLadder`, `BaseConversion`, `FractionWall`, `FractionStrip`, `Base10Blocks`, `SmartTable`, and the per-engine node overlays (Tree/Org/Flowchart/Venn/Circle/Solid/Line). Their controls move into the panel editor.
-- Keep the manual `⚙ Edit` chip on the selection frame — but it now just activates the right-hand panel, no popover.
+### C. Audit every other asset for the same two conditions
+Sweep these files and remove any remaining floating/inline edit UI, routing all controls to the right panel via `useRegisterAssetEditor`:
+- `extensions/visuals/arithmetic/*` (PlaceValueChart, LongDivision, DivisionLadder, BaseConversion, FractionWall, Base10Blocks, Abacus)
+- `extensions/visuals/smarttable/SmartTable`
+- `extensions/visuals/living/*` (SelectionFrame must not render an `onEdit` chip anywhere)
+- `extensions/GeometryDiagram` and `treeEngine/TreeEngineCanvas`
+- Any other asset with a local settings popover
 
-**Existing engine panels (`TreeEnginePanel`, `OrgEnginePanel`, `FlowchartEnginePanel`, `VennEnginePanel`, `CircleEnginePanel`, `SolidEnginePanel`, `LineEnginePanel`)**
-- Convert from `createPortal` floating panels into plain editor components registered in the properties-panel registry. Same fields, same handlers — just rendered inside the docked panel instead of a portal.
+For each: verify default rendering is high-contrast and legible without the user opening the panel.
 
-**GeometryAiPanel**
-- Stays where it is (AI edit panel, separate concern). Not touched.
+### D. Verification
+- Typecheck.
+- Playwright: insert Smart Table, confirm no bottom toolbar, confirm right panel shows controls, confirm text/grid are visible by default. Repeat spot-check on one geometry and one arithmetic asset.
 
----
-
-## Phase 2 — Arithmetic asset redesigns
-
-Each asset is rewritten to the spec, and its property editor lives only in the right-hand panel.
-
-**Place Value Chart** (`PlaceValueChart.tsx`)
-- Always starts with `U`. Columns added/removed only from the left. `U` can never be removed.
-- No visible vertical grid lines; invisible alignment guides keep digits centred under headings.
-- Panel: Add Place Value, Remove Left Column, Font Size, Heading Size, Column Width, Row Height, Show Alignment Guides, Colours.
-
-**Long Division** (`LongDivision.tsx`)
-- Natural writing flow. Every two working rows auto-inserts a subtraction line + minus sign.
-- Panel: Add Working Row, Delete Last Row, Line Thickness, Row Height, Auto Minus (toggle), Auto Horizontal Line (toggle).
-
-**Division Ladder** (`DivisionLadder.tsx`)
-- One visible vertical divider; rest uses invisible alignment columns.
-- Panel: Add/Delete Row, Add/Remove Number Column, Row Height, Column Width, Divider Thickness, Font Size.
-
-**Base Conversion** (`BaseConversion.tsx`)
-- Remove the `→` arrow entirely. Use text `R` for remainder, right-aligned in its own invisible column.
-- Vertical divider auto-extends as rows are added.
-- Panel: Add/Delete Row, Divider Thickness, Column Width, Row Height, Font Size.
-
-**Fraction Strip** (`FractionStrip.tsx`)
-- Single strip with: Number of Equal Parts, Highlight Numerator, Colour, Border, Show Fraction Label, Animate Equal Partition, Show Equivalent Fraction.
-
-**Fraction Wall** (`FractionWall.tsx`)
-- Panel: Number of Rows, Maximum Denominator, Highlight Fraction, Compare Fractions, Colour Theme.
-
-**Base-10 Blocks** (`Base10Blocks.tsx`)
-- Teacher types a number (e.g. `2456`); the component auto-generates the correct count of Thousands/Hundreds/Tens/Units.
-- Panel: Labels (toggle), Colours, Stack Mode / Flat Mode toggle, Animate Regrouping.
-
-**Abacus** (`AbacusAsset.tsx` wrapper)
-- Panel: Number of Rods, Beads per Rod, Decimal Mode, Place Value Labels, Show Numeric Value, Reset, Animate Beads.
-- The underlying game `Abacus` component gains the extra props it needs to support those settings (rods/beads/decimal).
-
----
-
-## Phase 3 — Asset Library previews
-
-In `src/lib/lessonnotes/assets/tables.ts` (and the library preview renderer) each arithmetic asset gets a dedicated preview instance sized to be clearly readable in the picker:
-
-- Larger preview box, centred, min-height ~120px.
-- Thicker strokes (2px on rules/dividers), higher-contrast text (`text-foreground`, not `text-foreground/60`).
-- Representative attrs (e.g. Place Value shows `HTh TTh Th H T U / 4 8 3 7 5`; Long Division shows the sample `12 ) 3648` with one subtraction line).
-- Same visual style used consistently across every arithmetic asset preview.
-
----
-
-## Out of scope for this plan
-
-- No backend/edge-function changes.
-- No changes to AI panel behaviour, geometry sketch pipeline, or Smart Table architecture (only its edit surface moves into the shared panel).
-- No changes to adventure/games/smartboard pages.
-
----
-
-## Files touched (summary)
-
-- **New:** `src/components/lessonnotes/PropertiesPanel.tsx`, `src/components/lessonnotes/propertiesRegistry.ts`, `src/hooks/useAssetSelection.ts`.
-- **Edited:** `DocumentEditor.tsx` (mount panel + selection provider), all seven engine panels, all eight arithmetic assets, `SmartTable.tsx`, `SelectionFrame.tsx`, `tables.ts` previews, `index.css` (panel tokens already added).
-- **Removed:** in-place absolute chip toolbars inside each asset.
-
-Ready to build in the order Phase 1 → 2 → 3.
+## Technical notes
+- Reuse existing `useRegisterAssetEditor` hook and `PanelGroup`/`PanelRow`/`PanelNumber`/`PanelToggle`/`PanelColor`/`PanelButton` primitives — no new panel infrastructure needed.
+- Selection wiring already exists via `AssetSelectionProvider`; each asset just needs to call the hook with its editor JSX.
+- Default token adjustments stay in the component (not `index.css`) so we don't disturb global theme.
