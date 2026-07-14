@@ -1,18 +1,28 @@
 // Universal right-hand Properties Panel. Renders the editor registered by
 // the currently-selected asset via `useAssetSelection` / `useRegisterAssetEditor`.
+// The panel has a visible vertical handle bar on its left edge that
+// collapses/expands it. Once the teacher folds it, it stays folded until
+// they open it again — selecting a new asset does not force it back open.
 
-import { useEffect, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { useAssetSelection } from "@/hooks/useAssetSelection";
-import { Settings2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings2, X } from "lucide-react";
 
 export function PropertiesPanel() {
   const ctx = useAssetSelection();
   const reg = ctx?.reg ?? null;
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const seenRef = useRef<Set<string>>(new Set());
 
+  // Only auto-expand the very first time a given asset id is selected.
+  // Subsequent selections respect the teacher's fold state.
   useEffect(() => {
-    if (reg) setExpanded(true);
+    if (!reg) return;
+    if (!seenRef.current.has(reg.id)) {
+      seenRef.current.add(reg.id);
+      setExpanded(true);
+    }
   }, [reg?.id]);
 
   if (!reg || typeof document === "undefined") return null;
@@ -21,55 +31,69 @@ export function PropertiesPanel() {
     e.stopPropagation();
   };
 
-  const foldButton = (
-    <button
-      type="button"
-      onClick={() => setExpanded((v) => !v)}
-      className="h-8 w-8 inline-flex items-center justify-center rounded border border-border text-xs hover:bg-muted/60"
-      title={expanded ? "Fold settings" : "Show settings"}
-      aria-label={expanded ? "Fold settings" : "Show settings"}
-    >
-      {expanded ? "›" : <Settings2 className="h-4 w-4" />}
-    </button>
-  );
-
   if (!expanded) {
     return createPortal(
-      <aside
-        className="fixed inset-y-0 right-0 z-50 w-11 shadow-2xl border-l border-border overflow-hidden flex flex-col items-center bg-background text-foreground"
-        aria-label="Asset properties panel"
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
         onMouseDown={guardPanelEvent}
-        onPointerDown={guardPanelEvent}
-        onClick={guardPanelEvent}
-        onKeyDown={guardPanelEvent}
+        className="fixed inset-y-0 right-0 z-50 w-8 flex flex-col items-center justify-center gap-3 border-l border-border bg-background text-foreground shadow-lg hover:bg-muted/60"
+        aria-label="Open settings"
+        title="Open settings"
       >
-        <div className="pt-3">{foldButton}</div>
-        <div className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground [writing-mode:vertical-rl] rotate-180">
+        <ChevronLeft className="h-4 w-4" />
+        <span className="text-[10px] font-semibold uppercase tracking-widest [writing-mode:vertical-rl] rotate-180">
           Settings
-        </div>
-      </aside>,
+        </span>
+        <Settings2 className="h-4 w-4" />
+      </button>,
       document.body,
     );
   }
 
   return createPortal(
     <aside
-      className="fixed inset-y-0 right-0 z-50 flex w-[min(360px,calc(100vw-48px))] flex-col overflow-hidden border-l border-border bg-background text-foreground shadow-2xl"
+      className="fixed inset-y-0 right-0 z-50 flex w-[min(360px,calc(100vw-48px))] bg-background text-foreground shadow-2xl border-l border-border"
       aria-label="Asset properties panel"
       onMouseDown={guardPanelEvent}
       onPointerDown={guardPanelEvent}
       onClick={guardPanelEvent}
       onKeyDown={guardPanelEvent}
     >
-      <div className="h-11 px-3 flex items-center justify-between gap-2 border-b border-border">
-        <div className="min-w-0 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground/80">
-          <Settings2 className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{reg.title}</span>
+      {/* Vertical drag/collapse handle on the left edge */}
+      <button
+        type="button"
+        onClick={() => setExpanded(false)}
+        className="w-6 shrink-0 flex flex-col items-center justify-center gap-2 border-r border-border bg-muted/40 hover:bg-muted text-foreground/70"
+        aria-label="Collapse settings"
+        title="Collapse settings"
+      >
+        <ChevronRight className="h-4 w-4" />
+        <span className="text-[9px] font-semibold uppercase tracking-widest [writing-mode:vertical-rl] rotate-180">
+          Close
+        </span>
+        <ChevronRight className="h-4 w-4" />
+      </button>
+
+      <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+        <div className="h-11 px-3 flex items-center justify-between gap-2 border-b border-border">
+          <div className="min-w-0 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground/80">
+            <Settings2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{reg.title}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted/60 text-foreground/70"
+            aria-label="Close settings"
+            title="Close settings"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        {foldButton}
-      </div>
-      <div className="flex-1 overflow-auto p-3 text-sm text-foreground">
-        {reg.editor}
+        <div className="flex-1 overflow-auto p-3 text-sm text-foreground">
+          {reg.editor}
+        </div>
       </div>
     </aside>,
     document.body,
