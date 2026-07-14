@@ -4,7 +4,7 @@
 // fly and bring the table forward when they want it visible.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Plus, Minus } from "lucide-react";
+import { Minus, Plus, Settings2 } from "lucide-react";
 import { evaluate, formatNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
@@ -120,6 +120,10 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const [active, setActive] = useState<{ r: number; c: number } | null>(null);
   const [buffer, setBuffer] = useState<string>("");
+  const [hover, setHover] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dimensionMode, setDimensionMode] = useState<"rows" | "cols">("rows");
+  const settingsRef = useRef<HTMLDivElement | null>(null);
 
   const patch = useCallback((next: Partial<SmartTableAttrs>) => {
     onChange({ ...next });
@@ -168,6 +172,24 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       colWidths: colWidths ? colWidths.filter((_, i) => i !== at) : undefined,
     });
     if (active?.c === at) cancelEdit();
+  };
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!settingsRef.current?.contains(e.target as Node)) setSettingsOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [settingsOpen]);
+
+  const addSelectedDimension = () => {
+    if (dimensionMode === "rows") addRow(active && active.r >= 0 ? active.r + 1 : rows);
+    else addCol(active ? active.c + 1 : cols);
+  };
+  const removeSelectedDimension = () => {
+    if (dimensionMode === "rows") delRow(active && active.r >= 0 ? active.r : rows - 1);
+    else delCol(active ? active.c : cols - 1);
   };
 
   const isEditing = (r: number, c: number) => !!active && active.r === r && active.c === c;
@@ -248,10 +270,14 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   );
   useRegisterAssetEditor(!!selected || active !== null, "smartTable", "Smart table", editor);
 
+  const controlsVisible = selected || hover || active !== null || settingsOpen;
+
   return (
-    <div className="smart-table not-prose relative inline-block align-middle text-foreground">
-
-
+    <div
+      className="smart-table not-prose relative inline-block align-middle text-foreground"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
       <table style={tableStyle}>
         <thead>
           <tr>
@@ -300,6 +326,66 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
         </tbody>
       </table>
 
+      {controlsVisible && (
+        <div
+          ref={settingsRef}
+          className="relative mt-2 flex justify-center"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-1.5 rounded-full border border-border bg-popover px-1.5 py-1 text-popover-foreground shadow-lg">
+            <div className="flex rounded-full bg-muted p-0.5" aria-label="Choose table direction">
+              <button
+                type="button"
+                aria-pressed={dimensionMode === "rows"}
+                onClick={() => setDimensionMode("rows")}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${dimensionMode === "rows" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Rows
+              </button>
+              <button
+                type="button"
+                aria-pressed={dimensionMode === "cols"}
+                onClick={() => setDimensionMode("cols")}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${dimensionMode === "cols" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Cols
+              </button>
+            </div>
+            <button
+              type="button"
+              aria-label={`Remove ${dimensionMode === "rows" ? "row" : "column"}`}
+              onClick={removeSelectedDimension}
+              className="grid h-6 w-6 place-items-center rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-95"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-label={`Add ${dimensionMode === "rows" ? "row" : "column"}`}
+              onClick={addSelectedDimension}
+              className="grid h-6 w-6 place-items-center rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-95"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-expanded={settingsOpen}
+              onClick={() => setSettingsOpen((v) => !v)}
+              className="flex h-6 items-center gap-1 rounded-full bg-foreground px-2.5 text-[10px] font-medium text-background hover:opacity-90 active:scale-95"
+            >
+              <Settings2 className="h-3 w-3" />
+              Edit
+            </button>
+          </div>
+
+          {settingsOpen && (
+            <div className="absolute left-1/2 top-9 z-20 w-72 -translate-x-1/2 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-xl">
+              {editor}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
