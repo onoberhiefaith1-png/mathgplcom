@@ -216,12 +216,6 @@ export function BarChart({ attrs, onChange, selected }: Props) {
               <PanelColor value={r.color ?? attrs.barStyle.uniformColor ?? attrs.palette[i % attrs.palette.length] ?? DEFAULT_PALETTE[0]}
                 onChange={(v) => setRow(i, { color: v })} />
             </PanelRow>
-            {!bar.equalWidth && (
-              <PanelRow label="Width">
-                <PanelNumber value={r.width ?? bar.barWidth} min={4} max={200}
-                  onChange={(v) => setRow(i, { width: v })} />
-              </PanelRow>
-            )}
             <PanelRow label="Show label">
               <PanelToggle value={r.showLabel ?? true} onChange={(v) => setRow(i, { showLabel: v })} />
             </PanelRow>
@@ -238,17 +232,17 @@ export function BarChart({ attrs, onChange, selected }: Props) {
         </PanelRow>
       </PanelGroup>
 
-      {/* 5. Bar Layout */}
+      {/* 5. Bar Layout — bar width as % of plot; gap = width (bar) or 0 (histogram) */}
       <PanelGroup label="Bar layout">
-        <PanelRow label="Equal width"><PanelToggle value={bar.equalWidth} onChange={(v) => patchBar({ equalWidth: v })} /></PanelRow>
-        {bar.equalWidth && (
-          <PanelRow label="Bar width"><PanelNumber value={bar.barWidth} min={4} max={200}
-            onChange={(v) => patchBar({ barWidth: v })} /></PanelRow>
-        )}
-        <PanelRow label="Gap between bars">
-          <PanelNumber value={bar.gap} min={0} max={80}
-            onChange={(v) => patchBar({ gap: v })} />
+        <PanelRow label="Bar width (%)">
+          <PanelNumber value={attrs.barWidthPct} min={0.5} max={50} step={0.5}
+            onChange={(v) => patch({ barWidthPct: Math.max(0.5, Math.min(50, v)) })} />
         </PanelRow>
+        <div className="px-2 py-1 text-[11px] text-muted-foreground">
+          {isHistogram
+            ? "Histogram: bars touch (gap = 0)."
+            : "Bar chart: gap between bars = bar width."}
+        </div>
       </PanelGroup>
 
       {/* 6. Display Mode */}
