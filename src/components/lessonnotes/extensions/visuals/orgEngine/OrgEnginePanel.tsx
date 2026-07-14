@@ -1,6 +1,6 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
-import type { OrgDirection, OrgModel, OrgShape } from "./types";
+import type { OrgDirection, OrgEdgeStyleModel, OrgModel, OrgNode, OrgShape } from "./types";
 import { DEFAULT_EDGE, newOrgId } from "./types";
 import { cloneOrg, findOrg, findOrgParent } from "./layout";
 
@@ -48,14 +48,14 @@ export function OrgEnginePanel({ open, onClose, model, selectedId, onSelect, onC
 
   const sel = selectedId ? findOrg(model.root, selectedId) : null;
 
-  const patch = (id: string, patch: Partial<typeof sel>) => {
+  const patch = (id: string, p: Partial<OrgNode>) => {
     const next = cloneOrg(model.root);
     const n = findOrg(next, id);
     if (!n) return;
-    Object.assign(n, patch);
+    Object.assign(n, p);
     onChange({ ...model, root: next });
   };
-  const patchEdge = (id: string, p: Partial<typeof sel extends null ? never : NonNullable<typeof sel>["edge"]>) => {
+  const patchEdge = (id: string, p: Partial<OrgEdgeStyleModel>) => {
     const next = cloneOrg(model.root);
     const n = findOrg(next, id);
     if (!n) return;

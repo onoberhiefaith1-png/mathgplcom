@@ -1,6 +1,6 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
-import type { FlowLayout, FlowModel, FlowShapeKind } from "./types";
+import type { FlowLayout, FlowModel, FlowNode, FlowShapeKind } from "./types";
 import { makeFlowNode, newId } from "./types";
 import { autoLayout } from "./layout";
 
