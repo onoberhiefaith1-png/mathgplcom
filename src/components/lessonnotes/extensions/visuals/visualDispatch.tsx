@@ -502,6 +502,52 @@ export function renderVisual(family: string, attrs: Record<string, unknown>, ctx
       };
       return wrap(Shape(map[preset.toLowerCase()] ?? "venn2"));
     }
+    case "treeEngine":
+      return wrap(
+        <SVG vb="0 0 200 140">
+          <circle cx={100} cy={25} r={8} fill="none" stroke="currentColor" strokeWidth={1.8}/>
+          <circle cx={55} cy={80} r={8} fill="none" stroke="currentColor" strokeWidth={1.8}/>
+          <circle cx={145} cy={80} r={8} fill="none" stroke="currentColor" strokeWidth={1.8}/>
+          <circle cx={30} cy={125} r={7} fill="none" stroke="currentColor" strokeWidth={1.5}/>
+          <circle cx={80} cy={125} r={7} fill="none" stroke="currentColor" strokeWidth={1.5}/>
+          <circle cx={120} cy={125} r={7} fill="none" stroke="currentColor" strokeWidth={1.5}/>
+          <circle cx={170} cy={125} r={7} fill="none" stroke="currentColor" strokeWidth={1.5}/>
+          <line x1={100} y1={33} x2={55} y2={72} stroke="currentColor" strokeWidth={1.5}/>
+          <line x1={100} y1={33} x2={145} y2={72} stroke="currentColor" strokeWidth={1.5}/>
+          <line x1={55} y1={88} x2={30} y2={118} stroke="currentColor" strokeWidth={1.2}/>
+          <line x1={55} y1={88} x2={80} y2={118} stroke="currentColor" strokeWidth={1.2}/>
+          <line x1={145} y1={88} x2={120} y2={118} stroke="currentColor" strokeWidth={1.2}/>
+          <line x1={145} y1={88} x2={170} y2={118} stroke="currentColor" strokeWidth={1.2}/>
+        </SVG>
+      );
+    case "flowchartEngine":
+      return wrap(
+        <SVG vb="0 0 200 140">
+          <rect x={70} y={10} width={60} height={22} rx={11} fill="none" stroke="currentColor" strokeWidth={1.6}/>
+          <polygon points="100,45 140,70 100,95 60,70" fill="none" stroke="currentColor" strokeWidth={1.6}/>
+          <rect x={30} y={108} width={50} height={22} rx={3} fill="none" stroke="currentColor" strokeWidth={1.6}/>
+          <rect x={120} y={108} width={50} height={22} rx={3} fill="none" stroke="currentColor" strokeWidth={1.6}/>
+          <line x1={100} y1={32} x2={100} y2={45} stroke="currentColor" strokeWidth={1.4}/>
+          <line x1={80} y1={80} x2={55} y2={108} stroke="currentColor" strokeWidth={1.4}/>
+          <line x1={120} y1={80} x2={145} y2={108} stroke="currentColor" strokeWidth={1.4}/>
+        </SVG>
+      );
+    case "orgEngine":
+      return wrap(
+        <SVG vb="0 0 200 140">
+          <rect x={80} y={12} width={40} height={22} rx={6} fill="none" stroke="currentColor" strokeWidth={1.6}/>
+          <rect x={20} y={60} width={40} height={22} rx={6} fill="none" stroke="currentColor" strokeWidth={1.6}/>
+          <rect x={80} y={60} width={40} height={22} rx={6} fill="none" stroke="currentColor" strokeWidth={1.6}/>
+          <rect x={140} y={60} width={40} height={22} rx={6} fill="none" stroke="currentColor" strokeWidth={1.6}/>
+          <rect x={60} y={108} width={40} height={22} rx={6} fill="none" stroke="currentColor" strokeWidth={1.4}/>
+          <rect x={110} y={108} width={40} height={22} rx={6} fill="none" stroke="currentColor" strokeWidth={1.4}/>
+          <line x1={100} y1={34} x2={40} y2={60} stroke="currentColor" strokeWidth={1.4}/>
+          <line x1={100} y1={34} x2={100} y2={60} stroke="currentColor" strokeWidth={1.4}/>
+          <line x1={100} y1={34} x2={160} y2={60} stroke="currentColor" strokeWidth={1.4}/>
+          <line x1={100} y1={82} x2={80} y2={108} stroke="currentColor" strokeWidth={1.2}/>
+          <line x1={100} y1={82} x2={130} y2={108} stroke="currentColor" strokeWidth={1.2}/>
+        </SVG>
+      );
     case "grid":       return wrap(Grid(variant));
     case "numberline": return wrap(NumberLine(variant, attrs));
     case "chart":      return wrap(Chart(variant, attrs));
