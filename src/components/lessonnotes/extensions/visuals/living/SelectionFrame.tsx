@@ -46,7 +46,7 @@ export function SelectionFrame({ selected, onEdit, children, presenting = false,
           type="button"
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
-          className="absolute -top-7 left-1/2 -translate-x-1/2 z-10 rounded-full bg-primary text-primary-foreground text-[10px] font-medium px-2.5 py-0.5 shadow-md hover:brightness-110 active:scale-95"
+          className="absolute -bottom-7 left-1/2 -translate-x-1/2 z-10 rounded-full bg-primary text-primary-foreground text-[10px] font-medium px-2.5 py-0.5 shadow-md hover:brightness-110 active:scale-95"
           style={{ lineHeight: 1.4 }}
         >
           ⚙ Edit
