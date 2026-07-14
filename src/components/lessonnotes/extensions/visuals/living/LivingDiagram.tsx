@@ -299,19 +299,23 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
 
 
   // Bypass the geometry PropertyPanel; each widget owns its inline controls.
+  // Selection into the right-hand editor is opened via the hover ⚙ Edit chip
+  // and stays open until the user closes the panel — independent of tiptap
+  // selection.
+  const editSelected = selected || editorOpen;
   const arithmeticNode = (() => {
     switch (family) {
-      case "smarttable":       return <SmartTable attrs={attrs} onChange={onChange} selected={selected} />;
-      case "smartChart":       return <SmartChart attrs={attrs} onChange={onChange} selected={selected} />;
-      case "placeValueChart":  return <PlaceValueChart attrs={attrs} onChange={onChange} selected={selected} />;
-      case "longDivision":     return <LongDivision attrs={attrs} onChange={onChange} selected={selected} />;
-      case "divisionLadder":   return <DivisionLadder attrs={attrs} onChange={onChange} selected={selected} />;
-      case "baseConversion":   return <BaseConversion attrs={attrs} onChange={onChange} selected={selected} />;
-      case "fractionWall":     return <FractionWall attrs={attrs} onChange={onChange} selected={selected} />;
-      case "fractionStrip":    return <FractionStrip attrs={attrs} onChange={onChange} selected={selected} />;
-      case "base10Blocks":     return <Base10Blocks attrs={attrs} onChange={onChange} selected={selected} />;
-      case "abacusManipulative": return <AbacusAsset attrs={attrs} onChange={onChange} selected={selected} />;
-      case "coordPlane":       return <CoordinatePlane attrs={attrs} onChange={onChange} selected={selected} />;
+      case "smarttable":       return <SmartTable attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "smartChart":       return <SmartChart attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "placeValueChart":  return <PlaceValueChart attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "longDivision":     return <LongDivision attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "divisionLadder":   return <DivisionLadder attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "baseConversion":   return <BaseConversion attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "fractionWall":     return <FractionWall attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "fractionStrip":    return <FractionStrip attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "base10Blocks":     return <Base10Blocks attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "abacusManipulative": return <AbacusAsset attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "coordPlane":       return <CoordinatePlane attrs={attrs} onChange={onChange} selected={editSelected} />;
 
       default: return null;
     }
@@ -319,14 +323,16 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
   if (arithmeticNode) {
     return (
       <SelectionFrame
-        selected={selected}
-        presenting={presenting && !selected}
+        selected={editSelected}
+        onEdit={() => setEditorOpen((v) => !v)}
+        presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
         {arithmeticNode}
       </SelectionFrame>
     );
   }
+
 
   return (
     <SelectionFrame
