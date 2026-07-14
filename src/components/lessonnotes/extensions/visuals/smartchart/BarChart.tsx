@@ -19,16 +19,19 @@ interface Props {
   selected: boolean;
 }
 
-const W = 520;
-const H = 340;
+const DEFAULT_W = 520;
+const DEFAULT_H = 340;
 const PAD = { top: 32, right: 32, bottom: 64, left: 64 };
-const plotW = W - PAD.left - PAD.right;
-const plotH = H - PAD.top - PAD.bottom;
 
 export function BarChart({ attrs, onChange, selected }: Props) {
   const bar = attrs.bar;
   const rows = bar.rows;
   const isHistogram = attrs.displayMode === "histogram" || attrs.kind === "histogram";
+
+  const W = attrs.canvasWidth;
+  const H = attrs.canvasHeight;
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
 
   const scale = useMemo(
     () => attrs.yScale.mode === "manual"
