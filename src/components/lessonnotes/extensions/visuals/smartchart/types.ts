@@ -101,6 +101,9 @@ export interface SmartChartAttrs {
 
   // Bar width as a percentage of the plot area width (default 10 %).
   barWidthPct: number;
+  // Canvas size in px — teacher can expand the chart to fit the notebook.
+  canvasWidth: number;
+  canvasHeight: number;
   // Structured graph-style scale (Auto or Manual "cm : unit").
   yScale: YScale;
 
@@ -238,6 +241,8 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     preset: (["custom","waec","neco","gcse","alevel"].includes(String(a.preset))
       ? a.preset : "custom") as PresetName,
     barWidthPct: Math.max(0.5, Math.min(50, num(a.barWidthPct, 10))),
+    canvasWidth: Math.max(320, Math.min(4000, num(a.canvasWidth, 520))),
+    canvasHeight: Math.max(240, Math.min(3000, num(a.canvasHeight, 340))),
     yScale: mergeObj(a.yScale, {
       mode: bool(a.yAuto, true) ? "auto" as const : "manual" as const,
       cmPerStep: 1,

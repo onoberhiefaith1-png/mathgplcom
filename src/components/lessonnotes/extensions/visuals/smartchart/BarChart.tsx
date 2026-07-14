@@ -19,16 +19,19 @@ interface Props {
   selected: boolean;
 }
 
-const W = 520;
-const H = 340;
+const DEFAULT_W = 520;
+const DEFAULT_H = 340;
 const PAD = { top: 32, right: 32, bottom: 64, left: 64 };
-const plotW = W - PAD.left - PAD.right;
-const plotH = H - PAD.top - PAD.bottom;
 
 export function BarChart({ attrs, onChange, selected }: Props) {
   const bar = attrs.bar;
   const rows = bar.rows;
   const isHistogram = attrs.displayMode === "histogram" || attrs.kind === "histogram";
+
+  const W = attrs.canvasWidth;
+  const H = attrs.canvasHeight;
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
 
   const scale = useMemo(
     () => attrs.yScale.mode === "manual"
@@ -86,6 +89,8 @@ export function BarChart({ attrs, onChange, selected }: Props) {
     bar: { rows: [], equalWidth: true, gap: 12, barWidth: 40, showValuesAbove: false },
     xLabel: "", yLabel: "",
     barWidthPct: 10,
+    canvasWidth: DEFAULT_W,
+    canvasHeight: DEFAULT_H,
     yScale: { mode: "manual", cmPerStep: 1, unitPerStep: 1, min: 0, max: 10 },
     yMinorDivisions: 5,
     displayMode: attrs.kind === "histogram" ? "histogram" : "bar",
@@ -141,6 +146,26 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   // ── Panel content ─────────────────────────────────────────────────
   const editor = (
     <div>
+      {/* 0. Canvas size — expand the chart to fit the notebook */}
+      <PanelGroup label="Canvas size (expand)">
+        <PanelRow label="Width (px)">
+          <PanelNumber value={attrs.canvasWidth} min={320} max={4000} step={20}
+            onChange={(v) => patch({ canvasWidth: Math.max(320, Math.min(4000, Math.round(v))) })} />
+        </PanelRow>
+        <PanelRow label="Height (px)">
+          <PanelNumber value={attrs.canvasHeight} min={240} max={3000} step={20}
+            onChange={(v) => patch({ canvasHeight: Math.max(240, Math.min(3000, Math.round(v))) })} />
+        </PanelRow>
+        <PanelRow label="Presets">
+          <PanelButton onClick={() => patch({ canvasWidth: DEFAULT_W, canvasHeight: DEFAULT_H })}>Reset</PanelButton>
+          <PanelButton onClick={() => patch({ canvasWidth: Math.min(4000, attrs.canvasWidth + 200) })}>Wider +</PanelButton>
+          <PanelButton onClick={() => patch({ canvasHeight: Math.min(3000, attrs.canvasHeight + 120) })}>Taller +</PanelButton>
+        </PanelRow>
+        <div className="px-2 py-1 text-[11px] text-muted-foreground">
+          Expand horizontally or vertically to fit more bars — the chart scrolls inside the note if it's wider than the page.
+        </div>
+      </PanelGroup>
+
       {/* 1. Scale — mathematical "cm : unit" graph scale */}
       <PanelGroup label="Scale">
         <PanelRow label="Mode">
@@ -451,11 +476,13 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   };
 
   return (
-    <div className="inline-block max-w-full" style={{ width: "100%", minWidth: 320 }}>
+    <div style={{ width: "100%", overflowX: "auto" }}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="xMidYMid meet"
-        style={{ display: "block", width: "100%", height: "auto", userSelect: "none", ...fontStyle }}
+        width={W}
+        height={H}
+        style={{ display: "block", userSelect: "none", ...fontStyle }}
       >
         {/* Plot background */}
         <rect
@@ -565,14 +592,14 @@ export function BarChart({ attrs, onChange, selected }: Props) {
 
         {/* Legend */}
         {attrs.legend.show && !blank && rows.length > 0 && (
-          <Legend rows={rows} attrs={attrs} />
+          <Legend rows={rows} attrs={attrs} W={W} H={H} />
         )}
       </svg>
     </div>
   );
 }
 
-function Legend({ rows, attrs }: { rows: BarRow[]; attrs: SmartChartAttrs }) {
+function Legend({ rows, attrs, W, H }: { rows: BarRow[]; attrs: SmartChartAttrs; W: number; H: number }) {
   const pos = attrs.legend.position;
   const itemW = 90;
   const itemH = 16;
