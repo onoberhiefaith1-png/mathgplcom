@@ -1,129 +1,74 @@
 ## Goal
-Replace the 8 static chart SVGs (bar, pie, histogram, scatter, line, dot plot, box plot, ogive) with **one interactive Smart Chart asset**. All editing happens in the right-hand Properties Panel (per the universal-editing rule) plus drag handles on the chart itself. Every default is **blank** — teachers add their own data.
+Rework the Smart Chart Bar Chart so it behaves like a mathematics graphing tool, not a business chart. Every bar becomes a mathematical object with an X position (category) and Y value (height), plotted against a teacher-defined scale.
 
-## Architecture
+All edits stay in `src/components/lessonnotes/extensions/visuals/smartchart/` — the shared `SmartChart` dispatcher, node schema, and other chart kinds are untouched.
 
-Create a new node/family `smartChart` — parallel to Smart Table, Smart Graph, arithmetic assets — instead of extending the current `chart` visual (which renders static SVG from a CSV string). The current `chart` family stays as legacy so old documents keep rendering; the palette entries in `src/lib/lessonnotes/assets/graphs.ts` swap to `smartChart`.
+## Changes
 
-```
-src/components/lessonnotes/extensions/
-  SmartChart.tsx                    # TipTap node + attrs schema
-  visuals/smartchart/
-    SmartChartView.tsx              # NodeView, registers Properties Panel editor
-    types.ts                        # ChartKind, Row, Point, ChartAttrs
-    scale.ts                        # auto/manual axis scaling, nice-ticks
-    Axes.tsx                        # shared axis + gridlines renderer
-    charts/
-      BarChart.tsx
-      PieChart.tsx
-      Histogram.tsx
-      ScatterPlot.tsx
-      LineGraph.tsx
-      DotPlot.tsx
-      BoxPlot.tsx
-      Ogive.tsx
-    editor/
-      SmartChartEditor.tsx          # right-hand panel router by kind
-      panels/BarPanel.tsx  …        # one panel per chart kind
-      shared/DataTable.tsx          # add/delete/edit rows
-      shared/AppearanceFields.tsx
-      shared/AxesFields.tsx
-      shared/UniversalTools.tsx     # duplicate/reset/clear/import/export/animate/lock/presentation
-```
+### 1. Vertical bars only
+- Remove any current or planned horizontal-orientation code path in `BarChart.tsx`.
+- Bars always grow upward from the X-axis baseline (y = 0 or y = yMin, whichever is larger).
+- No orientation toggle in the Properties Panel.
 
-Wire the node in the existing extensions list (same place `SmartTable`, `SmartGraph`, arithmetic nodes are registered) and add the palette entry.
+### 2. Mathematical Y-axis scale (manual)
+Extend `SmartChartAttrs` in `types.ts` with an explicit interval:
+- `yMin: number | null` (already exists)
+- `yMax: number | null` (already exists)
+- `yStep: number | null` (new) — the tick interval
 
-## Data model (node attrs)
+Panel behaviour:
+- When "Auto-scale Y" is ON: current `niceDomain` logic runs and picks a friendly step automatically. `yMin/yMax/yStep` inputs hidden.
+- When "Auto-scale Y" is OFF (Manual Scale): show three inputs — Minimum, Maximum, Interval. Ticks are generated as `min, min+step, min+2·step, …, max` and rendered on the Y-axis. Bars scale against this exact domain.
 
-```ts
-type ChartKind =
-  | "bar" | "pie" | "histogram" | "scatter"
-  | "line" | "dotplot" | "boxplot" | "ogive";
+Update `scale.ts`:
+- Add `manualScale(min, max, step)` that returns `{min, max, step, ticks}` walking `min → max` by `step` (guarding step > 0 and tick count ≤ ~40).
+- `resolveYScale` takes the new `yStep` and, in manual mode, calls `manualScale` instead of `niceDomain`.
 
-interface SmartChartAttrs {
-  kind: ChartKind;
-  title?: string;
-  // shared appearance
-  palette: string[];              // per-item colours
-  strokeWidth: number;
-  gridlines: boolean;
-  animateOnChange: boolean;
-  locked: boolean;                // classroom "lock editing"
-  presentation: boolean;          // hides handles/panel affordances
-  showAnswers: boolean;
-  // shared axes
-  xLabel: string; yLabel: string;
-  showAxisLabels: boolean; showTicks: boolean;
-  yAuto: boolean; yMin: number | null; yMax: number | null;
-  // per-kind payload — only the relevant one is used
-  bar?:       { rows: {label:string; value:number; color?:string; width?:number}[];
-                equalWidth: boolean; gap: number; showValuesAbove: boolean };
-  pie?:       { sectors: {name:string; value:number; color?:string}[];
-                labelPos: "inside"|"outside"|"none"; showPercent: boolean; showAngle: boolean };
-  histogram?: { intervals: {lower:number; upper:number; frequency:number}[];
-                useDensity: boolean; continuous: boolean; gap: number };
-  scatter?:   { points: {x:number; y:number}[];
-                shape: "circle"|"square"|"triangle"|"cross";
-                size: number; bestFit: "none"|"linear"|"quadratic";
-                showEquation: boolean; showCorrelation: boolean };
-  line?:      { points: {label:string; value:number}[];
-                connect: "straight"|"smooth"|"none"; markerShape:string; markerSize:number };
-  dotplot?:   { values: number[]; dotSize: number; shape:"circle"|"square"|"cross" };
-  boxplot?:   { min:number; q1:number; median:number; q3:number; max:number;
-                outliers: number[]; showMean: boolean; mean?:number;
-                orientation:"horizontal"|"vertical"; showLabels:boolean };
-  ogive?:     { rows: {boundary:number; cumFreq:number}[];
-                curve:"smooth"|"straight"; markerShape:string; markerSize:number };
-}
-```
+### 3. Coordinate-based bars
+Model each bar as `{ label, value }` where:
+- `label` is the X category (mathematics, english, …)
+- `value` is the Y value, interpreted against the current scale
+- Bar height = pixel distance from `yToPx(0 or yMin)` to `yToPx(value)`
 
-Defaults: `kind` picked from palette; the matching payload starts **empty** (no rows/points/sectors). Every chart renders blank axes/circle until data is added.
+This is already how the data is stored; the plan is to rename the panel UI to match the mathematical language:
+- "Bar N label" → **"X position (category)"**
+- "Value" → **"Y value"**
+- Section header "Data" → **"Bars (X, Y)"**
 
-## Properties Panel
+The teacher enters a category name and a Y value; the chart computes the bar height from the scale — no manual pixel/width math.
 
-Uses the existing `useRegisterAssetEditor` slot. `SmartChartEditor` reads `kind` and mounts the right panel. Sections in each panel follow the prompt exactly:
+### 4. Drag-to-edit ↔ numeric sync
+The drag handle already exists. Refinements:
+- Dragging clamps to `[scale.min, scale.max]` (works for both auto and manual scales).
+- Snap the dragged value to the nearest `scale.step / 10` (so a step of 5 snaps to 0.5 increments) so drags feel precise but continuous. Round to 1 decimal, matching current behaviour.
+- Updating the numeric field re-renders the bar immediately (already the case — verify after the rename).
+- Numeric input in the panel gains `step={scale.step / 10}` so the arrow keys move in scale-aware increments.
 
-- **Data** — chart-specific: add/delete row, inline label + value inputs, plus the special inputs per kind (percent/angle for pie, boundaries + freq/density for histogram, x/y for scatter, five-number summary for box, cumulative freq for ogive). Pie panel auto-recomputes value/percent/angle when one is edited (system fills the rest).
-- **Appearance** — palette per item, border thickness, bar/marker/dot size, gap, "Continuous bars" for histogram, gridlines on/off.
-- **Axes** — x/y labels, show axis labels, show ticks, show values above bars, auto-scale toggle, manual min/max.
-- **Analysis** (scatter only) — best-fit line/curve, correlation display, equation display; computed via least-squares in `scale.ts` helpers.
-- **Universal Tools** (all kinds) — duplicate, reset (defaults), clear data, import CSV (paste box), export CSV (download), animate construction toggle, show/hide answers, lock editing, presentation mode.
+### 5. Panel cleanup
+Keep only mathematics-relevant controls in the Bar Chart panel:
+- **Bars (X, Y)** — list of bars with X position, Y value, colour, remove; "Add bar" button.
+- **Y-axis (scale)** — title, auto-scale toggle, and (when manual) min / max / interval.
+- **X-axis** — title, show tick labels toggle.
+- **Appearance** — equal bar width toggle, bar width, gap, gridlines, border thickness, show Y values above bars.
+- **Universal tools** — unchanged (CSV, reset, presentation, lock, show answers).
 
-All edits patch node attrs through TipTap so undo/redo works. `showAnswers=false` hides values on axis/data labels but not the shape.
+Remove nothing from the underlying data model; only reorganise labels/sections.
 
-## Drag editing on the chart
+## Technical notes
 
-Only when `!locked && !presentation`. SVG overlays absolute-positioned handles bound to attrs:
-- Bar chart: vertical handle at the top of each bar → drag updates `rows[i].value`.
-- Line/Ogive: draggable point markers → update `value` (line) or `cumFreq` (ogive).
-- Scatter: draggable points → update `x, y` in current axis units.
-- Pie: draggable sector boundary arcs → adjust the two adjacent sector values, preserving their sum so other sectors stay put.
-- Box plot: five draggable handles (min, Q1, median, Q3, max) → clamp order (min ≤ Q1 ≤ median ≤ Q3 ≤ max).
-- Histogram: top edge of each bar → frequency (or density if that mode is on).
-- Dot plot: click adds a value; drag a stack column horizontally to move that value.
+Files touched:
+- `src/components/lessonnotes/extensions/visuals/smartchart/types.ts` — add `yStep` to `SmartChartAttrs` and `normalizeChart` defaults (`yStep: null`).
+- `src/components/lessonnotes/extensions/visuals/smartchart/scale.ts` — add `manualScale`; update `resolveYScale` signature to accept `yStep`.
+- `src/components/lessonnotes/extensions/visuals/smartchart/BarChart.tsx` — rename panel labels, wire manual min/max/interval inputs, pass `yStep` to `resolveYScale`, snap drag to `step/10`, ensure bars always draw vertically from baseline.
 
-Dragging goes through the same attr-patch pipeline as the panel, so hover highlighting, undo, and auto-scale (when `yAuto`) work.
+Out of scope:
+- Placeholder chart kinds (pie, histogram, scatter, line, dotplot, boxplot, ogive) — untouched this phase.
+- SmartChart dispatcher, LivingDiagram integration, palette entries.
+- Any AI/backend behaviour.
 
-## Auto-scaling
-
-`scale.ts` computes a "nice" domain (Wilkinson-style: multiples of 1/2/5 × 10ⁿ) from the current data when `yAuto` is true; otherwise uses `yMin`/`yMax`. Runs on every render — no manual redraw. Manual scale simply overrides.
-
-## Palette wiring
-
-`src/lib/lessonnotes/assets/graphs.ts`: keep the eight entries, change `render.kind` from the current `visual`/`chart` to the new `smartChart` node, with `attrs: { kind: "bar" }` etc. Legacy documents that still hold the old `chart` visual continue to render via `visualDispatch` unchanged.
-
-## Phasing (so the change lands safely)
-
-1. **Scaffolding + Bar Chart end-to-end** — new node, editor slot, data/appearance/axes panels, drag handles, auto-scale, universal tools. Bar palette entry switched over. Validates the whole architecture.
-2. **Pie + Line + Dot Plot** — reuse `DataTable` and axis code.
-3. **Histogram + Scatter (with best-fit) + Box Plot + Ogive** — the more analytical panels.
-4. **Animate construction toggle** — staggered entry animation on `animateOnChange` and on first mount when enabled.
-
-I'll pause after phase 1 so you can confirm the interaction feels right on the bar chart before I roll it out to the remaining seven.
-
-## Out of scope
-
-- LongDivision / DivisionLadder / BaseConversion (already interactive).
-- Smart Graph and Smart Coordinate Plane (already interactive teaching assets).
-- No AI-driven chart generation — teacher-editable only.
-- No changes to the existing `chart` visual family; kept for backward compatibility with old notebooks.
+## Acceptance
+- Bars always vertical, growing from the X-axis.
+- Toggling Manual Scale reveals Minimum / Maximum / Interval inputs; ticks match exactly (e.g. 0, 5, 10, …, 50).
+- Editing a bar's Y value updates the bar height; dragging the bar top updates the Y value; both stay in sync.
+- Panel language uses "X position" and "Y value" for each bar.
+- Auto scale still works as before when the toggle is on.

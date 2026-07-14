@@ -37,6 +37,7 @@ export interface SmartChartAttrs {
   yAuto: boolean;
   yMin: number | null;
   yMax: number | null;
+  yStep: number | null;
 
   // per-kind payload
   bar: {
