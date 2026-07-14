@@ -101,6 +101,9 @@ export interface SmartChartAttrs {
 
   // Bar width as a percentage of the plot area width (default 10 %).
   barWidthPct: number;
+  // Canvas size in px — teacher can expand the chart to fit the notebook.
+  canvasWidth: number;
+  canvasHeight: number;
   // Structured graph-style scale (Auto or Manual "cm : unit").
   yScale: YScale;
 
