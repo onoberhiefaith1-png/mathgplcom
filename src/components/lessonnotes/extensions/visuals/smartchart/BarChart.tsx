@@ -31,8 +31,10 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const isHistogram = attrs.displayMode === "histogram" || attrs.kind === "histogram";
 
   const scale = useMemo(
-    () => resolveYScale(rows.map((r) => r.value), attrs.yAuto, attrs.yMin, attrs.yMax, attrs.yStep),
-    [rows, attrs.yAuto, attrs.yMin, attrs.yMax, attrs.yStep],
+    () => attrs.yScale.mode === "manual"
+      ? resolveManualScale(attrs.yScale)
+      : resolveYScale(rows.map((r) => r.value), true, null, null, null),
+    [rows, attrs.yScale],
   );
   const minor = useMemo(() => minorTicks(scale, attrs.yMinorDivisions), [scale, attrs.yMinorDivisions]);
 
@@ -41,15 +43,15 @@ export function BarChart({ attrs, onChange, selected }: Props) {
     [scale.min, scale.max],
   );
 
-  // Bar geometry.
+  // Bar geometry: width is a % of plot width, gap = width in Bar mode, 0 in Histogram.
   const n = rows.length;
-  const gap = isHistogram ? 0 : Math.max(0, bar.gap);
-  const barWidth = bar.equalWidth
-    ? Math.max(4, (plotW - gap * Math.max(0, n - 1)) / Math.max(1, n))
-    : bar.barWidth;
+  const barWidthPct = Math.max(0.5, Math.min(50, attrs.barWidthPct));
+  const barWidth = (plotW * barWidthPct) / 100;
+  const gap = isHistogram ? 0 : barWidth;
+  const slot = barWidth + gap;
   const totalW = n * barWidth + Math.max(0, n - 1) * gap;
-  const startX = PAD.left + (plotW - totalW) / 2;
-  const xForBar = (i: number) => startX + i * (barWidth + gap);
+  const startX = PAD.left + Math.max(0, (plotW - totalW) / 2);
+  const xForBar = (i: number) => startX + i * slot;
 
   const patch = useCallback((p: Partial<SmartChartAttrs>) => onChange(p), [onChange]);
   const patchBar = useCallback(
