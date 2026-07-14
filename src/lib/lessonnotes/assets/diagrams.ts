@@ -82,7 +82,7 @@ export const DIAGRAMS: AssetDef[] = [
   V("venn2", "Venn diagram (2-set)", "vennEngine", "Logic & Organisation", ["venn", "logic"], { preset: "venn2" }),
   V("venn3", "Venn diagram (3-set)", "vennEngine", "Logic & Organisation", ["venn", "logic"], { preset: "venn3" }),
   V("vennDisjoint", "Venn (disjoint)", "vennEngine", "Logic & Organisation", ["venn", "logic"], { preset: "vennDisjoint" }),
-  V("tree2", "Tree diagram (2-branch)", "shape", "Logic & Organisation", ["tree", "probability"]),
-  V("tree3", "Tree diagram (3-branch)", "shape", "Logic & Organisation", ["tree", "probability"]),
-  V("flowchart", "Flowchart", "shape", "Logic & Organisation", ["flow"]),
+  V("tree", "Tree diagram (builder)", "treeEngine", "Logic & Organisation", ["tree", "probability", "branch", "decision"], { preset: "tree2" }),
+  V("flowchart", "Flowchart (builder)", "flowchartEngine", "Logic & Organisation", ["flow", "algorithm", "decision", "process"], { preset: "flowBlank" }),
+  V("orgDiagram", "Logic / organisation (builder)", "orgEngine", "Logic & Organisation", ["hierarchy", "mindmap", "concept", "org", "classification", "relationship"], { preset: "mindmap" }),
 ];
