@@ -55,7 +55,7 @@ export function FlowchartEngineCanvas({ model, selectedId, onSelect, onChange, e
           justifyContent: n.align === "left" ? "flex-start" : n.align === "right" ? "flex-end" : "center",
           padding: "0 6px", fontSize: 12, color: n.border, textAlign: n.align,
           lineHeight: 1.2,
-        }} xmlns="http://www.w3.org/1999/xhtml">
+        }}>
           {n.text}
         </div>
       </foreignObject>
