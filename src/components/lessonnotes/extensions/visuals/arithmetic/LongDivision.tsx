@@ -8,6 +8,7 @@ import { Fragment, useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
 import { SmartCell } from "../smarttable/SmartCell";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import {
   PanelGroup, PanelRow, PanelNumber, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
@@ -57,7 +58,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
   const delStep = () => m.workingRows.length > 0 &&
     patch({ workingRows: m.workingRows.slice(0, Math.max(0, m.workingRows.length - 2)) });
 
-  const editor = (
+  const editor = useMemo(() => (
     <div>
       <PanelGroup label="Behaviour">
         <PanelRow label="Auto minus (every 2 rows)"><PanelToggle value={m.autoMinus} onChange={(v) => patch({ autoMinus: v })} /></PanelRow>
@@ -69,11 +70,21 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
         <PanelRow label="Row height"><PanelNumber value={m.rowHeight} min={20} max={60} onChange={(v) => patch({ rowHeight: v })} /></PanelRow>
       </PanelGroup>
     </div>
-  );
+  ), [m.autoMinus, m.autoLine, m.showWorking, m.lineThickness, m.rowHeight, patch]);
   useRegisterAssetEditor(!!selected, "longDivision", "Long division", editor);
 
+  const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
+
   return (
-    <div className="not-prose inline-block font-mono" style={{ color: "#0f172a" }}>
+    <div
+      className="not-prose inline-block font-mono"
+      style={{ color: "#0f172a" }}
+      onPointerEnter={bind.onPointerEnter}
+      onPointerMove={bind.onPointerMove}
+      onPointerLeave={bind.onPointerLeave}
+      onPointerDown={bind.onPointerDown}
+      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    >
       {/* Quotient (above the bar) */}
       <div className="grid" style={{ gridTemplateColumns: "auto auto 1fr", alignItems: "end", fontSize: 22 }}>
         <div />
