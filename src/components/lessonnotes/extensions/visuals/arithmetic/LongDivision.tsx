@@ -159,8 +159,8 @@ function DigitCell({
       }
       return;
     }
-    // Single-character write: digits, ., , or -
-    if (key.length === 1 && /[0-9.,\-]/.test(key)) {
+    // Single-character write: letters, digits, and math punctuation.
+    if (key.length === 1 && /^[\p{L}\p{N}.,\-+*/=]$/u.test(key)) {
       e.preventDefault();
       onWrite(col, key);
       // Advance right; on the dividend, growing the grid is allowed.
