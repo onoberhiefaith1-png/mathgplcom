@@ -135,6 +135,7 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     yAuto: bool(a.yAuto, true),
     yMin: a.yMin === null || a.yMin === undefined ? null : num(a.yMin, 0),
     yMax: a.yMax === null || a.yMax === undefined ? null : num(a.yMax, 10),
+    yStep: a.yStep === null || a.yStep === undefined ? null : num(a.yStep, 1),
     bar: {
       rows: barRows,
       equalWidth: bool(bar?.equalWidth, true),
