@@ -135,7 +135,8 @@ export function FractionWall({ attrs, onChange, selected }: Props) {
       </div>
 
       <AssetBottomToolbar
-        visible={!!selected}
+        visible={toolbarVisible}
+        bind={bind}
         actions={[
           { label: "Row", icon: <Plus className="h-3 w-3" />, onClick: addRow },
           { label: "Row", icon: <Minus className="h-3 w-3" />, onClick: delRow, disabled: m.rows.length === 0, tone: "danger" },
