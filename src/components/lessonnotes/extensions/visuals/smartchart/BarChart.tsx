@@ -570,14 +570,14 @@ export function BarChart({ attrs, onChange, selected }: Props) {
 
         {/* Legend */}
         {attrs.legend.show && !blank && rows.length > 0 && (
-          <Legend rows={rows} attrs={attrs} />
+          <Legend rows={rows} attrs={attrs} W={W} H={H} />
         )}
       </svg>
     </div>
   );
 }
 
-function Legend({ rows, attrs }: { rows: BarRow[]; attrs: SmartChartAttrs }) {
+function Legend({ rows, attrs, W, H }: { rows: BarRow[]; attrs: SmartChartAttrs; W: number; H: number }) {
   const pos = attrs.legend.position;
   const itemW = 90;
   const itemH = 16;
