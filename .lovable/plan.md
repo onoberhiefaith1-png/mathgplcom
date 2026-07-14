@@ -1,90 +1,65 @@
-## Goal
+# Universal Builders: Tree, Flowchart, Logic/Organisation
 
-Bring the Asset Library (200+ math symbols, elastic structures, parametric diagrams, grids/charts, manipulatives) from the **mathgpl structure** project into this project's Lesson Notes editor, so the teacher can:
+Replace fixed tree/flowchart/logic tiles in the Lesson Notes asset library with three intelligent, expandable builders. Each follows the same pattern already used by `circleEngine`, `lineEngine`, `vennEngine`, `solidEngine`: a model stored on the mathVisual node, a canvas, a right-hand panel, and auto-layout.
 
-- Click the Asset Library button in the editor toolbar to open a full-screen gallery of every asset.
-- Type `@` inside the document to summon the inline command menu that searches the same registry and inserts on Enter.
+## 1. Universal Tree Engine (`treeEngine`)
 
-Behaviour, tiles, sections, matrix dialogs, and keyboard flow all match the source project exactly.
+New folder: `src/components/lessonnotes/extensions/visuals/treeEngine/`
 
-## Scope
+Files:
+- `types.ts` — `TreeModel { root: TreeNode; direction; defaults }`, `TreeNode { id, label, prob, expr, color, size, children, branchStyle }`, `BranchStyle { length, angle, thickness, arrow, label, prob }`.
+- `presets.ts` — `buildTreePreset("tree2" | "tree3" | "treeBlank")` seeds levels × branches.
+- `layout.ts` — Reingold–Tilford-style walker computing non-overlapping x/y per node from `direction` (TB / LR / Radial) plus per-node subtree width. Guarantees no overlap when branches added/removed.
+- `TreeEngineCanvas.tsx` — SVG canvas, click-to-select node/branch, "+" affordance on selected node adds child, "×" deletes and re-layouts. Reveal toggle hides subtrees for classroom drip-reveal.
+- `TreeEnginePanel.tsx` — right rail (matches Venn/Circle panel styling): Levels stepper, Branches-per-node stepper (applies to selected node or globally), Node section (Label / Probability / Expression / Colour / Size), Branch section (Length / Angle / Thickness / Arrow / Label / Probability), Add-Branch / Delete-Branch / Duplicate / Reveal-Next.
+- `TreeEngineNode.tsx` — tiptap wrapper mirroring `VennEngineNode`.
 
-Only the Lesson Notes editor is touched. Nothing else (rotating academy, adventure games, smartboard, floating numbers) changes.
+Registry: in `src/lib/lessonnotes/assets/diagrams.ts` replace `tree2` / `tree3` with a single tile `V("tree", "Tree diagram", "treeEngine", "Logic & Organisation", ["tree","probability","branch"], { preset: "tree2" })`.
 
-## What gets copied from `mathgpl structure`
+## 2. Universal Flowchart Engine (`flowchartEngine`)
 
-### 1. Asset registry (data)
-- `src/lib/lessonnotes/assets/types.ts`
-- `src/lib/lessonnotes/assets/registry.ts`
-- `src/lib/lessonnotes/assets/insert.ts`
-- `src/lib/lessonnotes/assets/symbols.ts`
-- `src/lib/lessonnotes/assets/structures.ts`
-- `src/lib/lessonnotes/assets/diagrams.ts`
-- `src/lib/lessonnotes/assets/graphs.ts`
-- `src/lib/lessonnotes/assets/tables.ts`
-- `src/lib/lessonnotes/assets/manipulatives.ts`
-- `src/lib/lessonnotes/assets/measurement.ts`
-- `src/lib/lessonnotes/assets/realworld.ts`
+New folder: `src/components/lessonnotes/extensions/visuals/flowchartEngine/`
 
-### 2. Structure + matrix support
-- `src/lib/lessonnotes/structureValidator.ts`
-- `src/lib/lessonnotes/matrixOps.ts`
+Files:
+- `types.ts` — `FlowModel { nodes: FlowNode[]; edges: FlowEdge[]; layout }`. `FlowNode { id, kind: "process"|"decision"|"io"|"connector"|"start"|"end"|"comment", x, y, w, h, text, fill, border, radius, align }`. `FlowEdge { from, to, style: "straight"|"orthogonal"|"curved", arrow, label }`.
+- `presets.ts` — `buildFlowPreset("flowBlank")` returns a single Start node.
+- `layout.ts` — auto-align engine with modes `horizontal | vertical | tree | radial | free`; only `free` disables auto-layout.
+- `routing.ts` — edge routing (straight / right-angle / curved) recomputed whenever endpoints move so lines stay connected.
+- `FlowchartEngineCanvas.tsx` — drag shapes, drag-from-port to another shape to create edge, marquee select, resize handles, snap grid.
+- `FlowchartEnginePanel.tsx` — Insert palette (Process / Decision / Input-Output / Connector / Start / End / Arrow / Comment), per-shape edit (Text / Resize / Border / Fill / Radius / Alignment / Duplicate / Delete), Layout selector, edge style selector.
+- `FlowchartEngineNode.tsx` — tiptap wrapper.
 
-### 3. New TipTap extensions
-- `src/components/lessonnotes/extensions/AtCommand.ts`
-- `src/components/lessonnotes/extensions/MathStructure.tsx` (adds `mathStructure` + `mathSlot` nodes)
-- `src/components/lessonnotes/extensions/MathVisual.tsx`
+Registry: replace `flowchart` tile with `V("flowchart", "Flowchart", "flowchartEngine", "Logic & Organisation", ["flow","algorithm","decision"], { preset: "flowBlank" })`.
 
-### 4. Visuals dispatch tree
-- `src/components/lessonnotes/extensions/visuals/visualDispatch.tsx`
-- `src/components/lessonnotes/extensions/visuals/arithmetic/**`
-- `src/components/lessonnotes/extensions/visuals/circleEngine/**`
-- `src/components/lessonnotes/extensions/visuals/coord/**`
-- `src/components/lessonnotes/extensions/visuals/lineEngine/**`
-- `src/components/lessonnotes/extensions/visuals/living/**`
-- `src/components/lessonnotes/extensions/visuals/smarttable/**`
-- `src/components/lessonnotes/extensions/visuals/solidEngine/**`
-- `src/components/lessonnotes/extensions/visuals/vennEngine/**`
+## 3. Universal Logic & Organisation Engine (`orgEngine`)
 
-### 5. UI components
-- `src/components/lessonnotes/AssetLibraryDialog.tsx`
-- `src/components/lessonnotes/AtCommandMenu.tsx`
-- `src/components/lessonnotes/MatrixCreateDialog.tsx`
-- `src/components/lessonnotes/MatrixToolbar.tsx`
+New folder: `src/components/lessonnotes/extensions/visuals/orgEngine/`
 
-### 6. CSS
-Append the `.math-struct`, `.math-slot`, `.math-struct--preview`, matrix bracket, and related rules from the source project's `src/index.css` into this project's `src/index.css`.
+Handles hierarchy, classification, mind map, org chart, logic map, relationship map, concept map — one model, different layouts.
 
-## Wire-up inside this project
+Files:
+- `types.ts` — `OrgModel { root; direction: "TB"|"BT"|"LR"|"RL"|"radial"|"free"; edgeDefaults }`. `OrgNode { id, text, color, border, shape: "rect"|"roundedRect"|"circle"|"diamond"|"hexagon"|"customSvg", children, collapsed }`. `OrgEdge { style: straight|curved, arrow: none|single|double, dash: solid|dashed, label }`.
+- `presets.ts` — `buildOrgPreset("mindmap" | "hierarchy" | "concept")`.
+- `layout.ts` — reuses the tree walker; radial mode wraps around root; free mode keeps stored coords.
+- `OrgEngineCanvas.tsx` — click node for actions (Add Child / Delete / Duplicate / Collapse / Expand). Auto-repositions on every mutation.
+- `OrgEnginePanel.tsx` — Node (Text / Colour / Border / Shape picker) / Connection (Straight / Curved / Arrow / Double / Dashed / Label) / Layout selector.
+- `OrgEngineNode.tsx` — tiptap wrapper.
 
-Edit only `src/components/lessonnotes/DocumentEditor.tsx`:
+Registry: keep a single tile `V("orgDiagram", "Logic / organisation diagram", "orgEngine", "Logic & Organisation", ["hierarchy","mindmap","concept","org","classification","relationship"], { preset: "mindmap" })`. Drop redundant fixed tiles.
 
-1. Import `MathStructure`, `MathSlot`, `MathVisual`, `AtCommand`, `AtCommandMenu`, `AssetLibraryDialog`, `MatrixToolbar`.
-2. Register `MathSlot`, `MathStructure`, `MathVisual`, `AtCommand.configure({ onChange: setAtState })` in the `useEditor` extensions array — added alongside the existing extensions (SolutionRow, MathObject, MathTable, SmartGraph, SmartCalc, StepAnimation, GeometryDiagram); nothing is removed.
-3. Add `atState` + `assetLibOpen` React state.
-4. Add a toolbar button (LayoutGrid icon) next to the existing math tools that opens the Asset Library.
-5. Mount `<AtCommandMenu editor={editor} state={atState} onClose={...} />` and `<AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />` near the editor content.
-6. Mount `<MatrixToolbar editor={editor} />` so structural matrix edits work.
+## Wiring
 
-No changes to backend, database, storage, edge functions, or any other page.
+- `src/components/lessonnotes/extensions/visuals/visualDispatch.tsx` — add three new family branches `treeEngine`, `flowchartEngine`, `orgEngine` returning their respective `*EngineNode`, mirroring how `circleEngine` / `vennEngine` are wired today.
+- `MathVisual.tsx` needs no changes — dispatch is data-driven.
+- No DB migration: models live inside the existing `attrs` blob on the `mathVisual` node.
 
-## Technical notes
+## Shared conventions
 
-- `mathStructure` and `mathSlot` are new inline ProseMirror nodes. They coexist with the existing `mathInline`, `mathBlock`, `solutionRow`, `mathObject`, etc. — TipTap allows multiple inline node types, so nothing conflicts.
-- The `@` trigger only fires when preceded by start-of-line or whitespace, so it won't collide with user prose containing `@`.
-- Asset tiles that need extra input (matrices, piecewise, systems) open `MatrixCreateDialog` before insertion — same UX as the source.
-- Existing lesson-note documents remain valid: no schema migration is needed, the new nodes are additive.
-- The visuals tree is self-contained (pure SVG/React) and doesn't depend on anything outside `lessonnotes/`.
-
-## Verification
-
-- `bun run build` succeeds.
-- Open a lesson note → new Asset Library button appears in the toolbar → clicking it opens the full-screen gallery with all 5 sections and search.
-- Typing `@frac` in the document opens the inline menu; Enter inserts a fraction structure with the caret in the numerator slot.
-- Inserting a matrix opens `MatrixCreateDialog`; confirming inserts a matrix and the `MatrixToolbar` appears when it's selected.
-- No regressions in existing SolutionRow / GeometryDiagram / SmartGraph flows.
+- Panel styling and open/close behaviour copied from `VennEnginePanel` for visual consistency.
+- All auto-layout runs on every mutation; `free` mode is opt-in.
+- Reveal / collapse state stored on the node (`revealDepth`, `collapsed`), so classroom drip-reveal survives save/reload.
+- Existing documents remain valid — the three retired tiles (`tree2`, `tree3`, `flowchart`) map to the new engines via `preset` on open, so old notes still render.
 
 ## Out of scope
 
-- Any changes to the rotating academy, adventure games, smartboard, floating numbers, or curriculum data.
-- Adding new assets — the port copies the existing 200+ registry as-is.
+Adventure games, smartboard, floating numbers, curriculum data, and every other lesson-note tool are untouched.
