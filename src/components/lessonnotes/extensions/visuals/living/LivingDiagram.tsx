@@ -242,9 +242,61 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     );
   }
 
+  // Universal Tree Engine.
+  if (family === "treeEngine") {
+    return (
+      <SelectionFrame
+        selected={selected || editorOpen}
+        onEdit={() => setEditorOpen((v) => !v)}
+        presenting={presenting && !editorOpen && !selected}
+        onActivity={bumpActivity}
+      >
+        <TreeEngineNode
+          variant={variant} attrs={attrs} selected={selected}
+          editorOpen={editorOpen} onCloseEditor={() => setEditorOpen(false)}
+          onChange={onChange} onDeleteDiagram={onDeleteDiagram}
+        />
+      </SelectionFrame>
+    );
+  }
+
+  // Universal Flowchart Engine.
+  if (family === "flowchartEngine") {
+    return (
+      <SelectionFrame
+        selected={selected || editorOpen}
+        onEdit={() => setEditorOpen((v) => !v)}
+        presenting={presenting && !editorOpen && !selected}
+        onActivity={bumpActivity}
+      >
+        <FlowchartEngineNode
+          variant={variant} attrs={attrs} selected={selected}
+          editorOpen={editorOpen} onCloseEditor={() => setEditorOpen(false)}
+          onChange={onChange} onDeleteDiagram={onDeleteDiagram}
+        />
+      </SelectionFrame>
+    );
+  }
+
+  // Universal Logic & Organisation Engine.
+  if (family === "orgEngine") {
+    return (
+      <SelectionFrame
+        selected={selected || editorOpen}
+        onEdit={() => setEditorOpen((v) => !v)}
+        presenting={presenting && !editorOpen && !selected}
+        onActivity={bumpActivity}
+      >
+        <OrgEngineNode
+          variant={variant} attrs={attrs} selected={selected}
+          editorOpen={editorOpen} onCloseEditor={() => setEditorOpen(false)}
+          onChange={onChange} onDeleteDiagram={onDeleteDiagram}
+        />
+      </SelectionFrame>
+    );
+  }
 
 
-  // Smart Table + arithmetic structures — interactive, editable widgets.
   // Bypass the geometry PropertyPanel; each widget owns its inline controls.
   const arithmeticNode = (() => {
     switch (family) {
