@@ -456,11 +456,13 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   };
 
   return (
-    <div className="inline-block max-w-full" style={{ width: "100%", minWidth: 320 }}>
+    <div style={{ width: "100%", overflowX: "auto" }}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="xMidYMid meet"
-        style={{ display: "block", width: "100%", height: "auto", userSelect: "none", ...fontStyle }}
+        width={W}
+        height={H}
+        style={{ display: "block", userSelect: "none", ...fontStyle }}
       >
         {/* Plot background */}
         <rect
