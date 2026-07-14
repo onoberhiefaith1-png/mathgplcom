@@ -1585,6 +1585,9 @@ function DocumentEditorInner({
         onClose={closeAiEdit}
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
+      <AtCommandMenu editor={editor} state={atState} onClose={() => setAtState({ active: false, query: "", from: 0, to: 0, coords: null })} />
+      <AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />
+      <MatrixToolbar editor={editor} />
       <GeometryAiPanel />
       <GeometryToolbox />
       <MathTablesPicker
