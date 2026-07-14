@@ -115,7 +115,11 @@ function GeometryDiagramView({
           data-geometry-diagram-wrapper="true"
           data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
           className={cn("relative inline-flex items-start gap-2")}
+          onMouseEnter={kickAi}
+          onMouseMove={kickAi}
+          onFocus={kickAi}
           onMouseDown={(e) => {
+            kickAi();
             const pos = typeof getPos === "function" ? getPos() : null;
             if (pos != null && !selected) {
               editor.commands.setNodeSelection(pos);
