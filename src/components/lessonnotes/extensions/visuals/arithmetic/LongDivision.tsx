@@ -337,10 +337,11 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
   const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
 
   // ----- Layout -----
-  // Shared grid template: [minus gutter] [divisor+")" gutter] [nCols cells].
-  // Divisor/")" gutter is `auto` so it grows with the divisor text but the
-  // cell columns after it stay perfectly aligned across rows.
-  const gridTemplate = `1.5ch auto repeat(${nCols}, ${COL_W})`;
+  // Shared grid template: [minus gutter] [divisor] [hook] [nCols cells].
+  // The hook column holds an SVG curve that flows into the vinculum, so the
+  // whole long-division sign reads as ONE continuous symbol (like a radical).
+  const HOOK_W = 12;
+  const gridTemplate = `1.5ch auto ${HOOK_W}px repeat(${nCols}, ${COL_W})`;
 
   return (
     <div
@@ -357,6 +358,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
       <div className="grid" style={{ gridTemplateColumns: gridTemplate, alignItems: "end" }}>
         <div /> {/* minus gutter */}
         <div /> {/* divisor gutter */}
+        <div /> {/* hook gutter */}
         {m.quotientDigits.slice(0, nCols).map((d, c) => (
           <DigitCell
             key={c}
@@ -387,16 +389,17 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
         })}
       </div>
 
-      {/* Bracket row: divisor input, ")", then dividend cells under one continuous vinculum */}
+      {/* Bracket row: divisor, then a single continuous hook+vinculum symbol */}
       <div
         className="grid"
         style={{
           gridTemplateColumns: gridTemplate,
-          alignItems: "center",
+          alignItems: "stretch",
         }}
       >
         <div /> {/* minus gutter */}
-        <div style={{ display: "flex", alignItems: "center", gap: 0, paddingRight: 0, letterSpacing: "-0.02em" }}>
+        {/* Divisor input — sits OUTSIDE the long-division sign, flush to its left */}
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end" }}>
           <input
             type="text"
             value={m.divisor}
@@ -415,7 +418,6 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
               width: `${Math.max(1, m.divisor?.length || 1)}ch`,
               padding: 0,
               margin: 0,
-              marginRight: "-0.05ch",
               border: "none",
               outline: "none",
               background: "transparent",
@@ -426,16 +428,37 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
               caretColor: "#0f172a",
             }}
           />
-          <span style={{ fontWeight: 700, fontSize: "1.1em", marginLeft: "-0.05ch" }}>)</span>
         </div>
-        {/* One continuous vinculum spanning ALL dividend cells */}
+        {/* Hook — curves from the row baseline up into the overbar. Same
+            stroke as the vinculum so they read as one continuous glyph. */}
+        <div style={{ display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
+          <svg
+            aria-hidden
+            width={HOOK_W}
+            height="100%"
+            viewBox={`0 0 ${HOOK_W} 40`}
+            preserveAspectRatio="none"
+            style={{ display: "block", overflow: "visible" }}
+          >
+            <path
+              d={`M 0 40 C ${HOOK_W} 40 ${HOOK_W} 0 ${HOOK_W} 0`}
+              fill="none"
+              stroke="#0f172a"
+              strokeWidth={m.lineThickness}
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+        </div>
+        {/* Vinculum + dividend cells */}
         <div
           style={{
-            gridColumn: `3 / span ${nCols}`,
+            gridColumn: `4 / span ${nCols}`,
             display: "grid",
             gridTemplateColumns: `repeat(${nCols}, ${COL_W})`,
             borderTop: `${m.lineThickness}px solid #0f172a`,
-            paddingTop: 2,
+            paddingTop: 4,
+            alignSelf: "stretch",
           }}
         >
           {m.dividendDigits.map((d, c) => (
@@ -455,6 +478,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
         </div>
       </div>
 
+
       {/* Working rows */}
       {m.showWorking && m.workingRows.map((row, i) => {
         const showMinus = m.autoMinus && i % 2 === 0;
@@ -473,6 +497,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
               {showMinus ? "−" : ""}
             </div>
             <div /> {/* divisor gutter */}
+            <div /> {/* hook gutter */}
             {Array.from({ length: nCols }).map((_, c) => (
               <div
                 key={c}
