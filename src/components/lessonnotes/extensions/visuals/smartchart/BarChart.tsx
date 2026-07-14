@@ -146,6 +146,26 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   // ── Panel content ─────────────────────────────────────────────────
   const editor = (
     <div>
+      {/* 0. Canvas size — expand the chart to fit the notebook */}
+      <PanelGroup label="Canvas size (expand)">
+        <PanelRow label="Width (px)">
+          <PanelNumber value={attrs.canvasWidth} min={320} max={4000} step={20}
+            onChange={(v) => patch({ canvasWidth: Math.max(320, Math.min(4000, Math.round(v))) })} />
+        </PanelRow>
+        <PanelRow label="Height (px)">
+          <PanelNumber value={attrs.canvasHeight} min={240} max={3000} step={20}
+            onChange={(v) => patch({ canvasHeight: Math.max(240, Math.min(3000, Math.round(v))) })} />
+        </PanelRow>
+        <PanelRow label="Presets">
+          <PanelButton onClick={() => patch({ canvasWidth: DEFAULT_W, canvasHeight: DEFAULT_H })}>Reset</PanelButton>
+          <PanelButton onClick={() => patch({ canvasWidth: Math.min(4000, attrs.canvasWidth + 200) })}>Wider +</PanelButton>
+          <PanelButton onClick={() => patch({ canvasHeight: Math.min(3000, attrs.canvasHeight + 120) })}>Taller +</PanelButton>
+        </PanelRow>
+        <div className="px-2 py-1 text-[11px] text-muted-foreground">
+          Expand horizontally or vertically to fit more bars — the chart scrolls inside the note if it's wider than the page.
+        </div>
+      </PanelGroup>
+
       {/* 1. Scale — mathematical "cm : unit" graph scale */}
       <PanelGroup label="Scale">
         <PanelRow label="Mode">
