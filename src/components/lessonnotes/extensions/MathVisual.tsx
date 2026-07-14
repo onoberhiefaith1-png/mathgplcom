@@ -7,6 +7,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
+import { useCallback, useRef } from "react";
 import { LivingDiagram } from "./visuals/living/LivingDiagram";
 
 function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeViewProps) {
@@ -14,6 +15,16 @@ function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeVi
   const attrs = (node.attrs.attrs as Record<string, unknown>) || {};
   const width = Number(node.attrs.width) || 220;
   const variant = String(attrs.variant ?? "");
+
+  // Keep the latest `attrs` in a ref so `handleChange` can be stable —
+  // an unstable onChange cascades through every asset's `patch`/editor
+  // memo and re-triggers useRegisterAssetEditor on every render.
+  const attrsRef = useRef(attrs);
+  attrsRef.current = attrs;
+  const handleChange = useCallback(
+    (patch: Record<string, unknown>) => updateAttributes({ attrs: { ...attrsRef.current, ...patch } }),
+    [updateAttributes],
+  );
 
   return (
     <NodeViewWrapper
@@ -26,8 +37,8 @@ function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeVi
         family={family}
         attrs={attrs}
         selected={!!selected}
-        onChange={(patch) => updateAttributes({ attrs: { ...attrs, ...patch } })}
-        onDeleteDiagram={() => deleteNode()}
+        onChange={handleChange}
+        onDeleteDiagram={deleteNode}
       />
     </NodeViewWrapper>
   );
