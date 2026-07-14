@@ -5,6 +5,7 @@
 // toolbar.
 
 import { useCallback, useMemo } from "react";
+import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import { Plus, Minus } from "lucide-react";
 import { SmartCell } from "../smarttable/SmartCell";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
@@ -54,7 +55,7 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
   const addRow = () => patch({ rows: [...m.rows, { q: "", r: "" }] });
   const delRow = () => m.rows.length > 1 && patch({ rows: m.rows.slice(0, -1) });
 
-  const editor = (
+  const editor = useMemo(() => (
     <div>
       <PanelGroup label="Sizing">
         <PanelRow label="Font size"><PanelNumber value={m.fontSize} min={10} max={40} onChange={(v) => patch({ fontSize: v })} /></PanelRow>
@@ -63,8 +64,10 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
         <PanelRow label="Divider thickness"><PanelNumber value={m.dividerThickness} min={1} max={6} onChange={(v) => patch({ dividerThickness: v })} /></PanelRow>
       </PanelGroup>
     </div>
-  );
+  ), [m.fontSize, m.rowHeight, m.colWidth, m.dividerThickness, patch]);
   useRegisterAssetEditor(!!selected, "baseConversion", "Base conversion", editor);
+
+  const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
 
   const cellBase: React.CSSProperties = {
     height: m.rowHeight,
@@ -76,7 +79,15 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
   };
 
   return (
-    <div className="not-prose inline-block font-mono" style={{ color: "#0f172a" }}>
+    <div
+      className="not-prose inline-block font-mono"
+      style={{ color: "#0f172a" }}
+      onPointerEnter={bind.onPointerEnter}
+      onPointerMove={bind.onPointerMove}
+      onPointerLeave={bind.onPointerLeave}
+      onPointerDown={bind.onPointerDown}
+      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    >
       <table style={{ borderCollapse: "collapse" }}>
         <tbody>
           {m.rows.map((row, i) => (
