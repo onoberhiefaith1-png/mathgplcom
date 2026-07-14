@@ -1,1 +1,4 @@
 project_id = "ysclfsbigxyvzkqirfgf"
+
+[functions.generate-game-cover]
+verify_jwt = true

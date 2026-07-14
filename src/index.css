@@ -340,3 +340,41 @@ All colors MUST be HSL.
 }
 .lesson-ribbon-handle:hover { color: hsl(var(--foreground)); }
 
+
+/* ── Game Builder element animations ───────────────────────────── */
+@keyframes gb-float {
+  0%, 100% { transform: translateY(calc(var(--gb-amp) * -1)); }
+  50%      { transform: translateY(var(--gb-amp)); }
+}
+@keyframes gb-sway {
+  0%, 100% { transform: translateX(calc(var(--gb-amp) * -1)); }
+  50%      { transform: translateX(var(--gb-amp)); }
+}
+@keyframes gb-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(calc(1 + var(--gb-pulse, 0.06))); }
+}
+@keyframes gb-travel {
+  0%   { transform: translateX(calc(var(--gb-amp) * -1)); }
+  100% { transform: translateX(var(--gb-amp)); }
+}
+@keyframes gb-fadein {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes gb-slot-ignite {
+  0%   { opacity: 0; transform: translateY(30%) scale(0.85); filter: brightness(2.2); }
+  60%  { opacity: 1; transform: translateY(0) scale(1.04); filter: brightness(1.4); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: brightness(1); }
+}
+.gb-slot-ignite {
+  animation: gb-slot-ignite 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes gb-slot-glow {
+  0%, 100% { opacity: 0.82; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.03); }
+}
+.gb-slot-glow {
+  animation: gb-slot-glow 2.4s ease-in-out infinite;
+}

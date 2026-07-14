@@ -277,6 +277,91 @@ export type Database = {
           },
         ]
       }
+      class_game_boards: {
+        Row: {
+          assessment_id: string
+          class_id: string
+          created_at: string
+          game_id: string
+          id: string
+          progress_element_id: string
+        }
+        Insert: {
+          assessment_id: string
+          class_id: string
+          created_at?: string
+          game_id: string
+          id?: string
+          progress_element_id: string
+        }
+        Update: {
+          assessment_id?: string
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          progress_element_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_game_boards_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_game_boards_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_game_boards_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_games: {
+        Row: {
+          class_id: string
+          created_at: string
+          game_id: string
+          id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          game_id: string
+          id?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_games_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_games_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_invitations: {
         Row: {
           class_id: string
@@ -927,6 +1012,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      game_assets: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          media_type: string
+          owner_id: string
+          processed_path: string | null
+          processed_status: string
+          storage_path: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          media_type: string
+          owner_id: string
+          processed_path?: string | null
+          processed_status?: string
+          storage_path: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          media_type?: string
+          owner_id?: string
+          processed_path?: string | null
+          processed_status?: string
+          storage_path?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      games: {
+        Row: {
+          canvas: Json
+          created_at: string
+          id: string
+          owner_id: string
+          subtopic: string | null
+          thumbnail_path: string | null
+          title: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          canvas?: Json
+          created_at?: string
+          id?: string
+          owner_id: string
+          subtopic?: string | null
+          thumbnail_path?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canvas?: Json
+          created_at?: string
+          id?: string
+          owner_id?: string
+          subtopic?: string | null
+          thumbnail_path?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       notebook_blocks: {
         Row: {
