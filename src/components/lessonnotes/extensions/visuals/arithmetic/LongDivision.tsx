@@ -177,7 +177,7 @@ function DigitCell({
   return (
     <input
       type="text"
-      inputMode="numeric"
+      inputMode="text"
       value={value}
       onChange={() => { /* controlled via keydown */ }}
       onKeyDown={handleKeyDown}
