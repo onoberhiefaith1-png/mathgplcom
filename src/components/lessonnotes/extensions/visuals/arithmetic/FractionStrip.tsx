@@ -1,4 +1,6 @@
-// Fraction Strip — single strip (a Fraction Wall row on its own).
+// Fraction Strip — a single fraction wall row. Opens empty (denominator
+// only, no shading) so the teacher configures numerator/denominator via
+// the right-hand panel of the underlying Fraction Wall.
 
 import { FractionWall } from "./FractionWall";
 
@@ -9,12 +11,12 @@ interface Props {
 }
 
 export function FractionStrip({ attrs, onChange, selected }: Props) {
-  // Force a single row into the FractionWall model so we get one strip.
+  const src = (attrs as any).rows;
   const singleAttrs = {
     ...attrs,
-    rows: Array.isArray((attrs as any).rows) && (attrs as any).rows.length > 0
-      ? [(attrs as any).rows[0]]
-      : [{ parts: 4, label: "1", shaded: [false, false, false, false], color: "hsl(var(--primary))" }],
+    rows: Array.isArray(src) && src.length > 0
+      ? [src[0]]
+      : [{ parts: 1, label: "1", shaded: [false], color: "#3b82f6" }],
   };
   return <FractionWall attrs={singleAttrs} onChange={onChange} selected={selected} />;
 }

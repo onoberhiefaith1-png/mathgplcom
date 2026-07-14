@@ -1,15 +1,16 @@
-// Division Ladder — one visible vertical divider (left of the numbers);
-// every other alignment is done with invisible fixed-width columns so
-// digits stay perfectly aligned. Editing is in the right-hand Properties
-// Panel.
+// Division Ladder — one visible vertical divider on the left, everything
+// else invisible. Opens empty: one divisor row + one result row, one
+// number column, no seeded values. Advanced settings live in the right-hand
+// Properties Panel; add/remove rows and columns in the bottom toolbar.
 
 import { useCallback, useMemo } from "react";
 import { Plus, Minus } from "lucide-react";
 import { SmartCell } from "../smarttable/SmartCell";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
-  PanelGroup, PanelRow, PanelButton, PanelNumber,
+  PanelGroup, PanelRow, PanelNumber,
 } from "@/components/lessonnotes/panel/panelPrimitives";
+import { AssetBottomToolbar } from "@/components/lessonnotes/panel/AssetBottomToolbar";
 
 interface Attrs {
   divisors?: string[];
@@ -28,12 +29,12 @@ interface Props {
 }
 
 function normalize(a: Record<string, unknown>) {
-  const cols = Math.max(1, Number(a.cols) || 2);
-  const divisors: string[] = Array.isArray(a.divisors) ? [...(a.divisors as string[])] : ["2", "2", "3"];
+  const cols = Math.max(1, Number(a.cols) || 1);
+  const divisors: string[] = Array.isArray(a.divisors) && (a.divisors as string[]).length
+    ? [...(a.divisors as string[])]
+    : [""];
   const rowsNeeded = divisors.length + 1;
-  const raw = Array.isArray(a.values) ? (a.values as string[][]) : [
-    ["48", "60"], ["24", "30"], ["12", "15"], ["4", "5"],
-  ];
+  const raw = Array.isArray(a.values) ? (a.values as string[][]) : [];
   const values: string[][] = [];
   for (let r = 0; r < rowsNeeded; r++) {
     const src = raw[r] ?? [];
@@ -43,10 +44,10 @@ function normalize(a: Record<string, unknown>) {
   }
   return {
     divisors, values, cols,
-    fontSize: Number(a.fontSize) || 18,
-    rowHeight: Number(a.rowHeight) || 32,
-    colWidth: Number(a.colWidth) || 56,
-    dividerThickness: Number(a.dividerThickness) || 2,
+    fontSize: Number(a.fontSize) || 22,
+    rowHeight: Number(a.rowHeight) || 40,
+    colWidth: Number(a.colWidth) || 64,
+    dividerThickness: Number(a.dividerThickness) || 3,
   };
 }
 
@@ -83,14 +84,6 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
 
   const editor = (
     <div>
-      <PanelGroup label="Rows">
-        <PanelButton full onClick={addRow}><Plus className="h-3 w-3" /> Add row</PanelButton>
-        <PanelButton full onClick={delRow}><Minus className="h-3 w-3" /> Delete row</PanelButton>
-      </PanelGroup>
-      <PanelGroup label="Number columns">
-        <PanelButton full onClick={addCol}><Plus className="h-3 w-3" /> Add number column</PanelButton>
-        <PanelButton full onClick={delCol}><Minus className="h-3 w-3" /> Remove number column</PanelButton>
-      </PanelGroup>
       <PanelGroup label="Sizing">
         <PanelRow label="Font size"><PanelNumber value={m.fontSize} min={10} max={40} onChange={(v) => patch({ fontSize: v })} /></PanelRow>
         <PanelRow label="Row height"><PanelNumber value={m.rowHeight} min={20} max={80} onChange={(v) => patch({ rowHeight: v })} /></PanelRow>
@@ -109,10 +102,12 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
     width: m.colWidth,
     minWidth: m.colWidth,
     textAlign: "right",
+    color: "#0f172a",
+    fontWeight: 500,
   };
 
   return (
-    <div className="not-prose inline-block font-mono text-foreground">
+    <div className="not-prose inline-block font-mono" style={{ color: "#0f172a" }}>
       <table style={{ borderCollapse: "collapse" }}>
         <tbody>
           {m.values.map((row, r) => {
@@ -122,15 +117,15 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
                 <td
                   style={{
                     ...cellBase,
-                    width: 40, minWidth: 40,
-                    paddingRight: 8,
-                    borderRight: `${m.dividerThickness}px solid hsl(var(--foreground))`,
+                    width: 48, minWidth: 48,
+                    paddingRight: 10,
+                    borderRight: `${m.dividerThickness}px solid #0f172a`,
                   }}
                 >
                   {isResult ? (
                     <span className="opacity-0 select-none">·</span>
                   ) : (
-                    <SmartCell value={m.divisors[r] ?? ""} onChange={(v) => setDiv(r, v)} align="right" placeholder="d" />
+                    <SmartCell value={m.divisors[r] ?? ""} onChange={(v) => setDiv(r, v)} align="right" placeholder="" />
                   )}
                 </td>
                 {row.map((v, c) => (
@@ -138,9 +133,8 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
                     key={c}
                     style={{
                       ...cellBase,
-                      paddingLeft: 12,
-                      fontWeight: isResult ? 700 : 500,
-                      borderTop: isResult ? "1px solid hsl(var(--foreground) / 0.6)" : undefined,
+                      paddingLeft: 14,
+                      fontWeight: 600,
                     }}
                   >
                     <SmartCell value={v} onChange={(nv) => setCell(r, c, nv)} align="right" />
@@ -151,6 +145,16 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
           })}
         </tbody>
       </table>
+
+      <AssetBottomToolbar
+        visible={!!selected}
+        actions={[
+          { label: "Row", icon: <Plus className="h-3 w-3" />, onClick: addRow },
+          { label: "Row", icon: <Minus className="h-3 w-3" />, onClick: delRow, disabled: m.divisors.length <= 1, tone: "danger" },
+          { label: "Column", icon: <Plus className="h-3 w-3" />, onClick: addCol },
+          { label: "Column", icon: <Minus className="h-3 w-3" />, onClick: delCol, disabled: m.cols <= 1, tone: "danger" },
+        ]}
+      />
     </div>
   );
 }
