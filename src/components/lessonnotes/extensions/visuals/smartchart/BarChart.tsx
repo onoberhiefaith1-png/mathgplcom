@@ -1,17 +1,16 @@
-// Interactive Bar Chart — SVG chart plus drag handles on top of every
-// bar. All editing happens in the right-hand Properties Panel via
-// useRegisterAssetEditor. Defaults to a blank axes canvas with no data
-// until the teacher adds a bar.
+// Mathematical Bar/Histogram renderer. Teachers define scale, categories,
+// and values in the right-hand Properties Panel; the software plots the
+// bars automatically. Histogram = same renderer with gap forced to 0.
 
-import { useCallback, useMemo, useRef } from "react";
-import { Minus, Plus } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { Minus, Plus, ArrowUp, ArrowDown, Copy as CopyIcon } from "lucide-react";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle, PanelText,
 } from "@/components/lessonnotes/panel/panelPrimitives";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
-import type { SmartChartAttrs, BarRow } from "./types";
+import type { SmartChartAttrs, BarRow, DisplayMode, LabelPos, NumberSide, LegendPos, PresetName } from "./types";
 import { DEFAULT_PALETTE } from "./types";
-import { resolveYScale } from "./scale";
+import { resolveYScale, minorTicks } from "./scale";
 import { UniversalTools } from "./UniversalTools";
 
 interface Props {
@@ -20,39 +19,35 @@ interface Props {
   selected: boolean;
 }
 
-// Fixed drawing canvas — the SVG scales responsively via viewBox.
-const W = 480;
-const H = 300;
-const PAD = { top: 24, right: 28, bottom: 56, left: 56 };
+const W = 520;
+const H = 340;
+const PAD = { top: 32, right: 32, bottom: 64, left: 64 };
 const plotW = W - PAD.left - PAD.right;
 const plotH = H - PAD.top - PAD.bottom;
 
 export function BarChart({ attrs, onChange, selected }: Props) {
   const bar = attrs.bar;
   const rows = bar.rows;
-  const editable = !attrs.locked && !attrs.presentation;
+  const isHistogram = attrs.displayMode === "histogram" || attrs.kind === "histogram";
 
   const scale = useMemo(
     () => resolveYScale(rows.map((r) => r.value), attrs.yAuto, attrs.yMin, attrs.yMax, attrs.yStep),
     [rows, attrs.yAuto, attrs.yMin, attrs.yMax, attrs.yStep],
   );
+  const minor = useMemo(() => minorTicks(scale, attrs.yMinorDivisions), [scale, attrs.yMinorDivisions]);
 
   const yToPx = useCallback(
     (v: number) => PAD.top + plotH * (1 - (v - scale.min) / (scale.max - scale.min || 1)),
     [scale.min, scale.max],
   );
-  const pxToY = useCallback(
-    (px: number) => scale.min + (1 - (px - PAD.top) / plotH) * (scale.max - scale.min),
-    [scale.min, scale.max],
-  );
 
   // Bar geometry.
   const n = rows.length;
-  const gap = Math.max(0, bar.gap);
+  const gap = isHistogram ? 0 : Math.max(0, bar.gap);
   const barWidth = bar.equalWidth
     ? Math.max(4, (plotW - gap * Math.max(0, n - 1)) / Math.max(1, n))
     : bar.barWidth;
-  const totalW = n * barWidth + (n - 1) * gap;
+  const totalW = n * barWidth + Math.max(0, n - 1) * gap;
   const startX = PAD.left + (plotW - totalW) / 2;
   const xForBar = (i: number) => startX + i * (barWidth + gap);
 
@@ -68,47 +63,33 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   };
   const addRow = () => {
     const idx = rows.length;
-    patchBar({ rows: [...rows, { label: `Item ${idx + 1}`, value: 0 }] });
+    patchBar({ rows: [...rows, { label: String.fromCharCode(65 + (idx % 26)), value: 0 }] });
   };
   const delRow = (i: number) => patchBar({ rows: rows.filter((_, idx) => idx !== i) });
-
-  // Drag a bar top handle to update its value.
-  const svgRef = useRef<SVGSVGElement>(null);
-  const startDrag = (i: number) => (e: React.PointerEvent<SVGElement>) => {
-    if (!editable) return;
-    e.stopPropagation();
-    (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
-    const svg = svgRef.current;
-    if (!svg) return;
-    const onMove = (ev: PointerEvent) => {
-      const rect = svg.getBoundingClientRect();
-      const localY = ((ev.clientY - rect.top) / rect.height) * H;
-      const v = pxToY(localY);
-      const snap = Math.max(1e-6, scale.step / 10);
-      const snapped = Math.round(v / snap) * snap;
-      const rounded = Number(snapped.toFixed(4));
-      setRow(i, { value: Math.max(scale.min, Math.min(scale.max, rounded)) });
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
+  const dupRow = (i: number) => {
+    const r = rows[i]; if (!r) return;
+    patchBar({ rows: [...rows.slice(0, i + 1), { ...r }, ...rows.slice(i + 1)] });
+  };
+  const moveRow = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= rows.length) return;
+    const next = rows.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    patchBar({ rows: next });
   };
 
-  // ── Universal tools helpers ────────────────────────────────────────
+  // Universal tool helpers
   const clearData = () => patchBar({ rows: [] });
   const reset = () => onChange({
     bar: { rows: [], equalWidth: true, gap: 12, barWidth: 40, showValuesAbove: false },
-    xLabel: "", yLabel: "", yAuto: true, yMin: null, yMax: null, yStep: null,
-    gridlines: true, showAxisLabels: true, showTicks: true,
+    xLabel: "", yLabel: "",
+    yAuto: false, yMin: 0, yMax: 20, yStep: 5,
+    yMinorDivisions: 5,
+    displayMode: attrs.kind === "histogram" ? "histogram" : "bar",
   });
   const importCSV = (text: string) => {
     const parsed: BarRow[] = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
+      .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
       .map((line) => {
         const [label, ...rest] = line.split(/[,\t]/);
         const value = Number(rest.join(",").trim());
@@ -120,39 +101,110 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const exportCSV = () =>
     ["label,value", ...rows.map((r) => `${JSON.stringify(r.label)},${r.value}`)].join("\n");
 
-  // ── Right-hand Properties Panel content ────────────────────────────
+  // Preset bundles
+  const applyPreset = (name: PresetName) => {
+    const common = { preset: name } as Partial<SmartChartAttrs>;
+    if (name === "waec" || name === "neco") {
+      patch({
+        ...common,
+        grid: { showMajor: true, showMinor: true, color: "#94a3b8", thickness: 1 },
+        ticks: { show: true, length: 5, thickness: 1 },
+        numbers: { show: true, fontSize: 12, decimals: 0, side: "left" },
+        fonts: { family: "Georgia, serif", size: 12, bold: false, italic: false },
+        barStyle: { ...attrs.barStyle, borderColor: "#0f172a", borderThickness: 1.5, uniformColor: "#ec4899" },
+      });
+    } else if (name === "gcse") {
+      patch({
+        ...common,
+        grid: { showMajor: true, showMinor: true, color: "#cbd5e1", thickness: 1 },
+        ticks: { show: true, length: 4, thickness: 1 },
+        numbers: { show: true, fontSize: 12, decimals: 0, side: "left" },
+        fonts: { family: "system-ui, sans-serif", size: 12, bold: false, italic: false },
+        barStyle: { ...attrs.barStyle, borderColor: "#0f172a", borderThickness: 1.2, uniformColor: null },
+      });
+    } else if (name === "alevel") {
+      patch({
+        ...common,
+        grid: { showMajor: true, showMinor: false, color: "#cbd5e1", thickness: 1 },
+        ticks: { show: true, length: 5, thickness: 1.2 },
+        numbers: { show: true, fontSize: 12, decimals: 1, side: "left" },
+        fonts: { family: "system-ui, sans-serif", size: 12, bold: false, italic: false },
+      });
+    } else {
+      patch(common);
+    }
+  };
+
+  // ── Panel content ─────────────────────────────────────────────────
   const editor = (
     <div>
-      <PanelGroup label="Bars (X, Y)">
+      {/* 1. Scale */}
+      <PanelGroup label="Scale">
+        <PanelRow label="Auto scale"><PanelToggle value={attrs.yAuto} onChange={(v) => patch({ yAuto: v })} /></PanelRow>
+        {!attrs.yAuto && (
+          <>
+            <PanelRow label="Minimum"><PanelNumber value={attrs.yMin ?? 0} onChange={(v) => patch({ yMin: v })} /></PanelRow>
+            <PanelRow label="Maximum"><PanelNumber value={attrs.yMax ?? 20} onChange={(v) => patch({ yMax: v })} /></PanelRow>
+            <PanelRow label="Major interval">
+              <PanelNumber value={attrs.yStep ?? 5} min={0} step={0.1}
+                onChange={(v) => patch({ yStep: v > 0 ? v : null })} />
+            </PanelRow>
+          </>
+        )}
+        <PanelRow label="Minor divisions">
+          <PanelNumber value={attrs.yMinorDivisions} min={1} max={20}
+            onChange={(v) => patch({ yMinorDivisions: Math.max(1, Math.round(v)) })} />
+        </PanelRow>
+      </PanelGroup>
+
+      {/* 2. Axes */}
+      <PanelGroup label="Y-axis">
+        <PanelRow label="Title"><PanelText value={attrs.yLabel} onChange={(v) => patch({ yLabel: v })} /></PanelRow>
+        <PanelRow label="Show"><PanelToggle value={attrs.yAxis.show} onChange={(v) => patch({ yAxis: { ...attrs.yAxis, show: v } })} /></PanelRow>
+        <PanelRow label="Arrow"><PanelToggle value={attrs.yAxis.arrow} onChange={(v) => patch({ yAxis: { ...attrs.yAxis, arrow: v } })} /></PanelRow>
+        <PanelRow label="Thickness"><PanelNumber value={attrs.yAxis.thickness} min={0.5} max={6} step={0.5}
+          onChange={(v) => patch({ yAxis: { ...attrs.yAxis, thickness: v } })} /></PanelRow>
+        <PanelRow label="Colour"><PanelColor value={attrs.yAxis.color}
+          onChange={(v) => patch({ yAxis: { ...attrs.yAxis, color: v } })} /></PanelRow>
+      </PanelGroup>
+      <PanelGroup label="X-axis">
+        <PanelRow label="Title"><PanelText value={attrs.xLabel} onChange={(v) => patch({ xLabel: v })} /></PanelRow>
+        <PanelRow label="Show"><PanelToggle value={attrs.xAxis.show} onChange={(v) => patch({ xAxis: { ...attrs.xAxis, show: v } })} /></PanelRow>
+        <PanelRow label="Arrow"><PanelToggle value={attrs.xAxis.arrow} onChange={(v) => patch({ xAxis: { ...attrs.xAxis, arrow: v } })} /></PanelRow>
+        <PanelRow label="Thickness"><PanelNumber value={attrs.xAxis.thickness} min={0.5} max={6} step={0.5}
+          onChange={(v) => patch({ xAxis: { ...attrs.xAxis, thickness: v } })} /></PanelRow>
+        <PanelRow label="Colour"><PanelColor value={attrs.xAxis.color}
+          onChange={(v) => patch({ xAxis: { ...attrs.xAxis, color: v } })} /></PanelRow>
+      </PanelGroup>
+
+      {/* 3. Categories + 4. Bars combined per row */}
+      <PanelGroup label="Bars (categories & values)">
         {rows.length === 0 && (
           <div className="px-2 py-1 text-xs text-muted-foreground">No bars yet — click "Add bar".</div>
         )}
         {rows.map((r, i) => (
           <div key={i} className="mb-1 border-l-2 border-foreground/10 pl-2">
-            <PanelRow label="X position (category)">
-              <PanelText value={r.label} onChange={(v) => setRow(i, { label: v })} />
-            </PanelRow>
-            <PanelRow label="Y value">
-              <PanelNumber
-                value={r.value}
-                step={Math.max(0.1, scale.step / 10)}
-                onChange={(v) => setRow(i, { value: v })}
-              />
-            </PanelRow>
+            <PanelRow label="Category"><PanelText value={r.label} onChange={(v) => setRow(i, { label: v })} /></PanelRow>
+            <PanelRow label="Value"><PanelNumber value={r.value} step={Math.max(0.1, scale.step / 10)}
+              onChange={(v) => setRow(i, { value: v })} /></PanelRow>
             <PanelRow label="Colour">
-              <PanelColor
-                value={r.color ?? attrs.palette[i % attrs.palette.length] ?? DEFAULT_PALETTE[0]}
-                onChange={(v) => setRow(i, { color: v })}
-              />
+              <PanelColor value={r.color ?? attrs.barStyle.uniformColor ?? attrs.palette[i % attrs.palette.length] ?? DEFAULT_PALETTE[0]}
+                onChange={(v) => setRow(i, { color: v })} />
             </PanelRow>
             {!bar.equalWidth && (
-              <PanelRow label="Bar width">
+              <PanelRow label="Width">
                 <PanelNumber value={r.width ?? bar.barWidth} min={4} max={200}
                   onChange={(v) => setRow(i, { width: v })} />
               </PanelRow>
             )}
-            <PanelRow label="Remove">
-              <PanelButton onClick={() => delRow(i)}><Minus className="h-3 w-3" /></PanelButton>
+            <PanelRow label="Show label">
+              <PanelToggle value={r.showLabel ?? true} onChange={(v) => setRow(i, { showLabel: v })} />
+            </PanelRow>
+            <PanelRow label="Reorder">
+              <PanelButton onClick={() => moveRow(i, -1)}><ArrowUp className="h-3 w-3" /></PanelButton>
+              <PanelButton onClick={() => moveRow(i, 1)}><ArrowDown className="h-3 w-3" /></PanelButton>
+              <PanelButton onClick={() => dupRow(i)}><CopyIcon className="h-3 w-3" /></PanelButton>
+              <PanelButton onClick={() => delRow(i)} variant="danger"><Minus className="h-3 w-3" /></PanelButton>
             </PanelRow>
           </div>
         ))}
@@ -161,48 +213,181 @@ export function BarChart({ attrs, onChange, selected }: Props) {
         </PanelRow>
       </PanelGroup>
 
-      <PanelGroup label="Y-axis (scale)">
-        <PanelRow label="Y-axis title"><PanelText value={attrs.yLabel} onChange={(v) => patch({ yLabel: v })} /></PanelRow>
-        <PanelRow label="Auto-scale"><PanelToggle value={attrs.yAuto} onChange={(v) => patch({ yAuto: v })} /></PanelRow>
-        {!attrs.yAuto && (
-          <>
-            <PanelRow label="Minimum">
-              <PanelNumber value={attrs.yMin ?? 0} onChange={(v) => patch({ yMin: v })} />
-            </PanelRow>
-            <PanelRow label="Maximum">
-              <PanelNumber value={attrs.yMax ?? 10} onChange={(v) => patch({ yMax: v })} />
-            </PanelRow>
-            <PanelRow label="Interval">
-              <PanelNumber value={attrs.yStep ?? 1} min={0} step={0.1}
-                onChange={(v) => patch({ yStep: v > 0 ? v : null })} />
-            </PanelRow>
-          </>
-        )}
-        <PanelRow label="Show tick marks"><PanelToggle value={attrs.showTicks} onChange={(v) => patch({ showTicks: v })} /></PanelRow>
-        <PanelRow label="Show values above bars"><PanelToggle value={bar.showValuesAbove} onChange={(v) => patchBar({ showValuesAbove: v })} /></PanelRow>
-      </PanelGroup>
-
-      <PanelGroup label="X-axis">
-        <PanelRow label="X-axis title"><PanelText value={attrs.xLabel} onChange={(v) => patch({ xLabel: v })} /></PanelRow>
-        <PanelRow label="Show category labels"><PanelToggle value={attrs.showAxisLabels} onChange={(v) => patch({ showAxisLabels: v })} /></PanelRow>
-      </PanelGroup>
-
-      <PanelGroup label="Appearance">
-        <PanelRow label="Equal bar width"><PanelToggle value={bar.equalWidth} onChange={(v) => patchBar({ equalWidth: v })} /></PanelRow>
+      {/* 5. Bar Layout */}
+      <PanelGroup label="Bar layout">
+        <PanelRow label="Equal width"><PanelToggle value={bar.equalWidth} onChange={(v) => patchBar({ equalWidth: v })} /></PanelRow>
         {bar.equalWidth && (
-          <PanelRow label="Bar width">
-            <PanelNumber value={bar.barWidth} min={4} max={200} onChange={(v) => patchBar({ barWidth: v })} />
-          </PanelRow>
+          <PanelRow label="Bar width"><PanelNumber value={bar.barWidth} min={4} max={200}
+            onChange={(v) => patchBar({ barWidth: v })} /></PanelRow>
         )}
         <PanelRow label="Gap between bars">
-          <PanelNumber value={bar.gap} min={0} max={80} onChange={(v) => patchBar({ gap: v })} />
+          <PanelNumber value={bar.gap} min={0} max={80}
+            onChange={(v) => patchBar({ gap: v })} />
         </PanelRow>
-        <PanelRow label="Border thickness">
-          <PanelNumber value={attrs.strokeWidth} min={0} max={6} step={0.5} onChange={(v) => patch({ strokeWidth: v })} />
-        </PanelRow>
-        <PanelRow label="Gridlines"><PanelToggle value={attrs.gridlines} onChange={(v) => patch({ gridlines: v })} /></PanelRow>
       </PanelGroup>
 
+      {/* 6. Display Mode */}
+      <PanelGroup label="Display mode">
+        <PanelRow label="Mode">
+          <select
+            value={attrs.displayMode}
+            onChange={(e) => patch({ displayMode: e.target.value as DisplayMode })}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground"
+          >
+            <option value="bar">Bar chart</option>
+            <option value="histogram">Histogram</option>
+          </select>
+        </PanelRow>
+      </PanelGroup>
+
+      {/* 7. Grid */}
+      <PanelGroup label="Grid">
+        <PanelRow label="Major grid"><PanelToggle value={attrs.grid.showMajor}
+          onChange={(v) => patch({ grid: { ...attrs.grid, showMajor: v } })} /></PanelRow>
+        <PanelRow label="Minor grid"><PanelToggle value={attrs.grid.showMinor}
+          onChange={(v) => patch({ grid: { ...attrs.grid, showMinor: v } })} /></PanelRow>
+        <PanelRow label="Colour"><PanelColor value={attrs.grid.color}
+          onChange={(v) => patch({ grid: { ...attrs.grid, color: v } })} /></PanelRow>
+        <PanelRow label="Thickness"><PanelNumber value={attrs.grid.thickness} min={0.25} max={4} step={0.25}
+          onChange={(v) => patch({ grid: { ...attrs.grid, thickness: v } })} /></PanelRow>
+      </PanelGroup>
+
+      {/* 8. Ticks */}
+      <PanelGroup label="Tick marks">
+        <PanelRow label="Show"><PanelToggle value={attrs.ticks.show}
+          onChange={(v) => patch({ ticks: { ...attrs.ticks, show: v } })} /></PanelRow>
+        <PanelRow label="Length"><PanelNumber value={attrs.ticks.length} min={1} max={20}
+          onChange={(v) => patch({ ticks: { ...attrs.ticks, length: v } })} /></PanelRow>
+        <PanelRow label="Thickness"><PanelNumber value={attrs.ticks.thickness} min={0.25} max={4} step={0.25}
+          onChange={(v) => patch({ ticks: { ...attrs.ticks, thickness: v } })} /></PanelRow>
+      </PanelGroup>
+
+      {/* 9. Numbers */}
+      <PanelGroup label="Scale numbers">
+        <PanelRow label="Show"><PanelToggle value={attrs.numbers.show}
+          onChange={(v) => patch({ numbers: { ...attrs.numbers, show: v } })} /></PanelRow>
+        <PanelRow label="Font size"><PanelNumber value={attrs.numbers.fontSize} min={8} max={32}
+          onChange={(v) => patch({ numbers: { ...attrs.numbers, fontSize: v } })} /></PanelRow>
+        <PanelRow label="Decimals"><PanelNumber value={attrs.numbers.decimals} min={0} max={6}
+          onChange={(v) => patch({ numbers: { ...attrs.numbers, decimals: Math.max(0, Math.round(v)) } })} /></PanelRow>
+        <PanelRow label="Side">
+          <select value={attrs.numbers.side}
+            onChange={(e) => patch({ numbers: { ...attrs.numbers, side: e.target.value as NumberSide } })}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground">
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </PanelRow>
+      </PanelGroup>
+
+      {/* 10. Data labels */}
+      <PanelGroup label="Data labels">
+        <PanelRow label="Show values"><PanelToggle value={attrs.dataLabels.show}
+          onChange={(v) => patch({ dataLabels: { ...attrs.dataLabels, show: v } })} /></PanelRow>
+        <PanelRow label="Position">
+          <select value={attrs.dataLabels.position}
+            onChange={(e) => patch({ dataLabels: { ...attrs.dataLabels, position: e.target.value as LabelPos } })}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground">
+            <option value="above">Above bar</option>
+            <option value="inside">Inside bar</option>
+            <option value="below">Below bar</option>
+          </select>
+        </PanelRow>
+      </PanelGroup>
+
+      {/* 11. Colours */}
+      <PanelGroup label="Colours">
+        <PanelRow label="Uniform colour">
+          <PanelToggle value={attrs.barStyle.uniformColor !== null}
+            onChange={(v) => patch({ barStyle: { ...attrs.barStyle, uniformColor: v ? (attrs.barStyle.uniformColor ?? DEFAULT_PALETTE[0]) : null } })} />
+        </PanelRow>
+        {attrs.barStyle.uniformColor !== null && (
+          <PanelRow label="Colour"><PanelColor value={attrs.barStyle.uniformColor}
+            onChange={(v) => patch({ barStyle: { ...attrs.barStyle, uniformColor: v } })} /></PanelRow>
+        )}
+        <PanelRow label="Opacity"><PanelNumber value={attrs.barStyle.opacity} min={0} max={1} step={0.05}
+          onChange={(v) => patch({ barStyle: { ...attrs.barStyle, opacity: Math.max(0, Math.min(1, v)) } })} /></PanelRow>
+        <PanelRow label="Border colour"><PanelColor value={attrs.barStyle.borderColor}
+          onChange={(v) => patch({ barStyle: { ...attrs.barStyle, borderColor: v } })} /></PanelRow>
+        <PanelRow label="Border thickness"><PanelNumber value={attrs.barStyle.borderThickness} min={0} max={6} step={0.25}
+          onChange={(v) => patch({ barStyle: { ...attrs.barStyle, borderThickness: v } })} /></PanelRow>
+      </PanelGroup>
+
+      {/* 12. Fonts */}
+      <PanelGroup label="Fonts">
+        <PanelRow label="Family">
+          <select value={attrs.fonts.family}
+            onChange={(e) => patch({ fonts: { ...attrs.fonts, family: e.target.value } })}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground">
+            <option value="system-ui, sans-serif">Sans-serif</option>
+            <option value="Georgia, serif">Serif</option>
+            <option value="ui-monospace, monospace">Monospace</option>
+          </select>
+        </PanelRow>
+        <PanelRow label="Size"><PanelNumber value={attrs.fonts.size} min={8} max={32}
+          onChange={(v) => patch({ fonts: { ...attrs.fonts, size: v } })} /></PanelRow>
+        <PanelRow label="Bold"><PanelToggle value={attrs.fonts.bold}
+          onChange={(v) => patch({ fonts: { ...attrs.fonts, bold: v } })} /></PanelRow>
+        <PanelRow label="Italic"><PanelToggle value={attrs.fonts.italic}
+          onChange={(v) => patch({ fonts: { ...attrs.fonts, italic: v } })} /></PanelRow>
+      </PanelGroup>
+
+      {/* 13. Legend */}
+      <PanelGroup label="Legend">
+        <PanelRow label="Show"><PanelToggle value={attrs.legend.show}
+          onChange={(v) => patch({ legend: { ...attrs.legend, show: v } })} /></PanelRow>
+        <PanelRow label="Position">
+          <select value={attrs.legend.position}
+            onChange={(e) => patch({ legend: { ...attrs.legend, position: e.target.value as LegendPos } })}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground">
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </PanelRow>
+      </PanelGroup>
+
+      {/* 14. Graph area */}
+      <PanelGroup label="Graph area">
+        <PanelRow label="Background"><PanelColor value={attrs.plotArea.background === "transparent" ? "#ffffff" : attrs.plotArea.background}
+          onChange={(v) => patch({ plotArea: { ...attrs.plotArea, background: v } })} /></PanelRow>
+        <PanelRow label="Border"><PanelColor value={attrs.plotArea.border === "transparent" ? "#0f172a" : attrs.plotArea.border}
+          onChange={(v) => patch({ plotArea: { ...attrs.plotArea, border: v } })} /></PanelRow>
+        <PanelRow label="Border thickness"><PanelNumber value={attrs.plotArea.borderThickness} min={0} max={6} step={0.25}
+          onChange={(v) => patch({ plotArea: { ...attrs.plotArea, borderThickness: v } })} /></PanelRow>
+        <PanelRow label="Padding"><PanelNumber value={attrs.plotArea.padding} min={0} max={40}
+          onChange={(v) => patch({ plotArea: { ...attrs.plotArea, padding: v } })} /></PanelRow>
+      </PanelGroup>
+
+      {/* 15. Examination mode */}
+      <PanelGroup label="Examination mode">
+        <PanelRow label="Hide values"><PanelToggle value={attrs.examMode.hideValues}
+          onChange={(v) => patch({ examMode: { ...attrs.examMode, hideValues: v } })} /></PanelRow>
+        <PanelRow label="Hide category labels"><PanelToggle value={attrs.examMode.hideCategoryLabels}
+          onChange={(v) => patch({ examMode: { ...attrs.examMode, hideCategoryLabels: v } })} /></PanelRow>
+        <PanelRow label="Hide axis titles"><PanelToggle value={attrs.examMode.hideAxisTitles}
+          onChange={(v) => patch({ examMode: { ...attrs.examMode, hideAxisTitles: v } })} /></PanelRow>
+        <PanelRow label="Blank graph"><PanelToggle value={attrs.examMode.blank}
+          onChange={(v) => patch({ examMode: { ...attrs.examMode, blank: v } })} /></PanelRow>
+      </PanelGroup>
+
+      {/* 16. Presets */}
+      <PanelGroup label="Presets">
+        <PanelRow label="Style">
+          <select value={attrs.preset}
+            onChange={(e) => applyPreset(e.target.value as PresetName)}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground">
+            <option value="custom">Custom</option>
+            <option value="waec">WAEC</option>
+            <option value="neco">NECO</option>
+            <option value="gcse">GCSE</option>
+            <option value="alevel">A-Level</option>
+          </select>
+        </PanelRow>
+      </PanelGroup>
+
+      {/* 17. Universal tools */}
       <UniversalTools
         attrs={attrs}
         onPatch={patch}
@@ -214,95 +399,190 @@ export function BarChart({ attrs, onChange, selected }: Props) {
     </div>
   );
 
-  useRegisterAssetEditor(!!selected, "smartChart-bar", "Bar chart", editor);
+  useRegisterAssetEditor(
+    !!selected,
+    "smartChart-bar",
+    isHistogram ? "Histogram" : "Bar chart",
+    editor,
+  );
 
   // ── SVG render ─────────────────────────────────────────────────────
-  const axisColor = "#0f172a";
+  const exam = attrs.examMode;
+  const blank = exam.blank;
+  const showCategoryLabels = attrs.showAxisLabels && !exam.hideCategoryLabels && !blank;
+  const showAxisTitles = !exam.hideAxisTitles && !blank;
+  const showValueLabels = attrs.dataLabels.show && !exam.hideValues && !blank && attrs.showAnswers;
+  const fontStyle: React.CSSProperties = {
+    fontFamily: attrs.fonts.family,
+    fontWeight: attrs.fonts.bold ? 700 : 400,
+    fontStyle: attrs.fonts.italic ? "italic" : "normal",
+  };
+
+  const numberX =
+    attrs.numbers.side === "right" ? W - PAD.right + 8 : PAD.left - 8;
+  const numberAnchor: "start" | "end" =
+    attrs.numbers.side === "right" ? "start" : "end";
+
+  const baseline = Math.max(scale.min, Math.min(scale.max, 0));
+  const yBaseline = yToPx(baseline);
+
+  const fmt = (v: number) => {
+    if (!Number.isFinite(v)) return "";
+    return v.toFixed(attrs.numbers.decimals);
+  };
+
   return (
     <div className="inline-block max-w-full" style={{ width: "100%", minWidth: 320 }}>
       <svg
-        ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="xMidYMid meet"
-        style={{ display: "block", width: "100%", height: "auto", color: axisColor, userSelect: "none" }}
+        style={{ display: "block", width: "100%", height: "auto", userSelect: "none", ...fontStyle }}
       >
-        {/* gridlines */}
-        {attrs.gridlines && scale.ticks.map((t, i) => (
-          <line key={`g${i}`} x1={PAD.left} x2={W - PAD.right} y1={yToPx(t)} y2={yToPx(t)}
-            stroke={axisColor} strokeOpacity={0.12} />
+        {/* Plot background */}
+        <rect
+          x={PAD.left - attrs.plotArea.padding}
+          y={PAD.top - attrs.plotArea.padding}
+          width={plotW + attrs.plotArea.padding * 2}
+          height={plotH + attrs.plotArea.padding * 2}
+          fill={attrs.plotArea.background}
+          stroke={attrs.plotArea.border}
+          strokeWidth={attrs.plotArea.borderThickness}
+        />
+
+        {/* Minor gridlines (behind major) */}
+        {attrs.grid.showMinor && minor.map((t, i) => (
+          <line key={`mn${i}`} x1={PAD.left} x2={W - PAD.right} y1={yToPx(t)} y2={yToPx(t)}
+            stroke={attrs.grid.color} strokeOpacity={0.15} strokeWidth={attrs.grid.thickness * 0.75} />
+        ))}
+        {/* Major gridlines */}
+        {attrs.grid.showMajor && scale.ticks.map((t, i) => (
+          <line key={`mg${i}`} x1={PAD.left} x2={W - PAD.right} y1={yToPx(t)} y2={yToPx(t)}
+            stroke={attrs.grid.color} strokeOpacity={0.35} strokeWidth={attrs.grid.thickness} />
         ))}
 
-        {/* axes */}
-        <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={H - PAD.bottom}
-          stroke={axisColor} strokeWidth={1.5} />
-        <line x1={PAD.left} y1={H - PAD.bottom} x2={W - PAD.right} y2={H - PAD.bottom}
-          stroke={axisColor} strokeWidth={1.5} />
+        {/* Axes */}
+        {attrs.yAxis.show && (
+          <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={H - PAD.bottom}
+            stroke={attrs.yAxis.color} strokeWidth={attrs.yAxis.thickness}
+            markerEnd={attrs.yAxis.arrow ? "url(#yArrow)" : undefined} />
+        )}
+        {attrs.xAxis.show && (
+          <line x1={PAD.left} y1={H - PAD.bottom} x2={W - PAD.right} y2={H - PAD.bottom}
+            stroke={attrs.xAxis.color} strokeWidth={attrs.xAxis.thickness}
+            markerEnd={attrs.xAxis.arrow ? "url(#xArrow)" : undefined} />
+        )}
+        <defs>
+          <marker id="yArrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill={attrs.yAxis.color} />
+          </marker>
+          <marker id="xArrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill={attrs.xAxis.color} />
+          </marker>
+        </defs>
 
-        {/* y ticks + labels */}
+        {/* Major tick marks + numbers */}
         {scale.ticks.map((t, i) => (
           <g key={`t${i}`}>
-            {attrs.showTicks && (
-              <line x1={PAD.left - 4} x2={PAD.left} y1={yToPx(t)} y2={yToPx(t)}
-                stroke={axisColor} strokeWidth={1} />
+            {attrs.ticks.show && (
+              <line x1={PAD.left - attrs.ticks.length} x2={PAD.left}
+                y1={yToPx(t)} y2={yToPx(t)}
+                stroke={attrs.yAxis.color} strokeWidth={attrs.ticks.thickness} />
             )}
-            <text x={PAD.left - 8} y={yToPx(t)} dy="0.32em" textAnchor="end"
-              fontSize={12} fill={axisColor}>{formatTick(t)}</text>
+            {attrs.numbers.show && !blank && (
+              <text x={numberX} y={yToPx(t)} dy="0.32em" textAnchor={numberAnchor}
+                fontSize={attrs.numbers.fontSize} fill={attrs.yAxis.color}>{fmt(t)}</text>
+            )}
           </g>
         ))}
+        {/* Minor tick marks */}
+        {attrs.ticks.show && minor.map((t, i) => (
+          <line key={`mt${i}`} x1={PAD.left - attrs.ticks.length * 0.5} x2={PAD.left}
+            y1={yToPx(t)} y2={yToPx(t)}
+            stroke={attrs.yAxis.color} strokeWidth={attrs.ticks.thickness * 0.75} />
+        ))}
 
-        {/* bars */}
-        {rows.map((r, i) => {
+        {/* Bars */}
+        {!blank && rows.map((r, i) => {
           const bx = xForBar(i);
           const w = bar.equalWidth ? barWidth : (r.width ?? bar.barWidth);
-          const baseline = Math.max(scale.min, Math.min(scale.max, 0));
           const yTop = yToPx(Math.max(scale.min, Math.min(scale.max, r.value)));
-          const yBase = yToPx(baseline);
-          const h = Math.abs(yBase - yTop);
-          const color = r.color ?? attrs.palette[i % attrs.palette.length] ?? DEFAULT_PALETTE[0];
+          const h = Math.abs(yBaseline - yTop);
+          const color =
+            attrs.barStyle.uniformColor ??
+            r.color ??
+            attrs.palette[i % attrs.palette.length] ??
+            DEFAULT_PALETTE[0];
+          const labelY =
+            attrs.dataLabels.position === "above" ? yTop - 6 :
+            attrs.dataLabels.position === "inside" ? (yTop + yBaseline) / 2 :
+            yBaseline + 14;
           return (
             <g key={i}>
-              <rect x={bx} y={Math.min(yTop, yBase)} width={w} height={h}
-                fill={color} fillOpacity={0.85}
-                stroke={axisColor} strokeWidth={attrs.strokeWidth} />
-              {attrs.showAxisLabels && (
+              <rect x={bx} y={Math.min(yTop, yBaseline)} width={w} height={h}
+                fill={color} fillOpacity={attrs.barStyle.opacity}
+                stroke={attrs.barStyle.borderColor} strokeWidth={attrs.barStyle.borderThickness} />
+              {showCategoryLabels && (r.showLabel ?? true) && (
                 <text x={bx + w / 2} y={H - PAD.bottom + 16} textAnchor="middle"
-                  fontSize={12} fill={axisColor}>{r.label}</text>
+                  fontSize={attrs.fonts.size} fill={attrs.xAxis.color}>{r.label}</text>
               )}
-              {bar.showValuesAbove && attrs.showAnswers && (
-                <text x={bx + w / 2} y={yTop - 6} textAnchor="middle"
-                  fontSize={12} fill={axisColor}>{formatTick(r.value)}</text>
-              )}
-              {editable && (
-                <rect
-                  x={bx - 3} y={yTop - 6} width={w + 6} height={12}
-                  fill="#2563eb" fillOpacity={0.001}
-                  stroke="#2563eb" strokeOpacity={0.6} strokeDasharray="3 3"
-                  style={{ cursor: "ns-resize" }}
-                  onPointerDown={startDrag(i)}
-                />
+              {showValueLabels && (
+                <text x={bx + w / 2} y={labelY} textAnchor="middle" dy="0.32em"
+                  fontSize={attrs.fonts.size} fill={attrs.xAxis.color}>{fmt(r.value)}</text>
               )}
             </g>
           );
         })}
 
-        {/* axis titles */}
-        {attrs.xLabel && (
-          <text x={PAD.left + plotW / 2} y={H - 8} textAnchor="middle"
-            fontSize={13} fontWeight={600} fill={axisColor}>{attrs.xLabel}</text>
+        {/* Axis titles */}
+        {showAxisTitles && attrs.xLabel && (
+          <text x={PAD.left + plotW / 2} y={H - 12} textAnchor="middle"
+            fontSize={attrs.fonts.size + 1} fontWeight={700} fill={attrs.xAxis.color}>{attrs.xLabel}</text>
         )}
-        {attrs.yLabel && (
-          <text x={14} y={PAD.top + plotH / 2}
-            transform={`rotate(-90 14 ${PAD.top + plotH / 2})`}
-            textAnchor="middle" fontSize={13} fontWeight={600} fill={axisColor}>{attrs.yLabel}</text>
+        {showAxisTitles && attrs.yLabel && (
+          <text x={16} y={PAD.top + plotH / 2}
+            transform={`rotate(-90 16 ${PAD.top + plotH / 2})`}
+            textAnchor="middle" fontSize={attrs.fonts.size + 1} fontWeight={700} fill={attrs.yAxis.color}>{attrs.yLabel}</text>
+        )}
+
+        {/* Legend */}
+        {attrs.legend.show && !blank && rows.length > 0 && (
+          <Legend rows={rows} attrs={attrs} />
         )}
       </svg>
     </div>
   );
 }
 
-function formatTick(v: number): string {
-  if (!Number.isFinite(v)) return "";
-  if (Math.abs(v) >= 1000) return v.toLocaleString();
-  if (Math.round(v) === v) return String(v);
-  return v.toFixed(1);
+function Legend({ rows, attrs }: { rows: BarRow[]; attrs: SmartChartAttrs }) {
+  const pos = attrs.legend.position;
+  const itemW = 90;
+  const itemH = 16;
+  const cols = pos === "top" || pos === "bottom" ? Math.min(rows.length, 4) : 1;
+  const totalCols = Math.max(1, cols);
+  const totalRows = Math.ceil(rows.length / totalCols);
+  const boxW = totalCols * itemW + 12;
+  const boxH = totalRows * itemH + 8;
+  let x = W - PAD.right - boxW;
+  let y = PAD.top;
+  if (pos === "top") { x = PAD.left; y = 4; }
+  else if (pos === "bottom") { x = PAD.left; y = H - PAD.bottom + 32; }
+  else if (pos === "left") { x = 4; y = PAD.top; }
+  return (
+    <g>
+      <rect x={x} y={y} width={boxW} height={boxH} fill="#fff" fillOpacity={0.85} stroke="#0f172a" strokeOpacity={0.2} />
+      {rows.map((r, i) => {
+        const c = i % totalCols;
+        const rr = Math.floor(i / totalCols);
+        const cx = x + 6 + c * itemW;
+        const cy = y + 6 + rr * itemH;
+        const color = attrs.barStyle.uniformColor ?? r.color ?? attrs.palette[i % attrs.palette.length] ?? DEFAULT_PALETTE[0];
+        return (
+          <g key={i}>
+            <rect x={cx} y={cy} width={10} height={10} fill={color} stroke="#0f172a" strokeOpacity={0.4} />
+            <text x={cx + 14} y={cy + 9} fontSize={11} fill="#0f172a">{r.label}</text>
+          </g>
+        );
+      })}
+    </g>
+  );
 }
