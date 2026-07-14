@@ -73,3 +73,19 @@ export function resolveYScale(
   if (yStep != null && yStep > 0) return manualScale(lo, hi, yStep);
   return niceDomain(lo, hi, false);
 }
+
+/** Minor tick values between major ticks (exclusive of majors). */
+export function minorTicks(scale: AxisScale, divisions: number): number[] {
+  if (!Number.isFinite(divisions) || divisions <= 1) return [];
+  const out: number[] = [];
+  const sub = scale.step / divisions;
+  for (let i = 0; i < scale.ticks.length - 1; i++) {
+    const t0 = scale.ticks[i];
+    for (let k = 1; k < divisions; k++) {
+      out.push(Number((t0 + k * sub).toFixed(10)));
+    }
+    if (out.length > 800) break;
+  }
+  return out;
+}
+
