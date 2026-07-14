@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { renderVisual } from "../visualDispatch";
 import { LivingCanvas, type FreeLabel, type PickTool, type PickedPoint } from "./LivingCanvas";
 import { SmartTable } from "../smarttable/SmartTable";
+import { SmartChart } from "../smartchart/SmartChart";
 import { PlaceValueChart } from "../arithmetic/PlaceValueChart";
 import { LongDivision } from "../arithmetic/LongDivision";
 import { DivisionLadder } from "../arithmetic/DivisionLadder";
@@ -301,6 +302,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
   const arithmeticNode = (() => {
     switch (family) {
       case "smarttable":       return <SmartTable attrs={attrs} onChange={onChange} selected={selected} />;
+      case "smartChart":       return <SmartChart attrs={attrs} onChange={onChange} selected={selected} />;
       case "placeValueChart":  return <PlaceValueChart attrs={attrs} onChange={onChange} selected={selected} />;
       case "longDivision":     return <LongDivision attrs={attrs} onChange={onChange} selected={selected} />;
       case "divisionLadder":   return <DivisionLadder attrs={attrs} onChange={onChange} selected={selected} />;
