@@ -44,6 +44,13 @@ export interface BarStyle {
 export interface FontStyle { family: string; size: number; bold: boolean; italic: boolean }
 export interface LegendStyle { show: boolean; position: LegendPos }
 export interface PlotAreaStyle { background: string; border: string; borderThickness: number; padding: number }
+export interface YScale {
+  mode: "auto" | "manual";
+  cmPerStep: number;   // visual cm per one major step
+  unitPerStep: number; // data units per one major step
+  min: number;
+  max: number;
+}
 export interface ExamMode {
   hideValues: boolean;
   hideCategoryLabels: boolean;
@@ -91,6 +98,11 @@ export interface SmartChartAttrs {
   plotArea: PlotAreaStyle;
   examMode: ExamMode;
   preset: PresetName;
+
+  // Bar width as a percentage of the plot area width (default 10 %).
+  barWidthPct: number;
+  // Structured graph-style scale (Auto or Manual "cm : unit").
+  yScale: YScale;
 
   // per-kind payload
   bar: {
@@ -225,6 +237,14 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     examMode: mergeObj(a.examMode, EXAM_DEFAULT),
     preset: (["custom","waec","neco","gcse","alevel"].includes(String(a.preset))
       ? a.preset : "custom") as PresetName,
+    barWidthPct: Math.max(0.5, Math.min(50, num(a.barWidthPct, 10))),
+    yScale: mergeObj(a.yScale, {
+      mode: bool(a.yAuto, true) ? "auto" as const : "manual" as const,
+      cmPerStep: 1,
+      unitPerStep: num(a.yStep, 1),
+      min: a.yMin == null ? 0 : num(a.yMin, 0),
+      max: a.yMax == null ? 10 : num(a.yMax, 10),
+    }),
     bar: {
       rows: barRows,
       equalWidth: bool(bar?.equalWidth, true),

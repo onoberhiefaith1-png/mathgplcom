@@ -10,7 +10,7 @@ import {
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import type { SmartChartAttrs, BarRow, DisplayMode, LabelPos, NumberSide, LegendPos, PresetName } from "./types";
 import { DEFAULT_PALETTE } from "./types";
-import { resolveYScale, minorTicks } from "./scale";
+import { resolveYScale, minorTicks, resolveManualScale } from "./scale";
 import { UniversalTools } from "./UniversalTools";
 
 interface Props {
@@ -31,8 +31,10 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const isHistogram = attrs.displayMode === "histogram" || attrs.kind === "histogram";
 
   const scale = useMemo(
-    () => resolveYScale(rows.map((r) => r.value), attrs.yAuto, attrs.yMin, attrs.yMax, attrs.yStep),
-    [rows, attrs.yAuto, attrs.yMin, attrs.yMax, attrs.yStep],
+    () => attrs.yScale.mode === "manual"
+      ? resolveManualScale(attrs.yScale)
+      : resolveYScale(rows.map((r) => r.value), true, null, null, null),
+    [rows, attrs.yScale],
   );
   const minor = useMemo(() => minorTicks(scale, attrs.yMinorDivisions), [scale, attrs.yMinorDivisions]);
 
@@ -41,15 +43,15 @@ export function BarChart({ attrs, onChange, selected }: Props) {
     [scale.min, scale.max],
   );
 
-  // Bar geometry.
+  // Bar geometry: width is a % of plot width, gap = width in Bar mode, 0 in Histogram.
   const n = rows.length;
-  const gap = isHistogram ? 0 : Math.max(0, bar.gap);
-  const barWidth = bar.equalWidth
-    ? Math.max(4, (plotW - gap * Math.max(0, n - 1)) / Math.max(1, n))
-    : bar.barWidth;
+  const barWidthPct = Math.max(0.5, Math.min(50, attrs.barWidthPct));
+  const barWidth = (plotW * barWidthPct) / 100;
+  const gap = isHistogram ? 0 : barWidth;
+  const slot = barWidth + gap;
   const totalW = n * barWidth + Math.max(0, n - 1) * gap;
-  const startX = PAD.left + (plotW - totalW) / 2;
-  const xForBar = (i: number) => startX + i * (barWidth + gap);
+  const startX = PAD.left + Math.max(0, (plotW - totalW) / 2);
+  const xForBar = (i: number) => startX + i * slot;
 
   const patch = useCallback((p: Partial<SmartChartAttrs>) => onChange(p), [onChange]);
   const patchBar = useCallback(
@@ -83,7 +85,8 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const reset = () => onChange({
     bar: { rows: [], equalWidth: true, gap: 12, barWidth: 40, showValuesAbove: false },
     xLabel: "", yLabel: "",
-    yAuto: false, yMin: 0, yMax: 20, yStep: 5,
+    barWidthPct: 10,
+    yScale: { mode: "manual", cmPerStep: 1, unitPerStep: 1, min: 0, max: 10 },
     yMinorDivisions: 5,
     displayMode: attrs.kind === "histogram" ? "histogram" : "bar",
   });
@@ -138,17 +141,39 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   // ── Panel content ─────────────────────────────────────────────────
   const editor = (
     <div>
-      {/* 1. Scale */}
+      {/* 1. Scale — mathematical "cm : unit" graph scale */}
       <PanelGroup label="Scale">
-        <PanelRow label="Auto scale"><PanelToggle value={attrs.yAuto} onChange={(v) => patch({ yAuto: v })} /></PanelRow>
-        {!attrs.yAuto && (
+        <PanelRow label="Mode">
+          <select
+            value={attrs.yScale.mode}
+            onChange={(e) => patch({ yScale: { ...attrs.yScale, mode: e.target.value as "auto" | "manual" } })}
+            className="rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs text-foreground"
+          >
+            <option value="auto">Auto</option>
+            <option value="manual">Manual (cm : unit)</option>
+          </select>
+        </PanelRow>
+        {attrs.yScale.mode === "manual" && (
           <>
-            <PanelRow label="Minimum"><PanelNumber value={attrs.yMin ?? 0} onChange={(v) => patch({ yMin: v })} /></PanelRow>
-            <PanelRow label="Maximum"><PanelNumber value={attrs.yMax ?? 20} onChange={(v) => patch({ yMax: v })} /></PanelRow>
-            <PanelRow label="Major interval">
-              <PanelNumber value={attrs.yStep ?? 5} min={0} step={0.1}
-                onChange={(v) => patch({ yStep: v > 0 ? v : null })} />
+            <PanelRow label="cm per step">
+              <PanelNumber value={attrs.yScale.cmPerStep} min={0.1} step={0.1}
+                onChange={(v) => patch({ yScale: { ...attrs.yScale, cmPerStep: Math.max(0.1, v) } })} />
             </PanelRow>
+            <PanelRow label="unit per step">
+              <PanelNumber value={attrs.yScale.unitPerStep} min={0.001} step={0.1}
+                onChange={(v) => patch({ yScale: { ...attrs.yScale, unitPerStep: Math.max(0.001, v) } })} />
+            </PanelRow>
+            <PanelRow label="Y min">
+              <PanelNumber value={attrs.yScale.min}
+                onChange={(v) => patch({ yScale: { ...attrs.yScale, min: v } })} />
+            </PanelRow>
+            <PanelRow label="Y max">
+              <PanelNumber value={attrs.yScale.max}
+                onChange={(v) => patch({ yScale: { ...attrs.yScale, max: v } })} />
+            </PanelRow>
+            <div className="px-2 py-1 text-[11px] text-muted-foreground">
+              {attrs.yScale.cmPerStep} cm : {attrs.yScale.unitPerStep} unit
+            </div>
           </>
         )}
         <PanelRow label="Minor divisions">
@@ -191,12 +216,6 @@ export function BarChart({ attrs, onChange, selected }: Props) {
               <PanelColor value={r.color ?? attrs.barStyle.uniformColor ?? attrs.palette[i % attrs.palette.length] ?? DEFAULT_PALETTE[0]}
                 onChange={(v) => setRow(i, { color: v })} />
             </PanelRow>
-            {!bar.equalWidth && (
-              <PanelRow label="Width">
-                <PanelNumber value={r.width ?? bar.barWidth} min={4} max={200}
-                  onChange={(v) => setRow(i, { width: v })} />
-              </PanelRow>
-            )}
             <PanelRow label="Show label">
               <PanelToggle value={r.showLabel ?? true} onChange={(v) => setRow(i, { showLabel: v })} />
             </PanelRow>
@@ -213,17 +232,17 @@ export function BarChart({ attrs, onChange, selected }: Props) {
         </PanelRow>
       </PanelGroup>
 
-      {/* 5. Bar Layout */}
+      {/* 5. Bar Layout — bar width as % of plot; gap = width (bar) or 0 (histogram) */}
       <PanelGroup label="Bar layout">
-        <PanelRow label="Equal width"><PanelToggle value={bar.equalWidth} onChange={(v) => patchBar({ equalWidth: v })} /></PanelRow>
-        {bar.equalWidth && (
-          <PanelRow label="Bar width"><PanelNumber value={bar.barWidth} min={4} max={200}
-            onChange={(v) => patchBar({ barWidth: v })} /></PanelRow>
-        )}
-        <PanelRow label="Gap between bars">
-          <PanelNumber value={bar.gap} min={0} max={80}
-            onChange={(v) => patchBar({ gap: v })} />
+        <PanelRow label="Bar width (%)">
+          <PanelNumber value={attrs.barWidthPct} min={0.5} max={50} step={0.5}
+            onChange={(v) => patch({ barWidthPct: Math.max(0.5, Math.min(50, v)) })} />
         </PanelRow>
+        <div className="px-2 py-1 text-[11px] text-muted-foreground">
+          {isHistogram
+            ? "Histogram: bars touch (gap = 0)."
+            : "Bar chart: gap between bars = bar width."}
+        </div>
       </PanelGroup>
 
       {/* 6. Display Mode */}
@@ -504,7 +523,7 @@ export function BarChart({ attrs, onChange, selected }: Props) {
         {/* Bars */}
         {!blank && rows.map((r, i) => {
           const bx = xForBar(i);
-          const w = bar.equalWidth ? barWidth : (r.width ?? bar.barWidth);
+          const w = barWidth;
           const yTop = yToPx(Math.max(scale.min, Math.min(scale.max, r.value)));
           const h = Math.abs(yBaseline - yTop);
           const color =
