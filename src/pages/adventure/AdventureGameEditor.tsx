@@ -48,9 +48,9 @@ const AdventureGameEditor = () => {
   const [assetOpen, setAssetOpen] = useState(false);
   const [energyRefreshKey, setEnergyRefreshKey] = useState(0);
   const energyModeRef = useRef(false);
-  const [topBarOpen, setTopBarOpen] = useState(true);
+  const [topBarOpen, setTopBarOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [railOpen, setRailOpen] = useState(true);
+  const [railOpen, setRailOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [stageFull, setStageFull] = useState(false);
