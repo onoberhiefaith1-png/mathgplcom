@@ -7,7 +7,7 @@
 // in place. A tiny floating action row (AI · Delete) appears only while
 // the node is selected — that's the only chrome.
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
