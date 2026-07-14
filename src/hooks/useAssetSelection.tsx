@@ -49,8 +49,7 @@ export function useRegisterAssetEditor(
     if (active) {
       ctx.setReg({ id, title, editor });
       return () => {
-        // Only clear if we're still the active one.
-        ctx.setReg((prev: any) => (prev && prev.id === id ? null : prev) as any);
+        ctx.setReg((prev) => (prev && prev.id === id ? null : prev));
       };
     }
     return;
