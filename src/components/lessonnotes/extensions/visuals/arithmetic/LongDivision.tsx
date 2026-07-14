@@ -33,7 +33,7 @@ interface Props {
   selected?: boolean;
 }
 
-const MIN_COLS = 1;
+const MIN_COLS = 3;
 const COL_W = "1.15ch"; // invisible column width
 
 function toDigitArray(s: string): string[] {
