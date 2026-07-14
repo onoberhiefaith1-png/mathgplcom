@@ -7,7 +7,7 @@
 // in place. A tiny floating action row (AI · Delete) appears only while
 // the node is selected — that's the only chrome.
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
@@ -90,6 +90,20 @@ function GeometryDiagramView({
   const W = scene.bounds.width + PAD * 2;
   const H = scene.bounds.height + PAD * 2;
 
+  // Auto-hide AI action row: show on hover/select, hide 10s after last activity.
+  const [aiVisible, setAiVisible] = useState(false);
+  const hideTimer = useRef<number | null>(null);
+  const kickAi = () => {
+    setAiVisible(true);
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setAiVisible(false), 10_000);
+  };
+  useEffect(() => {
+    if (selected) kickAi();
+    return () => { if (hideTimer.current) window.clearTimeout(hideTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
   return (
     <NodeViewWrapper
       data-geometry-diagram-node="true"
@@ -101,7 +115,11 @@ function GeometryDiagramView({
           data-geometry-diagram-wrapper="true"
           data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
           className={cn("relative inline-flex items-start gap-2")}
+          onMouseEnter={kickAi}
+          onMouseMove={kickAi}
+          onFocus={kickAi}
           onMouseDown={(e) => {
+            kickAi();
             const pos = typeof getPos === "function" ? getPos() : null;
             if (pos != null && !selected) {
               editor.commands.setNodeSelection(pos);
@@ -128,13 +146,22 @@ function GeometryDiagramView({
               </p>
             )}
 
-            {/* Action row — no frame, just tools when the diagram itself is selected. */}
-            {selected && (
-              <div className="absolute -top-7 right-0 flex items-center gap-1 bg-background/95 border border-foreground/15 rounded-md shadow px-1 py-0.5">
+            {/* AI action row — sits BELOW the diagram, away from the top
+                manual Edit chip. Auto-hides 10s after last activity. */}
+            {(selected || aiVisible) && (
+              <div
+                className={cn(
+                  "absolute left-1/2 -translate-x-1/2 -bottom-9 flex items-center gap-1 bg-background/95 border border-foreground/15 rounded-md shadow px-1 py-0.5 transition-opacity duration-200",
+                  aiVisible ? "opacity-100" : "opacity-0 pointer-events-none",
+                )}
+                onMouseEnter={kickAi}
+                onMouseMove={kickAi}
+              >
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    kickAi();
                     openGeometryAiEdit({
                       scene,
                       topic,
@@ -150,6 +177,7 @@ function GeometryDiagramView({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    kickAi();
                     const pos = typeof getPos === "function" ? getPos() : null;
                     if (pos == null) return;
                     editor.chain().focus().insertContentAt(pos + node.nodeSize, {
@@ -166,6 +194,7 @@ function GeometryDiagramView({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    kickAi();
                     navigator.clipboard?.writeText(JSON.stringify({ type: "geometryDiagram", attrs: { scene, topic, align } })).catch(() => {});
                   }}
                   className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
