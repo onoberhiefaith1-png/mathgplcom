@@ -4,8 +4,12 @@
 // fly and bring the table forward when they want it visible.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Plus, Minus, Settings2 } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 import { evaluate, formatNumber } from "./evaluator";
+import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import {
+  PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
+} from "@/components/lessonnotes/panel/panelPrimitives";
 
 export interface SmartTableStyle {
   cellPadX: number;      // px
