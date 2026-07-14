@@ -1617,8 +1617,10 @@ function DocumentEditorInner({
         }}
       />
     </div>
+    </AssetSelectionProvider>
   );
 }
+
 
 /* ─── Global AI button (whole-lesson or insert-at-cursor) ─── */
 function GlobalAiButton({
