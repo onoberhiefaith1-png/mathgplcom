@@ -396,7 +396,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
         }}
       >
         <div /> {/* minus gutter */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.15ch", paddingRight: "0.25ch" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 0, paddingRight: 0, letterSpacing: "-0.02em" }}>
           <input
             type="text"
             value={m.divisor}
@@ -412,9 +412,10 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
               }
             }}
             style={{
-              width: `${Math.max(1.5, (m.divisor?.length || 0) + 0.5)}ch`,
+              width: `${Math.max(1, m.divisor?.length || 1)}ch`,
               padding: 0,
               margin: 0,
+              marginRight: "-0.05ch",
               border: "none",
               outline: "none",
               background: "transparent",
@@ -425,7 +426,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
               caretColor: "#0f172a",
             }}
           />
-          <span style={{ fontWeight: 700, fontSize: "1.1em" }}>)</span>
+          <span style={{ fontWeight: 700, fontSize: "1.1em", marginLeft: "-0.05ch" }}>)</span>
         </div>
         {/* One continuous vinculum spanning ALL dividend cells */}
         <div
