@@ -261,6 +261,11 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     preset: (["custom","waec","neco","gcse","alevel"].includes(String(a.preset))
       ? a.preset : "custom") as PresetName,
     barWidthPct: Math.max(0.5, Math.min(50, num(a.barWidthPct, 10))),
+    unitsPerCm,
+    axisMaxCm,
+    barWidthMode: (["auto","thin","normal","wide"].includes(String(a.barWidthMode))
+      ? a.barWidthMode : "auto") as "auto" | "thin" | "normal" | "wide",
+    zoom: Math.max(0.5, Math.min(3, num(a.zoom, 1))),
     canvasWidth: Math.max(320, Math.min(4000, num(a.canvasWidth, 520))),
     canvasHeight: Math.max(240, Math.min(3000, num(a.canvasHeight, 340))),
     yScale: mergeObj(a.yScale, {
