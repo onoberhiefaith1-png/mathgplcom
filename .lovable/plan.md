@@ -1,61 +1,128 @@
-# Expandable bar chart / histogram canvas
 
-Right now every bar chart and histogram is locked to a fixed 520 × 340 drawing area (`W` and `H` in `BarChart.tsx`), and the SVG scales down to whatever the container width is. That is why after ~5 bars the bars get too thin — the chart itself can't grow.
+# Graph Editor Redesign — Fixed Paper, Direct Editing
 
-Goal: let the teacher expand the chart horizontally and vertically from the settings panel, up to the full width and height of the notebook page, and remove the fixed outer boundary so the chart isn't visually boxed in.
+Rebuild the bar chart, histogram, and line chart around a clear mathematical model. Everyday editing happens **on the graph itself**; the properties panel becomes secondary (collapsed under "Advanced").
 
-## What the user will see
+## 1. The Mathematical Model
 
-1. In the right-hand Properties Panel, a new **"Canvas size"** section near the top with:
-   - **Width** number input (px) + a slider
-   - **Height** number input (px) + a slider
-   - **"Fit notebook width"** button — sets width to the current notebook column width
-   - **"Reset size"** button — restores the default 520 × 340
-2. The chart's outer rectangle border is removed by default (no visible boundary). The notebook page becomes the visual boundary.
-3. When the chart is wider than the notebook column, the block scrolls horizontally inside the note so nothing gets clipped.
-4. Adding more bars no longer thins them out — bar width stays consistent because the plot area grows with the canvas.
+Three independent concepts, never mixed:
 
-## Technical changes
+- **Graph paper (constant).** Fixed grid: every major line = 1 cm apart, exactly **4 minor lines** between two majors (fifths: 0, 0.2, 0.4, 0.6, 0.8, 1). Teachers can never change this.
+- **Scale (variable).** Answer to one question: *"1 cm = ___ units."* Only axis labels change; spacing does not.
+- **Extend (structural).** Adds more graph units at the top of the Y-axis (or right of the X-axis). New grid lines appear above; scale unchanged.
+- **Zoom (visual).** Magnifier — makes cm bigger/smaller on screen. Nothing mathematical changes.
 
-Files touched: only `smartchart/types.ts` and `smartchart/BarChart.tsx`. No backend or business-logic changes.
+A bar has **no stored value in units** — only a height in "graph units" (how many cm × current scale). A bar can never exceed the current Y-max; if the teacher wants a taller bar, they extend the graph first.
 
-**1. `types.ts` — extend `SmartChartAttrs`**
-- Add two fields with defaults:
-  ```ts
-  canvasWidth: number;   // default 520, min 320, max 4000
-  canvasHeight: number;  // default 340, min 240, max 3000
-  ```
-- Normalize + clamp them in `normalizeChart`.
+## 2. Direct On-Graph Editing
 
-**2. `BarChart.tsx` — use dynamic W/H**
-- Replace the module-level constants
-  ```ts
-  const W = 520; const H = 340;
-  const plotW = W - PAD.left - PAD.right;
-  const plotH = H - PAD.top - PAD.bottom;
-  ```
-  with values derived inside the component from `attrs.canvasWidth` / `attrs.canvasHeight`.
-- Pass the same values to the `<svg viewBox>` and to a wrapper `<div style={{ width: attrs.canvasWidth, maxWidth: "100%" }}>`. Wrap in an `overflow-x: auto` container so oversize charts scroll horizontally inside the notebook page instead of being clipped.
-- Change the SVG's inline style from `width: "100%"` to `width: attrs.canvasWidth, height: attrs.canvasHeight` so the chart renders at true pixel size (this is what makes bars keep their width as more are added).
-- Update the `Legend` helper so it also reads W/H from props (currently it uses the module-level constants). Small refactor: pass `W`, `H`, `PAD` as props.
+### Y-axis (top of vertical axis)
+- Small **`⊕`** chip sits at the top of the Y-axis.
+- Click → inline field: `1 cm = [___] unit`. Enter commits; the chip auto-hides after 10 s of no interaction.
+- Below/beside it: **`Extend ▲`** button — adds one more cm of graph at the top (new major line + 4 minors), scale unchanged.
 
-**3. New "Canvas size" panel section (in the same `editor` JSX)**
+### X-axis (end of horizontal axis)
+- Trailing **`⊕`** chip → adds a new bar (`Bar A`, `Bar B`, `Bar C` …).
+
+### Each bar (hover to reveal, idle-hide)
 ```
-Canvas size
-  Width       [PanelNumber]  (320–4000)
-  Height      [PanelNumber]  (240–3000)
-  [Fit notebook width] [Reset size]
+        [ + ]
+   ┌────────────┐
+   │            │
+   │   ██████   │
+   │            │
+   └────────────┘
+        [ − ]
+   [− Bar A +]
 ```
-"Fit notebook width" measures the containing notebook column via a ref on the wrapper div (`el.parentElement?.clientWidth`) and writes it into `canvasWidth`.
+- `+` above bar → grow by one graph unit (1 cm × scale). Clamps at current Y-max with a subtle shake + tooltip *"Extend graph to grow further."*
+- `−` below bar → shrink by one graph unit; clamps at 0.
+- `−` / `+` flanking the label → shortcut to the same grow/shrink.
+- Click the **label** → mini popover: Rename · Duplicate · Delete · Change color · **Bar width** (Thin / Normal / Wide / Automatic).
+- Drag the top edge → resize, snapping to minor lines (0.2 cm).
 
-**4. Remove the default outer boundary**
-- Change the default `plotArea.border` behaviour so a chart with `border === "transparent"` and `borderThickness === 0` (the default) draws no outer rectangle. The teacher can still turn a visible border back on from the existing "Graph area" section.
-- Also remove the implicit box feel by ensuring the wrapping `<div>` has no border/background of its own.
+Bar width is a **graph-level** property — changing it on any bar changes all bars (uniform width always).
 
-**5. Bar layout stays as-is**
-- `barWidthPct` is still a % of `plotW`, so a wider canvas → wider plot → same visual bar thickness for more bars. The user's earlier rule (bar-chart gap = bar width, histogram gap = 0, leading gap = bar width) is unchanged.
+## 3. Auto-Responsive Bar Layout
 
-## Out of scope
+- The chart always fills the notebook column width; no fixed 5-bar cap.
+- Bar width defaults to **Automatic**: computed from `plotW / nBars` with the "gap = bar width" rule for bar chart, `gap = 0` for histogram.
+- Manual override: Thin (≈ 40 % of auto), Normal (100 %), Wide (≈ 160 %).
+- Unlimited bars — 5, 50, 500, all fit; each bar simply narrows.
+- Removes the current `canvasWidth` expand model (kept only under Advanced for teachers who want a bigger canvas beyond the notebook column).
 
-- Pie / scatter / line / dotplot / boxplot / ogive: not touched in this pass — the user's request was specifically about bar chart & histogram ("all those in that category"). If they want the same resize behaviour on the other chart kinds later, we lift the same two attrs + panel section into a shared helper.
-- No changes to the diagram-level Property Panel shell in `living/panel/PropertyPanel.tsx` — that panel is for geometry diagrams, not smart charts. Smart charts already register their editor into the right-hand panel via `useRegisterAssetEditor`.
+## 4. Zoom vs Extend (distinct controls)
+
+Live above the chart (small pill row, auto-hides after idle):
+
+- **Zoom −  100 %  +** — CSS transform on the SVG wrapper. Visual only.
+- **Extend Y ▲** — adds 1 cm to Y-axis max.
+- **Extend X ▶** — adds one bar slot (same as trailing `⊕`).
+- **Reset view** — restores zoom to 100 %.
+
+## 5. What Moves to "Advanced" (collapsed panel)
+
+Panel becomes a `<details>` block titled **Advanced settings**, closed by default. Contains the existing knobs that the teacher rarely needs:
+
+- Canvas width / height override
+- Explicit yMin / yMax / yStep
+- Palette, fonts, legend position, presentation mode
+- Grid / axis / tick styling
+- Exam mode toggles
+
+Everyday controls (title, X label, Y label) stay at the top of the panel above the Advanced fold.
+
+Existing panel fields we **remove entirely** (redundant with new model): `yMinorDivisions` (locked to 4), `yScale.cmPerStep` (always 1 cm), `barWidthPct` (replaced by Thin/Normal/Wide/Auto).
+
+## 6. Line Chart
+
+Same y-scale model (1 cm = X units, Extend Y, fixed 4 minor divisions). X-axis gets the same trailing `⊕` to add points. Each point exposes `+ / −` on hover; label popover has Rename / Delete / Change color.
+
+## 7. Out of Scope This Pass
+
+Pie, scatter, dotplot, boxplot, ogive — untouched. Existing behaviour preserved.
+
+---
+
+## Technical Details
+
+**Files to change**
+
+- `src/components/lessonnotes/extensions/visuals/smartchart/types.ts`
+  - Add `graph.majorPerCm = 1` (const), `graph.minorPerMajor = 4` (const, not exposed).
+  - Replace `yScale` with `scale: { unitsPerCm: number }` (single number; default 5).
+  - Replace `canvasHeight` growth with `axisMaxCm: number` (default 7 = 7 cm tall plot).
+  - Replace `barWidthPct` with `barWidth: "thin" | "normal" | "wide" | "auto"`.
+  - `bar.rows[i]` gains `heightCm: number` (bar height measured in cm, not raw value). Migration: existing `value` → `heightCm = value / unitsPerCm`, clamped.
+  - `zoom: number` (1 = 100 %, range 0.5–3).
+
+- `src/components/lessonnotes/extensions/visuals/smartchart/scale.ts`
+  - New helpers: `cmToPx`, `unitsToCm`, `cmToUnits`, `axisTicks(axisMaxCm, unitsPerCm)`.
+  - Deprecate old auto-Y logic — Y-axis is now purely `axisMaxCm × unitsPerCm`.
+
+- `src/components/lessonnotes/extensions/visuals/smartchart/BarChart.tsx`
+  - Compute `plotW = notebookColumnWidth × zoom`, `cmPx = plotH / axisMaxCm`.
+  - Render fixed grid: majors every `cmPx`, 4 minor lines between each.
+  - Render Y-axis labels: `0, unitsPerCm, 2×unitsPerCm, … axisMaxCm × unitsPerCm`.
+  - Add on-canvas overlays: top-Y `⊕` chip (scale editor + Extend ▲), trailing-X `⊕` (add bar), per-bar hover controls (+ / − / label popover), zoom pill row.
+  - Auto bar width: `auto = plotW / (nBars × 2)` for bar chart, `plotW / nBars` for histogram.
+  - Clamp `+` at `axisMaxCm × cmPx`; shake + tooltip when clamped.
+  - Idle-hide overlays via existing `useHoverIdleVisibility`.
+  - Move existing panel JSX under a `<details>Advanced</details>` block; keep only Title / X label / Y label above the fold.
+
+- `src/components/lessonnotes/extensions/visuals/smartchart/LineChart.tsx` (or wherever line lives)
+  - Apply the same Y-scale model, trailing `⊕`, per-point +/− and label popover.
+
+- Migration in `normalizeChart`: read legacy `canvasHeight`, `barWidthPct`, `yScale`, `yMin/yMax/yStep`, `bar.rows[].value` and map into the new fields so existing notebooks keep working.
+
+**Constants**
+- `MINOR_PER_MAJOR = 4` (module const, never exposed to UI).
+- `CM_PX_BASE = 40` (base px per cm before zoom; tuned so a 7-cm plot ≈ 280 px).
+
+**Interaction**
+- Reuse `useHoverIdleVisibility` (10 s idle) for the top-Y chip, trailing-X chip, and per-bar controls.
+- Label popover reuses shadcn `Popover` with a compact vertical menu.
+
+**Validation after implementation**
+- Type-check.
+- Manually verify in the preview: existing notebook charts still render (migration), adding a 20th bar auto-narrows all bars, `+` on a tall bar clamps and shakes, `Extend Y` adds one major line and preserves scale, `1 cm = 5` vs `1 cm = 20` changes labels only.
