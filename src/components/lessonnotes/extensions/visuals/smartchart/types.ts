@@ -13,7 +13,7 @@ export type NumberSide = "left" | "right";
 export type LegendPos = "top" | "bottom" | "left" | "right";
 export type PresetName = "custom" | "waec" | "neco" | "gcse" | "alevel";
 
-export interface BarRow    { label: string; value: number; color?: string; width?: number; showLabel?: boolean }
+export interface BarRow    { label: string; value: number; heightCm?: number; color?: string; width?: number; showLabel?: boolean }
 export interface PieSector { name: string; value: number; color?: string }
 export interface HistInterval { lower: number; upper: number; frequency: number }
 export interface ScatterPoint { x: number; y: number }
@@ -99,9 +99,16 @@ export interface SmartChartAttrs {
   examMode: ExamMode;
   preset: PresetName;
 
-  // Bar width as a percentage of the plot area width (default 10 %).
+  // Bar width as a percentage of the plot area width (legacy — auto by default).
   barWidthPct: number;
-  // Canvas size in px — teacher can expand the chart to fit the notebook.
+  // New fixed-graph model: teacher sets ONE scale ("1 cm = N units") and the
+  // number of centimetres on the Y-axis. Grid is always 4 minor divisions
+  // per cm. barWidthMode controls how wide bars are drawn (auto responsive).
+  unitsPerCm: number;
+  axisMaxCm: number;
+  barWidthMode: "auto" | "thin" | "normal" | "wide";
+  zoom: number;
+  // Canvas size in px — legacy; new model auto-fits the notebook column.
   canvasWidth: number;
   canvasHeight: number;
   // Structured graph-style scale (Auto or Manual "cm : unit").
@@ -190,15 +197,28 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     (v && typeof v === "object") ? { ...d, ...(v as T) } : d;
 
   const bar = (a.bar as SmartChartAttrs["bar"] | undefined) ?? undefined;
+  const legacyUnitPerStep = num((a.yScale as { unitPerStep?: number } | undefined)?.unitPerStep, 5);
+  const unitsPerCmIn = num(a.unitsPerCm, legacyUnitPerStep > 0 ? legacyUnitPerStep : 5);
+  const unitsPerCm = unitsPerCmIn > 0 && Number.isFinite(unitsPerCmIn) ? unitsPerCmIn : 5;
+  const axisMaxCm = Math.max(3, Math.min(30, Math.round(num(a.axisMaxCm, 7))));
+
   const barRowsSrc = bar?.rows;
   const barRows: BarRow[] = Array.isArray(barRowsSrc)
-    ? barRowsSrc.map((r) => ({
-        label: str((r as BarRow)?.label, ""),
-        value: num((r as BarRow)?.value, 0),
-        color: typeof (r as BarRow)?.color === "string" ? (r as BarRow).color : undefined,
-        width: Number.isFinite(Number((r as BarRow)?.width)) ? Number((r as BarRow).width) : undefined,
-        showLabel: typeof (r as BarRow)?.showLabel === "boolean" ? (r as BarRow).showLabel : undefined,
-      }))
+    ? barRowsSrc.map((r) => {
+        const rawValue = num((r as BarRow)?.value, 0);
+        const rawHeight = (r as BarRow)?.heightCm;
+        const heightCm = Number.isFinite(Number(rawHeight))
+          ? Math.max(0, Math.min(axisMaxCm, Number(rawHeight)))
+          : Math.max(0, Math.min(axisMaxCm, rawValue / unitsPerCm));
+        return {
+          label: str((r as BarRow)?.label, ""),
+          value: rawValue,
+          heightCm,
+          color: typeof (r as BarRow)?.color === "string" ? (r as BarRow).color : undefined,
+          width: Number.isFinite(Number((r as BarRow)?.width)) ? Number((r as BarRow).width) : undefined,
+          showLabel: typeof (r as BarRow)?.showLabel === "boolean" ? (r as BarRow).showLabel : undefined,
+        };
+      })
     : [];
 
   const displayMode: DisplayMode =
@@ -241,6 +261,11 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     preset: (["custom","waec","neco","gcse","alevel"].includes(String(a.preset))
       ? a.preset : "custom") as PresetName,
     barWidthPct: Math.max(0.5, Math.min(50, num(a.barWidthPct, 10))),
+    unitsPerCm,
+    axisMaxCm,
+    barWidthMode: (["auto","thin","normal","wide"].includes(String(a.barWidthMode))
+      ? a.barWidthMode : "auto") as "auto" | "thin" | "normal" | "wide",
+    zoom: Math.max(0.5, Math.min(3, num(a.zoom, 1))),
     canvasWidth: Math.max(320, Math.min(4000, num(a.canvasWidth, 520))),
     canvasHeight: Math.max(240, Math.min(3000, num(a.canvasHeight, 340))),
     yScale: mergeObj(a.yScale, {
