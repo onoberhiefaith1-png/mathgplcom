@@ -99,9 +99,16 @@ export interface SmartChartAttrs {
   examMode: ExamMode;
   preset: PresetName;
 
-  // Bar width as a percentage of the plot area width (default 10 %).
+  // Bar width as a percentage of the plot area width (legacy — auto by default).
   barWidthPct: number;
-  // Canvas size in px — teacher can expand the chart to fit the notebook.
+  // New fixed-graph model: teacher sets ONE scale ("1 cm = N units") and the
+  // number of centimetres on the Y-axis. Grid is always 4 minor divisions
+  // per cm. barWidthMode controls how wide bars are drawn (auto responsive).
+  unitsPerCm: number;
+  axisMaxCm: number;
+  barWidthMode: "auto" | "thin" | "normal" | "wide";
+  zoom: number;
+  // Canvas size in px — legacy; new model auto-fits the notebook column.
   canvasWidth: number;
   canvasHeight: number;
   // Structured graph-style scale (Auto or Manual "cm : unit").
