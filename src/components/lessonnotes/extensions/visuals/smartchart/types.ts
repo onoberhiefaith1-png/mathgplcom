@@ -197,15 +197,28 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     (v && typeof v === "object") ? { ...d, ...(v as T) } : d;
 
   const bar = (a.bar as SmartChartAttrs["bar"] | undefined) ?? undefined;
+  const legacyUnitPerStep = num((a.yScale as { unitPerStep?: number } | undefined)?.unitPerStep, 5);
+  const unitsPerCmIn = num(a.unitsPerCm, legacyUnitPerStep > 0 ? legacyUnitPerStep : 5);
+  const unitsPerCm = unitsPerCmIn > 0 && Number.isFinite(unitsPerCmIn) ? unitsPerCmIn : 5;
+  const axisMaxCm = Math.max(3, Math.min(30, Math.round(num(a.axisMaxCm, 7))));
+
   const barRowsSrc = bar?.rows;
   const barRows: BarRow[] = Array.isArray(barRowsSrc)
-    ? barRowsSrc.map((r) => ({
-        label: str((r as BarRow)?.label, ""),
-        value: num((r as BarRow)?.value, 0),
-        color: typeof (r as BarRow)?.color === "string" ? (r as BarRow).color : undefined,
-        width: Number.isFinite(Number((r as BarRow)?.width)) ? Number((r as BarRow).width) : undefined,
-        showLabel: typeof (r as BarRow)?.showLabel === "boolean" ? (r as BarRow).showLabel : undefined,
-      }))
+    ? barRowsSrc.map((r) => {
+        const rawValue = num((r as BarRow)?.value, 0);
+        const rawHeight = (r as BarRow)?.heightCm;
+        const heightCm = Number.isFinite(Number(rawHeight))
+          ? Math.max(0, Math.min(axisMaxCm, Number(rawHeight)))
+          : Math.max(0, Math.min(axisMaxCm, rawValue / unitsPerCm));
+        return {
+          label: str((r as BarRow)?.label, ""),
+          value: rawValue,
+          heightCm,
+          color: typeof (r as BarRow)?.color === "string" ? (r as BarRow).color : undefined,
+          width: Number.isFinite(Number((r as BarRow)?.width)) ? Number((r as BarRow).width) : undefined,
+          showLabel: typeof (r as BarRow)?.showLabel === "boolean" ? (r as BarRow).showLabel : undefined,
+        };
+      })
     : [];
 
   const displayMode: DisplayMode =
