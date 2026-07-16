@@ -200,7 +200,7 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
   const legacyUnitPerStep = num((a.yScale as { unitPerStep?: number } | undefined)?.unitPerStep, 5);
   const unitsPerCmIn = num(a.unitsPerCm, legacyUnitPerStep > 0 ? legacyUnitPerStep : 5);
   const unitsPerCm = unitsPerCmIn > 0 && Number.isFinite(unitsPerCmIn) ? unitsPerCmIn : 5;
-  const axisMaxCm = Math.max(3, Math.min(30, Math.round(num(a.axisMaxCm, 7))));
+  const axisMaxCm = Math.max(3, Math.min(60, Math.round(num(a.axisMaxCm, 20))));
 
   const barRowsSrc = bar?.rows;
   const barRows: BarRow[] = Array.isArray(barRowsSrc)
