@@ -52,6 +52,9 @@ export function AtCommandMenu({ editor, state, onClose }: Props) {
       else if (e.key === "ArrowUp") { e.preventDefault(); setIdx((i) => (i - 1 + results.length) % results.length); }
       else if (e.key === "Enter") {
         e.preventDefault();
+        // Short Code fast-path: exact match on typed query inserts immediately.
+        const byCode = resolveByShortCode(state.query);
+        if (byCode) { pick(byCode); return; }
         const chosen = results[idx];
         if (chosen) pick(chosen);
       } else if (e.key === "Escape") { e.preventDefault(); onClose(); }
