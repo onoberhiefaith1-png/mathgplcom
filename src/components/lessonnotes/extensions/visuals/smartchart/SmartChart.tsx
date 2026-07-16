@@ -7,6 +7,7 @@ import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PanelGroup, PanelRow } from "@/components/lessonnotes/panel/panelPrimitives";
 import { normalizeChart, type ChartKind } from "./types";
 import { BarChart } from "./BarChart";
+import { PieChart } from "./PieChart";
 
 interface Props {
   attrs: Record<string, unknown>;
