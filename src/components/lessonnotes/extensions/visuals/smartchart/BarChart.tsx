@@ -797,122 +797,215 @@ export function BarChart({ attrs, onChange, selected }: Props) {
 }
 
 // ─── Per-bar label + popover menu ──────────────────────────────────
+// ─── Auto-fit label: single line → shrink font → wrap words ─────────
+function AutoFitLabel({
+  text, baseFontPx, minFontPx, color,
+}: { text: string; baseFontPx: number; minFontPx: number; color: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ lines: string[]; fontSize: number }>({
+    lines: [text], fontSize: baseFontPx,
+  });
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      if (w <= 0) return;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      // 1. Single line at any size in [min, base]
+      for (let f = baseFontPx; f >= minFontPx; f -= 0.5) {
+        ctx.font = `${f}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+        if (ctx.measureText(text).width <= w) {
+          setFit({ lines: [text], fontSize: f });
+          return;
+        }
+      }
+      // 2. Wrap into words (one word per line) and pick largest fitting size
+      const words = text.split(/\s+/).filter(Boolean);
+      if (words.length > 1) {
+        for (let f = baseFontPx; f >= minFontPx; f -= 0.5) {
+          ctx.font = `${f}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+          if (words.every((wd) => ctx.measureText(wd).width <= w)) {
+            setFit({ lines: words, fontSize: f });
+            return;
+          }
+        }
+        setFit({ lines: words, fontSize: minFontPx });
+        return;
+      }
+      // 3. Last resort — single word, use min font
+      setFit({ lines: [text], fontSize: minFontPx });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text, baseFontPx, minFontPx]);
+
+  return (
+    <div ref={ref} style={{ width: "100%", textAlign: "center", color, minWidth: 0 }}>
+      {fit.lines.map((line, i) => (
+        <div key={i} style={{ fontSize: fit.fontSize, lineHeight: 1.15, whiteSpace: "nowrap" }}>
+          {line}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Per-bar label + popover menu ──────────────────────────────────
 function BarLabel({
-  row, index, leftPct, topPct, onRename, onDelete, onDuplicate, onColor,
-  onWidthMode, onGrow, onShrink, widthMode, color, fontSize,
+  row, index, leftPct, topPct, widthPct, onRename, onDelete, onDuplicate, onColor,
+  onLabelColor, onWidthMode, onGrow, onShrink, widthMode, color, labelColor, fontSize,
 }: {
   row: BarRow;
   index: number;
   leftPct: number;
   topPct: number;
+  widthPct: number;
   onRename: (v: string) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onColor: (c: string) => void;
+  onLabelColor: (c: string) => void;
   onWidthMode: (m: "auto" | "thin" | "normal" | "wide") => void;
   onGrow: () => void;
   onShrink: () => void;
   widthMode: SmartChartAttrs["barWidthMode"];
   color: string;
+  labelColor: string;
   fontSize: number;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(row.label);
+  const labelText = row.label || `Bar ${index + 1}`;
   return (
     <div
       className="absolute -translate-x-1/2"
-      style={{ left: `${leftPct}%`, top: `${topPct}%` }}
+      style={{ left: `${leftPct}%`, top: `${topPct}%`, width: `${widthPct}%` }}
     >
-      <div className="flex items-center gap-1">
+      <div className="flex items-start justify-center gap-1">
+        {/* − fine decrease */}
         <button
           type="button"
           onClick={onShrink}
-          title="Decrease"
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] text-foreground/50 hover:bg-foreground/5"
+          title="Fine decrease: −0.2 cm"
+          className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full text-[10px] font-semibold text-foreground/60 hover:bg-foreground/10"
         >
           −
         </button>
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="rounded px-1.5 py-0.5 text-foreground hover:bg-foreground/5"
-              style={{ fontSize }}
-              title="Click for options"
-            >
-              {row.label || `Bar ${index + 1}`}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-2" align="center">
-            {renaming ? (
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  autoFocus
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { onRename(draft); setRenaming(false); }
-                    else if (e.key === "Escape") setRenaming(false);
-                  }}
-                  className="flex-1 rounded border border-foreground/20 bg-background px-1 py-0.5 text-xs"
+        {/* Label — 70% of the bar width, auto-fits */}
+        <div style={{ width: "70%", minWidth: 0 }}>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="w-full rounded px-1 py-0.5 hover:bg-foreground/5"
+                title="Click for options"
+              >
+                <AutoFitLabel
+                  text={labelText}
+                  baseFontPx={fontSize}
+                  minFontPx={9}
+                  color={labelColor}
                 />
-                <button
-                  type="button"
-                  onClick={() => { onRename(draft); setRenaming(false); }}
-                  className="rounded border border-foreground/20 px-1.5 py-0.5 text-[11px] hover:bg-foreground/5"
-                >
-                  Save
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-1 text-xs">
-                <button
-                  className="rounded px-2 py-1 text-left hover:bg-foreground/5"
-                  onClick={() => { setDraft(row.label); setRenaming(true); }}
-                >Rename</button>
-                <button
-                  className="rounded px-2 py-1 text-left hover:bg-foreground/5"
-                  onClick={onDuplicate}
-                >Duplicate</button>
-                <div className="flex items-center gap-2 px-2 py-1">
-                  <span>Colour</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-60 p-2" align="center">
+              {renaming ? (
+                <div className="flex items-center gap-1">
                   <input
-                    type="color"
-                    value={color}
-                    onChange={(e) => onColor(e.target.value)}
-                    className="h-5 w-8 cursor-pointer rounded border border-foreground/20 bg-transparent"
+                    type="text"
+                    autoFocus
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { onRename(draft); setRenaming(false); }
+                      else if (e.key === "Escape") setRenaming(false);
+                    }}
+                    placeholder="Category name"
+                    className="flex-1 rounded border border-foreground/30 bg-background px-2 py-1 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
+                  <button
+                    type="button"
+                    onClick={() => { onRename(draft); setRenaming(false); }}
+                    className="rounded border border-foreground/20 bg-background px-2 py-1 text-[11px] text-foreground hover:bg-foreground/5"
+                  >
+                    Save
+                  </button>
                 </div>
-                <div className="px-2 py-1">
-                  <div className="mb-1 text-[11px] text-foreground/60">Bar width (all bars)</div>
-                  <div className="flex gap-1">
-                    {(["thin","normal","wide","auto"] as const).map((m) => (
+              ) : (
+                <div className="grid gap-1 text-xs text-foreground">
+                  <button
+                    className="rounded px-2 py-1 text-left hover:bg-foreground/5"
+                    onClick={() => { setDraft(row.label); setRenaming(true); }}
+                  >Rename</button>
+                  <button
+                    className="rounded px-2 py-1 text-left hover:bg-foreground/5"
+                    onClick={onDuplicate}
+                  >Duplicate</button>
+                  <div className="flex items-center gap-2 px-2 py-1">
+                    <span>Bar colour</span>
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={(e) => onColor(e.target.value)}
+                      className="h-5 w-8 cursor-pointer rounded border border-foreground/20 bg-transparent"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 px-2 py-1">
+                    <span>Text colour</span>
+                    <input
+                      type="color"
+                      value={labelColor}
+                      onChange={(e) => onLabelColor(e.target.value)}
+                      className="h-5 w-8 cursor-pointer rounded border border-foreground/20 bg-transparent"
+                    />
+                    {(["#000000", "#1e3a8a", "#b91c1c", "#166534"] as const).map((c) => (
                       <button
-                        key={m}
-                        onClick={() => onWidthMode(m)}
-                        className={`rounded border px-1.5 py-0.5 text-[10px] capitalize ${
-                          widthMode === m
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-foreground/20 hover:bg-foreground/5"
-                        }`}
-                      >{m}</button>
+                        key={c}
+                        type="button"
+                        onClick={() => onLabelColor(c)}
+                        title={c}
+                        className="h-4 w-4 rounded-full border border-foreground/30"
+                        style={{ background: c }}
+                      />
                     ))}
                   </div>
+                  <div className="px-2 py-1">
+                    <div className="mb-1 text-[11px] text-foreground/60">Bar width (all bars)</div>
+                    <div className="flex gap-1">
+                      {(["thin","normal","wide","auto"] as const).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => onWidthMode(m)}
+                          className={`rounded border px-1.5 py-0.5 text-[10px] capitalize ${
+                            widthMode === m
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-foreground/20 hover:bg-foreground/5"
+                          }`}
+                        >{m}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    className="rounded px-2 py-1 text-left text-destructive hover:bg-destructive/5"
+                    onClick={onDelete}
+                  >Delete</button>
                 </div>
-                <button
-                  className="rounded px-2 py-1 text-left text-destructive hover:bg-destructive/5"
-                  onClick={onDelete}
-                >Delete</button>
-              </div>
-            )}
-          </PopoverContent>
-        </Popover>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+        {/* + fast increase — always beside label */}
         <button
           type="button"
           onClick={onGrow}
-          title="Increase"
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] text-primary hover:bg-primary/5"
+          title="Fast increase: +1 cm (major grid line)"
+          className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full text-[10px] font-semibold text-primary hover:bg-primary/10"
         >
           +
         </button>
