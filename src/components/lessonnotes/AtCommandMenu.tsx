@@ -4,7 +4,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
-import { searchAssets, type AssetDef } from "@/lib/lessonnotes/assets/registry";
+import {
+  searchAssets,
+  resolveByShortCode,
+  getEffectiveLabel,
+  getEffectiveShortCode,
+  type AssetDef,
+} from "@/lib/lessonnotes/assets/registry";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
 import type { AtCommandState } from "./extensions/AtCommand";
 import { MatrixCreateDialog, type MatrixDialogKind, type MatrixDialogResult } from "./MatrixCreateDialog";
