@@ -235,8 +235,8 @@ export function BarChart({ attrs, onChange, selected }: Props) {
           <span className="text-[11px] text-muted-foreground">units</span>
         </PanelRow>
         <PanelRow label="Axis height (cm)">
-          <PanelNumber value={axisMaxCm} min={3} max={30}
-            onChange={(v) => patch({ axisMaxCm: Math.max(3, Math.min(30, Math.round(v))) })} />
+          <PanelNumber value={axisMaxCm} min={3} max={60}
+            onChange={(v) => patch({ axisMaxCm: Math.max(3, Math.min(60, Math.round(v))) })} />
         </PanelRow>
         <PanelRow label="Bar width">
           <select value={attrs.barWidthMode}
