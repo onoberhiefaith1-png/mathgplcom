@@ -1,128 +1,88 @@
+## Goal
 
-# Graph Editor Redesign — Fixed Paper, Direct Editing
+When a teacher inserts a Bar Chart, Histogram, Line Graph, or Scatter Plot, the section becomes **graph paper**, not a small embedded widget. The graph fills the full writable width of the notebook, starts at ~20 cm tall, and can be extended upward without resizing anything that already exists on it.
 
-Rebuild the bar chart, histogram, and line chart around a clear mathematical model. Everyday editing happens **on the graph itself**; the properties panel becomes secondary (collapsed under "Advanced").
+## 1. Full-width graph paper
 
-## 1. The Mathematical Model
+Currently `BarChart.tsx` uses a fixed `targetPlotW = 640` and `min slotSvg` so a chart with few bars occupies only a fraction of the column.
 
-Three independent concepts, never mixed:
+Change:
+- Remove the "target 640 svg-unit" heuristic. The SVG uses `width: 100%` of the notebook column and its viewBox becomes `PAD.left + plotW + PAD.right` where `plotW` is chosen so the SVG naturally fills the column.
+- The wrapper `<div>` (currently narrow when zoom = 1) becomes `width: 100%` at zoom 1, growing only when zoom > 1 (horizontal scroll on overflow, which is fine — that's the existing scroll container).
+- Bar slots (`slotSvg`) are sized so `n_slots * slotSvg = plotW`. This gives responsive auto-width bars: 2 bars = wide bars, 40 bars = thin bars, arbitrary count, mathematically consistent with graph paper.
+- Histogram and Line use the same "fill the column" rule (line uses N-1 slots between plotted x positions; scatter uses the whole plotW as its numeric x-range).
 
-- **Graph paper (constant).** Fixed grid: every major line = 1 cm apart, exactly **4 minor lines** between two majors (fifths: 0, 0.2, 0.4, 0.6, 0.8, 1). Teachers can never change this.
-- **Scale (variable).** Answer to one question: *"1 cm = ___ units."* Only axis labels change; spacing does not.
-- **Extend (structural).** Adds more graph units at the top of the Y-axis (or right of the X-axis). New grid lines appear above; scale unchanged.
-- **Zoom (visual).** Magnifier — makes cm bigger/smaller on screen. Nothing mathematical changes.
+Same rule applies to LineChart, Histogram (already shares BarChart with `displayMode`), and ScatterPlot.
 
-A bar has **no stored value in units** — only a height in "graph units" (how many cm × current scale). A bar can never exceed the current Y-max; if the teacher wants a taller bar, they extend the graph first.
+## 2. Initial height = ~20 cm
 
-## 2. Direct On-Graph Editing
+`normalizeChart` in `types.ts` defaults `axisMaxCm` to 7. Change the default (only for **new** graphs — a graph is "new" if `axisMaxCm` isn't present in the stored attrs) to **20**. Existing graphs keep whatever height they were saved at.
 
-### Y-axis (top of vertical axis)
-- Small **`⊕`** chip sits at the top of the Y-axis.
-- Click → inline field: `1 cm = [___] unit`. Enter commits; the chip auto-hides after 10 s of no interaction.
-- Below/beside it: **`Extend ▲`** button — adds one more cm of graph at the top (new major line + 4 minors), scale unchanged.
+## 3. Extend adds paper at the TOP (no resize)
 
-### X-axis (end of horizontal axis)
-- Trailing **`⊕`** chip → adds a new bar (`Bar A`, `Bar B`, `Bar C` …).
+Current `extendY` sets `axisMaxCm += 1`. Because `cmToY(cm) = PAD.top + (axisMaxCm - cm) * CM_PX`, incrementing `axisMaxCm` already keeps bar heights (in cm) fixed in place — the y=0 baseline stays put, and a new empty row appears at the top. This is the desired mathematical behaviour.
 
-### Each bar (hover to reveal, idle-hide)
-```
-        [ + ]
-   ┌────────────┐
-   │            │
-   │   ██████   │
-   │            │
-   └────────────┘
-        [ − ]
-   [− Bar A +]
-```
-- `+` above bar → grow by one graph unit (1 cm × scale). Clamps at current Y-max with a subtle shake + tooltip *"Extend graph to grow further."*
-- `−` below bar → shrink by one graph unit; clamps at 0.
-- `−` / `+` flanking the label → shortcut to the same grow/shrink.
-- Click the **label** → mini popover: Rename · Duplicate · Delete · Change color · **Bar width** (Thin / Normal / Wide / Automatic).
-- Drag the top edge → resize, snapping to minor lines (0.2 cm).
+What we need to add:
+- A larger, clearly labelled **+ Extend** control (see §5) that steps by 1 cm.
+- Optional: hold Shift to add 5 cm.
+- The SVG viewBox height grows by `CM_PX`; the notebook page grows with it (the chart's wrapper is `height: auto`, so this already flows naturally).
 
-Bar width is a **graph-level** property — changing it on any bar changes all bars (uniform width always).
+Nothing else changes on Extend: bars, labels, scale, zoom stay identical.
 
-## 3. Auto-Responsive Bar Layout
+## 4. Zoom stays visual only
 
-- The chart always fills the notebook column width; no fixed 5-bar cap.
-- Bar width defaults to **Automatic**: computed from `plotW / nBars` with the "gap = bar width" rule for bar chart, `gap = 0` for histogram.
-- Manual override: Thin (≈ 40 % of auto), Normal (100 %), Wide (≈ 160 %).
-- Unlimited bars — 5, 50, 500, all fit; each bar simply narrows.
-- Removes the current `canvasWidth` expand model (kept only under Advanced for teachers who want a bigger canvas beyond the notebook column).
+Zoom already applies as `width: ${100 * zoom}%` on the wrapper. Keep that behaviour verbatim. Rename tooltip copy so it's clear Zoom ≠ Extend: "Zoom (visual only — does not add graph paper)".
 
-## 4. Zoom vs Extend (distinct controls)
+## 5. Redesigned Scale / Extend chip
 
-Live above the chart (small pill row, auto-hides after idle):
+The current pill at the top-left is small (`text-[11px]`, thin border, low-contrast primary text on background). Replace with a clearly readable control:
 
-- **Zoom −  100 %  +** — CSS transform on the SVG wrapper. Visual only.
-- **Extend Y ▲** — adds 1 cm to Y-axis max.
-- **Extend X ▶** — adds one bar slot (same as trailing `⊕`).
-- **Reset view** — restores zoom to 100 %.
+- Chip height 32 px, dark border, solid background matching the notebook paper, bold text: **1 cm = [ 5 ] units** with a proper `<input type="number">` inside the chip (not hidden behind a popover) — the number is always visible and editable in place.
+- Input: 56 px wide, 14 px font, `text-foreground` (dark), `bg-background`, 2 px border `border-foreground/40`, focus ring in `--primary`. Works legibly on both light and dark themes because it uses semantic tokens.
+- Right of the scale chip: an equally prominent **+ Extend** button (32 px height, same visual weight, with an up-arrow icon and the word "Extend"). Tooltip: "Add 1 cm of graph paper at the top".
+- Small "−" shrink button remains but is de-emphasised (icon-only, muted).
+- The Zoom pill row keeps its current placement in the Advanced panel and gets a "visual only" hint.
 
-## 5. What Moves to "Advanced" (collapsed panel)
+## 6. Scope
 
-Panel becomes a `<details>` block titled **Advanced settings**, closed by default. Contains the existing knobs that the teacher rarely needs:
+- `BarChart.tsx` (covers `kind: "bar"` and `kind: "histogram"` via `displayMode`)
+- `LineChart.tsx` — same full-width rule, same 20 cm default, same Extend/scale chip
+- `ScatterPlot.tsx` (if present as a separate file, else through the same shared canvas) — full-width, same chip. Scatter's y-axis extend semantics are identical (add cm at the top).
+- `types.ts` — default `axisMaxCm` to 20 for new attrs only.
 
-- Canvas width / height override
-- Explicit yMin / yMax / yStep
-- Palette, fonts, legend position, presentation mode
-- Grid / axis / tick styling
-- Exam mode toggles
+Pie / dotplot / boxplot / ogive are unaffected (they aren't graph-paper charts).
 
-Everyday controls (title, X label, Y label) stay at the top of the panel above the Advanced fold.
+## Technical details
 
-Existing panel fields we **remove entirely** (redundant with new model): `yMinorDivisions` (locked to 4), `yScale.cmPerStep` (always 1 cm), `barWidthPct` (replaced by Thin/Normal/Wide/Auto).
+**Files to touch**
 
-## 6. Line Chart
+1. `src/components/lessonnotes/extensions/visuals/smartchart/types.ts`
+   - In `normalizeChart`, change `Math.round(num(a.axisMaxCm, 7))` → `Math.round(num(a.axisMaxCm, 20))`. Legacy notebooks keep their saved value.
+   - Bump `axisMaxCm` clamp upper bound from 30 → 60 (large classroom problems).
 
-Same y-scale model (1 cm = X units, Extend Y, fixed 4 minor divisions). X-axis gets the same trailing `⊕` to add points. Each point exposes `+ / −` on hover; label popover has Rename / Delete / Change color.
+2. `src/components/lessonnotes/extensions/visuals/smartchart/BarChart.tsx`
+   - Delete `targetPlotW = 640` and the `Math.max(min, targetPlotW / baseSlotCount)` clamp. Replace with a container-measured width: use a `ResizeObserver` on the outer wrapper to read its px width, convert to svg units via `slotSvg = availablePx / baseSlotCount` (with a floor of ~18 svg-units so bars stay tap-able; below the floor, allow horizontal scroll).
+   - Alternative simpler approach (preferred): keep an SVG-space `plotW` but set it via `slotSvg = Math.max(24, Math.min(80, columnPx / baseSlotCount * (SVG_UNITS_PER_PX)))`. Because the SVG is `width: 100%`, choosing `plotW` proportional to `baseSlotCount` inside a fixed viewBox range gives the correct visual outcome regardless of column width — bars auto-thin as count grows and fill the paper.
+   - Replace the current scale/Extend overlay HTML (lines ~635–697) with the redesigned chip described in §5. Use semantic tokens (`bg-background`, `text-foreground`, `border-foreground/40`, `focus:ring-primary`) — no hard-coded colours.
+   - Extend button uses `Math.min(60, axisMaxCm + (shiftKey ? 5 : 1))`.
 
-## 7. Out of Scope This Pass
+3. `src/components/lessonnotes/extensions/visuals/smartchart/LineChart.tsx`
+   - Same full-width rule and same redesigned Extend/Scale chip.
+   - Same 20 cm default flows from `normalizeChart`.
 
-Pie, scatter, dotplot, boxplot, ogive — untouched. Existing behaviour preserved.
+4. `src/components/lessonnotes/extensions/visuals/smartchart/ScatterPlot.tsx` (if it exists — otherwise it goes through the same host)
+   - Same treatment.
 
----
+5. `.lovable/plan.md` — record the "graph becomes the page" model.
 
-## Technical Details
+**Guarantees checked before finishing**
 
-**Files to change**
+- Extend does not change any bar's `heightCm`, `unitsPerCm`, or `zoom`. Verified by property test in the diff: patch = `{ axisMaxCm: axisMaxCm + n }` only.
+- Zoom does not change `axisMaxCm`, `unitsPerCm`, `heightCm`, or the SVG viewBox — only the wrapper `width`.
+- New default of 20 cm applies **only** to freshly inserted charts. Existing notebooks with stored `axisMaxCm` continue rendering at their saved height.
 
-- `src/components/lessonnotes/extensions/visuals/smartchart/types.ts`
-  - Add `graph.majorPerCm = 1` (const), `graph.minorPerMajor = 4` (const, not exposed).
-  - Replace `yScale` with `scale: { unitsPerCm: number }` (single number; default 5).
-  - Replace `canvasHeight` growth with `axisMaxCm: number` (default 7 = 7 cm tall plot).
-  - Replace `barWidthPct` with `barWidth: "thin" | "normal" | "wide" | "auto"`.
-  - `bar.rows[i]` gains `heightCm: number` (bar height measured in cm, not raw value). Migration: existing `value` → `heightCm = value / unitsPerCm`, clamped.
-  - `zoom: number` (1 = 100 %, range 0.5–3).
+## Out of scope (won't change in this pass)
 
-- `src/components/lessonnotes/extensions/visuals/smartchart/scale.ts`
-  - New helpers: `cmToPx`, `unitsToCm`, `cmToUnits`, `axisTicks(axisMaxCm, unitsPerCm)`.
-  - Deprecate old auto-Y logic — Y-axis is now purely `axisMaxCm × unitsPerCm`.
-
-- `src/components/lessonnotes/extensions/visuals/smartchart/BarChart.tsx`
-  - Compute `plotW = notebookColumnWidth × zoom`, `cmPx = plotH / axisMaxCm`.
-  - Render fixed grid: majors every `cmPx`, 4 minor lines between each.
-  - Render Y-axis labels: `0, unitsPerCm, 2×unitsPerCm, … axisMaxCm × unitsPerCm`.
-  - Add on-canvas overlays: top-Y `⊕` chip (scale editor + Extend ▲), trailing-X `⊕` (add bar), per-bar hover controls (+ / − / label popover), zoom pill row.
-  - Auto bar width: `auto = plotW / (nBars × 2)` for bar chart, `plotW / nBars` for histogram.
-  - Clamp `+` at `axisMaxCm × cmPx`; shake + tooltip when clamped.
-  - Idle-hide overlays via existing `useHoverIdleVisibility`.
-  - Move existing panel JSX under a `<details>Advanced</details>` block; keep only Title / X label / Y label above the fold.
-
-- `src/components/lessonnotes/extensions/visuals/smartchart/LineChart.tsx` (or wherever line lives)
-  - Apply the same Y-scale model, trailing `⊕`, per-point +/− and label popover.
-
-- Migration in `normalizeChart`: read legacy `canvasHeight`, `barWidthPct`, `yScale`, `yMin/yMax/yStep`, `bar.rows[].value` and map into the new fields so existing notebooks keep working.
-
-**Constants**
-- `MINOR_PER_MAJOR = 4` (module const, never exposed to UI).
-- `CM_PX_BASE = 40` (base px per cm before zoom; tuned so a 7-cm plot ≈ 280 px).
-
-**Interaction**
-- Reuse `useHoverIdleVisibility` (10 s idle) for the top-Y chip, trailing-X chip, and per-bar controls.
-- Label popover reuses shadcn `Popover` with a compact vertical menu.
-
-**Validation after implementation**
-- Type-check.
-- Manually verify in the preview: existing notebook charts still render (migration), adding a 20th bar auto-narrows all bars, `+` on a tall bar clamps and shakes, `Extend Y` adds one major line and preserves scale, `1 cm = 5` vs `1 cm = 20` changes labels only.
+- The visual notebook margins themselves — the graph respects the same column the notebook editor already gives it.
+- Backend / persisted schema — `axisMaxCm` already exists and is stored.
+- Any other chart kind (pie, dotplot, boxplot, ogive).
