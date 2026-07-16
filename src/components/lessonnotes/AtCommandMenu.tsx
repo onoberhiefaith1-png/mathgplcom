@@ -130,9 +130,9 @@ export function AtCommandMenu({ editor, state, onClose }: Props) {
               onMouseEnter={() => setIdx(i)}
               className={`w-full text-left px-3 py-1.5 flex items-center justify-between gap-3 ${i === idx ? "bg-primary/15 text-foreground" : "text-foreground/80 hover:bg-foreground/5"}`}
             >
-              <span className="truncate">{a.label}</span>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
-                {a.hint ?? a.category}
+              <span className="truncate">{getEffectiveLabel(a)}</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground shrink-0">
+                {getEffectiveShortCode(a) || a.hint || a.category}
               </span>
             </button>
           ))
