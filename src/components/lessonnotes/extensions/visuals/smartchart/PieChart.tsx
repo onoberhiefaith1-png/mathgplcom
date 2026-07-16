@@ -133,6 +133,12 @@ export function PieChart({ attrs, onChange, selected }: Props) {
         <PanelRow label="Title">
           <PanelText value={attrs.title} onChange={(v) => onChange({ title: v })} />
         </PanelRow>
+        <PanelRow label="Zoom">
+          <PanelButton onClick={() => onChange({ zoom: Math.max(0.5, +(zoom - 0.1).toFixed(2)) })}><ZoomOut className="h-3 w-3" /></PanelButton>
+          <span className="px-1 text-[11px] tabular-nums">{Math.round(zoom * 100)}%</span>
+          <PanelButton onClick={() => onChange({ zoom: Math.min(3, +(zoom + 0.1).toFixed(2)) })}><ZoomIn className="h-3 w-3" /></PanelButton>
+          <PanelButton onClick={() => onChange({ zoom: 1 })}>Reset</PanelButton>
+        </PanelRow>
       </PanelGroup>
 
       <PanelGroup label="Sections">
