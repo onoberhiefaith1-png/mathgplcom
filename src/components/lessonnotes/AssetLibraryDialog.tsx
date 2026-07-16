@@ -2,11 +2,14 @@
 // registry the @-command menu uses. Sections stack vertically; each is a
 // responsive grid of tiles that insert on click.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { Editor } from "@tiptap/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { searchAssets, ALL_ASSETS, type AssetDef } from "@/lib/lessonnotes/assets/registry";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { searchAssets, ALL_ASSETS, getEffectiveLabel, getEffectiveShortCode, type AssetDef } from "@/lib/lessonnotes/assets/registry";
+import { setOverride, clearOverride, subscribeOverrides, normaliseShortCode } from "@/lib/lessonnotes/assets/overrides";
 import { SYMBOLS } from "@/lib/lessonnotes/assets/symbols";
 import { STRUCTURES } from "@/lib/lessonnotes/assets/structures";
 import { DIAGRAMS } from "@/lib/lessonnotes/assets/diagrams";
@@ -18,7 +21,7 @@ import { REALWORLD } from "@/lib/lessonnotes/assets/realworld";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
 import { renderVisual } from "./extensions/visuals/visualDispatch";
 import { MatrixCreateDialog, type MatrixDialogKind, type MatrixDialogResult } from "./MatrixCreateDialog";
-import { Search } from "lucide-react";
+import { Search, MoreVertical } from "lucide-react";
 
 
 interface Props {
@@ -79,6 +82,78 @@ function VisualPreview({ a }: { a: AssetDef }) {
   );
 }
 
+function AssetEditPopover({ a }: { a: AssetDef }) {
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState(getEffectiveLabel(a));
+  const [code, setCode] = useState(getEffectiveShortCode(a));
+  const [error, setError] = useState<string | null>(null);
+
+  const onOpen = (v: boolean) => {
+    if (v) {
+      setLabel(getEffectiveLabel(a));
+      setCode(getEffectiveShortCode(a));
+      setError(null);
+    }
+    setOpen(v);
+  };
+
+  const save = () => {
+    setError(null);
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) { setError("Standard Name cannot be empty."); return; }
+    const nextCode = normaliseShortCode(code);
+    if (!nextCode) { setError("Short Code cannot be empty."); return; }
+    const res = setOverride(a, { label: trimmedLabel, shortCode: nextCode }, ALL_ASSETS);
+    if (res.ok === false) {
+      setError(`This Short Code is already assigned to "${getEffectiveLabel(res.conflictWith)}". Please choose a different Short Code.`);
+      return;
+    }
+    setOpen(false);
+  };
+
+  const reset = () => {
+    clearOverride(a.id);
+    setLabel(a.label);
+    setCode(a.shortCode || "");
+    setError(null);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={onOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-1 right-1 p-0.5 rounded opacity-40 hover:opacity-100 hover:bg-foreground/10"
+          aria-label="Edit asset name and short code"
+        >
+          <MoreVertical className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-72 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-1">
+          <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Standard Name</label>
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Short Code</label>
+          <Input
+            value={code}
+            onChange={(e) => setCode(normaliseShortCode(e.target.value))}
+            placeholder="e.g. FR"
+            className="font-mono uppercase"
+          />
+        </div>
+        {error && <p className="text-[11px] text-destructive">{error}</p>}
+        <div className="flex justify-between gap-2 pt-1">
+          <Button size="sm" variant="ghost" onClick={reset}>Reset</Button>
+          <Button size="sm" onClick={save}>Save</Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
   const isArithmetic = a.group === "Arithmetic" && a.render.kind === "visual";
   const preview =
@@ -92,22 +167,31 @@ function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
       <span className="text-xs text-muted-foreground">·</span>
     );
 
+  const code = getEffectiveShortCode(a);
+  const label = getEffectiveLabel(a);
+
   return (
     <button
       type="button"
       onClick={() => onPick(a)}
-      title={`@${a.id}`}
+      title={`@${code || a.id}`}
       className={
-        "group flex flex-col items-center justify-between gap-1.5 rounded-lg border border-foreground/10 bg-background hover:border-primary/60 hover:bg-primary/5 transition p-2 text-center " +
+        "group relative flex flex-col items-center justify-between gap-1.5 rounded-lg border border-foreground/10 bg-background hover:border-primary/60 hover:bg-primary/5 transition p-2 text-center " +
         (isArithmetic ? "h-40" : "h-28")
       }
     >
+      <AssetEditPopover a={a} />
       <div className="flex-1 flex items-center justify-center w-full min-h-[2rem] text-foreground overflow-hidden">
         {preview}
       </div>
       <div className="text-[10px] leading-tight text-muted-foreground group-hover:text-foreground line-clamp-2">
-        {a.label}
+        {label}
       </div>
+      {code && (
+        <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70">
+          @{code}
+        </div>
+      )}
     </button>
   );
 }
@@ -166,6 +250,8 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
   const [q, setQ] = useState("");
   const searching = q.trim().length > 0;
   const [matrixDialog, setMatrixDialog] = useState<{ kind: MatrixDialogKind; asset: AssetDef } | null>(null);
+  // Re-render whenever a user edits an asset name or short code.
+  useSyncExternalStore(subscribeOverrides, () => localStorage.getItem("lessonnotes.assetOverrides") ?? "", () => "");
 
   const results = useMemo<AssetDef[]>(
     () => (searching ? searchAssets(q, 200) : []),

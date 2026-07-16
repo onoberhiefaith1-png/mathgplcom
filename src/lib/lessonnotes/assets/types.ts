@@ -24,7 +24,14 @@ export type AssetRender =
 
 export interface AssetDef {
   id: string;
+  /** Standard Name — descriptive, shown in menus and the Asset Library. */
   label: string;
+  /**
+   * Short Code — uppercase keyboard shortcut used by the @-command menu.
+   * Optional at author time; the registry auto-derives a unique default
+   * for every asset that omits it.
+   */
+  shortCode?: string;
   category: AssetCategory;
   /** Optional sub-group inside the category (e.g. "Basic", "Greek"). */
   group?: string;
