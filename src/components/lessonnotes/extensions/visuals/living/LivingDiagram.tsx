@@ -303,10 +303,27 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
   // and stays open until the user closes the panel — independent of tiptap
   // selection.
   const editSelected = selected || editorOpen;
+
+  // SmartChart is special: it behaves as full-width graph paper and its
+  // Properties panel opens ONLY when the user clicks ⚙ Edit (not on
+  // tiptap selection).
+  if (family === "smartChart") {
+    return (
+      <SelectionFrame
+        block
+        selected={editSelected}
+        onEdit={() => setEditorOpen((v) => !v)}
+        presenting={presenting && !editorOpen && !selected}
+        onActivity={bumpActivity}
+      >
+        <SmartChart attrs={attrs} onChange={onChange} selected={editorOpen} />
+      </SelectionFrame>
+    );
+  }
+
   const arithmeticNode = (() => {
     switch (family) {
       case "smarttable":       return <SmartTable attrs={attrs} onChange={onChange} selected={editSelected} />;
-      case "smartChart":       return <SmartChart attrs={attrs} onChange={onChange} selected={editSelected} />;
       case "placeValueChart":  return <PlaceValueChart attrs={attrs} onChange={onChange} selected={editSelected} />;
       case "longDivision":     return <LongDivision attrs={attrs} onChange={onChange} selected={editSelected} />;
       case "divisionLadder":   return <DivisionLadder attrs={attrs} onChange={onChange} selected={editSelected} />;
@@ -332,6 +349,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
       </SelectionFrame>
     );
   }
+
 
 
   return (
