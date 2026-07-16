@@ -1,18 +1,18 @@
-// Smart Graph NodeView — a clean, classroom-friendly graph workspace
-// embedded directly in the lesson note.
+// Smart Graph NodeView — a real graph-paper canvas embedded in the lesson note.
 //
-// Design goals (June 2026 refinement):
-//   - White surface, dark text, light-grey borders, yellow only for the
-//     active tool. Inputs look like plain text boxes.
-//   - Manual scale entry. The teacher types whatever comparison they
-//     want (e.g. "1 cm = 2 units" or "5 cm = 3 units"). No dropdowns.
-//   - Fully movable axes. Drag the X-axis up/down and the Y-axis
-//     left/right. Numbering, ticks and labels re-derive automatically
-//     from origin position + scale.
-//   - Cleaner toolbar: essentials in the top row, advanced settings
-//     tucked behind a "More" disclosure.
-//   - Spreadsheet-style data table fixed at the top; graph scrolls
-//     underneath. Inline undo / redo / clear.
+// Design (Nov 2026 rework):
+//   - No X/Y data table. Plotting a point just drops a dot on the paper.
+//   - Four-sided Expand controls (top / bottom / left / right) add one
+//     centimetre (= one major square = 5 minor grids) of graph paper at a
+//     time. The existing content stays anchored to its data coordinates.
+//     Trim buttons (−) remove an empty edge row/column.
+//   - "Expand" ≠ "Zoom". SQ (px per cm) is constant; only the number of
+//     squares changes. Document-level zoom (page header) is still what
+//     makes things visually larger/smaller.
+//   - The graph is the lesson-note surface. A Cursor tool marks an insertion
+//     point; an Insert dropdown drops overlay objects (text, formula,
+//     triangle, circle, rectangle, angle, image) at that point, all stored
+//     on the node attrs in data coordinates.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NodeViewWrapper } from "@tiptap/react";
@@ -20,19 +20,27 @@ import type { NodeViewProps } from "@tiptap/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move, Sparkles,
+  Plus, Minus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move,
+  Sparkles, MousePointer2, Type, Sigma, Triangle as TriangleIcon,
+  Circle as CircleIcon, Square as SquareIcon, Image as ImageIcon,
 } from "lucide-react";
-import type { GraphPoint, ConnectStyle, GraphShape, SmartGraphAttrs } from "@/components/lessonnotes/extensions/SmartGraph";
+import type {
+  GraphPoint, ConnectStyle, GraphShape, GraphOverlay, SmartGraphAttrs,
+} from "@/components/lessonnotes/extensions/SmartGraph";
 import { cn } from "@/lib/utils";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 
-const SQ = 28; // pixels per square — kept generous so the grid never feels cramped.
+const SQ = 28; // pixels per major square (= 1 cm on the printed page).
 
-type Mode = "plot" | "moveX" | "moveY";
+type Mode = "plot" | "cursor" | "moveX" | "moveY";
 
 export function SmartGraphView({ node, updateAttributes, deleteNode, selected }: NodeViewProps) {
   const a = node.attrs as unknown as SmartGraphAttrs;
-  const update = (patch: Partial<SmartGraphAttrs>) => updateAttributes(patch as Record<string, unknown>);
+  const update = (patch: Partial<SmartGraphAttrs>) =>
+    updateAttributes(patch as Record<string, unknown>);
+
+  const overlays = a.overlays ?? [];
+  const shapes = a.shapes ?? [];
 
   // ---- Local interaction state ---------------------------------------------
   const [mode, setMode] = useState<Mode>("plot");
@@ -40,10 +48,27 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const [connect, setConnect] = useState<ConnectStyle>(a.connect ?? "straight");
   useEffect(() => { if (a.connect && a.connect !== connect) setConnect(a.connect); }, [a.connect]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Cursor insertion point (in DATA coordinates). Null until first placed.
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  const [insertOpen, setInsertOpen] = useState(false);
+  const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+
+  // ---- Geometry helpers ----------------------------------------------------
+  const W = a.squaresX * SQ;
+  const H = a.squaresY * SQ;
+  const oxPx = a.originSquareX * SQ;
+  const oyPx = a.originSquareY * SQ;
+
+  const toPx = (p: { x: number; y: number }) => ({
+    x: oxPx + (p.x / a.unitsPerSquareX) * SQ,
+    y: oyPx - (p.y / a.unitsPerSquareY) * SQ,
+  });
+  const toData = (px: number, py: number): GraphPoint => ({
+    x: Math.round(((px - oxPx) / SQ) * a.unitsPerSquareX * 100) / 100,
+    y: Math.round(((oyPx - py) / SQ) * a.unitsPerSquareY * 100) / 100,
+  });
+
   // ---- Smart Scale assistant ----------------------------------------------
-  // Watches the data range + current scale and proposes a better cm-per-unit
-  // when the points overflow the page or look cramped. No equation generation,
-  // no "Generate" button — the scale fields themselves already update live.
   const scaleSuggestion = useMemo(() => {
     const pts = a.points ?? [];
     if (pts.length === 0) return null;
@@ -53,8 +78,6 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
     const yMin = Math.min(0, ...ys), yMax = Math.max(0, ...ys);
     const xRange = Math.max(1e-6, xMax - xMin);
     const yRange = Math.max(1e-6, yMax - yMin);
-
-    // "Nice" step from a target raw step (1, 2, 5, 10 family).
     const nice = (raw: number) => {
       if (raw <= 0) return 1;
       const pow = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -62,70 +85,48 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
       const m = f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10;
       return m * pow;
     };
-
-    // Aim for ~10 squares across the data range on each axis so the graph
-    // breathes without leaving the page.
     const targetSquaresX = Math.max(8, Math.min(a.squaresX - 2, 14));
     const targetSquaresY = Math.max(6, Math.min(a.squaresY - 2, 10));
     const sx = nice(xRange / targetSquaresX);
     const sy = nice(yRange / targetSquaresY);
-
-    // What the current scale produces.
-    const currentSpanX = a.squaresX * a.unitsPerSquareX;
-    const currentSpanY = a.squaresY * a.unitsPerSquareY;
-    const overflowX = xRange > currentSpanX * 0.95;
-    const overflowY = yRange > currentSpanY * 0.95;
-    const crampedX = xRange < currentSpanX * 0.15;
-    const crampedY = yRange < currentSpanY * 0.15;
-
     const changeX = Math.abs(sx - a.unitsPerSquareX) / a.unitsPerSquareX > 0.25;
     const changeY = Math.abs(sy - a.unitsPerSquareY) / a.unitsPerSquareY > 0.25;
     if (!changeX && !changeY) return null;
-
-    let reason: string;
-    if (overflowX || overflowY) {
-      reason = "Current scale is too small — some plotted points fall off the page.";
-    } else if (crampedX || crampedY) {
-      reason = "Current scale is too large — the graph looks cramped near the origin.";
-    } else {
-      reason = "This scale fits all plotted points neatly on the page.";
-    }
+    const currentSpanX = a.squaresX * a.unitsPerSquareX;
+    const currentSpanY = a.squaresY * a.unitsPerSquareY;
+    const overflow = xRange > currentSpanX * 0.95 || yRange > currentSpanY * 0.95;
+    const cramped = xRange < currentSpanX * 0.15 || yRange < currentSpanY * 0.15;
+    const reason = overflow
+      ? "Current scale is too small — some plotted points fall off the page."
+      : cramped
+        ? "Current scale is too large — the graph looks cramped near the origin."
+        : "This scale fits all plotted points neatly on the page.";
     return { sx, sy, reason };
   }, [a.points, a.unitsPerSquareX, a.unitsPerSquareY, a.squaresX, a.squaresY]);
 
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  useEffect(() => { setSuggestionDismissed(false); }, [scaleSuggestion?.sx, scaleSuggestion?.sy, scaleSuggestion?.reason]);
   const applyScaleSuggestion = () => {
     if (!scaleSuggestion) return;
     update({ unitsPerSquareX: scaleSuggestion.sx, unitsPerSquareY: scaleSuggestion.sy });
     setScaleXText(`1 cm = ${scaleSuggestion.sx} unit${scaleSuggestion.sx === 1 ? "" : "s"}`);
     setScaleYText(`1 cm = ${scaleSuggestion.sy} unit${scaleSuggestion.sy === 1 ? "" : "s"}`);
   };
-  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
-  // A fresh suggestion (different reason/values) un-dismisses itself.
-  useEffect(() => { setSuggestionDismissed(false); }, [scaleSuggestion?.sx, scaleSuggestion?.sy, scaleSuggestion?.reason]);
 
-
-
-  // ---- Geometry-inside-graph -----------------------------------------------
-  // When the document-wide Geometry Mode is active, clicks inside the graph
-  // canvas place geometry shapes (point / line / circle / arc / polygon)
-  // instead of plotting data points. Shapes are stored on the node attrs.
+  // ---- Geometry-inside-graph (document-wide geometry mode) -----------------
   const geo = useGeometryMode();
   const geomActive = geo.mode && ["point", "line", "circle", "arc", "polygon"].includes(geo.tool);
   const [geomDraft, setGeomDraft] = useState<Array<{ x: number; y: number }>>([]);
   useEffect(() => { setGeomDraft([]); }, [geo.tool, geo.mode]);
 
-  const setShapes = (shapes: GraphShape[]) => update({ shapes });
-  const addShape = (kind: GraphShape["kind"], pts: Array<{ x: number; y: number }>) =>
-    setShapes([...(a.shapes ?? []), { id: `s${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, kind, pts }]);
-
+  const setShapes = (s: GraphShape[]) => update({ shapes: s });
+  const addShape = (kind: GraphShape["kind"], ptsData: Array<{ x: number; y: number }>) =>
+    setShapes([...shapes, { id: `s${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, kind, pts: ptsData }]);
 
   // ---- Manual scale entry --------------------------------------------------
-  // The teacher writes the comparison freely; we parse "N cm = M units".
   const [scaleXText, setScaleXText] = useState(`1 cm = ${a.unitsPerSquareX} unit${a.unitsPerSquareX === 1 ? "" : "s"}`);
   const [scaleYText, setScaleYText] = useState(`1 cm = ${a.unitsPerSquareY} unit${a.unitsPerSquareY === 1 ? "" : "s"}`);
-
   const parseScale = (txt: string): number | null => {
-    // accept "1 cm = 2 units", "5 cm = 3 units", "1=2", "2", etc.
     const m = txt.match(/(-?\d*\.?\d+)\s*(?:cm)?\s*=\s*(-?\d*\.?\d+)/i);
     if (m) {
       const lhs = Number(m[1]); const rhs = Number(m[2]);
@@ -135,75 +136,88 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
     const n = Number(txt);
     return Number.isFinite(n) && n > 0 ? n : null;
   };
+  const commitScaleX = () => { const v = parseScale(scaleXText); if (v && v !== a.unitsPerSquareX) update({ unitsPerSquareX: v }); };
+  const commitScaleY = () => { const v = parseScale(scaleYText); if (v && v !== a.unitsPerSquareY) update({ unitsPerSquareY: v }); };
 
-  const commitScaleX = () => {
-    const v = parseScale(scaleXText);
-    if (v && v !== a.unitsPerSquareX) update({ unitsPerSquareX: v });
-  };
-  const commitScaleY = () => {
-    const v = parseScale(scaleYText);
-    if (v && v !== a.unitsPerSquareY) update({ unitsPerSquareY: v });
-  };
-
-  // ---- Undo / Redo (local history of point arrays) -------------------------
-  const historyRef = useRef<GraphPoint[][]>([a.points ?? []]);
+  // ---- Undo / Redo — snapshots points + shapes + overlays together ---------
+  type Snap = { points: GraphPoint[]; shapes: GraphShape[]; overlays: GraphOverlay[] };
+  const historyRef = useRef<Snap[]>([{ points: a.points ?? [], shapes, overlays }]);
   const cursorRef = useRef(0);
-  const lastPointsRef = useRef<GraphPoint[]>(a.points ?? []);
+  const skipHistoryRef = useRef(false);
   useEffect(() => {
-    // Track external changes (e.g. table edits) into history.
-    if (a.points !== lastPointsRef.current) {
-      lastPointsRef.current = a.points;
-      historyRef.current = historyRef.current.slice(0, cursorRef.current + 1);
-      historyRef.current.push(a.points);
-      cursorRef.current = historyRef.current.length - 1;
-    }
-  }, [a.points]);
-  const setPoints = (pts: GraphPoint[]) => { lastPointsRef.current = pts; update({ points: pts }); };
-  const undo = () => {
-    if (cursorRef.current > 0) {
-      cursorRef.current -= 1;
-      const pts = historyRef.current[cursorRef.current];
-      lastPointsRef.current = pts;
-      update({ points: pts });
-    }
+    if (skipHistoryRef.current) { skipHistoryRef.current = false; return; }
+    const last = historyRef.current[cursorRef.current];
+    if (last && last.points === a.points && last.shapes === shapes && last.overlays === overlays) return;
+    historyRef.current = historyRef.current.slice(0, cursorRef.current + 1);
+    historyRef.current.push({ points: a.points ?? [], shapes, overlays });
+    cursorRef.current = historyRef.current.length - 1;
+  }, [a.points, shapes, overlays]);
+  const applySnap = (s: Snap) => {
+    skipHistoryRef.current = true;
+    update({ points: s.points, shapes: s.shapes, overlays: s.overlays });
   };
-  const redo = () => {
-    if (cursorRef.current < historyRef.current.length - 1) {
-      cursorRef.current += 1;
-      const pts = historyRef.current[cursorRef.current];
-      lastPointsRef.current = pts;
-      update({ points: pts });
-    }
+  const undo = () => { if (cursorRef.current > 0) { cursorRef.current -= 1; applySnap(historyRef.current[cursorRef.current]); } };
+  const redo = () => { if (cursorRef.current < historyRef.current.length - 1) { cursorRef.current += 1; applySnap(historyRef.current[cursorRef.current]); } };
+  const setPoints = (pts: GraphPoint[]) => update({ points: pts });
+
+  // ---- Expand / Trim controls ---------------------------------------------
+  // Every expand adds one major square (= 1 cm = 5 minor grid steps).
+  const expand = (side: "top" | "bottom" | "left" | "right") => {
+    if (side === "top") update({ squaresY: a.squaresY + 1, originSquareY: a.originSquareY + 1 });
+    else if (side === "bottom") update({ squaresY: a.squaresY + 1 });
+    else if (side === "left") update({ squaresX: a.squaresX + 1, originSquareX: a.originSquareX + 1 });
+    else update({ squaresX: a.squaresX + 1 });
   };
-
-  // ---- Geometry helpers ----------------------------------------------------
-  const W = a.squaresX * SQ;
-  const H = a.squaresY * SQ;
-  const oxPx = a.originSquareX * SQ;
-  const oyPx = a.originSquareY * SQ;
-
-  const toPx = (p: GraphPoint) => ({
-    x: oxPx + (p.x / a.unitsPerSquareX) * SQ,
-    y: oyPx - (p.y / a.unitsPerSquareY) * SQ,
-  });
-  const toData = (px: number, py: number): GraphPoint => ({
-    x: Math.round(((px - oxPx) / SQ) * a.unitsPerSquareX * 100) / 100,
-    y: Math.round(((oyPx - py) / SQ) * a.unitsPerSquareY * 100) / 100,
-  });
+  // Trim only shrinks empty edges. Guardrails keep origin and all content inside.
+  const contentBoundsSq = useMemo(() => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const bump = (px: number, py: number) => {
+      const sx = px / SQ, sy = py / SQ;
+      if (sx < minX) minX = sx; if (sx > maxX) maxX = sx;
+      if (sy < minY) minY = sy; if (sy > maxY) maxY = sy;
+    };
+    for (const p of a.points ?? []) { const q = toPx(p); bump(q.x, q.y); }
+    for (const s of shapes) for (const p of s.pts) { const q = toPx(p); bump(q.x, q.y); }
+    for (const o of overlays) { const q = toPx(o); bump(q.x, q.y); }
+    // Origin is content too, so trim never eats the axis.
+    bump(oxPx, oyPx);
+    return { minX, maxX, minY, maxY };
+  }, [a.points, shapes, overlays, oxPx, oyPx]); // eslint-disable-line react-hooks/exhaustive-deps
+  const canTrim = (side: "top" | "bottom" | "left" | "right") => {
+    const b = contentBoundsSq;
+    if (side === "top") return a.squaresY > 4 && b.minY >= 1;
+    if (side === "bottom") return a.squaresY > 4 && b.maxY <= a.squaresY - 1;
+    if (side === "left") return a.squaresX > 4 && b.minX >= 1;
+    return a.squaresX > 4 && b.maxX <= a.squaresX - 1;
+  };
+  const trim = (side: "top" | "bottom" | "left" | "right") => {
+    if (!canTrim(side)) return;
+    if (side === "top") update({ squaresY: a.squaresY - 1, originSquareY: Math.max(0, a.originSquareY - 1) });
+    else if (side === "bottom") update({ squaresY: a.squaresY - 1 });
+    else if (side === "left") update({ squaresX: a.squaresX - 1, originSquareX: Math.max(0, a.originSquareX - 1) });
+    else update({ squaresX: a.squaresX - 1 });
+  };
 
   // ---- Canvas interactions -------------------------------------------------
   const svgRef = useRef<SVGSVGElement>(null);
-  const draggingRef = useRef<null | "x" | "y">(null);
+  const draggingRef = useRef<null | "x" | "y" | "overlay">(null);
+  const overlayDragRef = useRef<{ id: string } | null>(null);
+
+  const snapToHalfSquare = (px: number, py: number) => ({
+    x: Math.round((px / SQ) * 2) / 2 * SQ,
+    y: Math.round((py / SQ) * 2) / 2 * SQ,
+  });
 
   const handleSvgClick = (e: React.MouseEvent) => {
     if (!svgRef.current || draggingRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    // Geometry-mode interception: build shapes by accumulating clicks.
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    // Geometry-mode interception (uses DATA coordinates now).
     if (geomActive) {
-      const snap = (v: number) => Math.round((v / SQ) * 2) / 2 * SQ;
-      const p = { x: snap(x), y: snap(y) };
+      const s = snapToHalfSquare(px, py);
+      const p = toData(s.x, s.y);
       const t = geo.tool as GraphShape["kind"];
       if (t === "point") { addShape("point", [p]); return; }
       if (t === "line") {
@@ -213,25 +227,28 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
       }
       if (t === "circle" || t === "arc") {
         const next = [...geomDraft, p];
-        if (next.length < 3) setGeomDraft(next);
+        if (next.length < (t === "arc" ? 3 : 2)) setGeomDraft(next);
         else { addShape(t, next); setGeomDraft([]); }
         return;
       }
       if (t === "polygon") {
-        // Click points; double-click to close.
-        if (e.detail >= 2 && geomDraft.length >= 2) {
-          addShape("polygon", geomDraft);
-          setGeomDraft([]);
-        } else {
-          setGeomDraft([...geomDraft, p]);
-        }
+        if (e.detail >= 2 && geomDraft.length >= 2) { addShape("polygon", geomDraft); setGeomDraft([]); }
+        else setGeomDraft([...geomDraft, p]);
         return;
       }
     }
-    if (mode !== "plot") return;
-    const sx = Math.round((x / SQ) * 2) / 2 * SQ;
-    const sy = Math.round((y / SQ) * 2) / 2 * SQ;
-    setPoints([...a.points, toData(sx, sy)]);
+
+    if (mode === "plot") {
+      const s = snapToHalfSquare(px, py);
+      setPoints([...(a.points ?? []), toData(s.x, s.y)]);
+      return;
+    }
+    if (mode === "cursor") {
+      const s = snapToHalfSquare(px, py);
+      setCursor(toData(s.x, s.y));
+      setSelectedOverlayId(null);
+      return;
+    }
   };
 
   const onSvgMouseDown = (e: React.MouseEvent) => {
@@ -239,25 +256,69 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
     else if (mode === "moveY") draggingRef.current = "y";
   };
   const onSvgMouseMove = (e: React.MouseEvent) => {
-    if (!draggingRef.current || !svgRef.current) return;
+    if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     if (draggingRef.current === "x") {
       const sq = Math.max(0, Math.min(a.squaresY, Math.round((e.clientY - rect.top) / SQ)));
       if (sq !== a.originSquareY) update({ originSquareY: sq });
-    } else {
+    } else if (draggingRef.current === "y") {
       const sq = Math.max(0, Math.min(a.squaresX, Math.round((e.clientX - rect.left) / SQ)));
       if (sq !== a.originSquareX) update({ originSquareX: sq });
+    } else if (draggingRef.current === "overlay" && overlayDragRef.current) {
+      const id = overlayDragRef.current.id;
+      const s = snapToHalfSquare(e.clientX - rect.left, e.clientY - rect.top);
+      const d = toData(s.x, s.y);
+      update({ overlays: overlays.map((o) => (o.id === id ? { ...o, x: d.x, y: d.y } : o)) });
     }
   };
-  const endDrag = () => { draggingRef.current = null; };
+  const endDrag = () => { draggingRef.current = null; overlayDragRef.current = null; };
+
+  // ---- Overlay CRUD --------------------------------------------------------
+  const insertOverlay = (kind: GraphOverlay["kind"]) => {
+    const pos = cursor ?? toData(oxPx, oyPx);
+    const id = `o${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const base: GraphOverlay = { id, kind, x: pos.x, y: pos.y };
+    let overlay: GraphOverlay = base;
+    if (kind === "text") overlay = { ...base, payload: { text: "Text" } };
+    else if (kind === "formula") overlay = { ...base, payload: { latex: "x^2" } };
+    else if (kind === "triangle") overlay = { ...base, w: 3 * a.unitsPerSquareX, h: 3 * a.unitsPerSquareY };
+    else if (kind === "rectangle") overlay = { ...base, w: 3 * a.unitsPerSquareX, h: 2 * a.unitsPerSquareY };
+    else if (kind === "circle") overlay = { ...base, w: 2 * a.unitsPerSquareX, h: 2 * a.unitsPerSquareY };
+    else if (kind === "angle") overlay = { ...base, w: 3 * a.unitsPerSquareX, h: 3 * a.unitsPerSquareY, payload: { degrees: 45 } };
+    else if (kind === "image") overlay = { ...base, w: 4 * a.unitsPerSquareX, h: 3 * a.unitsPerSquareY, payload: { src: "" } };
+    update({ overlays: [...overlays, overlay] });
+    setSelectedOverlayId(id);
+    setInsertOpen(false);
+  };
+  const updateOverlay = (id: string, patch: Partial<GraphOverlay>) => {
+    update({ overlays: overlays.map((o) => (o.id === id ? { ...o, ...patch } : o)) });
+  };
+  const deleteOverlay = (id: string) => {
+    update({ overlays: overlays.filter((o) => o.id !== id) });
+    if (selectedOverlayId === id) setSelectedOverlayId(null);
+  };
+
+  // Keyboard delete for selected overlay
+  useEffect(() => {
+    if (!selectedOverlayId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+        e.preventDefault();
+        deleteOverlay(selectedOverlayId);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedOverlayId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Derived render data -------------------------------------------------
   const path = useMemo(
-    () => buildPath(a.points.map(toPx), connect),
+    () => buildPath((a.points ?? []).map((p) => toPx(p)), connect),
     [a.points, connect, oxPx, oyPx, a.unitsPerSquareX, a.unitsPerSquareY], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const xTicks = useMemo(() => Array.from({ length: a.squaresX + 1 }, (_, i) => i), [a.squaresX]);
   const yTicks = useMemo(() => Array.from({ length: a.squaresY + 1 }, (_, i) => i), [a.squaresY]);
+  const cursorPx = cursor ? toPx(cursor) : null;
 
   // ---- UI ------------------------------------------------------------------
   return (
@@ -274,31 +335,52 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         <span className="font-semibold mr-1">Graph</span>
 
         <ToolButton active={mode === "plot"} onClick={() => setMode("plot")} icon={<Plus className="h-3.5 w-3.5" />} label="Plot" />
+        <ToolButton active={mode === "cursor"} onClick={() => setMode("cursor")} icon={<MousePointer2 className="h-3.5 w-3.5" />} label="Cursor" />
+
+        {/* Insert dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setInsertOpen((s) => !s)}
+            className="h-7 px-2 inline-flex items-center gap-1 rounded border border-neutral-200 bg-white text-[11px] text-neutral-700 hover:bg-neutral-50"
+          >
+            Insert <ChevronDown className="h-3 w-3" />
+          </button>
+          {insertOpen && (
+            <div className="absolute z-30 mt-1 left-0 w-44 rounded-md border border-neutral-200 bg-white shadow-md py-1">
+              <InsertRow icon={<Type className="h-3.5 w-3.5" />} label="Text" onClick={() => insertOverlay("text")} />
+              <InsertRow icon={<Sigma className="h-3.5 w-3.5" />} label="Formula" onClick={() => insertOverlay("formula")} />
+              <InsertRow icon={<TriangleIcon className="h-3.5 w-3.5" />} label="Triangle" onClick={() => insertOverlay("triangle")} />
+              <InsertRow icon={<CircleIcon className="h-3.5 w-3.5" />} label="Circle" onClick={() => insertOverlay("circle")} />
+              <InsertRow icon={<SquareIcon className="h-3.5 w-3.5" />} label="Rectangle" onClick={() => insertOverlay("rectangle")} />
+              <InsertRow icon={<span className="text-[11px] font-semibold">∠</span>} label="Angle" onClick={() => insertOverlay("angle")} />
+              <InsertRow icon={<ImageIcon className="h-3.5 w-3.5" />} label="Image" onClick={() => insertOverlay("image")} />
+            </div>
+          )}
+        </div>
+
+        <span className="mx-1 h-5 w-px bg-neutral-200" />
+
         <ToolButton active={mode === "moveX"} onClick={() => setMode("moveX")} icon={<Move className="h-3.5 w-3.5 rotate-90" />} label="Move X" />
         <ToolButton active={mode === "moveY"} onClick={() => setMode("moveY")} icon={<Move className="h-3.5 w-3.5" />} label="Move Y" />
 
         <span className="mx-1 h-5 w-px bg-neutral-200" />
 
-        {/* Connect picker — segmented buttons, yellow when active */}
         {[
           { v: "straight" as const, label: "Line" },
           { v: "smooth" as const, label: "Curve" },
           { v: "broken" as const, label: "Broken" },
           { v: "scatter" as const, label: "Scatter" },
         ].map((c) => (
-          <ToolButton
-            key={c.v}
-            active={connect === c.v}
-            onClick={() => { setConnect(c.v); update({ connect: c.v }); }}
-            label={c.label}
-          />
+          <ToolButton key={c.v} active={connect === c.v}
+            onClick={() => { setConnect(c.v); update({ connect: c.v }); }} label={c.label} />
         ))}
 
         <span className="mx-1 h-5 w-px bg-neutral-200" />
 
         <IconBtn onClick={undo} title="Undo"><Undo2 className="h-3.5 w-3.5" /></IconBtn>
         <IconBtn onClick={redo} title="Redo"><Redo2 className="h-3.5 w-3.5" /></IconBtn>
-        <IconBtn onClick={() => setPoints([])} title="Clear graph"><Eraser className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn onClick={() => update({ points: [], shapes: [], overlays: [] })} title="Clear graph"><Eraser className="h-3.5 w-3.5" /></IconBtn>
 
         <div className="ml-auto flex items-center gap-1">
           <button
@@ -319,7 +401,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         </div>
       </div>
 
-      {/* Scale row — manual entry, looks like normal text inputs */}
+      {/* Scale row */}
       <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
         <span className="text-neutral-500">Scale</span>
         <label className="inline-flex items-center gap-1.5">
@@ -344,11 +426,12 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
             placeholder="1 cm = 5 units"
           />
         </label>
-        <span className="text-neutral-400 text-[11px]">Tip: select <em>Move X</em> or <em>Move Y</em>, then drag the axis.</span>
+        <span className="text-neutral-400 text-[11px]">
+          Tip: use the <em>+</em> buttons around the paper to add graph area (1 cm each). Zoom the page from the header — the scale never changes.
+        </span>
       </div>
 
-      {/* Smart Scale — live scale recommendations based on plotted points.
-          No equation generation; the AI here is purely a layout assistant. */}
+      {/* Smart Scale suggestion */}
       {scaleSuggestion && !suggestionDismissed && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-yellow-50/50 text-[12px]">
           <Sparkles className="h-3.5 w-3.5 text-yellow-600 shrink-0" />
@@ -359,17 +442,14 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
           </span>
           <span className="text-neutral-500 italic">{scaleSuggestion.reason}</span>
           <div className="ml-auto flex items-center gap-1.5">
-            <Button
-              type="button" size="sm" onClick={applyScaleSuggestion}
-              className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400"
-            >Accept</Button>
-            <button
-              type="button" onClick={() => setSuggestionDismissed(true)}
-              className="h-7 px-2 text-[11px] text-neutral-500 hover:text-neutral-700"
-            >Ignore</button>
+            <Button type="button" size="sm" onClick={applyScaleSuggestion}
+              className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400">Accept</Button>
+            <button type="button" onClick={() => setSuggestionDismissed(true)}
+              className="h-7 px-2 text-[11px] text-neutral-500 hover:text-neutral-700">Ignore</button>
           </div>
         </div>
       )}
+
       {geo.mode && (
         <div className="px-3 py-1.5 border-b border-neutral-200 bg-white text-[11px] text-yellow-700">
           Diagram mode: click in graph to draw <strong>{geo.tool}</strong>
@@ -377,15 +457,9 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         </div>
       )}
 
-
-
-      {/* More — advanced grid + axis settings */}
+      {/* More — axis labels only. Grid/origin driven by expand buttons. */}
       {showMore && (
         <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-neutral-200 bg-neutral-50 text-[11px]">
-          <NumField label="Grid columns" value={a.squaresX} onChange={(v) => update({ squaresX: Math.max(4, v) })} />
-          <NumField label="Grid rows" value={a.squaresY} onChange={(v) => update({ squaresY: Math.max(4, v) })} />
-          <NumField label="Origin X (sq)" value={a.originSquareX} onChange={(v) => update({ originSquareX: clamp(v, 0, a.squaresX) })} />
-          <NumField label="Origin Y (sq)" value={a.originSquareY} onChange={(v) => update({ originSquareY: clamp(v, 0, a.squaresY) })} />
           <label className="inline-flex items-center gap-1.5">
             <span className="text-neutral-600">X label</span>
             <Input value={a.xLabel} onChange={(e) => update({ xLabel: e.target.value })} className="h-7 w-20 text-[11px] bg-white" />
@@ -394,208 +468,332 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
             <span className="text-neutral-600">Y label</span>
             <Input value={a.yLabel} onChange={(e) => update({ yLabel: e.target.value })} className="h-7 w-20 text-[11px] bg-white" />
           </label>
+          <span className="text-neutral-500">Grid: {a.squaresX}×{a.squaresY} cm · Origin: ({a.originSquareX}, {a.originSquareY})</span>
         </div>
       )}
 
-      {/* Sticky spreadsheet-style data table */}
-      <div className="border-b border-neutral-200 bg-white sticky top-0 z-10">
-        <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-neutral-500 border-b border-neutral-100">Data</div>
-        <div className="overflow-x-auto max-h-40">
-          <table className="w-full text-[12px] border-separate border-spacing-0">
-            <thead>
-              <tr className="bg-neutral-50 text-neutral-600">
-                <th className="px-2 py-1 text-left font-medium w-10 border-b border-neutral-200">#</th>
-                <th className="px-2 py-1 text-left font-medium border-b border-l border-neutral-200">{a.xLabel}</th>
-                <th className="px-2 py-1 text-left font-medium border-b border-l border-neutral-200">{a.yLabel}</th>
-                <th className="w-8 border-b border-l border-neutral-200" />
-              </tr>
-            </thead>
-            <tbody>
-              {a.points.length === 0 && (
-                <tr><td colSpan={4} className="px-2 py-2 text-center text-neutral-400 italic">Click in the graph below to plot points.</td></tr>
-              )}
-              {a.points.map((p, i) => (
-                <tr key={i} className="hover:bg-yellow-50/40">
-                  <td className="px-2 py-0.5 text-neutral-400 border-b border-neutral-100">{i + 1}</td>
-                  <td className="px-1 py-0.5 border-b border-l border-neutral-100">
-                    <input
-                      type="number" value={p.x}
-                      onChange={(e) => setPoints(a.points.map((pp, j) => j === i ? { ...pp, x: Number(e.target.value) } : pp))}
-                      className="w-full bg-transparent outline-none focus:bg-yellow-50 px-1"
-                    />
-                  </td>
-                  <td className="px-1 py-0.5 border-b border-l border-neutral-100">
-                    <input
-                      type="number" value={p.y}
-                      onChange={(e) => setPoints(a.points.map((pp, j) => j === i ? { ...pp, y: Number(e.target.value) } : pp))}
-                      className="w-full bg-transparent outline-none focus:bg-yellow-50 px-1"
-                    />
-                  </td>
-                  <td className="border-b border-l border-neutral-100 text-center">
-                    <button
-                      onClick={() => setPoints(a.points.filter((_, j) => j !== i))}
-                      className="text-neutral-400 hover:text-red-600 text-[12px] px-1"
-                      title="Remove point"
-                    >×</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Canvas with four-sided expand controls */}
+      <div className="bg-white p-3">
+        <div className="mx-auto" style={{ width: "fit-content" }}>
+          {/* Top row: expand up */}
+          <div className="flex justify-center pb-1">
+            <EdgeButton onClick={() => expand("top")} title="Add 1 cm on top"><Plus className="h-3 w-3" /></EdgeButton>
+            <EdgeButton onClick={() => trim("top")} disabled={!canTrim("top")} title="Trim top row"><Minus className="h-3 w-3" /></EdgeButton>
+          </div>
+
+          <div className="flex items-stretch gap-1">
+            {/* Left column: expand left */}
+            <div className="flex flex-col justify-center gap-1 pr-1">
+              <EdgeButton onClick={() => expand("left")} title="Add 1 cm on the left"><Plus className="h-3 w-3" /></EdgeButton>
+              <EdgeButton onClick={() => trim("left")} disabled={!canTrim("left")} title="Trim left column"><Minus className="h-3 w-3" /></EdgeButton>
+            </div>
+
+            {/* SVG canvas */}
+            <div className="overflow-auto max-h-[600px] border border-neutral-200" data-no-drag>
+              <svg
+                ref={svgRef}
+                width={W} height={H}
+                onClick={handleSvgClick}
+                onMouseDown={onSvgMouseDown}
+                onMouseMove={onSvgMouseMove}
+                onMouseUp={endDrag}
+                onMouseLeave={endDrag}
+                className={cn(
+                  "bg-white block",
+                  mode === "plot" && "cursor-crosshair",
+                  mode === "cursor" && "cursor-crosshair",
+                  mode === "moveX" && "cursor-ns-resize",
+                  mode === "moveY" && "cursor-ew-resize",
+                )}
+              >
+                {/* Minor + major grid (5 minor per major = 1 cm) */}
+                {Array.from({ length: a.squaresX * 5 + 1 }, (_, i) => i).map((i) => {
+                  const x = (i / 5) * SQ;
+                  const isMajor = i % 5 === 0;
+                  return <line key={`mx${i}`} x1={x} y1={0} x2={x} y2={H}
+                    stroke={isMajor ? "hsl(0 0% 78%)" : "hsl(0 0% 92%)"}
+                    strokeWidth={isMajor ? 1 : 0.5} />;
+                })}
+                {Array.from({ length: a.squaresY * 5 + 1 }, (_, i) => i).map((i) => {
+                  const y = (i / 5) * SQ;
+                  const isMajor = i % 5 === 0;
+                  return <line key={`my${i}`} x1={0} y1={y} x2={W} y2={y}
+                    stroke={isMajor ? "hsl(0 0% 78%)" : "hsl(0 0% 92%)"}
+                    strokeWidth={isMajor ? 1 : 0.5} />;
+                })}
+
+                {/* Axes */}
+                <line x1={0} y1={oyPx} x2={W} y2={oyPx}
+                  stroke={mode === "moveX" ? "hsl(45 95% 50%)" : "hsl(0 0% 10%)"}
+                  strokeWidth={mode === "moveX" ? 2.4 : 2} />
+                <line x1={oxPx} y1={0} x2={oxPx} y2={H}
+                  stroke={mode === "moveY" ? "hsl(45 95% 50%)" : "hsl(0 0% 10%)"}
+                  strokeWidth={mode === "moveY" ? 2.4 : 2} />
+
+                {/* Tick labels */}
+                {xTicks.map((i) => {
+                  const val = round((i - a.originSquareX) * a.unitsPerSquareX);
+                  if (val === 0) return null;
+                  return <text key={`tx${i}`} x={i * SQ} y={oyPx + 12} fontSize="9.5" textAnchor="middle" fill="hsl(0 0% 35%)">{val}</text>;
+                })}
+                {yTicks.map((i) => {
+                  const val = round((a.originSquareY - i) * a.unitsPerSquareY);
+                  if (val === 0) return null;
+                  return <text key={`ty${i}`} x={oxPx - 4} y={i * SQ + 3} fontSize="9.5" textAnchor="end" fill="hsl(0 0% 35%)">{val}</text>;
+                })}
+
+                <text x={W - 6} y={oyPx - 6} fontSize="11" textAnchor="end" fontStyle="italic" fill="hsl(0 0% 25%)">{a.xLabel}</text>
+                <text x={oxPx + 6} y={12} fontSize="11" fontStyle="italic" fill="hsl(0 0% 25%)">{a.yLabel}</text>
+
+                {/* Plotted line + points */}
+                {connect !== "scatter" && path && (
+                  <path d={path} fill="none" stroke="hsl(220 90% 50%)" strokeWidth={1.75}
+                    strokeDasharray={connect === "broken" ? "6 4" : undefined} />
+                )}
+                {(a.points ?? []).map((p, i) => {
+                  const { x, y } = toPx(p);
+                  return (
+                    <g key={`p${i}`}>
+                      <circle cx={x} cy={y} r={3.5} fill="hsl(220 90% 50%)" stroke="white" strokeWidth={1} />
+                      <text x={x + 5} y={y - 5} fontSize="9" fill="hsl(0 0% 30%)">({p.x},{p.y})</text>
+                    </g>
+                  );
+                })}
+
+                {/* Geometry shapes (data coords) */}
+                {shapes.map((s) => <ShapeNode key={s.id} shape={s} toPx={toPx} />)}
+                {geomActive && geomDraft.length > 0 && (
+                  <g opacity={0.6}>
+                    {geomDraft.map((p, i) => { const q = toPx(p); return <circle key={i} cx={q.x} cy={q.y} r={3} fill="hsl(45 95% 45%)" />; })}
+                    {geomDraft.length >= 2 && (
+                      <polyline
+                        points={geomDraft.map((p) => { const q = toPx(p); return `${q.x},${q.y}`; }).join(" ")}
+                        fill="none" stroke="hsl(45 95% 45%)" strokeDasharray="4 3" strokeWidth={1.25} />
+                    )}
+                  </g>
+                )}
+
+                {/* Overlays */}
+                {overlays.map((o) => (
+                  <OverlayNode
+                    key={o.id}
+                    overlay={o}
+                    toPx={toPx}
+                    unitsPerSquareX={a.unitsPerSquareX}
+                    unitsPerSquareY={a.unitsPerSquareY}
+                    selected={selectedOverlayId === o.id}
+                    onSelect={() => setSelectedOverlayId(o.id)}
+                    onChange={(patch) => updateOverlay(o.id, patch)}
+                    onDelete={() => deleteOverlay(o.id)}
+                    onDragStart={() => { overlayDragRef.current = { id: o.id }; draggingRef.current = "overlay"; }}
+                  />
+                ))}
+
+                {/* Cursor marker */}
+                {mode === "cursor" && cursorPx && (
+                  <g pointerEvents="none">
+                    <line x1={cursorPx.x - 10} y1={cursorPx.y} x2={cursorPx.x + 10} y2={cursorPx.y} stroke="hsl(45 95% 45%)" strokeWidth={2} />
+                    <line x1={cursorPx.x} y1={cursorPx.y - 10} x2={cursorPx.x} y2={cursorPx.y + 10} stroke="hsl(45 95% 45%)" strokeWidth={2} />
+                    <circle cx={cursorPx.x} cy={cursorPx.y} r={3} fill="hsl(45 95% 45%)" />
+                  </g>
+                )}
+              </svg>
+            </div>
+
+            {/* Right column: expand right */}
+            <div className="flex flex-col justify-center gap-1 pl-1">
+              <EdgeButton onClick={() => expand("right")} title="Add 1 cm on the right"><Plus className="h-3 w-3" /></EdgeButton>
+              <EdgeButton onClick={() => trim("right")} disabled={!canTrim("right")} title="Trim right column"><Minus className="h-3 w-3" /></EdgeButton>
+            </div>
+          </div>
+
+          {/* Bottom row: expand down */}
+          <div className="flex justify-center pt-1">
+            <EdgeButton onClick={() => expand("bottom")} title="Add 1 cm below"><Plus className="h-3 w-3" /></EdgeButton>
+            <EdgeButton onClick={() => trim("bottom")} disabled={!canTrim("bottom")} title="Trim bottom row"><Minus className="h-3 w-3" /></EdgeButton>
+          </div>
         </div>
-      </div>
-
-      {/* Scrolling SVG canvas */}
-      <div className="overflow-auto max-h-[520px] bg-white" data-no-drag>
-        <svg
-          ref={svgRef}
-          width={W} height={H}
-          onClick={handleSvgClick}
-          onMouseDown={onSvgMouseDown}
-          onMouseMove={onSvgMouseMove}
-          onMouseUp={endDrag}
-          onMouseLeave={endDrag}
-          className={cn(
-            "bg-white",
-            mode === "plot" && "cursor-crosshair",
-            mode === "moveX" && "cursor-ns-resize",
-            mode === "moveY" && "cursor-ew-resize",
-          )}
-        >
-          {/* Minor grid — 5 subdivisions per square (0.2, 0.4, 0.6, 0.8) */}
-          {Array.from({ length: a.squaresX * 5 + 1 }, (_, i) => i).map((i) => {
-            const x = (i / 5) * SQ;
-            const isMajor = i % 5 === 0;
-            return (
-              <line
-                key={`mx${i}`} x1={x} y1={0} x2={x} y2={H}
-                stroke={isMajor ? "hsl(0 0% 78%)" : "hsl(0 0% 92%)"}
-                strokeWidth={isMajor ? 1 : 0.5}
-              />
-            );
-          })}
-          {Array.from({ length: a.squaresY * 5 + 1 }, (_, i) => i).map((i) => {
-            const y = (i / 5) * SQ;
-            const isMajor = i % 5 === 0;
-            return (
-              <line
-                key={`my${i}`} x1={0} y1={y} x2={W} y2={y}
-                stroke={isMajor ? "hsl(0 0% 78%)" : "hsl(0 0% 92%)"}
-                strokeWidth={isMajor ? 1 : 0.5}
-              />
-            );
-          })}
-
-          {/* Axes — heavy black lines, yellow while their move tool is active */}
-          <line
-            x1={0} y1={oyPx} x2={W} y2={oyPx}
-            stroke={mode === "moveX" ? "hsl(45 95% 50%)" : "hsl(0 0% 10%)"}
-            strokeWidth={mode === "moveX" ? 2.4 : 2}
-          />
-          <line
-            x1={oxPx} y1={0} x2={oxPx} y2={H}
-            stroke={mode === "moveY" ? "hsl(45 95% 50%)" : "hsl(0 0% 10%)"}
-            strokeWidth={mode === "moveY" ? 2.4 : 2}
-          />
-
-          {/* Tick labels — re-derived from origin + scale */}
-          {xTicks.map((i) => {
-            const val = round((i - a.originSquareX) * a.unitsPerSquareX);
-            if (val === 0) return null;
-            return (
-              <text key={`tx${i}`} x={i * SQ} y={oyPx + 12} fontSize="9.5" textAnchor="middle" fill="hsl(0 0% 35%)">{val}</text>
-            );
-          })}
-          {yTicks.map((i) => {
-            const val = round((a.originSquareY - i) * a.unitsPerSquareY);
-            if (val === 0) return null;
-            return (
-              <text key={`ty${i}`} x={oxPx - 4} y={i * SQ + 3} fontSize="9.5" textAnchor="end" fill="hsl(0 0% 35%)">{val}</text>
-            );
-          })}
-
-          {/* Axis names */}
-          <text x={W - 6} y={oyPx - 6} fontSize="11" textAnchor="end" fontStyle="italic" fill="hsl(0 0% 25%)">{a.xLabel}</text>
-          <text x={oxPx + 6} y={12} fontSize="11" fontStyle="italic" fill="hsl(0 0% 25%)">{a.yLabel}</text>
-
-          {/* Connection path */}
-          {connect !== "scatter" && path && (
-            <path
-              d={path} fill="none" stroke="hsl(220 90% 50%)" strokeWidth={1.75}
-              strokeDasharray={connect === "broken" ? "6 4" : undefined}
-            />
-          )}
-
-          {/* Points */}
-          {a.points.map((p, i) => {
-            const { x, y } = toPx(p);
-            return (
-              <g key={`p${i}`}>
-                <circle cx={x} cy={y} r={3.5} fill="hsl(220 90% 50%)" stroke="white" strokeWidth={1} />
-                <text x={x + 5} y={y - 5} fontSize="9" fill="hsl(0 0% 30%)">({p.x},{p.y})</text>
-              </g>
-            );
-          })}
-
-          {/* Geometry shapes drawn on top of the graph (Diagram inside graph) */}
-          {(a.shapes ?? []).map((s) => (
-            <ShapeNode key={s.id} shape={s} />
-          ))}
-          {geomActive && geomDraft.length > 0 && (
-            <g opacity={0.6}>
-              {geomDraft.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r={3} fill="hsl(45 95% 45%)" />
-              ))}
-              {geomDraft.length >= 2 && (
-                <polyline
-                  points={geomDraft.map((p) => `${p.x},${p.y}`).join(" ")}
-                  fill="none" stroke="hsl(45 95% 45%)" strokeDasharray="4 3" strokeWidth={1.25}
-                />
-              )}
-            </g>
-          )}
-        </svg>
       </div>
     </NodeViewWrapper>
   );
 }
 
+// ---------- Overlay ---------------------------------------------------------
 
-// ---------- small presentational helpers ----------------------------------
+function OverlayNode({
+  overlay: o, toPx, unitsPerSquareX, unitsPerSquareY,
+  selected, onSelect, onChange, onDelete, onDragStart,
+}: {
+  overlay: GraphOverlay;
+  toPx: (p: { x: number; y: number }) => { x: number; y: number };
+  unitsPerSquareX: number;
+  unitsPerSquareY: number;
+  selected: boolean;
+  onSelect: () => void;
+  onChange: (patch: Partial<GraphOverlay>) => void;
+  onDelete: () => void;
+  onDragStart: () => void;
+}) {
+  const pos = toPx(o);
+  const wPx = ((o.w ?? 2 * unitsPerSquareX) / unitsPerSquareX) * SQ;
+  const hPx = ((o.h ?? 2 * unitsPerSquareY) / unitsPerSquareY) * SQ;
 
-/** Render a geometry shape (point/line/circle/arc/polygon) in SVG pixel space. */
-function ShapeNode({ shape }: { shape: GraphShape }) {
+  const stroke = "hsl(220 90% 35%)";
+  const selectRing = selected ? "hsl(45 95% 45%)" : "transparent";
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect();
+    onDragStart();
+  };
+
+  let body: React.ReactNode = null;
+  if (o.kind === "text") {
+    body = (
+      <foreignObject x={pos.x} y={pos.y - 10} width={Math.max(60, wPx || 100)} height={Math.max(24, hPx || 28)}>
+        <div
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={(e) => onChange({ payload: { ...(o.payload ?? {}), text: e.currentTarget.textContent ?? "" } })}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onSelect(); }}
+          className="text-[13px] text-neutral-900 outline-none px-1 bg-white/70 rounded"
+          style={{ minHeight: 20 }}
+        >
+          {String((o.payload as { text?: string })?.text ?? "")}
+        </div>
+      </foreignObject>
+    );
+  } else if (o.kind === "formula") {
+    body = (
+      <foreignObject x={pos.x} y={pos.y - 10} width={Math.max(80, wPx || 140)} height={Math.max(24, hPx || 28)}>
+        <input
+          value={String((o.payload as { latex?: string })?.latex ?? "")}
+          onChange={(e) => onChange({ payload: { ...(o.payload ?? {}), latex: e.target.value } })}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onSelect(); }}
+          className="text-[13px] font-serif italic text-neutral-900 outline-none px-1 bg-white/70 rounded w-full"
+        />
+      </foreignObject>
+    );
+  } else if (o.kind === "triangle") {
+    const x = pos.x, y = pos.y;
+    body = <polygon points={`${x},${y - hPx / 2} ${x - wPx / 2},${y + hPx / 2} ${x + wPx / 2},${y + hPx / 2}`}
+      fill="hsla(220,90%,50%,0.06)" stroke={stroke} strokeWidth={1.5} />;
+  } else if (o.kind === "rectangle") {
+    body = <rect x={pos.x - wPx / 2} y={pos.y - hPx / 2} width={wPx} height={hPx}
+      fill="hsla(220,90%,50%,0.06)" stroke={stroke} strokeWidth={1.5} />;
+  } else if (o.kind === "circle") {
+    body = <ellipse cx={pos.x} cy={pos.y} rx={wPx / 2} ry={hPx / 2}
+      fill="hsla(220,90%,50%,0.06)" stroke={stroke} strokeWidth={1.5} />;
+  } else if (o.kind === "angle") {
+    const deg = Number((o.payload as { degrees?: number })?.degrees ?? 45);
+    const r = Math.min(wPx, hPx) / 2;
+    const rad = (deg * Math.PI) / 180;
+    const ax = pos.x + r, ay = pos.y;
+    const bx = pos.x + r * Math.cos(-rad), by = pos.y + r * Math.sin(-rad);
+    body = (
+      <g>
+        <line x1={pos.x} y1={pos.y} x2={ax} y2={ay} stroke={stroke} strokeWidth={1.5} />
+        <line x1={pos.x} y1={pos.y} x2={bx} y2={by} stroke={stroke} strokeWidth={1.5} />
+        <path d={`M ${pos.x + r / 2} ${pos.y} A ${r / 2} ${r / 2} 0 0 0 ${pos.x + (r / 2) * Math.cos(-rad)} ${pos.y + (r / 2) * Math.sin(-rad)}`}
+          fill="none" stroke={stroke} strokeWidth={1} />
+        <text x={pos.x + r * 0.7 * Math.cos(-rad / 2)} y={pos.y + r * 0.7 * Math.sin(-rad / 2)} fontSize="10" fill={stroke}>{deg}°</text>
+      </g>
+    );
+  } else if (o.kind === "image") {
+    const src = String((o.payload as { src?: string })?.src ?? "");
+    body = src
+      ? <image href={src} x={pos.x - wPx / 2} y={pos.y - hPx / 2} width={wPx} height={hPx} />
+      : (
+        <foreignObject x={pos.x - wPx / 2} y={pos.y - hPx / 2} width={wPx} height={hPx}>
+          <div
+            className="w-full h-full border border-dashed border-neutral-400 bg-neutral-50 flex items-center justify-center text-[11px] text-neutral-500"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <label className="cursor-pointer px-2 py-1 rounded bg-white border border-neutral-200 hover:bg-neutral-50">
+              Choose image
+              <input type="file" accept="image/*" className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const reader = new FileReader();
+                  reader.onload = () => onChange({ payload: { src: String(reader.result ?? "") } });
+                  reader.readAsDataURL(f);
+                }}
+              />
+            </label>
+          </div>
+        </foreignObject>
+      );
+  }
+
+  // Bounding box for selection ring + drag handle
+  const bx = pos.x - wPx / 2, by = pos.y - hPx / 2;
+  const rectW = ["text", "formula"].includes(o.kind) ? Math.max(60, wPx || 100) : wPx;
+  const rectH = ["text", "formula"].includes(o.kind) ? Math.max(24, hPx || 28) : hPx;
+  const rx = ["text", "formula"].includes(o.kind) ? pos.x : bx;
+  const ry = ["text", "formula"].includes(o.kind) ? pos.y - 10 : by;
+
+  return (
+    <g>
+      {body}
+      <rect
+        x={rx - 3} y={ry - 3} width={rectW + 6} height={rectH + 6}
+        fill="transparent"
+        stroke={selectRing}
+        strokeDasharray={selected ? "4 3" : undefined}
+        strokeWidth={1}
+        onMouseDown={handleMouseDown}
+        style={{ cursor: "move" }}
+      />
+      {selected && (
+        <g transform={`translate(${rx + rectW - 4}, ${ry - 12})`} style={{ cursor: "pointer" }}
+          onMouseDown={(e) => { e.stopPropagation(); onDelete(); }}>
+          <circle r={8} fill="white" stroke="hsl(0 70% 55%)" />
+          <text textAnchor="middle" dy={3} fontSize="11" fill="hsl(0 70% 55%)">×</text>
+        </g>
+      )}
+    </g>
+  );
+}
+
+// ---------- Small presentational helpers ------------------------------------
+
+function ShapeNode({
+  shape, toPx,
+}: {
+  shape: GraphShape;
+  toPx: (p: { x: number; y: number }) => { x: number; y: number };
+}) {
   const stroke = "hsl(220 90% 35%)";
   const fill = "none";
-  if (shape.kind === "point" && shape.pts[0]) {
-    const p = shape.pts[0];
-    return <circle cx={p.x} cy={p.y} r={4} fill={stroke} />;
+  const pts = shape.pts.map(toPx);
+  if (shape.kind === "point" && pts[0]) {
+    return <circle cx={pts[0].x} cy={pts[0].y} r={4} fill={stroke} />;
   }
-  if (shape.kind === "line" && shape.pts.length >= 2) {
-    const [a, b] = shape.pts;
-    return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={stroke} strokeWidth={1.5} />;
+  if (shape.kind === "line" && pts.length >= 2) {
+    return <line x1={pts[0].x} y1={pts[0].y} x2={pts[1].x} y2={pts[1].y} stroke={stroke} strokeWidth={1.5} />;
   }
-  if (shape.kind === "circle" && shape.pts.length >= 2) {
-    const [c, r] = shape.pts;
+  if (shape.kind === "circle" && pts.length >= 2) {
+    const [c, r] = pts;
     const radius = Math.hypot(r.x - c.x, r.y - c.y);
     return <circle cx={c.x} cy={c.y} r={radius} fill={fill} stroke={stroke} strokeWidth={1.5} />;
   }
-  if (shape.kind === "arc" && shape.pts.length >= 3) {
-    // 3-point arc → approximate as polyline through the points (lightweight).
-    const d = `M ${shape.pts[0].x} ${shape.pts[0].y} Q ${shape.pts[1].x} ${shape.pts[1].y} ${shape.pts[2].x} ${shape.pts[2].y}`;
+  if (shape.kind === "arc" && pts.length >= 3) {
+    const d = `M ${pts[0].x} ${pts[0].y} Q ${pts[1].x} ${pts[1].y} ${pts[2].x} ${pts[2].y}`;
     return <path d={d} fill={fill} stroke={stroke} strokeWidth={1.5} />;
   }
-  if (shape.kind === "polygon" && shape.pts.length >= 2) {
+  if (shape.kind === "polygon" && pts.length >= 2) {
     return (
       <polygon
-        points={shape.pts.map((p) => `${p.x},${p.y}`).join(" ")}
+        points={pts.map((p) => `${p.x},${p.y}`).join(" ")}
         fill="hsla(220, 90%, 50%, 0.06)" stroke={stroke} strokeWidth={1.5}
       />
     );
   }
   return null;
 }
-
 
 function ToolButton({
   active, onClick, icon, label,
@@ -626,23 +824,36 @@ function IconBtn({ onClick, title, children }: { onClick: () => void; title: str
   );
 }
 
-function NumField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function EdgeButton({
+  onClick, disabled, title, children,
+}: { onClick: () => void; disabled?: boolean; title: string; children: React.ReactNode }) {
   return (
-    <label className="inline-flex items-center gap-1.5">
-      <span className="text-neutral-600">{label}</span>
-      <Input
-        type="number" value={value}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="h-7 w-20 text-[11px] bg-white"
-      />
-    </label>
+    <button
+      type="button" onClick={onClick} disabled={disabled} title={title}
+      className={cn(
+        "h-6 w-6 inline-flex items-center justify-center rounded border transition-colors",
+        disabled
+          ? "border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed"
+          : "border-neutral-200 bg-white text-neutral-700 hover:bg-yellow-50 hover:border-yellow-400",
+      )}
+    >{children}</button>
   );
 }
 
-function clamp(v: number, lo: number, hi: number) { return Math.min(hi, Math.max(lo, v)); }
+function InsertRow({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button" onClick={onClick}
+      className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-neutral-700 hover:bg-neutral-50"
+    >
+      <span className="w-4 inline-flex justify-center">{icon}</span>
+      {label}
+    </button>
+  );
+}
+
 function round(v: number) { return Math.round(v * 100) / 100; }
 
-/** Build an SVG path from pixel-space points using the chosen connect style. */
 function buildPath(pts: { x: number; y: number }[], style: ConnectStyle): string | null {
   if (pts.length < 2) return null;
   if (style === "scatter") return null;
