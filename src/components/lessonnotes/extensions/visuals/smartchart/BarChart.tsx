@@ -765,22 +765,28 @@ export function BarChart({ attrs, onChange, selected }: Props) {
         {showCategoryLabels && rows.map((r, i) => {
           const bx = xForBar(i);
           const centreX = bx + barWidth / 2;
+          // Wrapper spans the full bar slot; label text is clamped to
+          // 70% of that width and auto-fits inside.
+          const slotPct = (barWidth / svgW) * 100;
           return (
             <BarLabel
               key={`lb${i}`}
               row={r}
               index={i}
               leftPct={(centreX / svgW) * 100}
-              topPct={((yBaseline + 22) / svgH) * 100}
+              topPct={((yBaseline + 6) / svgH) * 100}
+              widthPct={slotPct}
               onRename={(v) => setRow(i, { label: v })}
               onDelete={() => delRow(i)}
               onDuplicate={() => dupRow(i)}
               onColor={(c) => setRow(i, { color: c })}
+              onLabelColor={(c) => setRow(i, { labelColor: c })}
               onWidthMode={(m) => patch({ barWidthMode: m })}
               onGrow={() => growBar(i)}
               onShrink={() => shrinkBar(i)}
               widthMode={attrs.barWidthMode}
               color={r.color ?? attrs.barStyle.uniformColor ?? attrs.palette[i % attrs.palette.length] ?? DEFAULT_PALETTE[0]}
+              labelColor={r.labelColor ?? attrs.xAxis.color ?? "#0f172a"}
               fontSize={attrs.fonts.size}
             />
           );
