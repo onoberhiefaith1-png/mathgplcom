@@ -83,6 +83,7 @@ export const SmartGraphNode = Node.create({
       points: { default: DEFAULT_GRAPH.points },
       connect: { default: DEFAULT_GRAPH.connect },
       shapes: { default: DEFAULT_GRAPH.shapes },
+      overlays: { default: DEFAULT_GRAPH.overlays },
     };
   },
 
