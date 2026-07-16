@@ -54,7 +54,11 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   // into the column. Bars therefore always fill the paper regardless of
   // notebook width, and never appear as a small floating widget.
   const nBars = Math.max(1, rows.length);
-  const baseSlotCount = isHistogram ? nBars : (2 * nBars + 1);
+  // Ensure a sensible minimum so an empty histogram / bar chart still
+  // fills the notebook column instead of appearing as a narrow strip
+  // (SVG uses preserveAspectRatio, so a tiny viewBox looks small AND bold).
+  const rawSlotCount = isHistogram ? nBars : (2 * nBars + 1);
+  const baseSlotCount = Math.max(isHistogram ? 8 : 11, rawSlotCount);
   // slotSvg in svg-units. Pick a comfortable per-slot size so the aspect
   // ratio stays sensible for both few and many bars.
   const slotSvg = baseSlotCount <= 12 ? 48 : baseSlotCount <= 24 ? 36 : 28;
@@ -68,15 +72,19 @@ export function BarChart({ attrs, onChange, selected }: Props) {
     : attrs.barWidthMode === "wide" ? 1.5
     : attrs.barWidthMode === "normal" ? 1.0
     : 1.0; // auto ≡ strict gap=width, mult=1
-  const barBase = isHistogram ? slotSvg : slotSvg;   // one slot per bar in both models
-  const barWidth = Math.min(slotSvg, barBase * widthMult);
+  // For a histogram, stretch every bar to fill the plot so a chart with
+  // few bars still occupies the full notebook width. Bar chart mode keeps
+  // the gap-width-gap rhythm.
+  const histBarWidth = plotW / nBars;
+  const barBase = isHistogram ? histBarWidth : slotSvg;
+  const barWidth = isHistogram ? histBarWidth : Math.min(slotSvg, barBase * widthMult);
   const gap = isHistogram ? 0 : (slotSvg - barWidth); // pack: gap = leftover in slot pair
   // For bar chart we still want gap==barWidth in auto mode. Recompute:
   // In auto: barWidth = slotSvg (which equals gap slot). Every "unit" slot
   // is slotSvg svg-units. Pattern: gap, bar, gap, bar, …, gap. So x_i for
   // bar i (0-indexed) = PAD.left + slotSvg * (2i + 1).
   const xForBar = (i: number) => {
-    if (isHistogram) return PAD.left + i * slotSvg;
+    if (isHistogram) return PAD.left + i * histBarWidth;
     // For non-auto width, shrink the bar and centre it inside its "bar slot"
     const innerOffset = (slotSvg - barWidth) / 2;
     return PAD.left + slotSvg * (2 * i + 1) + innerOffset;

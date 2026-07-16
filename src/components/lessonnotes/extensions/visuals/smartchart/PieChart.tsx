@@ -4,7 +4,7 @@
 // the Properties Panel. Full-width like the Bar Chart.
 
 import { useState } from "react";
-import { ArrowUp, ArrowDown, Plus, Trash2 } from "lucide-react";
+import { ArrowUp, ArrowDown, Plus, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 import {
   PanelGroup, PanelRow, PanelButton, PanelColor, PanelText,
 } from "@/components/lessonnotes/panel/panelPrimitives";
@@ -49,6 +49,7 @@ export function PieChart({ attrs, onChange, selected }: Props) {
   const sectors = attrs.pie.sectors;
   const labelMode = attrs.pie.labelMode;
   const palette = attrs.palette;
+  const zoom = Math.max(0.5, Math.min(3, attrs.zoom || 1));
 
   const total = sectors.reduce((s, r) => s + (Number.isFinite(r.value) ? r.value : 0), 0);
   const remaining = Math.max(0, 100 - total);
@@ -131,6 +132,12 @@ export function PieChart({ attrs, onChange, selected }: Props) {
         </PanelRow>
         <PanelRow label="Title">
           <PanelText value={attrs.title} onChange={(v) => onChange({ title: v })} />
+        </PanelRow>
+        <PanelRow label="Zoom">
+          <PanelButton onClick={() => onChange({ zoom: Math.max(0.5, +(zoom - 0.1).toFixed(2)) })}><ZoomOut className="h-3 w-3" /></PanelButton>
+          <span className="px-1 text-[11px] tabular-nums">{Math.round(zoom * 100)}%</span>
+          <PanelButton onClick={() => onChange({ zoom: Math.min(3, +(zoom + 0.1).toFixed(2)) })}><ZoomIn className="h-3 w-3" /></PanelButton>
+          <PanelButton onClick={() => onChange({ zoom: 1 })}>Reset</PanelButton>
         </PanelRow>
       </PanelGroup>
 
@@ -263,7 +270,7 @@ export function PieChart({ attrs, onChange, selected }: Props) {
         <svg
           viewBox={`0 0 ${VB} ${VB}`}
           className="block"
-          style={{ width: "min(100%, 520px)", height: "auto" }}
+          style={{ width: `min(${100 * zoom}%, ${520 * zoom}px)`, height: "auto" }}
           role="img"
           aria-label="Pie chart"
         >
