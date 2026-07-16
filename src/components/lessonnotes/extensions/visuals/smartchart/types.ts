@@ -281,5 +281,18 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
       barWidth: num(bar?.barWidth, 40),
       showValuesAbove: bool(bar?.showValuesAbove, false),
     },
+    pie: (() => {
+      const pieIn = a.pie as Partial<SmartChartAttrs["pie"]> | undefined;
+      const sectorsIn = Array.isArray(pieIn?.sectors) ? pieIn!.sectors : [];
+      const sectors: PieSector[] = sectorsIn.map((s) => ({
+        name: str((s as PieSector)?.name, ""),
+        value: Math.max(0, Math.min(100, num((s as PieSector)?.value, 0))),
+        color: typeof (s as PieSector)?.color === "string" ? (s as PieSector).color : undefined,
+      }));
+      const modeIn = pieIn?.labelMode;
+      const labelMode: PieLabelMode = (modeIn === "category" || modeIn === "percent" || modeIn === "none" || modeIn === "category+percent")
+        ? modeIn : "category+percent";
+      return { sectors, labelMode };
+    })(),
   };
 }
