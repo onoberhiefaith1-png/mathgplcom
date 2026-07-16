@@ -123,11 +123,9 @@ export interface SmartChartAttrs {
     barWidth: number;
     showValuesAbove: boolean;
   };
-  pie?: {
+  pie: {
     sectors: PieSector[];
-    labelPos: "inside" | "outside" | "none";
-    showPercent: boolean;
-    showAngle: boolean;
+    labelMode: PieLabelMode;
   };
   histogram?: {
     intervals: HistInterval[];
