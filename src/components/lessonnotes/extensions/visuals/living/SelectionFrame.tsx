@@ -12,9 +12,11 @@ interface Props {
   presenting?: boolean;
   /** Called on hover/pointer so the parent can reset the idle timer. */
   onActivity?: () => void;
+  /** When true, frame is block-level and fills its parent's width. */
+  block?: boolean;
 }
 
-export function SelectionFrame({ selected, onEdit, children, presenting = false, onActivity }: Props) {
+export function SelectionFrame({ selected, onEdit, children, presenting = false, onActivity, block = false }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState(false);
   const [, force] = useState(0);
@@ -32,7 +34,7 @@ export function SelectionFrame({ selected, onEdit, children, presenting = false,
   return (
     <div
       ref={ref}
-      className="relative inline-block"
+      className={block ? "relative block w-full" : "relative inline-block"}
       data-selected={selected ? "true" : "false"}
       onMouseEnter={() => { setHover(true); onActivity?.(); }}
       onMouseLeave={() => setHover(false)}
@@ -40,6 +42,7 @@ export function SelectionFrame({ selected, onEdit, children, presenting = false,
       onPointerDown={onActivity}
       style={{ transition: "opacity 200ms" }}
     >
+
       {children}
       {showChip && (
         <button
