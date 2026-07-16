@@ -731,7 +731,7 @@ export function BarChart({ attrs, onChange, selected }: Props) {
               <button
                 type="button"
                 onClick={() => growBar(i)}
-                title="Increase by 1 graph unit"
+                title="Fast increase: +1 cm (major grid line)"
                 className="absolute left-1/2 h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border border-primary/40 bg-background text-primary opacity-0 shadow-sm transition-opacity hover:bg-primary/5 group-hover:opacity-100 flex"
                 style={{
                   top: `${((yTop - PAD.top) / plotH) * 100}%`,
