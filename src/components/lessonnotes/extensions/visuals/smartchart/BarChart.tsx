@@ -54,7 +54,11 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   // into the column. Bars therefore always fill the paper regardless of
   // notebook width, and never appear as a small floating widget.
   const nBars = Math.max(1, rows.length);
-  const baseSlotCount = isHistogram ? nBars : (2 * nBars + 1);
+  // Ensure a sensible minimum so an empty histogram / bar chart still
+  // fills the notebook column instead of appearing as a narrow strip
+  // (SVG uses preserveAspectRatio, so a tiny viewBox looks small AND bold).
+  const rawSlotCount = isHistogram ? nBars : (2 * nBars + 1);
+  const baseSlotCount = Math.max(isHistogram ? 8 : 11, rawSlotCount);
   // slotSvg in svg-units. Pick a comfortable per-slot size so the aspect
   // ratio stays sensible for both few and many bars.
   const slotSvg = baseSlotCount <= 12 ? 48 : baseSlotCount <= 24 ? 36 : 28;
