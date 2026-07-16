@@ -136,7 +136,8 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const shrinkBar = (i: number) => {
     const r = rows[i]; if (!r) return;
     const cur = r.heightCm ?? 0;
-    const next = Math.max(0, cur - 1);
+    // Fine-grained: minor grid line = 0.2 cm
+    const next = Math.max(0, +(cur - 0.2).toFixed(2));
     setRow(i, { heightCm: next, value: next * unitsPerCm });
   };
 
