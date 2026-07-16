@@ -26,11 +26,21 @@ function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeVi
     [updateAttributes],
   );
 
+  // SmartChart is graph paper: render the wrapper as a block-level span
+  // that fills the notebook column, not a fixed-width inline atom.
+  const isSmartChart = family === "smartChart";
+  const wrapperStyle: React.CSSProperties = isSmartChart
+    ? { display: "block", width: "100%", maxWidth: "100%" }
+    : { width, maxWidth: "100%" };
+  const wrapperClass = isSmartChart
+    ? "math-visual block w-full my-3"
+    : "math-visual inline-block align-middle";
+
   return (
     <NodeViewWrapper
       as={"span" as any}
-      className="math-visual inline-block align-middle"
-      style={{ width, maxWidth: "100%" }}
+      className={wrapperClass}
+      style={wrapperStyle}
     >
       <LivingDiagram
         variant={variant}
@@ -43,6 +53,7 @@ function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeVi
     </NodeViewWrapper>
   );
 }
+
 
 export const MathVisual = Node.create({
   name: "mathVisual",
