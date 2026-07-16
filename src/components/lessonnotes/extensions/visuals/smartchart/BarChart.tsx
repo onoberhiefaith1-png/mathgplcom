@@ -16,7 +16,7 @@
 // + to add bar, per-bar +/- to grow/shrink, click label for menu). The
 // full property panel still exists but is collapsed under "Advanced".
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, ArrowUp, ArrowDown, Copy as CopyIcon, ChevronUp, ZoomIn, ZoomOut } from "lucide-react";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle, PanelText,
