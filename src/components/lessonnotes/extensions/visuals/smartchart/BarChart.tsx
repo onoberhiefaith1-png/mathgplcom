@@ -47,16 +47,17 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const axisMaxCm = Math.max(3, Math.round(attrs.axisMaxCm || 7));
   const zoom = Math.max(0.5, Math.min(3, attrs.zoom || 1));
 
-  // Plot geometry in svg units. Width is dynamic on bar-count so a busy
-  // chart naturally becomes wider (and thinner-barred) inside its scroll
-  // container. Height is exactly axisMaxCm cm.
+  // Plot geometry in svg units. The SVG is rendered at width: 100% of the
+  // notebook column so it always fills the writable width like graph paper.
+  // slotSvg is chosen so bars auto-thin as count grows — the viewBox width
+  // scales with baseSlotCount, and the browser then fits the whole viewBox
+  // into the column. Bars therefore always fill the paper regardless of
+  // notebook width, and never appear as a small floating widget.
   const nBars = Math.max(1, rows.length);
-  // Base slot units. Bar chart uses gap==bar (2n+1 slots), histogram uses n slots.
   const baseSlotCount = isHistogram ? nBars : (2 * nBars + 1);
-  // Choose an svg-unit slot so bars fit the notebook column at n<=8, and
-  // start scrolling beyond that (min 42 svg-units per slot keeps bars readable).
-  const targetPlotW = 640;
-  const slotSvg = Math.max(isHistogram ? 24 : 30, targetPlotW / baseSlotCount);
+  // slotSvg in svg-units. Pick a comfortable per-slot size so the aspect
+  // ratio stays sensible for both few and many bars.
+  const slotSvg = baseSlotCount <= 12 ? 48 : baseSlotCount <= 24 ? 36 : 28;
   const plotW = slotSvg * baseSlotCount;
   const plotH = axisMaxCm * CM_PX;
   const svgW = PAD.left + plotW + PAD.right;
