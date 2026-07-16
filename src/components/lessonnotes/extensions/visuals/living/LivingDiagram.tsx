@@ -36,12 +36,14 @@ interface Props {
   variant: string;
   family: string;
   attrs: Record<string, unknown>;
+  assetId?: string;
   selected: boolean;
   onChange: (patch: Record<string, unknown>) => void;
   onDeleteDiagram?: () => void;
 }
 
-export function LivingDiagram({ variant, family, attrs, selected, onChange, onDeleteDiagram }: Props) {
+export function LivingDiagram({ variant, family, attrs, assetId, selected, onChange, onDeleteDiagram }: Props) {
+  const editorOwnerId = assetId || `${family}:${variant}`;
   const geoAdapter = useMemo(
     () => (family === "shape" ? getAdapter(variant) : null),
     [family, variant],
@@ -85,8 +87,28 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant, geoAdapter, storedParts.length]);
 
-  const openEditor = () => setEditorOpen(true);
+  const announceEditorOpen = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("lessonnotes:asset-editor-open", {
+      detail: { assetId: editorOwnerId },
+    }));
+  };
+  const openEditor = () => { announceEditorOpen(); setEditorOpen(true); };
+  const toggleEditor = () => {
+    if (!editorOpen) announceEditorOpen();
+    setEditorOpen((open) => !open);
+  };
   const closeEditor = () => { setEditorOpen(false); setSelectedComponentId(null); setPickMode(null); };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOtherEditorOpen = (event: Event) => {
+      const otherId = (event as CustomEvent<{ assetId?: string }>).detail?.assetId;
+      if (otherId && otherId !== editorOwnerId) closeEditor();
+    };
+    window.addEventListener("lessonnotes:asset-editor-open", onOtherEditorOpen);
+    return () => window.removeEventListener("lessonnotes:asset-editor-open", onOtherEditorOpen);
+  }, [editorOwnerId]);
 
   const nextNodeName = (existing: Set<string>): string => {
     let name = "P"; let i = 1;
@@ -160,7 +182,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={selected || editorOpen}
-        onEdit={() => setEditorOpen((v) => !v)}
+          onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
@@ -182,7 +204,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={selected || editorOpen}
-        onEdit={() => setEditorOpen((v) => !v)}
+          onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
@@ -204,7 +226,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={selected || editorOpen}
-        onEdit={() => setEditorOpen((v) => !v)}
+          onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
@@ -226,7 +248,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={selected || editorOpen}
-        onEdit={() => setEditorOpen((v) => !v)}
+          onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
@@ -248,7 +270,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={selected || editorOpen}
-        onEdit={() => setEditorOpen((v) => !v)}
+          onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
@@ -266,7 +288,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={selected || editorOpen}
-        onEdit={() => setEditorOpen((v) => !v)}
+          onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
@@ -284,7 +306,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={selected || editorOpen}
-        onEdit={() => setEditorOpen((v) => !v)}
+          onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
@@ -312,11 +334,11 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
       <SelectionFrame
         block
         selected={editSelected}
-        onEdit={() => setEditorOpen((v) => !v)}
+        onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
-        <SmartChart attrs={attrs} onChange={onChange} selected={editorOpen} />
+        <SmartChart attrs={attrs} onChange={onChange} selected={editorOpen} assetId={assetId} />
       </SelectionFrame>
     );
   }
@@ -341,7 +363,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
     return (
       <SelectionFrame
         selected={editSelected}
-        onEdit={() => setEditorOpen((v) => !v)}
+        onEdit={toggleEditor}
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
