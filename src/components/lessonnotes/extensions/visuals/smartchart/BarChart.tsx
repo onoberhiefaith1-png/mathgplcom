@@ -141,7 +141,7 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   };
 
   // Extend / scale
-  const extendY = () => patch({ axisMaxCm: Math.min(30, axisMaxCm + 1) });
+  const extendY = (step = 1) => patch({ axisMaxCm: Math.min(60, axisMaxCm + step) });
   const shrinkY = () => {
     // Only shrink if no bar would be truncated.
     const maxUsed = rows.reduce((m, r) => Math.max(m, r.heightCm ?? 0), 0);
