@@ -15,6 +15,7 @@ export type PresetName = "custom" | "waec" | "neco" | "gcse" | "alevel";
 
 export interface BarRow    { label: string; value: number; heightCm?: number; color?: string; labelColor?: string; width?: number; showLabel?: boolean }
 export interface PieSector { name: string; value: number; color?: string }
+export type PieLabelMode = "category" | "percent" | "category+percent" | "none";
 export interface HistInterval { lower: number; upper: number; frequency: number }
 export interface ScatterPoint { x: number; y: number }
 export interface LinePoint { label: string; value: number }
