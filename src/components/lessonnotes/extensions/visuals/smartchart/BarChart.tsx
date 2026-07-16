@@ -157,7 +157,6 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   };
 
   // ── Small on-canvas overlays (React state) ────────────────────────
-  const [scaleOpen, setScaleOpen] = useState(false);
   const [scaleDraft, setScaleDraft] = useState<string>(String(unitsPerCm));
 
   const clearData = () => patchBar({ rows: [] });
