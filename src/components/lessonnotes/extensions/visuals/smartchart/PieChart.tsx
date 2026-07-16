@@ -4,7 +4,7 @@
 // the Properties Panel. Full-width like the Bar Chart.
 
 import { useState } from "react";
-import { ArrowUp, ArrowDown, Plus, Trash2 } from "lucide-react";
+import { ArrowUp, ArrowDown, Plus, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 import {
   PanelGroup, PanelRow, PanelButton, PanelColor, PanelText,
 } from "@/components/lessonnotes/panel/panelPrimitives";
