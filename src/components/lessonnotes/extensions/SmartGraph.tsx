@@ -11,12 +11,26 @@ export type ConnectStyle = "straight" | "smooth" | "broken" | "scatter";
 
 export interface GraphPoint { x: number; y: number; label?: string }
 
-/** A geometry shape drawn on top of the graph (pixel-space relative to the SVG). */
+/** A geometry shape drawn on top of the graph. Points are in DATA coordinates
+ *  so shapes stay anchored when the graph is expanded from any side. Older
+ *  saved shapes may still be in pixel-space and are migrated on load. */
 export interface GraphShape {
   id: string;
   kind: "point" | "line" | "circle" | "arc" | "polygon";
   pts: Array<{ x: number; y: number }>;
   label?: string;
+}
+
+/** A free overlay object placed on the graph paper (text, formula, shape,
+ *  image, etc.). Position is in DATA coordinates so expand never shifts it. */
+export interface GraphOverlay {
+  id: string;
+  kind: "text" | "formula" | "triangle" | "circle" | "rectangle" | "angle" | "image";
+  x: number;
+  y: number;
+  w?: number; // width in data units (for sized objects)
+  h?: number; // height in data units
+  payload?: Record<string, unknown>;
 }
 
 export interface SmartGraphAttrs {
@@ -31,6 +45,7 @@ export interface SmartGraphAttrs {
   points: GraphPoint[];
   connect: ConnectStyle;
   shapes: GraphShape[];
+  overlays: GraphOverlay[];
 }
 
 export const DEFAULT_GRAPH: SmartGraphAttrs = {
@@ -45,6 +60,7 @@ export const DEFAULT_GRAPH: SmartGraphAttrs = {
   points: [],
   connect: "straight",
   shapes: [],
+  overlays: [],
 };
 
 export const SmartGraphNode = Node.create({
