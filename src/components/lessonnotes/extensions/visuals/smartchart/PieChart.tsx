@@ -49,6 +49,7 @@ export function PieChart({ attrs, onChange, selected }: Props) {
   const sectors = attrs.pie.sectors;
   const labelMode = attrs.pie.labelMode;
   const palette = attrs.palette;
+  const zoom = Math.max(0.5, Math.min(3, attrs.zoom || 1));
 
   const total = sectors.reduce((s, r) => s + (Number.isFinite(r.value) ? r.value : 0), 0);
   const remaining = Math.max(0, 100 - total);
