@@ -2,11 +2,14 @@
 // registry the @-command menu uses. Sections stack vertically; each is a
 // responsive grid of tiles that insert on click.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { Editor } from "@tiptap/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { searchAssets, ALL_ASSETS, type AssetDef } from "@/lib/lessonnotes/assets/registry";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { searchAssets, ALL_ASSETS, getEffectiveLabel, getEffectiveShortCode, type AssetDef } from "@/lib/lessonnotes/assets/registry";
+import { setOverride, clearOverride, subscribeOverrides, normaliseShortCode } from "@/lib/lessonnotes/assets/overrides";
 import { SYMBOLS } from "@/lib/lessonnotes/assets/symbols";
 import { STRUCTURES } from "@/lib/lessonnotes/assets/structures";
 import { DIAGRAMS } from "@/lib/lessonnotes/assets/diagrams";
@@ -18,7 +21,7 @@ import { REALWORLD } from "@/lib/lessonnotes/assets/realworld";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
 import { renderVisual } from "./extensions/visuals/visualDispatch";
 import { MatrixCreateDialog, type MatrixDialogKind, type MatrixDialogResult } from "./MatrixCreateDialog";
-import { Search } from "lucide-react";
+import { Search, MoreVertical } from "lucide-react";
 
 
 interface Props {
