@@ -44,7 +44,7 @@ export function BarChart({ attrs, onChange, selected }: Props) {
   const isHistogram = attrs.displayMode === "histogram" || attrs.kind === "histogram";
 
   const unitsPerCm = attrs.unitsPerCm > 0 ? attrs.unitsPerCm : 5;
-  const axisMaxCm = Math.max(3, Math.round(attrs.axisMaxCm || 7));
+  const axisMaxCm = Math.max(3, Math.min(60, Math.round(attrs.axisMaxCm || 20)));
   const zoom = Math.max(0.5, Math.min(3, attrs.zoom || 1));
 
   // Plot geometry in svg units. The SVG is rendered at width: 100% of the
