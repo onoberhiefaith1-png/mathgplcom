@@ -78,19 +78,14 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
     : attrs.barWidthMode === "normal" ? 1.0
     : 1.0; // auto ≡ strict gap=width, mult=1
   const barWidth = Math.min(slotSvg, slotSvg * widthMult);
-  // Gap between adjacent bars: histogram bars touch (0), bar chart keeps
-  // the leftover slot space as visible spacing.
-  const gap = isHistogram ? 0 : (slotSvg - barWidth);
-  // Centre the whole group of bars horizontally inside the plot area.
-  const groupWidth = isHistogram
-    ? nBars * barWidth
-    : nBars * barWidth + (nBars - 1) * slotSvg;
-  const groupStart = PAD.left + (plotW - groupWidth) / 2;
-  const xForBar = (i: number) => {
-    if (isHistogram) return groupStart + i * barWidth;
-    // Bar chart: gap, bar, gap, bar, …
-    return groupStart + i * (barWidth + slotSvg);
-  };
+  // Layout rule (identical for bar chart and histogram):
+  //   • Distance from the Y-axis to the FIRST bar = one bar width.
+  //   • Bar chart: gap between adjacent bars also = one bar width.
+  //   • Histogram: adjacent bars touch (gap = 0).
+  // This makes the label wrapper (70% of bar width) always fit its slot
+  // whether the bars are contiguous (histogram) or spaced (bar chart).
+  const gap = isHistogram ? 0 : barWidth;
+  const xForBar = (i: number) => PAD.left + barWidth + i * (barWidth + gap);
 
   // Helpers
   const cmToY = useCallback(
