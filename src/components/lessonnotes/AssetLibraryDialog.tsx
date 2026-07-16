@@ -250,6 +250,8 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
   const [q, setQ] = useState("");
   const searching = q.trim().length > 0;
   const [matrixDialog, setMatrixDialog] = useState<{ kind: MatrixDialogKind; asset: AssetDef } | null>(null);
+  // Re-render whenever a user edits an asset name or short code.
+  useSyncExternalStore(subscribeOverrides, () => localStorage.getItem("lessonnotes.assetOverrides") ?? "", () => "");
 
   const results = useMemo<AssetDef[]>(
     () => (searching ? searchAssets(q, 200) : []),
