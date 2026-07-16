@@ -24,6 +24,9 @@ export function SmartChart({ attrs, onChange, selected = false }: Props) {
   if (model.kind === "bar" || model.kind === "histogram") {
     return <BarChart attrs={model} onChange={patch} selected={selected} />;
   }
+  if (model.kind === "pie") {
+    return <PieChart attrs={model} onChange={patch} selected={selected} />;
+  }
 
   return <PlaceholderChart kind={model.kind} onSwitch={(k) => patch({ kind: k } as any)} selected={selected} />;
 }
