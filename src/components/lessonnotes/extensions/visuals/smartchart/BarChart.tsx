@@ -58,8 +58,12 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
   // Ensure a sensible minimum so an empty histogram / bar chart still
   // fills the notebook column instead of appearing as a narrow strip
   // (SVG uses preserveAspectRatio, so a tiny viewBox looks small AND bold).
-  const rawSlotCount = isHistogram ? nBars : (2 * nBars + 1);
-  const baseSlotCount = Math.max(isHistogram ? 8 : 11, rawSlotCount);
+  // Slot layout: bar chart uses gap-bar-gap-bar-…-gap (2n+1 slots).
+  // Histogram uses the same slot rhythm so widths and barWidthMode behave
+  // identically; the only visual difference is that adjacent bars touch
+  // (rendered by shifting each bar to abut its neighbour with gap=0).
+  const rawSlotCount = 2 * nBars + 1;
+  const baseSlotCount = Math.max(11, rawSlotCount);
   // slotSvg in svg-units. Pick a comfortable per-slot size so the aspect
   // ratio stays sensible for both few and many bars.
   const slotSvg = baseSlotCount <= 12 ? 48 : baseSlotCount <= 24 ? 36 : 28;
@@ -68,27 +72,24 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
   const svgW = PAD.left + plotW + PAD.right;
   const svgH = PAD.top + plotH + PAD.bottom;
 
-  // Bar width mode
+  // Bar width mode — identical for bar chart and histogram.
   const widthMult = attrs.barWidthMode === "thin" ? 0.5
     : attrs.barWidthMode === "wide" ? 1.5
     : attrs.barWidthMode === "normal" ? 1.0
     : 1.0; // auto ≡ strict gap=width, mult=1
-  // For a histogram, stretch every bar to fill the plot so a chart with
-  // few bars still occupies the full notebook width. Bar chart mode keeps
-  // the gap-width-gap rhythm.
-  const histBarWidth = plotW / nBars;
-  const barBase = isHistogram ? histBarWidth : slotSvg;
-  const barWidth = isHistogram ? histBarWidth : Math.min(slotSvg, barBase * widthMult);
-  const gap = isHistogram ? 0 : (slotSvg - barWidth); // pack: gap = leftover in slot pair
-  // For bar chart we still want gap==barWidth in auto mode. Recompute:
-  // In auto: barWidth = slotSvg (which equals gap slot). Every "unit" slot
-  // is slotSvg svg-units. Pattern: gap, bar, gap, bar, …, gap. So x_i for
-  // bar i (0-indexed) = PAD.left + slotSvg * (2i + 1).
+  const barWidth = Math.min(slotSvg, slotSvg * widthMult);
+  // Gap between adjacent bars: histogram bars touch (0), bar chart keeps
+  // the leftover slot space as visible spacing.
+  const gap = isHistogram ? 0 : (slotSvg - barWidth);
+  // Centre the whole group of bars horizontally inside the plot area.
+  const groupWidth = isHistogram
+    ? nBars * barWidth
+    : nBars * barWidth + (nBars - 1) * slotSvg;
+  const groupStart = PAD.left + (plotW - groupWidth) / 2;
   const xForBar = (i: number) => {
-    if (isHistogram) return PAD.left + i * histBarWidth;
-    // For non-auto width, shrink the bar and centre it inside its "bar slot"
-    const innerOffset = (slotSvg - barWidth) / 2;
-    return PAD.left + slotSvg * (2 * i + 1) + innerOffset;
+    if (isHistogram) return groupStart + i * barWidth;
+    // Bar chart: gap, bar, gap, bar, …
+    return groupStart + i * (barWidth + slotSvg);
   };
 
   // Helpers

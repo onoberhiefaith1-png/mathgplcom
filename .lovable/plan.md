@@ -1,25 +1,47 @@
-## Plan
+# Histogram = Bar Chart gateway
 
-1. **Make chart settings one-to-one per inserted chart**
-   - Give every `mathVisual` node a stable unique instance id when it renders if one is missing.
-   - Pass that id into the SmartChart renderer.
-   - Register the right-hand panel with ids like `smartChart:<instanceId>:bar`, `smartChart:<instanceId>:pie`, etc., instead of shared ids like `smartChart-bar` / `smartChart-pie`.
-   - This ensures clicking Edit on the third chart edits that exact third chart, not the first chart of that type or the first chart inserted in the lesson.
+The Bar Chart component already supports Histogram mode via `displayMode: "histogram"`, and the settings panel can switch between the two. The Histogram asset should just be a "gateway" into that same component with the histogram switch flipped on — nothing more.
 
-2. **Clear stale right-panel ownership when a chart edit closes**
-   - When SmartChart edit mode is turned off, its registered panel should unregister only if it owns the current panel.
-   - This prevents the previous chart’s settings from staying visible and being mistaken for the newly clicked chart.
+Right now Histogram diverges from Bar Chart in one place, which causes the "too wide / resize doesn't work" bugs you reported.
 
-3. **Fix the disappearing Edit button**
-   - Update `SelectionFrame` so the Edit chip remains visible for 10 seconds after the pointer leaves the diagram/chip area.
-   - Make hovering the chip itself count as activity, so moving the cursor downward toward Edit does not make it disappear.
-   - Keep the chip visible while the asset is selected or its edit panel is open.
+## What's wrong today
 
-4. **Apply the same instance-id pattern to other universal-panel assets touched by this wrapper where needed**
-   - SmartChart is the priority, but I’ll make the mechanism generic at the wrapper level so future chart/panel assets can use one-to-one ids safely.
+In `BarChart.tsx`, histograms use a special code path:
 
-5. **Verify in the live preview**
-   - Insert or inspect a sequence like: bar chart → pie chart → bar chart.
-   - Click each Edit button and confirm the right panel title/settings match that specific chart.
-   - Change a setting on the last chart and confirm only that chart changes.
-   - Confirm the Edit chip stays reachable and does not vanish while moving the cursor to it.
+- Bar width is forced to `plotW / nBars` (stretch every bar edge-to-edge across the plot).
+- Gap between bars is forced to `0`.
+- The `barWidthMode` selector (Thin / Normal / Wide) is ignored for histograms.
+
+That's why the default histogram looks too wide and the width selector does nothing.
+
+## The fix (single, small change)
+
+Treat histogram exactly like bar chart, with **one** difference: **the bars touch** (no gap between adjacent bars). Everything else — slot sizing, `barWidthMode`, spacing rhythm, labels, axes, editor panel — is the shared Bar Chart code.
+
+Concretely, in `src/components/lessonnotes/extensions/visuals/smartchart/BarChart.tsx`:
+
+1. Remove the special `histBarWidth = plotW / nBars` stretch.
+2. Use the same `barWidth` calculation as bar chart, including `barWidthMode` (thin / normal / wide / auto).
+3. For histogram, keep the "bars attached" property by removing the inter-bar gap only:
+   - `xForBar(i)` places bars adjacent: `PAD.left + i * barWidth` (no gap slot).
+   - `slotSvg` for histogram becomes just `barWidth` (one slot per bar, no gap slot).
+4. Keep `baseSlotCount` logic so a chart with few bars still fills the notebook column, just like bar chart.
+
+No changes to:
+
+- `types.ts` (data model already shared).
+- `SmartChart.tsx` (already dispatches both kinds to `BarChart`).
+- `graphs.ts` asset registry (Histogram entry already routes to `smartChart` with `kind: "histogram"`, which is exactly the gateway you described).
+- The Properties Panel editor (already the same panel; the Bar/Histogram switch inside it already works).
+
+## Result
+
+- Clicking the **Histogram** asset opens the Bar Chart component with the Histogram switch pre-selected — same component, same settings panel, just named/pre-configured as Histogram.
+- Clicking **Bar chart** opens the same component with the Bar switch pre-selected.
+- You can still swap between Bar ↔ Histogram from the settings panel (this already works and is preserved).
+- Default histogram width is now normal (not stretched), and Thin / Normal / Wide work identically to bar chart.
+- The only visual distinction between the two modes is: histogram bars touch, bar chart bars have a gap.
+
+## Files to edit
+
+- `src/components/lessonnotes/extensions/visuals/smartchart/BarChart.tsx` — remove histogram-specific stretching in the geometry block (lines ~61–92) and let histogram reuse the bar-chart width math with `gap = 0`.
