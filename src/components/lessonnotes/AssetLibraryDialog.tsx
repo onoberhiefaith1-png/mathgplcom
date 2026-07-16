@@ -104,7 +104,7 @@ function AssetEditPopover({ a }: { a: AssetDef }) {
     const nextCode = normaliseShortCode(code);
     if (!nextCode) { setError("Short Code cannot be empty."); return; }
     const res = setOverride(a, { label: trimmedLabel, shortCode: nextCode }, ALL_ASSETS);
-    if (!res.ok) {
+    if (res.ok === false) {
       setError(`This Short Code is already assigned to "${getEffectiveLabel(res.conflictWith)}". Please choose a different Short Code.`);
       return;
     }
