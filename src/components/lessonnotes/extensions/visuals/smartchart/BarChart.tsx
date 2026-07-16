@@ -746,7 +746,7 @@ export function BarChart({ attrs, onChange, selected }: Props) {
                 <button
                   type="button"
                   onClick={() => shrinkBar(i)}
-                  title="Decrease by 1 graph unit"
+                  title="Fine decrease: −0.2 cm (minor grid line)"
                   className="absolute left-1/2 h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border border-foreground/30 bg-background text-foreground/70 opacity-0 shadow-sm transition-opacity hover:bg-foreground/5 group-hover:opacity-100 flex"
                   style={{
                     top: "100%",
