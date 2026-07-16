@@ -13,7 +13,7 @@ export type NumberSide = "left" | "right";
 export type LegendPos = "top" | "bottom" | "left" | "right";
 export type PresetName = "custom" | "waec" | "neco" | "gcse" | "alevel";
 
-export interface BarRow    { label: string; value: number; heightCm?: number; color?: string; width?: number; showLabel?: boolean }
+export interface BarRow    { label: string; value: number; heightCm?: number; color?: string; labelColor?: string; width?: number; showLabel?: boolean }
 export interface PieSector { name: string; value: number; color?: string }
 export interface HistInterval { lower: number; upper: number; frequency: number }
 export interface ScatterPoint { x: number; y: number }
