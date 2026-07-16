@@ -270,7 +270,7 @@ export function PieChart({ attrs, onChange, selected }: Props) {
         <svg
           viewBox={`0 0 ${VB} ${VB}`}
           className="block"
-          style={{ width: "min(100%, 520px)", height: "auto" }}
+          style={{ width: `min(${100 * zoom}%, ${520 * zoom}px)`, height: "auto" }}
           role="img"
           aria-label="Pie chart"
         >
