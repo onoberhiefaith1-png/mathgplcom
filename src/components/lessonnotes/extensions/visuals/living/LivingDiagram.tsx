@@ -95,11 +95,8 @@ export function LivingDiagram({ variant, family, attrs, assetId, selected, onCha
   };
   const openEditor = () => { announceEditorOpen(); setEditorOpen(true); };
   const toggleEditor = () => {
-    setEditorOpen((open) => {
-      const next = !open;
-      if (next) announceEditorOpen();
-      return next;
-    });
+    if (!editorOpen) announceEditorOpen();
+    setEditorOpen((open) => !open);
   };
   const closeEditor = () => { setEditorOpen(false); setSelectedComponentId(null); setPickMode(null); };
 
