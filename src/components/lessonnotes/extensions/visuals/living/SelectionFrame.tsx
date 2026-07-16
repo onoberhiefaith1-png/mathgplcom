@@ -19,7 +19,30 @@ interface Props {
 export function SelectionFrame({ selected, onEdit, children, presenting = false, onActivity, block = false }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState(false);
+  const [linger, setLinger] = useState(false);
   const [, force] = useState(0);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHideTimer = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+
+  const showChrome = () => {
+    clearHideTimer();
+    setHover(true);
+    setLinger(true);
+    onActivity?.();
+  };
+
+  const scheduleHide = () => {
+    setHover(false);
+    setLinger(true);
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => setLinger(false), 10000);
+  };
 
   useEffect(() => {
     if (!ref.current) return;
@@ -28,18 +51,20 @@ export function SelectionFrame({ selected, onEdit, children, presenting = false,
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => () => clearHideTimer(), []);
+
   const chromeVisible = !presenting;
-  const showChip = !!onEdit && chromeVisible && (hover || selected);
+  const showChip = !!onEdit && chromeVisible && (hover || linger || selected);
 
   return (
     <div
       ref={ref}
       className={block ? "relative block w-full" : "relative inline-block"}
       data-selected={selected ? "true" : "false"}
-      onMouseEnter={() => { setHover(true); onActivity?.(); }}
-      onMouseLeave={() => setHover(false)}
-      onMouseMove={onActivity}
-      onPointerDown={onActivity}
+      onMouseEnter={showChrome}
+      onMouseLeave={scheduleHide}
+      onMouseMove={() => { setLinger(true); onActivity?.(); }}
+      onPointerDown={() => { setLinger(true); onActivity?.(); }}
       style={{ transition: "opacity 200ms" }}
     >
 
@@ -47,8 +72,9 @@ export function SelectionFrame({ selected, onEdit, children, presenting = false,
       {showChip && (
         <button
           type="button"
+          onMouseEnter={showChrome}
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLinger(true); onEdit(); }}
           className="absolute -bottom-7 left-1/2 -translate-x-1/2 z-10 rounded-full bg-primary text-primary-foreground text-[10px] font-medium px-2.5 py-0.5 shadow-md hover:brightness-110 active:scale-95"
           style={{ lineHeight: 1.4 }}
         >

@@ -13,27 +13,28 @@ interface Props {
   attrs: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
   selected?: boolean;
+  assetId?: string;
 }
 
-export function SmartChart({ attrs, onChange, selected = false }: Props) {
+export function SmartChart({ attrs, onChange, selected = false, assetId = "smartChart" }: Props) {
   const model = useMemo(() => normalizeChart(attrs), [attrs]);
 
   const patch = (p: Partial<typeof model>) =>
     onChange({ ...model, ...p } as Record<string, unknown>);
 
   if (model.kind === "bar" || model.kind === "histogram") {
-    return <BarChart attrs={model} onChange={patch} selected={selected} />;
+    return <BarChart attrs={model} onChange={patch} selected={selected} assetId={assetId} />;
   }
   if (model.kind === "pie") {
-    return <PieChart attrs={model} onChange={patch} selected={selected} />;
+    return <PieChart attrs={model} onChange={patch} selected={selected} assetId={assetId} />;
   }
 
-  return <PlaceholderChart kind={model.kind} onSwitch={(k) => patch({ kind: k } as any)} selected={selected} />;
+  return <PlaceholderChart kind={model.kind} onSwitch={(k) => patch({ kind: k } as any)} selected={selected} assetId={assetId} />;
 }
 
 function PlaceholderChart({
-  kind, onSwitch, selected,
-}: { kind: ChartKind; onSwitch: (k: ChartKind) => void; selected: boolean }) {
+  kind, onSwitch, selected, assetId,
+}: { kind: ChartKind; onSwitch: (k: ChartKind) => void; selected: boolean; assetId: string }) {
   const editor = (
     <div>
       <PanelGroup label="Chart type">
@@ -60,7 +61,7 @@ function PlaceholderChart({
       </div>
     </div>
   );
-  useRegisterAssetEditor(!!selected, "smartChart-placeholder", `${labelFor(kind)}`, editor);
+  useRegisterAssetEditor(!!selected, `smartChart:${assetId}:${kind}`, `${labelFor(kind)}`, editor);
 
   return (
     <div

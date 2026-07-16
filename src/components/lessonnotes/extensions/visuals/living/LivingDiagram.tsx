@@ -36,12 +36,13 @@ interface Props {
   variant: string;
   family: string;
   attrs: Record<string, unknown>;
+  assetId?: string;
   selected: boolean;
   onChange: (patch: Record<string, unknown>) => void;
   onDeleteDiagram?: () => void;
 }
 
-export function LivingDiagram({ variant, family, attrs, selected, onChange, onDeleteDiagram }: Props) {
+export function LivingDiagram({ variant, family, attrs, assetId, selected, onChange, onDeleteDiagram }: Props) {
   const geoAdapter = useMemo(
     () => (family === "shape" ? getAdapter(variant) : null),
     [family, variant],
@@ -316,7 +317,7 @@ export function LivingDiagram({ variant, family, attrs, selected, onChange, onDe
         presenting={presenting && !editorOpen && !selected}
         onActivity={bumpActivity}
       >
-        <SmartChart attrs={attrs} onChange={onChange} selected={editorOpen} />
+        <SmartChart attrs={attrs} onChange={onChange} selected={editorOpen} assetId={assetId} />
       </SelectionFrame>
     );
   }

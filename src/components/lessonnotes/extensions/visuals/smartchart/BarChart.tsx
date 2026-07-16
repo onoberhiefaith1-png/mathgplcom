@@ -31,6 +31,7 @@ interface Props {
   attrs: SmartChartAttrs;
   onChange: (patch: Partial<SmartChartAttrs>) => void;
   selected: boolean;
+  assetId?: string;
 }
 
 // --- Graph paper constants (never exposed to teacher) ----------------
@@ -38,7 +39,7 @@ const MINOR_PER_MAJOR = 4;      // fifths inside every cm
 const CM_PX = 40;               // SVG units per cm before zoom
 const PAD = { top: 44, right: 40, bottom: 72, left: 72 };
 
-export function BarChart({ attrs, onChange, selected }: Props) {
+export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: Props) {
   const bar = attrs.bar;
   const rows = bar.rows;
   const isHistogram = attrs.displayMode === "histogram" || attrs.kind === "histogram";
@@ -464,7 +465,7 @@ export function BarChart({ attrs, onChange, selected }: Props) {
 
   useRegisterAssetEditor(
     !!selected,
-    "smartChart-bar",
+    `smartChart:${assetId}:${isHistogram ? "histogram" : "bar"}`,
     isHistogram ? "Histogram" : "Bar chart",
     editor,
   );

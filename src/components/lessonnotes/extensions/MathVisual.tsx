@@ -7,8 +7,15 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { LivingDiagram } from "./visuals/living/LivingDiagram";
+
+function makeVisualInstanceId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `mv_${crypto.randomUUID()}`;
+  }
+  return `mv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+}
 
 function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeViewProps) {
   const family = (node.attrs.family as string) || "shape";
@@ -21,6 +28,18 @@ function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeVi
   // memo and re-triggers useRegisterAssetEditor on every render.
   const attrsRef = useRef(attrs);
   attrsRef.current = attrs;
+  const generatedInstanceIdRef = useRef("");
+  if (!generatedInstanceIdRef.current) generatedInstanceIdRef.current = makeVisualInstanceId();
+  const persistedInstanceId = typeof attrs.__instanceId === "string" && attrs.__instanceId
+    ? attrs.__instanceId
+    : "";
+  const assetInstanceId = persistedInstanceId || generatedInstanceIdRef.current;
+
+  useEffect(() => {
+    if (persistedInstanceId) return;
+    updateAttributes({ attrs: { ...attrsRef.current, __instanceId: assetInstanceId } });
+  }, [assetInstanceId, persistedInstanceId, updateAttributes]);
+
   const handleChange = useCallback(
     (patch: Record<string, unknown>) => updateAttributes({ attrs: { ...attrsRef.current, ...patch } }),
     [updateAttributes],
@@ -46,6 +65,7 @@ function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeVi
         variant={variant}
         family={family}
         attrs={attrs}
+        assetId={assetInstanceId}
         selected={!!selected}
         onChange={handleChange}
         onDeleteDiagram={deleteNode}

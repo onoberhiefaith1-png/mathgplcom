@@ -16,6 +16,7 @@ interface Props {
   attrs: SmartChartAttrs;
   onChange: (patch: Partial<SmartChartAttrs>) => void;
   selected: boolean;
+  assetId?: string;
 }
 
 const VB = 400;               // square viewBox
@@ -45,7 +46,7 @@ function arcPath(startDeg: number, endDeg: number): string {
   return `M ${CX} ${CY} L ${a.x} ${a.y} A ${R} ${R} 0 ${large} 1 ${b.x} ${b.y} Z`;
 }
 
-export function PieChart({ attrs, onChange, selected }: Props) {
+export function PieChart({ attrs, onChange, selected, assetId = "smartChart" }: Props) {
   const sectors = attrs.pie.sectors;
   const labelMode = attrs.pie.labelMode;
   const palette = attrs.palette;
@@ -231,7 +232,7 @@ export function PieChart({ attrs, onChange, selected }: Props) {
     </div>
   );
 
-  useRegisterAssetEditor(!!selected, "smartChart-pie", "Pie chart", editor);
+  useRegisterAssetEditor(!!selected, `smartChart:${assetId}:pie`, "Pie chart", editor);
 
   // ---- Rendering ---------------------------------------------------
   // Build the sector geometry
