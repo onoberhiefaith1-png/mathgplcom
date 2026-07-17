@@ -1,43 +1,26 @@
-Plan: clean rebuild the hashtag math editing path from scratch.
+## Problem
 
-1. Remove the interlocking hashtag implementations
-   - Stop registering and remove the current `MathLevel` shortcut system that turns ordinary text into level-marked superscripts/subscripts.
-   - Remove the old `#` promotion path that creates the atom-like `mathInline` canvas.
-   - Keep unrelated productivity shortcuts only where they do not touch `#`.
+In the current math renderer, when you type `x#2` (superscript) or `x##n` (subscript), the digit/letter appears far to the right of the base (`x`). The teacher wants the script to sit right next to the base — as if there were a single vertical boundary line just after the base, and the script starts at that line.
 
-2. Build one fresh hashtag engine on top of editable math slots
-   - Use the existing editable `mathStructure` / `mathSlot` model as the base, because its slots are real cursor-editable regions and can nest indefinitely.
-   - `x#` converts the object immediately to the left into a `subsup` math tree structure with three editable branches:
+Root cause is purely CSS in `src/index.css`:
 
-```text
-      power slot
-base
-      subscript slot
-```
+- `.math-slot` has `min-width: 0.82em` and horizontal `padding: 0 2px`. Both the base slot AND the script slot get this, so between `x` and `2` you accumulate ~4px padding on each side plus a forced 0.82em floor on the (small) script slot.
+- `.math-struct` itself has `padding: 0 2px`, adding another gap around the whole structure.
+- `.math-struct--power`, `.math-struct--sub`, `.math-struct--subsup` don't override these, so the gap is very visible with small script content.
 
-   - The cursor lands in the power slot.
-   - `x##` lands in the subscript slot instead, without leaving either `#` visible in the note.
-   - If there is no parent object to attach to, `#` remains literal text.
+## Fix (CSS-only, no logic changes)
 
-3. Support true branch editing and re-entry
-   - Every branch is a real editable slot, not one fixed image/chip/string.
-   - Teachers can click back into base, power, or subscript slots and edit characters normally.
-   - Nested structures must work inside any slot: `x#2#5#n`, fractions, brackets, matrices, roots, and further scripts can be created inside branches.
+Edit `src/index.css` only:
 
-4. Arrow-key navigation
-   - Left/right should move through normal characters and into/out of structures.
-   - Up/down should move between sibling branches of the current math structure: power ↔ base ↔ subscript, numerator ↔ denominator, matrix cells where applicable.
-   - Space exits one level when inside a math branch; only at normal prose level does it insert a real space.
+1. Remove horizontal padding from the base and script slots inside `power`, `sub`, and `subsup`; keep vertical room for the caret via min-height only.
+2. Drop `min-width` on the script slot so a single digit sits flush against the boundary; keep a tiny min-width only when the slot is empty and focused (so the ▯ placeholder still has room).
+3. Tighten `.math-struct` outer padding for these three kinds so the whole node hugs surrounding prose.
+4. Nudge script `transform: translate` values so the script visually starts at the right edge of the base's character box (a small negative `margin-left` on the script slot, e.g. `-0.05em`), giving the "boundary line just after x" look the user described.
 
-5. Styling: natural typing, not a chip
-   - Remove the orange/boxed atom feel from the hashtag-created math.
-   - Render scripts like natural typed mathematics: compact, baseline-aligned, with subtle empty-slot placeholders only while editing.
+Nothing else changes — the tree model, the `#` / `##` shortcuts, navigation, and validator all stay as-is.
 
-6. Testing before calling it done
-   - Run a targeted typecheck/build signal.
-   - Use Playwright on the lesson note editor to test these flows visually and functionally:
-     - `x#2` creates superscript with no `#` shown.
-     - `x##n` creates subscript with no `#` shown.
-     - `x#2` then arrow/down editing can add a subscript to the same `x`.
-     - Nested branch example such as `x#2#5#n` remains editable by arrow/click navigation.
-     - Re-clicking an old branch lets the teacher edit inside it again.
+## Verification
+
+- Re-render the two examples in the screenshot (`2x²`, `xₙ`, and the nested `x^{2^{5^n}}` case).
+- Confirm visually with a Playwright screenshot that the script hugs the base with no visible horizontal gap, and that empty focused slots still show the ▯ placeholder at a usable size.
+- Confirm the caret can still be placed inside empty script slots.
