@@ -808,6 +808,8 @@ function DocumentEditorInner({
       MathVisual,
       AtCommand.configure({ onChange: setAtState }),
       MathKeyShortcuts,
+      MathLevelMark,
+      MathLevelInput,
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
