@@ -160,6 +160,22 @@ function AssetEditPopover({ a }: { a: AssetDef }) {
   );
 }
 
+function FavoriteHeart({ id }: { id: string }) {
+  useSyncExternalStore(subscribeFavorites, () => localStorage.getItem("lessonnotes.assetFavorites") ?? "", () => "");
+  const fav = isFavorite(id);
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); toggleFavorite(id); }}
+      className={`absolute top-1 left-1 p-0.5 rounded transition ${fav ? "opacity-100" : "opacity-40 hover:opacity-100"} hover:bg-foreground/10`}
+      aria-label={fav ? "Remove from favourites" : "Add to favourites"}
+      title={fav ? "Remove from favourites" : "Add to favourites"}
+    >
+      <Heart className={`h-3.5 w-3.5 ${fav ? "fill-red-500 text-red-500" : "text-foreground/60"}`} />
+    </button>
+  );
+}
+
 function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
   const isArithmetic = a.group === "Arithmetic" && a.render.kind === "visual";
   const preview =
@@ -186,6 +202,7 @@ function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
         (isArithmetic ? "h-40" : "h-28")
       }
     >
+      <FavoriteHeart id={a.id} />
       <AssetEditPopover a={a} />
       <div className="flex-1 flex items-center justify-center w-full min-h-[2rem] text-foreground overflow-hidden">
         {preview}
