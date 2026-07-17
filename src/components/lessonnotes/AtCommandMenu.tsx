@@ -41,6 +41,29 @@ export function AtCommandMenu({ editor, state, onClose }: Props) {
 
   useEffect(() => { setIdx(0); }, [state.query, state.active]);
 
+  const q = state.query || "";
+  const isRepeat = q === "@";
+  const isFavorite = /^fav(ou?rite)?s?$/i.test(q);
+  const isRecent = /^recent$/i.test(q);
+  const matrixMatch = MATRIX_RE.exec(q);
+
+  const results = useMemo<AssetDef[]>(() => {
+    if (!state.active) return [];
+    if (isRepeat) {
+      const last = findById(getLastInserted());
+      return last ? [last] : [];
+    }
+    if (isFavorite) {
+      return listFavorites().map(findById).filter(Boolean) as AssetDef[];
+    }
+    if (isRecent) {
+      return listRecent(10).map(findById).filter(Boolean) as AssetDef[];
+    }
+    return searchAssets(q, 40);
+  }, [state.active, q, isRepeat, isFavorite, isRecent]);
+
+  useEffect(() => { setIdx(0); }, [state.query, state.active]);
+
   const pick = (a: AssetDef) => {
     if (!editor) return;
     if (a.openDialog) {
@@ -51,26 +74,50 @@ export function AtCommandMenu({ editor, state, onClose }: Props) {
     onClose();
   };
 
+  const insertMatrixDirect = (rows: number, cols: number) => {
+    if (!editor) return;
+    const R = Math.max(1, Math.min(10, rows));
+    const C = Math.max(1, Math.min(10, cols));
+    const asset: AssetDef = {
+      id: `matrix-${R}x${C}`,
+      label: `${R}×${C} Matrix`,
+      category: "Structures",
+      keywords: [],
+      render: { kind: "structure", structure: "matrix", slots: R * C, attrs: { rows: R, cols: C, br: "[" } },
+    };
+    insertAsset(editor, asset, state.from, state.to);
+    onClose();
+  };
+
   useEffect(() => {
     if (!state.active || !editor) return;
     const dom = editor.view.dom as HTMLElement;
     const onKey = (e: KeyboardEvent) => {
       if (matrixDialog) return; // dialog owns keyboard while open
-      if (!results.length) return;
-      if (e.key === "ArrowDown") { e.preventDefault(); setIdx((i) => (i + 1) % results.length); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); setIdx((i) => (i - 1 + results.length) % results.length); }
-      else if (e.key === "Enter") {
+      if (e.key === "Enter") {
+        // Quick matrix shortcut takes priority.
+        if (matrixMatch) {
+          e.preventDefault();
+          insertMatrixDirect(parseInt(matrixMatch[1], 10), parseInt(matrixMatch[2], 10));
+          return;
+        }
+        if (!results.length) return;
         e.preventDefault();
         // Short Code fast-path: exact match on typed query inserts immediately.
-        const byCode = resolveByShortCode(state.query);
+        const byCode = resolveByShortCode(q);
         if (byCode) { pick(byCode); return; }
         const chosen = results[idx];
         if (chosen) pick(chosen);
-      } else if (e.key === "Escape") { e.preventDefault(); onClose(); }
+        return;
+      }
+      if (!results.length) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); setIdx((i) => (i + 1) % results.length); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); setIdx((i) => (i - 1 + results.length) % results.length); }
+      else if (e.key === "Escape") { e.preventDefault(); onClose(); }
     };
     dom.addEventListener("keydown", onKey, true);
     return () => dom.removeEventListener("keydown", onKey, true);
-  }, [state, editor, results, idx, onClose, matrixDialog]);
+  }, [state, editor, results, idx, onClose, matrixDialog, matrixMatch, q]);
 
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>(`[data-idx="${idx}"]`)?.scrollIntoView({ block: "nearest" });
