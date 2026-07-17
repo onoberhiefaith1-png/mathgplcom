@@ -1,10 +1,15 @@
 // Keyboard productivity for math typing:
-//   - Shift tapped alone → next character becomes superscript (Unicode).
-//   - Ctrl tapped alone  → next character becomes subscript (Unicode).
+//   - "#X"  → next character X becomes superscript (Unicode). The "#" trigger
+//     is removed on successful conversion.
+//   - "##X" → next character X becomes subscript. Both "##" triggers removed.
 //   - Opening brackets auto-pair: ( [ { |  with caret between; wraps a selection.
 //   - Typing the matching closer just before an auto-paired closer skips over it.
 //   - Backspace immediately after an autopair removes both.
 //   - "/" converts the last mathematical term into the numerator of a fraction.
+//
+// Design note: we do NOT intercept Shift/Ctrl. Those keys have too many OS,
+// browser, and editor bindings. Using printable "#" as the trigger keeps the
+// shortcut entirely inside the editor and avoids conflicts.
 
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
@@ -35,15 +40,18 @@ const OPEN_CLOSE: Record<string, string> = {
 const key = new PluginKey("mathKeyShortcuts");
 
 interface PluginState {
-  armSuper: boolean;
-  armSub: boolean;
+  // Hash-trigger state. When the user types "#" we set pending="sup" and record
+  // firstHashPos. A second "#" upgrades to pending="sub" and records secondHashPos.
+  // The next printable character consumes the trigger.
+  pending: null | "sup" | "sub";
+  firstHashPos: number | null;
+  secondHashPos: number | null;
   // Track most recent autopair for backspace-delete-pair behaviour.
   lastPair: { closerPos: number; closer: string } | null;
 }
 
 /** Walk backwards to find the last "mathematical term" ending at `pos`. */
 function findLastTermStart(text: string, endInText: number): number {
-  // text = full text of the current text node up to caret. Scan back.
   let i = endInText;
   let parenDepth = 0;
   while (i > 0) {
@@ -68,25 +76,119 @@ export const MathKeyShortcuts = Extension.create({
       new Plugin<PluginState>({
         key,
         state: {
-          init: () => ({ armSuper: false, armSub: false, lastPair: null }),
-          apply: (tr, prev) => {
+          init: (): PluginState => ({
+            pending: null,
+            firstHashPos: null,
+            secondHashPos: null,
+            lastPair: null,
+          }),
+          apply: (tr, prev): PluginState => {
             const meta = tr.getMeta(key);
-            if (meta) return { ...prev, ...meta };
-            // Any doc change invalidates the pending "delete pair" tracking.
-            if (tr.docChanged && prev.lastPair) return { ...prev, lastPair: null };
-            return prev;
+            let next = prev;
+            if (meta) next = { ...next, ...meta };
+            // Any doc change (unless we set meta this same tr) invalidates
+            // the autopair backspace tracker.
+            if (tr.docChanged && !meta && next.lastPair) {
+              next = { ...next, lastPair: null };
+            }
+            // If the selection moved away from the trigger area, clear pending.
+            if (next.pending && tr.selectionSet && !meta) {
+              const caret = tr.selection.from;
+              const anchor = next.pending === "sup" ? next.firstHashPos : next.secondHashPos;
+              // Caret must be immediately after the last trigger char.
+              if (anchor === null || caret !== anchor + 1) {
+                next = { ...next, pending: null, firstHashPos: null, secondHashPos: null };
+              }
+            }
+            return next;
           },
         },
         props: {
+          handleTextInput(view, from, to, text) {
+            // Only single-character inputs are handled here. IMEs and paste
+            // fall through to default behaviour.
+            if (text.length !== 1) return false;
+            const ch = text;
+            const s = key.getState(view.state) as PluginState;
+
+            // --- Hash trigger ---------------------------------------------
+            if (s.pending === null && ch === "#") {
+              // Insert the "#" and arm superscript mode at the caret that
+              // follows it.
+              const tr = view.state.tr.insertText("#", from, to);
+              tr.setMeta(key, {
+                pending: "sup",
+                firstHashPos: from,
+                secondHashPos: null,
+              });
+              view.dispatch(tr);
+              return true;
+            }
+
+            if (s.pending === "sup") {
+              if (ch === "#" && s.firstHashPos !== null && from === s.firstHashPos + 1) {
+                // Upgrade to subscript mode.
+                const tr = view.state.tr.insertText("#", from, to);
+                tr.setMeta(key, {
+                  pending: "sub",
+                  firstHashPos: s.firstHashPos,
+                  secondHashPos: from,
+                });
+                view.dispatch(tr);
+                return true;
+              }
+              const mapped = SUPER[ch];
+              if (mapped && s.firstHashPos !== null && from === s.firstHashPos + 1) {
+                // Replace the "#" trigger with the mapped superscript glyph.
+                const tr = view.state.tr.replaceWith(
+                  s.firstHashPos,
+                  from,
+                  view.state.schema.text(mapped),
+                );
+                tr.setMeta(key, { pending: null, firstHashPos: null, secondHashPos: null });
+                view.dispatch(tr);
+                return true;
+              }
+              // No mapping / mismatch: clear pending, let default happen.
+              view.dispatch(view.state.tr.setMeta(key, {
+                pending: null, firstHashPos: null, secondHashPos: null,
+              }));
+              return false;
+            }
+
+            if (s.pending === "sub") {
+              const mapped = SUB[ch];
+              if (
+                mapped &&
+                s.firstHashPos !== null &&
+                s.secondHashPos !== null &&
+                from === s.secondHashPos + 1
+              ) {
+                // Replace "##" with the mapped subscript glyph.
+                const tr = view.state.tr.replaceWith(
+                  s.firstHashPos,
+                  from,
+                  view.state.schema.text(mapped),
+                );
+                tr.setMeta(key, { pending: null, firstHashPos: null, secondHashPos: null });
+                view.dispatch(tr);
+                return true;
+              }
+              view.dispatch(view.state.tr.setMeta(key, {
+                pending: null, firstHashPos: null, secondHashPos: null,
+              }));
+              return false;
+            }
+
+            return false;
+          },
+
           handleKeyDown(view, event) {
             const s = key.getState(view.state) as PluginState;
 
-            // Bracket pairing on printable-char keydown. We handle it here
-            // (not textInput) so we can also wrap selections cleanly.
+            // Bracket pairing on printable-char keydown.
             const ch = event.key;
             if (OPEN_CLOSE[ch] && !event.ctrlKey && !event.metaKey && !event.altKey) {
-              // Shift is OK — "(" is Shift+9 on most layouts. But we must NOT
-              // fire subscript on Ctrl+(...) etc.
               const { from, to, empty } = view.state.selection;
               const opener = ch;
               const closer = OPEN_CLOSE[ch];
@@ -96,7 +198,6 @@ export const MathKeyShortcuts = Extension.create({
                 tr.setSelection(TextSelection.create(tr.doc, from + 1));
                 tr.setMeta(key, { lastPair: { closerPos: from + 1, closer } });
               } else {
-                // Wrap selection: keep it selected between the brackets.
                 const before = view.state.doc.textBetween(from, to, "\ufffc");
                 tr.insertText(opener + before + closer, from, to);
                 tr.setSelection(TextSelection.create(tr.doc, from + 1, from + 1 + before.length));
@@ -141,7 +242,6 @@ export const MathKeyShortcuts = Extension.create({
               const { $from, empty } = view.state.selection;
               if (!empty) return false;
               const parent = $from.parent;
-              // Only operate within plain text-holding blocks.
               const parentOffset = $from.parentOffset;
               const beforeText = parent.textBetween(0, parentOffset, undefined, "\ufffc");
               const startInText = findLastTermStart(beforeText, beforeText.length);
@@ -163,75 +263,8 @@ export const MathKeyShortcuts = Extension.create({
               return true;
             }
 
-            // Super/subscript arming via lone Shift / Control tap.
-            // We arm on keydown of Shift/Control alone; on the NEXT keydown of
-            // a printable character we intercept and insert the mapped glyph.
-            if (s.armSuper || s.armSub) {
-              // Ignore modifier-only keydowns (Shift/Control themselves) — we
-              // only consume when a printable key arrives.
-              if (event.key === "Shift" || event.key === "Control" ||
-                  event.key === "Meta" || event.key === "Alt") return false;
-              if (event.key.length === 1) {
-                const map = s.armSuper ? SUPER : SUB;
-                const mapped = map[event.key];
-                const tr = view.state.tr.setMeta(key, { armSuper: false, armSub: false });
-                if (mapped) {
-                  const { from, to } = view.state.selection;
-                  tr.insertText(mapped, from, to);
-                  view.dispatch(tr);
-                  event.preventDefault();
-                  return true;
-                }
-                // No mapping → just disarm and let default typing happen.
-                view.dispatch(tr);
-                return false;
-              }
-              // Non-printable → disarm.
-              view.dispatch(view.state.tr.setMeta(key, { armSuper: false, armSub: false }));
-              return false;
-            }
-
             return false;
           },
-        },
-        view(editorView) {
-          // Track Shift / Control taps without any other key. Uses window-level
-          // listeners scoped to when the editor has focus.
-          let shiftDownAlone = false;
-          let ctrlDownAlone = false;
-
-          const onKeyDown = (e: KeyboardEvent) => {
-            if (!editorView.hasFocus()) return;
-            if (e.key === "Shift") {
-              shiftDownAlone = true; ctrlDownAlone = false;
-              return;
-            }
-            if (e.key === "Control") {
-              ctrlDownAlone = true; shiftDownAlone = false;
-              return;
-            }
-            // Any other keydown while modifier held cancels arming.
-            shiftDownAlone = false;
-            ctrlDownAlone = false;
-          };
-          const onKeyUp = (e: KeyboardEvent) => {
-            if (!editorView.hasFocus()) return;
-            if (e.key === "Shift" && shiftDownAlone) {
-              shiftDownAlone = false;
-              editorView.dispatch(editorView.state.tr.setMeta(key, { armSuper: true, armSub: false }));
-            } else if (e.key === "Control" && ctrlDownAlone) {
-              ctrlDownAlone = false;
-              editorView.dispatch(editorView.state.tr.setMeta(key, { armSuper: false, armSub: true }));
-            }
-          };
-          window.addEventListener("keydown", onKeyDown, true);
-          window.addEventListener("keyup", onKeyUp, true);
-          return {
-            destroy() {
-              window.removeEventListener("keydown", onKeyDown, true);
-              window.removeEventListener("keyup", onKeyUp, true);
-            },
-          };
         },
       }),
     ];
