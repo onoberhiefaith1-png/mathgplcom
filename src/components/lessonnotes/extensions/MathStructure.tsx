@@ -125,6 +125,7 @@ function MathStructureView({ node }: NodeViewProps) {
     <NodeViewWrapper
       as={"span" as any}
       className={`math-struct math-struct--${kind}`}
+      data-math-structure=""
       data-kind={kind}
       data-bracket={br || undefined}
       data-rows={rows || undefined}
