@@ -142,7 +142,7 @@ function moveVerticalSlot(view: any, dir: -1 | 1): boolean {
   return moveToSlot(view, ctx, target);
 }
 
-function exitOneMathLevel(view: any): boolean {
+function exitOneMathBranch(view: any): boolean {
   const ctx = slotContext(view.state);
   if (!ctx) return false;
   const afterStruct = ctx.structStart + ctx.structNode.nodeSize;
@@ -296,7 +296,7 @@ export const MathKeyShortcuts = Extension.create({
             // Space exits one editable math branch. At prose level it remains
             // a real space.
             if (ch === " " && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
-              if (exitOneMathLevel(view)) {
+              if (exitOneMathBranch(view)) {
                 event.preventDefault();
                 return true;
               }
