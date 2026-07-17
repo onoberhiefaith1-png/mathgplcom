@@ -411,7 +411,26 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-10">
-          {searching ? (
+          {viewDefs !== null ? (
+            <section>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                {viewMode === "favorites" ? "Favourite assets" : viewMode === "recent" ? "Recently used" : "Last inserted"} · {viewDefs.length}
+              </h3>
+              {viewDefs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {viewMode === "favorites"
+                    ? "Click the heart on any asset to add it here."
+                    : viewMode === "recent"
+                    ? "Assets you insert will appear here."
+                    : "No assets have been inserted yet."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-2">
+                  {viewDefs.map((a) => <Tile key={a.id} a={a} onPick={onPick} />)}
+                </div>
+              )}
+            </section>
+          ) : searching ? (
             <section>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                 {results.length} result{results.length === 1 ? "" : "s"} for "{q}"
