@@ -29,6 +29,7 @@ import { MathObjectNode } from "./extensions/MathObject";
 import { MathStructure, MathSlot } from "./extensions/MathStructure";
 import { MathVisual } from "./extensions/MathVisual";
 import { AtCommand, type AtCommandState } from "./extensions/AtCommand";
+import { MathKeyShortcuts } from "./extensions/MathKeyShortcuts";
 import { AtCommandMenu } from "./AtCommandMenu";
 import { AssetLibraryDialog } from "./AssetLibraryDialog";
 import { MatrixToolbar } from "./MatrixToolbar";
