@@ -269,12 +269,35 @@ function GroupedSection({
   );
 }
 
+type ViewMode = "all" | "favorites" | "recent" | "last";
+
 export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
   const [q, setQ] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const [libMenuOpen, setLibMenuOpen] = useState(false);
   const searching = q.trim().length > 0;
   const [matrixDialog, setMatrixDialog] = useState<{ kind: MatrixDialogKind; asset: AssetDef } | null>(null);
-  // Re-render whenever a user edits an asset name or short code.
+  // Re-render whenever a user edits an asset name / short code / favourites / recents.
   useSyncExternalStore(subscribeOverrides, () => localStorage.getItem("lessonnotes.assetOverrides") ?? "", () => "");
+  useSyncExternalStore(subscribeFavorites, () => localStorage.getItem("lessonnotes.assetFavorites") ?? "", () => "");
+  useSyncExternalStore(subscribeRecents, () => localStorage.getItem("lessonnotes.assetRecents") ?? "", () => "");
+
+  const byId = useMemo(() => {
+    const m = new Map<string, AssetDef>();
+    for (const a of ALL_ASSETS) m.set(a.id, a);
+    return m;
+  }, []);
+
+  const viewDefs = useMemo<AssetDef[] | null>(() => {
+    if (viewMode === "favorites") return listFavorites().map((id) => byId.get(id)).filter(Boolean) as AssetDef[];
+    if (viewMode === "recent") return listRecent(10).map((id) => byId.get(id)).filter(Boolean) as AssetDef[];
+    if (viewMode === "last") {
+      const last = getLastInserted();
+      const a = last ? byId.get(last) : undefined;
+      return a ? [a] : [];
+    }
+    return null;
+  }, [viewMode, byId]);
 
   const results = useMemo<AssetDef[]>(
     () => (searching ? searchAssets(q, 200) : []),
