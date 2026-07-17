@@ -26,6 +26,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { friendlyToLatex } from "@/lib/notebook/mathFriendly";
 import { isSafeLatex } from "@/lib/notebook/mathSafety";
+import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 
 const OPEN_CLOSE: Record<string, string> = {
   "(": ")",
@@ -91,9 +92,9 @@ export const MathKeyShortcuts = Extension.create({
             if (ch !== "#") return false;
 
             // `#` in prose: promote the last mathematical term into a new
-            // `mathInline` node with an open superscript workspace. If there
-            // is no valid parent object immediately to the left, fall through
-            // so the `#` is inserted as a literal character.
+            // `mathInline` whose tree already contains a subsup with the
+            // term as base and an empty (open) sup slot. The canvas mounts
+            // focused with the cursor inside that sup slot.
             const schema = view.state.schema;
             const mathInline = schema.nodes.mathInline;
             if (!mathInline) return false;
@@ -113,11 +114,12 @@ export const MathKeyShortcuts = Extension.create({
             const termStart = from - (beforeText.length - startInText);
             const termEnd = from;
             const latexTerm = friendlyToLatex(term);
-            const value = `${latexTerm}^{`;
-            const node = mathInline.create({ value, autoEdit: true });
+            const value = `${latexTerm}^{}`;
+            // Build the tree now so the canvas can mount already focused
+            // with the caret inside the empty sup slot.
+            const tree = JSON.stringify(latexToTree(value));
+            const node = mathInline.create({ value, tree, autoEdit: true });
             const tr = view.state.tr.replaceWith(termStart, termEnd, node);
-            // Land the selection just after the inserted node; the node view
-            // will steal focus into its own editor on mount.
             const after = termStart + node.nodeSize;
             tr.setSelection(TextSelection.create(tr.doc, after));
             view.dispatch(tr);
