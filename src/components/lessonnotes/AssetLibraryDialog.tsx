@@ -19,9 +19,11 @@ import { MANIPULATIVES } from "@/lib/lessonnotes/assets/manipulatives";
 import { MEASUREMENT } from "@/lib/lessonnotes/assets/measurement";
 import { REALWORLD } from "@/lib/lessonnotes/assets/realworld";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
+import { isFavorite, toggleFavorite, listFavorites, subscribeFavorites } from "@/lib/lessonnotes/assets/favorites";
+import { listRecent, getLastInserted, subscribeRecents } from "@/lib/lessonnotes/assets/recents";
 import { renderVisual } from "./extensions/visuals/visualDispatch";
 import { MatrixCreateDialog, type MatrixDialogKind, type MatrixDialogResult } from "./MatrixCreateDialog";
-import { Search, MoreVertical } from "lucide-react";
+import { Search, MoreVertical, Heart } from "lucide-react";
 
 
 interface Props {
