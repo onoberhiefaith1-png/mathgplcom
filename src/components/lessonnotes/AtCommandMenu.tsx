@@ -164,8 +164,14 @@ export function AtCommandMenu({ editor, state, onClose }: Props) {
       className="w-72 max-h-80 overflow-hidden rounded-lg border border-foreground/15 bg-background/95 backdrop-blur shadow-xl text-sm"
     >
       <div className="px-3 py-2 border-b border-foreground/10 flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>@{state.query || <em className="opacity-60">type to search…</em>}</span>
-        <span>{results.length} match{results.length === 1 ? "" : "es"}</span>
+        <span>
+          {isRepeat ? "@@ · repeat last"
+            : isFavorite ? "@favorite"
+            : isRecent ? "@recent"
+            : matrixMatch ? `@${q} · press Enter to create ${matrixMatch[1]}×${matrixMatch[2]} matrix`
+            : <>@{q || <em className="opacity-60">type to search…</em>}</>}
+        </span>
+        <span>{matrixMatch ? "matrix" : `${results.length} match${results.length === 1 ? "" : "es"}`}</span>
       </div>
       <div ref={listRef} className="max-h-64 overflow-y-auto py-1">
         {results.length === 0 ? (
