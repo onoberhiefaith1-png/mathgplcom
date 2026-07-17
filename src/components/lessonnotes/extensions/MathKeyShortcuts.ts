@@ -1,31 +1,28 @@
 // Keyboard productivity for math typing.
 //
-//   `#`  in prose, after a valid parent object (letter/digit/`)`/`]`), converts
-//        the last mathematical term to the left into a `mathInline` node whose
-//        value is `<term>^{`. The node auto-opens its editor. All further
-//        `#` / `##` / Space handling happens inside the math node view, where
-//        every superscript and subscript is itself a full recursive math
-//        workspace (see MathInline.tsx).
+//   `#`  after a valid parent object converts the term on the left into a
+//        `mathStructure kind="subsup"` with editable base/subscript/power slots.
+//        The `#` itself is consumed and the cursor lands in the power slot.
 //
-//   `#`  in prose with no valid parent (start of line, after a space, after an
-//        operator) is inserted as a literal `#` character. This preserves the
-//        ability to type the `#` glyph as normal text.
+//   `##` immediately after creating that empty power slot moves the cursor to
+//        the subscript slot instead. Neither trigger appears in the note.
+//
+//   `#`  with no valid parent (start of line, after a space/operator, etc.) is
+//        inserted as literal text.
 //
 //   `(`, `[`, `{`, `|`  auto-pair a closing bracket and drop the caret between
 //        them; typing the matching closer just before it skips over. Backspace
 //        immediately after an autopair deletes both.
 //
-//   `/`  converts the last mathematical term into the numerator of a fraction
-//        (`\frac{term}{}`).
+//   `/`  converts the last mathematical term into the numerator of an editable
+//        `mathStructure kind="fraction"`.
 //
 // We do NOT intercept Shift/Ctrl. Those keys have too many OS, browser, and
 // editor bindings. `#` is the trigger, but only when there is something to
 // attach the new mathematical workspace to.
 
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
-import { friendlyToLatex } from "@/lib/notebook/mathFriendly";
-import { isSafeLatex } from "@/lib/notebook/mathSafety";
+import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
 
 
 const OPEN_CLOSE: Record<string, string> = {
@@ -64,6 +61,159 @@ function findLastTermStart(text: string, endInText: number): number {
 function isValidParentChar(ch: string | undefined): boolean {
   if (!ch) return false;
   return /[A-Za-z0-9)\]}]/.test(ch);
+}
+
+function slotContext(state: any) {
+  const { $from, empty } = state.selection;
+  if (!empty) return null;
+  for (let d = $from.depth; d >= 0; d--) {
+    if ($from.node(d).type.name !== "mathSlot") continue;
+    const structDepth = d - 1;
+    if (structDepth < 0 || $from.node(structDepth).type.name !== "mathStructure") return null;
+    return {
+      $from,
+      slotDepth: d,
+      structDepth,
+      slotIndex: $from.index(structDepth),
+      structNode: $from.node(structDepth),
+      slotNode: $from.node(d),
+      structStart: $from.before(structDepth),
+    };
+  }
+  return null;
+}
+
+function slotInnerPos(structStart: number, structNode: any, slotIndex: number): number {
+  let pos = structStart + 1;
+  for (let i = 0; i < slotIndex; i++) pos += structNode.child(i).nodeSize;
+  return pos + 1;
+}
+
+function setSelectionNear(view: any, tr: any, pos: number) {
+  try {
+    tr.setSelection(TextSelection.create(tr.doc, pos));
+  } catch {
+    tr.setSelection(Selection.near(tr.doc.resolve(Math.max(0, Math.min(pos, tr.doc.content.size))), 1));
+  }
+  view.dispatch(tr.scrollIntoView());
+}
+
+function moveToSlot(view: any, ctx: NonNullable<ReturnType<typeof slotContext>>, slotIndex: number): boolean {
+  if (slotIndex < 0 || slotIndex >= ctx.structNode.childCount) return false;
+  const pos = slotInnerPos(ctx.structStart, ctx.structNode, slotIndex);
+  const tr = view.state.tr;
+  setSelectionNear(view, tr, pos);
+  return true;
+}
+
+function moveVerticalSlot(view: any, dir: -1 | 1): boolean {
+  const ctx = slotContext(view.state);
+  if (!ctx) return false;
+  const kind = String(ctx.structNode.attrs.kind || "");
+  const attrs = ctx.structNode.attrs.attrs || {};
+  let target = -1;
+
+  if (kind === "subsup") {
+    const order = [2, 0, 1]; // visual: power → base → subscript
+    const i = order.indexOf(ctx.slotIndex);
+    if (i >= 0) target = order[i + dir] ?? -1;
+  } else if (kind === "fraction") {
+    target = ctx.slotIndex + dir;
+  } else if (kind === "power") {
+    const order = [1, 0];
+    const i = order.indexOf(ctx.slotIndex);
+    if (i >= 0) target = order[i + dir] ?? -1;
+  } else if (kind === "sub") {
+    const order = [0, 1];
+    const i = order.indexOf(ctx.slotIndex);
+    if (i >= 0) target = order[i + dir] ?? -1;
+  } else if (kind === "matrix") {
+    const rows = Math.max(1, Math.floor(Number(attrs.rows) || 1));
+    const cols = Math.max(1, Math.floor(Number(attrs.cols) || ctx.structNode.childCount || 1));
+    const row = Math.floor(ctx.slotIndex / cols);
+    const col = ctx.slotIndex % cols;
+    const nextRow = row + dir;
+    if (nextRow >= 0 && nextRow < rows) target = nextRow * cols + col;
+  } else {
+    target = ctx.slotIndex + dir;
+  }
+
+  if (target < 0 || target >= ctx.structNode.childCount) return false;
+  return moveToSlot(view, ctx, target);
+}
+
+function exitOneMathLevel(view: any): boolean {
+  const ctx = slotContext(view.state);
+  if (!ctx) return false;
+  const afterStruct = ctx.structStart + ctx.structNode.nodeSize;
+  const tr = view.state.tr;
+  setSelectionNear(view, tr, afterStruct);
+  return true;
+}
+
+function moveEmptyPowerToSubscript(view: any): boolean {
+  const ctx = slotContext(view.state);
+  if (!ctx) return false;
+  if (ctx.structNode.attrs.kind !== "subsup") return false;
+  if (ctx.slotIndex !== 2) return false;
+  if (ctx.slotNode.content.size !== 0) return false;
+  return moveToSlot(view, ctx, 1);
+}
+
+function termRangeLeftOfSelection(state: any): { from: number; to: number } | null {
+  const { $from, empty } = state.selection;
+  if (!empty) return null;
+  const parent = $from.parent;
+  const parentOffset = $from.parentOffset;
+  if (parentOffset <= 0) return null;
+
+  const before = parent.childBefore(parentOffset);
+  if (!before.node) return null;
+  const parentStart = $from.start();
+  const offsetInsideNode = parentOffset - before.offset;
+
+  if (before.node.isText) {
+    const text = (before.node.text || "").slice(0, offsetInsideNode);
+    if (!isValidParentChar(text[text.length - 1])) return null;
+    const startInText = findLastTermStart(text, text.length);
+    if (startInText >= text.length) return null;
+    return {
+      from: parentStart + before.offset + startInText,
+      to: $from.pos,
+    };
+  }
+
+  if (before.node.isInline) {
+    return {
+      from: parentStart + before.offset,
+      to: parentStart + before.offset + before.node.nodeSize,
+    };
+  }
+
+  return null;
+}
+
+function wrapLeftTermInStructure(view: any, kind: "subsup" | "fraction", targetSlot: number): boolean {
+  const { state } = view;
+  const schema = state.schema;
+  const mathStructure = schema.nodes.mathStructure;
+  const mathSlot = schema.nodes.mathSlot;
+  if (!mathStructure || !mathSlot) return false;
+
+  const range = termRangeLeftOfSelection(state);
+  if (!range) return false;
+
+  const slice = state.doc.slice(range.from, range.to);
+  const baseOrNumerator = mathSlot.create(null, slice.content);
+  const children = kind === "subsup"
+    ? [baseOrNumerator, mathSlot.create(), mathSlot.create()]
+    : [baseOrNumerator, mathSlot.create()];
+
+  const node = mathStructure.create({ kind, attrs: {} }, children);
+  const tr = state.tr.replaceWith(range.from, range.to, node);
+  const targetPos = slotInnerPos(range.from, node, targetSlot);
+  setSelectionNear(view, tr, targetPos);
+  return true;
 }
 
 export const MathKeyShortcuts = Extension.create({
@@ -143,31 +293,35 @@ export const MathKeyShortcuts = Extension.create({
               }
             }
 
+            // Space exits one editable math branch. At prose level it remains
+            // a real space.
+            if (ch === " " && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+              if (exitOneMathLevel(view)) {
+                event.preventDefault();
+                return true;
+              }
+            }
+
+            // Up/down move between sibling branches of the current structure.
+            if ((ch === "ArrowUp" || ch === "ArrowDown") && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+              if (moveVerticalSlot(view, ch === "ArrowUp" ? -1 : 1)) {
+                event.preventDefault();
+                return true;
+              }
+            }
+
+            // `#` creates or re-enters editable script branches.
+            if (ch === "#" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+              if (moveEmptyPowerToSubscript(view) || wrapLeftTermInStructure(view, "subsup", 2)) {
+                event.preventDefault();
+                return true;
+              }
+              return false;
+            }
+
             // `/` → smart fraction on the last term.
             if (ch === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
-              const schema = view.state.schema;
-              const mathInline = schema.nodes.mathInline;
-              if (!mathInline) return false;
-              const { $from, empty } = view.state.selection;
-              if (!empty) return false;
-              const parent = $from.parent;
-              const parentOffset = $from.parentOffset;
-              const beforeText = parent.textBetween(0, parentOffset, undefined, "\ufffc");
-              const startInText = findLastTermStart(beforeText, beforeText.length);
-              const term = beforeText.slice(startInText).trim();
-              const termStart = $from.pos - (beforeText.length - startInText);
-              const termEnd = $from.pos;
-              let latex: string;
-              if (term.length === 0) {
-                latex = "\\frac{}{}";
-              } else {
-                const num = friendlyToLatex(term);
-                latex = `\\frac{${num}}{}`;
-              }
-              if (!isSafeLatex(latex)) return false;
-              const node = mathInline.create({ value: latex });
-              const tr = view.state.tr.replaceWith(termStart, termEnd, node);
-              view.dispatch(tr);
+              if (!wrapLeftTermInStructure(view, "fraction", 1)) return false;
               event.preventDefault();
               return true;
             }
