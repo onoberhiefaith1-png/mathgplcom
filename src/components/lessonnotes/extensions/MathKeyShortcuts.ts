@@ -26,7 +26,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { friendlyToLatex } from "@/lib/notebook/mathFriendly";
 import { isSafeLatex } from "@/lib/notebook/mathSafety";
-import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
+
 
 const OPEN_CLOSE: Record<string, string> = {
   "(": ")",
@@ -86,46 +86,6 @@ export const MathKeyShortcuts = Extension.create({
           },
         },
         props: {
-          handleTextInput(view, from, to, text) {
-            if (text.length !== 1) return false;
-            const ch = text;
-            if (ch !== "#") return false;
-
-            // `#` in prose: promote the last mathematical term into a new
-            // `mathInline` whose tree already contains a subsup with the
-            // term as base and an empty (open) sup slot. The canvas mounts
-            // focused with the cursor inside that sup slot.
-            const schema = view.state.schema;
-            const mathInline = schema.nodes.mathInline;
-            if (!mathInline) return false;
-
-            const $from = view.state.doc.resolve(from);
-            const parent = $from.parent;
-            const parentOffset = $from.parentOffset;
-            if (parentOffset === 0) return false;
-            const beforeText = parent.textBetween(0, parentOffset, undefined, "\ufffc");
-            const prevChar = beforeText[beforeText.length - 1];
-            if (!isValidParentChar(prevChar)) return false;
-
-            const startInText = findLastTermStart(beforeText, beforeText.length);
-            const term = beforeText.slice(startInText);
-            if (!term) return false;
-
-            const termStart = from - (beforeText.length - startInText);
-            const termEnd = from;
-            const latexTerm = friendlyToLatex(term);
-            const value = `${latexTerm}^{}`;
-            // Build the tree now so the canvas can mount already focused
-            // with the caret inside the empty sup slot.
-            const tree = JSON.stringify(latexToTree(value));
-            const node = mathInline.create({ value, tree, autoEdit: true });
-            const tr = view.state.tr.replaceWith(termStart, termEnd, node);
-            const after = termStart + node.nodeSize;
-            tr.setSelection(TextSelection.create(tr.doc, after));
-            view.dispatch(tr);
-            return true;
-          },
-
           handleKeyDown(view, event) {
             const s = key.getState(view.state) as PluginState;
 

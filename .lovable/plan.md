@@ -1,92 +1,102 @@
 
-# Redesign inline math from "fixed object" to "editable cursor region"
-
-## Problem
-
-`mathInline` is a TipTap `atom` node whose entire content is a LaTeX string edited only inside a modal chip. Once the chip closes, the whole expression is a single opaque object: you cannot click between characters, you cannot re-enter a superscript, `Delete` wipes the whole thing, and `S^2` + later `_{-1}` is impossible because there is no way to place the caret after the base `S`.
-
 ## Goal
 
-Every `mathInline` becomes a small editable canvas — a **row of nodes with a real cursor inside it**. The cursor freely walks in/out of superscripts, subscripts, fractions, radicals, brackets. It only *becomes visually smaller* when it descends into a script/denominator/etc. Typing, Backspace, arrow keys, `#`, `##`, `/`, Space all operate on the cursor's current row, at any depth, at any time — including hours after the node was first created.
+Type math naturally in the note. No orange chip, no "one atomic object". `x`, then `#` — cursor jumps up and shrinks, the next characters are the superscript. Press `#` again — another level up. `##` — cursor goes down (subscript). Arrows walk the caret through every level. Space returns to the baseline. Nesting is unlimited because it's just a level counter on ordinary prose characters.
 
-## Model
+## The core idea
 
-Reuse the tree already defined in `src/lib/smartboard/mathTree.ts`:
+Superscript / subscript stop being a container. They become a **numeric "level" attribute** attached to every typed character as a normal TipTap mark:
 
-- `Row = Node[]`
-- `Node = char | sup | sub | frac | sqrt | bracket | ...`
-- `Cursor = { path: number[]; index: number }`
-- Existing helpers: `insertChar`, `insertNode`, `backspace`, `moveLeft`, `moveRight`, `getRowAt`, `insertNodeWrapping`, `extractWrapTargetLeftOf`.
+- `level = 0` → baseline text
+- `level = +1` → superscript
+- `level = +2` → superscript of a superscript
+- `level = -1` → subscript
+- `level = -2` → sub of a sub
+- mixed depths like `x⁽²⁾ ₙ` are just adjacent characters with different levels
 
-The math chip stops storing a LaTeX string as its source of truth. It stores a `Row` (serialized as JSON) in the node attr `tree`, and derives LaTeX (for prose export / re-render outside edit mode) from that tree.
+Because the level is just a number on plain prose, there is no atomic object. The caret is the browser's native caret. Backspace deletes one character. Left/Right walk one character. Selection, copy/paste, undo — all free.
 
-## What changes
+## Behaviour
 
-### 1. `MathInline` node
+### Typing
+- `#` at any caret position: raise the active level by 1 (superscript up). Next chars type at that level.
+- `##` (two `#` typed in a row with no character between): lower the active level by 2 from where `#` had raised it → net one level of subscript. So from baseline: `#` = sup, `##` = sub, `###` = sup², `####` = sub² (each pair flips one deeper).
+  - Implementation: first `#` bumps active level up 1; if the second key is also `#` within the same intent (no other input), we drop it by 2 to land on the opposite side of baseline. Same rule recursively.
+- The `#` character itself is never inserted into the document.
+- `Space` at any non-zero level: return active level to 0 (baseline). Once we are at level 0, subsequent `Space` behaves as a normal space (does not eat it).
+- `Enter`, punctuation-that-ends-a-word (`,`, `;`, `=`, ` `): also reset to 0.
 
-- Attributes: keep `value` for legacy read-only render, add `tree` (JSON of `Row`). New nodes write `tree`; on load, if only `value` exists, parse it into a tree once (`latex → tree` migration in `src/lib/smartboard`).
-- Still `atom: false` conceptually — but implemented as a **ProseMirror atom with an internal contentEditable-off canvas** that owns its own cursor. This is simpler than making it a real nested ProseMirror node and matches how the smartboard already works.
-- The node view is always interactive. There is no "editing mode / display mode" toggle. Clicking anywhere inside places the caret at that visual position; clicking outside blurs it. No modal chip, no "Done" button.
+### Caret navigation
+- `←` / `→`: standard prose caret. Because levels are per-character marks, the caret naturally moves between characters at different levels and inherits the level of the character it sits next to.
+- `↑`: bump active level +1 (same as `#`) without inserting.
+- `↓`: bump active level −1 without inserting.
+- The "active level" for the next keystroke is derived from the character to the left of the caret, plus any pending `↑`/`↓`/`#`/`##` adjustments. So after `x²`, if the caret is placed just after the `2`, typing continues at level 1; pressing `Space` drops it back to 0.
 
-### 2. Rendering + hit-testing
+### Rendering
+- A single mark `mathLevel { level: number }`.
+- `renderHTML` emits a `<span class="ml-lvl" data-lvl="{n}">` with inline style:
+  - `font-size: {0.75 ^ |level|}em`
+  - `vertical-align: baseline` and `transform: translateY({-0.45em * level})` (positive level → up, negative → down)
+  - `line-height: 1`
+- No colours, no borders, no chip — visually identical to real `<sup>`/`<sub>` chains, but selectable per character.
 
-New component `MathInlineCanvas`:
+### The orange chip
+- `#` in prose no longer creates a `mathInline` node. That path is removed.
+- `mathInline` stays only for genuine structural math (fraction, square root, matrix — inserted from the Structures menu or `/`). Simple powers/indices are handled by the level mark.
+- `##` no longer needs to open a math node at all.
 
-- Renders the tree as nested spans (`.mrow`, `.msup`, `.msub`, `.mfrac`, etc.) with the exact same visual rules the read-only renderer already uses. Each character span carries a `data-path` and `data-index` so `mousedown` maps a click straight to a `Cursor`.
-- Renders a blinking caret element at the current cursor. Caret CSS scales with the row's depth class (`.depth-1`, `.depth-2`, …) so the caret naturally shrinks inside `sup`/`sub`/`frac` — the "cursor becomes smaller" behavior the user asked for.
-- When not focused: no caret, no chrome, just the math. Same look as today.
+## Files to add / edit
 
-### 3. Keyboard behavior (focused canvas)
+**New**
+- `src/components/lessonnotes/extensions/MathLevelMark.ts` — TipTap Mark:
+  - `addAttributes`: `level: number` (default 0; 0 is stripped on paste).
+  - `renderHTML` / `parseHTML` as described.
+  - Command `setMathLevel(level)`, `bumpMathLevel(delta)`.
 
-All input is captured by a hidden input like today, but routed through tree operations:
+**New**
+- `src/components/lessonnotes/extensions/MathLevelInput.ts` — ProseMirror plugin that:
+  - Tracks `activeLevel` (starts at 0, refreshed on selection change to match the char left of the caret).
+  - Tracks `pendingHash` boolean (last key was `#`, no other input since).
+  - `handleTextInput(ch)`:
+    - If `ch === "#"`:
+      - If `pendingHash`: consume, `activeLevel -= 2`, clear `pendingHash`. Return true (nothing inserted).
+      - Else: `activeLevel += 1`, `pendingHash = true`. Return true.
+    - If `ch === " "` and `activeLevel !== 0`: `activeLevel = 0`, `pendingHash = false`. Return true (space not inserted; it was the exit signal).
+    - Else: insert `ch` with `mathLevel({ level: activeLevel })`, clear `pendingHash`.
+  - `handleKeyDown`:
+    - `ArrowUp` → `activeLevel += 1`, prevent default vertical caret jump inside the same line; if the caret would leave the block, fall through to default.
+    - `ArrowDown` → `activeLevel -= 1`, same rule.
+    - `Backspace` → default; then re-derive `activeLevel` from the new left-of-caret char.
+  - Exposes `activeLevel` on the plugin state so a small status pill (optional, later) can show the current level.
 
-- Printable char → `insertChar(root, cursor, ch)`.
-- `Backspace` → `backspace(root, cursor)` (already deletes empty container/pops out, per existing helper).
-- `ArrowLeft`/`ArrowRight` → `moveLeft` / `moveRight` (already walk in and out of containers character by character, including hopping between sup/sub sub-rows).
-- `ArrowUp`/`ArrowDown` → move between sibling sub-rows of the same container when possible (numerator↔denominator, base↔sup↔sub); otherwise no-op. Small helper to add to `mathTree.ts`.
-- `#` → wrap the run to the left of the cursor as `power` **only when the cursor is at the end of a valid parent object** (letter/digit/`)`/`]`/completed container). Cursor descends into the exponent sub-row. If pressed again immediately with an empty exponent, downgrade the `power` to a `subsup` and land the cursor in the subscript sub-row — this is how `S^{2}_{-1}` gets built.
-- `##` → same but attach a subscript. If the previous keystroke was `#` on an empty script, replace `power` with `subsup` and jump to the sub row instead of nesting.
-- `/` → `insertNodeWrapping(root, cursor, mkFrac(), start, end, 0)` where `[start, end)` comes from `extractWrapTargetLeftOf`. Cursor lands in denominator. The numerator remains a normal editable row — clicking inside it or arrow-lefting into it works exactly like any other row.
-- `Space` → if the cursor is inside a nested sub-row, `moveRight` out one level (close-and-exit). If already at the top row, blur the canvas back to prose and let the outer editor insert a real space.
-- `(` `[` `{` `|` → `insertNode(root, cursor, mkBracket(...))`, cursor descends into the body.
-
-### 4. Prose-level `#`
-
-`MathKeyShortcuts` no longer prebuilds `^{`. Instead:
-
-- When `#` fires on a valid parent term, it wraps that term into a `power` tree, inserts a `mathInline` with `tree: <the row containing the power>`, positions the internal cursor inside the empty exponent, and focuses it.
-- Cursors *between* two adjacent inline maths still work: clicking the caret between them focuses whichever one you clicked into. Clicking outside any math returns to prose.
-
-### 5. Removal of the chip UI
-
-`MathInlineView`'s "chip with hidden input + preview + tile row" goes away. Quick-symbol tiles move to a floating toolbar that appears when a math canvas has focus (same buttons, same behavior, but they now call tree ops).
-
-### 6. Fraction editing after creation
-
-Because the numerator is just a `Row` inside a `frac` node, clicking inside it moves the cursor there. Everything (typing, Backspace, `#`, `/`) already works via the same handler — no special "numerator locked" state exists in the new model.
+**Edit**
+- `src/components/lessonnotes/extensions/MathKeyShortcuts.ts` — delete the `handleTextInput` branch that promotes the previous term into a `mathInline` on `#`. Keep bracket auto-pair and `/` fraction shortcut untouched.
+- `src/components/lessonnotes/DocumentEditor.tsx` (or wherever the editor extensions array lives) — register `MathLevelMark` and `MathLevelInput`. Placement: after StarterKit, before `MathKeyShortcuts`.
+- `src/components/lessonnotes/extensions/MathInline.tsx` — leave as-is for fractions/sqrt/matrix, but remove the `autoEdit`-on-mount focus path that the old `#` flow relied on (harmless if kept; will simply never fire from `#` anymore).
 
 ## Migration
 
-- Existing math nodes have only `value`. Add `latexToTree` in `src/lib/smartboard` (small parser covering the subset produced by `friendlyToLatex`: chars, `^{…}`, `_{…}`, `\frac{…}{…}`, `\sqrt{…}`, brackets, common commands like `\pi`, `\theta`, `\sum`, `\int`). Called lazily on first focus; tree is then stored on the node.
-- `friendlyToLatex` / `latexToFriendly` remain the export path (tree → LaTeX for docx/read-only re-render, and for anything that still consumes `value`).
+Existing notes that stored `x^{2}` as a `mathInline` atom keep rendering through `MathInline` (no data change). Newly typed superscripts/subscripts use the mark. There is no forced conversion — the two coexist. Copy/paste out of an existing `mathInline` into prose still produces its LaTeX text; the user can retype with `#` if they want the new inline style.
 
-## Files
+## Edge cases handled
 
-- `src/lib/smartboard/mathTree.ts` — add `moveUp`, `moveDown`, `latexToTree`, `treeToLatex` (thin wrapper over existing helpers).
-- `src/components/lessonnotes/extensions/MathInline.tsx` — replace `MathInlineView` with a canvas node view backed by tree state; keep the TipTap node definition, add `tree` attr with JSON parse/serialize, keep input rules.
-- `src/components/lessonnotes/extensions/MathKeyShortcuts.ts` — prose `#` builds a tree with an open exponent instead of a raw LaTeX string; `/` unchanged in intent but hands off to the new canvas; bracket pairing untouched for prose.
-- New: `src/components/lessonnotes/extensions/MathInlineCanvas.tsx` — the interactive renderer + caret.
-- Small CSS additions in `src/index.css` for `.mrow .depth-N` caret sizing.
-
-## Out of scope for this pass
-
-- Selection ranges inside math (highlight-and-replace across the tree). Only single-caret editing at first; multi-char selection can come in a follow-up.
-- Copy/paste of a math subtree between chips.
-- Touch drag to reposition the caret (tap-to-position works; drag-select is later).
+- Deep nesting: `x` `#` `2` `#` `#` `n` `#` `5` renders `x^{2_{n^{5}}}` visually with four separate level values; each character is individually editable.
+- Mixed line: `E = mc²` — space after `=` resets level; caret then walks back through `²` (level 1) and `c` (level 0) with plain arrows.
+- Selection across levels: shift-arrow selects characters regardless of level; Delete removes them; Backspace/undo behave normally.
+- Copy out to plain text: mark strips to plain characters (`x2n5`). Optional refinement: `renderText` emits Unicode superscripts for common digits so paste-into-Slack still looks right. Not required for v1.
 
 ## Verification
 
-- Type `S`, press `#`, type `2`, press Space: caret returns to prose. Click just after the `S`: caret enters the base row. Press `##`, type `-1`, press Space: result renders as `S^{2}_{-1}`.
-- Type `5x/`, then click inside the numerator, type `+1`: result renders as `\frac{5x+1}{}` with caret still in numerator; arrow-right hops to denominator.
-- Click between the `2` and `n` in an existing `x^{2n}` (created hours earlier) and type `^3`: result `x^{2^{3}n}`.
-- ArrowLeft from prose immediately after a math node enters it at its right edge; ArrowLeft again walks character-by-character into any inner sub-row.
+- Type `x#2` — see `x²` with the `2` visually raised and smaller, cursor sitting just after the `2` at raised height.
+- Press `←` — cursor moves before the `2`, still at raised height.
+- Press `↓` twice — cursor lowers to baseline then to subscript.
+- Type `n` — subscript `n` appears after `x²`.
+- Press `Space` — cursor returns to baseline; typing continues normally.
+- Backspace across the whole run removes one character at a time.
+- No orange chip appears at any point.
+
+## Out of scope for this plan
+
+- Structural math (fraction, sqrt, matrix) — untouched, still uses `mathInline`.
+- Click-to-position inside an existing `mathInline` — separate refinement.
+- Unicode-on-copy — v2 nice-to-have.
