@@ -19,9 +19,11 @@ import { MANIPULATIVES } from "@/lib/lessonnotes/assets/manipulatives";
 import { MEASUREMENT } from "@/lib/lessonnotes/assets/measurement";
 import { REALWORLD } from "@/lib/lessonnotes/assets/realworld";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
+import { isFavorite, toggleFavorite, listFavorites, subscribeFavorites } from "@/lib/lessonnotes/assets/favorites";
+import { listRecent, getLastInserted, subscribeRecents } from "@/lib/lessonnotes/assets/recents";
 import { renderVisual } from "./extensions/visuals/visualDispatch";
 import { MatrixCreateDialog, type MatrixDialogKind, type MatrixDialogResult } from "./MatrixCreateDialog";
-import { Search, MoreVertical } from "lucide-react";
+import { Search, MoreVertical, Heart } from "lucide-react";
 
 
 interface Props {
@@ -158,6 +160,22 @@ function AssetEditPopover({ a }: { a: AssetDef }) {
   );
 }
 
+function FavoriteHeart({ id }: { id: string }) {
+  useSyncExternalStore(subscribeFavorites, () => localStorage.getItem("lessonnotes.assetFavorites") ?? "", () => "");
+  const fav = isFavorite(id);
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); toggleFavorite(id); }}
+      className={`absolute top-1 left-1 p-0.5 rounded transition ${fav ? "opacity-100" : "opacity-40 hover:opacity-100"} hover:bg-foreground/10`}
+      aria-label={fav ? "Remove from favourites" : "Add to favourites"}
+      title={fav ? "Remove from favourites" : "Add to favourites"}
+    >
+      <Heart className={`h-3.5 w-3.5 ${fav ? "fill-red-500 text-red-500" : "text-foreground/60"}`} />
+    </button>
+  );
+}
+
 function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
   const isArithmetic = a.group === "Arithmetic" && a.render.kind === "visual";
   const preview =
@@ -184,6 +202,7 @@ function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
         (isArithmetic ? "h-40" : "h-28")
       }
     >
+      <FavoriteHeart id={a.id} />
       <AssetEditPopover a={a} />
       <div className="flex-1 flex items-center justify-center w-full min-h-[2rem] text-foreground overflow-hidden">
         {preview}
@@ -250,12 +269,35 @@ function GroupedSection({
   );
 }
 
+type ViewMode = "all" | "favorites" | "recent" | "last";
+
 export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
   const [q, setQ] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const [libMenuOpen, setLibMenuOpen] = useState(false);
   const searching = q.trim().length > 0;
   const [matrixDialog, setMatrixDialog] = useState<{ kind: MatrixDialogKind; asset: AssetDef } | null>(null);
-  // Re-render whenever a user edits an asset name or short code.
+  // Re-render whenever a user edits an asset name / short code / favourites / recents.
   useSyncExternalStore(subscribeOverrides, () => localStorage.getItem("lessonnotes.assetOverrides") ?? "", () => "");
+  useSyncExternalStore(subscribeFavorites, () => localStorage.getItem("lessonnotes.assetFavorites") ?? "", () => "");
+  useSyncExternalStore(subscribeRecents, () => localStorage.getItem("lessonnotes.assetRecents") ?? "", () => "");
+
+  const byId = useMemo(() => {
+    const m = new Map<string, AssetDef>();
+    for (const a of ALL_ASSETS) m.set(a.id, a);
+    return m;
+  }, []);
+
+  const viewDefs = useMemo<AssetDef[] | null>(() => {
+    if (viewMode === "favorites") return listFavorites().map((id) => byId.get(id)).filter(Boolean) as AssetDef[];
+    if (viewMode === "recent") return listRecent(10).map((id) => byId.get(id)).filter(Boolean) as AssetDef[];
+    if (viewMode === "last") {
+      const last = getLastInserted();
+      const a = last ? byId.get(last) : undefined;
+      return a ? [a] : [];
+    }
+    return null;
+  }, [viewMode, byId]);
 
   const results = useMemo<AssetDef[]>(
     () => (searching ? searchAssets(q, 200) : []),
@@ -306,21 +348,89 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[min(1200px,95vw)] h-[90vh] p-0 flex flex-col gap-0">
         <DialogHeader className="p-4 border-b flex-row items-center justify-between gap-4 space-y-0">
-          <DialogTitle className="text-lg">Asset Library</DialogTitle>
-          <div className="relative w-80 max-w-full">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search all assets…"
-              className="pl-8"
-            />
+          <DialogTitle className="text-lg">
+            Asset Library
+            {viewMode !== "all" && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                · {viewMode === "favorites" ? "Favourites" : viewMode === "recent" ? "Recent" : "Repeat Last"}
+                <button
+                  type="button"
+                  onClick={() => setViewMode("all")}
+                  className="ml-2 text-primary hover:underline"
+                >Clear</button>
+              </span>
+            )}
+          </DialogTitle>
+          <div className="flex items-center gap-2">
+            <div className="relative w-80 max-w-full">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                autoFocus
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search all assets…"
+                className="pl-8"
+              />
+            </div>
+            <Popover open={libMenuOpen} onOpenChange={setLibMenuOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="p-2 rounded hover:bg-foreground/10"
+                  aria-label="Library options"
+                  title="Library options"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="end" className="w-48 p-1 bg-white text-black border border-black/20">
+                <button
+                  type="button"
+                  onClick={() => { setViewMode("favorites"); setLibMenuOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-black/5 text-sm"
+                >Favourites</button>
+                <button
+                  type="button"
+                  onClick={() => { setViewMode("recent"); setLibMenuOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-black/5 text-sm"
+                >Recent</button>
+                <button
+                  type="button"
+                  onClick={() => { setViewMode("last"); setLibMenuOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-black/5 text-sm"
+                >Repeat Last</button>
+                <div className="my-1 border-t border-black/10" />
+                <button
+                  type="button"
+                  onClick={() => { setViewMode("all"); setLibMenuOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-black/5 text-sm"
+                >All assets</button>
+              </PopoverContent>
+            </Popover>
           </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-10">
-          {searching ? (
+          {viewDefs !== null ? (
+            <section>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                {viewMode === "favorites" ? "Favourite assets" : viewMode === "recent" ? "Recently used" : "Last inserted"} · {viewDefs.length}
+              </h3>
+              {viewDefs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {viewMode === "favorites"
+                    ? "Click the heart on any asset to add it here."
+                    : viewMode === "recent"
+                    ? "Assets you insert will appear here."
+                    : "No assets have been inserted yet."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-2">
+                  {viewDefs.map((a) => <Tile key={a.id} a={a} onPick={onPick} />)}
+                </div>
+              )}
+            </section>
+          ) : searching ? (
             <section>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                 {results.length} result{results.length === 1 ? "" : "s"} for "{q}"

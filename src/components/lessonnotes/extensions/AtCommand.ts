@@ -62,7 +62,19 @@ export const AtCommand = Extension.create<{ onChange?: AtCommandListener }>({
                 $from.parentOffset,
                 undefined, "\ufffc",
               );
-              const match = /(?:^|\s)@([\w-]*)$/.exec(textBefore);
+              // Trigger anywhere: `@` reserved for Quick Insert, so activate
+              // on every occurrence regardless of the preceding character.
+              // Special case `@@` → synthetic query "@" (menu maps to Repeat Last).
+              const doubleAt = /@@$/.test(textBefore);
+              const match = doubleAt ? null : /@([\w-]*)$/.exec(textBefore);
+              if (doubleAt) {
+                const to = $from.pos;
+                const from = to - 2;
+                const coords = v.coordsAtPos(to);
+                const tr = v.state.tr.setMeta(key, { active: true, query: "@", from, to, coords });
+                v.dispatch(tr);
+                return;
+              }
               if (match) {
                 const query = match[1];
                 const to = $from.pos;

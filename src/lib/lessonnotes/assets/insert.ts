@@ -6,6 +6,7 @@ import type { Editor } from "@tiptap/react";
 import { TextSelection } from "@tiptap/pm/state";
 import type { AssetDef } from "./types";
 import { requiredSlotCount, validateStructure } from "@/lib/lessonnotes/structureValidator";
+import { pushRecent } from "./recents";
 
 /**
  * Insert an asset into the editor. If `from`/`to` are provided the range is
@@ -13,6 +14,7 @@ import { requiredSlotCount, validateStructure } from "@/lib/lessonnotes/structur
  * current selection.
  */
 export function insertAsset(editor: Editor, a: AssetDef, from?: number, to?: number) {
+  try { pushRecent(a.id); } catch { /* noop */ }
   const r = a.render;
   const hasRange = typeof from === "number" && typeof to === "number";
   const chain = editor.chain().focus();
