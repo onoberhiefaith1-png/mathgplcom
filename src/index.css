@@ -405,6 +405,12 @@ All colors MUST be HSL.
 .math-slot:focus-within { border-bottom-color: hsl(var(--primary) / 0.6); outline: none; }
 .math-slot[data-empty="true"]::before,
 .math-slot:empty::before {
+  content: "";
+}
+.math-struct:focus-within .math-slot[data-empty="true"]::before,
+.math-struct:focus-within .math-slot:empty::before,
+.math-slot:focus-within[data-empty="true"]::before,
+.math-slot:focus-within:empty::before {
   content: "▯";
   opacity: 0.28;
   font-size: 0.9em;

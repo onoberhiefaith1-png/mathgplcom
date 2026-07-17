@@ -7,10 +7,6 @@
 //   Backspace    → delete previous / pop out of empty container
 //   ArrowLeft/Right → walk char-by-char, into/out of sub-rows
 //   ArrowUp/Down → hop between sibling sub-rows of a container
-//   #            → attach a superscript workspace to the object left of cursor
-//                  (or land in an existing empty sup slot on that object)
-//   ##           → same but subscript (`#` then `#` inside an empty sup slot
-//                  moves the cursor to the sub slot on the same base)
 //   /            → wrap the multiplicative term to the left as a fraction
 //                  numerator; cursor lands in denominator
 //   ( [ | {      → open a bracketed workspace; cursor descends inside
@@ -37,7 +33,6 @@ import {
   moveRight,
   extractWrapTargetLeftOf,
 } from "@/lib/smartboard/mathTree";
-import { makeScriptWith } from "@/lib/smartboard/mathTreeLatex";
 
 interface Props {
   root: Row;
@@ -267,8 +262,6 @@ export function MathInlineCanvas({
     setCursor(next.cursor);
   }, [onChange]);
 
-  const lastKeyRef = useRef<string>("");
-
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey) {
       // Let browser handle
@@ -294,18 +287,11 @@ export function MathInlineCanvas({
       }
       return;
     }
-    if (k === "#") {
-      e.preventDefault();
-      handleScript(lastKeyRef.current === "#" ? "sub" : "sup", e.shiftKey);
-      lastKeyRef.current = "#";
-      return;
-    }
     if (k === "/") {
       e.preventDefault();
       const row = getRowAt(root, cursor.path);
       const { start, end } = extractWrapTargetLeftOf(row, cursor.index);
       apply(insertNodeWrapping(root, cursor, mkFrac(), start, end, 0));
-      lastKeyRef.current = k;
       return;
     }
     if (k === "(" || k === "[" || k === "{" || k === "|") {
@@ -315,55 +301,14 @@ export function MathInlineCanvas({
       };
       const [l, r] = map[k];
       apply(insertNode(root, cursor, mkBracket(l as never, r as never)));
-      lastKeyRef.current = k;
       return;
     }
     if (k.length === 1) {
       e.preventDefault();
       apply(insertChar(root, cursor, k));
-      lastKeyRef.current = k;
       return;
     }
   };
-
-  /** Attach or enter a script slot on the object left of the cursor. */
-  function handleScript(kind: "sup" | "sub", _shift: boolean) {
-    const slot: 1 | 2 = kind === "sup" ? 2 : 1;
-    const row = getRowAt(root, cursor.path);
-    // Case A: the node immediately left is already a subsup → jump into
-    // its matching slot (extending an existing S^{2} with a subscript, or
-    // toggling from empty sup to sub when the user pressed `#` twice).
-    const leftIdx = cursor.index - 1;
-    const left = row[leftIdx];
-    if (left && left.kind === "subsup") {
-      const subs = subRowsOf(left);
-      const otherSlot = slot === 2 ? 1 : 2;
-      // If we just added an empty other slot and pressed `#` again, prefer
-      // moving the cursor to `slot` (this yields the ##-after-# behavior).
-      if (subs[slot].length === 0 && subs[otherSlot].length === 0) {
-        // Downgrade: clear the previously-entered slot (it stayed empty)
-        // and enter the requested slot.
-        // No-op needed because both are already empty.
-      }
-      setCursor({ path: [...cursor.path, leftIdx, slot], index: subs[slot].length });
-      return;
-    }
-    // Case B: wrap the term-left as a new subsup and land in the slot.
-    const { start, end } = extractWrapTargetLeftOf(row, cursor.index);
-    if (end === start) {
-      // No parent — literal `#` becomes a char.
-      apply(insertChar(root, cursor, "#"));
-      return;
-    }
-    const term = row.slice(start, end);
-    const node = makeScriptWith(term, slot);
-    const newRow = [...row.slice(0, start), node, ...row.slice(end)];
-    const newRoot = setRowAt(root, cursor.path, newRow);
-    apply({
-      root: newRoot,
-      cursor: { path: [...cursor.path, start, slot], index: 0 },
-    });
-  }
 
   const rowNode = useMemo(
     () => <RowView row={root} path={[]} cursor={cursor} focused={focused} />,
@@ -372,7 +317,7 @@ export function MathInlineCanvas({
 
   return (
     <span
-      className={`inline-flex items-baseline align-baseline px-1 rounded ${focused ? "bg-primary/10 outline outline-1 outline-primary/40" : "hover:bg-foreground/5 cursor-text"}`}
+      className={`inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30" : "cursor-text"}`}
       style={{ minHeight: "1.2em" }}
       onMouseDown={(e) => {
         e.preventDefault();
