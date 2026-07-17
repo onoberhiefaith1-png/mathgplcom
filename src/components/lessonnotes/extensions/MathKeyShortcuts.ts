@@ -117,10 +117,6 @@ export const MathKeyShortcuts = Extension.create({
             const value = `${latexTerm}^{}`;
             // Build the tree now so the canvas can mount already focused
             // with the caret inside the empty sup slot.
-            // Deferred import to avoid pulling the tree code into the
-            // extension's cold path when the shortcut is not used.
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const { latexToTree } = require("@/lib/smartboard/mathTreeLatex");
             const tree = JSON.stringify(latexToTree(value));
             const node = mathInline.create({ value, tree, autoEdit: true });
             const tr = view.state.tr.replaceWith(termStart, termEnd, node);
