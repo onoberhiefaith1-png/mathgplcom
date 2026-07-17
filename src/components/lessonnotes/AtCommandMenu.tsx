@@ -34,12 +34,8 @@ export function AtCommandMenu({ editor, state, onClose }: Props) {
   const [idx, setIdx] = useState(0);
   const [matrixDialog, setMatrixDialog] = useState<{ kind: MatrixDialogKind; asset: AssetDef; range: { from: number; to: number } } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const results = useMemo<AssetDef[]>(
-    () => (state.active ? searchAssets(state.query, 40) : []),
-    [state.active, state.query],
-  );
 
-  useEffect(() => { setIdx(0); }, [state.query, state.active]);
+
 
   const q = state.query || "";
   const isRepeat = q === "@";
