@@ -348,16 +348,65 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[min(1200px,95vw)] h-[90vh] p-0 flex flex-col gap-0">
         <DialogHeader className="p-4 border-b flex-row items-center justify-between gap-4 space-y-0">
-          <DialogTitle className="text-lg">Asset Library</DialogTitle>
-          <div className="relative w-80 max-w-full">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search all assets…"
-              className="pl-8"
-            />
+          <DialogTitle className="text-lg">
+            Asset Library
+            {viewMode !== "all" && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                · {viewMode === "favorites" ? "Favourites" : viewMode === "recent" ? "Recent" : "Repeat Last"}
+                <button
+                  type="button"
+                  onClick={() => setViewMode("all")}
+                  className="ml-2 text-primary hover:underline"
+                >Clear</button>
+              </span>
+            )}
+          </DialogTitle>
+          <div className="flex items-center gap-2">
+            <div className="relative w-80 max-w-full">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                autoFocus
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search all assets…"
+                className="pl-8"
+              />
+            </div>
+            <Popover open={libMenuOpen} onOpenChange={setLibMenuOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="p-2 rounded hover:bg-foreground/10"
+                  aria-label="Library options"
+                  title="Library options"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="end" className="w-48 p-1 bg-white text-black border border-black/20">
+                <button
+                  type="button"
+                  onClick={() => { setViewMode("favorites"); setLibMenuOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-black/5 text-sm"
+                >Favourites</button>
+                <button
+                  type="button"
+                  onClick={() => { setViewMode("recent"); setLibMenuOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-black/5 text-sm"
+                >Recent</button>
+                <button
+                  type="button"
+                  onClick={() => { setViewMode("last"); setLibMenuOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-black/5 text-sm"
+                >Repeat Last</button>
+                <div className="my-1 border-t border-black/10" />
+                <button
+                  type="button"
+                  onClick={() => { setViewMode("all"); setLibMenuOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-black/5 text-sm"
+                >All assets</button>
+              </PopoverContent>
+            </Popover>
           </div>
         </DialogHeader>
 
