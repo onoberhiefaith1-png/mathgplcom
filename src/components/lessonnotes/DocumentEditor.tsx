@@ -806,6 +806,7 @@ function DocumentEditorInner({
       MathStructure,
       MathVisual,
       AtCommand.configure({ onChange: setAtState }),
+      MathKeyShortcuts,
     ],
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
