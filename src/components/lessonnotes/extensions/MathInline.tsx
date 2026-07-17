@@ -170,13 +170,13 @@ function MathInlineView({ node, updateAttributes, selected, editor }: NodeViewPr
     if (e.key === "#") {
       e.preventDefault();
       setDraft((d) => {
-        // Rule: `#` at empty draft or after `{` → literal `#`.
-        if (d.length === 0) return d + "#";
         if (d.endsWith("^{") || d.endsWith("_{")) {
           // Second `#` right after the first: downgrade to a subscript.
           return d.slice(0, -2) + "_{";
         }
-        if (!hasValidParent(d)) return d + "#";
+        // Rule: a superscript/subscript must always have a parent object.
+        // Empty draft or last char `{` means no parent → ignore the press.
+        if (!hasValidParent(d)) return d;
         return d + "^{";
       });
       return;
