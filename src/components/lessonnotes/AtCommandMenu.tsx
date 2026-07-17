@@ -9,11 +9,20 @@ import {
   resolveByShortCode,
   getEffectiveLabel,
   getEffectiveShortCode,
+  ALL_ASSETS,
   type AssetDef,
 } from "@/lib/lessonnotes/assets/registry";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
+import { listFavorites } from "@/lib/lessonnotes/assets/favorites";
+import { listRecent, getLastInserted } from "@/lib/lessonnotes/assets/recents";
 import type { AtCommandState } from "./extensions/AtCommand";
 import { MatrixCreateDialog, type MatrixDialogKind, type MatrixDialogResult } from "./MatrixCreateDialog";
+
+const MATRIX_RE = /^mat(\d+)x(\d+)$/i;
+function findById(id: string | null): AssetDef | null {
+  if (!id) return null;
+  return ALL_ASSETS.find((a) => a.id === id) ?? null;
+}
 
 interface Props {
   editor: Editor | null;
