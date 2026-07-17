@@ -26,7 +26,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { friendlyToLatex } from "@/lib/notebook/mathFriendly";
 import { isSafeLatex } from "@/lib/notebook/mathSafety";
-import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
+
 
 const OPEN_CLOSE: Record<string, string> = {
   "(": ")",
