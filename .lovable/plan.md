@@ -1,71 +1,89 @@
-## Quick Insert (@) with Short Codes
+# Keyboard-First Quick Insert & Asset Library Enhancements
 
-The `@` menu already exists and searches Standard Names. This plan adds a second, uniqueness-enforced identifier — the **Short Code** — plus in-app editing of both names.
+Ten related improvements. Grouped into three implementation waves so each can be verified independently.
 
-### 1. Data model — add short codes to every asset
+---
 
-Extend `AssetDef` in `src/lib/lessonnotes/assets/types.ts`:
+## Wave 1 — Quick Insert (@) power features
 
-```ts
-export interface AssetDef {
-  id: string;
-  label: string;        // Standard Name
-  shortCode: string;    // NEW — unique, uppercase, keyboard shortcut
-  ...
-}
-```
+**1.1 Trigger `@` anywhere**
+`src/components/lessonnotes/extensions/AtCommand.ts` currently requires `(?:^|\s)@` before the token. Change the regex to `@([\w-]*)$` so `x@FR`, `ABCD@SQ`, `2x+3@TB` all activate the menu. Nothing else in the plugin needs to change — `from`/`to`/coords already come from the caret.
 
-Populate `shortCode` on every entry across `symbols.ts`, `structures.ts`, `diagrams.ts`, `graphs.ts`, `tables.ts`, `manipulatives.ts`, `measurement.ts`, `realworld.ts`. Defaults follow the user's table (`FR`, `SQ`, `TB`, `TRI`, `REC`, `CIR`, `BAR`, `HIST`, `PIE`, `GRAPH`, `NL`, `COMP`, `PRO`, …) and are auto-derived for anything not listed (initials → first-3 letters, disambiguated with a numeric suffix).
+**1.2 Quick matrix — `@mat{R}x{C}` + Enter**
+In `AtCommandMenu.tsx` `onKey` handler, before the short-code fast-path, detect `/^mat(\d+)x(\d+)$/i` on `state.query`. On Enter, insert a matrix asset directly (bypass MatrixCreateDialog) with `rows`, `cols`, default `br: "["`. Clamp to 1–10 each.
 
-A build-time check in `registry.ts` throws if any two assets ship with the same default short code — guarantees uniqueness from day one.
+**1.3 Repeat last asset — `@@` + Enter**
+Add a lightweight `lastInsertedAsset` store (module-scoped ref in `src/lib/lessonnotes/assets/recents.ts`, persisted to `localStorage`). Every `insertAsset` call updates it. In `AtCommandMenu`, if `state.query === ""` and the raw text at `state.from..state.to` is `@@`, Enter inserts the stored last asset. To detect `@@`, relax the AtCommand regex to also match a second `@` as a literal query char, OR simpler: when caret is right after `@@`, treat it as `active` with a synthetic `query = "__repeat__"`. Cleanest: in the plugin, if the text before caret matches `@@$`, emit `{active, query: "@"}` — then the menu maps query `"@"` to repeat-last.
 
-### 2. Persisted user overrides
+**1.4 `@favorite` and `@recent` virtual queries**
+Reserved queries handled in the menu ahead of `searchAssets`:
+- `@favorite` (or its user-defined alias) → results = assets flagged in favourites store.
+- `@recent` → results = last 10 assets from recents store (see 1.3), newest first.
+Both aliases are editable in a small settings dropdown on the library ⋮ menu; stored in `localStorage` under `assetCommandAliases`.
 
-Store per-asset user edits in `localStorage` under `lessonnotes.assetOverrides` as `{ [assetId]: { label?, shortCode? } }`. A small module `assets/overrides.ts` exposes:
+---
 
-- `getEffectiveLabel(a)` / `getEffectiveShortCode(a)`
-- `setOverride(id, patch)` with uniqueness validation across effective short codes (returns `{ ok: false, conflictWith }` on clash)
-- `resolveByShortCode(code)` — case-insensitive lookup used by the @ menu
+## Wave 2 — Math keyboard shortcuts
 
-`searchAssets` and `AtCommandMenu` read through these accessors so renamed assets appear everywhere immediately.
+New TipTap extension `src/components/lessonnotes/extensions/MathKeyShortcuts.ts` installed alongside `AtCommand`.
 
-### 3. @-menu behaviour (`AtCommandMenu.tsx`)
+**2.1 Superscript on Shift-hold (single next char)**
+This must not conflict with normal capitalisation. Design: teacher presses and releases Shift **with no other key**, then the next printable character becomes superscript. Implementation: `keydown` records `Shift` press with no accompanying key; `keyup` on Shift with `event.getModifierState` history clean = arm superscript mode for one character. Next `input` / `keypress` maps the char via a superscript table (`0-9`, `+`, `-`, `=`, `(`, `)`, `n`, `m`, `i`, `x`, `a`, `b`, etc.), replaces the just-inserted char with the Unicode superscript (`²`, `ⁿ`…), and disarms. Fallback: unmapped char inserts normally.
 
-- Search matches both effective label **and** effective short code (short-code exact match ranks highest).
-- Each row shows the short code as the right-side hint (replacing the current category hint).
-- **Enter key logic**:
-  1. If the typed query, uppercased, exactly matches an effective Short Code → insert that asset immediately, ignore highlighted row.
-  2. Otherwise insert the highlighted row (existing behaviour).
-- Tab still autocompletes to the highlighted label (small addition, keeps flow).
+**2.2 Subscript on Ctrl-hold (single next char)**
+Same pattern with `Control`; Unicode subscript table (`₀-₉`, `ₙ`, `ᵢ`, `ₐ`, `ₑ`…). Skip when the Ctrl press was part of a shortcut (Ctrl+C, Ctrl+V, Ctrl+Z etc.) — detect by "Ctrl went down and up alone with no other key in between".
 
-### 4. Editing names — Asset Library ⋮ menu
+**2.3 Smart bracket pairing**
+Same extension. On `keydown` for `(`, `[`, `{`, `|`, `⟨` (and Shift-9 producing `(`), insert the pair and move caret between. Handle:
+- Already-selected text → wrap it.
+- Typing the matching closer when caret is immediately before it → skip insertion (standard "overtype closer").
+- `Backspace` immediately after autopair removes both.
 
-In the Asset Library gallery card (`src/components/lessonnotes/AssetLibrary*.tsx` — actual file located during implementation), add a ⋮ button opening a small popover with two fields:
+**2.4 Smart fraction on `/`**
+On `/` keypress, scan backwards in the current text node to isolate the "last mathematical term": walk back while chars are alphanumerics, `.`, `^`, `_`, `(`…`)` balanced, digits, single letters; stop at whitespace, `+`, `-` (binary), `*`, `=`, `,`. Replace that run with a `mathInline` node holding `\frac{run}{}` and place caret in the denominator. If the run is empty (e.g. `+/`), fall back to a plain `\frac{}{}` insert. Reuses existing `mathInline` node + `renderMathInline`.
 
-```
-Standard Name  [Fraction        ]
-Short Code     [FR              ]
-                [Reset] [Save]
-```
+---
 
-On Save, call `setOverride`. On short-code clash show inline error: *"This Short Code is already assigned to <Other Asset>. Please choose a different Short Code."* — Save stays disabled until resolved. Reset clears the override for that asset.
+## Wave 3 — Asset Library management
 
-### 5. Smartboard parity
+**3.1 Favourites + Recents store**
+`src/lib/lessonnotes/assets/favorites.ts` and `recents.ts`: localStorage-backed sets/lists keyed by asset `id`. Exports: `isFavorite`, `toggleFavorite`, `listFavorites`, `pushRecent`, `listRecent(n)`, `getLastInserted`. `insertAsset` (in `src/lib/lessonnotes/assets/insert.ts`) calls `pushRecent(assetId)` on every insertion — this powers 1.3, 1.4, and the library ⋮ menu.
 
-The smartboard already renders lesson-note content through the same TipTap extensions, but it doesn't mount `AtCommand` today. Add the `AtCommand` extension + `AtCommandMenu` to the smartboard editor surface (single file, `src/pages/SmartBoardPage.tsx` or its editor wrapper) so `@FR` + Enter works during a live lesson exactly like in the notebook.
+**3.2 Per-asset ❤️ toggle on the card**
+`AssetLibraryDialog.tsx` asset card: add a small heart button top-right, separate from the existing ⋮ button. Filled red when favourited, outline otherwise. One-click toggle, no popover.
 
-### 6. Out of scope
+**3.3 Per-asset ⋮ menu — Standard Name + Short Code only**
+The existing edit popover already edits Standard Name + Short Code — keep as-is, just confirm it no longer shows anything else. (It doesn't.)
 
-- Server-side persistence of overrides (localStorage only for now; can be lifted to a `user_asset_overrides` table later without changing the UI).
-- Bulk short-code editor / import-export.
-- Reassigning short codes to structures created inside the doc (only affects the *insertable* asset registry).
+**3.4 Library-level ⋮ menu**
+Add a ⋮ button on the dialog header with three view modes:
+- **Favourites** → filter grid to `listFavorites()`.
+- **Recent** → grid = `listRecent(10)` in order.
+- **Repeat Last** → grid = `[getLastInserted()]` (or empty state).
+Selecting a mode sets a `viewMode` state in the dialog; picking "All" clears it. Search box remains active within the filtered view.
 
-### Files touched
+---
 
-- `src/lib/lessonnotes/assets/types.ts` — add `shortCode` field.
-- `src/lib/lessonnotes/assets/{symbols,structures,diagrams,graphs,tables,manipulatives,measurement,realworld}.ts` — populate short codes.
-- `src/lib/lessonnotes/assets/registry.ts` — uniqueness check, search over short codes, resolve helper.
-- `src/lib/lessonnotes/assets/overrides.ts` — NEW, localStorage layer.
-- `src/components/lessonnotes/AtCommandMenu.tsx` — Enter-by-short-code, show code in row.
-- Asset Library card component — ⋮ edit popover.
-- Smartboard editor surface — mount `AtCommand` + `AtCommandMenu`.
+## Technical notes
+
+- **Files created:**
+  `src/lib/lessonnotes/assets/favorites.ts`
+  `src/lib/lessonnotes/assets/recents.ts`
+  `src/components/lessonnotes/extensions/MathKeyShortcuts.ts`
+- **Files modified:**
+  `src/components/lessonnotes/extensions/AtCommand.ts` (regex, `@@` detection)
+  `src/components/lessonnotes/AtCommandMenu.tsx` (matrix shortcut, repeat, favorite/recent virtual queries)
+  `src/lib/lessonnotes/assets/insert.ts` (call `pushRecent`)
+  `src/components/lessonnotes/AssetLibraryDialog.tsx` (❤️ button, library ⋮ menu, viewMode filter)
+  Editor bootstrap file that registers `AtCommand` — add `MathKeyShortcuts` alongside.
+- **Unicode tables** live inline in the shortcut extension; only characters with real Unicode super/sub glyphs are mapped. Unmapped chars fall through to normal typing (no fake formatting).
+- **No backend changes.** Favourites, recents, and command aliases are per-device localStorage.
+- **No changes to bar/histogram/pie/graph work.** This is purely input-layer and library-UI.
+
+---
+
+## Out of scope for this plan (say if you want them included)
+
+- Cross-device sync of favourites/recents (would need a Cloud table).
+- Superscript/subscript for characters that have no Unicode equivalent (would require switching those to `mathInline` nodes instead of plain text).
+- Server-driven alias sharing across teachers.
