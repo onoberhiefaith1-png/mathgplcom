@@ -1,61 +1,92 @@
+
+# Redesign inline math from "fixed object" to "editable cursor region"
+
+## Problem
+
+`mathInline` is a TipTap `atom` node whose entire content is a LaTeX string edited only inside a modal chip. Once the chip closes, the whole expression is a single opaque object: you cannot click between characters, you cannot re-enter a superscript, `Delete` wipes the whole thing, and `S^2` + later `_{-1}` is impossible because there is no way to place the caret after the base `S`.
+
 ## Goal
 
-Replace the current "Unicode superscript/subscript character" implementation of `#` / `##` with a true recursive **nested math container** model, where every superscript and subscript is itself a full editable math workspace and the cursor navigates a tree.
+Every `mathInline` becomes a small editable canvas — a **row of nodes with a real cursor inside it**. The cursor freely walks in/out of superscripts, subscripts, fractions, radicals, brackets. It only *becomes visually smaller* when it descends into a script/denominator/etc. Typing, Backspace, arrow keys, `#`, `##`, `/`, Space all operate on the cursor's current row, at any depth, at any time — including hours after the node was first created.
 
-## Why the current system can't do this
+## Model
 
-`MathKeyShortcuts.ts` today converts `#X` → one Unicode glyph (e.g. `x²`). It operates on flat text and cannot represent `x^{2^{5^n}}` or `x^{2_{n^{3_k}}}`. Nesting is fundamentally impossible in that model.
+Reuse the tree already defined in `src/lib/smartboard/mathTree.ts`:
 
-We already have the right data structure elsewhere: `src/lib/smartboard/mathTree.ts` defines `Row`, `Node`, `Cursor` with `sup`, `sub`, `power`, `subsup` containers, plus `insertNode`, `moveLeft/Right`, `backspace`, and `exitCompletedScriptCursor`. This is exactly the recursive tree the user is describing. The plan is to make lesson-note math use that tree.
+- `Row = Node[]`
+- `Node = char | sup | sub | frac | sqrt | bracket | ...`
+- `Cursor = { path: number[]; index: number }`
+- Existing helpers: `insertChar`, `insertNode`, `backspace`, `moveLeft`, `moveRight`, `getRowAt`, `insertNodeWrapping`, `extractWrapTargetLeftOf`.
 
-## Editing model
+The math chip stops storing a LaTeX string as its source of truth. It stores a `Row` (serialized as JSON) in the node attr `tree`, and derives LaTeX (for prose export / re-render outside edit mode) from that tree.
 
-- Math lives inside the existing `mathInline` TipTap node (`MathInline.tsx`). We upgrade its storage from a LaTeX string to a `Row` tree (with a LaTeX projection kept for rendering, export, and back-compat).
-- Inside a `mathInline` node the cursor is a `Cursor` into the tree, not a ProseMirror position. All `#` / `##` / typing / space / arrows / backspace apply to the tree cursor while focus is inside math.
-- Outside math (regular prose), the editor behaves as today.
+## What changes
 
-## Activation rules (per user spec)
+### 1. `MathInline` node
 
-Let "parent object" = the node immediately to the left of the tree cursor in the current row (a char, a bracket, a frac, a previously-created sup/sub, etc.).
+- Attributes: keep `value` for legacy read-only render, add `tree` (JSON of `Row`). New nodes write `tree`; on load, if only `value` exists, parse it into a tree once (`latex → tree` migration in `src/lib/smartboard`).
+- Still `atom: false` conceptually — but implemented as a **ProseMirror atom with an internal contentEditable-off canvas** that owns its own cursor. This is simpler than making it a real nested ProseMirror node and matches how the smartboard already works.
+- The node view is always interactive. There is no "editing mode / display mode" toggle. Clicking anywhere inside places the caret at that visual position; clicking outside blurs it. No modal chip, no "Done" button.
 
-1. **In prose, bare `#` / `##` with no parent → literal `#` character.** No math node is created.
-2. **In prose, `X#`** (parent exists in the current run) → convert `X` (or the last mathematical term to the left, using existing `extractWrapTargetLeftOf` semantics) into a `mathInline` node containing `[X, sup([])]`, move cursor into the empty `sup` slot.
-3. **Inside math, `#` with a parent object to the left** → wrap that object in a `power` (`base^{□}`) via `insertNodeWrapping`, cursor lands in the empty exponent slot. If the exponent slot is currently empty (no parent), `#` is ignored.
-4. **`##` mirrors rule 3 but for subscript.** If a `sup` already sits to the left with content, `##` inside that sup attaches a `sub` to its content (producing `subsup` / nested `sub` as appropriate).
-5. **`##` typed inside an already-armed `#` slot with content** → converts current `sup` into `subsup` (adds sub sibling).
-6. **Empty container + `#` or `##` → ignored** (no "superscript of nothing").
-7. **Literal `#`**: two consecutive `#`s with no valid parent, or `\#` escape, insert the character.
+### 2. Rendering + hit-testing
 
-## Cursor navigation
+New component `MathInlineCanvas`:
 
-- **`#` / `##`**: create-and-descend as above.
-- **Space inside math**: `moveRight` up one level — pop out to the parent row (uses existing `exitCompletedScriptCursor` generalised to any container). No visible space is inserted. Successive spaces climb further; once the cursor exits the outermost `mathInline` back into prose, the next Space inserts a real space.
-- **Left/Right arrows**: use existing `moveLeft` / `moveRight`, which already hop into and out of sub-rows.
-- **Backspace**: existing `backspace()` — deletes previous node; if at start of an empty container, removes the container.
+- Renders the tree as nested spans (`.mrow`, `.msup`, `.msub`, `.mfrac`, etc.) with the exact same visual rules the read-only renderer already uses. Each character span carries a `data-path` and `data-index` so `mousedown` maps a click straight to a `Cursor`.
+- Renders a blinking caret element at the current cursor. Caret CSS scales with the row's depth class (`.depth-1`, `.depth-2`, …) so the caret naturally shrinks inside `sup`/`sub`/`frac` — the "cursor becomes smaller" behavior the user asked for.
+- When not focused: no caret, no chrome, just the math. Same look as today.
 
-## Rendering
+### 3. Keyboard behavior (focused canvas)
 
-- The math node view renders the tree using existing components (`renderMathInline` currently takes LaTeX). We add a `renderRow(row: Row): ReactNode` renderer that produces the same visual output for `char/sup/sub/power/subsup/frac/sqrt/bracket` — most of this exists in the smartboard renderer and can be reused.
-- For export / AI / persistence we serialise the tree to LaTeX via a new `rowToLatex(row)` and continue to store `data-value` for parseHTML compat. Legacy nodes with only `data-value` are parsed once through `friendlyToLatex` + a small LaTeX→tree parser (supports `x^{…}`, `x_{…}`, `\frac`, `\sqrt`) so existing notes keep working.
+All input is captured by a hidden input like today, but routed through tree operations:
 
-## Files to change
+- Printable char → `insertChar(root, cursor, ch)`.
+- `Backspace` → `backspace(root, cursor)` (already deletes empty container/pops out, per existing helper).
+- `ArrowLeft`/`ArrowRight` → `moveLeft` / `moveRight` (already walk in and out of containers character by character, including hopping between sup/sub sub-rows).
+- `ArrowUp`/`ArrowDown` → move between sibling sub-rows of the same container when possible (numerator↔denominator, base↔sup↔sub); otherwise no-op. Small helper to add to `mathTree.ts`.
+- `#` → wrap the run to the left of the cursor as `power` **only when the cursor is at the end of a valid parent object** (letter/digit/`)`/`]`/completed container). Cursor descends into the exponent sub-row. If pressed again immediately with an empty exponent, downgrade the `power` to a `subsup` and land the cursor in the subscript sub-row — this is how `S^{2}_{-1}` gets built.
+- `##` → same but attach a subscript. If the previous keystroke was `#` on an empty script, replace `power` with `subsup` and jump to the sub row instead of nesting.
+- `/` → `insertNodeWrapping(root, cursor, mkFrac(), start, end, 0)` where `[start, end)` comes from `extractWrapTargetLeftOf`. Cursor lands in denominator. The numerator remains a normal editable row — clicking inside it or arrow-lefting into it works exactly like any other row.
+- `Space` → if the cursor is inside a nested sub-row, `moveRight` out one level (close-and-exit). If already at the top row, blur the canvas back to prose and let the outer editor insert a real space.
+- `(` `[` `{` `|` → `insertNode(root, cursor, mkBracket(...))`, cursor descends into the body.
 
-- `src/components/lessonnotes/extensions/MathInline.tsx` — swap atomic node view for the tree-based editor; keep `value` (LaTeX) as a derived attribute for HTML serialisation and legacy parse.
-- `src/components/lessonnotes/extensions/MathKeyShortcuts.ts` — remove Unicode `SUPER` / `SUB` maps and the `#`/`##`→glyph flow. Keep bracket pairing and `/`-fraction. Add a small handler that, when `#` is typed in prose with a valid parent term, replaces that term with a new `mathInline` node containing `[term, sup([])]` and focuses into it. All further `#` / `##` / Space handling happens inside the node view.
-- `src/lib/smartboard/mathTree.ts` — reuse as-is; add `rowToLatex(row)` and `latexToRow(latex)` helpers (new small file `src/lib/smartboard/mathTreeLatex.ts`) so lesson notes can round-trip.
-- (Optional, for parity) expose the same tree-cursor keymap the smartboard uses so the two surfaces stay in lockstep.
+### 4. Prose-level `#`
 
-## Out of scope
+`MathKeyShortcuts` no longer prebuilds `^{`. Instead:
 
-- Redesigning the smartboard editor itself (it already uses this tree).
-- Changing `@` Quick Insert, `/` fractions, matrix shortcuts, bracket pairing — those remain exactly as today.
-- Visual styling of superscript/subscript beyond what the existing math renderer already produces.
+- When `#` fires on a valid parent term, it wraps that term into a `power` tree, inserts a `mathInline` with `tree: <the row containing the power>`, positions the internal cursor inside the empty exponent, and focuses it.
+- Cursors *between* two adjacent inline maths still work: clicking the caret between them focuses whichever one you clicked into. Clicking outside any math returns to prose.
 
-## Acceptance checks
+### 5. Removal of the chip UI
 
-1. Typing `x#2#5##n#3##k` produces `x^{2^{5_{n^{3_k}}}}` with the cursor at the innermost empty slot at each step, and no Unicode glyphs.
-2. Pressing `#` at the very start of a line (no parent) inserts a literal `#`.
-3. Pressing `#` twice inside an empty superscript is ignored (no runaway nesting).
-4. Pressing Space inside `x^{2^{5}}` moves the cursor: inner sup → outer sup → base row → prose, one level per press; only the fourth Space inserts a real space.
-5. Existing lesson notes containing `mathInline` nodes with LaTeX like `x^{2}`, `H_{2}`, `\frac{a}{b}` open unchanged (legacy parse path).
-6. Export to DOCX / AI JSON continues to emit the same LaTeX strings.
+`MathInlineView`'s "chip with hidden input + preview + tile row" goes away. Quick-symbol tiles move to a floating toolbar that appears when a math canvas has focus (same buttons, same behavior, but they now call tree ops).
+
+### 6. Fraction editing after creation
+
+Because the numerator is just a `Row` inside a `frac` node, clicking inside it moves the cursor there. Everything (typing, Backspace, `#`, `/`) already works via the same handler — no special "numerator locked" state exists in the new model.
+
+## Migration
+
+- Existing math nodes have only `value`. Add `latexToTree` in `src/lib/smartboard` (small parser covering the subset produced by `friendlyToLatex`: chars, `^{…}`, `_{…}`, `\frac{…}{…}`, `\sqrt{…}`, brackets, common commands like `\pi`, `\theta`, `\sum`, `\int`). Called lazily on first focus; tree is then stored on the node.
+- `friendlyToLatex` / `latexToFriendly` remain the export path (tree → LaTeX for docx/read-only re-render, and for anything that still consumes `value`).
+
+## Files
+
+- `src/lib/smartboard/mathTree.ts` — add `moveUp`, `moveDown`, `latexToTree`, `treeToLatex` (thin wrapper over existing helpers).
+- `src/components/lessonnotes/extensions/MathInline.tsx` — replace `MathInlineView` with a canvas node view backed by tree state; keep the TipTap node definition, add `tree` attr with JSON parse/serialize, keep input rules.
+- `src/components/lessonnotes/extensions/MathKeyShortcuts.ts` — prose `#` builds a tree with an open exponent instead of a raw LaTeX string; `/` unchanged in intent but hands off to the new canvas; bracket pairing untouched for prose.
+- New: `src/components/lessonnotes/extensions/MathInlineCanvas.tsx` — the interactive renderer + caret.
+- Small CSS additions in `src/index.css` for `.mrow .depth-N` caret sizing.
+
+## Out of scope for this pass
+
+- Selection ranges inside math (highlight-and-replace across the tree). Only single-caret editing at first; multi-char selection can come in a follow-up.
+- Copy/paste of a math subtree between chips.
+- Touch drag to reposition the caret (tap-to-position works; drag-select is later).
+
+## Verification
+
+- Type `S`, press `#`, type `2`, press Space: caret returns to prose. Click just after the `S`: caret enters the base row. Press `##`, type `-1`, press Space: result renders as `S^{2}_{-1}`.
+- Type `5x/`, then click inside the numerator, type `+1`: result renders as `\frac{5x+1}{}` with caret still in numerator; arrow-right hops to denominator.
+- Click between the `2` and `n` in an existing `x^{2n}` (created hours earlier) and type `^3`: result `x^{2^{3}n}`.
+- ArrowLeft from prose immediately after a math node enters it at its right edge; ArrowLeft again walks character-by-character into any inner sub-row.
