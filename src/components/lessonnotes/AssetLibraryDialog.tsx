@@ -130,18 +130,22 @@ function AssetEditPopover({ a }: { a: AssetDef }) {
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="bottom" align="end" className="w-72 space-y-3" onClick={(e) => e.stopPropagation()}>
+      <PopoverContent side="bottom" align="end" className="w-72 space-y-3 bg-white text-black border border-black/20" onClick={(e) => e.stopPropagation()}>
         <div className="space-y-1">
-          <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Standard Name</label>
-          <Input value={label} onChange={(e) => setLabel(e.target.value)} />
+          <label className="text-[11px] uppercase tracking-wide text-black/60">Standard Name</label>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            className="bg-white text-black border-black/30 placeholder:text-black/40 focus-visible:ring-primary"
+          />
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Short Code</label>
+          <label className="text-[11px] uppercase tracking-wide text-black/60">Short Code</label>
           <Input
             value={code}
             onChange={(e) => setCode(normaliseShortCode(e.target.value))}
             placeholder="e.g. FR"
-            className="font-mono uppercase"
+            className="font-mono uppercase bg-white text-black border-black/30 placeholder:text-black/40 focus-visible:ring-primary"
           />
         </div>
         {error && <p className="text-[11px] text-destructive">{error}</p>}
