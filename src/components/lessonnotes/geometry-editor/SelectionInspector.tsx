@@ -559,6 +559,18 @@ function RegionCreatePanel({
           Remove fill
         </button>
       )}
+      <button
+        type="button"
+        onClick={() => {
+          const pts = boundary.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+          const cx = pts.reduce((a, p) => a + p.x, 0) / (pts.length || 1);
+          const cy = pts.reduce((a, p) => a + p.y, 0) / (pts.length || 1);
+          onApply(addFloatingLabel(scene, cx, cy, "Text").scene);
+        }}
+        className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+      >
+        + Add text inside
+      </button>
     </div>
   );
 }
