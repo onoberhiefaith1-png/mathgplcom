@@ -20,7 +20,10 @@ export interface GeoPoint {
   size?: number;
   /** Font size (px) of the point's letter label (default 14). */
   labelFontSize?: number;
+  /** Auto-inserted at a structure intersection (safe to remove). */
+  auto?: boolean;
 }
+
 export interface GeoSegment {
   id: GeoId;
   type: "segment";
