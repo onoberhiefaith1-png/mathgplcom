@@ -110,6 +110,28 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
       if (Math.hypot(lx - x, ly - y) <= 14) return { id: o.id, kind: "segmentDistance" };
     }
   }
+  // 3b) Angle value chip (clicking "46°" opens the text panel).
+  for (let i = scene.objects.length - 1; i >= 0; i--) {
+    const o = scene.objects[i];
+    if (o.type !== "angle" || !o.value) continue;
+    const v = pointById(scene, o.vertex);
+    const pa = pointById(scene, o.a);
+    const pb = pointById(scene, o.b);
+    if (!v || !pa || !pb) continue;
+    const a1 = Math.atan2(-(pa.y - v.y), pa.x - v.x);
+    const a2 = Math.atan2(-(pb.y - v.y), pb.x - v.x);
+    let d = a2 - a1;
+    while (d <= -Math.PI) d += 2 * Math.PI;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    const r = 18;
+    const labelAngle = o.reflex ? a1 + d / 2 + Math.PI : a1 + d / 2;
+    const baseLx = v.x + Math.cos(labelAngle) * (r + 12);
+    const baseLy = v.y - Math.sin(labelAngle) * (r + 12);
+    const off = o.valueOffset;
+    const lx = off ? baseLx + off.dx : baseLx;
+    const ly = off ? baseLy + off.dy : baseLy;
+    if (Math.hypot(lx - x, ly - y) <= 14) return { id: o.id, kind: "angleValue" };
+  }
   // 4) Shapes (segment body last so label wins).
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];
