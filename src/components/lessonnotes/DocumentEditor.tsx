@@ -169,6 +169,55 @@ const saveNotebookGeometry = (notebookId: string | undefined, scene: GeometrySce
   try { localStorage.setItem(key, JSON.stringify(scene)); } catch { /* noop */ }
 };
 
+const mergeGeometrySceneAt = (
+  base: GeometryScene,
+  incoming: unknown,
+  dx: number,
+  dy: number,
+): GeometryScene => {
+  const source = sanitizeScene(incoming) as GeometryScene | null;
+  if (!source?.objects?.length) return base;
+  const used = new Set(base.objects.map((o) => o.id));
+  const idMap = new Map<string, string>();
+  const mapId = (id: string) => {
+    const existing = idMap.get(id);
+    if (existing) return existing;
+    let next = id;
+    if (used.has(next)) {
+      let i = 1;
+      do { next = `${id}_m${i++}`; } while (used.has(next));
+    }
+    used.add(next);
+    idMap.set(id, next);
+    return next;
+  };
+
+  const shifted = source.objects.map((o) => {
+    const n: any = { ...(o as any), id: mapId(o.id) };
+    if (n.type === "point" || n.type === "label") {
+      n.x = (n.x ?? 0) + dx;
+      n.y = (n.y ?? 0) + dy;
+    }
+    if ("a" in n && typeof n.a === "string") n.a = mapId(n.a);
+    if ("mid" in n && typeof n.mid === "string") n.mid = mapId(n.mid);
+    if ("b" in n && typeof n.b === "string") n.b = mapId(n.b);
+    if ("center" in n && typeof n.center === "string") n.center = mapId(n.center);
+    if ("vertex" in n && typeof n.vertex === "string") n.vertex = mapId(n.vertex);
+    if (Array.isArray(n.points)) n.points = n.points.map(mapId);
+    if (Array.isArray(n.boundary)) n.boundary = n.boundary.map(mapId);
+    return n;
+  });
+
+  return {
+    ...base,
+    bounds: {
+      width: Math.max(base.bounds?.width ?? 0, dx + (source.bounds?.width ?? 0) + 48),
+      height: Math.max(base.bounds?.height ?? 0, dy + (source.bounds?.height ?? 0) + 48),
+    },
+    objects: [...base.objects, ...shifted],
+  };
+};
+
 /** Strip any legacy absolute-position attributes from a stored doc so old
  *  notebooks recover normal flow. Idempotent + safe on any input. */
 function sanitizeLegacyCanvasAttrs(doc: any): any {
