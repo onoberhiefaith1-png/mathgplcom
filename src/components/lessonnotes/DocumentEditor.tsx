@@ -1822,10 +1822,14 @@ function NotebookGeometryOverlay({
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
   useRegisterAssetEditor(mode, "notebook-geometry", title, editorNode);
 
+  if (!mode && storedScene.objects.length === 0) return null;
+
+  const overlayWidth = Math.max(scene.bounds.width ?? 0, paperSize.width) + 48;
+  const overlayHeight = Math.max(scene.bounds.height ?? 0, paperSize.height) + 48;
+
   // Infinite scroll: grow the paper's minHeight whenever the viewport gets
   // within ~240px of the bottom of the writable layer. The ResizeObserver in
   // this component then propagates the new size to `paperSize`.
-  // NOTE: must be declared BEFORE any early return so hook order is stable.
   useEffect(() => {
     const grow = (delta = 600) => {
       const layer = paperLayerRef.current;
@@ -1840,22 +1844,19 @@ function NotebookGeometryOverlay({
       if (!layer) return;
       const rect = layer.getBoundingClientRect();
       const viewportBottom = window.innerHeight || document.documentElement.clientHeight;
+      // If the layer's bottom edge is within 240px of the viewport bottom
+      // (i.e. the user has scrolled to reveal the end of the paper), extend it.
       if (rect.bottom - viewportBottom < 240) grow(600);
     };
     window.addEventListener("scroll", onScrollOrResize, { passive: true });
     window.addEventListener("resize", onScrollOrResize);
+    // Run once so a short empty notebook can grow as the user starts drawing.
     onScrollOrResize();
     return () => {
       window.removeEventListener("scroll", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
     };
   }, [paperLayerRef]);
-
-  if (!mode && storedScene.objects.length === 0) return null;
-
-  const overlayWidth = Math.max(scene.bounds.width ?? 0, paperSize.width) + 48;
-  const overlayHeight = Math.max(scene.bounds.height ?? 0, paperSize.height) + 48;
-
 
   return (
     <>
