@@ -18,29 +18,21 @@ import type { UseGeometryEditorReturn } from "./useGeometryEditor";
 
 interface Props {
   editor: UseGeometryEditorReturn;
-  /** Overlay pixel size (should match parent container). Falls back to scene.bounds. */
-  viewportWidth?: number;
-  viewportHeight?: number;
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props) {
+export function GeometryCanvas({ editor }: Props) {
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
-  const [labelDrag, setLabelDrag] = useState<
-    | { kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "angleValue"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number }
-    | { kind: "annotation"; id: GeoId; annotationId: string; startX: number; startY: number; baseDx: number; baseDy: number }
-    | null
-  >(null);
+  const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "angleValue"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
-
-  const W = (viewportWidth ?? (scene.bounds.width + PAD * 2));
-  const H = (viewportHeight ?? (scene.bounds.height + PAD * 2));
+  const W = scene.bounds.width + PAD * 2;
+  const H = scene.bounds.height + PAD * 2;
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
@@ -51,7 +43,6 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
       y: ((e.clientY - rect.top) / rect.height) * H - PAD,
     };
   };
-
 
   /** Find or create a point at (x,y), preferring an existing point via snap. */
   const ensurePoint = (x: number, y: number): { id: GeoId; scene: GeometryScene } => {
@@ -80,20 +71,11 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
         apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
       } else if (labelDrag.kind === "segmentDistance") {
         apply(patchObject(scene, labelDrag.id, { distanceOffset: { dx, dy } } as any));
-      } else if (labelDrag.kind === "angleValue") {
+      } else {
         apply(patchObject(scene, labelDrag.id, { valueOffset: { dx, dy } } as any));
-      } else if (labelDrag.kind === "annotation") {
-        const obj = scene.objects.find((o) => o.id === labelDrag.id) as any;
-        if (obj) {
-          const anns = (obj.annotations ?? []).map((a: any) =>
-            a.id === labelDrag.annotationId ? { ...a, offset: { dx, dy } } : a,
-          );
-          apply(patchObject(scene, labelDrag.id, { annotations: anns } as any));
-        }
       }
       return;
     }
-
     if (circleDrag) {
       setCircleDrag({ ...circleDrag, r: Math.hypot(p.x - circleDrag.cx, p.y - circleDrag.cy) });
       return;
@@ -126,21 +108,20 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
     switch (tool) {
       case "select": {
         if (hit) {
+          // Plain click toggles the item in the selection set.
+          // Clicking a different item adds to selection; clicking the same
+          // one again removes it. Empty click clears everything.
           const already = selectedIds.includes(hit.id);
           if (already) {
             const next = selectedIds.filter((id) => id !== hit.id);
             setSelectedIds(next);
-            // Keep the panel open on the remaining selection when possible.
-            const remain = next[next.length - 1];
-            const kindOfRemain = remain
-              ? (scene.objects.find((o) => o.id === remain)?.type as any) ?? null
-              : null;
-            setSelectionKind(next.length ? mapTypeToKind(kindOfRemain) : null);
+            setSelectionKind(next.length ? "segmentBody" : null);
           } else {
             setSelectedIds([...selectedIds, hit.id]);
             setSelectionKind(hit.kind);
           }
-          const obj = scene.objects.find((o) => o.id === hit.id) as any;
+          // Prime drag state only when a single item is being manipulated.
+          const obj = scene.objects.find((o) => o.id === hit.id);
           if (!already && selectedIds.length === 0) {
             if (hit.kind === "point" && obj?.type === "point") {
               setDragging({ pointId: hit.id });
@@ -162,13 +143,7 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
             } else if (hit.kind === "angleValue" && obj?.type === "angle") {
               setLabelDrag({
                 kind: "angleValue", id: hit.id, startX: p.x, startY: p.y,
-                baseDx: obj.valueOffset?.dx ?? 0, baseDy: obj.valueOffset?.dy ?? 0,
-              });
-            } else if (hit.kind === "annotation" && hit.annotationId) {
-              const ann = ((obj?.annotations ?? []) as any[]).find((a) => a.id === hit.annotationId);
-              setLabelDrag({
-                kind: "annotation", id: hit.id, annotationId: hit.annotationId, startX: p.x, startY: p.y,
-                baseDx: ann?.offset?.dx ?? 0, baseDy: ann?.offset?.dy ?? 0,
+                baseDx: (obj as any).valueOffset?.dx ?? 0, baseDy: (obj as any).valueOffset?.dy ?? 0,
               });
             }
           }
@@ -178,7 +153,6 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
         }
         break;
       }
-
       case "move": {
         // Pick a point (or snap to one) and start dragging it
         const target = scene.objects.find((o) => o.type === "point" && Math.hypot(o.x - p.x, o.y - p.y) <= 10) as GeoPoint | undefined;
@@ -476,23 +450,21 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
   }
 
   return (
-    <div data-geometry-live-canvas="true" className="relative w-full h-full" style={{ width: W, height: H, overflow: "visible" }}>
-      <div className="absolute inset-0 w-full h-full">
+    <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
+      <div className="absolute inset-0">
         <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} />
       </div>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        width="100%"
-        height="100%"
-        preserveAspectRatio="none"
-        className="absolute inset-0 select-none w-full h-full"
-        style={{ touchAction: "none", cursor: cursorFor(tool), display: "block" }}
+        width={W}
+        height={H}
+        className="absolute inset-0 select-none"
+        style={{ touchAction: "none", cursor: cursorFor(tool) }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={() => setHover(null)}
-
         onDoubleClick={() => {
           // Double-click finishes an in-progress multi-point tool.
           if (tool === "polygon" && pendingIds.length >= 3) {
@@ -579,18 +551,4 @@ function catmullRomPreview(p: { x: number; y: number }[]): string {
     d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
   }
   return d;
-}
-
-function mapTypeToKind(t: string | null): any {
-  switch (t) {
-    case "point": return "point";
-    case "segment": return "segmentBody";
-    case "circle": return "circle";
-    case "arc": return "arc";
-    case "curve": return "curve";
-    case "polygon": return "polygon";
-    case "angle": return "angle";
-    case "label": return "label";
-    default: return null;
-  }
 }

@@ -6,21 +6,6 @@
 
 export type GeoId = string;
 
-/** A movable, rotatable text note pinned to a geometry object.
- *  Any object type can carry a list of annotations — Venn-style
- *  region labels, comments on a line, per-point notes, etc. */
-export interface GeoAnnotation {
-  id: string;
-  text: string;
-  /** Offset in scene units from the object's natural anchor. */
-  offset?: { dx: number; dy: number };
-  /** Rotation in degrees, 0-360. */
-  rotation?: number;
-  fontSize?: number;
-  color?: string;
-}
-
-
 export interface GeoPoint {
   id: GeoId;
   type: "point";
@@ -37,9 +22,7 @@ export interface GeoPoint {
   labelFontSize?: number;
   /** Auto-inserted at a structure intersection (safe to remove). */
   auto?: boolean;
-  annotations?: GeoAnnotation[];
 }
-
 
 export interface GeoSegment {
   id: GeoId;
@@ -68,9 +51,7 @@ export interface GeoSegment {
   /** Optional per-segment color override. */
   color?: string;
   arrow?: "none" | "start" | "end" | "both";
-  annotations?: GeoAnnotation[];
 }
-
 export interface GeoLine {
   id: GeoId;
   type: "line";
@@ -92,10 +73,7 @@ export interface GeoCircle {
   r: number;
   label?: string;
   dashed?: boolean;
-  color?: string;
-  annotations?: GeoAnnotation[];
 }
-
 export interface GeoArc {
   id: GeoId;
   type: "arc";
@@ -104,8 +82,6 @@ export interface GeoArc {
   from: number; // degrees, ccw from +x
   to: number;
   dashed?: boolean;
-  color?: string;
-  annotations?: GeoAnnotation[];
 }
 export interface GeoAngle {
   id: GeoId;
@@ -131,7 +107,6 @@ export interface GeoRegion {
   boundary: GeoId[];
   fill?: string;
   opacity?: number;
-  annotations?: GeoAnnotation[];
 }
 export interface GeoPolygon {
   id: GeoId;
@@ -139,7 +114,6 @@ export interface GeoPolygon {
   points: GeoId[];
   fill?: string;
   label?: string;
-  annotations?: GeoAnnotation[];
 }
 export interface GeoLabel {
   id: GeoId;
@@ -160,9 +134,7 @@ export interface GeoCurve {
   points?: GeoId[];
   dashed?: boolean;
   color?: string;
-  annotations?: GeoAnnotation[];
 }
-
 
 
 export type GeoObject =

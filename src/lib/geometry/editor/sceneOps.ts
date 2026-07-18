@@ -458,39 +458,3 @@ export function addCurve(scene: GeometryScene, pointIds: GeoId[]): OpResult {
   return ok(withObjects(scene, [...scene.objects, curve]), [id]);
 }
 
-
-/* ─── Annotations (universal text pins) ──────────────────────────────── */
-import type { GeoAnnotation } from "../scene";
-import { newAnnotationId } from "./annotations";
-
-export function addAnnotation(scene: GeometryScene, targetId: GeoId, text = ""): OpResult {
-  const objects = scene.objects.map((o) => {
-    if (o.id !== targetId) return o;
-    const list = ((o as any).annotations as GeoAnnotation[] | undefined) ?? [];
-    const ann: GeoAnnotation = { id: newAnnotationId(), text, offset: { dx: 0, dy: 0 }, rotation: 0, fontSize: 13 };
-    return { ...o, annotations: [...list, ann] } as GeoObject;
-  });
-  return ok({ ...scene, objects }, [], [targetId]);
-}
-
-export function updateAnnotation(
-  scene: GeometryScene, targetId: GeoId, annId: string, patch: Partial<GeoAnnotation>,
-): OpResult {
-  const objects = scene.objects.map((o) => {
-    if (o.id !== targetId) return o;
-    const list = (((o as any).annotations as GeoAnnotation[] | undefined) ?? [])
-      .map((a) => (a.id === annId ? { ...a, ...patch } : a));
-    return { ...o, annotations: list } as GeoObject;
-  });
-  return ok({ ...scene, objects }, [], [targetId]);
-}
-
-export function removeAnnotation(scene: GeometryScene, targetId: GeoId, annId: string): OpResult {
-  const objects = scene.objects.map((o) => {
-    if (o.id !== targetId) return o;
-    const list = (((o as any).annotations as GeoAnnotation[] | undefined) ?? [])
-      .filter((a) => a.id !== annId);
-    return { ...o, annotations: list } as GeoObject;
-  });
-  return ok({ ...scene, objects }, [], [targetId]);
-}

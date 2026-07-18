@@ -1792,13 +1792,10 @@ function NotebookGeometryOverlay({
     },
   }), [storedScene, paperSize.width, paperSize.height]);
 
-  // Pass the raw stored scene to the editor so selection isn't cleared
-  // when the paper simply resizes (bounds change but not user data).
-  const geometryEditor = useGeometryEditor(storedScene, (next) => {
+  const geometryEditor = useGeometryEditor(scene, (next) => {
     setStoredScene(next);
     saveNotebookGeometry(notebookId, next);
   });
-
 
   useEffect(() => {
     if (mode && geometryEditor.tool !== tool) geometryEditor.setTool(tool);
@@ -1822,69 +1819,37 @@ function NotebookGeometryOverlay({
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
   useRegisterAssetEditor(mode, "notebook-geometry", title, editorNode);
 
-  // Infinite scroll: grow the paper's minHeight whenever the viewport gets
-  // within ~240px of the bottom of the writable layer. The ResizeObserver in
-  // this component then propagates the new size to `paperSize`.
-  useEffect(() => {
-    const grow = (delta = 600) => {
-      const layer = paperLayerRef.current;
-      if (!layer) return;
-      const current = layer.style.minHeight
-        ? parseFloat(layer.style.minHeight)
-        : layer.offsetHeight;
-      layer.style.minHeight = `${current + delta}px`;
-    };
-    const onScrollOrResize = () => {
-      const layer = paperLayerRef.current;
-      if (!layer) return;
-      const rect = layer.getBoundingClientRect();
-      const viewportBottom = window.innerHeight || document.documentElement.clientHeight;
-      if (rect.bottom - viewportBottom < 240) grow(600);
-    };
-    window.addEventListener("scroll", onScrollOrResize, { passive: true });
-    window.addEventListener("resize", onScrollOrResize);
-    onScrollOrResize();
-    return () => {
-      window.removeEventListener("scroll", onScrollOrResize);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [paperLayerRef]);
-
   if (!mode && storedScene.objects.length === 0) return null;
 
   const overlayWidth = Math.max(scene.bounds.width ?? 0, paperSize.width) + 48;
   const overlayHeight = Math.max(scene.bounds.height ?? 0, paperSize.height) + 48;
 
-
   return (
-    <>
-      <div
-        data-notebook-geometry-overlay="true"
-        className="absolute"
-        style={{
-          left: -24,
-          top: -24,
-          width: overlayWidth,
-          height: overlayHeight,
-          overflow: "visible",
-          zIndex: mode ? 8 : 4,
-          pointerEvents: mode ? "auto" : "none",
-        }}
-      >
-        {mode ? (
-          <GeometryCanvas editor={geometryEditor} viewportWidth={overlayWidth} viewportHeight={overlayHeight} />
-        ) : (
-          <StaticGeometryDiagram
-            scene={scene}
-            explicitWidth={overlayWidth}
-            explicitHeight={overlayHeight}
-          />
-        )}
-      </div>
-    </>
+    <div
+      data-notebook-geometry-overlay="true"
+      className="absolute"
+      style={{
+        left: -24,
+        top: -24,
+        width: overlayWidth,
+        height: overlayHeight,
+        overflow: "visible",
+        zIndex: mode ? 8 : 4,
+        pointerEvents: mode ? "auto" : "none",
+      }}
+    >
+      {mode ? (
+        <GeometryCanvas editor={geometryEditor} />
+      ) : (
+        <StaticGeometryDiagram
+          scene={scene}
+          explicitWidth={overlayWidth}
+          explicitHeight={overlayHeight}
+        />
+      )}
+    </div>
   );
 }
-
 
 
 /* ─── Global AI button (whole-lesson or insert-at-cursor) ─── */
