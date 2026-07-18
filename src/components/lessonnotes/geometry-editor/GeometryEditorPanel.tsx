@@ -231,6 +231,7 @@ function PanelBody({
           selected={editor.selectedObjects}
           kind={editor.selectionKind}
           onApply={(next) => editor.commit(next)}
+          onSelect={(id, kind) => { editor.setSelectedIds([id]); editor.setSelectionKind(kind); }}
         />
       </div>
 
