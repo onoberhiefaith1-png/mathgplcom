@@ -213,6 +213,33 @@ function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject, initial =
   return { scene: op.scene, id: op.addedIds[0] };
 }
 
+/** Drop a floating label near an angle vertex and auto-select it. */
+function addTextAtAngle(
+  scene: GeometryScene,
+  angle: GeoAngle,
+  onApply: (s: GeometryScene) => void,
+  onSelect?: (id: GeoId, kind: HitKind) => void,
+) {
+  const v = pointById(scene, angle.vertex);
+  const x = v ? v.x + 18 : 24;
+  const y = v ? v.y - 18 : 24;
+  const op = addFloatingLabel(scene, x, y, "Text");
+  onApply(op.scene);
+  if (onSelect) onSelect(op.addedIds[0], "label");
+}
+
+/** Shoelace polygon area from boundary point ids. */
+function polygonArea(scene: GeometryScene, boundary: GeoId[]): number {
+  const pts = boundary.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+  if (pts.length < 3) return 0;
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    s += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(s) / 2;
+}
+
 
 
 
