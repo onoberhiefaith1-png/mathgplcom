@@ -1742,6 +1742,8 @@ function NotebookGeometryOverlay({
     const layer = paperLayerRef.current;
     if (!tiptapEditor || !layer) return;
     const paperRect = layer.getBoundingClientRect();
+    const scaleX = paperRect.width && layer.offsetWidth ? paperRect.width / layer.offsetWidth : 1;
+    const scaleY = paperRect.height && layer.offsetHeight ? paperRect.height / layer.offsetHeight : scaleX;
     const diagrams: Array<{ pos: number; size: number; scene: unknown; dx: number; dy: number }> = [];
     tiptapEditor.state.doc.descendants((node, pos) => {
       if (node.type.name !== "geometryDiagram") return true;
@@ -1751,8 +1753,8 @@ function NotebookGeometryOverlay({
         pos,
         size: node.nodeSize,
         scene: node.attrs?.scene,
-        dx: rect ? rect.left - paperRect.left + 24 : 24,
-        dy: rect ? rect.top - paperRect.top + 24 : 24,
+        dx: rect ? (rect.left - paperRect.left) / scaleX + 24 : 24,
+        dy: rect ? (rect.top - paperRect.top) / scaleY + 24 : 24,
       });
       return true;
     });
