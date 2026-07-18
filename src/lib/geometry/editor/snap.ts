@@ -184,16 +184,27 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
             prev = next;
           }
         } else {
-          const pts = (o.points ?? []).map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
-          if (pts.length >= 2) {
-            const sampled = sampleCatmullRom(pts, 10);
-            for (let k = 0; k < sampled.length - 1; k++) {
-              if (distPointToSegment({ x, y }, sampled[k], sampled[k + 1]) <= hit) return { id: o.id, kind: "curve" };
+          const anchors = (o.points ?? []).map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
+          if (anchors.length >= 2) {
+            // Enforce "max 2 points" rule: return the sub-span between the
+            // two anchors nearest the click as a composite id "curveId#i".
+            const STEPS = 10;
+            let bestSub = -1;
+            let bestDist = hit;
+            for (let seg = 0; seg < anchors.length - 1; seg++) {
+              const sampled = sampleCatmullRomBetween(anchors, seg, STEPS);
+              for (let k = 0; k < sampled.length - 1; k++) {
+                const d = distPointToSegment({ x, y }, sampled[k], sampled[k + 1]);
+                if (d < bestDist) { bestDist = d; bestSub = seg; }
+              }
             }
+            if (bestSub >= 0) return { id: `${o.id}#${bestSub}`, kind: "curve" };
           }
         }
         break;
       }
+
+
 
       case "polygon": {
         for (let k = 0; k < o.points.length; k++) {
@@ -243,18 +254,28 @@ function sampleCatmullRom(pts: GeoPoint[], stepsPerSegment = 8): GeoPoint[] {
   if (pts.length === 2) return pts;
   const out: GeoPoint[] = [pts[0]];
   for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[i + 2] ?? p2;
-    for (let s = 1; s <= stepsPerSegment; s++) {
-      const t = s / stepsPerSegment;
-      const t2 = t * t;
-      const t3 = t2 * t;
-      const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
-      const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
-      out.push({ id: "", type: "point", x, y });
-    }
+    out.push(...sampleCatmullRomBetween(pts, i, stepsPerSegment).slice(1));
   }
   return out;
 }
+
+/** Sample a single Catmull-Rom sub-span between anchors[seg] and anchors[seg+1]. */
+export function sampleCatmullRomBetween(pts: GeoPoint[], seg: number, stepsPerSegment = 10): GeoPoint[] {
+  const i = seg;
+  const p0 = pts[i - 1] ?? pts[i];
+  const p1 = pts[i];
+  const p2 = pts[i + 1];
+  if (!p1 || !p2) return [];
+  const p3 = pts[i + 2] ?? p2;
+  const out: GeoPoint[] = [{ id: "", type: "point", x: p1.x, y: p1.y }];
+  for (let s = 1; s <= stepsPerSegment; s++) {
+    const t = s / stepsPerSegment;
+    const t2 = t * t;
+    const t3 = t2 * t;
+    const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+    const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+    out.push({ id: "", type: "point", x, y });
+  }
+  return out;
+}
+

@@ -114,10 +114,11 @@ export function useGeometryEditor(
 
   const clearSelection = useCallback(() => setSelectedIds([]), []);
 
-  const selectedObjects = useMemo(
-    () => scene.objects.filter((o) => selectedIds.includes(o.id)),
-    [scene, selectedIds],
-  );
+  const selectedObjects = useMemo(() => {
+    const realIds = new Set(selectedIds.map((id) => id.split("#")[0]));
+    return scene.objects.filter((o) => realIds.has(o.id));
+  }, [scene, selectedIds]);
+
 
   const doUndo = useCallback(() => {
     const r = undo(history, scene);

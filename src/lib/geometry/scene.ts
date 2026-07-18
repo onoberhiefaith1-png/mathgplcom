@@ -73,6 +73,10 @@ export interface GeoCircle {
   r: number;
   label?: string;
   dashed?: boolean;
+  /** Fill color for enclosed disk. */
+  fill?: string;
+  /** Fill opacity 0..1. */
+  fillOpacity?: number;
 }
 export interface GeoArc {
   id: GeoId;
@@ -82,7 +86,10 @@ export interface GeoArc {
   from: number; // degrees, ccw from +x
   to: number;
   dashed?: boolean;
+  fill?: string;
+  fillOpacity?: number;
 }
+
 export interface GeoAngle {
   id: GeoId;
   type: "angle";
@@ -121,6 +128,12 @@ export interface GeoLabel {
   x: number;
   y: number;
   text: string;
+  /** Rotation in degrees, clockwise. */
+  rotation?: number;
+  /** Font size (px). Default 13. */
+  fontSize?: number;
+  /** Text color. */
+  color?: string;
 }
 
 export interface GeoCurve {
@@ -134,7 +147,10 @@ export interface GeoCurve {
   points?: GeoId[];
   dashed?: boolean;
   color?: string;
+  fill?: string;
+  fillOpacity?: number;
 }
+
 
 
 export type GeoObject =

@@ -311,7 +311,8 @@ function renderObject(
         <g key={o.id}>
           <circle
             cx={c.x + pad} cy={c.y + pad} r={o.r}
-            fill="none" stroke={stroke} strokeWidth={sw}
+            fill={o.fill ?? "none"} fillOpacity={o.fill ? (o.fillOpacity ?? 0.2) : undefined}
+            stroke={stroke} strokeWidth={sw}
             strokeDasharray={o.dashed ? "4 3" : undefined}
           />
           {o.label && (
@@ -325,6 +326,7 @@ function renderObject(
         </g>
       );
     }
+
     case "arc": {
       const c = pointById(scene, o.center);
       if (!c) return null;
@@ -346,10 +348,12 @@ function renderObject(
         <path
           key={o.id}
           d={`M ${x1} ${y1} A ${o.r} ${o.r} 0 ${large} ${sweep} ${x2} ${y2}`}
-          fill="none" stroke={stroke} strokeWidth={sw}
+          fill={o.fill ?? "none"} fillOpacity={o.fill ? (o.fillOpacity ?? 0.2) : undefined}
+          stroke={stroke} strokeWidth={sw}
           strokeDasharray={o.dashed ? "4 3" : undefined}
         />
       );
+
     }
     case "curve": {
       let d = "";
@@ -375,11 +379,14 @@ function renderObject(
         <path
           key={o.id}
           d={d}
-          fill="none" stroke={(o as any).color ?? stroke} strokeWidth={sw}
+          fill={(o as any).fill ?? "none"}
+          fillOpacity={(o as any).fill ? ((o as any).fillOpacity ?? 0.2) : undefined}
+          stroke={(o as any).color ?? stroke} strokeWidth={sw}
           strokeDasharray={o.dashed ? "4 3" : undefined}
           strokeLinecap="round"
         />
       );
+
     }
 
     case "angle": {
@@ -481,17 +488,21 @@ function renderObject(
       );
     }
     case "label": {
+      const lx = o.x + pad, ly = o.y + pad;
+      const rot = o.rotation ?? 0;
       return (
         <text
           key={o.id}
-          x={o.x + pad} y={o.y + pad}
-          fontFamily={LABEL_FONT} fontSize={13}
-          fill={stroke} textAnchor="middle"
+          x={lx} y={ly}
+          fontFamily={LABEL_FONT} fontSize={o.fontSize ?? 13}
+          fill={o.color ?? stroke} textAnchor="middle"
+          transform={rot ? `rotate(${rot} ${lx} ${ly})` : undefined}
         >
           {o.text}
         </text>
       );
     }
+
   }
   return null;
 }

@@ -7,6 +7,8 @@ import type { GeometryScene, GeoPoint, GeoId } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, pickHit, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
+import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
+
 import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
@@ -101,7 +103,9 @@ export function GeometryCanvas({ editor }: Props) {
     const p = toLogical(e);
     const sn = snap(scene, p.x, p.y);
     const hit = pickHit(scene, p.x, p.y);
-    const hitId = hit?.id ?? null;
+    const rawId = hit?.id ?? null;
+    const hitId = rawId ? rawId.split("#")[0] : null;
+
 
 
 
@@ -347,9 +351,13 @@ export function GeometryCanvas({ editor }: Props) {
   // points glow around the dot. Uses a wide, semi-transparent stroke.
   const halos = useMemo(() => {
     const out: React.ReactNode[] = [];
-    const glow = (id: GeoId, color: string, opacity = 0.35) => {
-      const o = scene.objects.find((x) => x.id === id);
+    const glow = (rawId: GeoId, color: string, opacity = 0.35) => {
+      const [baseId, subStr] = rawId.split("#");
+      const sub = subStr !== undefined ? parseInt(subStr, 10) : -1;
+      const o = scene.objects.find((x) => x.id === baseId);
       if (!o) return;
+      const id = rawId;
+
       if (o.type === "point") {
         out.push(
           <circle key={`h-${id}`}
@@ -395,11 +403,18 @@ export function GeometryCanvas({ editor }: Props) {
           const cy = 2 * pm.y - (pa.y + pb.y) / 2;
           d = `M ${pa.x + PAD} ${pa.y + PAD} Q ${cx + PAD} ${cy + PAD} ${pb.x + PAD} ${pb.y + PAD}`;
         } else {
-          const pts = (o.points ?? []).map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
-          if (pts.length < 2) return;
-          d = catmullRomPreview(pts.map((p) => ({ x: p.x + PAD, y: p.y + PAD })));
+          const anchors = (o.points ?? []).map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+          if (anchors.length < 2) return;
+          if (sub >= 0 && sub < anchors.length - 1) {
+            const seg = sampleCatmullRomBetween(anchors, sub, 20);
+            d = seg.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
+          } else {
+            d = catmullRomPreview(anchors.map((p) => ({ x: p.x + PAD, y: p.y + PAD })));
+          }
         }
         out.push(<path key={`h-${id}`} d={d} fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />);
+
+
 
       } else if (o.type === "angle") {
         const v = pointById(scene, o.vertex); if (!v) return;

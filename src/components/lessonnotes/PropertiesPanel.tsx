@@ -34,10 +34,11 @@ export function PropertiesPanel() {
       return () => root.style.setProperty("--properties-panel-width", "0px");
     }
     if (expanded) {
-      root.style.setProperty("--properties-panel-width", "clamp(220px, 10vw, 360px)");
+      root.style.setProperty("--properties-panel-width", "clamp(150px, 10vw, 320px)");
     } else {
-      root.style.setProperty("--properties-panel-width", "32px");
+      root.style.setProperty("--properties-panel-width", "28px");
     }
+
     return () => root.style.setProperty("--properties-panel-width", "0px");
   }, [reg, expanded]);
 
@@ -70,13 +71,14 @@ export function PropertiesPanel() {
   return createPortal(
     <aside
       className="fixed inset-y-0 right-0 z-50 flex bg-background text-foreground shadow-2xl border-l border-border"
-      style={{ width: "clamp(220px, 10vw, 360px)" }}
+      style={{ width: "clamp(150px, 10vw, 320px)" }}
       aria-label="Asset properties panel"
       onMouseDown={guardPanelEvent}
       onPointerDown={guardPanelEvent}
       onClick={guardPanelEvent}
       onKeyDown={guardPanelEvent}
     >
+
       {/* Vertical drag/collapse handle on the left edge */}
       <button
         type="button"
