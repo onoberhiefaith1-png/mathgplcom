@@ -54,8 +54,15 @@ function renderParallelChevrons(
 
 export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight }: Props) {
   const pad = 24;
-  const W = (scene.bounds.width ?? 360) + pad * 2;
-  const H = (scene.bounds.height ?? 240) + pad * 2;
+  // Grow the viewBox to fit any object that extends past scene.bounds so
+  // nothing gets clipped — the whole lesson note is the drawing paper.
+  const ext = computeSceneExtent(scene);
+  const minX = Math.min(0, ext.minX);
+  const minY = Math.min(0, ext.minY);
+  const maxX = Math.max(scene.bounds.width ?? 360, ext.maxX);
+  const maxY = Math.max(scene.bounds.height ?? 240, ext.maxY);
+  const W = (maxX - minX) + pad * 2;
+  const H = (maxY - minY) + pad * 2;
   const displayW = explicitWidth ?? (large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const displayH = explicitHeight ?? (displayW / W) * H;
 
@@ -67,23 +74,24 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     return STROKE;
   };
 
+  const originPad = pad - minX; // translate objects so viewBox origin is (0,0)
+  const originPadY = pad - minY;
+
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
-    // Regions first (they paint the interior fill behind all ink).
     for (const o of scene.objects) {
       if (o.type !== "region") continue;
-      const node = renderObject(o, scene, colourOf(o.id), pad);
+      const node = renderObject(o, scene, colourOf(o.id), originPad, originPadY);
       if (node) out.push(node);
     }
-    // Everything else on top so lines/labels remain crisp.
     for (const o of scene.objects) {
       if (o.type === "region") continue;
       const c = colourOf(o.id);
-      const node = renderObject(o, scene, c, pad);
+      const node = renderObject(o, scene, c, originPad, originPadY);
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff]);
+  }, [scene, diff, originPad, originPadY]);
 
   return (
     <svg
@@ -92,12 +100,30 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       height={displayH}
       preserveAspectRatio="xMidYMid meet"
       className={className}
-      style={{ background: "transparent" }}
+      style={{ background: "transparent", overflow: "visible" }}
     >
       <g>{elements}</g>
     </svg>
   );
 }
+
+function computeSceneExtent(scene: GeometryScene): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = 0, minY = 0, maxX = 0, maxY = 0;
+  const consider = (x: number, y: number) => {
+    if (x < minX) minX = x; if (y < minY) minY = y;
+    if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+  };
+  for (const o of scene.objects) {
+    if (o.type === "point") consider(o.x, o.y);
+    else if (o.type === "label") consider(o.x, o.y);
+    else if (o.type === "circle" || o.type === "arc") {
+      const c = pointById(scene, o.center);
+      if (c) { consider(c.x - o.r, c.y - o.r); consider(c.x + o.r, c.y + o.r); }
+    }
+  }
+  return { minX, minY, maxX, maxY };
+}
+
 
 function renderObject(
   o: GeoObject,
