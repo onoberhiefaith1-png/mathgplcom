@@ -520,20 +520,24 @@ export function GeometryCanvas({ editor }: Props) {
         tabIndex={0}
 
       >
-        {/* Snap hint */}
-        {hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
-          <circle
-            cx={hover.snap.x + PAD}
-            cy={hover.snap.y + PAD}
-            r={hover.snap.pointId ? 6 : 3}
-            fill="none"
-            stroke="#2563eb"
-            strokeWidth={1}
-            opacity={0.7}
-          />
-        )}
-        {previews}
-        {halos}
+        {/* Match GeometryDiagram's translate so halos, hover ring and
+            previews sit exactly on the rendered shapes. */}
+        <g transform={`translate(${-minX}, ${-minY})`}>
+          {/* Snap hint */}
+          {hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
+            <circle
+              cx={hover.snap.x + PAD}
+              cy={hover.snap.y + PAD}
+              r={hover.snap.pointId ? 6 : 3}
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth={1}
+              opacity={0.7}
+            />
+          )}
+          {previews}
+          {halos}
+        </g>
       </svg>
 
       {inlineEdit && (
