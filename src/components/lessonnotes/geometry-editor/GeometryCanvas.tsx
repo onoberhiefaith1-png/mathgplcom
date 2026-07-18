@@ -229,13 +229,11 @@ export function GeometryCanvas({ editor }: Props) {
         // Continuous smooth curve — like Line but every anchor bends the
         // spline. Each click adds an anchor; double-click / Enter commits
         // the curve; Escape cancels.
-        const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        const { id } = ensurePoint(p.x, p.y);
         const next = pendingIds[pendingIds.length - 1] === id
           ? pendingIds
           : [...pendingIds, id];
         setPendingIds(next);
-        // Keep scene fresh so subsequent snaps see the new point.
-        if (s1 !== scene) commit(s1);
         break;
       }
 
