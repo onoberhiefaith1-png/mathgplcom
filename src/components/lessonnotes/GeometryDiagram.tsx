@@ -104,10 +104,11 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       className={className}
       style={{ background: "transparent", overflow: "visible" }}
     >
-      <g>{elements}</g>
+      <g transform={`translate(${translateX}, ${translateY})`}>{elements}</g>
     </svg>
   );
 }
+
 
 function computeSceneExtent(scene: GeometryScene): { minX: number; minY: number; maxX: number; maxY: number } {
   let minX = 0, minY = 0, maxX = 0, maxY = 0;
