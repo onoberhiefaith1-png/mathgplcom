@@ -13,12 +13,10 @@ import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { Copy, CopyPlus, Sparkles, Trash2 } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
-import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
-import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
-import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
-import { SmartGeometryProvider } from "@/components/lessonnotes/geometry-editor/SmartGeometryContext";
-import { SmartOverlay } from "@/components/lessonnotes/geometry-editor/SmartOverlay";
-import { RelationshipPanel } from "@/components/lessonnotes/geometry-editor/RelationshipPanel";
+import { GeometryEditorV2 } from "@/components/lessonnotes/geometry-editor/v2/GeometryEditorV2";
+import { StaticV2Render } from "@/components/lessonnotes/geometry-editor/v2/StaticV2Render";
+import { sanitizeV2Scene, EMPTY_V2_SCENE, type V2Scene } from "@/lib/geometry/v2/scene";
+import { migrateLegacyToV2 } from "@/lib/geometry/v2/migrate";
 import {
   type GeometryScene,
   sanitizeScene,
