@@ -311,7 +311,8 @@ function renderObject(
         <g key={o.id}>
           <circle
             cx={c.x + pad} cy={c.y + pad} r={o.r}
-            fill="none" stroke={stroke} strokeWidth={sw}
+            fill={o.fill ?? "none"} fillOpacity={o.fill ? (o.fillOpacity ?? 0.2) : undefined}
+            stroke={stroke} strokeWidth={sw}
             strokeDasharray={o.dashed ? "4 3" : undefined}
           />
           {o.label && (
@@ -325,6 +326,7 @@ function renderObject(
         </g>
       );
     }
+
     case "arc": {
       const c = pointById(scene, o.center);
       if (!c) return null;
