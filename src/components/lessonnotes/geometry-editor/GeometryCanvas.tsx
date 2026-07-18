@@ -351,9 +351,13 @@ export function GeometryCanvas({ editor }: Props) {
   // points glow around the dot. Uses a wide, semi-transparent stroke.
   const halos = useMemo(() => {
     const out: React.ReactNode[] = [];
-    const glow = (id: GeoId, color: string, opacity = 0.35) => {
-      const o = scene.objects.find((x) => x.id === id);
+    const glow = (rawId: GeoId, color: string, opacity = 0.35) => {
+      const [baseId, subStr] = rawId.split("#");
+      const sub = subStr !== undefined ? parseInt(subStr, 10) : -1;
+      const o = scene.objects.find((x) => x.id === baseId);
       if (!o) return;
+      const id = rawId;
+
       if (o.type === "point") {
         out.push(
           <circle key={`h-${id}`}
