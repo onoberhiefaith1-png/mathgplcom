@@ -510,7 +510,7 @@ function AngleFromPointsPanel({
 }
 
 /* ─────── Angle (existing single-select) ─────── */
-function AngleEditPanel({ scene, angle, onApply }: { scene: GeometryScene; angle: GeoAngle; onApply: (s: GeometryScene) => void }) {
+function AngleEditPanel({ scene, angle, onApply, onAddText }: { scene: GeometryScene; angle: GeoAngle; onApply: (s: GeometryScene) => void; onAddText?: () => void }) {
   const [value, setValue] = useState(angle.value ?? "");
   const patch = (p: Partial<GeoAngle>) => onApply(patchObject(scene, angle.id, p as any).scene);
   return (
@@ -540,6 +540,15 @@ function AngleEditPanel({ scene, angle, onApply }: { scene: GeometryScene; angle
           </button>
         </div>
       </div>
+      {onAddText && (
+        <button
+          type="button"
+          onClick={onAddText}
+          className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+        >
+          + Add text
+        </button>
+      )}
     </div>
   );
 }
