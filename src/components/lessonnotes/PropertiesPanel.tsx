@@ -25,6 +25,22 @@ export function PropertiesPanel() {
     }
   }, [reg?.id]);
 
+  // Broadcast panel width to the layout via a CSS variable so the
+  // notebook column can reserve space instead of being overlapped.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!reg) {
+      root.style.setProperty("--properties-panel-width", "0px");
+      return () => root.style.setProperty("--properties-panel-width", "0px");
+    }
+    if (expanded) {
+      root.style.setProperty("--properties-panel-width", "clamp(220px, 10vw, 360px)");
+    } else {
+      root.style.setProperty("--properties-panel-width", "32px");
+    }
+    return () => root.style.setProperty("--properties-panel-width", "0px");
+  }, [reg, expanded]);
+
   if (!reg || typeof document === "undefined") return null;
 
   const guardPanelEvent = (e: SyntheticEvent) => {
@@ -53,7 +69,8 @@ export function PropertiesPanel() {
 
   return createPortal(
     <aside
-      className="fixed inset-y-0 right-0 z-50 flex w-[min(360px,calc(100vw-48px))] bg-background text-foreground shadow-2xl border-l border-border"
+      className="fixed inset-y-0 right-0 z-50 flex bg-background text-foreground shadow-2xl border-l border-border"
+      style={{ width: "clamp(220px, 10vw, 360px)" }}
       aria-label="Asset properties panel"
       onMouseDown={guardPanelEvent}
       onPointerDown={guardPanelEvent}
