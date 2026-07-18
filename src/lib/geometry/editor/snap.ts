@@ -184,16 +184,27 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
             prev = next;
           }
         } else {
-          const pts = (o.points ?? []).map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
-          if (pts.length >= 2) {
-            const sampled = sampleCatmullRom(pts, 10);
-            for (let k = 0; k < sampled.length - 1; k++) {
-              if (distPointToSegment({ x, y }, sampled[k], sampled[k + 1]) <= hit) return { id: o.id, kind: "curve" };
+          const anchors = (o.points ?? []).map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
+          if (anchors.length >= 2) {
+            // Enforce "max 2 points" rule: return the sub-span between the
+            // two anchors nearest the click as a composite id "curveId#i".
+            const STEPS = 10;
+            let bestSub = -1;
+            let bestDist = hit;
+            for (let seg = 0; seg < anchors.length - 1; seg++) {
+              const sampled = sampleCatmullRomBetween(anchors, seg, STEPS);
+              for (let k = 0; k < sampled.length - 1; k++) {
+                const d = distPointToSegment({ x, y }, sampled[k], sampled[k + 1]);
+                if (d < bestDist) { bestDist = d; bestSub = seg; }
+              }
             }
+            if (bestSub >= 0) return { id: `${o.id}#${bestSub}`, kind: "curve" };
           }
         }
         break;
       }
+
+
 
       case "polygon": {
         for (let k = 0; k < o.points.length; k++) {
