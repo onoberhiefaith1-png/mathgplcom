@@ -77,6 +77,8 @@ export interface GeoCircle {
   fill?: string;
   /** Fill opacity 0..1. */
   fillOpacity?: number;
+  /** Teacher-facing area override (any text). */
+  area?: string;
 }
 export interface GeoArc {
   id: GeoId;
@@ -88,6 +90,7 @@ export interface GeoArc {
   dashed?: boolean;
   fill?: string;
   fillOpacity?: number;
+  area?: string;
 }
 
 export interface GeoAngle {
@@ -114,6 +117,8 @@ export interface GeoRegion {
   boundary: GeoId[];
   fill?: string;
   opacity?: number;
+  /** Teacher-facing area override (any text). */
+  area?: string;
 }
 export interface GeoPolygon {
   id: GeoId;
@@ -149,6 +154,7 @@ export interface GeoCurve {
   color?: string;
   fill?: string;
   fillOpacity?: number;
+  area?: string;
 }
 
 

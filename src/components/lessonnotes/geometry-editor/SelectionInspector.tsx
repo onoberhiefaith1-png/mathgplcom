@@ -31,7 +31,7 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
 
   // ─── Multi-selection routing ─────────────────────────────────────────
   if (selected.length >= 2) {
-    return <MultiPanel scene={scene} selected={selected} onApply={onApply} />;
+    return <MultiPanel scene={scene} selected={selected} onApply={onApply} onSelect={onSelect} />;
   }
 
   const primary = selected[0];
@@ -62,16 +62,16 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
     return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
   if (effective === "segmentBody" && primary.type === "segment") {
-    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => addTextAt(primary)} />;
+    return <SegmentBodyPanel scene={scene} segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => addTextAt(primary)} />;
   }
   if (effective === "angleValue" && primary.type === "angle") {
     return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
   if (primary.type === "angle") {
-    return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} />;
+    return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} onAddText={() => addTextAtAngle(scene, primary, onApply, onSelect)} />;
   }
   if (primary.type === "region") {
-    return <RegionPanel scene={scene} region={primary} onApply={onApply} onAddText={() => addTextAt(primary)} />;
+    return <RegionPanel scene={scene} region={primary} onApply={onApply} onSelect={onSelect} onAddText={() => addTextAt(primary)} />;
   }
   if (primary.type === "label") {
     return <LabelPanel label={primary} onPatch={(p) => patch(primary.id, p)} onDelete={() => onApply({ ...scene, objects: scene.objects.filter((o) => o.id !== primary.id) })} />;
@@ -90,10 +90,12 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
   );
 }
 
-function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: string; fill?: string; fillOpacity?: number; dashed?: boolean }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean }>) => void; onAddText?: () => void }) {
+function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: string; r?: number; fill?: string; fillOpacity?: number; dashed?: boolean; area?: string }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean; area: string }>) => void; onAddText?: () => void }) {
   const [enabled, setEnabled] = useState<boolean>(!!obj.fill);
   const [color, setColor] = useState<string>(obj.fill ?? "#3b82f6");
   const [opacity, setOpacity] = useState<number>(obj.fillOpacity ?? 0.2);
+  const [areaText, setAreaText] = useState<string>(obj.area ?? "");
+  const computedArea = obj.type === "circle" && obj.r ? (Math.PI * obj.r * obj.r / 100).toFixed(1) : "";
   return (
     <div className="space-y-2 text-xs">
       <p className="uppercase tracking-wider text-[11px] font-semibold text-foreground/70">{obj.type.toUpperCase()}</p>
@@ -116,6 +118,18 @@ function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: s
             <input type="range" min={0} max={1} step={0.05} value={opacity} onChange={(e) => { const v = Number(e.target.value); setOpacity(v); onPatch({ fillOpacity: v }); }} className="flex-1" />
             <span className="text-[10px] text-foreground/60 w-8 text-right">{Math.round(opacity * 100)}%</span>
           </div>
+        </div>
+      )}
+      {obj.type === "circle" && (
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] w-14 text-foreground/70">Area</label>
+          <input
+            value={areaText}
+            onChange={(e) => setAreaText(e.target.value)}
+            onBlur={() => onPatch({ area: areaText.trim() || undefined as any })}
+            placeholder={computedArea ? `${computedArea} (πr²)` : "e.g. 78.5 cm²"}
+            className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          />
         </div>
       )}
       <label className="flex items-center gap-2 cursor-pointer">
@@ -213,11 +227,38 @@ function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject, initial =
   return { scene: op.scene, id: op.addedIds[0] };
 }
 
+/** Drop a floating label near an angle vertex and auto-select it. */
+function addTextAtAngle(
+  scene: GeometryScene,
+  angle: GeoAngle,
+  onApply: (s: GeometryScene) => void,
+  onSelect?: (id: GeoId, kind: HitKind) => void,
+) {
+  const v = pointById(scene, angle.vertex);
+  const x = v ? v.x + 18 : 24;
+  const y = v ? v.y - 18 : 24;
+  const op = addFloatingLabel(scene, x, y, "Text");
+  onApply(op.scene);
+  if (onSelect) onSelect(op.addedIds[0], "label");
+}
+
+/** Shoelace polygon area from boundary point ids. */
+function polygonArea(scene: GeometryScene, boundary: GeoId[]): number {
+  const pts = boundary.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+  if (pts.length < 3) return 0;
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    s += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(s) / 2;
+}
+
 
 
 
 /* ─────── Multi-selection ─────── */
-function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; selected: GeoObject[]; onApply: (s: GeometryScene) => void }) {
+function MultiPanel({ scene, selected, onApply, onSelect }: { scene: GeometryScene; selected: GeoObject[]; onApply: (s: GeometryScene) => void; onSelect?: (id: GeoId, kind: HitKind) => void }) {
   const segments = selected.filter((o): o is GeoSegment => o.type === "segment");
   const points = selected.filter((o): o is GeoPoint => o.type === "point");
   const title = titleFor(scene, selected);
@@ -255,6 +296,7 @@ function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; select
           segments={segments}
           existing={existingAngle}
           onApply={onApply}
+          onSelect={onSelect}
         />
       )}
 
@@ -263,7 +305,7 @@ function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; select
       )}
 
       {region && (
-        <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+        <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} onSelect={onSelect} />
       )}
 
       {segments.length >= 2 && !existingAngle && (
@@ -273,6 +315,7 @@ function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; select
       )}
       {segments.length >= 2 && (
         <SegmentBodyPanel
+          scene={scene}
           segment={segments[0]}
           onPatchAll={(p) => {
             let s = scene;
@@ -319,12 +362,13 @@ function sharedEndpoint(a: GeoSegment, b: GeoSegment): GeoId | null {
 
 /* ─────── Angle (from 2 segments) ─────── */
 function AngleFromSegmentsPanel({
-  scene, segments, existing, onApply,
+  scene, segments, existing, onApply, onSelect,
 }: {
   scene: GeometryScene;
   segments: GeoSegment[];
   existing: GeoAngle | null;
   onApply: (s: GeometryScene) => void;
+  onSelect?: (id: GeoId, kind: HitKind) => void;
 }) {
   const shared = sharedEndpoint(segments[0], segments[1]);
   if (!shared) {
@@ -424,6 +468,20 @@ function AngleFromSegmentsPanel({
           Type a value or press ▲/▼ to insert the angle at this vertex.
         </p>
       )}
+      <button
+        type="button"
+        onClick={() => {
+          const v = pointById(scene, shared);
+          const x = v ? v.x + 18 : 24;
+          const y = v ? v.y - 18 : 24;
+          const op = addFloatingLabel(scene, x, y, "Text");
+          onApply(op.scene);
+          if (onSelect) onSelect(op.addedIds[0], "label");
+        }}
+        className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+      >
+        + Add text
+      </button>
     </div>
   );
 }
@@ -483,7 +541,7 @@ function AngleFromPointsPanel({
 }
 
 /* ─────── Angle (existing single-select) ─────── */
-function AngleEditPanel({ scene, angle, onApply }: { scene: GeometryScene; angle: GeoAngle; onApply: (s: GeometryScene) => void }) {
+function AngleEditPanel({ scene, angle, onApply, onAddText }: { scene: GeometryScene; angle: GeoAngle; onApply: (s: GeometryScene) => void; onAddText?: () => void }) {
   const [value, setValue] = useState(angle.value ?? "");
   const patch = (p: Partial<GeoAngle>) => onApply(patchObject(scene, angle.id, p as any).scene);
   return (
@@ -513,14 +571,23 @@ function AngleEditPanel({ scene, angle, onApply }: { scene: GeometryScene; angle
           </button>
         </div>
       </div>
+      {onAddText && (
+        <button
+          type="button"
+          onClick={onAddText}
+          className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+        >
+          + Add text
+        </button>
+      )}
     </div>
   );
 }
 
 /* ─────── Region create / edit ─────── */
 function RegionCreatePanel({
-  scene, boundary, onApply,
-}: { scene: GeometryScene; boundary: GeoId[]; onApply: (s: GeometryScene) => void }) {
+  scene, boundary, onApply, onSelect,
+}: { scene: GeometryScene; boundary: GeoId[]; onApply: (s: GeometryScene) => void; onSelect?: (id: GeoId, kind: HitKind) => void }) {
   const existing = scene.objects.find(
     (o): o is GeoRegion =>
       o.type === "region" &&
@@ -529,6 +596,8 @@ function RegionCreatePanel({
   );
   const [fill, setFill] = useState(existing?.fill ?? "#2563eb");
   const [opacity, setOpacity] = useState(existing?.opacity ?? 0.2);
+  const computedArea = useMemo(() => polygonArea(scene, boundary), [scene, boundary]);
+  const [areaText, setAreaText] = useState(existing?.area ?? "");
 
   const upsert = (patch: Partial<GeoRegion>) => {
     if (existing) {
@@ -559,6 +628,16 @@ function RegionCreatePanel({
           onChange={(e) => { const v = Number(e.target.value); setOpacity(v); upsert({ opacity: v }); }}
         />
       </label>
+      <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-[11px]">
+        <span className="text-foreground/70">Area</span>
+        <input
+          value={areaText}
+          onChange={(e) => setAreaText(e.target.value)}
+          onBlur={() => upsert({ area: areaText.trim() || undefined })}
+          placeholder={computedArea ? `${computedArea.toFixed(1)}` : "e.g. 24 cm²"}
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        />
+      </label>
       {existing && (
         <button
           type="button"
@@ -574,7 +653,9 @@ function RegionCreatePanel({
           const pts = boundary.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
           const cx = pts.reduce((a, p) => a + p.x, 0) / (pts.length || 1);
           const cy = pts.reduce((a, p) => a + p.y, 0) / (pts.length || 1);
-          onApply(addFloatingLabel(scene, cx, cy, "Text").scene);
+          const op = addFloatingLabel(scene, cx, cy, "Text");
+          onApply(op.scene);
+          if (onSelect) onSelect(op.addedIds[0], "label");
         }}
         className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
       >
@@ -584,10 +665,10 @@ function RegionCreatePanel({
   );
 }
 
-function RegionPanel({ scene, region, onApply, onAddText }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void; onAddText?: () => void }) {
+function RegionPanel({ scene, region, onApply, onAddText, onSelect }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void; onAddText?: () => void; onSelect?: (id: GeoId, kind: HitKind) => void }) {
   return (
     <div className="space-y-2">
-      <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+      <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} onSelect={onSelect} />
       {onAddText && (
         <button
           type="button"
@@ -775,8 +856,8 @@ function AngleValueTextPanel({ angle, onPatch }: { angle: GeoAngle; onPatch: (p:
 
 /* ─────── Segment body ─────── */
 function SegmentBodyPanel({
-  segment, onPatchAll, count, title, onAddText,
-}: { segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string; onAddText?: () => void }) {
+  scene, segment, onPatchAll, count, title, onAddText,
+}: { scene?: GeometryScene; segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string; onAddText?: () => void }) {
   const dashedMode: "solid" | "dotted" | "dashed" =
     segment.dashed === true ? "dashed" : segment.dashed === "dotted" ? "dotted" : "solid";
   const arrow = segment.arrow ?? "none";
@@ -786,11 +867,40 @@ function SegmentBodyPanel({
     : segment.marks === "quadruple" ? 4
     : 0;
   const par = segment.parallelMarks ?? 0;
-  const hasDist = segment.distance !== undefined || segment.length !== undefined;
+  // One-line law: Distance is ALWAYS visible. Prefill with the computed
+  // pixel length when the teacher hasn't typed anything yet.
+  const computed = useMemo(() => {
+    if (!scene) return "";
+    const a = pointById(scene, segment.a);
+    const b = pointById(scene, segment.b);
+    if (!a || !b) return "";
+    return (Math.hypot(b.x - a.x, b.y - a.y) / 10).toFixed(1);
+  }, [scene, segment.a, segment.b]);
+  const distValue = segment.distance ?? segment.length ?? "";
 
   return (
     <div className="space-y-2 text-xs">
       <Header>{title ?? `Segment${count > 1 ? ` · ${count} selected` : segment.label ? ` · ${segment.label}` : ""}`}</Header>
+
+      <Fold title="Distance" defaultOpen>
+        <div className="space-y-1">
+          <input
+            value={distValue}
+            onChange={(e) => onPatchAll({ distance: e.target.value, length: undefined } as any)}
+            placeholder={computed ? `${computed} (measured)` : "5 cm, 2x + 3"}
+            className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          />
+          {distValue !== "" && (
+            <button
+              type="button"
+              onClick={() => onPatchAll({ distance: undefined, length: undefined, distanceOffset: undefined } as any)}
+              className="text-[11px] text-destructive underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </Fold>
 
       <Fold title="Basic Line" defaultOpen>
         <Radios
@@ -826,34 +936,6 @@ function SegmentBodyPanel({
           onChange={(v) => onPatchAll({ parallelMarks: Number(v) as any })}
           options={[["0", "None"], ["1", "1"], ["2", "2"], ["3", "3"]]}
         />
-      </Fold>
-
-      <Fold title="Distance">
-        {hasDist ? (
-          <div className="space-y-1">
-            <input
-              value={segment.distance ?? segment.length ?? ""}
-              onChange={(e) => onPatchAll({ distance: e.target.value, length: undefined } as any)}
-              placeholder="5 cm, 2x + 3"
-              className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={() => onPatchAll({ distance: undefined, length: undefined, distanceOffset: undefined } as any)}
-              className="text-[11px] text-destructive underline"
-            >
-              Remove
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onPatchAll({ distance: "" } as any)}
-            className="text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
-          >
-            + Add distance
-          </button>
-        )}
       </Fold>
 
       <Row label="Line Colour">
