@@ -128,6 +128,12 @@ export interface GeoLabel {
   x: number;
   y: number;
   text: string;
+  /** Rotation in degrees, clockwise. */
+  rotation?: number;
+  /** Font size (px). Default 13. */
+  fontSize?: number;
+  /** Text color. */
+  color?: string;
 }
 
 export interface GeoCurve {
@@ -141,7 +147,10 @@ export interface GeoCurve {
   points?: GeoId[];
   dashed?: boolean;
   color?: string;
+  fill?: string;
+  fillOpacity?: number;
 }
+
 
 
 export type GeoObject =
