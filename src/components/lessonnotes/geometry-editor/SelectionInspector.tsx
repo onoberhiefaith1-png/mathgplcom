@@ -832,6 +832,15 @@ function SegmentBodyPanel({
           className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
         />
       </Row>
+      {onAddText && (
+        <button
+          type="button"
+          onClick={onAddText}
+          className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+        >
+          + Add text
+        </button>
+      )}
     </div>
   );
 }
