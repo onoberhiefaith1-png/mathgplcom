@@ -531,7 +531,7 @@ function SegmentDistancePanel({ segment, onPatch }: { segment: GeoSegment; onPat
   const value = segment.distance ?? segment.length ?? "";
   return (
     <div className="space-y-2 text-xs">
-      <Header>Distance</Header>
+      <Header>Distance {value ? `· ${value}` : ""}</Header>
       <Row label="Text">
         <input
           value={value}
@@ -540,6 +540,26 @@ function SegmentDistancePanel({ segment, onPatch }: { segment: GeoSegment; onPat
           className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
         />
       </Row>
+      <Row label="Size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={9} max={28} step={1}
+            value={segment.distanceFontSize ?? 12}
+            onChange={(e) => onPatch({ distanceFontSize: Number(e.target.value) } as any)}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{segment.distanceFontSize ?? 12}</span>
+        </div>
+      </Row>
+      <Row label="Colour">
+        <input
+          type="color"
+          value={segment.distanceColor ?? segment.color ?? "#1f1f24"}
+          onChange={(e) => onPatch({ distanceColor: e.target.value } as any)}
+          className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
+        />
+      </Row>
+      <p className="text-[10px] text-foreground/55">Drag on the canvas to reposition.</p>
       <button
         type="button"
         onClick={() => onPatch({ distance: undefined, length: undefined, distanceOffset: undefined } as any)}
@@ -547,6 +567,43 @@ function SegmentDistancePanel({ segment, onPatch }: { segment: GeoSegment; onPat
       >
         Remove distance
       </button>
+    </div>
+  );
+}
+
+/* ─────── Angle value chip (clicking "46°") ─────── */
+function AngleValueTextPanel({ angle, onPatch }: { angle: GeoAngle; onPatch: (p: Partial<GeoAngle>) => void }) {
+  return (
+    <div className="space-y-2 text-xs">
+      <Header>Angle Value {angle.value ? `· ${angle.value}` : ""}</Header>
+      <Row label="Text">
+        <input
+          value={angle.value ?? ""}
+          onChange={(e) => onPatch({ value: e.target.value })}
+          placeholder="30°, 180°, x + 40"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        />
+      </Row>
+      <Row label="Size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={9} max={28} step={1}
+            value={angle.valueFontSize ?? 12}
+            onChange={(e) => onPatch({ valueFontSize: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{angle.valueFontSize ?? 12}</span>
+        </div>
+      </Row>
+      <Row label="Colour">
+        <input
+          type="color"
+          value={angle.valueColor ?? "#1f1f24"}
+          onChange={(e) => onPatch({ valueColor: e.target.value })}
+          className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
+        />
+      </Row>
+      <p className="text-[10px] text-foreground/55">Drag the value on the canvas to reposition. Use the arc panel to flip sides.</p>
     </div>
   );
 }
