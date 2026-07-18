@@ -114,9 +114,97 @@ function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: s
         <input type="checkbox" checked={!!obj.dashed} onChange={(e) => onPatch({ dashed: e.target.checked })} />
         <span>Dashed</span>
       </label>
+      {onAddText && (
+        <button
+          type="button"
+          onClick={onAddText}
+          className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+        >
+          + Add text
+        </button>
+      )}
     </div>
   );
 }
+
+/* ─────── Floating label (universal text) ─────── */
+function LabelPanel({ label, onPatch, onDelete }: { label: GeoLabel; onPatch: (p: Partial<GeoLabel>) => void; onDelete: () => void }) {
+  return (
+    <div className="space-y-2 text-xs">
+      <Header>Text</Header>
+      <Row label="Text">
+        <input
+          value={label.text}
+          onChange={(e) => onPatch({ text: e.target.value })}
+          placeholder="Landmark"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        />
+      </Row>
+      <Row label="Size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={9} max={40} step={1}
+            value={label.fontSize ?? 13}
+            onChange={(e) => onPatch({ fontSize: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{label.fontSize ?? 13}</span>
+        </div>
+      </Row>
+      <Row label="Colour">
+        <input
+          type="color"
+          value={label.color ?? "#1f1f24"}
+          onChange={(e) => onPatch({ color: e.target.value })}
+          className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
+        />
+      </Row>
+      <Row label="Rotate">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={-180} max={180} step={5}
+            value={label.rotation ?? 0}
+            onChange={(e) => onPatch({ rotation: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-8 text-foreground/60">{label.rotation ?? 0}°</span>
+        </div>
+      </Row>
+      <p className="text-[10px] text-foreground/55">Drag the text on the canvas to move it anywhere.</p>
+      <button type="button" onClick={onDelete} className="text-[11px] text-destructive underline">Remove text</button>
+    </div>
+  );
+}
+
+/** Helper: drop a floating label somewhere sensible for a shape. */
+function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject): GeometryScene {
+  let x = 20, y = 20;
+  if (obj.type === "circle" || obj.type === "arc") {
+    const c = pointById(scene, obj.center);
+    if (c) { x = c.x; y = c.y; }
+  } else if (obj.type === "curve") {
+    const anchors = obj.a && obj.mid && obj.b
+      ? [obj.a, obj.mid, obj.b]
+      : (obj.points ?? []);
+    const mids = anchors.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+    if (mids.length) {
+      x = mids.reduce((a, p) => a + p.x, 0) / mids.length;
+      y = mids.reduce((a, p) => a + p.y, 0) / mids.length;
+    }
+  } else if (obj.type === "segment") {
+    const a = pointById(scene, obj.a); const b = pointById(scene, obj.b);
+    if (a && b) { x = (a.x + b.x) / 2; y = (a.y + b.y) / 2 - 14; }
+  } else if (obj.type === "region") {
+    const pts = obj.boundary.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+    if (pts.length) {
+      x = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+      y = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+    }
+  }
+  return addFloatingLabel(scene, x, y, "Text").scene;
+}
+
+
 
 
 /* ─────── Multi-selection ─────── */
