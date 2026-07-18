@@ -185,7 +185,7 @@ function LabelPanel({ label, onPatch, onDelete }: { label: GeoLabel; onPatch: (p
 }
 
 /** Helper: drop a floating label somewhere sensible for a shape. */
-function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject): GeometryScene {
+function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject, initial = "Text"): { scene: GeometryScene; id: GeoId } {
   let x = 20, y = 20;
   if (obj.type === "circle" || obj.type === "arc") {
     const c = pointById(scene, obj.center);
@@ -209,7 +209,8 @@ function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject): Geometry
       y = pts.reduce((a, p) => a + p.y, 0) / pts.length;
     }
   }
-  return addFloatingLabel(scene, x, y, "Text").scene;
+  const op = addFloatingLabel(scene, x, y, initial);
+  return { scene: op.scene, id: op.addedIds[0] };
 }
 
 
