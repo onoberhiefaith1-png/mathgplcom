@@ -5,7 +5,7 @@
 import { useRef, useState, useMemo } from "react";
 import type { GeometryScene, GeoPoint, GeoId } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
-import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, pickHit, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
 import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
 
