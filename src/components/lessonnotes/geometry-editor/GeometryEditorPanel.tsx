@@ -229,6 +229,7 @@ function PanelBody({
         <SelectionInspector
           scene={editor.scene}
           selected={editor.selectedObjects}
+          kind={editor.selectionKind}
           onApply={(next) => editor.commit(next)}
         />
       </div>
