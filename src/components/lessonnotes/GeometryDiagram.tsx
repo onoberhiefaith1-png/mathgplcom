@@ -69,8 +69,15 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
 
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
-    // Two passes: shapes first (so labels sit on top), then points + labels.
+    // Regions first (they paint the interior fill behind all ink).
     for (const o of scene.objects) {
+      if (o.type !== "region") continue;
+      const node = renderObject(o, scene, colourOf(o.id), pad);
+      if (node) out.push(node);
+    }
+    // Everything else on top so lines/labels remain crisp.
+    for (const o of scene.objects) {
+      if (o.type === "region") continue;
       const c = colourOf(o.id);
       const node = renderObject(o, scene, c, pad);
       if (node) out.push(node);
