@@ -1821,6 +1821,9 @@ function NotebookGeometryOverlay({
 
   if (!mode && storedScene.objects.length === 0) return null;
 
+  const overlayWidth = Math.max(scene.bounds.width ?? 0, paperSize.width) + 48;
+  const overlayHeight = Math.max(scene.bounds.height ?? 0, paperSize.height) + 48;
+
   return (
     <div
       data-notebook-geometry-overlay="true"
@@ -1828,8 +1831,8 @@ function NotebookGeometryOverlay({
       style={{
         left: -24,
         top: -24,
-        width: paperSize.width + 48,
-        height: paperSize.height + 48,
+        width: overlayWidth,
+        height: overlayHeight,
         overflow: "visible",
         zIndex: mode ? 8 : 4,
         pointerEvents: mode ? "auto" : "none",
@@ -1840,8 +1843,8 @@ function NotebookGeometryOverlay({
       ) : (
         <StaticGeometryDiagram
           scene={scene}
-          explicitWidth={paperSize.width + 48}
-          explicitHeight={paperSize.height + 48}
+          explicitWidth={overlayWidth}
+          explicitHeight={overlayHeight}
         />
       )}
     </div>
