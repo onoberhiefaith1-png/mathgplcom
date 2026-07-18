@@ -470,6 +470,9 @@ export function GeometryCanvas({ editor }: Props) {
           if (tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
             setPendingIds([]);
+          } else if (tool === "curve" && pendingIds.length >= 2) {
+            apply(addCurve(scene, pendingIds));
+            setPendingIds([]);
           } else if (tool === "line") {
             setPendingIds([]);
           }
@@ -478,7 +481,9 @@ export function GeometryCanvas({ editor }: Props) {
           if (e.key === "Enter" && tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
             setPendingIds([]);
-
+          } else if (e.key === "Enter" && tool === "curve" && pendingIds.length >= 2) {
+            apply(addCurve(scene, pendingIds));
+            setPendingIds([]);
           } else if (e.key === "Escape") {
             setPendingIds([]);
           }
