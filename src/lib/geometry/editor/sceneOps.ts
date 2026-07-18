@@ -329,6 +329,11 @@ export function eraseObject(scene: GeometryScene, id: GeoId): OpResult {
       else if (o.type === "angle" && (o.vertex === id || o.a === id || o.b === id)) drop.add(o.id);
       else if (o.type === "polygon" && o.points.includes(id)) drop.add(o.id);
       else if (o.type === "region" && o.boundary.includes(id)) drop.add(o.id);
+      else if (o.type === "curve") {
+        if (o.a === id || o.mid === id || o.b === id) drop.add(o.id);
+        else if (o.points?.includes(id)) drop.add(o.id);
+      }
+
     }
   }
   return ok(withObjects(scene, scene.objects.filter((o) => !drop.has(o.id))));
