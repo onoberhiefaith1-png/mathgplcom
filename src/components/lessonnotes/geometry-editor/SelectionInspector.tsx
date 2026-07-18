@@ -546,8 +546,8 @@ function AngleEditPanel({ scene, angle, onApply }: { scene: GeometryScene; angle
 
 /* ─────── Region create / edit ─────── */
 function RegionCreatePanel({
-  scene, boundary, onApply,
-}: { scene: GeometryScene; boundary: GeoId[]; onApply: (s: GeometryScene) => void }) {
+  scene, boundary, onApply, onSelect,
+}: { scene: GeometryScene; boundary: GeoId[]; onApply: (s: GeometryScene) => void; onSelect?: (id: GeoId, kind: HitKind) => void }) {
   const existing = scene.objects.find(
     (o): o is GeoRegion =>
       o.type === "region" &&
@@ -556,6 +556,8 @@ function RegionCreatePanel({
   );
   const [fill, setFill] = useState(existing?.fill ?? "#2563eb");
   const [opacity, setOpacity] = useState(existing?.opacity ?? 0.2);
+  const computedArea = useMemo(() => polygonArea(scene, boundary), [scene, boundary]);
+  const [areaText, setAreaText] = useState(existing?.area ?? "");
 
   const upsert = (patch: Partial<GeoRegion>) => {
     if (existing) {
@@ -586,6 +588,16 @@ function RegionCreatePanel({
           onChange={(e) => { const v = Number(e.target.value); setOpacity(v); upsert({ opacity: v }); }}
         />
       </label>
+      <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-[11px]">
+        <span className="text-foreground/70">Area</span>
+        <input
+          value={areaText}
+          onChange={(e) => setAreaText(e.target.value)}
+          onBlur={() => upsert({ area: areaText.trim() || undefined })}
+          placeholder={computedArea ? `${computedArea.toFixed(1)}` : "e.g. 24 cm²"}
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        />
+      </label>
       {existing && (
         <button
           type="button"
@@ -601,7 +613,9 @@ function RegionCreatePanel({
           const pts = boundary.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
           const cx = pts.reduce((a, p) => a + p.x, 0) / (pts.length || 1);
           const cy = pts.reduce((a, p) => a + p.y, 0) / (pts.length || 1);
-          onApply(addFloatingLabel(scene, cx, cy, "Text").scene);
+          const op = addFloatingLabel(scene, cx, cy, "Text");
+          onApply(op.scene);
+          if (onSelect) onSelect(op.addedIds[0], "label");
         }}
         className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
       >
@@ -611,10 +625,10 @@ function RegionCreatePanel({
   );
 }
 
-function RegionPanel({ scene, region, onApply, onAddText }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void; onAddText?: () => void }) {
+function RegionPanel({ scene, region, onApply, onAddText, onSelect }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void; onAddText?: () => void; onSelect?: (id: GeoId, kind: HitKind) => void }) {
   return (
     <div className="space-y-2">
-      <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+      <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} onSelect={onSelect} />
       {onAddText && (
         <button
           type="button"
