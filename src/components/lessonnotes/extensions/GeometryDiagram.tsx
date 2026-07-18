@@ -234,6 +234,17 @@ export const GeometryDiagramNode = Node.create({
           "data-scene": JSON.stringify(attrs.scene ?? EMPTY_SCENE),
         }),
       },
+      sceneV2: {
+        default: null,
+        parseHTML: (el) => {
+          const raw = el.getAttribute("data-scene-v2");
+          if (!raw) return null;
+          try { return sanitizeV2Scene(JSON.parse(raw)); }
+          catch { return null; }
+        },
+        renderHTML: (attrs) =>
+          attrs.sceneV2 ? { "data-scene-v2": JSON.stringify(attrs.sceneV2) } : {},
+      },
       topic: {
         default: null,
         parseHTML: (el) => el.getAttribute("data-topic") || null,
