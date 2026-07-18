@@ -73,8 +73,11 @@ export function GeometryCanvas({ editor }: Props) {
         apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
       } else if (labelDrag.kind === "segmentDistance") {
         apply(patchObject(scene, labelDrag.id, { distanceOffset: { dx, dy } } as any));
-      } else {
+      } else if (labelDrag.kind === "angleValue") {
         apply(patchObject(scene, labelDrag.id, { valueOffset: { dx, dy } } as any));
+      } else {
+        // Free-floating GeoLabel — write absolute position.
+        apply(patchObject(scene, labelDrag.id, { x: labelDrag.baseDx + (p.x - labelDrag.startX), y: labelDrag.baseDy + (p.y - labelDrag.startY) } as any));
       }
       return;
     }
