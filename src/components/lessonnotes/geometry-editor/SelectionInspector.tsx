@@ -16,6 +16,8 @@ interface Props {
   selected: GeoObject[];
   kind?: HitKind | null;
   onApply: (next: GeometryScene) => void;
+  /** Select an object by id after a scene edit (e.g. new floating label). */
+  onSelect?: (id: GeoId, kind: HitKind) => void;
 }
 
 export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
