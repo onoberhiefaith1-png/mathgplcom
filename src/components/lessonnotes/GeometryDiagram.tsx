@@ -357,9 +357,14 @@ function renderObject(
       let diff = a2 - a1;
       while (diff <= -Math.PI) diff += 2 * Math.PI;
       while (diff > Math.PI) diff -= 2 * Math.PI;
-      const large = Math.abs(diff) > Math.PI ? 1 : 0;
-      const sweep = diff > 0 ? 0 : 1;
-      const labelAngle = a1 + diff / 2;
+      let large = Math.abs(diff) > Math.PI ? 1 : 0;
+      let sweep = diff > 0 ? 0 : 1;
+      // Reflex flips to the opposite side of the vertex.
+      if ((o as any).reflex) {
+        large = 1 - large;
+        sweep = 1 - sweep;
+      }
+      const labelAngle = (o as any).reflex ? a1 + diff / 2 + Math.PI : a1 + diff / 2;
       const lx = cx + Math.cos(labelAngle) * (r + 12);
       const ly = cy - Math.sin(labelAngle) * (r + 12);
       return (
