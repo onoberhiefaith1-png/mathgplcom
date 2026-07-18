@@ -578,3 +578,17 @@ function catmullRomPreview(p: { x: number; y: number }[]): string {
   }
   return d;
 }
+
+function mapTypeToKind(t: string | null): any {
+  switch (t) {
+    case "point": return "point";
+    case "segment": return "segmentBody";
+    case "circle": return "circle";
+    case "arc": return "arc";
+    case "curve": return "curve";
+    case "polygon": return "polygon";
+    case "angle": return "angle";
+    case "label": return "label";
+    default: return null;
+  }
+}
