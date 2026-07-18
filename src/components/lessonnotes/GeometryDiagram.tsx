@@ -348,10 +348,12 @@ function renderObject(
         <path
           key={o.id}
           d={`M ${x1} ${y1} A ${o.r} ${o.r} 0 ${large} ${sweep} ${x2} ${y2}`}
-          fill="none" stroke={stroke} strokeWidth={sw}
+          fill={o.fill ?? "none"} fillOpacity={o.fill ? (o.fillOpacity ?? 0.2) : undefined}
+          stroke={stroke} strokeWidth={sw}
           strokeDasharray={o.dashed ? "4 3" : undefined}
         />
       );
+
     }
     case "curve": {
       let d = "";
