@@ -165,10 +165,10 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
         break;
       }
       case "curve": {
-        const ids = o.a && o.mid && o.b ? [o.a, o.mid, o.b] : (o.points ?? []);
-        // Approximate curve body with several sample chords.
-        const pts = ids.map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
-        if (pts.length >= 3) {
+        if (o.a && o.mid && o.b) {
+          // Approximate legacy quadratic curve body with several sample chords.
+          const pts = [o.a, o.mid, o.b].map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
+          if (pts.length < 3) break;
           const [pa, pm, pb] = pts;
           const cx = 2 * pm.x - (pa.x + pb.x) / 2;
           const cy = 2 * pm.y - (pa.y + pb.y) / 2;
@@ -183,9 +183,13 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
             if (distPointToSegment({ x, y }, prev, next) <= hit) return { id: o.id, kind: "curve" };
             prev = next;
           }
-        } else if (pts.length >= 2) {
-          for (let k = 0; k < pts.length - 1; k++) {
-            if (distPointToSegment({ x, y }, pts[k], pts[k + 1]) <= hit) return { id: o.id, kind: "curve" };
+        } else {
+          const pts = (o.points ?? []).map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
+          if (pts.length >= 2) {
+            const sampled = sampleCatmullRom(pts, 10);
+            for (let k = 0; k < sampled.length - 1; k++) {
+              if (distPointToSegment({ x, y }, sampled[k], sampled[k + 1]) <= hit) return { id: o.id, kind: "curve" };
+            }
           }
         }
         break;
@@ -232,4 +236,25 @@ function distPointToSegment(
   const cx = a.x + dx * t;
   const cy = a.y + dy * t;
   return Math.hypot(p.x - cx, p.y - cy);
+}
+
+function sampleCatmullRom(pts: GeoPoint[], stepsPerSegment = 8): GeoPoint[] {
+  if (pts.length < 2) return pts;
+  if (pts.length === 2) return pts;
+  const out: GeoPoint[] = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    for (let s = 1; s <= stepsPerSegment; s++) {
+      const t = s / stepsPerSegment;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+      const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+      out.push({ id: "", type: "point", x, y });
+    }
+  }
+  return out;
 }

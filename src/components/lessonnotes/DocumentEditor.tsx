@@ -22,6 +22,9 @@ import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
+import { GeometryCanvas } from "./geometry-editor/GeometryCanvas";
+import { useGeometryEditor } from "./geometry-editor/useGeometryEditor";
+import { SelectionInspector } from "./geometry-editor/SelectionInspector";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
 import { SmartCalcNode, type SmartCalcAttrs } from "./extensions/SmartCalc";
@@ -61,7 +64,7 @@ import { MathSymbolPanel } from "./MathSymbolPanel";
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
-import { AssetSelectionProvider } from "@/hooks/useAssetSelection";
+import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
@@ -130,6 +133,9 @@ interface CanvasBox {
 const canvasBoxesKey = (notebookId: string | undefined) =>
   notebookId ? `lesson-notes:canvas-boxes:${notebookId}` : null;
 
+const notebookGeometryKey = (notebookId: string | undefined) =>
+  notebookId ? `lesson-notes:notebook-geometry:${notebookId}` : null;
+
 const loadCanvasBoxes = (notebookId: string | undefined): CanvasBox[] => {
   const key = canvasBoxesKey(notebookId);
   if (!key) return [];
@@ -145,6 +151,21 @@ const saveCanvasBoxes = (notebookId: string | undefined, boxes: CanvasBox[]) => 
   const key = canvasBoxesKey(notebookId);
   if (!key) return;
   try { localStorage.setItem(key, JSON.stringify(boxes)); } catch { /* noop */ }
+};
+
+const loadNotebookGeometry = (notebookId: string | undefined): GeometryScene => {
+  const key = notebookGeometryKey(notebookId);
+  if (!key) return EMPTY_SCENE;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? ((sanitizeScene(JSON.parse(raw)) as GeometryScene) ?? EMPTY_SCENE) : EMPTY_SCENE;
+  } catch { return EMPTY_SCENE; }
+};
+
+const saveNotebookGeometry = (notebookId: string | undefined, scene: GeometryScene) => {
+  const key = notebookGeometryKey(notebookId);
+  if (!key) return;
+  try { localStorage.setItem(key, JSON.stringify(scene)); } catch { /* noop */ }
 };
 
 /** Strip any legacy absolute-position attributes from a stored doc so old
@@ -1570,6 +1591,7 @@ function DocumentEditorInner({
               onMouseDown={handlePaperMouseDown}
             >
               <EditorContent editor={editor} />
+              <NotebookGeometryOverlay notebookId={notebookId} paperLayerRef={paperLayerRef} />
               {canvasBoxes.map((b) => (
                 <CanvasBoxView
                   key={b.id}
