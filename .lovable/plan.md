@@ -1,55 +1,46 @@
-## Goal
-Unify text editing across the geometry editor, activate distance display + editing, allow "Add text" everywhere (including inside enclosed regions), and improve auto-behavior around intersections and split lines.
+## Problem
 
-## Changes
+When you click on the canvas to draw (arc, circle, point, etc.), the shape lands in a different position than where you clicked, and highlight halos land off the shape. Two things are causing the drift, and both must be fixed together.
 
-### 1. Universal text editing (labels, distances, angles, "Add text")
-Every piece of text on the canvas becomes editable with the same 4 controls: **rename**, **size**, **color**, **drag anywhere**. Text used as a label for a shape can also **rotate**.
+### Cause 1 — SVG letterboxing is ignored
 
-- Consolidate a shared `TextStylePanel` in `SelectionInspector.tsx` covering: text content, font size slider, color picker, rotation (where applicable).
-- Wire it into every text-bearing selection:
-  - Point label (already exists — align controls)
-  - Segment label + segment distance chip
-  - Angle value chip (already partial — align controls)
-  - Floating label (`GeoLabel`) with rotation
-- Ensure all these chips are draggable on canvas (`GeometryCanvas`), reusing the existing drag handler pattern used by distance/angle offsets.
+The interaction SVG in `GeometryCanvas.tsx` renders with `preserveAspectRatio="xMidYMid meet"` (the default). When the container's aspect ratio doesn't match the viewBox, the browser adds equal padding to the short axis and centres the content. But `toLogical()` (lines 39–47) maps the pointer linearly across the *whole* bounding rect:
 
-### 2. Line segment properties — activate Distance and add Text
-In the segment inspector panel:
-- Show line name in title (already done — `Segment · KL`).
-- Solid / Dotted / Dashed (exists).
-- **Distance**: text input. Setting a value renders the chip at the segment midpoint, draggable, resizable, recolorable. Clicking the chip on canvas opens the shared text-style panel.
-- **Label**: independent name text (works like distance — draggable chip).
-- **Add text**: button that inserts a new `GeoLabel` positioned near the segment midpoint. The label is draggable, resizable, recolorable, and rotatable.
+```ts
+x: ((e.clientX - rect.left) / rect.width) * W - PAD
+```
 
-### 3. Enclosed-region text
-When a closed region is selected (or auto-detected from selected segments/full-circle/full-curve):
-- Keep the existing "Shade enclosed area" (fill + opacity).
-- Add "Add text" button — inserts a `GeoLabel` at the region centroid. Behaves like every other text chip (draggable, resizable, recolorable, rotatable).
+That formula is only correct when the SVG fills its box edge-to-edge. In every other case, clicks near the edges convert to logical coordinates that are shifted, so the point you drop appears offset.
 
-### 4. Auto-point at every intersection
-`intersections.ts` already handles segment×segment, segment×circle, segment×arc, circle×circle. Extend so **every** structure pair adds points where they cross:
-- Add `circle × arc` and `arc × arc`.
-- Add `segment × curve`, `circle × curve`, `arc × curve` (approximate curve via sampled polyline of the quadratic-Bezier / Catmull-Rom form).
-- Run `ensureIntersectionPoints` on every commit (already runs after point drops — verify it also runs on shape adds and after drag-moves).
+### Cause 2 — Interaction viewBox ≠ display viewBox
 
-### 5. Auto-angle prompt when two lines share a point
-Already: dropping a point on a segment splits it into two segments (AB with C in middle → AC + CB). Currently selecting the two child segments exposes the Angle editor.
+`GeometryDiagram.tsx` (lines 59–65, 107) grows its viewBox to fit anything past `scene.bounds` and applies `translate(-minX, -minY)` so nothing gets clipped. `GeometryCanvas.tsx` (lines 36–37, 482) uses the un-grown `scene.bounds` for its own viewBox and applies no matching translate. Once anything is drawn outside the original bounds — an arc dragged past the edge, a curve extended by "Expand" — the two SVGs no longer share a coordinate system. What you see in the diagram is shifted from where the interaction layer thinks it is, so highlighting and further clicks land on the wrong spot.
 
-New behavior: **when the multi-selection is exactly two segments that share a common endpoint**, the MultiPanel opens directly on the Angle editor (value input + up/down reflex toggle) as the primary action, instead of only listing it. Wording: "Angle at ⟨point⟩". Works identically for collinear (straight-line 180°) and non-collinear pairs. Any numeric value the teacher types is accepted (no clamping).
+## Fix
 
-## Technical notes
+Make the interaction layer share the diagram's exact coordinate system in every frame.
 
-Files touched:
-- `src/lib/geometry/scene.ts` — no new fields needed (already have `fontSize`, `color`, `rotation`, `distanceFontSize`, `valueFontSize`, etc.).
-- `src/lib/geometry/editor/sceneOps.ts` — extend `addFloatingLabel` to accept style opts; add `addLabelForSegment(segId)` and `addLabelForRegion(regionId)` helpers.
-- `src/lib/geometry/editor/intersections.ts` — add arc×arc, circle×arc, and curve intersection sampling.
-- `src/lib/geometry/editor/snap.ts` — ensure `pickHit` returns `label` for floating labels and `segmentDistance` for the distance chip (verify current bbox math accounts for custom `fontSize`).
-- `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx` — introduce shared `TextStylePanel`; wire "Add text" buttons on Segment, Region, Circle, Arc, Curve panels; reroute two-adjacent-segments multi-select straight to Angle editor.
-- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — make `GeoLabel` chips draggable and rotatable via a small handle; render rotation.
-- `src/components/lessonnotes/GeometryDiagram.tsx` — apply rotation/fontSize/color to `GeoLabel` when rendering statically (already partial — confirm).
+1. **Single source of truth for extent.** Export the extent math (`minX/minY/maxX/maxY → W/H`) from `GeometryDiagram.tsx` as a small helper (`computeSceneViewBox(scene, pad)`). Both `GeometryDiagram` and `GeometryCanvas` call it, so they always agree on `viewBox`, `W`, `H`, and the `translate(-minX, -minY)` offset.
 
-Out of scope (unchanged):
-- Existing curve sub-segment highlighting.
-- Existing fill/opacity mechanics.
-- Panel width / docking behavior.
+2. **Fix `toLogical` to respect `preserveAspectRatio="xMidYMid meet"`.** Replace the linear formula in `GeometryCanvas.tsx` with the correct un-projection:
+   - Compute `scale = min(rect.width / W, rect.height / H)`.
+   - Compute the letterbox offset: `offsetX = (rect.width - W * scale) / 2`, same for Y.
+   - Logical `x = (clientX - rect.left - offsetX) / scale - PAD + minX`, likewise for Y.
+   
+   This unifies letterboxing correction (Cause 1) and the extent translate (Cause 2) into one mapping. Every click resolves to the exact logical point under the cursor, regardless of container aspect or how far shapes extend past `scene.bounds`.
+
+3. **Match viewBox and translate on the interaction SVG.** In `GeometryCanvas.tsx`, use the shared extent to set `viewBox={`0 0 ${W} ${H}`}` and wrap the interaction contents (halos, hover ring, ghost previews) in the same `<g transform={`translate(${-minX}, ${-minY})`}>` the diagram uses. Halos, snap targets and ghost strokes will then sit exactly on the rendered shapes.
+
+4. **Apply the same fix to `SmartOverlay.tsx`** (identical linear-map bug on lines 22–29) so smart-part hover/selection also lands where the user clicks.
+
+### Files touched
+
+- `src/components/lessonnotes/GeometryDiagram.tsx` — extract `computeSceneViewBox` helper; keep rendering identical.
+- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — use shared helper, rewrite `toLogical`, wrap interaction layer in matching translate.
+- `src/components/lessonnotes/geometry-editor/SmartOverlay.tsx` — same `toLogical` correction.
+
+### Verification
+
+- Draw an arc/circle/point at multiple positions (top-left, centre, far-right past `scene.bounds`). Confirm the shape appears exactly under the cursor at both endpoints.
+- Resize the notebook column so the container aspect ratio differs from the viewBox; re-run the click test near the edges.
+- Click a drawn arc — the blue selection halo should sit on the arc, not offset.
