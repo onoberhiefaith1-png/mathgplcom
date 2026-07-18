@@ -226,10 +226,18 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "curve": {
-        const { id } = ensurePoint(p.x, p.y);
-        setPendingIds([...pendingIds, id]);
+        // Curve = quadratic Bezier through 3 points: start, bend, end.
+        const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        const next = [...pendingIds, id];
+        if (next.length === 3) {
+          apply(addCurve(s1, next));
+          setPendingIds([]);
+        } else {
+          setPendingIds(next);
+        }
         break;
       }
+
       case "angle": {
         // Click arm1 point → vertex point → arm2 point
         const { id, scene: s1 } = ensurePoint(p.x, p.y);
