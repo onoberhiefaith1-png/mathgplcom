@@ -237,14 +237,35 @@ function renderObject(
       const y1 = cy - Math.sin(a1) * o.r;
       const x2 = cx + Math.cos(a2) * o.r;
       const y2 = cy - Math.sin(a2) * o.r;
-      const large = Math.abs(o.to - o.from) > 180 ? 1 : 0;
-      const sweep = o.to > o.from ? 0 : 1;
+      // Draw the CCW-in-math sweep from `from` to `to`. In SVG's y-down
+      // coordinate system, CCW-math corresponds to sweep-flag=0.
+      let delta = o.to - o.from;
+      while (delta <= 0) delta += 360;
+      while (delta > 360) delta -= 360;
+      const large = delta > 180 ? 1 : 0;
+      const sweep = 0;
       return (
         <path
           key={o.id}
           d={`M ${x1} ${y1} A ${o.r} ${o.r} 0 ${large} ${sweep} ${x2} ${y2}`}
           fill="none" stroke={stroke} strokeWidth={sw}
           strokeDasharray={o.dashed ? "4 3" : undefined}
+        />
+      );
+    }
+    case "curve": {
+      const pts = o.points
+        .map((id) => pointById(scene, id))
+        .filter((p): p is GeoPoint => !!p);
+      if (pts.length < 2) return null;
+      const d = catmullRomPath(pts.map((p) => ({ x: p.x + pad, y: p.y + pad })));
+      return (
+        <path
+          key={o.id}
+          d={d}
+          fill="none" stroke={stroke} strokeWidth={sw}
+          strokeDasharray={o.dashed ? "4 3" : undefined}
+          strokeLinecap="round"
         />
       );
     }
