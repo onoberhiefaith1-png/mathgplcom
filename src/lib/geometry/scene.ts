@@ -34,6 +34,10 @@ export interface GeoSegment {
   /** Preferred measurement text (draggable via distanceOffset). */
   distance?: string;
   distanceOffset?: { dx: number; dy: number };
+  /** Font size for the distance chip. */
+  distanceFontSize?: number;
+  /** Colour for the distance chip. */
+  distanceColor?: string;
   marks?:
     | "tick" | "double" | "triple" | "quadruple" | "right"
     | "parallel" | "double-parallel" | "triple-parallel"
