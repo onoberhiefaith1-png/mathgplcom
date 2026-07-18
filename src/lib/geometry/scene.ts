@@ -34,6 +34,10 @@ export interface GeoSegment {
   /** Preferred measurement text (draggable via distanceOffset). */
   distance?: string;
   distanceOffset?: { dx: number; dy: number };
+  /** Font size for the distance chip. */
+  distanceFontSize?: number;
+  /** Colour for the distance chip. */
+  distanceColor?: string;
   marks?:
     | "tick" | "double" | "triple" | "quadruple" | "right"
     | "parallel" | "double-parallel" | "triple-parallel"
@@ -86,6 +90,12 @@ export interface GeoAngle {
   marker?: "arc" | "double" | "right";
   /** When true, the arc is drawn on the opposite (reflex) side. */
   reflex?: boolean;
+  /** Draggable offset for the value chip. */
+  valueOffset?: { dx: number; dy: number };
+  /** Font size for the value chip. */
+  valueFontSize?: number;
+  /** Colour for the value chip. */
+  valueColor?: string;
 }
 export interface GeoRegion {
   id: GeoId;

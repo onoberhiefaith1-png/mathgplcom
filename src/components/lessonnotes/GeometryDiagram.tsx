@@ -244,8 +244,8 @@ function renderObject(
           )}
           {distText && (
             <text x={distX} y={distY}
-              fontFamily={LABEL_FONT} fontSize={12}
-              fill={color} textAnchor="middle"
+              fontFamily={LABEL_FONT} fontSize={(o as any).distanceFontSize ?? 12}
+              fill={(o as any).distanceColor ?? color} textAnchor="middle"
             >
               {distText}
             </text>
@@ -372,8 +372,11 @@ function renderObject(
         sweep = 1 - sweep;
       }
       const labelAngle = (o as any).reflex ? a1 + diff / 2 + Math.PI : a1 + diff / 2;
-      const lx = cx + Math.cos(labelAngle) * (r + 12);
-      const ly = cy - Math.sin(labelAngle) * (r + 12);
+      const baseLx = cx + Math.cos(labelAngle) * (r + 12);
+      const baseLy = cy - Math.sin(labelAngle) * (r + 12);
+      const vOff = (o as any).valueOffset as { dx: number; dy: number } | undefined;
+      const lx = vOff ? baseLx + vOff.dx : baseLx;
+      const ly = vOff ? baseLy + vOff.dy : baseLy;
       return (
         <g key={o.id}>
           <path
@@ -389,8 +392,8 @@ function renderObject(
           {o.value && (
             <text
               x={lx} y={ly}
-              fontFamily={LABEL_FONT} fontSize={12}
-              fill={stroke} textAnchor="middle" dominantBaseline="middle"
+              fontFamily={LABEL_FONT} fontSize={(o as any).valueFontSize ?? 12}
+              fill={(o as any).valueColor ?? stroke} textAnchor="middle" dominantBaseline="middle"
             >
               {o.value}
             </text>

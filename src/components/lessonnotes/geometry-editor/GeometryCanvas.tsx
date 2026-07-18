@@ -27,7 +27,7 @@ export function GeometryCanvas({ editor }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
-  const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
+  const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "angleValue"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
@@ -69,8 +69,10 @@ export function GeometryCanvas({ editor }: Props) {
         apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
       } else if (labelDrag.kind === "segmentLabel") {
         apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
-      } else {
+      } else if (labelDrag.kind === "segmentDistance") {
         apply(patchObject(scene, labelDrag.id, { distanceOffset: { dx, dy } } as any));
+      } else {
+        apply(patchObject(scene, labelDrag.id, { valueOffset: { dx, dy } } as any));
       }
       return;
     }
@@ -137,6 +139,11 @@ export function GeometryCanvas({ editor }: Props) {
               setLabelDrag({
                 kind: "segmentDistance", id: hit.id, startX: p.x, startY: p.y,
                 baseDx: obj.distanceOffset?.dx ?? 0, baseDy: obj.distanceOffset?.dy ?? 0,
+              });
+            } else if (hit.kind === "angleValue" && obj?.type === "angle") {
+              setLabelDrag({
+                kind: "angleValue", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: (obj as any).valueOffset?.dx ?? 0, baseDy: (obj as any).valueOffset?.dy ?? 0,
               });
             }
           }
