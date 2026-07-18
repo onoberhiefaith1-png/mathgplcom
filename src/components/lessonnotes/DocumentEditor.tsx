@@ -1738,6 +1738,42 @@ function NotebookGeometryOverlay({
     return () => ro.disconnect();
   }, [paperLayerRef]);
 
+  useEffect(() => {
+    const layer = paperLayerRef.current;
+    if (!tiptapEditor || !layer) return;
+    const paperRect = layer.getBoundingClientRect();
+    const diagrams: Array<{ pos: number; size: number; scene: unknown; dx: number; dy: number }> = [];
+    tiptapEditor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== "geometryDiagram") return true;
+      const wrap = document.querySelector(`[data-geometry-pos="${pos}"]`) as HTMLElement | null;
+      const rect = wrap?.getBoundingClientRect();
+      diagrams.push({
+        pos,
+        size: node.nodeSize,
+        scene: node.attrs?.scene,
+        dx: rect ? rect.left - paperRect.left + 24 : 24,
+        dy: rect ? rect.top - paperRect.top + 24 : 24,
+      });
+      return true;
+    });
+    if (!diagrams.length) return;
+
+    setStoredScene((prev) => {
+      const next = diagrams.reduce(
+        (acc, d) => mergeGeometrySceneAt(acc, d.scene, d.dx, d.dy),
+        prev,
+      );
+      saveNotebookGeometry(notebookId, next);
+      return next;
+    });
+
+    let tr = tiptapEditor.state.tr;
+    for (const d of [...diagrams].sort((a, b) => b.pos - a.pos)) {
+      tr = tr.delete(d.pos, d.pos + d.size);
+    }
+    if (tr.docChanged) tiptapEditor.view.dispatch(tr);
+  }, [notebookId, paperLayerRef, tiptapEditor]);
+
   const scene = useMemo<GeometryScene>(() => ({
     ...storedScene,
     bounds: {
