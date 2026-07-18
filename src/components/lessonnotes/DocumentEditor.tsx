@@ -1792,10 +1792,13 @@ function NotebookGeometryOverlay({
     },
   }), [storedScene, paperSize.width, paperSize.height]);
 
-  const geometryEditor = useGeometryEditor(scene, (next) => {
+  // Pass the raw stored scene to the editor so selection isn't cleared
+  // when the paper simply resizes (bounds change but not user data).
+  const geometryEditor = useGeometryEditor(storedScene, (next) => {
     setStoredScene(next);
     saveNotebookGeometry(notebookId, next);
   });
+
 
   useEffect(() => {
     if (mode && geometryEditor.tool !== tool) geometryEditor.setTool(tool);
