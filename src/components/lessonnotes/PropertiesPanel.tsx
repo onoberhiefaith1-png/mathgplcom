@@ -34,7 +34,7 @@ export function PropertiesPanel() {
       return () => root.style.setProperty("--properties-panel-width", "0px");
     }
     if (expanded) {
-      root.style.setProperty("--properties-panel-width", "clamp(150px, 10vw, 320px)");
+      root.style.setProperty("--properties-panel-width", "clamp(240px, 20vw, 460px)");
     } else {
       root.style.setProperty("--properties-panel-width", "28px");
     }
