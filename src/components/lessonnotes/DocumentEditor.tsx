@@ -1336,11 +1336,10 @@ function DocumentEditorInner({
     const isGeometryTarget = Boolean(el?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
     if (isEditorControlTarget(e.target) && !isGeometryTarget) return;
 
-    // Geometry Mode behaves like a drawing tool inside the lesson note:
-    // choose Point/Line/Midpoint, then click the page. If the click is on an
-    // existing live canvas, the canvas handles it; otherwise create/update a
-    // plain geometry node at the clicked document position.
-    if (geometryMode && !el?.closest("[data-geometry-live-canvas]") && handleGeometryPaperClick(e)) return;
+    // Geometry Mode turns the whole notebook page into a drawing surface.
+    // The transparent notebook-wide SVG overlay owns all drawing clicks, so
+    // text editing and free text boxes stay inactive until the teacher exits.
+    if (geometryMode) return;
 
     // If the click was inside the actual TipTap editor DOM, do nothing —
     // TipTap will place the caret precisely on its own.
