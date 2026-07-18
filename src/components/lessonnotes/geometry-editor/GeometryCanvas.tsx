@@ -154,13 +154,7 @@ export function GeometryCanvas({ editor }: Props) {
         } else {
           const { id, scene: s1 } = ensurePoint(p.x, p.y);
           const op = addCircleByRadius(s1, pendingIds[0], id);
-          // Mark as dashed (construction)
-          if (op.addedIds[0]) {
-            const dashedOp = patchObject(op.scene, op.addedIds[0], { dashed: true } as any);
-            apply(dashedOp);
-          } else {
-            apply(op);
-          }
+          apply(op);
           setPendingIds([]);
         }
         break;
