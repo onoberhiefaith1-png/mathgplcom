@@ -49,7 +49,7 @@ export function useGeometryEditor(
   initial: GeometryScene,
   onChange: (s: GeometryScene) => void,
 ): UseGeometryEditorReturn {
-  const [scene, setScene] = useState<GeometryScene>(() => normalizeScene(initial));
+  const [scene, setScene] = useState<GeometryScene>(() => normalise(initial));
   const [history, setHistory] = useState<History>(emptyHistory());
   const [tool, setTool] = useState<ToolId>("select");
   const [selectedIds, setSelectedIdsState] = useState<GeoId[]>([]);
@@ -69,7 +69,7 @@ export function useGeometryEditor(
   // persists the split segments (otherwise legacy DE-DO would re-appear
   // on the next reload).
   useEffect(() => {
-    const normalised = normalizeScene(initial);
+    const normalised = normalise(initial);
     if (JSON.stringify(normalised) !== initialJson) {
       onChangeRef.current(normalised);
     }
@@ -81,7 +81,7 @@ export function useGeometryEditor(
   useEffect(() => {
     if (sceneJsonRef.current === initialJson) return;
     sceneJsonRef.current = initialJson;
-    setScene(normalizeScene(initial));
+    setScene(normalise(initial));
     setHistory(emptyHistory());
     setSelectedIdsState((prev) => (prev.length ? [] : prev));
     setSelectionKind(null);
