@@ -129,6 +129,8 @@ export function useGeometryEditor(
     commit,
     selectedIds,
     setSelectedIds,
+    selectionKind,
+    setSelectionKind,
     toggleSelected,
     clearSelection,
     selectedObjects,
