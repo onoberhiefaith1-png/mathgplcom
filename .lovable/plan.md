@@ -1,64 +1,65 @@
-# Geometry overlay — fix click accuracy, restore editing, add text annotations & page grow
+# Restore working geometry editor + unbounded diagram frame
 
-Four focused changes on top of the notebook-wide overlay we shipped last turn.
+## Step 1 — Revert (you do this)
 
-## 1. Click position drift (points land below the cursor)
+Open History and revert to the AI message **just before** the "make lesson notes the background / notebook-wide overlay" change. That restores:
 
-**Cause.** In `GeometryCanvas.tsx`, `toLogical` maps pointer coords using the SVG's `getBoundingClientRect()` against a viewBox of `scene.bounds.width × height + 2·PAD`. The overlay `<div>` is sized with `overlayWidth/overlayHeight` (from `NotebookGeometryOverlay`) which is the max of the stored scene bounds and the current paper size + 48. When these two values disagree (e.g. paper is taller than the stored bounds, or the SVG uses `preserveAspectRatio="xMidYMid meet"` and letterboxes), the rendered SVG doesn't fill the interaction div — so the click at `y=Y` on screen maps to a lower `y` in scene space, and every new point lands below the cursor.
+- Point / Line / Circle / Arc selection with glow highlight
+- Right-hand Properties Panel that **splits** the layout (does not overlap the page)
+- Auto-splitting Points on segments, angle editor for two segments, region shading
+- Bounded diagram node inside a TipTap block
 
-**Fix.**
-- Make `NotebookGeometryOverlay` pass the exact pixel size it renders at into `useGeometryEditor` as `scene.bounds`, so SVG viewBox = overlay size = paper size. No independent `overlayWidth` calc.
-- In `GeometryDiagram.tsx` / `GeometryCanvas.tsx`, set `preserveAspectRatio="none"` on the interaction SVG (or ensure width/height CSS = `100%` with matching viewBox so 1 CSS px = 1 logical unit).
-- Verify `toLogical` by test-clicking near the top and bottom edges; the created point should sit under the cursor within 1 px.
+Do **not** keep any of these from the reverted-away versions:
 
-## 2. Editing feature dead — selection no longer opens the right panel
+- "Grow notebook" `+` button
+- Lesson notes rendered as a background layer
+- Notebook-wide transparent SVG overlay
+- Text annotations on objects (we'll revisit later if you want)
 
-**Cause.** `useRegisterAssetEditor(active=mode, id="notebook-geometry", ...)` in `NotebookGeometryOverlay` only registers while diagram mode is on. When the user picks the Select tool and clicks a shape, `selectedIds` updates but the right-panel title/body are memoised on `[selectedObjects, selectionKind]` — and `selectionKind` is only set by the `pickHit` branches in `onPointerDown` for the `select` case. For circles/arcs/curves and for point labels, the current code doesn't set `selectionKind`, so the `SelectionInspector` falls back to the empty "Click a point…" state.
+<presentation-actions><presentation-open-history>View History</presentation-open-history></presentation-actions>
 
-**Fix.**
-- In `GeometryCanvas.onPointerDown` (select branch), always call `setSelectionKind(hit.kind)` — including `pointDot`, `pointLabel`, `segmentBody`, `circleBody`, `arcBody`, `curveBody`, `angleValue`, `segmentDistance`.
-- `SelectionInspector` gets a dispatch for every `hit.kind` currently produced by `pickHit`, so `Circle`, `Arc`, `Curve` render their properties (color, thickness, dash, size, delete) the same way segments do today.
-- Right-panel title uses `selected.type` + label (e.g. "Line DE", "Circle O", "Arc BCD", "Curve").
-- Confirm that clicking a letter label still opens the label editor (size/colour/rename) — this path exists but is currently short-circuited when the tool isn't `select`.
+Ping me once the revert is done so I work from the correct base.
 
-## 3. Text annotations on any object (+ enclosed regions) with rotation
+## Step 2 — What I'll change on top of the revert
 
-**Data model.** Add an optional `annotations: GeoAnnotation[]` array on `GeoSegment`, `GeoCircle`, `GeoArc`, `GeoCurve`, `GeoPoint`, and `GeoRegion` in `src/lib/geometry/scene.ts`:
+Only two additions to the restored engine. Nothing else touched.
 
-```ts
-interface GeoAnnotation {
-  id: string;
-  text: string;
-  offset: { dx: number; dy: number };   // draggable
-  rotation: number;                     // degrees, 0/90/180/270 or free
-  fontSize?: number;
-  color?: string;
-}
-```
+### 2a. Port the new Curve tool onto the reverted engine
 
-**UI.**
-- `SelectionInspector` gets a new "Text" section for every selectable kind: an input for the string, a font-size slider, colour picker, and a rotation slider (0–360°) with quick 0/90/180/270 buttons.
-- Rendering in `GeometryDiagram.tsx`: each annotation is a `<text>` positioned at the object's anchor (segment midpoint, circle centre, arc midpoint, curve midpoint, point position, region centroid) + `offset`, with `transform="rotate(rotation, ax, ay)"`.
-- Annotations are draggable in `GeometryCanvas` via the same label-drag pattern already used for `segmentDistance`.
-- Region annotations become the primary way to label Venn regions ("X ∪ Y", "Geography").
+The curve behaviour you confirmed as working:
 
-## 4. "Grow notebook" button at the bottom
+- Click Curve tool → each click adds a control point
+- Live preview draws the smooth spline as you move to the next point
+- Double-click or Enter commits the curve
+- Escape cancels
+- Once committed, Select tool highlights and edits it like any other object (colour, thickness, dash, delete)
 
-Below the paper add a small `+` button (icon in a bordered pill) rendered by `DocumentEditor`. Clicking it appends `~200px` of blank paper by inserting a paragraph with a spacer class (or bumping the paper's min-height via CSS variable stored in notebook meta). The overlay `ResizeObserver` already reflows to the new paper height, so drawings continue seamlessly into the new area.
+Implementation: replace the reverted `curve` tool handler in `GeometryCanvas.tsx` with the N-point Catmull-Rom version, and keep the existing `GeoCurve` renderer from `GeometryDiagram.tsx`. Add `curveBody` to `pickHit` in `snap.ts` and to the select-branch dispatch so it highlights and opens the right panel exactly like Line/Circle/Arc.
 
-## Files to change
+### 2b. Diagram frame auto-expands to full paper width and height
 
-- `src/lib/geometry/scene.ts` — add `annotations` field + type.
-- `src/components/lessonnotes/GeometryDiagram.tsx` — render annotations, use `preserveAspectRatio="none"`.
-- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — always set `selectionKind` on hit; annotation drag; correct coordinate mapping.
-- `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx` — panels for Circle/Arc/Curve/Region; universal Text-annotation section with rotation.
-- `src/lib/geometry/editor/sceneOps.ts` — helpers: `addAnnotation`, `updateAnnotation`, `moveAnnotation`.
-- `src/lib/geometry/editor/snap.ts` — hit kind `annotation` so annotations are clickable/draggable.
-- `src/components/lessonnotes/DocumentEditor.tsx` — bounds sync with paper size (fix #1), grow-notebook `+` button.
+Inside the TipTap `geometryDiagram` node view:
+
+- Width = paper's writable content width (same width the paragraph text uses)
+- Height = remaining writable paper height from the diagram's insertion point to the paper's bottom margin, with a sensible minimum (e.g. 20 cm) so an empty diagram is still usable
+- Recomputed via `ResizeObserver` on the paper element so switching paper size (A4/Letter) or zoom rescales the frame
+- No visible frame border, no grow button — the diagram simply occupies the full writable area
+
+Coordinate mapping stays 1 CSS px = 1 scene unit with `preserveAspectRatio="none"` on the SVG so clicks land exactly under the cursor at any paper size.
+
+## Files I'll touch in Step 2
+
+- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — size the node view to full writable paper w/h; ResizeObserver hookup.
+- `src/components/lessonnotes/GeometryDiagram.tsx` — `preserveAspectRatio="none"`; ensure viewBox tracks the sized container.
+- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — N-point Curve tool (click-extend, dblclick/Enter commit, Esc cancel); ensure select branch sets `selectionKind` for `curveBody`.
+- `src/lib/geometry/editor/snap.ts` — `curveBody` hit kind.
+- `src/lib/geometry/editor/sceneOps.ts` — `addCurve(points[])`, `updateCurve`.
+- `src/lib/geometry/scene.ts` — `GeoCurve` type (multi-point) if it isn't already in the reverted state.
 
 ## Verification
 
-- Click at four corners of the paper with the Point tool → dot lands under the cursor (screenshot).
-- Draw a line, click it with Select → right panel shows "Line …" with dash/color/arrow controls and a Text section.
-- Add "X ∪ Y" to a closed region, rotate 90°, drag to reposition → renders and persists after reload.
-- Click the `+` at the bottom → paper grows, existing drawings unaffected, new points can be placed in the new region.
+- Point/Line/Circle/Arc: click each in Select tool → glows and right panel shows its properties (split layout, not overlapping).
+- Two segments sharing a point → Angle editor appears with reflex toggle.
+- Point dropped on a segment → segment splits; deleting the point re-merges.
+- Curve: click-click-click, double-click to commit; Select tool highlights the curve and edits colour/thickness.
+- Insert an empty diagram on A4 → frame fills the writable paper width and extends to the bottom margin; clicks near all four edges place points exactly under the cursor.
