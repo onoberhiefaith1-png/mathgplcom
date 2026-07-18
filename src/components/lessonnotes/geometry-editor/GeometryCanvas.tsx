@@ -106,28 +106,39 @@ export function GeometryCanvas({ editor }: Props) {
     switch (tool) {
       case "select": {
         if (hit) {
-          if (e.shiftKey) toggleSelected(hit.id);
-          else setSelectedIds([hit.id]);
-          setSelectionKind(hit.kind);
-          // Prime drag state for label/distance/points so drag re-positions.
+          // Plain click toggles the item in the selection set.
+          // Clicking a different item adds to selection; clicking the same
+          // one again removes it. Empty click clears everything.
+          const already = selectedIds.includes(hit.id);
+          if (already) {
+            const next = selectedIds.filter((id) => id !== hit.id);
+            setSelectedIds(next);
+            setSelectionKind(next.length ? "segmentBody" : null);
+          } else {
+            setSelectedIds([...selectedIds, hit.id]);
+            setSelectionKind(hit.kind);
+          }
+          // Prime drag state only when a single item is being manipulated.
           const obj = scene.objects.find((o) => o.id === hit.id);
-          if (hit.kind === "point" && obj?.type === "point") {
-            setDragging({ pointId: hit.id });
-          } else if (hit.kind === "pointLabel" && obj?.type === "point") {
-            setLabelDrag({
-              kind: "pointLabel", id: hit.id, startX: p.x, startY: p.y,
-              baseDx: obj.labelOffset?.dx ?? 6, baseDy: obj.labelOffset?.dy ?? -6,
-            });
-          } else if (hit.kind === "segmentLabel" && obj?.type === "segment") {
-            setLabelDrag({
-              kind: "segmentLabel", id: hit.id, startX: p.x, startY: p.y,
-              baseDx: obj.labelOffset?.dx ?? 0, baseDy: obj.labelOffset?.dy ?? 0,
-            });
-          } else if (hit.kind === "segmentDistance" && obj?.type === "segment") {
-            setLabelDrag({
-              kind: "segmentDistance", id: hit.id, startX: p.x, startY: p.y,
-              baseDx: obj.distanceOffset?.dx ?? 0, baseDy: obj.distanceOffset?.dy ?? 0,
-            });
+          if (!already && selectedIds.length === 0) {
+            if (hit.kind === "point" && obj?.type === "point") {
+              setDragging({ pointId: hit.id });
+            } else if (hit.kind === "pointLabel" && obj?.type === "point") {
+              setLabelDrag({
+                kind: "pointLabel", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: obj.labelOffset?.dx ?? 6, baseDy: obj.labelOffset?.dy ?? -6,
+              });
+            } else if (hit.kind === "segmentLabel" && obj?.type === "segment") {
+              setLabelDrag({
+                kind: "segmentLabel", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: obj.labelOffset?.dx ?? 0, baseDy: obj.labelOffset?.dy ?? 0,
+              });
+            } else if (hit.kind === "segmentDistance" && obj?.type === "segment") {
+              setLabelDrag({
+                kind: "segmentDistance", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: obj.distanceOffset?.dx ?? 0, baseDy: obj.distanceOffset?.dy ?? 0,
+              });
+            }
           }
         } else {
           setSelectedIds([]);
