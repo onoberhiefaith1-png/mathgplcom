@@ -8,6 +8,7 @@ import type { GeometryScene, GeoId, GeoObject } from "@/lib/geometry/scene";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { emptyHistory, push, undo, redo, type History } from "@/lib/geometry/editor/history";
 import type { OpResult } from "@/lib/geometry/editor/sceneOps";
+import type { HitKind } from "@/lib/geometry/editor/snap";
 
 export interface UseGeometryEditorReturn {
   scene: GeometryScene;
