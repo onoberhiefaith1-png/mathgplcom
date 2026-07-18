@@ -8,6 +8,7 @@ import type { GeometryScene, GeoId, GeoObject } from "@/lib/geometry/scene";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { emptyHistory, push, undo, redo, type History } from "@/lib/geometry/editor/history";
 import type { OpResult } from "@/lib/geometry/editor/sceneOps";
+import type { HitKind } from "@/lib/geometry/editor/snap";
 
 export interface UseGeometryEditorReturn {
   scene: GeometryScene;
@@ -17,6 +18,8 @@ export interface UseGeometryEditorReturn {
   commit: (next: GeometryScene) => void;
   selectedIds: GeoId[];
   setSelectedIds: (ids: GeoId[]) => void;
+  selectionKind: HitKind | null;
+  setSelectionKind: (k: HitKind | null) => void;
   toggleSelected: (id: GeoId) => void;
   clearSelection: () => void;
   selectedObjects: GeoObject[];
@@ -43,7 +46,12 @@ export function useGeometryEditor(
   const [scene, setScene] = useState<GeometryScene>(initial);
   const [history, setHistory] = useState<History>(emptyHistory());
   const [tool, setTool] = useState<ToolId>("select");
-  const [selectedIds, setSelectedIds] = useState<GeoId[]>([]);
+  const [selectedIds, setSelectedIdsState] = useState<GeoId[]>([]);
+  const [selectionKind, setSelectionKind] = useState<HitKind | null>(null);
+  const setSelectedIds = useCallback((ids: GeoId[]) => {
+    setSelectedIdsState(ids);
+    if (ids.length === 0) setSelectionKind(null);
+  }, []);
   const [pendingIds, setPendingIds] = useState<GeoId[]>([]);
   const [flashIds, setFlashIds] = useState<GeoId[]>([]);
   const flashTimer = useRef<number | null>(null);
@@ -59,7 +67,8 @@ export function useGeometryEditor(
     sceneJsonRef.current = initialJson;
     setScene(initial);
     setHistory(emptyHistory());
-    setSelectedIds((prev) => (prev.length ? [] : prev));
+    setSelectedIdsState((prev) => (prev.length ? [] : prev));
+    setSelectionKind(null);
     setPendingIds((prev) => (prev.length ? [] : prev));
   }, [initial, initialJson]);
 
@@ -82,7 +91,7 @@ export function useGeometryEditor(
   }, [commit, scene]);
 
   const toggleSelected = useCallback((id: GeoId) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelectedIdsState((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }, []);
 
   const clearSelection = useCallback(() => setSelectedIds([]), []);
@@ -120,6 +129,8 @@ export function useGeometryEditor(
     commit,
     selectedIds,
     setSelectedIds,
+    selectionKind,
+    setSelectionKind,
     toggleSelected,
     clearSelection,
     selectedObjects,

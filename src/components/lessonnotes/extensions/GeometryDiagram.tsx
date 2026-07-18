@@ -210,9 +210,10 @@ function LiveEditor({
     <SelectionInspector
       scene={editor.scene}
       selected={editor.selectedObjects}
+      kind={editor.selectionKind}
       onApply={(next) => editor.commit(next)}
     />
-  ), [editor.scene, editor.selectedObjects]);
+  ), [editor.scene, editor.selectedObjects, editor.selectionKind]);
 
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
   useRegisterAssetEditor(true, `geometry:${instanceId}`, title, editorNode);
