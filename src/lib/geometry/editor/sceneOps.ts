@@ -320,3 +320,13 @@ export function makeEquilateral(scene: GeometryScene, pointIds: GeoId[]): OpResu
   const cx = mx + nx * h, cy = my + ny * h;
   return movePoint(scene, cId, cx, cy);
 }
+
+/* ─── Curve through points ─────────────────────────────────────────── */
+import type { GeoCurve } from "../scene";
+
+export function addCurve(scene: GeometryScene, pointIds: GeoId[]): OpResult {
+  if (pointIds.length < 2) return ok(scene);
+  const id = newId("cv", scene);
+  const curve: GeoCurve = { id, type: "curve", points: pointIds.slice() };
+  return ok(withObjects(scene, [...scene.objects, curve]), [id]);
+}
