@@ -31,7 +31,7 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
 
   // ─── Multi-selection routing ─────────────────────────────────────────
   if (selected.length >= 2) {
-    return <MultiPanel scene={scene} selected={selected} onApply={onApply} />;
+    return <MultiPanel scene={scene} selected={selected} onApply={onApply} onSelect={onSelect} />;
   }
 
   const primary = selected[0];
