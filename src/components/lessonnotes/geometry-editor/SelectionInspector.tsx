@@ -20,11 +20,11 @@ interface Props {
   onSelect?: (id: GeoId, kind: HitKind) => void;
 }
 
-export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
+export function SelectionInspector({ scene, selected, kind, onApply, onSelect }: Props) {
   if (selected.length === 0) {
     return (
       <p className="text-[11px] text-foreground/55">
-        Click a point, a point's label, or a line segment to edit its properties here.
+        Click a point, a label, a line segment, or any text on the diagram to edit its properties here.
       </p>
     );
   }
