@@ -8,7 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -22,6 +22,10 @@ import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
+import { GeometryCanvas } from "./geometry-editor/GeometryCanvas";
+import { useGeometryEditor } from "./geometry-editor/useGeometryEditor";
+import { SelectionInspector } from "./geometry-editor/SelectionInspector";
+import { GeometryDiagram as StaticGeometryDiagram } from "./GeometryDiagram";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
 import { SmartCalcNode, type SmartCalcAttrs } from "./extensions/SmartCalc";
@@ -61,7 +65,7 @@ import { MathSymbolPanel } from "./MathSymbolPanel";
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
-import { AssetSelectionProvider } from "@/hooks/useAssetSelection";
+import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
@@ -130,6 +134,9 @@ interface CanvasBox {
 const canvasBoxesKey = (notebookId: string | undefined) =>
   notebookId ? `lesson-notes:canvas-boxes:${notebookId}` : null;
 
+const notebookGeometryKey = (notebookId: string | undefined) =>
+  notebookId ? `lesson-notes:notebook-geometry:${notebookId}` : null;
+
 const loadCanvasBoxes = (notebookId: string | undefined): CanvasBox[] => {
   const key = canvasBoxesKey(notebookId);
   if (!key) return [];
@@ -145,6 +152,70 @@ const saveCanvasBoxes = (notebookId: string | undefined, boxes: CanvasBox[]) => 
   const key = canvasBoxesKey(notebookId);
   if (!key) return;
   try { localStorage.setItem(key, JSON.stringify(boxes)); } catch { /* noop */ }
+};
+
+const loadNotebookGeometry = (notebookId: string | undefined): GeometryScene => {
+  const key = notebookGeometryKey(notebookId);
+  if (!key) return EMPTY_SCENE;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? ((sanitizeScene(JSON.parse(raw)) as GeometryScene) ?? EMPTY_SCENE) : EMPTY_SCENE;
+  } catch { return EMPTY_SCENE; }
+};
+
+const saveNotebookGeometry = (notebookId: string | undefined, scene: GeometryScene) => {
+  const key = notebookGeometryKey(notebookId);
+  if (!key) return;
+  try { localStorage.setItem(key, JSON.stringify(scene)); } catch { /* noop */ }
+};
+
+const mergeGeometrySceneAt = (
+  base: GeometryScene,
+  incoming: unknown,
+  dx: number,
+  dy: number,
+): GeometryScene => {
+  const source = sanitizeScene(incoming) as GeometryScene | null;
+  if (!source?.objects?.length) return base;
+  const used = new Set(base.objects.map((o) => o.id));
+  const idMap = new Map<string, string>();
+  const mapId = (id: string) => {
+    const existing = idMap.get(id);
+    if (existing) return existing;
+    let next = id;
+    if (used.has(next)) {
+      let i = 1;
+      do { next = `${id}_m${i++}`; } while (used.has(next));
+    }
+    used.add(next);
+    idMap.set(id, next);
+    return next;
+  };
+
+  const shifted = source.objects.map((o) => {
+    const n: any = { ...(o as any), id: mapId(o.id) };
+    if (n.type === "point" || n.type === "label") {
+      n.x = (n.x ?? 0) + dx;
+      n.y = (n.y ?? 0) + dy;
+    }
+    if ("a" in n && typeof n.a === "string") n.a = mapId(n.a);
+    if ("mid" in n && typeof n.mid === "string") n.mid = mapId(n.mid);
+    if ("b" in n && typeof n.b === "string") n.b = mapId(n.b);
+    if ("center" in n && typeof n.center === "string") n.center = mapId(n.center);
+    if ("vertex" in n && typeof n.vertex === "string") n.vertex = mapId(n.vertex);
+    if (Array.isArray(n.points)) n.points = n.points.map(mapId);
+    if (Array.isArray(n.boundary)) n.boundary = n.boundary.map(mapId);
+    return n;
+  });
+
+  return {
+    ...base,
+    bounds: {
+      width: Math.max(base.bounds?.width ?? 0, dx + (source.bounds?.width ?? 0) + 48),
+      height: Math.max(base.bounds?.height ?? 0, dy + (source.bounds?.height ?? 0) + 48),
+    },
+    objects: [...base.objects, ...shifted],
+  };
 };
 
 /** Strip any legacy absolute-position attributes from a stored doc so old
@@ -1315,11 +1386,10 @@ function DocumentEditorInner({
     const isGeometryTarget = Boolean(el?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
     if (isEditorControlTarget(e.target) && !isGeometryTarget) return;
 
-    // Geometry Mode behaves like a drawing tool inside the lesson note:
-    // choose Point/Line/Midpoint, then click the page. If the click is on an
-    // existing live canvas, the canvas handles it; otherwise create/update a
-    // plain geometry node at the clicked document position.
-    if (geometryMode && !el?.closest("[data-geometry-live-canvas]") && handleGeometryPaperClick(e)) return;
+    // Geometry Mode turns the whole notebook page into a drawing surface.
+    // The transparent notebook-wide SVG overlay owns all drawing clicks, so
+    // text editing and free text boxes stay inactive until the teacher exits.
+    if (geometryMode) return;
 
     // If the click was inside the actual TipTap editor DOM, do nothing —
     // TipTap will place the caret precisely on its own.
@@ -1570,6 +1640,7 @@ function DocumentEditorInner({
               onMouseDown={handlePaperMouseDown}
             >
               <EditorContent editor={editor} />
+              <NotebookGeometryOverlay notebookId={notebookId} paperLayerRef={paperLayerRef} tiptapEditor={editor} />
               {canvasBoxes.map((b) => (
                 <CanvasBoxView
                   key={b.id}
@@ -1631,6 +1702,152 @@ function DocumentEditorInner({
       />
     </div>
     </AssetSelectionProvider>
+  );
+}
+
+function NotebookGeometryOverlay({
+  notebookId,
+  paperLayerRef,
+  tiptapEditor,
+}: {
+  notebookId?: string;
+  paperLayerRef: RefObject<HTMLDivElement>;
+  tiptapEditor: Editor | null;
+}) {
+  const { mode, tool } = useGeometryMode();
+  const [storedScene, setStoredScene] = useState<GeometryScene>(() => loadNotebookGeometry(notebookId));
+  const [paperSize, setPaperSize] = useState({ width: 720, height: 960 });
+  const [docTick, setDocTick] = useState(0);
+
+  useEffect(() => {
+    setStoredScene(loadNotebookGeometry(notebookId));
+  }, [notebookId]);
+
+  useEffect(() => {
+    const layer = paperLayerRef.current;
+    if (!layer) return;
+    const measure = () => {
+      const rect = layer.getBoundingClientRect();
+      setPaperSize({
+        width: Math.max(240, layer.scrollWidth || rect.width || 720),
+        height: Math.max(240, layer.scrollHeight || rect.height || 960),
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(layer);
+    return () => ro.disconnect();
+  }, [paperLayerRef]);
+
+  useEffect(() => {
+    if (!tiptapEditor) return;
+    const bump = () => setDocTick((v) => v + 1);
+    tiptapEditor.on("update", bump);
+    return () => { tiptapEditor.off("update", bump); };
+  }, [tiptapEditor]);
+
+  useEffect(() => {
+    const layer = paperLayerRef.current;
+    if (!tiptapEditor || !layer) return;
+    const paperRect = layer.getBoundingClientRect();
+    const scaleX = paperRect.width && layer.offsetWidth ? paperRect.width / layer.offsetWidth : 1;
+    const scaleY = paperRect.height && layer.offsetHeight ? paperRect.height / layer.offsetHeight : scaleX;
+    const diagrams: Array<{ pos: number; size: number; scene: unknown; dx: number; dy: number }> = [];
+    tiptapEditor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== "geometryDiagram") return true;
+      const wrap = document.querySelector(`[data-geometry-pos="${pos}"]`) as HTMLElement | null;
+      const rect = wrap?.getBoundingClientRect();
+      diagrams.push({
+        pos,
+        size: node.nodeSize,
+        scene: node.attrs?.scene,
+        dx: rect ? (rect.left - paperRect.left) / scaleX + 24 : 24,
+        dy: rect ? (rect.top - paperRect.top) / scaleY + 24 : 24,
+      });
+      return true;
+    });
+    if (!diagrams.length) return;
+
+    setStoredScene((prev) => {
+      const next = diagrams.reduce(
+        (acc, d) => mergeGeometrySceneAt(acc, d.scene, d.dx, d.dy),
+        prev,
+      );
+      saveNotebookGeometry(notebookId, next);
+      return next;
+    });
+
+    let tr = tiptapEditor.state.tr;
+    for (const d of [...diagrams].sort((a, b) => b.pos - a.pos)) {
+      tr = tr.delete(d.pos, d.pos + d.size);
+    }
+    if (tr.docChanged) tiptapEditor.view.dispatch(tr);
+  }, [docTick, notebookId, paperLayerRef, tiptapEditor]);
+
+  const scene = useMemo<GeometryScene>(() => ({
+    ...storedScene,
+    bounds: {
+      width: Math.max(storedScene.bounds?.width ?? 0, paperSize.width),
+      height: Math.max(storedScene.bounds?.height ?? 0, paperSize.height),
+    },
+  }), [storedScene, paperSize.width, paperSize.height]);
+
+  const geometryEditor = useGeometryEditor(scene, (next) => {
+    setStoredScene(next);
+    saveNotebookGeometry(notebookId, next);
+  });
+
+  useEffect(() => {
+    if (mode && geometryEditor.tool !== tool) geometryEditor.setTool(tool);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, tool]);
+
+  useEffect(() => {
+    if (!mode) return;
+    tiptapEditor?.commands.blur();
+  }, [mode, tiptapEditor]);
+
+  const selected = geometryEditor.selectedObjects[0] ?? null;
+  const editorNode = useMemo(() => (
+    <SelectionInspector
+      scene={geometryEditor.scene}
+      selected={geometryEditor.selectedObjects}
+      kind={geometryEditor.selectionKind}
+      onApply={(next) => geometryEditor.commit(next)}
+    />
+  ), [geometryEditor.scene, geometryEditor.selectedObjects, geometryEditor.selectionKind]);
+  const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
+  useRegisterAssetEditor(mode, "notebook-geometry", title, editorNode);
+
+  if (!mode && storedScene.objects.length === 0) return null;
+
+  const overlayWidth = Math.max(scene.bounds.width ?? 0, paperSize.width) + 48;
+  const overlayHeight = Math.max(scene.bounds.height ?? 0, paperSize.height) + 48;
+
+  return (
+    <div
+      data-notebook-geometry-overlay="true"
+      className="absolute"
+      style={{
+        left: -24,
+        top: -24,
+        width: overlayWidth,
+        height: overlayHeight,
+        overflow: "visible",
+        zIndex: mode ? 8 : 4,
+        pointerEvents: mode ? "auto" : "none",
+      }}
+    >
+      {mode ? (
+        <GeometryCanvas editor={geometryEditor} />
+      ) : (
+        <StaticGeometryDiagram
+          scene={scene}
+          explicitWidth={overlayWidth}
+          explicitHeight={overlayHeight}
+        />
+      )}
+    </div>
   );
 }
 

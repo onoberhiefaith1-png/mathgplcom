@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GeometryScene, GeoId, GeoObject } from "@/lib/geometry/scene";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { emptyHistory, push, undo, redo, type History } from "@/lib/geometry/editor/history";
-import type { OpResult } from "@/lib/geometry/editor/sceneOps";
+import { addCurve, type OpResult } from "@/lib/geometry/editor/sceneOps";
 import { normalizeScene } from "@/lib/geometry/editor/normalize";
 import { ensureIntersectionPoints } from "@/lib/geometry/editor/intersections";
 import type { HitKind } from "@/lib/geometry/editor/snap";
@@ -142,7 +142,13 @@ export function useGeometryEditor(
   return {
     scene,
     tool,
-    setTool: (t) => { setTool(t); setPendingIds([]); },
+    setTool: (t) => {
+      if (tool === "curve" && t !== "curve" && pendingIds.length >= 2) {
+        commit(addCurve(scene, pendingIds).scene);
+      }
+      setTool(t);
+      setPendingIds([]);
+    },
     apply,
     commit,
     selectedIds,

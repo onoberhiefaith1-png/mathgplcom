@@ -352,20 +352,23 @@ function renderObject(
       );
     }
     case "curve": {
-      // 3-point quadratic Bezier: (a, mid, b). Control point is chosen so
-      // the curve passes through mid: C = 2*mid - (a + b) / 2.
-      const ids = o.a && o.mid && o.b ? [o.a, o.mid, o.b] : (o.points ?? []);
-      const pts = ids
-        .map((id) => pointById(scene, id))
-        .filter((p): p is GeoPoint => !!p);
-      if (pts.length < 2) return null;
-      let d: string;
-      if (pts.length === 3) {
+      let d = "";
+      if (o.a && o.mid && o.b) {
+        // Legacy 3-point quadratic Bezier: (a, mid, b). Control point is
+        // chosen so the curve passes through mid: C = 2*mid - (a + b) / 2.
+        const pts = [o.a, o.mid, o.b]
+          .map((id) => pointById(scene, id))
+          .filter((p): p is GeoPoint => !!p);
+        if (pts.length < 3) return null;
         const [pa, pm, pb] = pts;
         const cx = 2 * pm.x - (pa.x + pb.x) / 2;
         const cy = 2 * pm.y - (pa.y + pb.y) / 2;
         d = `M ${pa.x + pad} ${pa.y + pad} Q ${cx + pad} ${cy + pad} ${pb.x + pad} ${pb.y + pad}`;
       } else {
+        const pts = (o.points ?? [])
+          .map((id) => pointById(scene, id))
+          .filter((p): p is GeoPoint => !!p);
+        if (pts.length < 2) return null;
         d = catmullRomPath(pts.map((p) => ({ x: p.x + pad, y: p.y + pad })));
       }
       return (

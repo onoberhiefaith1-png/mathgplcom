@@ -386,18 +386,18 @@ export function GeometryCanvas({ editor }: Props) {
             fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />,
         );
       } else if (o.type === "curve") {
-        // Quadratic Bezier glow (3-point form) or polyline (legacy).
-        const ids = o.a && o.mid && o.b ? [o.a, o.mid, o.b] : (o.points ?? []);
-        const pts = ids.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
-        if (pts.length < 2) return;
-        let d: string;
-        if (pts.length === 3) {
+        let d = "";
+        if (o.a && o.mid && o.b) {
+          const pts = [o.a, o.mid, o.b].map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+          if (pts.length < 3) return;
           const [pa, pm, pb] = pts;
           const cx = 2 * pm.x - (pa.x + pb.x) / 2;
           const cy = 2 * pm.y - (pa.y + pb.y) / 2;
           d = `M ${pa.x + PAD} ${pa.y + PAD} Q ${cx + PAD} ${cy + PAD} ${pb.x + PAD} ${pb.y + PAD}`;
         } else {
-          d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
+          const pts = (o.points ?? []).map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+          if (pts.length < 2) return;
+          d = catmullRomPreview(pts.map((p) => ({ x: p.x + PAD, y: p.y + PAD })));
         }
         out.push(<path key={`h-${id}`} d={d} fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />);
 
@@ -452,7 +452,7 @@ export function GeometryCanvas({ editor }: Props) {
   return (
     <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
       <div className="absolute inset-0">
-        <GeometryDiagram scene={scene} />
+        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} />
       </div>
       <svg
         ref={svgRef}
