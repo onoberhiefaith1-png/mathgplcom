@@ -65,6 +65,10 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
     return <RegionPanel scene={scene} region={primary} onApply={onApply} />;
   }
 
+  if (primary.type === "circle" || primary.type === "arc" || primary.type === "curve") {
+    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} />;
+  }
+
   // Fallback minimal editor for other kinds
   return (
     <div className="text-[11px] text-foreground/60">
@@ -73,6 +77,43 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
     </div>
   );
 }
+
+function FillablePanel({ obj, onPatch }: { obj: { id: string; type: string; fill?: string; fillOpacity?: number; dashed?: boolean }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean }>) => void }) {
+  const [enabled, setEnabled] = useState<boolean>(!!obj.fill);
+  const [color, setColor] = useState<string>(obj.fill ?? "#3b82f6");
+  const [opacity, setOpacity] = useState<number>(obj.fillOpacity ?? 0.2);
+  return (
+    <div className="space-y-2 text-xs">
+      <p className="uppercase tracking-wider text-[11px] font-semibold text-foreground/70">{obj.type.toUpperCase()}</p>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={enabled} onChange={(e) => {
+          const on = e.target.checked;
+          setEnabled(on);
+          onPatch(on ? { fill: color, fillOpacity: opacity } : { fill: undefined as any });
+        }} />
+        <span>Shade enclosed area</span>
+      </label>
+      {enabled && (
+        <div className="space-y-2 pl-1">
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] w-14 text-foreground/70">Color</label>
+            <input type="color" value={color} onChange={(e) => { setColor(e.target.value); onPatch({ fill: e.target.value }); }} className="h-7 w-10 rounded border border-foreground/20 bg-transparent" />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] w-14 text-foreground/70">Opacity</label>
+            <input type="range" min={0} max={1} step={0.05} value={opacity} onChange={(e) => { const v = Number(e.target.value); setOpacity(v); onPatch({ fillOpacity: v }); }} className="flex-1" />
+            <span className="text-[10px] text-foreground/60 w-8 text-right">{Math.round(opacity * 100)}%</span>
+          </div>
+        </div>
+      )}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={!!obj.dashed} onChange={(e) => onPatch({ dashed: e.target.checked })} />
+        <span>Dashed</span>
+      </label>
+    </div>
+  );
+}
+
 
 /* ─────── Multi-selection ─────── */
 function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; selected: GeoObject[]; onApply: (s: GeometryScene) => void }) {
