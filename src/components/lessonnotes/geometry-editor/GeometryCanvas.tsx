@@ -27,7 +27,7 @@ export function GeometryCanvas({ editor }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
-  const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
+  const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "angleValue"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
