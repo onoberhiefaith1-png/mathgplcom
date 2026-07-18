@@ -128,6 +128,7 @@ export type GeoObject =
   | GeoAngle
   | GeoPolygon
   | GeoCurve
+  | GeoRegion
   | GeoLabel;
 
 export interface GeometryScene {
