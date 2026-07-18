@@ -275,9 +275,49 @@ export function midpointOfSegment(scene: GeometryScene, segId: GeoId): OpResult 
 
 /* ─── Erase ─────────────────────────────────────────────────────────── */
 export function eraseObject(scene: GeometryScene, id: GeoId): OpResult {
-  // If a point: also drop objects that reference it.
   const target = scene.objects.find((o) => o.id === id);
   if (!target) return ok(scene);
+
+  // Case: erasing a point that is the shared endpoint of exactly TWO
+  // segments whose other endpoints are nearly collinear with it → merge
+  // the two segments back into a single one.
+  if (target.type === "point") {
+    const incident = scene.objects.filter(
+      (o): o is GeoSegment => o.type === "segment" && (o.a === id || o.b === id),
+    );
+    if (incident.length === 2) {
+      const [s1, s2] = incident;
+      const otherA = s1.a === id ? s1.b : s1.a;
+      const otherB = s2.a === id ? s2.b : s2.a;
+      const pA = pointById(scene, otherA);
+      const pM = target;
+      const pB = pointById(scene, otherB);
+      if (pA && pB && otherA !== otherB && isCollinear(pA, pM, pB, 3)) {
+        const merged: GeoSegment = {
+          ...s1,
+          id: newId("s", scene),
+          a: otherA,
+          b: otherB,
+          arrow:
+            (s1.arrow === "start" || s1.arrow === "both" ? "start" : "none") ===
+              "start" &&
+            (s2.arrow === "end" || s2.arrow === "both" ? "end" : "none") === "end"
+              ? "both"
+              : (s1.arrow === "start" || s1.arrow === "both")
+                ? "start"
+                : (s2.arrow === "end" || s2.arrow === "both")
+                  ? "end"
+                  : "none",
+        };
+        const objects = scene.objects
+          .filter((o) => o.id !== id && o.id !== s1.id && o.id !== s2.id)
+          .concat(merged);
+        return ok({ ...scene, objects }, [merged.id], []);
+      }
+    }
+  }
+
+  // Default: drop the object and anything that references it.
   const drop = new Set<GeoId>([id]);
   if (target.type === "point") {
     for (const o of scene.objects) {
@@ -288,10 +328,26 @@ export function eraseObject(scene: GeometryScene, id: GeoId): OpResult {
       else if ((o.type === "circle" || o.type === "arc") && o.center === id) drop.add(o.id);
       else if (o.type === "angle" && (o.vertex === id || o.a === id || o.b === id)) drop.add(o.id);
       else if (o.type === "polygon" && o.points.includes(id)) drop.add(o.id);
+      else if (o.type === "region" && o.boundary.includes(id)) drop.add(o.id);
     }
   }
   return ok(withObjects(scene, scene.objects.filter((o) => !drop.has(o.id))));
 }
+
+function isCollinear(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+  tol = 2,
+): boolean {
+  // Perpendicular distance from b to line ac.
+  const dx = c.x - a.x, dy = c.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return false;
+  const cross = Math.abs((b.x - a.x) * dy - (b.y - a.y) * dx) / len;
+  return cross <= tol;
+}
+
 
 /* ─── Move a point ──────────────────────────────────────────────────── */
 export function movePoint(scene: GeometryScene, id: GeoId, x: number, y: number): OpResult {
