@@ -1656,6 +1656,102 @@ function DocumentEditorInner({
   );
 }
 
+function NotebookGeometryOverlay({
+  notebookId,
+  paperLayerRef,
+  tiptapEditor,
+}: {
+  notebookId?: string;
+  paperLayerRef: RefObject<HTMLDivElement>;
+  tiptapEditor: Editor | null;
+}) {
+  const { mode, tool } = useGeometryMode();
+  const [storedScene, setStoredScene] = useState<GeometryScene>(() => loadNotebookGeometry(notebookId));
+  const [paperSize, setPaperSize] = useState({ width: 720, height: 960 });
+
+  useEffect(() => {
+    setStoredScene(loadNotebookGeometry(notebookId));
+  }, [notebookId]);
+
+  useEffect(() => {
+    const layer = paperLayerRef.current;
+    if (!layer) return;
+    const measure = () => {
+      const rect = layer.getBoundingClientRect();
+      setPaperSize({
+        width: Math.max(240, layer.scrollWidth || rect.width || 720),
+        height: Math.max(240, layer.scrollHeight || rect.height || 960),
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(layer);
+    return () => ro.disconnect();
+  }, [paperLayerRef]);
+
+  const scene = useMemo<GeometryScene>(() => ({
+    ...storedScene,
+    bounds: {
+      width: Math.max(storedScene.bounds?.width ?? 0, paperSize.width),
+      height: Math.max(storedScene.bounds?.height ?? 0, paperSize.height),
+    },
+  }), [storedScene, paperSize.width, paperSize.height]);
+
+  const geometryEditor = useGeometryEditor(scene, (next) => {
+    setStoredScene(next);
+    saveNotebookGeometry(notebookId, next);
+  });
+
+  useEffect(() => {
+    if (mode && geometryEditor.tool !== tool) geometryEditor.setTool(tool);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, tool]);
+
+  useEffect(() => {
+    if (!mode) return;
+    tiptapEditor?.commands.blur();
+  }, [mode, tiptapEditor]);
+
+  const selected = geometryEditor.selectedObjects[0] ?? null;
+  const editorNode = useMemo(() => (
+    <SelectionInspector
+      scene={geometryEditor.scene}
+      selected={geometryEditor.selectedObjects}
+      kind={geometryEditor.selectionKind}
+      onApply={(next) => geometryEditor.commit(next)}
+    />
+  ), [geometryEditor.scene, geometryEditor.selectedObjects, geometryEditor.selectionKind]);
+  const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
+  useRegisterAssetEditor(mode, "notebook-geometry", title, editorNode);
+
+  if (!mode && storedScene.objects.length === 0) return null;
+
+  return (
+    <div
+      data-notebook-geometry-overlay="true"
+      className="absolute"
+      style={{
+        left: -24,
+        top: -24,
+        width: paperSize.width + 48,
+        height: paperSize.height + 48,
+        zIndex: mode ? 8 : 4,
+        pointerEvents: mode ? "auto" : "none",
+      }}
+    >
+      {mode ? (
+        <GeometryCanvas editor={geometryEditor} />
+      ) : (
+        <StaticGeometryDiagram
+          scene={scene}
+          explicitWidth={paperSize.width + 48}
+          explicitHeight={paperSize.height + 48}
+        />
+      )}
+    </div>
+  );
+}
+
 
 /* ─── Global AI button (whole-lesson or insert-at-cursor) ─── */
 function GlobalAiButton({
