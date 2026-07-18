@@ -486,8 +486,8 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
         width="100%"
         height="100%"
         preserveAspectRatio="none"
-        className="absolute inset-0 select-none"
-        style={{ touchAction: "none", cursor: cursorFor(tool), width: W, height: H }}
+        className="absolute inset-0 select-none w-full h-full"
+        style={{ touchAction: "none", cursor: cursorFor(tool), display: "block" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
