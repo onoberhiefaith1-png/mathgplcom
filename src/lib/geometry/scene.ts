@@ -84,6 +84,14 @@ export interface GeoLabel {
   text: string;
 }
 
+export interface GeoCurve {
+  id: GeoId;
+  type: "curve";
+  /** Ordered list of point ids the curve passes through. */
+  points: GeoId[];
+  dashed?: boolean;
+}
+
 export type GeoObject =
   | GeoPoint
   | GeoSegment
@@ -93,6 +101,7 @@ export type GeoObject =
   | GeoArc
   | GeoAngle
   | GeoPolygon
+  | GeoCurve
   | GeoLabel;
 
 export interface GeometryScene {

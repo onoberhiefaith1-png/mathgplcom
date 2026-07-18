@@ -6,6 +6,7 @@ export type ToolId =
   | "line"
   | "arc"
   | "circle"
+  | "curve"
   | "polygon"
   | "angle"
   | "label"
