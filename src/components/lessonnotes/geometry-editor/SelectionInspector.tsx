@@ -82,7 +82,7 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
   );
 }
 
-function FillablePanel({ obj, onPatch }: { obj: { id: string; type: string; fill?: string; fillOpacity?: number; dashed?: boolean }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean }>) => void }) {
+function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: string; fill?: string; fillOpacity?: number; dashed?: boolean }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean }>) => void; onAddText?: () => void }) {
   const [enabled, setEnabled] = useState<boolean>(!!obj.fill);
   const [color, setColor] = useState<string>(obj.fill ?? "#3b82f6");
   const [opacity, setOpacity] = useState<number>(obj.fillOpacity ?? 0.2);
