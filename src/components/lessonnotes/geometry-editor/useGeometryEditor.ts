@@ -44,7 +44,7 @@ export function useGeometryEditor(
   initial: GeometryScene,
   onChange: (s: GeometryScene) => void,
 ): UseGeometryEditorReturn {
-  const [scene, setScene] = useState<GeometryScene>(initial);
+  const [scene, setScene] = useState<GeometryScene>(() => normalizeScene(initial));
   const [history, setHistory] = useState<History>(emptyHistory());
   const [tool, setTool] = useState<ToolId>("select");
   const [selectedIds, setSelectedIdsState] = useState<GeoId[]>([]);
@@ -60,13 +60,23 @@ export function useGeometryEditor(
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   const initialJson = useMemo(() => JSON.stringify(initial), [initial]);
   const sceneJsonRef = useRef(initialJson);
+  // Push the normalised scene back up on first mount so the notebook
+  // persists the split segments (otherwise legacy DE-DO would re-appear
+  // on the next reload).
+  useEffect(() => {
+    const normalised = normalizeScene(initial);
+    if (JSON.stringify(normalised) !== initialJson) {
+      onChangeRef.current(normalised);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sync external scene changes back in (e.g. the AI Edit panel writes
   // a new scene to the node attrs).
   useEffect(() => {
     if (sceneJsonRef.current === initialJson) return;
     sceneJsonRef.current = initialJson;
-    setScene(initial);
+    setScene(normalizeScene(initial));
     setHistory(emptyHistory());
     setSelectedIdsState((prev) => (prev.length ? [] : prev));
     setSelectionKind(null);
