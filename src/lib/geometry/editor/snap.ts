@@ -132,16 +132,28 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
     const ly = off ? baseLy + off.dy : baseLy;
     if (Math.hypot(lx - x, ly - y) <= 14) return { id: o.id, kind: "angleValue" };
   }
-  // 4) Shapes (segment body last so label wins).
+  // 4) Segments: pick the shortest matching segment when multiple bodies
+  //    overlap the hit — protects against legacy scenes where a long
+  //    parent segment still sits behind two split children.
+  {
+    let bestSeg: { id: string; len: number; d: number } | null = null;
+    for (const o of scene.objects) {
+      if (o.type !== "segment") continue;
+      const a = pointById(scene, o.a); const b = pointById(scene, o.b);
+      if (!a || !b) continue;
+      const d = distPointToSegment({ x, y }, a, b);
+      if (d > hit) continue;
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (!bestSeg || len < bestSeg.len || (len === bestSeg.len && d < bestSeg.d)) {
+        bestSeg = { id: o.id, len, d };
+      }
+    }
+    if (bestSeg) return { id: bestSeg.id, kind: "segmentBody" };
+  }
+  // 4b) Other shapes.
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];
     switch (o.type) {
-      case "segment": {
-        const a = pointById(scene, o.a); const b = pointById(scene, o.b);
-        if (!a || !b) break;
-        if (distPointToSegment({ x, y }, a, b) <= hit) return { id: o.id, kind: "segmentBody" };
-        break;
-      }
       case "circle": {
         const c = pointById(scene, o.center); if (!c) break;
         if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) <= hit) return { id: o.id, kind: "circle" };
