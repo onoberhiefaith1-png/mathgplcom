@@ -14,6 +14,10 @@ export interface GeoPoint {
   label?: string;
   labelOffset?: { dx: number; dy: number };
   hidden?: boolean;
+  /** Optional per-point color override (defaults to STROKE). */
+  color?: string;
+  /** Dot radius (default 2.4). */
+  size?: number;
 }
 export interface GeoSegment {
   id: GeoId;
@@ -21,13 +25,23 @@ export interface GeoSegment {
   a: GeoId; // point id
   b: GeoId; // point id
   label?: string;
-  /** Optional measurement text shown along the segment (e.g. "5 cm"). */
+  /** Draggable offset for the segment name label. */
+  labelOffset?: { dx: number; dy: number };
+  /** Optional measurement text shown along the segment (legacy). */
   length?: string;
+  /** Preferred measurement text (draggable via distanceOffset). */
+  distance?: string;
+  distanceOffset?: { dx: number; dy: number };
   marks?:
-    | "tick" | "double" | "triple" | "right"
+    | "tick" | "double" | "triple" | "quadruple" | "right"
     | "parallel" | "double-parallel" | "triple-parallel"
     | null;
-  dashed?: boolean;
+  /** Independent parallel-marks group: 0-3 chevrons. */
+  parallelMarks?: 0 | 1 | 2 | 3;
+  dashed?: boolean | "dotted";
+  /** Optional per-segment color override. */
+  color?: string;
+  arrow?: "none" | "start" | "end" | "both";
 }
 export interface GeoLine {
   id: GeoId;
