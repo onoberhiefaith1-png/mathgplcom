@@ -2,6 +2,8 @@
 
 import type { GeometryScene, GeoPoint } from "../scene";
 import { pointById } from "../scene";
+import { annotationAnchor as annAnchor } from "./annotations";
+
 
 export interface SnapTarget {
   x: number;
@@ -59,13 +61,33 @@ export type HitKind =
   | "polygon"
   | "angle"
   | "angleValue"
-  | "label";
+  | "label"
+  | "annotation";
 
-export interface Hit { id: string; kind: HitKind }
+export interface Hit { id: string; kind: HitKind; annotationId?: string }
+
 
 /** Pick the topmost object at (x,y). Segments split into body/label/distance;
  *  points split into dot/label. */
 export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hit | null {
+  // 0) Annotations sit on top of everything — check first.
+  for (let i = scene.objects.length - 1; i >= 0; i--) {
+    const o = scene.objects[i];
+    const anns = (o as any).annotations as Array<{ id: string; text: string; offset?: { dx: number; dy: number }; fontSize?: number }> | undefined;
+    if (!anns || anns.length === 0) continue;
+    const anchor = annAnchor(scene, o);
+    if (!anchor) continue;
+    for (const a of anns) {
+      const ax = anchor.x + (a.offset?.dx ?? 0);
+      const ay = anchor.y + (a.offset?.dy ?? 0);
+      const fs = a.fontSize ?? 13;
+      const w = Math.max(20, (a.text?.length ?? 1) * fs * 0.6);
+      const h = fs + 6;
+      if (x >= ax - w / 2 && x <= ax + w / 2 && y >= ay - h / 2 && y <= ay + h / 2) {
+        return { id: o.id, kind: "annotation", annotationId: a.id };
+      }
+    }
+  }
   // 1) Point dot (highest priority)
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];
@@ -73,6 +95,7 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
       return { id: o.id, kind: "point" };
     }
   }
+
   // 2) Point label glyph (approx bbox around label anchor)
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];

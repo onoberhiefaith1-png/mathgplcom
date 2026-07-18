@@ -18,21 +18,29 @@ import type { UseGeometryEditorReturn } from "./useGeometryEditor";
 
 interface Props {
   editor: UseGeometryEditorReturn;
+  /** Overlay pixel size (should match parent container). Falls back to scene.bounds. */
+  viewportWidth?: number;
+  viewportHeight?: number;
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor }: Props) {
+export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props) {
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
-  const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "angleValue"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
+  const [labelDrag, setLabelDrag] = useState<
+    | { kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "angleValue"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number }
+    | { kind: "annotation"; id: GeoId; annotationId: string; startX: number; startY: number; baseDx: number; baseDy: number }
+    | null
+  >(null);
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
-  const W = scene.bounds.width + PAD * 2;
-  const H = scene.bounds.height + PAD * 2;
+
+  const W = (viewportWidth ?? (scene.bounds.width + PAD * 2));
+  const H = (viewportHeight ?? (scene.bounds.height + PAD * 2));
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
@@ -43,6 +51,7 @@ export function GeometryCanvas({ editor }: Props) {
       y: ((e.clientY - rect.top) / rect.height) * H - PAD,
     };
   };
+
 
   /** Find or create a point at (x,y), preferring an existing point via snap. */
   const ensurePoint = (x: number, y: number): { id: GeoId; scene: GeometryScene } => {
@@ -71,11 +80,20 @@ export function GeometryCanvas({ editor }: Props) {
         apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
       } else if (labelDrag.kind === "segmentDistance") {
         apply(patchObject(scene, labelDrag.id, { distanceOffset: { dx, dy } } as any));
-      } else {
+      } else if (labelDrag.kind === "angleValue") {
         apply(patchObject(scene, labelDrag.id, { valueOffset: { dx, dy } } as any));
+      } else if (labelDrag.kind === "annotation") {
+        const obj = scene.objects.find((o) => o.id === labelDrag.id) as any;
+        if (obj) {
+          const anns = (obj.annotations ?? []).map((a: any) =>
+            a.id === labelDrag.annotationId ? { ...a, offset: { dx, dy } } : a,
+          );
+          apply(patchObject(scene, labelDrag.id, { annotations: anns } as any));
+        }
       }
       return;
     }
+
     if (circleDrag) {
       setCircleDrag({ ...circleDrag, r: Math.hypot(p.x - circleDrag.cx, p.y - circleDrag.cy) });
       return;
