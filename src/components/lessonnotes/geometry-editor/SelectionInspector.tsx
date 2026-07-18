@@ -454,6 +454,20 @@ function AngleFromSegmentsPanel({
           Type a value or press ▲/▼ to insert the angle at this vertex.
         </p>
       )}
+      <button
+        type="button"
+        onClick={() => {
+          const v = pointById(scene, shared);
+          const x = v ? v.x + 18 : 24;
+          const y = v ? v.y - 18 : 24;
+          const op = addFloatingLabel(scene, x, y, "Text");
+          onApply(op.scene);
+          if (onSelect) onSelect(op.addedIds[0], "label");
+        }}
+        className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+      >
+        + Add text
+      </button>
     </div>
   );
 }
