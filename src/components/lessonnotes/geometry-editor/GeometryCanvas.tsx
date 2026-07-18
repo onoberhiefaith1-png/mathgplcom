@@ -608,3 +608,20 @@ function catmullRomPreview(p: { x: number; y: number }[]): string {
   }
   return d;
 }
+
+function subArcHalo(id: string, cx: number, cy: number, r: number, fromDeg: number, toDeg: number, color: string, opacity: number): React.ReactNode {
+  const a1 = (fromDeg * Math.PI) / 180;
+  const a2 = (toDeg * Math.PI) / 180;
+  const x1 = cx + Math.cos(a1) * r, y1 = cy - Math.sin(a1) * r;
+  const x2 = cx + Math.cos(a2) * r, y2 = cy - Math.sin(a2) * r;
+  let delta = toDeg - fromDeg;
+  while (delta <= 0) delta += 360;
+  while (delta > 360) delta -= 360;
+  const large = delta > 180 ? 1 : 0;
+  return (
+    <path key={`h-${id}`}
+      d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} 0 ${x2} ${y2}`}
+      fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />
+  );
+}
+
