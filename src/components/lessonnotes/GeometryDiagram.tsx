@@ -379,11 +379,14 @@ function renderObject(
         <path
           key={o.id}
           d={d}
-          fill="none" stroke={(o as any).color ?? stroke} strokeWidth={sw}
+          fill={(o as any).fill ?? "none"}
+          fillOpacity={(o as any).fill ? ((o as any).fillOpacity ?? 0.2) : undefined}
+          stroke={(o as any).color ?? stroke} strokeWidth={sw}
           strokeDasharray={o.dashed ? "4 3" : undefined}
           strokeLinecap="round"
         />
       );
+
     }
 
     case "angle": {
