@@ -1,60 +1,39 @@
-## Selection Laws for the Geometry Editor
+## Selection Laws — refined per-count rules
 
-Implement three deterministic "selection laws" so the right-hand inspector always exposes the right control for what the teacher clicked.
+Rewrite the multi-selection inspector so the panel content is driven strictly by **how many lines/arcs the teacher clicked** and **whether those clicks form a closed loop**. Never assume "the full circle is enclosed" from a single sub-arc click.
 
-### 1. One-line law → Distance (always on)
+### The laws (final)
 
-When the current selection is exactly one 1D piece — a full segment, a sub-segment between two adjacent points, an arc sub-piece, or a curve sub-piece — the inspector always shows:
+Let N = number of line-like items selected (segments, sub-arcs, sub-curves). A "full circle with no points on it" counts as N = 0 (closed by itself).
 
-- **Distance** field (numeric input, pre-filled with the measured length, editable).
-- **+ Add text** button underneath to attach a floating descriptor (e.g. "landmark").
+| N | Panel shows |
+|---|---|
+| 0 (bare full circle, no points) | Area / Shade only |
+| 1 (one segment OR one sub-arc OR one sub-curve) | **Distance** for that one item + Add text. **No Area, no Angle.** |
+| 2 sharing a vertex | **Distance ×2** (one per item) + **Angle at shared vertex** + Add text. **No Area** unless the two items plus a third edge already close — which at N=2 they don't, so never. |
+| 2 not sharing a vertex | Distance ×2 + Add text. No Angle, no Area. |
+| ≥3 | Distance ×N (one field per selected item) + Angle ×K at every shared vertex among the selection + **if the selected items form a closed loop → Area + Shade controls + Add text inside** |
 
-Today `SegmentBodyPanel` hides Distance when `hasDist` is false. Change the rule so Distance is always visible for a one-line selection; the value defaults to the computed length and the user can override/clear it. Extend the same panel shape to arc-sub and curve-sub selections (they currently fall through to generic panels).
+Closure test for N ≥ 3: build a graph of endpoints of the selected items; it's closed iff every endpoint has even degree ≥ 2 and the items form a single connected cycle. Sub-arcs contribute their two endpoint points; a bare full circle contributes zero endpoints and is always closed.
 
-### 2. Two-line law → Angle (always on)
+### Changes
 
-When the selection is exactly two 1D pieces that share a common endpoint (straight, arc, or curve — any combination), the inspector shows:
+**`src/lib/geometry/editor/snap.ts`** — add `classifySelection(scene, ids): { items: SelectedItem[]; sharedVertices: GeoId[]; closed: boolean }`. `closed` uses the endpoint-graph cycle test above. Never returns `closed: true` for a single sub-arc just because its parent circle is closed.
 
-- **Angle** input (numeric, accepts any value incl. reflex >180°).
-- Reflex toggle (already exists for straight-straight; extend to curve/arc pairs by using the tangent direction at the shared point).
-- **+ Add text** button underneath for a descriptor label near the vertex.
+**`src/components/lessonnotes/geometry-editor/SelectionInspector.tsx`**
+- Replace the current `MultiPanel` branching with one component driven by `classifySelection`:
+  - Render one `DistanceRow` per selected item (segment length, sub-arc chord/arc length, sub-curve length). Each row: label of the item (e.g. "I₁L₁", "arc P₁Q₁"), editable value, Add-text button that drops the value as a floating label near that item's midpoint.
+  - Render one `AngleRow` per shared vertex, listing the two (or more) items meeting there. Each row: value input, reflex toggle, marker style, Add-text button placing the label at the vertex.
+  - Render the `AreaPanel` (Shade toggle, color, opacity, Area value, "+ Add text inside") **only when `closed === true`**.
+- Remove the current "circle → always show Area / Shade" behaviour. `FillablePanel` for a bare circle stays, but a sub-arc selection routes through the new classifier and shows Distance only.
+- `AngleFromSegmentsPanel` is deleted; its behaviour is folded into the per-vertex `AngleRow`.
 
-Today the angle editor only triggers for two straight segments sharing a point. Extend `pickAnglePair` (or the equivalent selection classifier) to accept arc-sub and curve-sub pieces and compute the shared-vertex tangent angle.
+**`src/lib/geometry/editor/regions.ts`** — expose `isClosedLoop(scene, ids)` used by the classifier (mixed segments + sub-arcs + sub-curves).
 
-### 3. Enclosed-region law → Area + shade + inside text
+**`src/lib/geometry/scene.ts`** — no schema change; the existing optional `area` field on region/circle/arc/curve stays and is only surfaced when the classifier says `closed`.
 
-An "enclosed region" is any closed boundary with no opening:
+### Acceptance (matches the three screenshots)
 
-- A full circle with no named points on it (single closed curve).
-- Any cycle formed by segments / arc-subs / curve-subs whose endpoints chain back to the start (already partly handled by `cycleFromSegments`).
-
-When the selection resolves to an enclosed region, the inspector shows:
-
-- **Shade colour** picker (existing).
-- **Area** field — computed value shown, editable so the teacher can override the displayed number.
-- **+ Add text inside** button — creates a floating label anchored at the region centroid; label is immediately selected for editing (already wired for polygonal regions, extend to circle and mixed-boundary cycles).
-
-### Universal "+ Add text" behaviour
-
-Every one of the three panels gets the same `+ Add text` affordance. Clicking it:
-
-1. Calls `addFloatingLabelAtShape` at a sensible anchor (segment midpoint, angle bisector at vertex, region centroid).
-2. Auto-selects the new label so `LabelPanel` opens with text / size / colour / rotation ready to edit.
-
-### Technical notes
-
-- `src/lib/geometry/editor/snap.ts` — extend sub-piece detection (already added for circle/arc) to curves; expose a `classifySelection(scene, selection)` helper returning `"one-line" | "two-line" | "region" | "other"`.
-- `src/lib/geometry/editor/regions.ts` — generalise `cycleFromSegments` to accept mixed boundary parts (segment / arc-sub / curve-sub) and to recognise a lone full circle / closed curve as a region.
-- `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx` — route by `classifySelection` result:
-  - one-line → `SegmentBodyPanel` variant with Distance always visible + Add text.
-  - two-line → `AnglePanel` variant supporting curved arms + Add text.
-  - region → `RegionPanel` with Shade + Area + Add text inside.
-- `src/lib/geometry/scene.ts` — add optional `area?: number` override on `GeoRegion`; distance override already exists on segments.
-- Area computation: polygon shoelace for cycles, πr² for full circles, cycle-with-arcs via Green's-theorem sum of segment/arc contributions.
-- Angle at a curved arm: use the unit tangent at the shared vertex (derivative of the parametric curve / arc direction) and take the signed angle between the two tangents; reflex toggle flips the 360°−θ complement.
-
-### Out of scope (for this pass)
-
-- No changes to bar chart / pie chart / math editor.
-- No new tools in the geometry toolbar; laws are purely selection-driven.
-- No AI-side changes.
+1. Image 1 — one sub-arc selected on the big circle: panel shows **Distance** + Add text only. No "Shade enclosed area", no Area field, no Angle.
+2. Image 2 — two segments meeting at a vertex: panel shows **Distance (seg 1)**, **Distance (seg 2)**, **Angle at vertex** with value + Add text. No Area.
+3. Image 3 — three items forming a closed triangle-like loop: panel shows **Distance ×3**, **Angle ×3** (one per shared vertex, each independently editable with its own Add text), plus **Area + Shade + Add text inside**. If the same three items don't close, Area disappears automatically.

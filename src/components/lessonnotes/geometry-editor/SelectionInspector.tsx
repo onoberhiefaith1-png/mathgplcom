@@ -4,23 +4,173 @@
 // line sections, etc.
 
 import { useState, useMemo } from "react";
-import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoLabel, GeoId } from "@/lib/geometry/scene";
+import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoLabel, GeoId, GeoCircle, GeoArc, GeoCurve } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
 import { patchObject, addAngle, addFloatingLabel } from "@/lib/geometry/editor/sceneOps";
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
+import { pointsOnCircle, pointsOnArc } from "@/lib/geometry/editor/snap";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 
 interface Props {
   scene: GeometryScene;
   selected: GeoObject[];
+  /** Raw ids (may include composite "#N" for sub-arcs / sub-curves). */
+  selectedIds?: GeoId[];
   kind?: HitKind | null;
   onApply: (next: GeometryScene) => void;
   /** Select an object by id after a scene edit (e.g. new floating label). */
   onSelect?: (id: GeoId, kind: HitKind) => void;
 }
 
-export function SelectionInspector({ scene, selected, kind, onApply, onSelect }: Props) {
+/** A single line-like item the teacher can distance-annotate. */
+interface LineItem {
+  key: string;            // stable id incl. sub index
+  parentId: GeoId;
+  subIdx: number | null;  // null = whole segment
+  kind: "segment" | "subArc" | "subCurve" | "bareClosed";
+  endpoints: [GeoId, GeoId] | null; // null for bareClosed (no endpoints)
+  obj: GeoObject;
+  labelText: string;
+}
+
+function labelForPoint(scene: GeometryScene, id: GeoId): string {
+  const p = pointById(scene, id);
+  return p?.label ?? id;
+}
+
+/** Turn raw selectedIds into normalized line items (drops non-line kinds). */
+function classifyLineItems(scene: GeometryScene, ids: GeoId[]): LineItem[] {
+  const out: LineItem[] = [];
+  for (const raw of ids) {
+    const [base, subStr] = raw.split("#");
+    const subIdx = subStr === undefined ? null : Number(subStr);
+    const obj = scene.objects.find((o) => o.id === base);
+    if (!obj) continue;
+    if (obj.type === "segment") {
+      out.push({
+        key: raw, parentId: base, subIdx: null, kind: "segment",
+        endpoints: [obj.a, obj.b], obj,
+        labelText: `${labelForPoint(scene, obj.a)}${labelForPoint(scene, obj.b)}`,
+      });
+    } else if (obj.type === "circle") {
+      const pts = pointsOnCircle(scene, obj.center, obj.r);
+      if (subIdx !== null && pts.length >= 2) {
+        // Sort by angle (matching pickCircleSubArc)
+        const c = pointById(scene, obj.center)!;
+        const sorted = pts
+          .map((p) => ({ p, a: Math.atan2(-(p.y - c.y), p.x - c.x) }))
+          .sort((x, y) => x.a - y.a)
+          .map((e) => e.p);
+        const p1 = sorted[subIdx % sorted.length];
+        const p2 = sorted[(subIdx + 1) % sorted.length];
+        out.push({
+          key: raw, parentId: base, subIdx, kind: "subArc",
+          endpoints: [p1.id, p2.id], obj,
+          labelText: `arc ${p1.label ?? p1.id}${p2.label ?? p2.id}`,
+        });
+      } else if (pts.length === 0) {
+        // Bare full circle with no points → closed by itself.
+        out.push({
+          key: raw, parentId: base, subIdx: null, kind: "bareClosed",
+          endpoints: null, obj, labelText: "circle",
+        });
+      }
+      // Circle with points but no #N: skip (shouldn't happen from pickHit).
+    } else if (obj.type === "arc") {
+      const pts = pointsOnArc(scene, obj.center, obj.r, obj.from, obj.to);
+      if (subIdx !== null) {
+        // Anchors sorted from → to
+        const c = pointById(scene, obj.center)!;
+        const norm = (v: number) => ((v % 360) + 360) % 360;
+        const along = (v: number) => norm(v - obj.from);
+        const anchors = pts
+          .map((p) => ({ p, a: (Math.atan2(-(p.y - c.y), p.x - c.x) * 180) / Math.PI }))
+          .sort((x, y) => along(x.a) - along(y.a))
+          .map((e) => e.p);
+        // Full anchor sequence: [from-end, ...anchors, to-end]. Endpoints
+        // for subIdx k are anchors[k-1] and anchors[k] when in the middle;
+        // fall back to arc endpoints when at the ends (rare — no from/to point).
+        const p1 = anchors[subIdx - 1];
+        const p2 = anchors[subIdx];
+        if (p1 && p2) {
+          out.push({
+            key: raw, parentId: base, subIdx, kind: "subArc",
+            endpoints: [p1.id, p2.id], obj,
+            labelText: `arc ${p1.label ?? p1.id}${p2.label ?? p2.id}`,
+          });
+        }
+      }
+    } else if (obj.type === "curve") {
+      const anchorIds = obj.a && obj.mid && obj.b ? [obj.a, obj.mid, obj.b] : (obj.points ?? []);
+      if (subIdx !== null && anchorIds[subIdx] && anchorIds[subIdx + 1]) {
+        const p1 = anchorIds[subIdx], p2 = anchorIds[subIdx + 1];
+        out.push({
+          key: raw, parentId: base, subIdx, kind: "subCurve",
+          endpoints: [p1, p2], obj,
+          labelText: `${labelForPoint(scene, p1)}${labelForPoint(scene, p2)}`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** All items are line-like or a single bare closed circle. */
+function isPureLineSelection(items: LineItem[], rawCount: number): boolean {
+  return items.length === rawCount && items.length > 0;
+}
+
+/** Closure test: endpoint graph forms a single cycle. */
+function isClosedLoop(items: LineItem[]): boolean {
+  const lines = items.filter((it) => it.endpoints);
+  const bare = items.filter((it) => !it.endpoints);
+  if (bare.length === 1 && lines.length === 0) return true;
+  if (lines.length < 3) return false;
+  const deg = new Map<GeoId, number>();
+  for (const it of lines) {
+    const [a, b] = it.endpoints!;
+    deg.set(a, (deg.get(a) ?? 0) + 1);
+    deg.set(b, (deg.get(b) ?? 0) + 1);
+  }
+  for (const [, d] of deg) if (d !== 2) return false;
+  // Single connected component check
+  const adj = new Map<GeoId, GeoId[]>();
+  for (const it of lines) {
+    const [a, b] = it.endpoints!;
+    if (!adj.has(a)) adj.set(a, []);
+    if (!adj.has(b)) adj.set(b, []);
+    adj.get(a)!.push(b);
+    adj.get(b)!.push(a);
+  }
+  const seen = new Set<GeoId>();
+  const start = lines[0].endpoints![0];
+  const stack = [start];
+  while (stack.length) {
+    const n = stack.pop()!;
+    if (seen.has(n)) continue;
+    seen.add(n);
+    for (const m of adj.get(n) ?? []) stack.push(m);
+  }
+  return seen.size === deg.size;
+}
+
+/** Shared vertices between line items (endpoint ids used by ≥2 items). */
+function sharedVertices(items: LineItem[]): Array<{ vertex: GeoId; items: LineItem[] }> {
+  const byVertex = new Map<GeoId, LineItem[]>();
+  for (const it of items) {
+    if (!it.endpoints) continue;
+    for (const ep of it.endpoints) {
+      if (!byVertex.has(ep)) byVertex.set(ep, []);
+      byVertex.get(ep)!.push(it);
+    }
+  }
+  const out: Array<{ vertex: GeoId; items: LineItem[] }> = [];
+  for (const [vertex, its] of byVertex) if (its.length >= 2) out.push({ vertex, items: its });
+  return out;
+}
+
+export function SelectionInspector({ scene, selected, selectedIds, kind, onApply, onSelect }: Props) {
   if (selected.length === 0) {
     return (
       <p className="text-[11px] text-foreground/55">
@@ -29,7 +179,22 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
     );
   }
 
-  // ─── Multi-selection routing ─────────────────────────────────────────
+  // ─── Selection Laws routing ─────────────────────────────────────────
+  // Build normalized line items from raw selectedIds so sub-arcs and
+  // sub-curves are distinguished from their parent shapes.
+  const rawIds = selectedIds ?? selected.map((o) => o.id);
+  const lineItems = classifyLineItems(scene, rawIds);
+  if (isPureLineSelection(lineItems, rawIds.length)) {
+    return (
+      <LineSelectionPanel
+        scene={scene}
+        items={lineItems}
+        onApply={onApply}
+        onSelect={onSelect}
+      />
+    );
+  }
+
   if (selected.length >= 2) {
     return <MultiPanel scene={scene} selected={selected} onApply={onApply} onSelect={onSelect} />;
   }
@@ -61,9 +226,6 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
   if (effective === "segmentDistance" && primary.type === "segment") {
     return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
-  if (effective === "segmentBody" && primary.type === "segment") {
-    return <SegmentBodyPanel scene={scene} segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => addTextAt(primary)} />;
-  }
   if (effective === "angleValue" && primary.type === "angle") {
     return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
@@ -77,10 +239,6 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
     return <LabelPanel label={primary} onPatch={(p) => patch(primary.id, p)} onDelete={() => onApply({ ...scene, objects: scene.objects.filter((o) => o.id !== primary.id) })} />;
   }
 
-  if (primary.type === "circle" || primary.type === "arc" || primary.type === "curve") {
-    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} onAddText={() => addTextAt(primary)} />;
-  }
-
   // Fallback minimal editor for other kinds
   return (
     <div className="text-[11px] text-foreground/60">
@@ -89,6 +247,295 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
     </div>
   );
 }
+
+/* ─────── Line-selection panel (Selection Laws) ─────── */
+function LineSelectionPanel({
+  scene, items, onApply, onSelect,
+}: {
+  scene: GeometryScene;
+  items: LineItem[];
+  onApply: (s: GeometryScene) => void;
+  onSelect?: (id: GeoId, kind: HitKind) => void;
+}) {
+  const closed = useMemo(() => isClosedLoop(items), [items]);
+  const vertices = useMemo(() => sharedVertices(items), [items]);
+  const boundaryIds = useMemo<GeoId[]>(() => {
+    if (!closed) return [];
+    const bare = items.find((it) => !it.endpoints);
+    if (bare) return []; // full circle — no polygon boundary
+    // Walk the cycle
+    const lines = items.filter((it) => it.endpoints);
+    const adj = new Map<GeoId, LineItem[]>();
+    for (const it of lines) {
+      for (const ep of it.endpoints!) {
+        if (!adj.has(ep)) adj.set(ep, []);
+        adj.get(ep)!.push(it);
+      }
+    }
+    const start = lines[0].endpoints![0];
+    const order: GeoId[] = [start];
+    const used = new Set<string>();
+    let cur = start;
+    while (order.length < lines.length) {
+      const nbrs = adj.get(cur) ?? [];
+      const nextEdge = nbrs.find((e) => !used.has(e.key));
+      if (!nextEdge) break;
+      used.add(nextEdge.key);
+      const [a, b] = nextEdge.endpoints!;
+      cur = a === cur ? b : a;
+      order.push(cur);
+    }
+    return order;
+  }, [items, closed]);
+
+  const n = items.length;
+  const title =
+    n === 1 ? items[0].kind === "bareClosed" ? "CIRCLE" : `LINE · ${items[0].labelText}`
+    : `${n} ITEMS`;
+
+  // Single-segment shortcut: keep the rich Basic-Line / Arrow / Marks panel.
+  if (items.length === 1 && items[0].kind === "segment") {
+    const seg = items[0].obj as GeoSegment;
+    const addTextForSeg = () => {
+      const { scene: next, id } = addFloatingLabelAtShape(scene, seg);
+      onApply(next);
+      if (onSelect) onSelect(id, "label");
+    };
+    return (
+      <SegmentBodyPanel
+        scene={scene}
+        segment={seg}
+        onPatchAll={(p) => onApply(patchObject(scene, seg.id, p).scene)}
+        count={1}
+        title={`Line · ${seg.label ?? items[0].labelText}`}
+        onAddText={addTextForSeg}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-2 text-xs">
+      <Header>{title}</Header>
+
+      {items.filter((it) => it.endpoints).map((it) => (
+        <DistanceRow key={it.key} scene={scene} item={it} onApply={onApply} onSelect={onSelect} />
+      ))}
+
+      {vertices.map((sv) => (
+        <AngleRow key={sv.vertex} scene={scene} vertex={sv.vertex} items={sv.items} onApply={onApply} onSelect={onSelect} />
+      ))}
+
+      {closed && (
+        <ClosedAreaPanel scene={scene} items={items} boundary={boundaryIds} onApply={onApply} onSelect={onSelect} />
+      )}
+    </div>
+  );
+}
+
+function DistanceRow({
+  scene, item, onApply, onSelect,
+}: { scene: GeometryScene; item: LineItem; onApply: (s: GeometryScene) => void; onSelect?: (id: GeoId, kind: HitKind) => void }) {
+  const computed = useMemo(() => {
+    if (!item.endpoints) return "";
+    const a = pointById(scene, item.endpoints[0]);
+    const b = pointById(scene, item.endpoints[1]);
+    if (!a || !b) return "";
+    return (Math.hypot(b.x - a.x, b.y - a.y) / 10).toFixed(1);
+  }, [scene, item]);
+  const seg = item.kind === "segment" ? (item.obj as GeoSegment) : null;
+  const [text, setText] = useState<string>(seg?.distance ?? seg?.length ?? "");
+
+  const commit = () => {
+    if (seg) {
+      onApply(patchObject(scene, seg.id, { distance: text || undefined, length: undefined } as any).scene);
+    }
+    // For sub-arcs/sub-curves the value is surfaced only via "Add text";
+    // no schema field to persist per-sub distance.
+  };
+
+  const addText = () => {
+    const val = text.trim() || (computed ? `${computed}` : "Text");
+    if (!item.endpoints) return;
+    const a = pointById(scene, item.endpoints[0]);
+    const b = pointById(scene, item.endpoints[1]);
+    if (!a || !b) return;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 - 12;
+    const op = addFloatingLabel(scene, mx, my, val);
+    onApply(op.scene);
+    if (onSelect) onSelect(op.addedIds[0], "label");
+  };
+
+  return (
+    <div className="rounded border border-foreground/10 p-2 space-y-1">
+      <p className="text-[10px] uppercase tracking-wider text-foreground/55">
+        Distance · {item.labelText}
+      </p>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        placeholder={computed ? `${computed} (measured)` : "5 cm, 2x + 3"}
+        className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+      />
+      <button
+        type="button"
+        onClick={addText}
+        className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+      >
+        + Add text
+      </button>
+    </div>
+  );
+}
+
+function AngleRow({
+  scene, vertex, items, onApply, onSelect,
+}: { scene: GeometryScene; vertex: GeoId; items: LineItem[]; onApply: (s: GeometryScene) => void; onSelect?: (id: GeoId, kind: HitKind) => void }) {
+  // Arms: other endpoint of each item at this vertex.
+  const arms = items
+    .map((it) => (it.endpoints ? (it.endpoints[0] === vertex ? it.endpoints[1] : it.endpoints[1] === vertex ? it.endpoints[0] : null) : null))
+    .filter((x): x is GeoId => !!x);
+  if (arms.length < 2) return null;
+  const [armA, armB] = arms;
+
+  const existing = useMemo<GeoAngle | null>(() =>
+    scene.objects.find(
+      (o): o is GeoAngle =>
+        o.type === "angle" &&
+        o.vertex === vertex &&
+        ((o.a === armA && o.b === armB) || (o.a === armB && o.b === armA)),
+    ) ?? null
+  , [scene, vertex, armA, armB]);
+
+  const [value, setValue] = useState<string>(existing?.value ?? "");
+
+  const commit = (patch: Partial<GeoAngle>) => {
+    if (existing) {
+      onApply(patchObject(scene, existing.id, patch as any).scene);
+    } else {
+      const text = value.trim();
+      const rendered = text.length === 0 ? undefined
+        : text.match(/^-?\d+(\.\d+)?$/) ? `${text}°` : text;
+      const op = addAngle(scene, vertex, armA, armB, rendered);
+      let s = op.scene;
+      const id = op.addedIds[0];
+      if (Object.keys(patch).length) s = patchObject(s, id, patch as any).scene;
+      onApply(s);
+    }
+  };
+
+  const vLabel = labelForPoint(scene, vertex);
+  const aLabel = labelForPoint(scene, armA);
+  const bLabel = labelForPoint(scene, armB);
+
+  const addText = () => {
+    const v = pointById(scene, vertex);
+    const x = v ? v.x + 18 : 24;
+    const y = v ? v.y - 18 : 24;
+    const op = addFloatingLabel(scene, x, y, value.trim() || "Text");
+    onApply(op.scene);
+    if (onSelect) onSelect(op.addedIds[0], "label");
+  };
+
+  return (
+    <div className="rounded border border-foreground/10 p-2 space-y-2">
+      <p className="text-[10px] uppercase tracking-wider text-foreground/55">
+        Angle · ∠{aLabel}{vLabel}{bLabel}
+      </p>
+      <div className="flex items-center gap-1">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => {
+            const text = value.trim();
+            const rendered = text.length === 0 ? undefined
+              : text.match(/^-?\d+(\.\d+)?$/) ? `${text}°` : text;
+            commit({ value: rendered });
+          }}
+          placeholder="30, 180, x + 40 …"
+          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        />
+        <div className="flex flex-col">
+          <button type="button" onClick={() => commit({ reflex: true })}
+            className={`px-1.5 py-0.5 rounded-t border text-[10px] ${existing?.reflex ? "bg-primary text-primary-foreground border-primary" : "border-foreground/20 bg-background hover:bg-muted"}`}>
+            <ChevronUp className="h-3 w-3" />
+          </button>
+          <button type="button" onClick={() => commit({ reflex: false })}
+            className={`px-1.5 py-0.5 rounded-b border-x border-b text-[10px] ${!existing?.reflex && existing ? "bg-primary text-primary-foreground border-primary" : "border-foreground/20 bg-background hover:bg-muted"}`}>
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+      {existing && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-foreground/70">Marker</span>
+          <div className="flex gap-1">
+            {(["arc", "double", "right"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => commit({ marker: m })}
+                className={`px-2 py-0.5 rounded border text-[11px] ${
+                  existing.marker === m
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-foreground/20 bg-background hover:bg-muted"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={addText}
+        className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+      >
+        + Add text
+      </button>
+    </div>
+  );
+}
+
+function ClosedAreaPanel({
+  scene, items, boundary, onApply, onSelect,
+}: {
+  scene: GeometryScene;
+  items: LineItem[];
+  boundary: GeoId[];
+  onApply: (s: GeometryScene) => void;
+  onSelect?: (id: GeoId, kind: HitKind) => void;
+}) {
+  // Bare full circle case — reuse the circle's fill fields directly.
+  const bare = items.find((it) => it.kind === "bareClosed");
+  if (bare) {
+    const c = bare.obj as GeoCircle;
+    return (
+      <FillablePanel
+        obj={c as any}
+        onPatch={(p) => onApply(patchObject(scene, c.id, p as any).scene)}
+        onAddText={() => {
+          const cp = pointById(scene, c.center);
+          if (!cp) return;
+          const op = addFloatingLabel(scene, cp.x, cp.y, "Text");
+          onApply(op.scene);
+          if (onSelect) onSelect(op.addedIds[0], "label");
+        }}
+      />
+    );
+  }
+  if (boundary.length < 3) return null;
+  return (
+    <RegionCreatePanel
+      scene={scene}
+      boundary={boundary}
+      onApply={onApply}
+      onSelect={onSelect}
+    />
+  );
+}
+
 
 function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: string; r?: number; fill?: string; fillOpacity?: number; dashed?: boolean; area?: string }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean; area: string }>) => void; onAddText?: () => void }) {
   const [enabled, setEnabled] = useState<boolean>(!!obj.fill);
