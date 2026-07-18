@@ -352,9 +352,12 @@ export function GeometryCanvas({ editor }: Props) {
         onPointerUp={onPointerUp}
         onPointerLeave={() => setHover(null)}
         onDoubleClick={() => {
-          // Double-click finishes a polygon or line in progress.
+          // Double-click finishes an in-progress multi-point tool.
           if (tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
+            setPendingIds([]);
+          } else if (tool === "curve" && pendingIds.length >= 2) {
+            apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (tool === "line") {
             setPendingIds([]);
@@ -363,6 +366,9 @@ export function GeometryCanvas({ editor }: Props) {
         onKeyDown={(e) => {
           if (e.key === "Enter" && tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
+            setPendingIds([]);
+          } else if (e.key === "Enter" && tool === "curve" && pendingIds.length >= 2) {
+            apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (e.key === "Escape") {
             setPendingIds([]);
