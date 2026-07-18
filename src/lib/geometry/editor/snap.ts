@@ -58,6 +58,7 @@ export type HitKind =
   | "curve"
   | "polygon"
   | "angle"
+  | "angleValue"
   | "label";
 
 export interface Hit { id: string; kind: HitKind }
