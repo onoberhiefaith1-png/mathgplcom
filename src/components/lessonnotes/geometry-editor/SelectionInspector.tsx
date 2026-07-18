@@ -293,21 +293,38 @@ function LineSelectionPanel({
     n === 1 ? items[0].kind === "bareClosed" ? "CIRCLE" : `LINE · ${items[0].labelText}`
     : `${n} ITEMS`;
 
+  // Single-segment shortcut: keep the rich Basic-Line / Arrow / Marks panel.
+  if (items.length === 1 && items[0].kind === "segment") {
+    const seg = items[0].obj as GeoSegment;
+    const addTextForSeg = () => {
+      const { scene: next, id } = addFloatingLabelAtShape(scene, seg);
+      onApply(next);
+      if (onSelect) onSelect(id, "label");
+    };
+    return (
+      <SegmentBodyPanel
+        scene={scene}
+        segment={seg}
+        onPatchAll={(p) => onApply(patchObject(scene, seg.id, p).scene)}
+        count={1}
+        title={`Line · ${seg.label ?? items[0].labelText}`}
+        onAddText={addTextForSeg}
+      />
+    );
+  }
+
   return (
     <div className="space-y-2 text-xs">
       <Header>{title}</Header>
 
-      {/* Distance rows — one per line item */}
       {items.filter((it) => it.endpoints).map((it) => (
         <DistanceRow key={it.key} scene={scene} item={it} onApply={onApply} onSelect={onSelect} />
       ))}
 
-      {/* Angle rows — one per shared vertex */}
       {vertices.map((sv) => (
         <AngleRow key={sv.vertex} scene={scene} vertex={sv.vertex} items={sv.items} onApply={onApply} onSelect={onSelect} />
       ))}
 
-      {/* Area / Shade — only when closed */}
       {closed && (
         <ClosedAreaPanel scene={scene} items={items} boundary={boundaryIds} onApply={onApply} onSelect={onSelect} />
       )}
