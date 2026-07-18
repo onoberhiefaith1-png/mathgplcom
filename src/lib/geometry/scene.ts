@@ -123,10 +123,16 @@ export interface GeoLabel {
 export interface GeoCurve {
   id: GeoId;
   type: "curve";
-  /** Ordered list of point ids the curve passes through. */
-  points: GeoId[];
+  /** Quadratic-Bezier form: start, middle (bend), end. */
+  a?: GeoId;
+  mid?: GeoId;
+  b?: GeoId;
+  /** Legacy multi-point form (Catmull-Rom). Kept for backwards compat. */
+  points?: GeoId[];
   dashed?: boolean;
+  color?: string;
 }
+
 
 export type GeoObject =
   | GeoPoint
