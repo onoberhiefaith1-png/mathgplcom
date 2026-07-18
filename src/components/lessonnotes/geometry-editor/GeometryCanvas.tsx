@@ -226,15 +226,16 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "curve": {
-        // Curve = quadratic Bezier through 3 points: start, bend, end.
+        // Continuous smooth curve — like Line but every anchor bends the
+        // spline. Each click adds an anchor; double-click / Enter commits
+        // the curve; Escape cancels.
         const { id, scene: s1 } = ensurePoint(p.x, p.y);
-        const next = [...pendingIds, id];
-        if (next.length === 3) {
-          apply(addCurve(s1, next));
-          setPendingIds([]);
-        } else {
-          setPendingIds(next);
-        }
+        const next = pendingIds[pendingIds.length - 1] === id
+          ? pendingIds
+          : [...pendingIds, id];
+        setPendingIds(next);
+        // Keep scene fresh so subsequent snaps see the new point.
+        if (s1 !== scene) commit(s1);
         break;
       }
 
