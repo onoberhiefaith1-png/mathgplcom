@@ -140,6 +140,11 @@ export function GeometryCanvas({ editor }: Props) {
                 kind: "segmentDistance", id: hit.id, startX: p.x, startY: p.y,
                 baseDx: obj.distanceOffset?.dx ?? 0, baseDy: obj.distanceOffset?.dy ?? 0,
               });
+            } else if (hit.kind === "angleValue" && obj?.type === "angle") {
+              setLabelDrag({
+                kind: "angleValue", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: (obj as any).valueOffset?.dx ?? 0, baseDy: (obj as any).valueOffset?.dy ?? 0,
+              });
             }
           }
         } else {
