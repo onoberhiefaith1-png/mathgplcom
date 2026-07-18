@@ -69,8 +69,15 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
 
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
-    // Two passes: shapes first (so labels sit on top), then points + labels.
+    // Regions first (they paint the interior fill behind all ink).
     for (const o of scene.objects) {
+      if (o.type !== "region") continue;
+      const node = renderObject(o, scene, colourOf(o.id), pad);
+      if (node) out.push(node);
+    }
+    // Everything else on top so lines/labels remain crisp.
+    for (const o of scene.objects) {
+      if (o.type === "region") continue;
       const c = colourOf(o.id);
       const node = renderObject(o, scene, c, pad);
       if (node) out.push(node);
@@ -357,9 +364,14 @@ function renderObject(
       let diff = a2 - a1;
       while (diff <= -Math.PI) diff += 2 * Math.PI;
       while (diff > Math.PI) diff -= 2 * Math.PI;
-      const large = Math.abs(diff) > Math.PI ? 1 : 0;
-      const sweep = diff > 0 ? 0 : 1;
-      const labelAngle = a1 + diff / 2;
+      let large = Math.abs(diff) > Math.PI ? 1 : 0;
+      let sweep = diff > 0 ? 0 : 1;
+      // Reflex flips to the opposite side of the vertex.
+      if ((o as any).reflex) {
+        large = 1 - large;
+        sweep = 1 - sweep;
+      }
+      const labelAngle = (o as any).reflex ? a1 + diff / 2 + Math.PI : a1 + diff / 2;
       const lx = cx + Math.cos(labelAngle) * (r + 12);
       const ly = cy - Math.sin(labelAngle) * (r + 12);
       return (
@@ -401,6 +413,23 @@ function renderObject(
           stroke={stroke}
           strokeWidth={sw}
           strokeLinejoin="round"
+        />
+      );
+    }
+    case "region": {
+      const pts = o.boundary
+        .map((id) => pointById(scene, id))
+        .filter((p): p is GeoPoint => !!p)
+        .map((p) => `${p.x + pad},${p.y + pad}`)
+        .join(" ");
+      if (!pts) return null;
+      return (
+        <polygon
+          key={o.id}
+          points={pts}
+          fill={o.fill ?? "#2563eb"}
+          fillOpacity={o.opacity ?? 0.2}
+          stroke="none"
         />
       );
     }

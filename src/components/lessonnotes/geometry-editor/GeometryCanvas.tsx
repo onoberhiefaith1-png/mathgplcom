@@ -106,28 +106,39 @@ export function GeometryCanvas({ editor }: Props) {
     switch (tool) {
       case "select": {
         if (hit) {
-          if (e.shiftKey) toggleSelected(hit.id);
-          else setSelectedIds([hit.id]);
-          setSelectionKind(hit.kind);
-          // Prime drag state for label/distance/points so drag re-positions.
+          // Plain click toggles the item in the selection set.
+          // Clicking a different item adds to selection; clicking the same
+          // one again removes it. Empty click clears everything.
+          const already = selectedIds.includes(hit.id);
+          if (already) {
+            const next = selectedIds.filter((id) => id !== hit.id);
+            setSelectedIds(next);
+            setSelectionKind(next.length ? "segmentBody" : null);
+          } else {
+            setSelectedIds([...selectedIds, hit.id]);
+            setSelectionKind(hit.kind);
+          }
+          // Prime drag state only when a single item is being manipulated.
           const obj = scene.objects.find((o) => o.id === hit.id);
-          if (hit.kind === "point" && obj?.type === "point") {
-            setDragging({ pointId: hit.id });
-          } else if (hit.kind === "pointLabel" && obj?.type === "point") {
-            setLabelDrag({
-              kind: "pointLabel", id: hit.id, startX: p.x, startY: p.y,
-              baseDx: obj.labelOffset?.dx ?? 6, baseDy: obj.labelOffset?.dy ?? -6,
-            });
-          } else if (hit.kind === "segmentLabel" && obj?.type === "segment") {
-            setLabelDrag({
-              kind: "segmentLabel", id: hit.id, startX: p.x, startY: p.y,
-              baseDx: obj.labelOffset?.dx ?? 0, baseDy: obj.labelOffset?.dy ?? 0,
-            });
-          } else if (hit.kind === "segmentDistance" && obj?.type === "segment") {
-            setLabelDrag({
-              kind: "segmentDistance", id: hit.id, startX: p.x, startY: p.y,
-              baseDx: obj.distanceOffset?.dx ?? 0, baseDy: obj.distanceOffset?.dy ?? 0,
-            });
+          if (!already && selectedIds.length === 0) {
+            if (hit.kind === "point" && obj?.type === "point") {
+              setDragging({ pointId: hit.id });
+            } else if (hit.kind === "pointLabel" && obj?.type === "point") {
+              setLabelDrag({
+                kind: "pointLabel", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: obj.labelOffset?.dx ?? 6, baseDy: obj.labelOffset?.dy ?? -6,
+              });
+            } else if (hit.kind === "segmentLabel" && obj?.type === "segment") {
+              setLabelDrag({
+                kind: "segmentLabel", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: obj.labelOffset?.dx ?? 0, baseDy: obj.labelOffset?.dy ?? 0,
+              });
+            } else if (hit.kind === "segmentDistance" && obj?.type === "segment") {
+              setLabelDrag({
+                kind: "segmentDistance", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: obj.distanceOffset?.dx ?? 0, baseDy: obj.distanceOffset?.dy ?? 0,
+              });
+            }
           }
         } else {
           setSelectedIds([]);
@@ -318,34 +329,68 @@ export function GeometryCanvas({ editor }: Props) {
     }
   };
 
-  // Selection / pending halo overlay
+  // Per-shape glow: segment/curve/arc/circle glow along their body,
+  // points glow around the dot. Uses a wide, semi-transparent stroke.
   const halos = useMemo(() => {
     const out: React.ReactNode[] = [];
-    const haloFor = (id: GeoId, color: string, r = 12) => {
+    const glow = (id: GeoId, color: string, opacity = 0.35) => {
       const o = scene.objects.find((x) => x.id === id);
       if (!o) return;
-      let cx: number | null = null, cy: number | null = null;
-      if (o.type === "point") { cx = o.x; cy = o.y; }
-      else if (o.type === "segment") {
+      if (o.type === "point") {
+        out.push(
+          <circle key={`h-${id}`}
+            cx={o.x + PAD} cy={o.y + PAD}
+            r={(o.size ?? 2.6) + 5}
+            fill={color} opacity={opacity}
+          />,
+        );
+      } else if (o.type === "segment") {
         const a = pointById(scene, o.a); const b = pointById(scene, o.b);
-        if (a && b) { cx = (a.x + b.x) / 2; cy = (a.y + b.y) / 2; }
-      } else if (o.type === "circle" || o.type === "arc") {
-        const c = pointById(scene, o.center); if (c) { cx = c.x; cy = c.y; }
+        if (!a || !b) return;
+        out.push(
+          <line key={`h-${id}`}
+            x1={a.x + PAD} y1={a.y + PAD} x2={b.x + PAD} y2={b.y + PAD}
+            stroke={color} strokeWidth={10} strokeLinecap="round" opacity={opacity}
+          />,
+        );
+      } else if (o.type === "circle") {
+        const c = pointById(scene, o.center); if (!c) return;
+        out.push(
+          <circle key={`h-${id}`} cx={c.x + PAD} cy={c.y + PAD} r={o.r}
+            fill="none" stroke={color} strokeWidth={10} opacity={opacity} />,
+        );
+      } else if (o.type === "arc") {
+        const c = pointById(scene, o.center); if (!c) return;
+        const a1 = (o.from * Math.PI) / 180, a2 = (o.to * Math.PI) / 180;
+        const x1 = c.x + PAD + Math.cos(a1) * o.r, y1 = c.y + PAD - Math.sin(a1) * o.r;
+        const x2 = c.x + PAD + Math.cos(a2) * o.r, y2 = c.y + PAD - Math.sin(a2) * o.r;
+        let delta = o.to - o.from; while (delta <= 0) delta += 360;
+        const large = delta > 180 ? 1 : 0;
+        out.push(
+          <path key={`h-${id}`}
+            d={`M ${x1} ${y1} A ${o.r} ${o.r} 0 ${large} 0 ${x2} ${y2}`}
+            fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />,
+        );
+      } else if (o.type === "curve") {
+        // Approximate glow with polyline between consecutive points.
+        const pts = o.points.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+        if (pts.length < 2) return;
+        const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
+        out.push(<path key={`h-${id}`} d={d} fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />);
       } else if (o.type === "angle") {
-        const v = pointById(scene, o.vertex); if (v) { cx = v.x; cy = v.y; }
+        const v = pointById(scene, o.vertex); if (!v) return;
+        out.push(<circle key={`h-${id}`} cx={v.x + PAD} cy={v.y + PAD} r={24} fill="none" stroke={color} strokeWidth={4} opacity={opacity} />);
       }
-      if (cx == null || cy == null) return;
-      out.push(<circle key={`h-${id}`} cx={cx + PAD} cy={cy + PAD} r={r} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="3 3" />);
     };
     const seen = new Set<string>();
-    const once = (id: GeoId, color: string, r: number) => {
+    const once = (id: GeoId, color: string) => {
       if (seen.has(id)) return;
       seen.add(id);
-      haloFor(id, color, r);
+      glow(id, color);
     };
-    selectedIds.forEach((id) => once(id, "#2563eb", 12));
-    pendingIds.forEach((id) => once(id, "#10b981", 10));
-    flashIds.forEach((id) => once(id, "#f59e0b", 14));
+    selectedIds.forEach((id) => once(id, "#2563eb"));
+    pendingIds.forEach((id) => once(id, "#10b981"));
+    flashIds.forEach((id) => once(id, "#f59e0b"));
     return out;
   }, [scene, selectedIds, pendingIds, flashIds]);
 

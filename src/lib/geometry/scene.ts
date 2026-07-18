@@ -84,6 +84,16 @@ export interface GeoAngle {
   b: GeoId; // point on second arm
   value?: string; // displayed text, e.g. "30°"
   marker?: "arc" | "double" | "right";
+  /** When true, the arc is drawn on the opposite (reflex) side. */
+  reflex?: boolean;
+}
+export interface GeoRegion {
+  id: GeoId;
+  type: "region";
+  /** Ordered boundary point ids that form a closed loop. */
+  boundary: GeoId[];
+  fill?: string;
+  opacity?: number;
 }
 export interface GeoPolygon {
   id: GeoId;
@@ -118,6 +128,7 @@ export type GeoObject =
   | GeoAngle
   | GeoPolygon
   | GeoCurve
+  | GeoRegion
   | GeoLabel;
 
 export interface GeometryScene {

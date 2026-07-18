@@ -1,53 +1,77 @@
-## Goal
 
-Two focused tweaks:
+# Geometry Editor — Selection, Splitting, Angles, Regions
 
-1. **Properties Panel shrinks and pushes the lesson-note content instead of overlapping it.** Fixed width of `10vw` (min 220 px so controls stay usable on small screens), and the document layout reserves that space when the panel is expanded.
-2. **Point Label editor gains a Size control** so the teacher can grow/shrink the letter (A, B, C…) drawn next to a point. Same control will be added to the Point panel too, since either lands on the same label glyph.
+Four connected upgrades to the geometry editor. Each is self-contained and layered on the existing `scene.ts` + `SelectionInspector` code.
 
-Nothing else in the geometry editor changes.
+## 1. Points dissect lines (auto-split)
 
----
+Right now `DO` stays a single segment even when point `E` is dropped on it, so editing `DE` edits the whole thing.
 
-## 1. Right panel: 10 vw, pushes content left
+- When a `Point` is added and lies within a small pixel tolerance of an existing `segment`, `line`, `ray`, or `arc`, replace that object with **two** objects that share the new point:
+  - `DO` (D→O) with E on it → becomes `DE` (D→E) and `EO` (E→O).
+  - The two children inherit style (dashed, color, arrow, marks) from the parent so nothing visually changes at split time.
+  - Arrows: `start` stays on the first child, `end` on the last child, `both` splits into `start` + `end`.
+- Dragging an existing point onto a segment does the same split; dragging it off restores nothing (children stay independent — matches "each part functions as a different line").
+- Deleting a point that is the shared endpoint of exactly two collinear segments **re-merges** them into one segment (D–E + E–O → D–O). Style is taken from the first child; a small note in the inspector confirms the merge.
+- A new helper `splitAtPoint(scene, segmentId, pointId)` and `mergeThroughPoint(scene, pointId)` live in `src/lib/geometry/editor/sceneOps.ts`.
 
-File: `src/components/lessonnotes/PropertiesPanel.tsx`
+## 2. Per-object highlighting + click-toggle multi-select
 
-- Change the expanded `<aside>` width from `w-[min(360px,calc(100vw-48px))]` to a fixed `width: 10vw` with `minWidth: 220px, maxWidth: 360px` (10 vw of a typical laptop = ~140 px which is too narrow for the color picker + slider; the min keeps it usable, and it never grows past the old size).
-- Also drop the width of the collapsed handle to stay proportional (keep `w-8` — it's already tiny).
-- Signal the layout via a CSS variable + a body class so the document can react:
-  - When expanded: `document.documentElement.style.setProperty('--properties-panel-width', <computed>px)` and add `data-properties-panel="open"` on `<body>`.
-  - When collapsed / unmounted: clear the var and set `data-properties-panel="closed"`.
-- Clean up on unmount so leaving the lesson-note page never leaves the padding behind.
+- Clicking any dot, segment body, arc, or curve **toggles** it in the selection set. Clicking empty canvas clears. No Shift required. (This replaces today's replace-on-click behavior.)
+- Highlight glow is drawn per hit target only: clicking segment `DE` glows just `DE`, not points D or E. Points glow only when a point is the hit.
+- The inspector title reflects the selection:
+  - 1 point → `POINT · D`
+  - 1 segment → `LINE · DE`
+  - 2 segments → `2 SEGMENTS · DE, EO`
+  - 2 points → `2 POINTS · E, O`
+  - mixed → `SELECTION · 3 items`
 
-File: `src/components/lessonnotes/DocumentEditor.tsx`
+## 3. Context-sensitive panel by selection shape
 
-- Wrap the existing scroll/paper container (the sibling of `<PropertiesPanel />` on line ~1579) so it gets `paddingRight: var(--properties-panel-width, 0px)` and a `transition: padding-right 160ms ease`.
-- Because the panel is portalled to `document.body`, styling the DocumentEditor root is enough — no layout re-shuffling needed elsewhere.
+Rules used to pick which panel to show (extends `SelectionInspector.tsx`):
 
-Result: the panel is a slim rail on the right; the notebook column stays fully visible and just narrows by the panel's width. Collapsing the panel returns the notebook to full width.
+| Selection | Panel shown |
+|---|---|
+| 1 point | Point props (existing) |
+| 1 segment | Segment props (existing) |
+| 2+ points | **Angle** editor (see below). Single-line props (color, dashes, arrows) are hidden. |
+| 2+ segments sharing an endpoint | **Angle** editor at the shared vertex |
+| 2+ segments not sharing a point | Only shared props: colour, dashed style |
+| Closed cycle detected | Adds **Region** section (see §4) on top of whatever panel is active |
 
-## 2. Point Label size control
+## 4. Angle tool (multi-select)
 
-Data model — `src/lib/geometry/scene.ts`
+- Vertex is chosen automatically:
+  - 2 segments → their shared endpoint.
+  - 2 points → user picks a third selected point as vertex, or if only two points are selected the panel shows "Select the vertex point too" hint.
+- Panel fields:
+  - **Value** — free-text/number input. **No validation** — 30, 180, 360, 1000, "x + 40" all accepted. Renders as `30°` on canvas (append ° automatically if value is purely numeric).
+  - **Side** — a pair of ▲ / ▼ chevron buttons right next to the value. Up flips the arc to the reflex / opposite side; down brings it back. Internally toggles a `reflex: boolean` flag on the `angle` object.
+  - **Marker** — arc / double arc / right-angle square (existing enum).
+- Angle object already exists in `scene.ts` (`type: "angle"`); we add a `reflex?: boolean` field and reuse the render path.
 
-- Add `labelFontSize?: number` to `GeoPoint` (default 14, min 9, max 28). Sanitizer already passes through unknown fields; add a clamp in `sanitizeScene` alongside existing point fields so bad values can't break rendering.
+## 5. Enclosed region auto-detection + shading
 
-Renderer — `src/components/lessonnotes/GeometryDiagram.tsx`
+- After every commit, run `findClosedCycles(scene)` (new file `src/lib/geometry/editor/regions.ts`). It walks the segment graph and returns cycles; a full circle counts as its own region.
+- When the current selection **is** a closed cycle (or a lone full circle), the inspector adds a `Region` fold:
+  - **Fill colour** (with transparent option)
+  - **Opacity** slider
+  - **Remove fill** button
+- Regions render behind segments so ink stays crisp. Stored as a new `region` object type: `{ id, type: "region", boundary: GeoId[], fill, opacity }`.
+- No manual "Create region" click needed — the panel just appears when a valid loop is selected.
 
-- At the point-label `<text>` (currently `fontSize={14}` on line 121), replace with `fontSize={p.labelFontSize ?? 14}`. Static and live renderers both share this path, so one change covers both.
+## Files touched
 
-Inspector — `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx`
+- `src/lib/geometry/scene.ts` — add `reflex?` on angle, new `region` object type.
+- `src/lib/geometry/editor/sceneOps.ts` — `splitAtPoint`, `mergeThroughPoint`, `addRegion`, hooks into add-point and delete-point ops.
+- `src/lib/geometry/editor/snap.ts` — teach `pickHit` to prefer segment-body hits over the parent's old bounding line; return the correct child segment id.
+- `src/lib/geometry/editor/regions.ts` (new) — cycle finder over the point/segment graph.
+- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — switch click handler to toggle-selection; recompute selection kind from set.
+- `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx` — new title logic, `AnglePanel`, `RegionPanel`, hide single-line props on multi-selection.
+- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` / `GeometryDiagram.tsx` — per-segment glow, region fill layer, reflex arc rendering.
 
-- In `PointLabelPanel`, add a **Size** row directly under Rename: a slider (9–28, step 1) plus the numeric value, wired to `onPatch({ labelFontSize: n })`.
-- Mirror the same **Size** row inside `PointPanel` so clicking the dot exposes the same control (the teacher wants "after rename, add size" — putting it in both panels avoids a hunt).
+## Out of scope (explicitly)
 
-No other components need to change; the AutoFitLabel logic used by charts is unrelated to geometry labels.
-
----
-
-## Technical notes
-
-- `10vw` on the current 847×473 preview = 84.7 px, which is too tight — the `minWidth: 220px` guard keeps color pickers/sliders usable while still visibly slimmer than the old 360 px panel.
-- Using a CSS variable + `padding-right` (instead of restructuring layout to a flex row) is the least invasive way to make a portalled `fixed` panel behave like a docked column, and it plays nicely with the existing collapse/expand animation.
-- Label font size is stored per-point (not per-scene) so different labels can have different sizes if a teacher wants one prominent vertex.
+- No numeric validation on angle values.
+- No renaming of split segments beyond automatic `${a}${b}` labels.
+- No drag-to-flip on the angle arc; only the ▲/▼ chevrons in the panel.
