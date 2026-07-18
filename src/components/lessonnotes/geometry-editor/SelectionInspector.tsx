@@ -244,7 +244,7 @@ function polygonArea(scene: GeometryScene, boundary: GeoId[]): number {
 
 
 /* ─────── Multi-selection ─────── */
-function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; selected: GeoObject[]; onApply: (s: GeometryScene) => void }) {
+function MultiPanel({ scene, selected, onApply, onSelect }: { scene: GeometryScene; selected: GeoObject[]; onApply: (s: GeometryScene) => void; onSelect?: (id: GeoId, kind: HitKind) => void }) {
   const segments = selected.filter((o): o is GeoSegment => o.type === "segment");
   const points = selected.filter((o): o is GeoPoint => o.type === "point");
   const title = titleFor(scene, selected);
@@ -282,6 +282,7 @@ function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; select
           segments={segments}
           existing={existingAngle}
           onApply={onApply}
+          onSelect={onSelect}
         />
       )}
 
@@ -290,7 +291,7 @@ function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; select
       )}
 
       {region && (
-        <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+        <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} onSelect={onSelect} />
       )}
 
       {segments.length >= 2 && !existingAngle && (
