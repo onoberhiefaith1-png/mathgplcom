@@ -1827,14 +1827,36 @@ function NotebookGeometryOverlay({
   const overlayWidth = Math.max(scene.bounds.width ?? 0, paperSize.width) + 48;
   const overlayHeight = Math.max(scene.bounds.height ?? 0, paperSize.height) + 48;
 
-  const growNotebook = () => {
-    const layer = paperLayerRef.current;
-    if (!layer) return;
-    const current = layer.style.minHeight ? parseFloat(layer.style.minHeight) : layer.offsetHeight;
-    const next = current + 240;
-    layer.style.minHeight = `${next}px`;
-    // Trigger ResizeObserver → paperSize updates → overlay grows.
-  };
+  // Infinite scroll: grow the paper's minHeight whenever the viewport gets
+  // within ~240px of the bottom of the writable layer. The ResizeObserver in
+  // this component then propagates the new size to `paperSize`.
+  useEffect(() => {
+    const grow = (delta = 600) => {
+      const layer = paperLayerRef.current;
+      if (!layer) return;
+      const current = layer.style.minHeight
+        ? parseFloat(layer.style.minHeight)
+        : layer.offsetHeight;
+      layer.style.minHeight = `${current + delta}px`;
+    };
+    const onScrollOrResize = () => {
+      const layer = paperLayerRef.current;
+      if (!layer) return;
+      const rect = layer.getBoundingClientRect();
+      const viewportBottom = window.innerHeight || document.documentElement.clientHeight;
+      // If the layer's bottom edge is within 240px of the viewport bottom
+      // (i.e. the user has scrolled to reveal the end of the paper), extend it.
+      if (rect.bottom - viewportBottom < 240) grow(600);
+    };
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
+    // Run once so a short empty notebook can grow as the user starts drawing.
+    onScrollOrResize();
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [paperLayerRef]);
 
   return (
     <>
@@ -1861,17 +1883,6 @@ function NotebookGeometryOverlay({
           />
         )}
       </div>
-      {mode && (
-        <button
-          type="button"
-          onClick={growNotebook}
-          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 text-[11px] px-3 py-1 rounded-full border border-border bg-background hover:bg-muted shadow-sm"
-          style={{ top: overlayHeight - 20, zIndex: 9, pointerEvents: "auto" }}
-          title="Extend the notebook downwards"
-        >
-          <span className="text-base leading-none">+</span> Grow notebook
-        </button>
-      )}
     </>
   );
 }
