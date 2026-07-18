@@ -743,8 +743,8 @@ function AngleValueTextPanel({ angle, onPatch }: { angle: GeoAngle; onPatch: (p:
 
 /* ─────── Segment body ─────── */
 function SegmentBodyPanel({
-  segment, onPatchAll, count, title,
-}: { segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string }) {
+  segment, onPatchAll, count, title, onAddText,
+}: { segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string; onAddText?: () => void }) {
   const dashedMode: "solid" | "dotted" | "dashed" =
     segment.dashed === true ? "dashed" : segment.dashed === "dotted" ? "dotted" : "solid";
   const arrow = segment.arrow ?? "none";
