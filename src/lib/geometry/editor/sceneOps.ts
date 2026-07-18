@@ -38,7 +38,68 @@ const withObjects = (scene: GeometryScene, objects: GeoObject[]): GeometryScene 
 export function addPoint(scene: GeometryScene, x: number, y: number, label?: string): OpResult {
   const id = newId("p", scene);
   const p: GeoPoint = { id, type: "point", x, y, label: label ?? nextPointLabel(scene) };
-  return ok(withObjects(scene, [...scene.objects, p]), [id]);
+  // Auto-split: if the point lands on an existing segment body, replace
+  // the segment with two children that share the new point.
+  const host = findSegmentAt(scene, x, y, 6);
+  let objects = [...scene.objects, p];
+  const added: GeoId[] = [id];
+  if (host) {
+    const { seg, projX, projY } = host;
+    // Move the point onto the exact segment line so it sits on the edge.
+    p.x = projX;
+    p.y = projY;
+    const s1: GeoSegment = {
+      ...seg,
+      id: newId("s", { ...scene, objects }),
+      a: seg.a,
+      b: id,
+      arrow: seg.arrow === "start" || seg.arrow === "both" ? "start" : "none",
+    };
+    objects = [...objects.filter((o) => o.id !== seg.id), s1];
+    const s2: GeoSegment = {
+      ...seg,
+      id: newId("s", { ...scene, objects }),
+      a: id,
+      b: seg.b,
+      arrow: seg.arrow === "end" || seg.arrow === "both" ? "end" : "none",
+      // Distance/label live on one child only to avoid duplicates.
+      label: undefined,
+      distance: undefined,
+      length: undefined,
+      distanceOffset: undefined,
+      labelOffset: undefined,
+    };
+    objects = [...objects, s2];
+    added.push(s1.id, s2.id);
+  }
+  return ok({ ...scene, objects }, added);
+}
+
+/** Find an existing segment whose body passes within `hit` px of (x,y). */
+function findSegmentAt(
+  scene: GeometryScene,
+  x: number,
+  y: number,
+  hit: number,
+): { seg: GeoSegment; projX: number; projY: number } | null {
+  let best: { seg: GeoSegment; projX: number; projY: number; d: number } | null = null;
+  for (const o of scene.objects) {
+    if (o.type !== "segment") continue;
+    const a = pointById(scene, o.a);
+    const b = pointById(scene, o.b);
+    if (!a || !b) continue;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    if (len2 === 0) continue;
+    let t = ((x - a.x) * dx + (y - a.y) * dy) / len2;
+    // Only split if the projection lands strictly inside the segment,
+    // not on its endpoints.
+    if (t <= 0.05 || t >= 0.95) continue;
+    const px = a.x + dx * t, py = a.y + dy * t;
+    const d = Math.hypot(px - x, py - y);
+    if (d <= hit && (!best || d < best.d)) best = { seg: o, projX: px, projY: py, d };
+  }
+  return best;
 }
 
 /* ─── Add segment between two existing points ──────────────────────── */
