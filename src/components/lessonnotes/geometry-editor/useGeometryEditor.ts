@@ -46,7 +46,12 @@ export function useGeometryEditor(
   const [scene, setScene] = useState<GeometryScene>(initial);
   const [history, setHistory] = useState<History>(emptyHistory());
   const [tool, setTool] = useState<ToolId>("select");
-  const [selectedIds, setSelectedIds] = useState<GeoId[]>([]);
+  const [selectedIds, setSelectedIdsState] = useState<GeoId[]>([]);
+  const [selectionKind, setSelectionKind] = useState<HitKind | null>(null);
+  const setSelectedIds = useCallback((ids: GeoId[]) => {
+    setSelectedIdsState(ids);
+    if (ids.length === 0) setSelectionKind(null);
+  }, []);
   const [pendingIds, setPendingIds] = useState<GeoId[]>([]);
   const [flashIds, setFlashIds] = useState<GeoId[]>([]);
   const flashTimer = useRef<number | null>(null);
