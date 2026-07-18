@@ -11,6 +11,7 @@ import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
   movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
+  addCurve,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
@@ -176,6 +177,11 @@ export function GeometryCanvas({ editor }: Props) {
         } else {
           setPendingIds(next);
         }
+        break;
+      }
+      case "curve": {
+        const { id } = ensurePoint(p.x, p.y);
+        setPendingIds([...pendingIds, id]);
         break;
       }
       case "angle": {
