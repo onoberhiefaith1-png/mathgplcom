@@ -34,10 +34,11 @@ export function PropertiesPanel() {
       return () => root.style.setProperty("--properties-panel-width", "0px");
     }
     if (expanded) {
-      root.style.setProperty("--properties-panel-width", "clamp(220px, 10vw, 360px)");
+      root.style.setProperty("--properties-panel-width", "clamp(150px, 10vw, 320px)");
     } else {
-      root.style.setProperty("--properties-panel-width", "32px");
+      root.style.setProperty("--properties-panel-width", "28px");
     }
+
     return () => root.style.setProperty("--properties-panel-width", "0px");
   }, [reg, expanded]);
 
