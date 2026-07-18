@@ -1,80 +1,60 @@
-## Goals
+## Selection Laws for the Geometry Editor
 
-1. **Highlight Law**: Selection is bounded by "at most two anchor points" per region.
-2. **Add text / Add distance**: Make these buttons actually place editable, draggable, styleable labels.
-3. **Universal text-selection**: Clicking ANY on-canvas text (label, distance, angle value, point label, floating text) opens its style controls in the right panel.
-4. **Right panel width**: 10vw → 20vw so controls fit.
+Implement three deterministic "selection laws" so the right-hand inspector always exposes the right control for what the teacher clicked.
 
----
+### 1. One-line law → Distance (always on)
 
-## 1. Highlight Law (max 2 endpoints per highlight)
+When the current selection is exactly one 1D piece — a full segment, a sub-segment between two adjacent points, an arc sub-piece, or a curve sub-piece — the inspector always shows:
 
-Rule: a single highlight covers exactly the piece bounded by ≤2 named points.
+- **Distance** field (numeric input, pre-filled with the measured length, editable).
+- **+ Add text** button underneath to attach a floating descriptor (e.g. "landmark").
 
-- **0 points** (bare closed curve, e.g. a pristine circle with no points on it) → whole shape highlights.
-- **1 point** (a lone dot, or a circle carrying exactly one point) → that dot/whole loop highlights.
-- **2 points** (segment, arc between two points, chord of a circle between two points) → just that piece.
-- **>2 points on the same curve** → the full curve can NOT be selected as one; only the individual 2-point sub-pieces (Q→Q1, Q1→N1, N1→N2, …) are selectable.
+Today `SegmentBodyPanel` hides Distance when `hasDist` is false. Change the rule so Distance is always visible for a one-line selection; the value defaults to the computed length and the user can override/clear it. Extend the same panel shape to arc-sub and curve-sub selections (they currently fall through to generic panels).
 
-Implementation:
-- Extend `pickHit` in `src/lib/geometry/editor/snap.ts` so circles and arcs with ≥2 points along them are hit-tested per sub-arc between consecutive angular neighbors, returning ids like `circleId#k` (same pattern already used for curves).
-- Update `computeSceneExtent`/renderer halos in `GeometryCanvas.tsx` (already partially supports `#sub` for curves) to draw the halo on just the chosen sub-arc for circles/arcs.
-- Prevent whole-circle selection when point count on that circle > 1 (fall through to sub-arc hit).
-- Curves already sub-segmented — keep behaviour.
+### 2. Two-line law → Angle (always on)
 
-## 2. Add Text / Add Distance actually work
+When the selection is exactly two 1D pieces that share a common endpoint (straight, arc, or curve — any combination), the inspector shows:
 
-Current bug: `+ Add text` buttons in `SegmentBodyPanel`, `FillablePanel`, `RegionPanel` call `addFloatingLabel` but the click either doesn't dispatch or the created `GeoLabel` isn't selectable/editable.
+- **Angle** input (numeric, accepts any value incl. reflex >180°).
+- Reflex toggle (already exists for straight-straight; extend to curve/arc pairs by using the tangent direction at the shared point).
+- **+ Add text** button underneath for a descriptor label near the vertex.
 
-Fixes in `SelectionInspector.tsx` + `sceneOps.ts`:
-- Wire every "+ Add text" and "+ Add distance" button to `apply(addFloatingLabel(scene, x, y, initialText, { kind }))` and immediately select the new label so `LabelPanel` opens.
-- For segments: distance label placed at midpoint offset perpendicular to line; text label placed at midpoint.
-- For enclosed regions / circles / arcs: place at centroid.
-- Default text = "" with placeholder "Double-click to edit"; distance default = computed length rounded.
+Today the angle editor only triggers for two straight segments sharing a point. Extend `pickAnglePair` (or the equivalent selection classifier) to accept arc-sub and curve-sub pieces and compute the shared-vertex tangent angle.
 
-Editing / dragging (`GeometryCanvas.tsx`):
-- Double-click on a `label` hit opens the existing inline `<input>` (already implemented for `text` field) — extend to fire on double-click OR when the Label tool clicks it, not only via measure tool.
-- Single-click already selects; drag already patches x/y — verify `labelDrag` case for `kind === "label"` writes to `x`/`y` not `dx`/`dy` (it currently mixes both — fix so `baseDx/baseDy` seed from `obj.x/obj.y` and the patch writes `{x, y}` directly).
+### 3. Enclosed-region law → Area + shade + inside text
 
-## 3. Universal "click any on-canvas text → panel"
+An "enclosed region" is any closed boundary with no opening:
 
-Everything the user sees as text should be a first-class selectable:
-- Point labels (`A`, `B`, `P1`, …)
-- Segment name label
-- Segment distance value
-- Angle value (`36°`)
-- Free-floating `GeoLabel`
+- A full circle with no named points on it (single closed curve).
+- Any cycle formed by segments / arc-subs / curve-subs whose endpoints chain back to the start (already partly handled by `cycleFromSegments`).
 
-`pickHit` already returns kinds `pointLabel | segmentLabel | segmentDistance | angleValue | label`. In `SelectionInspector.tsx` add a top-priority routing: if `selectionKind` is any of these five, render **`LabelPanel`** (text, font size, color, rotation, delete) regardless of the parent object type, editing the appropriate field on the parent (`label`, `distance`, `value`, `text`) plus its `*Style` sibling for size/color/rotation.
+When the selection resolves to an enclosed region, the inspector shows:
 
-Add `labelStyle`, `distanceStyle`, `valueStyle` sub-objects on `GeoSegment`/`GeoAngle`/`GeoPoint` in `scene.ts` (fontSize, color, rotation) so styling isn't limited to floating labels.
+- **Shade colour** picker (existing).
+- **Area** field — computed value shown, editable so the teacher can override the displayed number.
+- **+ Add text inside** button — creates a floating label anchored at the region centroid; label is immediately selected for editing (already wired for polygonal regions, extend to circle and mixed-boundary cycles).
 
-Update `GeometryDiagram.tsx` to consume those style fields when rendering each text element.
+### Universal "+ Add text" behaviour
 
-## 4. Right panel 10vw → 20vw
+Every one of the three panels gets the same `+ Add text` affordance. Clicking it:
 
-Find the inspector container (previously set to `w-[10vw]`) and change to `w-[20vw]` (with a sensible `min-w` like `min-w-[240px]`). The main content flex sibling already uses `flex-1` so the gap disappears automatically.
+1. Calls `addFloatingLabelAtShape` at a sensible anchor (segment midpoint, angle bisector at vertex, region centroid).
+2. Auto-selects the new label so `LabelPanel` opens with text / size / colour / rotation ready to edit.
 
-Files: whichever layout wraps `SelectionInspector` (likely `NotebookEditorPage.tsx` or a Lesson Notes layout — will locate before editing).
+### Technical notes
 
----
+- `src/lib/geometry/editor/snap.ts` — extend sub-piece detection (already added for circle/arc) to curves; expose a `classifySelection(scene, selection)` helper returning `"one-line" | "two-line" | "region" | "other"`.
+- `src/lib/geometry/editor/regions.ts` — generalise `cycleFromSegments` to accept mixed boundary parts (segment / arc-sub / curve-sub) and to recognise a lone full circle / closed curve as a region.
+- `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx` — route by `classifySelection` result:
+  - one-line → `SegmentBodyPanel` variant with Distance always visible + Add text.
+  - two-line → `AnglePanel` variant supporting curved arms + Add text.
+  - region → `RegionPanel` with Shade + Area + Add text inside.
+- `src/lib/geometry/scene.ts` — add optional `area?: number` override on `GeoRegion`; distance override already exists on segments.
+- Area computation: polygon shoelace for cycles, πr² for full circles, cycle-with-arcs via Green's-theorem sum of segment/arc contributions.
+- Angle at a curved arm: use the unit tangent at the shared vertex (derivative of the parametric curve / arc direction) and take the signed angle between the two tangents; reflex toggle flips the 360°−θ complement.
 
-## Technical Summary
+### Out of scope (for this pass)
 
-| Concern | Files |
-|---|---|
-| Sub-arc hit testing | `src/lib/geometry/editor/snap.ts`, `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` |
-| Circle/arc halo per sub-arc | `GeometryCanvas.tsx` halo block |
-| Add text / distance buttons | `SelectionInspector.tsx`, `src/lib/geometry/editor/sceneOps.ts` |
-| Label drag + inline edit | `GeometryCanvas.tsx` (`labelDrag` case, dblclick handler) |
-| Universal text panel routing | `SelectionInspector.tsx`, `scene.ts` (add `*Style` fields), `GeometryDiagram.tsx` |
-| Panel width | Layout file hosting `SelectionInspector` |
-
-## Out of scope this turn
-
-- Highlight-law behaviour for curves beyond current sub-segment model (already correct).
-- Any AI/backend changes.
-
-## Verification
-
-Playwright script: open a lesson note, add circle + 3 points on it, click between two adjacent points → assert only that arc glows; click "+ Add distance" on a segment → assert a label appears, is draggable, and its style panel opens on click; click any label/angle value → assert `LabelPanel` renders; check right panel computed width ≈ 20vw.
+- No changes to bar chart / pie chart / math editor.
+- No new tools in the geometry toolbar; laws are purely selection-driven.
+- No AI-side changes.
