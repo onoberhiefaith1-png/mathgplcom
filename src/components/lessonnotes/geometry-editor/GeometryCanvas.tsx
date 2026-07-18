@@ -387,11 +387,21 @@ export function GeometryCanvas({ editor }: Props) {
             fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />,
         );
       } else if (o.type === "curve") {
-        // Approximate glow with polyline between consecutive points.
-        const pts = o.points.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+        // Quadratic Bezier glow (3-point form) or polyline (legacy).
+        const ids = o.a && o.mid && o.b ? [o.a, o.mid, o.b] : (o.points ?? []);
+        const pts = ids.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
         if (pts.length < 2) return;
-        const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
+        let d: string;
+        if (pts.length === 3) {
+          const [pa, pm, pb] = pts;
+          const cx = 2 * pm.x - (pa.x + pb.x) / 2;
+          const cy = 2 * pm.y - (pa.y + pb.y) / 2;
+          d = `M ${pa.x + PAD} ${pa.y + PAD} Q ${cx + PAD} ${cy + PAD} ${pb.x + PAD} ${pb.y + PAD}`;
+        } else {
+          d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
+        }
         out.push(<path key={`h-${id}`} d={d} fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />);
+
       } else if (o.type === "angle") {
         const v = pointById(scene, o.vertex); if (!v) return;
         out.push(<circle key={`h-${id}`} cx={v.x + PAD} cy={v.y + PAD} r={24} fill="none" stroke={color} strokeWidth={4} opacity={opacity} />);
