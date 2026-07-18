@@ -67,7 +67,8 @@ export function useGeometryEditor(
     sceneJsonRef.current = initialJson;
     setScene(initial);
     setHistory(emptyHistory());
-    setSelectedIds((prev) => (prev.length ? [] : prev));
+    setSelectedIdsState((prev) => (prev.length ? [] : prev));
+    setSelectionKind(null);
     setPendingIds((prev) => (prev.length ? [] : prev));
   }, [initial, initialJson]);
 
