@@ -6,7 +6,7 @@ import { useRef, useState, useMemo } from "react";
 import type { GeometryScene, GeoPoint, GeoId } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
 import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
-import { snap, pickObject, pickHit, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
+import { snap, pickObject, pickHit, pointsOnCircle, pointsOnArc, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
 import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
 
 import {
@@ -391,22 +391,45 @@ export function GeometryCanvas({ editor }: Props) {
         );
       } else if (o.type === "circle") {
         const c = pointById(scene, o.center); if (!c) return;
-        out.push(
-          <circle key={`h-${id}`} cx={c.x + PAD} cy={c.y + PAD} r={o.r}
-            fill="none" stroke={color} strokeWidth={10} opacity={opacity} />,
-        );
+        const onC = pointsOnCircle(scene, o.center, o.r);
+        if (sub >= 0 && onC.length >= 2) {
+          const angs = onC
+            .map((p) => Math.atan2(-(p.y - c.y), p.x - c.x) * 180 / Math.PI)
+            .map((a) => ((a % 360) + 360) % 360)
+            .sort((a, b) => a - b);
+          const from = angs[sub];
+          const to = angs[(sub + 1) % angs.length];
+          out.push(subArcHalo(id, c.x + PAD, c.y + PAD, o.r, from, to, color, opacity));
+        } else {
+          out.push(
+            <circle key={`h-${id}`} cx={c.x + PAD} cy={c.y + PAD} r={o.r}
+              fill="none" stroke={color} strokeWidth={10} opacity={opacity} />,
+          );
+        }
       } else if (o.type === "arc") {
         const c = pointById(scene, o.center); if (!c) return;
-        const a1 = (o.from * Math.PI) / 180, a2 = (o.to * Math.PI) / 180;
-        const x1 = c.x + PAD + Math.cos(a1) * o.r, y1 = c.y + PAD - Math.sin(a1) * o.r;
-        const x2 = c.x + PAD + Math.cos(a2) * o.r, y2 = c.y + PAD - Math.sin(a2) * o.r;
-        let delta = o.to - o.from; while (delta <= 0) delta += 360;
-        const large = delta > 180 ? 1 : 0;
-        out.push(
-          <path key={`h-${id}`}
-            d={`M ${x1} ${y1} A ${o.r} ${o.r} 0 ${large} 0 ${x2} ${y2}`}
-            fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />,
-        );
+        const onArc = pointsOnArc(scene, o.center, o.r, o.from, o.to);
+        if (sub >= 0 && onArc.length >= 1) {
+          const along = (v: number) => (((v - o.from) % 360) + 360) % 360;
+          const anchors = onArc
+            .map((p) => ((Math.atan2(-(p.y - c.y), p.x - c.x) * 180 / Math.PI) % 360 + 360) % 360)
+            .sort((a, b) => along(a) - along(b));
+          const seq = [o.from, ...anchors, o.to];
+          const from = seq[sub] ?? o.from;
+          const to = seq[sub + 1] ?? o.to;
+          out.push(subArcHalo(id, c.x + PAD, c.y + PAD, o.r, from, to, color, opacity));
+        } else {
+          const a1 = (o.from * Math.PI) / 180, a2 = (o.to * Math.PI) / 180;
+          const x1 = c.x + PAD + Math.cos(a1) * o.r, y1 = c.y + PAD - Math.sin(a1) * o.r;
+          const x2 = c.x + PAD + Math.cos(a2) * o.r, y2 = c.y + PAD - Math.sin(a2) * o.r;
+          let delta = o.to - o.from; while (delta <= 0) delta += 360;
+          const large = delta > 180 ? 1 : 0;
+          out.push(
+            <path key={`h-${id}`}
+              d={`M ${x1} ${y1} A ${o.r} ${o.r} 0 ${large} 0 ${x2} ${y2}`}
+              fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />,
+          );
+        }
       } else if (o.type === "curve") {
         let d = "";
         if (o.a && o.mid && o.b) {
@@ -585,3 +608,20 @@ function catmullRomPreview(p: { x: number; y: number }[]): string {
   }
   return d;
 }
+
+function subArcHalo(id: string, cx: number, cy: number, r: number, fromDeg: number, toDeg: number, color: string, opacity: number): React.ReactNode {
+  const a1 = (fromDeg * Math.PI) / 180;
+  const a2 = (toDeg * Math.PI) / 180;
+  const x1 = cx + Math.cos(a1) * r, y1 = cy - Math.sin(a1) * r;
+  const x2 = cx + Math.cos(a2) * r, y2 = cy - Math.sin(a2) * r;
+  let delta = toDeg - fromDeg;
+  while (delta <= 0) delta += 360;
+  while (delta > 360) delta -= 360;
+  const large = delta > 180 ? 1 : 0;
+  return (
+    <path key={`h-${id}`}
+      d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} 0 ${x2} ${y2}`}
+      fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />
+  );
+}
+

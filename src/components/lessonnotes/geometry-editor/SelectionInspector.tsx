@@ -16,13 +16,15 @@ interface Props {
   selected: GeoObject[];
   kind?: HitKind | null;
   onApply: (next: GeometryScene) => void;
+  /** Select an object by id after a scene edit (e.g. new floating label). */
+  onSelect?: (id: GeoId, kind: HitKind) => void;
 }
 
-export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
+export function SelectionInspector({ scene, selected, kind, onApply, onSelect }: Props) {
   if (selected.length === 0) {
     return (
       <p className="text-[11px] text-foreground/55">
-        Click a point, a point's label, or a line segment to edit its properties here.
+        Click a point, a label, a line segment, or any text on the diagram to edit its properties here.
       </p>
     );
   }
@@ -41,6 +43,12 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
 
   const patch = (id: string, p: Partial<GeoObject>) => onApply(patchObject(scene, id, p).scene);
 
+  const addTextAt = (shape: GeoObject) => {
+    const { scene: next, id } = addFloatingLabelAtShape(scene, shape);
+    onApply(next);
+    if (onSelect) onSelect(id, "label");
+  };
+
   if (effective === "point" && primary.type === "point") {
     return <PointPanel point={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
@@ -54,7 +62,7 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
     return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
   if (effective === "segmentBody" && primary.type === "segment") {
-    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => onApply(addFloatingLabelAtShape(scene, primary))} />;
+    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => addTextAt(primary)} />;
   }
   if (effective === "angleValue" && primary.type === "angle") {
     return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
@@ -63,14 +71,14 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
     return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} />;
   }
   if (primary.type === "region") {
-    return <RegionPanel scene={scene} region={primary} onApply={onApply} />;
+    return <RegionPanel scene={scene} region={primary} onApply={onApply} onAddText={() => addTextAt(primary)} />;
   }
   if (primary.type === "label") {
     return <LabelPanel label={primary} onPatch={(p) => patch(primary.id, p)} onDelete={() => onApply({ ...scene, objects: scene.objects.filter((o) => o.id !== primary.id) })} />;
   }
 
   if (primary.type === "circle" || primary.type === "arc" || primary.type === "curve") {
-    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} onAddText={() => onApply(addFloatingLabelAtShape(scene, primary))} />;
+    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} onAddText={() => addTextAt(primary)} />;
   }
 
   // Fallback minimal editor for other kinds
@@ -177,7 +185,7 @@ function LabelPanel({ label, onPatch, onDelete }: { label: GeoLabel; onPatch: (p
 }
 
 /** Helper: drop a floating label somewhere sensible for a shape. */
-function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject): GeometryScene {
+function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject, initial = "Text"): { scene: GeometryScene; id: GeoId } {
   let x = 20, y = 20;
   if (obj.type === "circle" || obj.type === "arc") {
     const c = pointById(scene, obj.center);
@@ -201,7 +209,8 @@ function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject): Geometry
       y = pts.reduce((a, p) => a + p.y, 0) / pts.length;
     }
   }
-  return addFloatingLabel(scene, x, y, "Text").scene;
+  const op = addFloatingLabel(scene, x, y, initial);
+  return { scene: op.scene, id: op.addedIds[0] };
 }
 
 
@@ -575,9 +584,20 @@ function RegionCreatePanel({
   );
 }
 
-function RegionPanel({ scene, region, onApply }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void }) {
+function RegionPanel({ scene, region, onApply, onAddText }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void; onAddText?: () => void }) {
   return (
-    <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+    <div className="space-y-2">
+      <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+      {onAddText && (
+        <button
+          type="button"
+          onClick={onAddText}
+          className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+        >
+          + Add text inside
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -766,7 +786,7 @@ function SegmentBodyPanel({
     : segment.marks === "quadruple" ? 4
     : 0;
   const par = segment.parallelMarks ?? 0;
-  const hasDist = !!(segment.distance ?? segment.length);
+  const hasDist = segment.distance !== undefined || segment.length !== undefined;
 
   return (
     <div className="space-y-2 text-xs">

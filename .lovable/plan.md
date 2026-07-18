@@ -1,46 +1,80 @@
-## Problem
+## Goals
 
-When you click on the canvas to draw (arc, circle, point, etc.), the shape lands in a different position than where you clicked, and highlight halos land off the shape. Two things are causing the drift, and both must be fixed together.
+1. **Highlight Law**: Selection is bounded by "at most two anchor points" per region.
+2. **Add text / Add distance**: Make these buttons actually place editable, draggable, styleable labels.
+3. **Universal text-selection**: Clicking ANY on-canvas text (label, distance, angle value, point label, floating text) opens its style controls in the right panel.
+4. **Right panel width**: 10vw → 20vw so controls fit.
 
-### Cause 1 — SVG letterboxing is ignored
+---
 
-The interaction SVG in `GeometryCanvas.tsx` renders with `preserveAspectRatio="xMidYMid meet"` (the default). When the container's aspect ratio doesn't match the viewBox, the browser adds equal padding to the short axis and centres the content. But `toLogical()` (lines 39–47) maps the pointer linearly across the *whole* bounding rect:
+## 1. Highlight Law (max 2 endpoints per highlight)
 
-```ts
-x: ((e.clientX - rect.left) / rect.width) * W - PAD
-```
+Rule: a single highlight covers exactly the piece bounded by ≤2 named points.
 
-That formula is only correct when the SVG fills its box edge-to-edge. In every other case, clicks near the edges convert to logical coordinates that are shifted, so the point you drop appears offset.
+- **0 points** (bare closed curve, e.g. a pristine circle with no points on it) → whole shape highlights.
+- **1 point** (a lone dot, or a circle carrying exactly one point) → that dot/whole loop highlights.
+- **2 points** (segment, arc between two points, chord of a circle between two points) → just that piece.
+- **>2 points on the same curve** → the full curve can NOT be selected as one; only the individual 2-point sub-pieces (Q→Q1, Q1→N1, N1→N2, …) are selectable.
 
-### Cause 2 — Interaction viewBox ≠ display viewBox
+Implementation:
+- Extend `pickHit` in `src/lib/geometry/editor/snap.ts` so circles and arcs with ≥2 points along them are hit-tested per sub-arc between consecutive angular neighbors, returning ids like `circleId#k` (same pattern already used for curves).
+- Update `computeSceneExtent`/renderer halos in `GeometryCanvas.tsx` (already partially supports `#sub` for curves) to draw the halo on just the chosen sub-arc for circles/arcs.
+- Prevent whole-circle selection when point count on that circle > 1 (fall through to sub-arc hit).
+- Curves already sub-segmented — keep behaviour.
 
-`GeometryDiagram.tsx` (lines 59–65, 107) grows its viewBox to fit anything past `scene.bounds` and applies `translate(-minX, -minY)` so nothing gets clipped. `GeometryCanvas.tsx` (lines 36–37, 482) uses the un-grown `scene.bounds` for its own viewBox and applies no matching translate. Once anything is drawn outside the original bounds — an arc dragged past the edge, a curve extended by "Expand" — the two SVGs no longer share a coordinate system. What you see in the diagram is shifted from where the interaction layer thinks it is, so highlighting and further clicks land on the wrong spot.
+## 2. Add Text / Add Distance actually work
 
-## Fix
+Current bug: `+ Add text` buttons in `SegmentBodyPanel`, `FillablePanel`, `RegionPanel` call `addFloatingLabel` but the click either doesn't dispatch or the created `GeoLabel` isn't selectable/editable.
 
-Make the interaction layer share the diagram's exact coordinate system in every frame.
+Fixes in `SelectionInspector.tsx` + `sceneOps.ts`:
+- Wire every "+ Add text" and "+ Add distance" button to `apply(addFloatingLabel(scene, x, y, initialText, { kind }))` and immediately select the new label so `LabelPanel` opens.
+- For segments: distance label placed at midpoint offset perpendicular to line; text label placed at midpoint.
+- For enclosed regions / circles / arcs: place at centroid.
+- Default text = "" with placeholder "Double-click to edit"; distance default = computed length rounded.
 
-1. **Single source of truth for extent.** Export the extent math (`minX/minY/maxX/maxY → W/H`) from `GeometryDiagram.tsx` as a small helper (`computeSceneViewBox(scene, pad)`). Both `GeometryDiagram` and `GeometryCanvas` call it, so they always agree on `viewBox`, `W`, `H`, and the `translate(-minX, -minY)` offset.
+Editing / dragging (`GeometryCanvas.tsx`):
+- Double-click on a `label` hit opens the existing inline `<input>` (already implemented for `text` field) — extend to fire on double-click OR when the Label tool clicks it, not only via measure tool.
+- Single-click already selects; drag already patches x/y — verify `labelDrag` case for `kind === "label"` writes to `x`/`y` not `dx`/`dy` (it currently mixes both — fix so `baseDx/baseDy` seed from `obj.x/obj.y` and the patch writes `{x, y}` directly).
 
-2. **Fix `toLogical` to respect `preserveAspectRatio="xMidYMid meet"`.** Replace the linear formula in `GeometryCanvas.tsx` with the correct un-projection:
-   - Compute `scale = min(rect.width / W, rect.height / H)`.
-   - Compute the letterbox offset: `offsetX = (rect.width - W * scale) / 2`, same for Y.
-   - Logical `x = (clientX - rect.left - offsetX) / scale - PAD + minX`, likewise for Y.
-   
-   This unifies letterboxing correction (Cause 1) and the extent translate (Cause 2) into one mapping. Every click resolves to the exact logical point under the cursor, regardless of container aspect or how far shapes extend past `scene.bounds`.
+## 3. Universal "click any on-canvas text → panel"
 
-3. **Match viewBox and translate on the interaction SVG.** In `GeometryCanvas.tsx`, use the shared extent to set `viewBox={`0 0 ${W} ${H}`}` and wrap the interaction contents (halos, hover ring, ghost previews) in the same `<g transform={`translate(${-minX}, ${-minY})`}>` the diagram uses. Halos, snap targets and ghost strokes will then sit exactly on the rendered shapes.
+Everything the user sees as text should be a first-class selectable:
+- Point labels (`A`, `B`, `P1`, …)
+- Segment name label
+- Segment distance value
+- Angle value (`36°`)
+- Free-floating `GeoLabel`
 
-4. **Apply the same fix to `SmartOverlay.tsx`** (identical linear-map bug on lines 22–29) so smart-part hover/selection also lands where the user clicks.
+`pickHit` already returns kinds `pointLabel | segmentLabel | segmentDistance | angleValue | label`. In `SelectionInspector.tsx` add a top-priority routing: if `selectionKind` is any of these five, render **`LabelPanel`** (text, font size, color, rotation, delete) regardless of the parent object type, editing the appropriate field on the parent (`label`, `distance`, `value`, `text`) plus its `*Style` sibling for size/color/rotation.
 
-### Files touched
+Add `labelStyle`, `distanceStyle`, `valueStyle` sub-objects on `GeoSegment`/`GeoAngle`/`GeoPoint` in `scene.ts` (fontSize, color, rotation) so styling isn't limited to floating labels.
 
-- `src/components/lessonnotes/GeometryDiagram.tsx` — extract `computeSceneViewBox` helper; keep rendering identical.
-- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — use shared helper, rewrite `toLogical`, wrap interaction layer in matching translate.
-- `src/components/lessonnotes/geometry-editor/SmartOverlay.tsx` — same `toLogical` correction.
+Update `GeometryDiagram.tsx` to consume those style fields when rendering each text element.
 
-### Verification
+## 4. Right panel 10vw → 20vw
 
-- Draw an arc/circle/point at multiple positions (top-left, centre, far-right past `scene.bounds`). Confirm the shape appears exactly under the cursor at both endpoints.
-- Resize the notebook column so the container aspect ratio differs from the viewBox; re-run the click test near the edges.
-- Click a drawn arc — the blue selection halo should sit on the arc, not offset.
+Find the inspector container (previously set to `w-[10vw]`) and change to `w-[20vw]` (with a sensible `min-w` like `min-w-[240px]`). The main content flex sibling already uses `flex-1` so the gap disappears automatically.
+
+Files: whichever layout wraps `SelectionInspector` (likely `NotebookEditorPage.tsx` or a Lesson Notes layout — will locate before editing).
+
+---
+
+## Technical Summary
+
+| Concern | Files |
+|---|---|
+| Sub-arc hit testing | `src/lib/geometry/editor/snap.ts`, `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` |
+| Circle/arc halo per sub-arc | `GeometryCanvas.tsx` halo block |
+| Add text / distance buttons | `SelectionInspector.tsx`, `src/lib/geometry/editor/sceneOps.ts` |
+| Label drag + inline edit | `GeometryCanvas.tsx` (`labelDrag` case, dblclick handler) |
+| Universal text panel routing | `SelectionInspector.tsx`, `scene.ts` (add `*Style` fields), `GeometryDiagram.tsx` |
+| Panel width | Layout file hosting `SelectionInspector` |
+
+## Out of scope this turn
+
+- Highlight-law behaviour for curves beyond current sub-segment model (already correct).
+- Any AI/backend changes.
+
+## Verification
+
+Playwright script: open a lesson note, add circle + 3 points on it, click between two adjacent points → assert only that arc glows; click "+ Add distance" on a segment → assert a label appears, is draggable, and its style panel opens on click; click any label/angle value → assert `LabelPanel` renders; check right panel computed width ≈ 20vw.

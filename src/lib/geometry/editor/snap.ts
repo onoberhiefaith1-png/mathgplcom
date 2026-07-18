@@ -156,13 +156,26 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
     switch (o.type) {
       case "circle": {
         const c = pointById(scene, o.center); if (!c) break;
-        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) <= hit) return { id: o.id, kind: "circle" };
-        break;
+        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) > hit) break;
+        // Highlight law: if the circle carries 2+ named points on its
+        // perimeter, only the sub-arc between two adjacent points can
+        // be selected — never the whole loop.
+        const onCircle = pointsOnCircle(scene, o.center, o.r);
+        if (onCircle.length >= 2) {
+          const sub = pickCircleSubArc(c, onCircle, x, y);
+          return { id: `${o.id}#${sub}`, kind: "circle" };
+        }
+        return { id: o.id, kind: "circle" };
       }
       case "arc": {
         const c = pointById(scene, o.center); if (!c) break;
-        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) <= hit) return { id: o.id, kind: "arc" };
-        break;
+        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) > hit) break;
+        const onArc = pointsOnArc(scene, o.center, o.r, o.from, o.to);
+        if (onArc.length >= 2) {
+          const sub = pickArcSubArc(c, o.from, o.to, onArc, x, y);
+          return { id: `${o.id}#${sub}`, kind: "arc" };
+        }
+        return { id: o.id, kind: "arc" };
       }
       case "curve": {
         if (o.a && o.mid && o.b) {
@@ -278,4 +291,78 @@ export function sampleCatmullRomBetween(pts: GeoPoint[], seg: number, stepsPerSe
   }
   return out;
 }
+
+/** Points that lie on a given circle (within a small tolerance). */
+export function pointsOnCircle(scene: GeometryScene, centerId: string, r: number, tol = 3): GeoPoint[] {
+  const c = pointById(scene, centerId);
+  if (!c) return [];
+  return scene.objects.filter(
+    (o): o is GeoPoint =>
+      o.type === "point" && !o.hidden && o.id !== centerId &&
+      Math.abs(Math.hypot(o.x - c.x, o.y - c.y) - r) <= tol,
+  );
+}
+
+/** Points that lie on a given arc's underlying circle AND within its sweep. */
+export function pointsOnArc(scene: GeometryScene, centerId: string, r: number, from: number, to: number, tol = 3): GeoPoint[] {
+  const c = pointById(scene, centerId);
+  if (!c) return [];
+  const onCircle = pointsOnCircle(scene, centerId, r, tol);
+  const inSweep = (deg: number) => {
+    let f = ((from % 360) + 360) % 360;
+    let t = ((to % 360) + 360) % 360;
+    let v = ((deg % 360) + 360) % 360;
+    if (f <= t) return v >= f && v <= t;
+    return v >= f || v <= t;
+  };
+  return onCircle.filter((p) => {
+    const ang = (Math.atan2(-(p.y - c.y), p.x - c.x) * 180) / Math.PI;
+    return inSweep(ang);
+  });
+}
+
+/** Return the index of the sub-arc between adjacent circle points the point (x,y) sits on. */
+export function pickCircleSubArc(center: GeoPoint, pts: GeoPoint[], x: number, y: number): number {
+  const angs = pts
+    .map((p, i) => ({ i, a: normDeg((Math.atan2(-(p.y - center.y), p.x - center.x) * 180) / Math.PI) }))
+    .sort((a, b) => a.a - b.a);
+  const click = normDeg((Math.atan2(-(y - center.y), x - center.x) * 180) / Math.PI);
+  for (let k = 0; k < angs.length; k++) {
+    const a = angs[k].a;
+    const b = angs[(k + 1) % angs.length].a;
+    if (a <= b ? click >= a && click <= b : click >= a || click <= b) return k;
+  }
+  return 0;
+}
+
+/** Sub-arc index within an existing arc (bounded by from → to). */
+export function pickArcSubArc(center: GeoPoint, from: number, to: number, pts: GeoPoint[], x: number, y: number): number {
+  // Anchor list: from, ...points sorted along sweep, to
+  const inSweep = (v: number) => {
+    let f = normDeg(from), t = normDeg(to), n = normDeg(v);
+    if (f <= t) return n >= f && n <= t;
+    return n >= f || n <= t;
+  };
+  const along = (v: number) => {
+    const f = normDeg(from);
+    const n = normDeg(v);
+    return normDeg(n - f);
+  };
+  const anchors = pts
+    .map((p) => normDeg((Math.atan2(-(p.y - center.y), p.x - center.x) * 180) / Math.PI))
+    .filter(inSweep)
+    .sort((a, b) => along(a) - along(b));
+  const full = [normDeg(from), ...anchors, normDeg(to)];
+  const click = normDeg((Math.atan2(-(y - center.y), x - center.x) * 180) / Math.PI);
+  const clickAlong = along(click);
+  for (let k = 0; k < full.length - 1; k++) {
+    if (clickAlong >= along(full[k]) && clickAlong <= along(full[k + 1])) return k;
+  }
+  return 0;
+}
+
+function normDeg(v: number): number {
+  return ((v % 360) + 360) % 360;
+}
+
 

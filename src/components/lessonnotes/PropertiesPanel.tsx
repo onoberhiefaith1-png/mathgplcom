@@ -34,7 +34,7 @@ export function PropertiesPanel() {
       return () => root.style.setProperty("--properties-panel-width", "0px");
     }
     if (expanded) {
-      root.style.setProperty("--properties-panel-width", "clamp(150px, 10vw, 320px)");
+      root.style.setProperty("--properties-panel-width", "clamp(240px, 20vw, 460px)");
     } else {
       root.style.setProperty("--properties-panel-width", "28px");
     }
@@ -71,7 +71,7 @@ export function PropertiesPanel() {
   return createPortal(
     <aside
       className="fixed inset-y-0 right-0 z-50 flex bg-background text-foreground shadow-2xl border-l border-border"
-      style={{ width: "clamp(150px, 10vw, 320px)" }}
+      style={{ width: "clamp(240px, 20vw, 460px)" }}
       aria-label="Asset properties panel"
       onMouseDown={guardPanelEvent}
       onPointerDown={guardPanelEvent}
