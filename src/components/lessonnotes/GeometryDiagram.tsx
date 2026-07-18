@@ -416,6 +416,23 @@ function renderObject(
         />
       );
     }
+    case "region": {
+      const pts = o.boundary
+        .map((id) => pointById(scene, id))
+        .filter((p): p is GeoPoint => !!p)
+        .map((p) => `${p.x + pad},${p.y + pad}`)
+        .join(" ");
+      if (!pts) return null;
+      return (
+        <polygon
+          key={o.id}
+          points={pts}
+          fill={o.fill ?? "#2563eb"}
+          fillOpacity={o.opacity ?? 0.2}
+          stroke="none"
+        />
+      );
+    }
     case "label": {
       return (
         <text
