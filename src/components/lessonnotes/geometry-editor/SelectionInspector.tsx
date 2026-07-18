@@ -300,6 +300,7 @@ function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; select
       )}
       {segments.length >= 2 && (
         <SegmentBodyPanel
+          scene={scene}
           segment={segments[0]}
           onPatchAll={(p) => {
             let s = scene;
