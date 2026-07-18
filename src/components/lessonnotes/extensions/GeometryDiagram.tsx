@@ -69,10 +69,11 @@ function GeometryDiagramView({
     () => sanitizeV2Scene(node.attrs.sceneV2),
     [node.attrs.sceneV2],
   );
-  const scene: V2Scene = v2FromAttrs ?? useMemo(
+  const migrated = useMemo(
     () => migrateLegacyToV2(legacyScene),
     [legacyScene],
   );
+  const scene: V2Scene = v2FromAttrs ?? migrated;
 
   useEffect(() => {
     if (!v2FromAttrs) {
