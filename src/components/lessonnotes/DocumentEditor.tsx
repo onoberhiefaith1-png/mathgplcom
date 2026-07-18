@@ -25,6 +25,7 @@ import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/Geometr
 import { GeometryCanvas } from "./geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "./geometry-editor/useGeometryEditor";
 import { SelectionInspector } from "./geometry-editor/SelectionInspector";
+import { GeometryDiagram as StaticGeometryDiagram } from "./GeometryDiagram";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
 import { SmartCalcNode, type SmartCalcAttrs } from "./extensions/SmartCalc";
