@@ -5,7 +5,7 @@
 import { useRef, useState, useMemo } from "react";
 import type { GeometryScene, GeoPoint, GeoId } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
-import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, pickHit, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
 import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
 
@@ -33,17 +33,23 @@ export function GeometryCanvas({ editor }: Props) {
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
-  const W = scene.bounds.width + PAD * 2;
-  const H = scene.bounds.height + PAD * 2;
+  const { minX, minY, W, H } = computeSceneViewBox(scene, PAD);
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const rect = svg.getBoundingClientRect();
-    return {
-      x: ((e.clientX - rect.left) / rect.width) * W - PAD,
-      y: ((e.clientY - rect.top) / rect.height) * H - PAD,
-    };
+    // The SVG uses preserveAspectRatio="xMidYMid meet" (uniform scale +
+    // letterbox centring). Un-project the pointer with the same rule so
+    // clicks resolve to the exact logical coordinate under the cursor,
+    // regardless of container aspect or how far shapes extend past
+    // scene.bounds.
+    const scale = Math.min(rect.width / W, rect.height / H) || 1;
+    const offsetX = (rect.width - W * scale) / 2;
+    const offsetY = (rect.height - H * scale) / 2;
+    const vx = (e.clientX - rect.left - offsetX) / scale;
+    const vy = (e.clientY - rect.top - offsetY) / scale;
+    return { x: vx - PAD + minX, y: vy - PAD + minY };
   };
 
   /** Find or create a point at (x,y), preferring an existing point via snap. */
@@ -514,20 +520,24 @@ export function GeometryCanvas({ editor }: Props) {
         tabIndex={0}
 
       >
-        {/* Snap hint */}
-        {hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
-          <circle
-            cx={hover.snap.x + PAD}
-            cy={hover.snap.y + PAD}
-            r={hover.snap.pointId ? 6 : 3}
-            fill="none"
-            stroke="#2563eb"
-            strokeWidth={1}
-            opacity={0.7}
-          />
-        )}
-        {previews}
-        {halos}
+        {/* Match GeometryDiagram's translate so halos, hover ring and
+            previews sit exactly on the rendered shapes. */}
+        <g transform={`translate(${-minX}, ${-minY})`}>
+          {/* Snap hint */}
+          {hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
+            <circle
+              cx={hover.snap.x + PAD}
+              cy={hover.snap.y + PAD}
+              r={hover.snap.pointId ? 6 : 3}
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth={1}
+              opacity={0.7}
+            />
+          )}
+          {previews}
+          {halos}
+        </g>
       </svg>
 
       {inlineEdit && (
@@ -544,7 +554,7 @@ export function GeometryCanvas({ editor }: Props) {
             else if (e.key === "Escape") setInlineEdit(null);
           }}
           className="absolute text-xs px-1.5 py-1 rounded border border-primary bg-white shadow"
-          style={{ left: inlineEdit.x + PAD, top: inlineEdit.y + PAD, minWidth: 80 }}
+          style={{ left: inlineEdit.x + PAD - minX, top: inlineEdit.y + PAD - minY, minWidth: 80 }}
         />
       )}
     </div>

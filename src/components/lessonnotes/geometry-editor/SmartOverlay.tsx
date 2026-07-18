@@ -21,9 +21,15 @@ export function SmartOverlay({ width, height }: Props) {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const r = svg.getBoundingClientRect();
+    // preserveAspectRatio defaults to "xMidYMid meet" — un-project with
+    // uniform scale + letterbox centring so hover/selection lands on the
+    // exact part under the cursor regardless of container aspect ratio.
+    const scale = Math.min(r.width / width, r.height / height) || 1;
+    const offsetX = (r.width - width * scale) / 2;
+    const offsetY = (r.height - height * scale) / 2;
     return {
-      x: ((e.clientX - r.left) / r.width) * width - PAD,
-      y: ((e.clientY - r.top) / r.height) * height - PAD,
+      x: (e.clientX - r.left - offsetX) / scale - PAD,
+      y: (e.clientY - r.top - offsetY) / scale - PAD,
     };
   };
 

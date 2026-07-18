@@ -52,10 +52,12 @@ function renderParallelChevrons(
   }
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight }: Props) {
-  const pad = 24;
-  // Grow the viewBox to fit any object that extends past scene.bounds so
-  // nothing gets clipped — the whole lesson note is the drawing paper.
+/**
+ * Shared coordinate system for the diagram and its interaction layer.
+ * Both must use the same viewBox W/H and translate(-minX,-minY) so that
+ * pointer positions map to the exact rendered coordinates.
+ */
+export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   const ext = computeSceneExtent(scene);
   const minX = Math.min(0, ext.minX);
   const minY = Math.min(0, ext.minY);
@@ -63,6 +65,14 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   const maxY = Math.max(scene.bounds.height ?? 240, ext.maxY);
   const W = (maxX - minX) + pad * 2;
   const H = (maxY - minY) + pad * 2;
+  return { minX, minY, maxX, maxY, W, H, pad };
+}
+
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight }: Props) {
+  const pad = 24;
+  // Grow the viewBox to fit any object that extends past scene.bounds so
+  // nothing gets clipped — the whole lesson note is the drawing paper.
+  const { minX, minY, W, H } = computeSceneViewBox(scene, pad);
   const displayW = explicitWidth ?? (large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const displayH = explicitHeight ?? (displayW / W) * H;
 
