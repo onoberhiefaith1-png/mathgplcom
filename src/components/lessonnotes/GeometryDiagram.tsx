@@ -244,8 +244,8 @@ function renderObject(
           )}
           {distText && (
             <text x={distX} y={distY}
-              fontFamily={LABEL_FONT} fontSize={12}
-              fill={color} textAnchor="middle"
+              fontFamily={LABEL_FONT} fontSize={(o as any).distanceFontSize ?? 12}
+              fill={(o as any).distanceColor ?? color} textAnchor="middle"
             >
               {distText}
             </text>
