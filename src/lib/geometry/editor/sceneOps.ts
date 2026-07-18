@@ -329,6 +329,11 @@ export function eraseObject(scene: GeometryScene, id: GeoId): OpResult {
       else if (o.type === "angle" && (o.vertex === id || o.a === id || o.b === id)) drop.add(o.id);
       else if (o.type === "polygon" && o.points.includes(id)) drop.add(o.id);
       else if (o.type === "region" && o.boundary.includes(id)) drop.add(o.id);
+      else if (o.type === "curve") {
+        if (o.a === id || o.mid === id || o.b === id) drop.add(o.id);
+        else if (o.points?.includes(id)) drop.add(o.id);
+      }
+
     }
   }
   return ok(withObjects(scene, scene.objects.filter((o) => !drop.has(o.id))));
@@ -438,12 +443,16 @@ export function makeEquilateral(scene: GeometryScene, pointIds: GeoId[]): OpResu
   return movePoint(scene, cId, cx, cy);
 }
 
-/* ─── Curve through points ─────────────────────────────────────────── */
+/* ─── Curve through 3 points (quadratic Bezier) ────────────────────── */
 import type { GeoCurve } from "../scene";
 
 export function addCurve(scene: GeometryScene, pointIds: GeoId[]): OpResult {
   if (pointIds.length < 2) return ok(scene);
   const id = newId("cv", scene);
-  const curve: GeoCurve = { id, type: "curve", points: pointIds.slice() };
+  const [a, mid, b] = pointIds.length >= 3
+    ? [pointIds[0], pointIds[1], pointIds[2]]
+    : [pointIds[0], pointIds[0], pointIds[1]];
+  const curve: GeoCurve = { id, type: "curve", a, mid, b };
   return ok(withObjects(scene, [...scene.objects, curve]), [id]);
 }
+

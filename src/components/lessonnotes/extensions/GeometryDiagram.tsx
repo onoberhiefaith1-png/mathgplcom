@@ -95,6 +95,8 @@ function GeometryDiagramView({
         data-geometry-diagram-wrapper="true"
         data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
         className="relative inline-block"
+        style={{ overflow: "visible" }}
+
         onMouseEnter={kickAi}
         onMouseMove={kickAi}
         onFocus={kickAi}

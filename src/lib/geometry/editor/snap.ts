@@ -165,13 +165,32 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
         break;
       }
       case "curve": {
-        for (let k = 0; k < o.points.length - 1; k++) {
-          const a = pointById(scene, o.points[k]);
-          const b = pointById(scene, o.points[k + 1]);
-          if (a && b && distPointToSegment({ x, y }, a, b) <= hit) return { id: o.id, kind: "curve" };
+        const ids = o.a && o.mid && o.b ? [o.a, o.mid, o.b] : (o.points ?? []);
+        // Approximate curve body with several sample chords.
+        const pts = ids.map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
+        if (pts.length >= 3) {
+          const [pa, pm, pb] = pts;
+          const cx = 2 * pm.x - (pa.x + pb.x) / 2;
+          const cy = 2 * pm.y - (pa.y + pb.y) / 2;
+          const N = 12;
+          let prev = { x: pa.x, y: pa.y } as GeoPoint;
+          for (let i = 1; i <= N; i++) {
+            const t = i / N;
+            const it = 1 - t;
+            const sx = it * it * pa.x + 2 * it * t * cx + t * t * pb.x;
+            const sy = it * it * pa.y + 2 * it * t * cy + t * t * pb.y;
+            const next = { id: "", type: "point", x: sx, y: sy } as GeoPoint;
+            if (distPointToSegment({ x, y }, prev, next) <= hit) return { id: o.id, kind: "curve" };
+            prev = next;
+          }
+        } else if (pts.length >= 2) {
+          for (let k = 0; k < pts.length - 1; k++) {
+            if (distPointToSegment({ x, y }, pts[k], pts[k + 1]) <= hit) return { id: o.id, kind: "curve" };
+          }
         }
         break;
       }
+
       case "polygon": {
         for (let k = 0; k < o.points.length; k++) {
           const a = pointById(scene, o.points[k]);

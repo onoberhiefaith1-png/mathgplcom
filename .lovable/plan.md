@@ -1,44 +1,63 @@
-## Goal
+# Geometry Editor — Curve, Auto-Intersections, and Frameless Drawing
 
-Keep the previously-agreed parts of the plan (unified text styling for point labels + angle values + segment distances, distance workflow, straight-line 180° angle). Replace **only** the "highlight cardinality" section with the correct rule below.
+Three focused changes.
 
-## Correct highlight rule — "alight region ≤ 2 adjacent points"
+## 1. Curve tool — match the Graph's behavior
 
-A highlightable region is bounded by **at most two adjacent anchor points**. It never spans a third point.
+Today's geometry Curve is a multi-click Catmull-Rom smoothing that finishes on double-click. The teacher wants it to behave like the graph's curve: **exactly 3 clicks** — start, control (middle), end — producing a smooth curved line between the two endpoints, with the middle click bending the curve. Same interaction shape as the existing Arc tool, but rendered as a quadratic Bézier instead of a circular arc.
 
-- **0-point objects** (a full circle, a curve with no interior anchors): the whole shape highlights as one unit.
-- **1-point object** (a bare point / dot): just the dot highlights.
-- **2-point region** (a segment between two adjacent points): only that sub-segment highlights — never a chain that crosses a third point.
+Changes:
+- `src/lib/geometry/scene.ts` — extend `GeoCurve` with `a`, `mid`, `b` (three point IDs). Keep `points` as fallback for legacy data.
+- `src/lib/geometry/editor/sceneOps.ts` — `addCurve` now takes exactly 3 point IDs and stores them as `{a, mid, b}`.
+- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — Curve tool collects 3 clicks then commits (mirrors the `arc` case), removes the double-click-to-finish path for Curve.
+- `src/components/lessonnotes/GeometryDiagram.tsx` — render Curve as `M a Q mid b` quadratic Bézier; halo path matches.
 
-Concretely, on the current diagram: line D→O was drawn as one line, then point E was dropped on it. From that moment the diagram contains **two independent segments, DE and EO** — there is no "DO" anymore. Clicking anywhere between D and E highlights only DE; clicking between E and O highlights only EO. Both may be highlighted at the same time (multi-select), and when both are highlighted the angle tool offers a 180° angle at vertex E (teacher-editable to any value, flippable ▲/▼).
+## 2. Auto-insert points at every intersection
 
-### Why it's currently wrong
+Whenever any two structures cross, drop a point at that crossing automatically. Teacher can delete unwanted ones (existing behavior). This makes closed-region shading much easier to trigger.
 
-Auto-split on point-drop is already implemented in `sceneOps.addPoint` (via `findSegmentAt`), but at least one of these is likely still true and will be fixed:
+New module `src/lib/geometry/editor/intersections.ts`:
+- Pairwise intersection math for the pairs we actually have: segment×segment, segment×circle, segment×arc, segment×curve, circle×circle, circle×arc, circle×curve, arc×arc, arc×curve, curve×curve.
+- Returns a list of `{x, y, onA, onB}` hits with the two host object IDs.
 
-1. The original `DO` segment wasn't dropped when E was inserted — it still exists alongside DE and EO, so hit-testing picks up the long segment. Fix: ensure `addPoint` **removes** the parent segment when it splits it, and copies its style onto both children.
-2. The hit-test in `snap.pickHit` matches the long segment first because it's tested before the sub-segments. Fix: after §1 this becomes moot; also add a safety pass that, when multiple segments overlap a hit, prefers the shortest one.
-3. Older scenes saved before auto-split still have a spanning `DO`. Fix: on scene load, run a one-time normaliser that walks each segment and, for every existing point that lies on it (within tolerance), splits it — so legacy diagrams get the same behaviour without the teacher having to redraw.
+New `ensureIntersectionPoints(scene)` in the same file:
+- Walks all object pairs, finds crossings, dedupes against existing points (within snap radius), and for each new crossing:
+  - creates a `GeoPoint` with `auto: true` and a fresh default label,
+  - splits any segment/curve it lies on using existing `sceneOps` splitting helpers so the crossing point becomes a real vertex (as we already do when a Point is dropped on a segment),
+  - inherits styles onto the split children.
+- Idempotent: safe to run on every scene commit.
 
-### Multi-select cardinality (revised)
+Wiring:
+- `src/lib/geometry/scene.ts` — add optional `auto?: boolean` to `GeoPoint`.
+- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — after `normalizeScene`, run `ensureIntersectionPoints`. Run it again inside `apply`/`commit` so freshly-drawn structures immediately gain their intersections.
+- Erase behavior for `auto` points: same as today — deleting an auto-point can re-merge the split segments (existing `eraseObject` logic).
 
-- 1 highlighted → object inspector (point / segment / circle / arc / curve / label / angle value / distance chip).
-- 2 highlighted → relationship inspector. Angle placement is offered when the two highlighted items share a common endpoint — this covers both "corner" angles (DE + EF) and "straight-line" angles (DE + EO). Default value is the geometric angle at the shared vertex (180° when collinear), fully editable.
-- 3+ highlighted → bulk-only actions (colour, delete). No angle offered. The inspector shows: "Highlight at most 2 adjacent items to place an angle."
+Circles/arcs/curves aren't split by the intersection point today (only segments are). We'll extend the "split" path for curves (split a `GeoCurve` at parameter `t` into two curves) so shading enclosed regions works when a curve is one side of the boundary. Arcs and circles remain a single object; the point just sits on them (the region walker in `regions.ts` already handles arc/circle boundaries via endpoint incidence, which is enough now that the intersections become real vertices).
 
-## Files to touch (delta from prior plan)
+## 3. Remove the diagram frame — whole lesson note is the drawing paper
 
-```text
-src/lib/geometry/editor/sceneOps.ts      (addPoint: drop parent segment on split, copy style to children)
-src/lib/geometry/editor/snap.ts          (prefer shortest segment on tie; new hit kinds from prior plan)
-src/lib/geometry/editor/normalize.ts     (new: legacy-scene splitter run on load)
-src/components/lessonnotes/geometry-editor/useGeometryEditor.ts (call normaliser once when scene comes in)
-src/components/lessonnotes/geometry-editor/SelectionInspector.tsx (cardinality guard + collinear→180°)
-```
+Currently every `GeometryDiagram` node renders an inline-block SVG sized to `scene.bounds`. Anything drawn outside those bounds is clipped, and the node sits in normal document flow so it can't visually overlap the paragraphs above/below.
 
-Everything else from the previous plan (unified Text panel for labels / angle values / distances, distance add-flow, ▲/▼ flip, undo integration) stays as previously described.
+New model: a **single page-wide drawing overlay** per lesson note.
+
+- `src/components/lessonnotes/DocumentEditor.tsx` — wrap the notebook body in a `position: relative` container and mount one `<GeometryOverlay/>` absolutely positioned over it (`inset: 0`, `pointer-events: none` by default, `pointer-events: auto` when Geometry mode is active).
+- New `src/components/lessonnotes/geometry-editor/GeometryOverlay.tsx`:
+  - Collects every `geometryDiagram` node in the current document via TipTap (`editor.state.doc.descendants`) and merges their scenes into one virtual scene, offsetting each by the DOM position of its anchor node so shapes stay attached to the paragraph they were created next to.
+  - Renders one full-height SVG (width = notebook column width, height = notebook scroll height) with no border, no background — pure ink over the paper.
+  - Routes pointer events to the active node's editor (the one currently `selected` in TipTap), so drawing still commits to that node's `scene`.
+- `src/components/lessonnotes/extensions/GeometryDiagram.tsx`:
+  - Node view becomes a **zero-height anchor**: renders nothing visible itself, just registers its position and scene with the overlay via context.
+  - Selected state still opens the toolbox/inspector; live drawing is done on the overlay canvas.
+- `scene.bounds` is no longer a clip. `GeometryDiagram.tsx` (static renderer) drops the SVG `width/height` constraints and renders into whatever viewport the overlay gives it. Individual scenes can now extend beyond their historical bounds; bounds auto-grow as points are added.
+
+Net effect: the teacher can draw from the top of the page to the bottom, across paragraphs and other diagrams, and scroll to see the full shape. Existing diagrams keep working because each still owns its own scene — the overlay just paints them on the same infinite canvas.
+
+## Verification
+
+- Curve tool: 3 clicks produce a smooth curve; the middle click controls the bend. Selecting the curve still opens the segment-style inspector.
+- Drop a circle across an existing segment: points appear at both crossings, segment dissects into three parts, each independently editable and highlightable.
+- Draw a line starting in Example 5 and ending in Example 4: the ink extends across paragraphs; scrolling reveals both ends; no frame is visible.
 
 ## Out of scope
 
-- Splitting a segment when a point is *moved* onto it after creation (only drop-time splitting is handled). If you want move-time splitting too, say so.
-- Merging DE + EO back into DO when point E is deleted — the earlier plan already covered this via collinear merge in `eraseObject`; no change.
+No changes to the toolbox, inspector, angle editor, or distance chips — those already work per the previous turn.

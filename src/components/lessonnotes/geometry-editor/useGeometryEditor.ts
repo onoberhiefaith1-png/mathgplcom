@@ -9,7 +9,12 @@ import type { ToolId } from "@/lib/geometry/editor/tools";
 import { emptyHistory, push, undo, redo, type History } from "@/lib/geometry/editor/history";
 import type { OpResult } from "@/lib/geometry/editor/sceneOps";
 import { normalizeScene } from "@/lib/geometry/editor/normalize";
+import { ensureIntersectionPoints } from "@/lib/geometry/editor/intersections";
 import type { HitKind } from "@/lib/geometry/editor/snap";
+
+const normalise = (s: GeometryScene): GeometryScene =>
+  ensureIntersectionPoints(normalizeScene(s));
+
 
 export interface UseGeometryEditorReturn {
   scene: GeometryScene;
@@ -44,7 +49,7 @@ export function useGeometryEditor(
   initial: GeometryScene,
   onChange: (s: GeometryScene) => void,
 ): UseGeometryEditorReturn {
-  const [scene, setScene] = useState<GeometryScene>(() => normalizeScene(initial));
+  const [scene, setScene] = useState<GeometryScene>(() => normalise(initial));
   const [history, setHistory] = useState<History>(emptyHistory());
   const [tool, setTool] = useState<ToolId>("select");
   const [selectedIds, setSelectedIdsState] = useState<GeoId[]>([]);
@@ -64,7 +69,7 @@ export function useGeometryEditor(
   // persists the split segments (otherwise legacy DE-DO would re-appear
   // on the next reload).
   useEffect(() => {
-    const normalised = normalizeScene(initial);
+    const normalised = normalise(initial);
     if (JSON.stringify(normalised) !== initialJson) {
       onChangeRef.current(normalised);
     }
@@ -76,7 +81,7 @@ export function useGeometryEditor(
   useEffect(() => {
     if (sceneJsonRef.current === initialJson) return;
     sceneJsonRef.current = initialJson;
-    setScene(normalizeScene(initial));
+    setScene(normalise(initial));
     setHistory(emptyHistory());
     setSelectedIdsState((prev) => (prev.length ? [] : prev));
     setSelectionKind(null);
@@ -84,11 +89,13 @@ export function useGeometryEditor(
   }, [initial, initialJson]);
 
   const commit = useCallback((next: GeometryScene) => {
-    sceneJsonRef.current = JSON.stringify(next);
+    const normalised = ensureIntersectionPoints(next);
+    sceneJsonRef.current = JSON.stringify(normalised);
     setHistory((h) => push(h, scene));
-    setScene(next);
-    onChangeRef.current(next);
+    setScene(normalised);
+    onChangeRef.current(normalised);
   }, [scene]);
+
 
   const apply = useCallback((op: OpResult) => {
     if (op.scene === scene) return;
