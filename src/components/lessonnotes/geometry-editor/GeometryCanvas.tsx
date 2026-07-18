@@ -426,6 +426,23 @@ export function GeometryCanvas({ editor }: Props) {
       <line key="pv" x1={last.x + PAD} y1={last.y + PAD} x2={hover.snap.x + PAD} y2={hover.snap.y + PAD} stroke="#10b981" strokeWidth={1.2} strokeDasharray="4 3" />,
     );
   }
+  if (tool === "curve" && pendingIds.length > 0) {
+    const anchors = pendingIds
+      .map((id) => pointById(scene, id))
+      .filter(Boolean) as GeoPoint[];
+    const pts = anchors.map((p) => ({ x: p.x + PAD, y: p.y + PAD }));
+    if (hover) pts.push({ x: hover.snap.x + PAD, y: hover.snap.y + PAD });
+    if (pts.length >= 2) {
+      previews.push(
+        <path key="cv-pv" d={catmullRomPreview(pts)} fill="none"
+          stroke="#10b981" strokeWidth={1.4} strokeDasharray="4 3" strokeLinecap="round" />,
+      );
+    }
+    // Show anchors as small dots for feedback
+    anchors.forEach((a, i) => previews.push(
+      <circle key={`cv-a${i}`} cx={a.x + PAD} cy={a.y + PAD} r={2.4} fill="#10b981" />,
+    ));
+  }
   if (circleDrag) {
     previews.push(
       <circle key="cd" cx={circleDrag.cx + PAD} cy={circleDrag.cy + PAD} r={circleDrag.r} fill="none" stroke="#10b981" strokeWidth={1.2} strokeDasharray="4 3" />,
