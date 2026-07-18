@@ -4,8 +4,9 @@
 // line sections, etc.
 
 import { useState, useMemo } from "react";
-import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoId } from "@/lib/geometry/scene";
-import { patchObject, addAngle } from "@/lib/geometry/editor/sceneOps";
+import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoLabel, GeoId } from "@/lib/geometry/scene";
+import { pointById } from "@/lib/geometry/scene";
+import { patchObject, addAngle, addFloatingLabel } from "@/lib/geometry/editor/sceneOps";
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
@@ -53,7 +54,7 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
     return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
   if (effective === "segmentBody" && primary.type === "segment") {
-    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Segment · ${primary.label ?? labelForSegment(scene, primary)}`} />;
+    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => onApply(addFloatingLabelAtShape(scene, primary))} />;
   }
   if (effective === "angleValue" && primary.type === "angle") {
     return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
@@ -64,9 +65,12 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
   if (primary.type === "region") {
     return <RegionPanel scene={scene} region={primary} onApply={onApply} />;
   }
+  if (primary.type === "label") {
+    return <LabelPanel label={primary} onPatch={(p) => patch(primary.id, p)} onDelete={() => onApply({ ...scene, objects: scene.objects.filter((o) => o.id !== primary.id) })} />;
+  }
 
   if (primary.type === "circle" || primary.type === "arc" || primary.type === "curve") {
-    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} />;
+    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} onAddText={() => onApply(addFloatingLabelAtShape(scene, primary))} />;
   }
 
   // Fallback minimal editor for other kinds
@@ -78,7 +82,7 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
   );
 }
 
-function FillablePanel({ obj, onPatch }: { obj: { id: string; type: string; fill?: string; fillOpacity?: number; dashed?: boolean }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean }>) => void }) {
+function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: string; fill?: string; fillOpacity?: number; dashed?: boolean }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean }>) => void; onAddText?: () => void }) {
   const [enabled, setEnabled] = useState<boolean>(!!obj.fill);
   const [color, setColor] = useState<string>(obj.fill ?? "#3b82f6");
   const [opacity, setOpacity] = useState<number>(obj.fillOpacity ?? 0.2);
@@ -110,9 +114,97 @@ function FillablePanel({ obj, onPatch }: { obj: { id: string; type: string; fill
         <input type="checkbox" checked={!!obj.dashed} onChange={(e) => onPatch({ dashed: e.target.checked })} />
         <span>Dashed</span>
       </label>
+      {onAddText && (
+        <button
+          type="button"
+          onClick={onAddText}
+          className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+        >
+          + Add text
+        </button>
+      )}
     </div>
   );
 }
+
+/* ─────── Floating label (universal text) ─────── */
+function LabelPanel({ label, onPatch, onDelete }: { label: GeoLabel; onPatch: (p: Partial<GeoLabel>) => void; onDelete: () => void }) {
+  return (
+    <div className="space-y-2 text-xs">
+      <Header>Text</Header>
+      <Row label="Text">
+        <input
+          value={label.text}
+          onChange={(e) => onPatch({ text: e.target.value })}
+          placeholder="Landmark"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        />
+      </Row>
+      <Row label="Size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={9} max={40} step={1}
+            value={label.fontSize ?? 13}
+            onChange={(e) => onPatch({ fontSize: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{label.fontSize ?? 13}</span>
+        </div>
+      </Row>
+      <Row label="Colour">
+        <input
+          type="color"
+          value={label.color ?? "#1f1f24"}
+          onChange={(e) => onPatch({ color: e.target.value })}
+          className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
+        />
+      </Row>
+      <Row label="Rotate">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={-180} max={180} step={5}
+            value={label.rotation ?? 0}
+            onChange={(e) => onPatch({ rotation: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-8 text-foreground/60">{label.rotation ?? 0}°</span>
+        </div>
+      </Row>
+      <p className="text-[10px] text-foreground/55">Drag the text on the canvas to move it anywhere.</p>
+      <button type="button" onClick={onDelete} className="text-[11px] text-destructive underline">Remove text</button>
+    </div>
+  );
+}
+
+/** Helper: drop a floating label somewhere sensible for a shape. */
+function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject): GeometryScene {
+  let x = 20, y = 20;
+  if (obj.type === "circle" || obj.type === "arc") {
+    const c = pointById(scene, obj.center);
+    if (c) { x = c.x; y = c.y; }
+  } else if (obj.type === "curve") {
+    const anchors = obj.a && obj.mid && obj.b
+      ? [obj.a, obj.mid, obj.b]
+      : (obj.points ?? []);
+    const mids = anchors.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+    if (mids.length) {
+      x = mids.reduce((a, p) => a + p.x, 0) / mids.length;
+      y = mids.reduce((a, p) => a + p.y, 0) / mids.length;
+    }
+  } else if (obj.type === "segment") {
+    const a = pointById(scene, obj.a); const b = pointById(scene, obj.b);
+    if (a && b) { x = (a.x + b.x) / 2; y = (a.y + b.y) / 2 - 14; }
+  } else if (obj.type === "region") {
+    const pts = obj.boundary.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+    if (pts.length) {
+      x = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+      y = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+    }
+  }
+  return addFloatingLabel(scene, x, y, "Text").scene;
+}
+
+
 
 
 /* ─────── Multi-selection ─────── */
@@ -467,6 +559,18 @@ function RegionCreatePanel({
           Remove fill
         </button>
       )}
+      <button
+        type="button"
+        onClick={() => {
+          const pts = boundary.map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+          const cx = pts.reduce((a, p) => a + p.x, 0) / (pts.length || 1);
+          const cy = pts.reduce((a, p) => a + p.y, 0) / (pts.length || 1);
+          onApply(addFloatingLabel(scene, cx, cy, "Text").scene);
+        }}
+        className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+      >
+        + Add text inside
+      </button>
     </div>
   );
 }
@@ -651,8 +755,8 @@ function AngleValueTextPanel({ angle, onPatch }: { angle: GeoAngle; onPatch: (p:
 
 /* ─────── Segment body ─────── */
 function SegmentBodyPanel({
-  segment, onPatchAll, count, title,
-}: { segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string }) {
+  segment, onPatchAll, count, title, onAddText,
+}: { segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string; onAddText?: () => void }) {
   const dashedMode: "solid" | "dotted" | "dashed" =
     segment.dashed === true ? "dashed" : segment.dashed === "dotted" ? "dotted" : "solid";
   const arrow = segment.arrow ?? "none";
@@ -740,6 +844,15 @@ function SegmentBodyPanel({
           className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
         />
       </Row>
+      {onAddText && (
+        <button
+          type="button"
+          onClick={onAddText}
+          className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+        >
+          + Add text
+        </button>
+      )}
     </div>
   );
 }
