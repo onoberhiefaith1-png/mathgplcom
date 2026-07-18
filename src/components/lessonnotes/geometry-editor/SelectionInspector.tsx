@@ -3,11 +3,12 @@
 // so a Point shows only Point props, a Segment body shows the foldable
 // line sections, etc.
 
-import { useState } from "react";
-import type { GeometryScene, GeoObject, GeoPoint, GeoSegment } from "@/lib/geometry/scene";
-import { patchObject } from "@/lib/geometry/editor/sceneOps";
+import { useState, useMemo } from "react";
+import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoId } from "@/lib/geometry/scene";
+import { patchObject, addAngle } from "@/lib/geometry/editor/sceneOps";
+import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import type { HitKind } from "@/lib/geometry/editor/snap";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 
 interface Props {
   scene: GeometryScene;
@@ -25,6 +26,11 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
     );
   }
 
+  // ─── Multi-selection routing ─────────────────────────────────────────
+  if (selected.length >= 2) {
+    return <MultiPanel scene={scene} selected={selected} onApply={onApply} />;
+  }
+
   const primary = selected[0];
   const effective: HitKind =
     kind ??
@@ -33,11 +39,6 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
       : (primary.type as HitKind));
 
   const patch = (id: string, p: Partial<GeoObject>) => onApply(patchObject(scene, id, p).scene);
-  const patchAll = (p: Partial<GeoObject>) => {
-    let s = scene;
-    for (const o of selected) s = patchObject(s, o.id, p).scene;
-    onApply(s);
-  };
 
   if (effective === "point" && primary.type === "point") {
     return <PointPanel point={primary} onPatch={(p) => patch(primary.id, p)} />;
@@ -52,7 +53,13 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
     return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
   if (effective === "segmentBody" && primary.type === "segment") {
-    return <SegmentBodyPanel segment={primary} onPatchAll={patchAll} count={selected.length} />;
+    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Segment · ${primary.label ?? labelForSegment(scene, primary)}`} />;
+  }
+  if (primary.type === "angle") {
+    return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} />;
+  }
+  if (primary.type === "region") {
+    return <RegionPanel scene={scene} region={primary} onApply={onApply} />;
   }
 
   // Fallback minimal editor for other kinds
@@ -61,6 +68,368 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
       <p className="uppercase tracking-wider mb-1">{primary.type}</p>
       <p>No editable properties yet.</p>
     </div>
+  );
+}
+
+/* ─────── Multi-selection ─────── */
+function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; selected: GeoObject[]; onApply: (s: GeometryScene) => void }) {
+  const segments = selected.filter((o): o is GeoSegment => o.type === "segment");
+  const points = selected.filter((o): o is GeoPoint => o.type === "point");
+  const title = titleFor(scene, selected);
+
+  // Try to detect a closed cycle from the selected segments for region shading.
+  const region = useMemo(() => cycleFromSegments(scene, segments.map((s) => s.id)), [scene, segments]);
+
+  // Look for an existing angle that matches the current selection (a segment
+  // pair or a point triple), so re-clicking those items reveals its editor.
+  const existingAngle = useMemo<GeoAngle | null>(() => {
+    if (segments.length === 2) {
+      const shared = sharedEndpoint(segments[0], segments[1]);
+      if (!shared) return null;
+      const armA = segments[0].a === shared ? segments[0].b : segments[0].a;
+      const armB = segments[1].a === shared ? segments[1].b : segments[1].a;
+      return (
+        scene.objects.find(
+          (o): o is GeoAngle =>
+            o.type === "angle" &&
+            o.vertex === shared &&
+            ((o.a === armA && o.b === armB) || (o.a === armB && o.b === armA)),
+        ) ?? null
+      );
+    }
+    return null;
+  }, [scene, segments]);
+
+  return (
+    <div className="space-y-2 text-xs">
+      <Header>{title}</Header>
+
+      {segments.length >= 2 && (
+        <AngleFromSegmentsPanel
+          scene={scene}
+          segments={segments}
+          existing={existingAngle}
+          onApply={onApply}
+        />
+      )}
+
+      {points.length >= 2 && segments.length === 0 && (
+        <AngleFromPointsPanel scene={scene} points={points} onApply={onApply} />
+      )}
+
+      {region && (
+        <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+      )}
+
+      {segments.length >= 2 && !existingAngle && (
+        <div className="rounded border border-foreground/10 p-2 text-[10px] text-foreground/55">
+          Shared style controls apply to all {segments.length} segments.
+        </div>
+      )}
+      {segments.length >= 2 && (
+        <SegmentBodyPanel
+          segment={segments[0]}
+          onPatchAll={(p) => {
+            let s = scene;
+            for (const seg of segments) s = patchObject(s, seg.id, p).scene;
+            onApply(s);
+          }}
+          count={segments.length}
+          title={`${segments.length} segments`}
+        />
+      )}
+    </div>
+  );
+}
+
+function labelForSegment(scene: GeometryScene, s: GeoSegment): string {
+  const a = scene.objects.find((o) => o.id === s.a) as GeoPoint | undefined;
+  const b = scene.objects.find((o) => o.id === s.b) as GeoPoint | undefined;
+  return `${a?.label ?? s.a}${b?.label ?? s.b}`;
+}
+
+function titleFor(scene: GeometryScene, sel: GeoObject[]): string {
+  if (sel.length === 1) {
+    const o = sel[0];
+    if (o.type === "point") return `POINT · ${o.label ?? o.id}`;
+    if (o.type === "segment") return `LINE · ${labelForSegment(scene, o)}`;
+    return o.type.toUpperCase();
+  }
+  const segs = sel.filter((o) => o.type === "segment") as GeoSegment[];
+  const pts = sel.filter((o) => o.type === "point") as GeoPoint[];
+  if (segs.length === sel.length) {
+    return `${segs.length} SEGMENTS · ${segs.map((s) => labelForSegment(scene, s)).join(", ")}`;
+  }
+  if (pts.length === sel.length) {
+    return `${pts.length} POINTS · ${pts.map((p) => p.label ?? p.id).join(", ")}`;
+  }
+  return `SELECTION · ${sel.length} items`;
+}
+
+function sharedEndpoint(a: GeoSegment, b: GeoSegment): GeoId | null {
+  if (a.a === b.a || a.a === b.b) return a.a;
+  if (a.b === b.a || a.b === b.b) return a.b;
+  return null;
+}
+
+/* ─────── Angle (from 2 segments) ─────── */
+function AngleFromSegmentsPanel({
+  scene, segments, existing, onApply,
+}: {
+  scene: GeometryScene;
+  segments: GeoSegment[];
+  existing: GeoAngle | null;
+  onApply: (s: GeometryScene) => void;
+}) {
+  const shared = sharedEndpoint(segments[0], segments[1]);
+  if (!shared) {
+    return (
+      <div className="rounded border border-foreground/10 p-2 text-[10px] text-foreground/55">
+        These two segments do not share a point, so no angle vertex exists.
+      </div>
+    );
+  }
+  const [value, setValue] = useState<string>(existing?.value ?? "");
+  const armA = segments[0].a === shared ? segments[0].b : segments[0].a;
+  const armB = segments[1].a === shared ? segments[1].b : segments[1].a;
+
+  const commit = (patch: Partial<GeoAngle>) => {
+    if (existing) {
+      onApply(patchObject(scene, existing.id, patch as any).scene);
+    } else {
+      const withText = value.trim().length > 0
+        ? (value.match(/^-?\d+(\.\d+)?$/) ? `${value}°` : value)
+        : undefined;
+      const op = addAngle(scene, shared, armA, armB, withText);
+      // Apply any additional patch (e.g. reflex) immediately after creating.
+      let s = op.scene;
+      const id = op.addedIds[0];
+      if (Object.keys(patch).length) s = patchObject(s, id, patch as any).scene;
+      onApply(s);
+    }
+  };
+
+  const flip = (dir: "up" | "down") => {
+    // Up = go to the opposite (reflex) side. Down = come back to internal.
+    commit({ reflex: dir === "up" });
+  };
+
+  return (
+    <div className="rounded border border-foreground/10 p-2 space-y-2">
+      <Header>Angle at vertex</Header>
+      <div className="flex items-center gap-1">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => {
+            const text = value.trim();
+            const rendered = text.length === 0 ? undefined
+              : text.match(/^-?\d+(\.\d+)?$/) ? `${text}°` : text;
+            commit({ value: rendered });
+          }}
+          placeholder="30, 180, x + 40 …"
+          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        />
+        <div className="flex flex-col">
+          <button
+            type="button"
+            onClick={() => flip("up")}
+            title="Flip to opposite side"
+            className={`px-1.5 py-0.5 rounded-t border text-[10px] ${
+              existing?.reflex ? "bg-primary text-primary-foreground border-primary" : "border-foreground/20 bg-background hover:bg-muted"
+            }`}
+          >
+            <ChevronUp className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => flip("down")}
+            title="Bring to inside"
+            className={`px-1.5 py-0.5 rounded-b border-x border-b text-[10px] ${
+              !existing?.reflex && existing ? "bg-primary text-primary-foreground border-primary" : "border-foreground/20 bg-background hover:bg-muted"
+            }`}
+          >
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+      {existing && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-foreground/70">Marker</span>
+          <div className="flex gap-1">
+            {(["arc", "double", "right"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => commit({ marker: m })}
+                className={`px-2 py-0.5 rounded border text-[11px] ${
+                  existing.marker === m
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-foreground/20 bg-background hover:bg-muted"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {!existing && (
+        <p className="text-[10px] text-foreground/55">
+          Type a value or press ▲/▼ to insert the angle at this vertex.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─────── Angle (from selected points) ─────── */
+function AngleFromPointsPanel({
+  scene, points, onApply,
+}: { scene: GeometryScene; points: GeoPoint[]; onApply: (s: GeometryScene) => void }) {
+  const [vertex, setVertex] = useState<GeoId>(points[1]?.id ?? points[0].id);
+  const [value, setValue] = useState("");
+  if (points.length < 3) {
+    return (
+      <div className="rounded border border-foreground/10 p-2 text-[10px] text-foreground/55">
+        Select one more point to define an angle (3 points: arm, vertex, arm).
+      </div>
+    );
+  }
+  const others = points.filter((p) => p.id !== vertex);
+  const commit = () => {
+    if (others.length < 2) return;
+    const text = value.trim();
+    const rendered = text.length === 0 ? undefined
+      : text.match(/^-?\d+(\.\d+)?$/) ? `${text}°` : text;
+    const op = addAngle(scene, vertex, others[0].id, others[1].id, rendered);
+    onApply(op.scene);
+  };
+  return (
+    <div className="rounded border border-foreground/10 p-2 space-y-2">
+      <Header>Angle from points</Header>
+      <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-[11px]">
+        <span className="text-foreground/70">Vertex</span>
+        <select
+          value={vertex}
+          onChange={(e) => setVertex(e.target.value)}
+          className="bg-white text-black border border-foreground/20 rounded px-1 py-0.5"
+        >
+          {points.map((p) => (
+            <option key={p.id} value={p.id}>{p.label ?? p.id}</option>
+          ))}
+        </select>
+      </label>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="30, 180, x + 40 …"
+        className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+      />
+      <button
+        type="button"
+        onClick={commit}
+        className="text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+      >
+        Insert angle
+      </button>
+    </div>
+  );
+}
+
+/* ─────── Angle (existing single-select) ─────── */
+function AngleEditPanel({ scene, angle, onApply }: { scene: GeometryScene; angle: GeoAngle; onApply: (s: GeometryScene) => void }) {
+  const [value, setValue] = useState(angle.value ?? "");
+  const patch = (p: Partial<GeoAngle>) => onApply(patchObject(scene, angle.id, p as any).scene);
+  return (
+    <div className="space-y-2 text-xs">
+      <Header>Angle</Header>
+      <div className="flex items-center gap-1">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => {
+            const text = value.trim();
+            const rendered = text.length === 0 ? undefined
+              : text.match(/^-?\d+(\.\d+)?$/) ? `${text}°` : text;
+            patch({ value: rendered });
+          }}
+          placeholder="30, 180, x + 40 …"
+          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        />
+        <div className="flex flex-col">
+          <button type="button" onClick={() => patch({ reflex: true })}
+            className={`px-1.5 py-0.5 rounded-t border text-[10px] ${angle.reflex ? "bg-primary text-primary-foreground border-primary" : "border-foreground/20 bg-background hover:bg-muted"}`}>
+            <ChevronUp className="h-3 w-3" />
+          </button>
+          <button type="button" onClick={() => patch({ reflex: false })}
+            className={`px-1.5 py-0.5 rounded-b border-x border-b text-[10px] ${!angle.reflex ? "bg-primary text-primary-foreground border-primary" : "border-foreground/20 bg-background hover:bg-muted"}`}>
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────── Region create / edit ─────── */
+function RegionCreatePanel({
+  scene, boundary, onApply,
+}: { scene: GeometryScene; boundary: GeoId[]; onApply: (s: GeometryScene) => void }) {
+  const existing = scene.objects.find(
+    (o): o is GeoRegion =>
+      o.type === "region" &&
+      o.boundary.length === boundary.length &&
+      o.boundary.every((id) => boundary.includes(id)),
+  );
+  const [fill, setFill] = useState(existing?.fill ?? "#2563eb");
+  const [opacity, setOpacity] = useState(existing?.opacity ?? 0.2);
+
+  const upsert = (patch: Partial<GeoRegion>) => {
+    if (existing) {
+      onApply(patchObject(scene, existing.id, patch as any).scene);
+      return;
+    }
+    const id = `rg${scene.objects.length + 1}`;
+    const region: GeoRegion = { id, type: "region", boundary, fill, opacity, ...patch };
+    onApply({ ...scene, objects: [...scene.objects, region] });
+  };
+
+  return (
+    <div className="rounded border border-foreground/10 p-2 space-y-2">
+      <Header>Area / Fill (enclosed)</Header>
+      <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-[11px]">
+        <span className="text-foreground/70">Colour</span>
+        <input
+          type="color" value={fill}
+          onChange={(e) => { setFill(e.target.value); upsert({ fill: e.target.value }); }}
+          className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
+        />
+      </label>
+      <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-[11px]">
+        <span className="text-foreground/70">Opacity</span>
+        <input
+          type="range" min={0.05} max={0.9} step={0.05}
+          value={opacity}
+          onChange={(e) => { const v = Number(e.target.value); setOpacity(v); upsert({ opacity: v }); }}
+        />
+      </label>
+      {existing && (
+        <button
+          type="button"
+          onClick={() => onApply({ ...scene, objects: scene.objects.filter((o) => o.id !== existing.id) })}
+          className="text-[11px] text-destructive underline"
+        >
+          Remove fill
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RegionPanel({ scene, region, onApply }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void }) {
+  return (
+    <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
   );
 }
 
