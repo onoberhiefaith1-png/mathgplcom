@@ -29,6 +29,29 @@ const ACCENT_CHG = "#f59e0b";
 const ACCENT_DEL = "#ef4444";
 const LABEL_FONT = "'Times New Roman', Georgia, serif";
 
+function renderParallelChevrons(
+  out: React.ReactNode[],
+  mx: number, my: number,
+  dx: number, dy: number, len: number,
+  nx: number, ny: number,
+  count: number, color: string, sw: number,
+) {
+  const ux = dx / len, uy = dy / len;
+  const spacing = 4;
+  for (let i = 0; i < count; i++) {
+    const offset = (i - (count - 1) / 2) * spacing;
+    const cx = mx + ux * offset;
+    const cy = my + uy * offset;
+    out.push(
+      <polyline
+        key={`pa${i}`}
+        points={`${cx - ux * 4 - nx * 3},${cy - uy * 4 - ny * 3} ${cx + ux * 4},${cy + uy * 4} ${cx - ux * 4 + nx * 3},${cy - uy * 4 + ny * 3}`}
+        fill="none" stroke={color} strokeWidth={sw}
+      />,
+    );
+  }
+}
+
 export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight }: Props) {
   const pad = 24;
   const W = (scene.bounds.width ?? 360) + pad * 2;
