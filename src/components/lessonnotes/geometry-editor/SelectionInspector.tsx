@@ -65,9 +65,12 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
   if (primary.type === "region") {
     return <RegionPanel scene={scene} region={primary} onApply={onApply} />;
   }
+  if (primary.type === "label") {
+    return <LabelPanel label={primary} onPatch={(p) => patch(primary.id, p)} onDelete={() => onApply({ ...scene, objects: scene.objects.filter((o) => o.id !== primary.id) })} />;
+  }
 
   if (primary.type === "circle" || primary.type === "arc" || primary.type === "curve") {
-    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} />;
+    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} onAddText={() => onApply(addFloatingLabelAtShape(scene, primary))} />;
   }
 
   // Fallback minimal editor for other kinds
