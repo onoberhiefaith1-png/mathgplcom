@@ -103,7 +103,9 @@ export function GeometryCanvas({ editor }: Props) {
     const p = toLogical(e);
     const sn = snap(scene, p.x, p.y);
     const hit = pickHit(scene, p.x, p.y);
-    const hitId = hit?.id ?? null;
+    const rawId = hit?.id ?? null;
+    const hitId = rawId ? rawId.split("#")[0] : null;
+
 
 
 
