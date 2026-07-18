@@ -73,6 +73,10 @@ export interface GeoCircle {
   r: number;
   label?: string;
   dashed?: boolean;
+  /** Fill color for enclosed disk. */
+  fill?: string;
+  /** Fill opacity 0..1. */
+  fillOpacity?: number;
 }
 export interface GeoArc {
   id: GeoId;
@@ -82,7 +86,10 @@ export interface GeoArc {
   from: number; // degrees, ccw from +x
   to: number;
   dashed?: boolean;
+  fill?: string;
+  fillOpacity?: number;
 }
+
 export interface GeoAngle {
   id: GeoId;
   type: "angle";
