@@ -584,9 +584,20 @@ function RegionCreatePanel({
   );
 }
 
-function RegionPanel({ scene, region, onApply }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void }) {
+function RegionPanel({ scene, region, onApply, onAddText }: { scene: GeometryScene; region: GeoRegion; onApply: (s: GeometryScene) => void; onAddText?: () => void }) {
   return (
-    <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+    <div className="space-y-2">
+      <RegionCreatePanel scene={scene} boundary={region.boundary} onApply={onApply} />
+      {onAddText && (
+        <button
+          type="button"
+          onClick={onAddText}
+          className="w-full text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
+        >
+          + Add text inside
+        </button>
+      )}
+    </div>
   );
 }
 
