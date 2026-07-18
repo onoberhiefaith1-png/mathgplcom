@@ -100,14 +100,18 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       viewBox={`0 0 ${W} ${H}`}
       width={displayW}
       height={displayH}
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio="none"
       className={className}
       style={{ background: "transparent", overflow: "visible" }}
     >
-      <g transform={`translate(${translateX}, ${translateY})`}>{elements}</g>
+      <g transform={`translate(${translateX}, ${translateY})`}>
+        {elements}
+        {renderAnnotationsLayer(scene, originPad)}
+      </g>
     </svg>
   );
 }
+
 
 
 function computeSceneExtent(scene: GeometryScene): { minX: number; minY: number; maxX: number; maxY: number } {
@@ -514,4 +518,42 @@ function catmullRomPath(pts: { x: number; y: number }[]): string {
     d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
   }
   return d;
+}
+
+// ── Annotations layer (universal text pins) ────────────────────────────
+import { annotationAnchor } from "@/lib/geometry/editor/annotations";
+
+function renderAnnotationsLayer(scene: GeometryScene, pad: number): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  for (const o of scene.objects) {
+    const anns = (o as any).annotations as
+      | Array<{ id: string; text: string; offset?: { dx: number; dy: number }; rotation?: number; fontSize?: number; color?: string }>
+      | undefined;
+    if (!anns || anns.length === 0) continue;
+    const anchor = annotationAnchor(scene, o);
+    if (!anchor) continue;
+    for (const a of anns) {
+      const ax = anchor.x + pad + (a.offset?.dx ?? 0);
+      const ay = anchor.y + pad + (a.offset?.dy ?? 0);
+      out.push(
+        <text
+          key={`${o.id}-${a.id}`}
+          x={ax}
+          y={ay}
+          fontFamily={LABEL_FONT}
+          fontSize={a.fontSize ?? 13}
+          fill={a.color ?? STROKE}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          transform={a.rotation ? `rotate(${a.rotation}, ${ax}, ${ay})` : undefined}
+          data-annotation-owner={o.id}
+          data-annotation-id={a.id}
+          style={{ userSelect: "none" }}
+        >
+          {a.text}
+        </text>,
+      );
+    }
+  }
+  return out;
 }

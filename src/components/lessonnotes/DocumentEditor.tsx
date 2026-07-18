@@ -1792,10 +1792,13 @@ function NotebookGeometryOverlay({
     },
   }), [storedScene, paperSize.width, paperSize.height]);
 
-  const geometryEditor = useGeometryEditor(scene, (next) => {
+  // Pass the raw stored scene to the editor so selection isn't cleared
+  // when the paper simply resizes (bounds change but not user data).
+  const geometryEditor = useGeometryEditor(storedScene, (next) => {
     setStoredScene(next);
     saveNotebookGeometry(notebookId, next);
   });
+
 
   useEffect(() => {
     if (mode && geometryEditor.tool !== tool) geometryEditor.setTool(tool);
@@ -1824,32 +1827,55 @@ function NotebookGeometryOverlay({
   const overlayWidth = Math.max(scene.bounds.width ?? 0, paperSize.width) + 48;
   const overlayHeight = Math.max(scene.bounds.height ?? 0, paperSize.height) + 48;
 
+  const growNotebook = () => {
+    const layer = paperLayerRef.current;
+    if (!layer) return;
+    const current = layer.style.minHeight ? parseFloat(layer.style.minHeight) : layer.offsetHeight;
+    const next = current + 240;
+    layer.style.minHeight = `${next}px`;
+    // Trigger ResizeObserver → paperSize updates → overlay grows.
+  };
+
   return (
-    <div
-      data-notebook-geometry-overlay="true"
-      className="absolute"
-      style={{
-        left: -24,
-        top: -24,
-        width: overlayWidth,
-        height: overlayHeight,
-        overflow: "visible",
-        zIndex: mode ? 8 : 4,
-        pointerEvents: mode ? "auto" : "none",
-      }}
-    >
-      {mode ? (
-        <GeometryCanvas editor={geometryEditor} />
-      ) : (
-        <StaticGeometryDiagram
-          scene={scene}
-          explicitWidth={overlayWidth}
-          explicitHeight={overlayHeight}
-        />
+    <>
+      <div
+        data-notebook-geometry-overlay="true"
+        className="absolute"
+        style={{
+          left: -24,
+          top: -24,
+          width: overlayWidth,
+          height: overlayHeight,
+          overflow: "visible",
+          zIndex: mode ? 8 : 4,
+          pointerEvents: mode ? "auto" : "none",
+        }}
+      >
+        {mode ? (
+          <GeometryCanvas editor={geometryEditor} viewportWidth={overlayWidth} viewportHeight={overlayHeight} />
+        ) : (
+          <StaticGeometryDiagram
+            scene={scene}
+            explicitWidth={overlayWidth}
+            explicitHeight={overlayHeight}
+          />
+        )}
+      </div>
+      {mode && (
+        <button
+          type="button"
+          onClick={growNotebook}
+          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 text-[11px] px-3 py-1 rounded-full border border-border bg-background hover:bg-muted shadow-sm"
+          style={{ top: overlayHeight - 20, zIndex: 9, pointerEvents: "auto" }}
+          title="Extend the notebook downwards"
+        >
+          <span className="text-base leading-none">+</span> Grow notebook
+        </button>
       )}
-    </div>
+    </>
   );
 }
+
 
 
 /* ─── Global AI button (whole-lesson or insert-at-cursor) ─── */

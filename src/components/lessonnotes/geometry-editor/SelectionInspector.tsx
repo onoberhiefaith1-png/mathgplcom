@@ -5,7 +5,7 @@
 
 import { useState, useMemo } from "react";
 import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoId } from "@/lib/geometry/scene";
-import { patchObject, addAngle } from "@/lib/geometry/editor/sceneOps";
+import { patchObject, addAngle, addAnnotation, updateAnnotation, removeAnnotation } from "@/lib/geometry/editor/sceneOps";
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
@@ -40,39 +40,128 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
 
   const patch = (id: string, p: Partial<GeoObject>) => onApply(patchObject(scene, id, p).scene);
 
-  if (effective === "point" && primary.type === "point") {
-    return <PointPanel point={primary} onPatch={(p) => patch(primary.id, p)} />;
-  }
-  if (effective === "pointLabel" && primary.type === "point") {
-    return <PointLabelPanel point={primary} onPatch={(p) => patch(primary.id, p)} />;
-  }
-  if (effective === "segmentLabel" && primary.type === "segment") {
-    return <SegmentLabelPanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
-  }
-  if (effective === "segmentDistance" && primary.type === "segment") {
-    return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
-  }
-  if (effective === "segmentBody" && primary.type === "segment") {
-    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Segment · ${primary.label ?? labelForSegment(scene, primary)}`} />;
-  }
-  if (effective === "angleValue" && primary.type === "angle") {
-    return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
-  }
-  if (primary.type === "angle") {
-    return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} />;
-  }
-  if (primary.type === "region") {
-    return <RegionPanel scene={scene} region={primary} onApply={onApply} />;
-  }
-
-  // Fallback minimal editor for other kinds
+  const inner = renderTypePanel();
   return (
-    <div className="text-[11px] text-foreground/60">
-      <p className="uppercase tracking-wider mb-1">{primary.type}</p>
-      <p>No editable properties yet.</p>
+    <div className="space-y-4">
+      {inner}
+      <AnnotationsSection scene={scene} target={primary} onApply={onApply} />
+    </div>
+  );
+
+  function renderTypePanel() {
+    if (effective === "point" && primary.type === "point") {
+      return <PointPanel point={primary} onPatch={(p) => patch(primary.id, p)} />;
+    }
+    if (effective === "pointLabel" && primary.type === "point") {
+      return <PointLabelPanel point={primary} onPatch={(p) => patch(primary.id, p)} />;
+    }
+    if (effective === "segmentLabel" && primary.type === "segment") {
+      return <SegmentLabelPanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
+    }
+    if (effective === "segmentDistance" && primary.type === "segment") {
+      return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
+    }
+    if (effective === "segmentBody" && primary.type === "segment") {
+      return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Segment · ${primary.label ?? labelForSegment(scene, primary)}`} />;
+    }
+    if (effective === "angleValue" && primary.type === "angle") {
+      return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
+    }
+    if (primary.type === "angle") {
+      return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} />;
+    }
+    if (primary.type === "region") {
+      return <RegionPanel scene={scene} region={primary} onApply={onApply} />;
+    }
+    return (
+      <div className="text-[11px] text-foreground/70">
+        <p className="uppercase tracking-wider mb-1 font-semibold">{primary.type}</p>
+        <p className="text-foreground/60">Add a text annotation below to describe or label this {primary.type}.</p>
+      </div>
+    );
+  }
+}
+
+/* ─────── Universal Annotations section ─────── */
+function AnnotationsSection({ scene, target, onApply }: { scene: GeometryScene; target: GeoObject; onApply: (s: GeometryScene) => void }) {
+  const anns = ((target as any).annotations as Array<{ id: string; text: string; rotation?: number; fontSize?: number; color?: string }> | undefined) ?? [];
+  return (
+    <div className="rounded-md border border-border/60 p-2 space-y-2 bg-background">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-wider font-semibold">Text annotations</span>
+        <button
+          type="button"
+          onClick={() => onApply(addAnnotation(scene, target.id, "Text").scene)}
+          className="text-[11px] px-2 py-0.5 rounded border border-border bg-background hover:bg-muted"
+        >+ Add text</button>
+      </div>
+      {anns.length === 0 && (
+        <p className="text-[11px] text-foreground/55">Pin a note to this {target.type}. It can be moved and rotated freely.</p>
+      )}
+      {anns.map((a) => (
+        <div key={a.id} className="space-y-1 border-t border-border/40 pt-2">
+          <input
+            type="text"
+            value={a.text}
+            onChange={(e) => onApply(updateAnnotation(scene, target.id, a.id, { text: e.target.value }).scene)}
+            placeholder="Text"
+            className="w-full text-[12px] px-2 py-1 rounded border border-border bg-background text-foreground"
+          />
+          <div className="grid grid-cols-2 gap-1">
+            <label className="text-[10px] text-foreground/60">
+              Rotation
+              <input
+                type="number"
+                value={a.rotation ?? 0}
+                min={-360} max={360}
+                onChange={(e) => onApply(updateAnnotation(scene, target.id, a.id, { rotation: Number(e.target.value) || 0 }).scene)}
+                className="w-full text-[11px] px-1 py-0.5 rounded border border-border bg-background text-foreground"
+              />
+            </label>
+            <label className="text-[10px] text-foreground/60">
+              Font size
+              <input
+                type="number"
+                value={a.fontSize ?? 13}
+                min={8} max={72}
+                onChange={(e) => onApply(updateAnnotation(scene, target.id, a.id, { fontSize: Number(e.target.value) || 13 }).scene)}
+                className="w-full text-[11px] px-1 py-0.5 rounded border border-border bg-background text-foreground"
+              />
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-foreground/60 flex items-center gap-1">
+              Color
+              <input
+                type="color"
+                value={a.color ?? "#111827"}
+                onChange={(e) => onApply(updateAnnotation(scene, target.id, a.id, { color: e.target.value }).scene)}
+                className="h-5 w-8 rounded border border-border bg-background"
+              />
+            </label>
+            <div className="flex gap-1 ml-auto">
+              {[0, 90, 180, 270].map((deg) => (
+                <button
+                  key={deg}
+                  type="button"
+                  onClick={() => onApply(updateAnnotation(scene, target.id, a.id, { rotation: deg }).scene)}
+                  className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-background hover:bg-muted"
+                >{deg}°</button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => onApply(removeAnnotation(scene, target.id, a.id).scene)}
+              className="text-[10px] px-1.5 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10"
+            >Delete</button>
+          </div>
+          <p className="text-[10px] text-foreground/50">Tip: drag the text on the diagram to move it.</p>
+        </div>
+      ))}
     </div>
   );
 }
+
 
 /* ─────── Multi-selection ─────── */
 function MultiPanel({ scene, selected, onApply }: { scene: GeometryScene; selected: GeoObject[]; onApply: (s: GeometryScene) => void }) {
