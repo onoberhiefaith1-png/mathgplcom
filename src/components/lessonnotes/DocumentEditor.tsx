@@ -1717,6 +1717,7 @@ function NotebookGeometryOverlay({
   const { mode, tool } = useGeometryMode();
   const [storedScene, setStoredScene] = useState<GeometryScene>(() => loadNotebookGeometry(notebookId));
   const [paperSize, setPaperSize] = useState({ width: 720, height: 960 });
+  const [docTick, setDocTick] = useState(0);
 
   useEffect(() => {
     setStoredScene(loadNotebookGeometry(notebookId));
@@ -1737,6 +1738,13 @@ function NotebookGeometryOverlay({
     ro.observe(layer);
     return () => ro.disconnect();
   }, [paperLayerRef]);
+
+  useEffect(() => {
+    if (!tiptapEditor) return;
+    const bump = () => setDocTick((v) => v + 1);
+    tiptapEditor.on("update", bump);
+    return () => { tiptapEditor.off("update", bump); };
+  }, [tiptapEditor]);
 
   useEffect(() => {
     const layer = paperLayerRef.current;
@@ -1774,7 +1782,7 @@ function NotebookGeometryOverlay({
       tr = tr.delete(d.pos, d.pos + d.size);
     }
     if (tr.docChanged) tiptapEditor.view.dispatch(tr);
-  }, [notebookId, paperLayerRef, tiptapEditor]);
+  }, [docTick, notebookId, paperLayerRef, tiptapEditor]);
 
   const scene = useMemo<GeometryScene>(() => ({
     ...storedScene,
