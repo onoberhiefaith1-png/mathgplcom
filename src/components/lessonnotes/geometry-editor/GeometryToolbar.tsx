@@ -10,7 +10,7 @@ import { TOOLS, TOOL_GROUPS, type ToolId } from "@/lib/geometry/editor/tools";
 import {
   MousePointer2, Dot, Minus, CircleDot, Circle, Pentagon, Triangle,
   Type, Ruler, Equal, Slash, Square, Move, Eraser, Lock, RotateCw,
-  Pencil, Tag, RadioTower, ChevronRight, ChevronDown,
+  Pencil, Tag, RadioTower, Waves, ChevronRight, ChevronDown,
 } from "lucide-react";
 
 const ICONS: Record<ToolId, React.ComponentType<{ className?: string }>> = {
@@ -19,6 +19,7 @@ const ICONS: Record<ToolId, React.ComponentType<{ className?: string }>> = {
   line: Minus,
   arc: RadioTower,
   circle: Circle,
+  curve: Waves,
   polygon: Pentagon,
   angle: Triangle,
   label: Tag,
