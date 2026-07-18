@@ -89,11 +89,13 @@ export function useGeometryEditor(
   }, [initial, initialJson]);
 
   const commit = useCallback((next: GeometryScene) => {
-    sceneJsonRef.current = JSON.stringify(next);
+    const normalised = ensureIntersectionPoints(next);
+    sceneJsonRef.current = JSON.stringify(normalised);
     setHistory((h) => push(h, scene));
-    setScene(next);
-    onChangeRef.current(next);
+    setScene(normalised);
+    onChangeRef.current(normalised);
   }, [scene]);
+
 
   const apply = useCallback((op: OpResult) => {
     if (op.scene === scene) return;
