@@ -786,7 +786,7 @@ function SegmentBodyPanel({
     : segment.marks === "quadruple" ? 4
     : 0;
   const par = segment.parallelMarks ?? 0;
-  const hasDist = !!(segment.distance ?? segment.length);
+  const hasDist = segment.distance !== undefined || segment.length !== undefined;
 
   return (
     <div className="space-y-2 text-xs">
