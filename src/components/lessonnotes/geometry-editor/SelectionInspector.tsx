@@ -55,6 +55,9 @@ export function SelectionInspector({ scene, selected, kind, onApply }: Props) {
   if (effective === "segmentBody" && primary.type === "segment") {
     return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Segment · ${primary.label ?? labelForSegment(scene, primary)}`} />;
   }
+  if (effective === "angleValue" && primary.type === "angle") {
+    return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
+  }
   if (primary.type === "angle") {
     return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} />;
   }
