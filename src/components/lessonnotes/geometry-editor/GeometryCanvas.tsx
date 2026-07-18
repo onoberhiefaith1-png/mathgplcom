@@ -554,7 +554,7 @@ export function GeometryCanvas({ editor }: Props) {
             else if (e.key === "Escape") setInlineEdit(null);
           }}
           className="absolute text-xs px-1.5 py-1 rounded border border-primary bg-white shadow"
-          style={{ left: inlineEdit.x + PAD, top: inlineEdit.y + PAD, minWidth: 80 }}
+          style={{ left: inlineEdit.x + PAD - minX, top: inlineEdit.y + PAD - minY, minWidth: 80 }}
         />
       )}
     </div>
