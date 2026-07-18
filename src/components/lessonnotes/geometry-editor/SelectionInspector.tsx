@@ -5,7 +5,7 @@
 
 import { useState, useMemo } from "react";
 import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoId } from "@/lib/geometry/scene";
-import { patchObject, addAngle } from "@/lib/geometry/editor/sceneOps";
+import { patchObject, addAngle, addAnnotation, updateAnnotation, removeAnnotation } from "@/lib/geometry/editor/sceneOps";
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
