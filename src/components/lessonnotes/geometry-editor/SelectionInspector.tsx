@@ -62,16 +62,16 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
     return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
   if (effective === "segmentBody" && primary.type === "segment") {
-    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => addTextAt(primary)} />;
+    return <SegmentBodyPanel scene={scene} segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => addTextAt(primary)} />;
   }
   if (effective === "angleValue" && primary.type === "angle") {
     return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
   if (primary.type === "angle") {
-    return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} />;
+    return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} onAddText={() => addTextAtAngle(scene, primary, onApply, onSelect)} />;
   }
   if (primary.type === "region") {
-    return <RegionPanel scene={scene} region={primary} onApply={onApply} onAddText={() => addTextAt(primary)} />;
+    return <RegionPanel scene={scene} region={primary} onApply={onApply} onSelect={onSelect} onAddText={() => addTextAt(primary)} />;
   }
   if (primary.type === "label") {
     return <LabelPanel label={primary} onPatch={(p) => patch(primary.id, p)} onDelete={() => onApply({ ...scene, objects: scene.objects.filter((o) => o.id !== primary.id) })} />;
