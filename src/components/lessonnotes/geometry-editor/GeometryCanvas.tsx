@@ -62,6 +62,18 @@ export function GeometryCanvas({ editor }: Props) {
       apply(op);
       return;
     }
+    if (labelDrag) {
+      const dx = labelDrag.baseDx + (p.x - labelDrag.startX);
+      const dy = labelDrag.baseDy + (p.y - labelDrag.startY);
+      if (labelDrag.kind === "pointLabel") {
+        apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
+      } else if (labelDrag.kind === "segmentLabel") {
+        apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
+      } else {
+        apply(patchObject(scene, labelDrag.id, { distanceOffset: { dx, dy } } as any));
+      }
+      return;
+    }
     if (circleDrag) {
       setCircleDrag({ ...circleDrag, r: Math.hypot(p.x - circleDrag.cx, p.y - circleDrag.cy) });
       return;
@@ -71,10 +83,8 @@ export function GeometryCanvas({ editor }: Props) {
   };
 
   const onPointerUp = (_e: React.PointerEvent) => {
-    if (dragging) {
-      setDragging(null);
-      return;
-    }
+    if (dragging) { setDragging(null); return; }
+    if (labelDrag) { setLabelDrag(null); return; }
     if (circleDrag) {
       if (circleDrag.r > 4) {
         apply(addCircleAt(scene, circleDrag.cx, circleDrag.cy, circleDrag.r));
@@ -85,21 +95,44 @@ export function GeometryCanvas({ editor }: Props) {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    // Make sure the SVG owns keyboard focus so Enter/Esc work for polygon
-    // close + cancel without the teacher having to click extra.
     try { (svgRef.current as any)?.focus?.({ preventScroll: true }); } catch { /* noop */ }
     const p = toLogical(e);
     const sn = snap(scene, p.x, p.y);
-    const hitId = pickObject(scene, p.x, p.y);
+    const hit = pickHit(scene, p.x, p.y);
+    const hitId = hit?.id ?? null;
 
 
 
     switch (tool) {
       case "select": {
-        if (hitId) {
-          if (e.shiftKey) toggleSelected(hitId);
-          else setSelectedIds([hitId]);
-        } else setSelectedIds([]);
+        if (hit) {
+          if (e.shiftKey) toggleSelected(hit.id);
+          else setSelectedIds([hit.id]);
+          setSelectionKind(hit.kind);
+          // Prime drag state for label/distance/points so drag re-positions.
+          const obj = scene.objects.find((o) => o.id === hit.id);
+          if (hit.kind === "point" && obj?.type === "point") {
+            setDragging({ pointId: hit.id });
+          } else if (hit.kind === "pointLabel" && obj?.type === "point") {
+            setLabelDrag({
+              kind: "pointLabel", id: hit.id, startX: p.x, startY: p.y,
+              baseDx: obj.labelOffset?.dx ?? 6, baseDy: obj.labelOffset?.dy ?? -6,
+            });
+          } else if (hit.kind === "segmentLabel" && obj?.type === "segment") {
+            setLabelDrag({
+              kind: "segmentLabel", id: hit.id, startX: p.x, startY: p.y,
+              baseDx: obj.labelOffset?.dx ?? 0, baseDy: obj.labelOffset?.dy ?? 0,
+            });
+          } else if (hit.kind === "segmentDistance" && obj?.type === "segment") {
+            setLabelDrag({
+              kind: "segmentDistance", id: hit.id, startX: p.x, startY: p.y,
+              baseDx: obj.distanceOffset?.dx ?? 0, baseDy: obj.distanceOffset?.dy ?? 0,
+            });
+          }
+        } else {
+          setSelectedIds([]);
+          setSelectionKind(null);
+        }
         break;
       }
       case "move": {
