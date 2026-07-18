@@ -69,8 +69,10 @@ export function GeometryCanvas({ editor }: Props) {
         apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
       } else if (labelDrag.kind === "segmentLabel") {
         apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
-      } else {
+      } else if (labelDrag.kind === "segmentDistance") {
         apply(patchObject(scene, labelDrag.id, { distanceOffset: { dx, dy } } as any));
+      } else {
+        apply(patchObject(scene, labelDrag.id, { valueOffset: { dx, dy } } as any));
       }
       return;
     }
