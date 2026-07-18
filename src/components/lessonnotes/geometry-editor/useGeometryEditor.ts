@@ -9,7 +9,12 @@ import type { ToolId } from "@/lib/geometry/editor/tools";
 import { emptyHistory, push, undo, redo, type History } from "@/lib/geometry/editor/history";
 import type { OpResult } from "@/lib/geometry/editor/sceneOps";
 import { normalizeScene } from "@/lib/geometry/editor/normalize";
+import { ensureIntersectionPoints } from "@/lib/geometry/editor/intersections";
 import type { HitKind } from "@/lib/geometry/editor/snap";
+
+const normalise = (s: GeometryScene): GeometryScene =>
+  ensureIntersectionPoints(normalizeScene(s));
+
 
 export interface UseGeometryEditorReturn {
   scene: GeometryScene;
