@@ -348,12 +348,13 @@ function sharedEndpoint(a: GeoSegment, b: GeoSegment): GeoId | null {
 
 /* ─────── Angle (from 2 segments) ─────── */
 function AngleFromSegmentsPanel({
-  scene, segments, existing, onApply,
+  scene, segments, existing, onApply, onSelect,
 }: {
   scene: GeometryScene;
   segments: GeoSegment[];
   existing: GeoAngle | null;
   onApply: (s: GeometryScene) => void;
+  onSelect?: (id: GeoId, kind: HitKind) => void;
 }) {
   const shared = sharedEndpoint(segments[0], segments[1]);
   if (!shared) {
