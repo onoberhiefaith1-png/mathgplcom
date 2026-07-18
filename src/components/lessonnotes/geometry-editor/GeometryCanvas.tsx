@@ -126,20 +126,21 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
     switch (tool) {
       case "select": {
         if (hit) {
-          // Plain click toggles the item in the selection set.
-          // Clicking a different item adds to selection; clicking the same
-          // one again removes it. Empty click clears everything.
           const already = selectedIds.includes(hit.id);
           if (already) {
             const next = selectedIds.filter((id) => id !== hit.id);
             setSelectedIds(next);
-            setSelectionKind(next.length ? "segmentBody" : null);
+            // Keep the panel open on the remaining selection when possible.
+            const remain = next[next.length - 1];
+            const kindOfRemain = remain
+              ? (scene.objects.find((o) => o.id === remain)?.type as any) ?? null
+              : null;
+            setSelectionKind(next.length ? mapTypeToKind(kindOfRemain) : null);
           } else {
             setSelectedIds([...selectedIds, hit.id]);
             setSelectionKind(hit.kind);
           }
-          // Prime drag state only when a single item is being manipulated.
-          const obj = scene.objects.find((o) => o.id === hit.id);
+          const obj = scene.objects.find((o) => o.id === hit.id) as any;
           if (!already && selectedIds.length === 0) {
             if (hit.kind === "point" && obj?.type === "point") {
               setDragging({ pointId: hit.id });
@@ -161,7 +162,13 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
             } else if (hit.kind === "angleValue" && obj?.type === "angle") {
               setLabelDrag({
                 kind: "angleValue", id: hit.id, startX: p.x, startY: p.y,
-                baseDx: (obj as any).valueOffset?.dx ?? 0, baseDy: (obj as any).valueOffset?.dy ?? 0,
+                baseDx: obj.valueOffset?.dx ?? 0, baseDy: obj.valueOffset?.dy ?? 0,
+              });
+            } else if (hit.kind === "annotation" && hit.annotationId) {
+              const ann = ((obj?.annotations ?? []) as any[]).find((a) => a.id === hit.annotationId);
+              setLabelDrag({
+                kind: "annotation", id: hit.id, annotationId: hit.annotationId, startX: p.x, startY: p.y,
+                baseDx: ann?.offset?.dx ?? 0, baseDy: ann?.offset?.dy ?? 0,
               });
             }
           }
@@ -171,6 +178,7 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
         }
         break;
       }
+
       case "move": {
         // Pick a point (or snap to one) and start dragging it
         const target = scene.objects.find((o) => o.type === "point" && Math.hypot(o.x - p.x, o.y - p.y) <= 10) as GeoPoint | undefined;
