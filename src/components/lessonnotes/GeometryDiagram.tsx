@@ -74,24 +74,26 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     return STROKE;
   };
 
-  const originPad = pad - minX; // translate objects so viewBox origin is (0,0)
-  const originPadY = pad - minY;
+  const originPad = pad; // objects rendered with local pad; wrapper <g> translates
+  const translateX = pad - minX - pad; // = -minX
+  const translateY = pad - minY - pad; // = -minY
 
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
     for (const o of scene.objects) {
       if (o.type !== "region") continue;
-      const node = renderObject(o, scene, colourOf(o.id), originPad, originPadY);
+      const node = renderObject(o, scene, colourOf(o.id), originPad);
       if (node) out.push(node);
     }
     for (const o of scene.objects) {
       if (o.type === "region") continue;
       const c = colourOf(o.id);
-      const node = renderObject(o, scene, c, originPad, originPadY);
+      const node = renderObject(o, scene, c, originPad);
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad, originPadY]);
+  }, [scene, diff, originPad]);
+
 
   return (
     <svg
