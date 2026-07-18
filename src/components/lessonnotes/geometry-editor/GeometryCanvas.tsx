@@ -33,17 +33,23 @@ export function GeometryCanvas({ editor }: Props) {
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
-  const W = scene.bounds.width + PAD * 2;
-  const H = scene.bounds.height + PAD * 2;
+  const { minX, minY, W, H } = computeSceneViewBox(scene, PAD);
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const rect = svg.getBoundingClientRect();
-    return {
-      x: ((e.clientX - rect.left) / rect.width) * W - PAD,
-      y: ((e.clientY - rect.top) / rect.height) * H - PAD,
-    };
+    // The SVG uses preserveAspectRatio="xMidYMid meet" (uniform scale +
+    // letterbox centring). Un-project the pointer with the same rule so
+    // clicks resolve to the exact logical coordinate under the cursor,
+    // regardless of container aspect or how far shapes extend past
+    // scene.bounds.
+    const scale = Math.min(rect.width / W, rect.height / H) || 1;
+    const offsetX = (rect.width - W * scale) / 2;
+    const offsetY = (rect.height - H * scale) / 2;
+    const vx = (e.clientX - rect.left - offsetX) / scale;
+    const vy = (e.clientY - rect.top - offsetY) / scale;
+    return { x: vx - PAD + minX, y: vy - PAD + minY };
   };
 
   /** Find or create a point at (x,y), preferring an existing point via snap. */
