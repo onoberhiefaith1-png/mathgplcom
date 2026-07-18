@@ -1822,6 +1822,7 @@ function NotebookGeometryOverlay({
         top: -24,
         width: paperSize.width + 48,
         height: paperSize.height + 48,
+        overflow: "visible",
         zIndex: mode ? 8 : 4,
         pointerEvents: mode ? "auto" : "none",
       }}
