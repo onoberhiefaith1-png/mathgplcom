@@ -476,21 +476,23 @@ export function GeometryCanvas({ editor, viewportWidth, viewportHeight }: Props)
   }
 
   return (
-    <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
-      <div className="absolute inset-0">
+    <div data-geometry-live-canvas="true" className="relative w-full h-full" style={{ width: W, height: H, overflow: "visible" }}>
+      <div className="absolute inset-0 w-full h-full">
         <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} />
       </div>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        width={W}
-        height={H}
+        width="100%"
+        height="100%"
+        preserveAspectRatio="none"
         className="absolute inset-0 select-none"
-        style={{ touchAction: "none", cursor: cursorFor(tool) }}
+        style={{ touchAction: "none", cursor: cursorFor(tool), width: W, height: H }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={() => setHover(null)}
+
         onDoubleClick={() => {
           // Double-click finishes an in-progress multi-point tool.
           if (tool === "polygon" && pendingIds.length >= 3) {
