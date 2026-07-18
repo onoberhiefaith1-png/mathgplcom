@@ -152,6 +152,11 @@ export function GeometryCanvas({ editor }: Props) {
                 kind: "angleValue", id: hit.id, startX: p.x, startY: p.y,
                 baseDx: (obj as any).valueOffset?.dx ?? 0, baseDy: (obj as any).valueOffset?.dy ?? 0,
               });
+            } else if (hit.kind === "label" && obj?.type === "label") {
+              setLabelDrag({
+                kind: "label", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: obj.x, baseDy: obj.y,
+              });
             }
           }
         } else {
