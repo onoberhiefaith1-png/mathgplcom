@@ -488,17 +488,21 @@ function renderObject(
       );
     }
     case "label": {
+      const lx = o.x + pad, ly = o.y + pad;
+      const rot = o.rotation ?? 0;
       return (
         <text
           key={o.id}
-          x={o.x + pad} y={o.y + pad}
-          fontFamily={LABEL_FONT} fontSize={13}
-          fill={stroke} textAnchor="middle"
+          x={lx} y={ly}
+          fontFamily={LABEL_FONT} fontSize={o.fontSize ?? 13}
+          fill={o.color ?? stroke} textAnchor="middle"
+          transform={rot ? `rotate(${rot} ${lx} ${ly})` : undefined}
         >
           {o.text}
         </text>
       );
     }
+
   }
   return null;
 }
