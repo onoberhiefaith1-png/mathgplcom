@@ -4,8 +4,9 @@
 // line sections, etc.
 
 import { useState, useMemo } from "react";
-import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoId } from "@/lib/geometry/scene";
-import { patchObject, addAngle } from "@/lib/geometry/editor/sceneOps";
+import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoLabel, GeoId } from "@/lib/geometry/scene";
+import { pointById } from "@/lib/geometry/scene";
+import { patchObject, addAngle, addFloatingLabel } from "@/lib/geometry/editor/sceneOps";
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
