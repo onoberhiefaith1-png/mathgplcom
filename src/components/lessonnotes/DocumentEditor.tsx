@@ -8,7 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
