@@ -91,7 +91,7 @@ export function useGeometryEditor(
   }, [commit, scene]);
 
   const toggleSelected = useCallback((id: GeoId) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelectedIdsState((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }, []);
 
   const clearSelection = useCallback(() => setSelectedIds([]), []);
