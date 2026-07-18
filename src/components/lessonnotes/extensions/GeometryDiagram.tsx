@@ -12,13 +12,10 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { Copy, CopyPlus, Sparkles, Trash2 } from "lucide-react";
-import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
-import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
-import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
-import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
-import { SmartGeometryProvider } from "@/components/lessonnotes/geometry-editor/SmartGeometryContext";
-import { SmartOverlay } from "@/components/lessonnotes/geometry-editor/SmartOverlay";
-import { RelationshipPanel } from "@/components/lessonnotes/geometry-editor/RelationshipPanel";
+import { GeometryEditorV2 } from "@/components/lessonnotes/geometry-editor/v2/GeometryEditorV2";
+import { StaticV2Render } from "@/components/lessonnotes/geometry-editor/v2/StaticV2Render";
+import { sanitizeV2Scene, type V2Scene } from "@/lib/geometry/v2/scene";
+import { migrateLegacyToV2 } from "@/lib/geometry/v2/migrate";
 import {
   type GeometryScene,
   sanitizeScene,
@@ -26,7 +23,7 @@ import {
 } from "@/lib/geometry/scene";
 import { cn } from "@/lib/utils";
 
-const PAD = 24;
+
 
 const OPEN_EVENT = "geometry-ai-edit:open";
 
@@ -59,38 +56,46 @@ function GeometryDiagramView({
   getPos,
 }: NodeViewProps) {
   const sceneKey = JSON.stringify(node.attrs.scene ?? EMPTY_SCENE);
-  const scene = useMemo(
+  const legacyScene = useMemo(
     () => (sanitizeScene(node.attrs.scene) as GeometryScene) ?? EMPTY_SCENE,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sceneKey],
   );
-  const topic = (node.attrs.topic as string) || scene.meta?.topic;
-  const align: "left" | "center" | "right" = node.attrs.align ?? "center";
 
-  const { mode, setMode, tool } = useGeometryMode();
-
-  // Per-node editor state (drives the in-place GeometryCanvas).
-  const geoEditor = useGeometryEditor(scene, (next) =>
-    updateAttributes({ scene: next }),
+  // Prefer v2 scene when available; otherwise migrate the legacy scene into
+  // v2 the first time this node is rendered. Migration is committed to the
+  // node's attrs so persistence flips over cleanly.
+  const v2FromAttrs = useMemo(
+    () => sanitizeV2Scene(node.attrs.sceneV2),
+    [node.attrs.sceneV2],
   );
+  const migrated = useMemo(
+    () => migrateLegacyToV2(legacyScene),
+    [legacyScene],
+  );
+  const scene: V2Scene = v2FromAttrs ?? migrated;
 
-  // Sync the tool from the global toolbox while drawing in this node.
   useEffect(() => {
-    if (selected && mode) geoEditor.setTool(tool);
+    if (!v2FromAttrs) {
+      updateAttributes({ sceneV2: scene });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tool, selected, mode]);
+  }, []);
 
+  const topic = (node.attrs.topic as string) || legacyScene.meta?.topic;
+  const align: "left" | "center" | "right" = node.attrs.align ?? "center";
   const containerAlign =
     align === "left" ? "justify-start"
     : align === "right" ? "justify-end"
     : "justify-center";
 
-  const isEditing = selected && mode;
+  // Stable instance id so the right-hand PropertiesPanel can distinguish
+  // multiple diagrams on the same note.
+  const instanceId = useMemo(() => Math.random().toString(36).slice(2, 10), []);
 
-  const W = scene.bounds.width + PAD * 2;
-  const H = scene.bounds.height + PAD * 2;
+  const handleChange = (next: V2Scene) => updateAttributes({ sceneV2: next });
 
-  // Auto-hide AI action row: show on hover/select, hide 10s after last activity.
+  // Auto-hide action row.
   const [aiVisible, setAiVisible] = useState(false);
   const hideTimer = useRef<number | null>(null);
   const kickAi = () => {
@@ -110,123 +115,103 @@ function GeometryDiagramView({
       className={cn("my-3 flex", containerAlign)}
       contentEditable={false}
     >
-      <SmartGeometryProvider scene={scene} onSceneChange={(next) => updateAttributes({ scene: next })}>
-        <div
-          data-geometry-diagram-wrapper="true"
-          data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
-          className={cn("relative inline-flex items-start gap-2")}
-          onMouseEnter={kickAi}
-          onMouseMove={kickAi}
-          onFocus={kickAi}
-          onMouseDown={(e) => {
-            kickAi();
-            const pos = typeof getPos === "function" ? getPos() : null;
-            if (pos != null && !selected) {
-              editor.commands.setNodeSelection(pos);
-            }
-            if (!isEditing && (!mode || tool === "select")) e.stopPropagation();
-          }}
-        >
-          <div className="relative inline-block">
-            {isEditing ? (
-              <GeometryCanvas editor={geoEditor} />
-            ) : (
-              <>
-                <GeometryDiagram scene={scene} />
-                {selected && <SmartOverlay width={W} height={H} />}
-              </>
-            )}
+      <div
+        data-geometry-diagram-wrapper="true"
+        data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
+        className={cn("relative inline-flex items-start gap-2")}
+        onMouseEnter={kickAi}
+        onMouseMove={kickAi}
+        onFocus={kickAi}
+        onMouseDown={(e) => {
+          kickAi();
+          const pos = typeof getPos === "function" ? getPos() : null;
+          if (pos != null && !selected) {
+            editor.commands.setNodeSelection(pos);
+          }
+        }}
+      >
+        <div className="relative inline-block">
+          {selected ? (
+            <GeometryEditorV2
+              instanceId={instanceId}
+              scene={scene}
+              onChange={handleChange}
+              active={selected}
+            />
+          ) : (
+            <StaticV2Render scene={scene} />
+          )}
 
-            {scene.meta?.caption && (
-              <p
-                className="mt-1 text-[11px] italic text-center text-black/70"
-                style={{ fontFamily: "Georgia, serif" }}
+          {(selected || aiVisible) && (
+            <div
+              className={cn(
+                "absolute left-1/2 -translate-x-1/2 -bottom-9 flex items-center gap-1 bg-background/95 border border-foreground/15 rounded-md shadow px-1 py-0.5 transition-opacity duration-200",
+                aiVisible ? "opacity-100" : "opacity-0 pointer-events-none",
+              )}
+              onMouseEnter={kickAi}
+              onMouseMove={kickAi}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  kickAi();
+                  openGeometryAiEdit({
+                    scene: legacyScene,
+                    topic,
+                    onApply: (next) => updateAttributes({ scene: next }),
+                  });
+                }}
+                className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded text-foreground hover:bg-foreground/5"
+                title="AI edit"
               >
-                {scene.meta.caption}
-              </p>
-            )}
-
-            {/* AI action row — sits BELOW the diagram, away from the top
-                manual Edit chip. Auto-hides 10s after last activity. */}
-            {(selected || aiVisible) && (
-              <div
-                className={cn(
-                  "absolute left-1/2 -translate-x-1/2 -bottom-9 flex items-center gap-1 bg-background/95 border border-foreground/15 rounded-md shadow px-1 py-0.5 transition-opacity duration-200",
-                  aiVisible ? "opacity-100" : "opacity-0 pointer-events-none",
-                )}
-                onMouseEnter={kickAi}
-                onMouseMove={kickAi}
+                <Sparkles className="h-3 w-3" /> AI
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  kickAi();
+                  const pos = typeof getPos === "function" ? getPos() : null;
+                  if (pos == null) return;
+                  editor.chain().focus().insertContentAt(pos + node.nodeSize, {
+                    type: "geometryDiagram",
+                    attrs: { sceneV2: scene, topic, align },
+                  }).run();
+                }}
+                className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
+                title="Duplicate diagram"
               >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    kickAi();
-                    openGeometryAiEdit({
-                      scene,
-                      topic,
-                      onApply: (next) => updateAttributes({ scene: next }),
-                    });
-                  }}
-                  className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded text-foreground hover:bg-foreground/5"
-                  title="AI edit"
-                >
-                  <Sparkles className="h-3 w-3" /> AI
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    kickAi();
-                    const pos = typeof getPos === "function" ? getPos() : null;
-                    if (pos == null) return;
-                    editor.chain().focus().insertContentAt(pos + node.nodeSize, {
-                      type: "geometryDiagram",
-                      attrs: { scene, topic, align },
-                    }).run();
-                  }}
-                  className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
-                  title="Duplicate diagram"
-                >
-                  <CopyPlus className="h-3 w-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    kickAi();
-                    navigator.clipboard?.writeText(JSON.stringify({ type: "geometryDiagram", attrs: { scene, topic, align } })).catch(() => {});
-                  }}
-                  className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
-                  title="Copy diagram data"
-                >
-                  <Copy className="h-3 w-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); deleteNode(); }}
-                  className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:text-red-500 hover:bg-foreground/5"
-                  title="Delete diagram"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Relationship panel — appears only when at least one diagram
-              part is selected. Hidden internally by RelationshipPanel
-              when the selection is empty. */}
-          <RelationshipPanel
-            scene={scene}
-            topic={topic}
-            onApply={(next) => updateAttributes({ scene: next })}
-          />
+                <CopyPlus className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  kickAi();
+                  navigator.clipboard?.writeText(JSON.stringify({ type: "geometryDiagram", attrs: { sceneV2: scene, topic, align } })).catch(() => {});
+                }}
+                className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
+                title="Copy diagram data"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); deleteNode(); }}
+                className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:text-red-500 hover:bg-foreground/5"
+                title="Delete diagram"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
-      </SmartGeometryProvider>
+      </div>
     </NodeViewWrapper>
   );
 }
+
 
 export const GeometryDiagramNode = Node.create({
   name: "geometryDiagram",
@@ -248,6 +233,17 @@ export const GeometryDiagramNode = Node.create({
         renderHTML: (attrs) => ({
           "data-scene": JSON.stringify(attrs.scene ?? EMPTY_SCENE),
         }),
+      },
+      sceneV2: {
+        default: null,
+        parseHTML: (el) => {
+          const raw = el.getAttribute("data-scene-v2");
+          if (!raw) return null;
+          try { return sanitizeV2Scene(JSON.parse(raw)); }
+          catch { return null; }
+        },
+        renderHTML: (attrs) =>
+          attrs.sceneV2 ? { "data-scene-v2": JSON.stringify(attrs.sceneV2) } : {},
       },
       topic: {
         default: null,
