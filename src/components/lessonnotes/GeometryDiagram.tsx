@@ -323,21 +323,33 @@ function renderObject(
       );
     }
     case "curve": {
-      const pts = o.points
+      // 3-point quadratic Bezier: (a, mid, b). Control point is chosen so
+      // the curve passes through mid: C = 2*mid - (a + b) / 2.
+      const ids = o.a && o.mid && o.b ? [o.a, o.mid, o.b] : (o.points ?? []);
+      const pts = ids
         .map((id) => pointById(scene, id))
         .filter((p): p is GeoPoint => !!p);
       if (pts.length < 2) return null;
-      const d = catmullRomPath(pts.map((p) => ({ x: p.x + pad, y: p.y + pad })));
+      let d: string;
+      if (pts.length === 3) {
+        const [pa, pm, pb] = pts;
+        const cx = 2 * pm.x - (pa.x + pb.x) / 2;
+        const cy = 2 * pm.y - (pa.y + pb.y) / 2;
+        d = `M ${pa.x + pad} ${pa.y + pad} Q ${cx + pad} ${cy + pad} ${pb.x + pad} ${pb.y + pad}`;
+      } else {
+        d = catmullRomPath(pts.map((p) => ({ x: p.x + pad, y: p.y + pad })));
+      }
       return (
         <path
           key={o.id}
           d={d}
-          fill="none" stroke={stroke} strokeWidth={sw}
+          fill="none" stroke={(o as any).color ?? stroke} strokeWidth={sw}
           strokeDasharray={o.dashed ? "4 3" : undefined}
           strokeLinecap="round"
         />
       );
     }
+
     case "angle": {
       const v = pointById(scene, o.vertex);
       const a = pointById(scene, o.a);
