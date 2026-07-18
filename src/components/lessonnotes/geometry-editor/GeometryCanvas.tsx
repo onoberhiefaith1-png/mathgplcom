@@ -403,11 +403,18 @@ export function GeometryCanvas({ editor }: Props) {
           const cy = 2 * pm.y - (pa.y + pb.y) / 2;
           d = `M ${pa.x + PAD} ${pa.y + PAD} Q ${cx + PAD} ${cy + PAD} ${pb.x + PAD} ${pb.y + PAD}`;
         } else {
-          const pts = (o.points ?? []).map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
-          if (pts.length < 2) return;
-          d = catmullRomPreview(pts.map((p) => ({ x: p.x + PAD, y: p.y + PAD })));
+          const anchors = (o.points ?? []).map((id) => pointById(scene, id)).filter(Boolean) as GeoPoint[];
+          if (anchors.length < 2) return;
+          if (sub >= 0 && sub < anchors.length - 1) {
+            const seg = sampleCatmullRomBetween(anchors, sub, 20);
+            d = seg.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
+          } else {
+            d = catmullRomPreview(anchors.map((p) => ({ x: p.x + PAD, y: p.y + PAD })));
+          }
         }
         out.push(<path key={`h-${id}`} d={d} fill="none" stroke={color} strokeWidth={10} opacity={opacity} strokeLinecap="round" />);
+
+
 
       } else if (o.type === "angle") {
         const v = pointById(scene, o.vertex); if (!v) return;
