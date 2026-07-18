@@ -18,6 +18,8 @@ export interface UseGeometryEditorReturn {
   commit: (next: GeometryScene) => void;
   selectedIds: GeoId[];
   setSelectedIds: (ids: GeoId[]) => void;
+  selectionKind: HitKind | null;
+  setSelectionKind: (k: HitKind | null) => void;
   toggleSelected: (id: GeoId) => void;
   clearSelection: () => void;
   selectedObjects: GeoObject[];
