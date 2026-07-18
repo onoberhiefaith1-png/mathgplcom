@@ -156,13 +156,26 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
     switch (o.type) {
       case "circle": {
         const c = pointById(scene, o.center); if (!c) break;
-        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) <= hit) return { id: o.id, kind: "circle" };
-        break;
+        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) > hit) break;
+        // Highlight law: if the circle carries 2+ named points on its
+        // perimeter, only the sub-arc between two adjacent points can
+        // be selected — never the whole loop.
+        const onCircle = pointsOnCircle(scene, o.center, o.r);
+        if (onCircle.length >= 2) {
+          const sub = pickCircleSubArc(c, onCircle, x, y);
+          return { id: `${o.id}#${sub}`, kind: "circle" };
+        }
+        return { id: o.id, kind: "circle" };
       }
       case "arc": {
         const c = pointById(scene, o.center); if (!c) break;
-        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) <= hit) return { id: o.id, kind: "arc" };
-        break;
+        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) > hit) break;
+        const onArc = pointsOnArc(scene, o.center, o.r, o.from, o.to);
+        if (onArc.length >= 2) {
+          const sub = pickArcSubArc(c, o.from, o.to, onArc, x, y);
+          return { id: `${o.id}#${sub}`, kind: "arc" };
+        }
+        return { id: o.id, kind: "arc" };
       }
       case "curve": {
         if (o.a && o.mid && o.b) {
