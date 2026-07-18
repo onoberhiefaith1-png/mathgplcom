@@ -226,15 +226,14 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "curve": {
-        // Curve = quadratic Bezier through 3 points: start, bend, end.
-        const { id, scene: s1 } = ensurePoint(p.x, p.y);
-        const next = [...pendingIds, id];
-        if (next.length === 3) {
-          apply(addCurve(s1, next));
-          setPendingIds([]);
-        } else {
-          setPendingIds(next);
-        }
+        // Continuous smooth curve — like Line but every anchor bends the
+        // spline. Each click adds an anchor; double-click / Enter commits
+        // the curve; Escape cancels.
+        const { id } = ensurePoint(p.x, p.y);
+        const next = pendingIds[pendingIds.length - 1] === id
+          ? pendingIds
+          : [...pendingIds, id];
+        setPendingIds(next);
         break;
       }
 
@@ -427,6 +426,23 @@ export function GeometryCanvas({ editor }: Props) {
       <line key="pv" x1={last.x + PAD} y1={last.y + PAD} x2={hover.snap.x + PAD} y2={hover.snap.y + PAD} stroke="#10b981" strokeWidth={1.2} strokeDasharray="4 3" />,
     );
   }
+  if (tool === "curve" && pendingIds.length > 0) {
+    const anchors = pendingIds
+      .map((id) => pointById(scene, id))
+      .filter(Boolean) as GeoPoint[];
+    const pts = anchors.map((p) => ({ x: p.x + PAD, y: p.y + PAD }));
+    if (hover) pts.push({ x: hover.snap.x + PAD, y: hover.snap.y + PAD });
+    if (pts.length >= 2) {
+      previews.push(
+        <path key="cv-pv" d={catmullRomPreview(pts)} fill="none"
+          stroke="#10b981" strokeWidth={1.4} strokeDasharray="4 3" strokeLinecap="round" />,
+      );
+    }
+    // Show anchors as small dots for feedback
+    anchors.forEach((a, i) => previews.push(
+      <circle key={`cv-a${i}`} cx={a.x + PAD} cy={a.y + PAD} r={2.4} fill="#10b981" />,
+    ));
+  }
   if (circleDrag) {
     previews.push(
       <circle key="cd" cx={circleDrag.cx + PAD} cy={circleDrag.cy + PAD} r={circleDrag.r} fill="none" stroke="#10b981" strokeWidth={1.2} strokeDasharray="4 3" />,
@@ -454,6 +470,9 @@ export function GeometryCanvas({ editor }: Props) {
           if (tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
             setPendingIds([]);
+          } else if (tool === "curve" && pendingIds.length >= 2) {
+            apply(addCurve(scene, pendingIds));
+            setPendingIds([]);
           } else if (tool === "line") {
             setPendingIds([]);
           }
@@ -462,7 +481,9 @@ export function GeometryCanvas({ editor }: Props) {
           if (e.key === "Enter" && tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
             setPendingIds([]);
-
+          } else if (e.key === "Enter" && tool === "curve" && pendingIds.length >= 2) {
+            apply(addCurve(scene, pendingIds));
+            setPendingIds([]);
           } else if (e.key === "Escape") {
             setPendingIds([]);
           }
@@ -512,4 +533,22 @@ function cursorFor(t: ToolId): string {
   if (t === "move") return "grab";
   if (t === "erase") return "not-allowed";
   return "crosshair";
+}
+
+function catmullRomPreview(p: { x: number; y: number }[]): string {
+  if (p.length < 2) return "";
+  if (p.length === 2) return `M ${p[0].x} ${p[0].y} L ${p[1].x} ${p[1].y}`;
+  let d = `M ${p[0].x} ${p[0].y}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[i - 1] ?? p[i];
+    const p1 = p[i];
+    const p2 = p[i + 1];
+    const p3 = p[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
+  }
+  return d;
 }

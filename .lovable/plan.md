@@ -1,63 +1,61 @@
-# Geometry Editor — Curve, Auto-Intersections, and Frameless Drawing
+## Goals
 
-Three focused changes.
+1. **Curve = continuous, N-point** (like the Line tool but smooth). Not 3 fixed points.
+2. **Diagrams are notebook-wide overlays**, not tied to one section. They can extend across / overlap sections and existing text; new sections must slot in *underneath* the drawing.
 
-## 1. Curve tool — match the Graph's behavior
+---
 
-Today's geometry Curve is a multi-click Catmull-Rom smoothing that finishes on double-click. The teacher wants it to behave like the graph's curve: **exactly 3 clicks** — start, control (middle), end — producing a smooth curved line between the two endpoints, with the middle click bending the curve. Same interaction shape as the existing Arc tool, but rendered as a quadratic Bézier instead of a circular arc.
+## 1. Continuous Curve tool
 
-Changes:
-- `src/lib/geometry/scene.ts` — extend `GeoCurve` with `a`, `mid`, `b` (three point IDs). Keep `points` as fallback for legacy data.
-- `src/lib/geometry/editor/sceneOps.ts` — `addCurve` now takes exactly 3 point IDs and stores them as `{a, mid, b}`.
-- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — Curve tool collects 3 clicks then commits (mirrors the `arc` case), removes the double-click-to-finish path for Curve.
-- `src/components/lessonnotes/GeometryDiagram.tsx` — render Curve as `M a Q mid b` quadratic Bézier; halo path matches.
+The current curve is a fixed 3-point quadratic Bezier (start / bend / end). Rebuild it like Line:
 
-## 2. Auto-insert points at every intersection
+- Each click adds a point and immediately extends the curve to the cursor (rubber-band preview to the hovered position).
+- Double-click, Enter, or Escape commits the curve with all collected points.
+- Right-click / Escape while pending cancels.
+- Render as a smooth Catmull-Rom (or cubic-Bezier) spline through every anchor point, so 2 points looks like a gentle arc, 3 → S-curve, N → smooth continuous curve.
+- Every anchor is a normal `GeoPoint` (draggable, deletable, auto-splits at intersections, participates in region cycles). Deleting an interior anchor just reshapes the spline.
 
-Whenever any two structures cross, drop a point at that crossing automatically. Teacher can delete unwanted ones (existing behavior). This makes closed-region shading much easier to trigger.
+Files to touch (technical):
+- `src/lib/geometry/scene.ts` — restore `GeoCurve.points: GeoId[]` as the primary form; keep legacy `a/mid/b` read-support only.
+- `src/lib/geometry/editor/sceneOps.ts` — `addCurve` takes `GeoId[]` of any length ≥ 2; `appendCurvePoint` helper.
+- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — curve case mirrors Line: accumulate points, live preview from last anchor to cursor, commit on dbl-click / Enter / Esc.
+- `src/components/lessonnotes/GeometryDiagram.tsx` — render `points[]` as a Catmull-Rom path.
+- `src/lib/geometry/editor/snap.ts` — hit-test walks the sampled polyline (already does; just needs the N-point form).
+- `src/lib/geometry/editor/intersections.ts` — sample the spline for curve×segment / curve×circle intersections.
 
-New module `src/lib/geometry/editor/intersections.ts`:
-- Pairwise intersection math for the pairs we actually have: segment×segment, segment×circle, segment×arc, segment×curve, circle×circle, circle×arc, circle×curve, arc×arc, arc×curve, curve×curve.
-- Returns a list of `{x, y, onA, onB}` hits with the two host object IDs.
+---
 
-New `ensureIntersectionPoints(scene)` in the same file:
-- Walks all object pairs, finds crossings, dedupes against existing points (within snap radius), and for each new crossing:
-  - creates a `GeoPoint` with `auto: true` and a fresh default label,
-  - splits any segment/curve it lies on using existing `sceneOps` splitting helpers so the crossing point becomes a real vertex (as we already do when a Point is dropped on a segment),
-  - inherits styles onto the split children.
-- Idempotent: safe to run on every scene commit.
+## 2. Notebook-wide drawing surface
 
-Wiring:
-- `src/lib/geometry/scene.ts` — add optional `auto?: boolean` to `GeoPoint`.
-- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — after `normalizeScene`, run `ensureIntersectionPoints`. Run it again inside `apply`/`commit` so freshly-drawn structures immediately gain their intersections.
-- Erase behavior for `auto` points: same as today — deleting an auto-point can re-merge the split segments (existing `eraseObject` logic).
+Today each Geometry diagram is a TipTap **block node** rendered inline inside one section — that's why it feels "stuck" in a session and why the "+" section button appears cramped next to it. The user wants the diagram to behave like a transparency laid over the whole notebook.
 
-Circles/arcs/curves aren't split by the intersection point today (only segments are). We'll extend the "split" path for curves (split a `GeoCurve` at parameter `t` into two curves) so shading enclosed regions works when a curve is one side of the boundary. Arcs and circles remain a single object; the point just sits on them (the region walker in `regions.ts` already handles arc/circle boundaries via endpoint incidence, which is enough now that the intersections become real vertices).
+Change the geometry node from an inline block to a **floating overlay pinned to the notebook page**:
 
-## 3. Remove the diagram frame — whole lesson note is the drawing paper
+- New wrapper `GeometryOverlayLayer` mounted once per notebook page (in the notebook renderer), absolutely positioned, `pointer-events: none` by default, `pointer-events: auto` on the actual ink / handles.
+- Each geometry node becomes a *zero-height anchor* in the document flow (so section order/serialization is preserved) plus a record on the overlay layer with `{ anchorTop, sceneId, scene }`.
+- The overlay SVG sizes to the full notebook column width and grows vertically to `max(anchor + sceneHeight, notebookHeight)`. `overflow: visible` so drawings can extend past their anchor in both directions.
+- Section content (`+ New section`, text blocks, other assets) renders **below** the overlay in z-order but the overlay ignores pointer events except on ink → clicks pass through to text, so typing / adding sections underneath a drawing keeps working.
+- When the user starts a new section, it inserts at its normal document position; because the overlay is above but click-through, the section visually appears *underneath* any drawing that crosses its area — exactly what the user described.
+- Clicking a geometry tool arms the whole notebook: the very next click anywhere on the page drops the point on the overlay, regardless of which section the cursor is over. Selection/edit stays scoped to the diagram whose ink was hit.
 
-Currently every `GeometryDiagram` node renders an inline-block SVG sized to `scene.bounds`. Anything drawn outside those bounds is clipped, and the node sits in normal document flow so it can't visually overlap the paragraphs above/below.
+Files to touch (technical):
+- `src/components/lessonnotes/extensions/GeometryDiagram.tsx` — node becomes a thin anchor; renders nothing visible itself, just registers `{id, top, scene}` into a context.
+- New `src/components/lessonnotes/geometry-editor/GeometryOverlayLayer.tsx` — the shared SVG overlay + tool arming + hit dispatch.
+- New `src/components/lessonnotes/geometry-editor/GeometryOverlayContext.tsx` — registry of active diagrams on the current page.
+- Notebook page renderer (wherever the editor is mounted, e.g. `NotebookEditorPage.tsx` / the lesson-note view) — mount `GeometryOverlayLayer` as a sibling positioned over the notebook column.
+- `GeometryCanvas.tsx` — read pointer coords in overlay space, not local SVG space.
+- Section insert code — no change needed; z-order alone handles "new section slots under drawing" once the overlay is on top and click-through.
 
-New model: a **single page-wide drawing overlay** per lesson note.
+---
 
-- `src/components/lessonnotes/DocumentEditor.tsx` — wrap the notebook body in a `position: relative` container and mount one `<GeometryOverlay/>` absolutely positioned over it (`inset: 0`, `pointer-events: none` by default, `pointer-events: auto` when Geometry mode is active).
-- New `src/components/lessonnotes/geometry-editor/GeometryOverlay.tsx`:
-  - Collects every `geometryDiagram` node in the current document via TipTap (`editor.state.doc.descendants`) and merges their scenes into one virtual scene, offsetting each by the DOM position of its anchor node so shapes stay attached to the paragraph they were created next to.
-  - Renders one full-height SVG (width = notebook column width, height = notebook scroll height) with no border, no background — pure ink over the paper.
-  - Routes pointer events to the active node's editor (the one currently `selected` in TipTap), so drawing still commits to that node's `scene`.
-- `src/components/lessonnotes/extensions/GeometryDiagram.tsx`:
-  - Node view becomes a **zero-height anchor**: renders nothing visible itself, just registers its position and scene with the overlay via context.
-  - Selected state still opens the toolbox/inspector; live drawing is done on the overlay canvas.
-- `scene.bounds` is no longer a clip. `GeometryDiagram.tsx` (static renderer) drops the SVG `width/height` constraints and renders into whatever viewport the overlay gives it. Individual scenes can now extend beyond their historical bounds; bounds auto-grow as points are added.
+## Out of scope for this plan
 
-Net effect: the teacher can draw from the top of the page to the bottom, across paragraphs and other diagrams, and scroll to see the full shape. Existing diagrams keep working because each still owns its own scene — the overlay just paints them on the same infinite canvas.
+- No changes to Point / Line / Circle / Arc / Angle / Distance behaviour beyond what auto-intersections already do.
+- No change to serialization format beyond `GeoCurve.points` (backwards compatible).
+- No visual redesign of the right-hand Properties panel.
 
 ## Verification
 
-- Curve tool: 3 clicks produce a smooth curve; the middle click controls the bend. Selecting the curve still opens the segment-style inspector.
-- Drop a circle across an existing segment: points appear at both crossings, segment dissects into three parts, each independently editable and highlightable.
-- Draw a line starting in Example 5 and ending in Example 4: the ink extends across paragraphs; scrolling reveals both ends; no frame is visible.
-
-## Out of scope
-
-No changes to the toolbox, inspector, angle editor, or distance chips — those already work per the previous turn.
+- Curve: click 5 points across the page → single smooth spline; double-click commits; dragging any anchor reshapes it; deleting an interior anchor keeps the curve continuous.
+- Notebook-wide: start Line in section 1, click in section 1, click in section 4 → one straight line spans all four sections; add a new section between them → new section appears underneath the line, text unaffected.
+- Regression: existing 3-point curves still render (legacy `a/mid/b` path).

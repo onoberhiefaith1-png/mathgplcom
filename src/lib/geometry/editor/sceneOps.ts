@@ -443,16 +443,18 @@ export function makeEquilateral(scene: GeometryScene, pointIds: GeoId[]): OpResu
   return movePoint(scene, cId, cx, cy);
 }
 
-/* ─── Curve through 3 points (quadratic Bezier) ────────────────────── */
+/* ─── Continuous curve through N points (smooth spline) ─────────────── */
 import type { GeoCurve } from "../scene";
 
 export function addCurve(scene: GeometryScene, pointIds: GeoId[]): OpResult {
-  if (pointIds.length < 2) return ok(scene);
+  // Dedupe consecutive duplicates and require at least 2 distinct anchors.
+  const uniq: GeoId[] = [];
+  for (const id of pointIds) {
+    if (uniq[uniq.length - 1] !== id) uniq.push(id);
+  }
+  if (uniq.length < 2) return ok(scene);
   const id = newId("cv", scene);
-  const [a, mid, b] = pointIds.length >= 3
-    ? [pointIds[0], pointIds[1], pointIds[2]]
-    : [pointIds[0], pointIds[0], pointIds[1]];
-  const curve: GeoCurve = { id, type: "curve", a, mid, b };
+  const curve: GeoCurve = { id, type: "curve", points: uniq };
   return ok(withObjects(scene, [...scene.objects, curve]), [id]);
 }
 
