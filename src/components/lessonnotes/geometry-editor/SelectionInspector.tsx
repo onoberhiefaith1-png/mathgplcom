@@ -90,10 +90,12 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
   );
 }
 
-function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: string; fill?: string; fillOpacity?: number; dashed?: boolean }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean }>) => void; onAddText?: () => void }) {
+function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: string; r?: number; fill?: string; fillOpacity?: number; dashed?: boolean; area?: string }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean; area: string }>) => void; onAddText?: () => void }) {
   const [enabled, setEnabled] = useState<boolean>(!!obj.fill);
   const [color, setColor] = useState<string>(obj.fill ?? "#3b82f6");
   const [opacity, setOpacity] = useState<number>(obj.fillOpacity ?? 0.2);
+  const [areaText, setAreaText] = useState<string>(obj.area ?? "");
+  const computedArea = obj.type === "circle" && obj.r ? (Math.PI * obj.r * obj.r / 100).toFixed(1) : "";
   return (
     <div className="space-y-2 text-xs">
       <p className="uppercase tracking-wider text-[11px] font-semibold text-foreground/70">{obj.type.toUpperCase()}</p>
@@ -116,6 +118,18 @@ function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: s
             <input type="range" min={0} max={1} step={0.05} value={opacity} onChange={(e) => { const v = Number(e.target.value); setOpacity(v); onPatch({ fillOpacity: v }); }} className="flex-1" />
             <span className="text-[10px] text-foreground/60 w-8 text-right">{Math.round(opacity * 100)}%</span>
           </div>
+        </div>
+      )}
+      {obj.type === "circle" && (
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] w-14 text-foreground/70">Area</label>
+          <input
+            value={areaText}
+            onChange={(e) => setAreaText(e.target.value)}
+            onBlur={() => onPatch({ area: areaText.trim() || undefined as any })}
+            placeholder={computedArea ? `${computedArea} (πr²)` : "e.g. 78.5 cm²"}
+            className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          />
         </div>
       )}
       <label className="flex items-center gap-2 cursor-pointer">
