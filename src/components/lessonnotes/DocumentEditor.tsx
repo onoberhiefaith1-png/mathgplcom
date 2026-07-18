@@ -1555,7 +1555,13 @@ function DocumentEditorInner({
       </div>
       <div aria-hidden="true" style={{ height: ribbonSpacerHeight }} />
 
-      <div className="flex-1 min-h-0 flex">
+      <div
+        className="flex-1 min-h-0 flex"
+        style={{
+          paddingRight: "var(--properties-panel-width, 0px)",
+          transition: "padding-right 160ms ease",
+        }}
+      >
         <div className="flex-1 overflow-auto bg-[hsl(220_15%_94%)]">
           <PageFrame size={paperSize} style={paperStyle} zoom={zoom}>
             <div
