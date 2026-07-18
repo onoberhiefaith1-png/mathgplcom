@@ -84,9 +84,11 @@ function renderObject(
       const y = p.y + pad;
       const labelDx = p.labelOffset?.dx ?? 6;
       const labelDy = p.labelOffset?.dy ?? -6;
+      const color = p.color ?? stroke;
+      const r = p.size ?? 2.6;
       return (
         <g key={p.id}>
-          <circle cx={x} cy={y} r={2.4} fill={stroke} />
+          <circle cx={x} cy={y} r={r} fill={color} />
           {p.label && (
             <text
               x={x + labelDx}
@@ -94,7 +96,7 @@ function renderObject(
               fontFamily={LABEL_FONT}
               fontStyle="italic"
               fontSize={14}
-              fill={stroke}
+              fill={color}
             >
               {p.label}
             </text>
@@ -110,75 +112,112 @@ function renderObject(
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
       const dx = x2 - x1, dy = y2 - y1;
       const len = Math.hypot(dx, dy) || 1;
-      // Perpendicular unit
       const nx = -dy / len, ny = dx / len;
+      const color = (o as any).color ?? stroke;
+      const dashArr =
+        o.dashed === true ? "4 3"
+          : o.dashed === "dotted" ? "1 3"
+          : undefined;
       const marks: React.ReactNode[] = [];
-      if (o.marks === "tick" || o.marks === "double" || o.marks === "triple") {
-        const count = o.marks === "tick" ? 1 : o.marks === "double" ? 2 : 3;
+      // Equality ticks (perpendicular strokes)
+      const eqCount = o.marks === "tick" ? 1
+        : o.marks === "double" ? 2
+        : o.marks === "triple" ? 3
+        : o.marks === "quadruple" ? 4 : 0;
+      if (eqCount > 0) {
         const spacing = 4;
-        for (let i = 0; i < count; i++) {
-          const offset = (i - (count - 1) / 2) * spacing;
+        for (let i = 0; i < eqCount; i++) {
+          const offset = (i - (eqCount - 1) / 2) * spacing;
           const cx = mx + (dx / len) * offset;
           const cy = my + (dy / len) * offset;
           marks.push(
-            <line
-              key={`m${i}`}
+            <line key={`m${i}`}
               x1={cx + nx * 5} y1={cy + ny * 5}
               x2={cx - nx * 5} y2={cy - ny * 5}
-              stroke={stroke} strokeWidth={sw}
+              stroke={color} strokeWidth={sw}
             />,
           );
         }
       }
       if (o.marks === "right") {
-        // Small square at point A
         const s = 9;
         const ux = dx / len, uy = dy / len;
         const p1x = x1 + ux * s, p1y = y1 + uy * s;
         const p2x = p1x + nx * s, p2y = p1y + ny * s;
         const p3x = x1 + nx * s, p3y = y1 + ny * s;
         marks.push(
-          <polyline
-            key="rt"
+          <polyline key="rt"
             points={`${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y}`}
-            fill="none" stroke={stroke} strokeWidth={sw}
+            fill="none" stroke={color} strokeWidth={sw}
           />,
         );
       }
+      // Legacy parallel marks via `marks`
       if (o.marks === "parallel" || o.marks === "double-parallel" || o.marks === "triple-parallel") {
         const count = o.marks === "parallel" ? 1 : o.marks === "double-parallel" ? 2 : 3;
+        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, count, color, sw);
+      }
+      // New independent parallel-marks
+      const parGroup = (o as any).parallelMarks as number | undefined;
+      if (parGroup && parGroup > 0) {
+        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, parGroup, color, sw);
+      }
+      // Arrows
+      const arrow = (o as any).arrow as "none" | "start" | "end" | "both" | undefined;
+      const arrowNodes: React.ReactNode[] = [];
+      if (arrow && arrow !== "none") {
         const ux = dx / len, uy = dy / len;
-        const spacing = 4;
-        for (let i = 0; i < count; i++) {
-          const offset = (i - (count - 1) / 2) * spacing;
-          const cx = mx + nx * offset;
-          const cy = my + ny * offset;
-          // small chevron pointing along the segment direction
-          marks.push(
-            <polyline
-              key={`pa${i}`}
-              points={`${cx - ux * 4 - nx * 3},${cy - uy * 4 - ny * 3} ${cx + ux * 4},${cy + uy * 4} ${cx - ux * 4 + nx * 3},${cy - uy * 4 + ny * 3}`}
-              fill="none" stroke={stroke} strokeWidth={sw}
+        const size = 8;
+        if (arrow === "end" || arrow === "both") {
+          arrowNodes.push(
+            <polyline key="ah-e"
+              points={`${x2 - ux * size + nx * size * 0.55},${y2 - uy * size + ny * size * 0.55} ${x2},${y2} ${x2 - ux * size - nx * size * 0.55},${y2 - uy * size - ny * size * 0.55}`}
+              fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round"
+            />,
+          );
+        }
+        if (arrow === "start" || arrow === "both") {
+          arrowNodes.push(
+            <polyline key="ah-s"
+              points={`${x1 + ux * size + nx * size * 0.55},${y1 + uy * size + ny * size * 0.55} ${x1},${y1} ${x1 + ux * size - nx * size * 0.55},${y1 + uy * size - ny * size * 0.55}`}
+              fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round"
             />,
           );
         }
       }
+      // Label position
+      const lblOff = (o as any).labelOffset as { dx: number; dy: number } | undefined;
+      const lblX = lblOff ? mx + lblOff.dx : mx + nx * 14;
+      const lblY = lblOff ? my + lblOff.dy : my + ny * 14;
+      // Distance (preferred) or legacy length
+      const distText = (o as any).distance ?? o.length;
+      const distOff = (o as any).distanceOffset as { dx: number; dy: number } | undefined;
+      const distX = distOff ? mx + distOff.dx : mx - nx * 14;
+      const distY = distOff ? my + distOff.dy : my - ny * 14;
       return (
         <g key={o.id}>
           <line
             x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke={stroke} strokeWidth={sw}
-            strokeDasharray={o.dashed ? "4 3" : undefined}
+            stroke={color} strokeWidth={sw}
+            strokeDasharray={dashArr}
             strokeLinecap="round"
           />
+          {arrowNodes}
           {marks}
           {o.label && (
-            <text
-              x={mx + nx * 14} y={my + ny * 14}
+            <text x={lblX} y={lblY}
               fontFamily={LABEL_FONT} fontSize={13}
-              fill={stroke} textAnchor="middle"
+              fill={color} textAnchor="middle"
             >
               {o.label}
+            </text>
+          )}
+          {distText && (
+            <text x={distX} y={distY}
+              fontFamily={LABEL_FONT} fontSize={12}
+              fill={color} textAnchor="middle"
+            >
+              {distText}
             </text>
           )}
         </g>
