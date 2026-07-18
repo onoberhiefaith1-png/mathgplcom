@@ -12,10 +12,9 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { Copy, CopyPlus, Sparkles, Trash2 } from "lucide-react";
-import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { GeometryEditorV2 } from "@/components/lessonnotes/geometry-editor/v2/GeometryEditorV2";
 import { StaticV2Render } from "@/components/lessonnotes/geometry-editor/v2/StaticV2Render";
-import { sanitizeV2Scene, EMPTY_V2_SCENE, type V2Scene } from "@/lib/geometry/v2/scene";
+import { sanitizeV2Scene, type V2Scene } from "@/lib/geometry/v2/scene";
 import { migrateLegacyToV2 } from "@/lib/geometry/v2/migrate";
 import {
   type GeometryScene,
@@ -24,7 +23,7 @@ import {
 } from "@/lib/geometry/scene";
 import { cn } from "@/lib/utils";
 
-const PAD = 24;
+
 
 const OPEN_EVENT = "geometry-ai-edit:open";
 
