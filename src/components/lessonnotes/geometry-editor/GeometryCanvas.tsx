@@ -434,7 +434,7 @@ export function GeometryCanvas({ editor }: Props) {
   }
 
   return (
-    <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H }}>
+    <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
       <div className="absolute inset-0">
         <GeometryDiagram scene={scene} />
       </div>
