@@ -1814,6 +1814,7 @@ function NotebookGeometryOverlay({
       selected={geometryEditor.selectedObjects}
       kind={geometryEditor.selectionKind}
       onApply={(next) => geometryEditor.commit(next)}
+      onSelect={(id, kind) => { geometryEditor.setSelectedIds([id]); geometryEditor.setSelectionKind(kind); }}
     />
   ), [geometryEditor.scene, geometryEditor.selectedObjects, geometryEditor.selectionKind]);
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
