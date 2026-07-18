@@ -1,104 +1,53 @@
+## Goal
 
-# Geometry Editor — Point & Segment fixes
+Two focused tweaks:
 
-Scope: only the **Point** and **Line/Segment** tools. The five-tool left rail and the right-hand foldable panel already exist and stay as-is. Circle / Arc / Curve are out of scope for this pass.
+1. **Properties Panel shrinks and pushes the lesson-note content instead of overlapping it.** Fixed width of `10vw` (min 220 px so controls stay usable on small screens), and the document layout reserves that space when the panel is expanded.
+2. **Point Label editor gains a Size control** so the teacher can grow/shrink the letter (A, B, C…) drawn next to a point. Same control will be added to the Point panel too, since either lands on the same label glyph.
 
-The core problem is that today clicking anywhere on a segment or its endpoints selects "the segment" as one thing, points don't have their own inspector, and the right panel just shows a flat list. This pass makes **Point**, **Point Label**, **Line Label**, and **Segment body** four independent selectable objects, each with its own inspector.
+Nothing else in the geometry editor changes.
 
 ---
 
-## 1. Data model additions (`src/lib/geometry/scene.ts`)
+## 1. Right panel: 10 vw, pushes content left
 
-Only additive — no breaking changes.
+File: `src/components/lessonnotes/PropertiesPanel.tsx`
 
-- `GeoPoint`: add `color?: string`, `size?: number` (radius; default 2.4), keep existing `hidden`, `labelOffset`.
-- `GeoSegment`: add
-  - `color?: string`
-  - `arrow?: "none" | "start" | "end" | "both"` (default `"none"`)
-  - `parallelMarks?: 0 | 1 | 2 | 3` (new, separate from `marks` so equality marks and parallel marks are independent groups)
-  - extend `marks` to also allow `"quadruple"` (four ticks)
-  - `labelOffset?: { dx: number; dy: number }` (for draggable segment label)
-  - `distance?: string` and `distanceOffset?: { dx: number; dy: number }` (draggable distance text — renamed use of existing `length` semantics; migration keeps `length` as fallback)
+- Change the expanded `<aside>` width from `w-[min(360px,calc(100vw-48px))]` to a fixed `width: 10vw` with `minWidth: 220px, maxWidth: 360px` (10 vw of a typical laptop = ~140 px which is too narrow for the color picker + slider; the min keeps it usable, and it never grows past the old size).
+- Also drop the width of the collapsed handle to stay proportional (keep `w-8` — it's already tiny).
+- Signal the layout via a CSS variable + a body class so the document can react:
+  - When expanded: `document.documentElement.style.setProperty('--properties-panel-width', <computed>px)` and add `data-properties-panel="open"` on `<body>`.
+  - When collapsed / unmounted: clear the var and set `data-properties-panel="closed"`.
+- Clean up on unmount so leaving the lesson-note page never leaves the padding behind.
 
-## 2. Hit testing — split segment into 4 parts (`src/lib/geometry/editor/snap.ts`)
+File: `src/components/lessonnotes/DocumentEditor.tsx`
 
-Rewrite `pickObject` to return a richer hit descriptor:
+- Wrap the existing scroll/paper container (the sibling of `<PropertiesPanel />` on line ~1579) so it gets `paddingRight: var(--properties-panel-width, 0px)` and a `transition: padding-right 160ms ease`.
+- Because the panel is portalled to `document.body`, styling the DocumentEditor root is enough — no layout re-shuffling needed elsewhere.
 
-```ts
-type Hit =
-  | { kind: "point"; id: GeoId }
-  | { kind: "pointLabel"; id: GeoId }         // point's label glyph
-  | { kind: "segmentBody"; id: GeoId }
-  | { kind: "segmentLabel"; id: GeoId }       // segment name label
-  | { kind: "segmentDistance"; id: GeoId }    // draggable distance chip
-  | { kind: "circle" | "arc" | "curve" | ...; id: GeoId };
-```
+Result: the panel is a slim rail on the right; the notebook column stays fully visible and just narrows by the panel's width. Collapsing the panel returns the notebook to full width.
 
-Priority (highest first): point → point label → segment label → segment distance → segment body → other shapes. Existing callers that only want an id keep working through a thin `pickObjectId()` wrapper.
+## 2. Point Label size control
 
-## 3. Selection state (`useGeometryEditor.ts`)
+Data model — `src/lib/geometry/scene.ts`
 
-Replace `selectedIds: GeoId[]` with `selection: Hit[]` (keeps multi-select). Add helpers `selectionKinds()` and `primarySelection()`. Segment-body multi-select is supported (shift-click adds another segment body).
+- Add `labelFontSize?: number` to `GeoPoint` (default 14, min 9, max 28). Sanitizer already passes through unknown fields; add a clamp in `sanitizeScene` alongside existing point fields so bad values can't break rendering.
 
-## 4. Canvas interactions (`GeometryCanvas.tsx`)
+Renderer — `src/components/lessonnotes/GeometryDiagram.tsx`
 
-Select tool becomes context-sensitive:
+- At the point-label `<text>` (currently `fontSize={14}` on line 121), replace with `fontSize={p.labelFontSize ?? 14}`. Static and live renderers both share this path, so one change covers both.
 
-- Click a **point dot** → select `{kind:"point"}`. Drag = move point (already works; keep). Every dependent segment/circle/arc/curve updates automatically because they reference the point id.
-- Click a **point's label** → select `{kind:"pointLabel"}`. Drag = update `labelOffset` on that point (point stays put).
-- Click a **segment body** (>4 px away from endpoints and labels) → select `{kind:"segmentBody"}`. Shift-click another segment body to multi-select.
-- Click a **segment label** → select `{kind:"segmentLabel"}`; drag updates `labelOffset`.
-- Click a **distance chip** → select `{kind:"segmentDistance"}`; drag updates `distanceOffset`.
+Inspector — `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx`
 
-Highlight overlay: only the selected part gets the dashed halo. Endpoints of a selected segment are **not** highlighted. Selecting a point does not highlight any segment.
+- In `PointLabelPanel`, add a **Size** row directly under Rename: a slider (9–28, step 1) plus the numeric value, wired to `onPatch({ labelFontSize: n })`.
+- Mirror the same **Size** row inside `PointPanel` so clicking the dot exposes the same control (the teacher wants "after rename, add size" — putting it in both panels avoids a hunt).
 
-## 5. Right-hand inspector rewrite (`SelectionInspector.tsx`)
+No other components need to change; the AutoFitLabel logic used by charts is unrelated to geometry labels.
 
-Replace the current flat form with a **context-sensitive** panel driven by `selection`:
+---
 
-- **Empty**: hint text.
-- **Point** (`kind: "point"`): only two rows — **Point Colour** (color input), **Hide Point** (checkbox). Hide toggles `hidden` on the point (renderer already skips hidden points; extend to also skip the label).
-- **Point Label** (`kind: "pointLabel"`): **Rename** text input (updates `point.label`). Note: dragging happens on the canvas.
-- **Segment Body** (`kind: "segmentBody"`, one or many): foldable sections using shadcn `Collapsible`:
-  - **Basic Line** (open by default): radio Solid / Dotted / Dashed → maps to `dashed: false | "dotted" | true` (extend `dashed` to `boolean | "dotted"`; renderer maps `"dotted"` to `strokeDasharray="1 3"`).
-  - **Arrow** (collapsed): radio None / Start / End / Both → writes `arrow`.
-  - **Equality Marks** (collapsed): radio None / 1 / 2 / 3 / 4 ticks → writes `marks`.
-  - **Parallel Marks** (collapsed): radio None / 1 / 2 / 3 → writes `parallelMarks`.
-  - **Distance** (collapsed): "Add distance" toggles a text input pre-filled with `distance`. Clearing the field removes only the distance.
-  - **Line Colour**: color input → writes `color`.
-  - Multi-select: every change is applied to all selected segments via `patchObject` in a loop.
-- **Segment Label** (`kind: "segmentLabel"`): Rename input (updates `segment.label`).
+## Technical notes
 
-Angle-from-two-segments and region selection are noted in the code as follow-up hooks but not implemented in this pass (the user said circle/arc/curve are next; angle/region will come with them).
-
-## 6. Renderer updates (`GeometryDiagram.tsx`)
-
-- Point: use `p.color ?? STROKE` and `p.size ?? 2.4`. When `hidden`, render neither dot nor label.
-- Segment: use `o.color ?? STROKE`. Draw arrowheads based on `arrow`. Support `dashed === "dotted"` (`"1 3"`) alongside the existing dashed pattern. Render up to 4 equality ticks and 1–3 parallel chevrons (independent groups). Position segment label with `labelOffset` if present. Render `distance` (or legacy `length`) at `distanceOffset` if present.
-
-## 7. Migration
-
-`sanitizeScene` remains backward-compatible: existing scenes without the new fields render exactly as before. `length` continues to work as a fallback for `distance`.
-
-## 8. Verification
-
-- `tsgo` typecheck must be clean.
-- Playwright smoke: open a lesson note, insert a Diagram, use Point tool to add 3 points, use Line tool to connect A–B–C, then:
-  1. Click point A → right panel shows exactly **Point Colour** + **Hide Point**.
-  2. Click label "A" → right panel shows only **Rename**; drag the label and confirm the dot stays fixed.
-  3. Click segment AB body → right panel shows the 6 foldable line sections; changing Dashed on AB leaves BC solid.
-  4. Shift-click BC → both selected; toggling Arrow=End applies to AB and BC only.
-  5. Drag point B → both AB and BC follow (already works; regression check).
-
-## Files touched
-
-- `src/lib/geometry/scene.ts` — new optional fields on `GeoPoint`/`GeoSegment`.
-- `src/lib/geometry/editor/snap.ts` — richer `Hit` type + `pickObject`.
-- `src/components/lessonnotes/geometry-editor/useGeometryEditor.ts` — selection stores `Hit[]`.
-- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — dispatch by hit kind, drag label/distance offsets.
-- `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx` — full rewrite as context-sensitive panel with `Collapsible` sections.
-- `src/components/lessonnotes/GeometryDiagram.tsx` — render color / size / arrow / dotted / 4 ticks / parallel group / draggable label + distance / hidden-label.
-
-## Out of scope (next prompt)
-
-Circle, Arc, Curve editing, angle-from-two-segments, enclosed-region shading. The inspector already has a `switch (kind)` seam where those cases will slot in.
+- `10vw` on the current 847×473 preview = 84.7 px, which is too tight — the `minWidth: 220px` guard keeps color pickers/sliders usable while still visibly slimmer than the old 360 px panel.
+- Using a CSS variable + `padding-right` (instead of restructuring layout to a flex row) is the least invasive way to make a portalled `fixed` panel behave like a docked column, and it plays nicely with the existing collapse/expand animation.
+- Label font size is stored per-point (not per-scene) so different labels can have different sizes if a teacher wants one prominent vertex.
