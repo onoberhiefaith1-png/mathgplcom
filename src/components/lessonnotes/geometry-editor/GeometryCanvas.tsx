@@ -11,6 +11,7 @@ import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
   movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
+  addCurve,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
@@ -153,13 +154,7 @@ export function GeometryCanvas({ editor }: Props) {
         } else {
           const { id, scene: s1 } = ensurePoint(p.x, p.y);
           const op = addCircleByRadius(s1, pendingIds[0], id);
-          // Mark as dashed (construction)
-          if (op.addedIds[0]) {
-            const dashedOp = patchObject(op.scene, op.addedIds[0], { dashed: true } as any);
-            apply(dashedOp);
-          } else {
-            apply(op);
-          }
+          apply(op);
           setPendingIds([]);
         }
         break;
@@ -176,6 +171,11 @@ export function GeometryCanvas({ editor }: Props) {
         } else {
           setPendingIds(next);
         }
+        break;
+      }
+      case "curve": {
+        const { id } = ensurePoint(p.x, p.y);
+        setPendingIds([...pendingIds, id]);
         break;
       }
       case "angle": {
@@ -346,9 +346,12 @@ export function GeometryCanvas({ editor }: Props) {
         onPointerUp={onPointerUp}
         onPointerLeave={() => setHover(null)}
         onDoubleClick={() => {
-          // Double-click finishes a polygon or line in progress.
+          // Double-click finishes an in-progress multi-point tool.
           if (tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
+            setPendingIds([]);
+          } else if (tool === "curve" && pendingIds.length >= 2) {
+            apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (tool === "line") {
             setPendingIds([]);
@@ -357,6 +360,9 @@ export function GeometryCanvas({ editor }: Props) {
         onKeyDown={(e) => {
           if (e.key === "Enter" && tool === "polygon" && pendingIds.length >= 3) {
             apply(closePolygon(scene, pendingIds));
+            setPendingIds([]);
+          } else if (e.key === "Enter" && tool === "curve" && pendingIds.length >= 2) {
+            apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (e.key === "Escape") {
             setPendingIds([]);
