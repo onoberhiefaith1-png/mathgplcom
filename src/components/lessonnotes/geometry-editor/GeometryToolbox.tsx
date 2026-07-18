@@ -1,40 +1,45 @@
 // GeometryToolbox — floating left-side toolbox shown while Geometry Mode
-// is active. Two display modes (collapsed icons / expanded with labels)
-// persisted in localStorage. Picking a tool broadcasts via the Geometry
-// Mode context to whichever diagram frame is currently selected.
+// is active. Exposes the five construction tools (Point, Line, Circle,
+// Arc, Curve) plus a Select cursor. Circle is bound to the compass flow
+// (centre + radius point). All editing options live on the right-hand
+// Properties Panel — never here.
 
 import { useEffect, useState } from "react";
 import {
-  MousePointer2, Dot, Minus, CircleDot, Circle, Pentagon, Triangle,
-  Type, Ruler, Equal, Slash, Square, Move, Eraser, Lock, RotateCw,
-  Pencil, Tag, RadioTower, ChevronLeft, ChevronRight, X,
+  MousePointer2, Dot, Minus, Circle, Waves, ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TOOLS, TOOL_GROUPS, type ToolId } from "@/lib/geometry/editor/tools";
+import type { ToolId } from "@/lib/geometry/editor/tools";
 import { useGeometryMode } from "./GeometryModeContext";
 
-const ICONS: Record<ToolId, React.ComponentType<{ className?: string }>> = {
-  select: MousePointer2,
-  point: Dot,
-  line: Minus,
-  arc: RadioTower,
-  circle: Circle,
-  polygon: Pentagon,
-  angle: Triangle,
-  label: Tag,
-  measure: Ruler,
-  equalMark: Equal,
-  parallel: Slash,
-  perpendicular: Square,
-  rightAngle: Square,
-  midpoint: CircleDot,
-  compass: Circle,
-  move: Move,
-  erase: Eraser,
-  constraint: Lock,
-  rotate: RotateCw,
-  sketch: Pencil,
-};
+interface Slot {
+  id: string;
+  toolId: ToolId;
+  label: string;
+  hint: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}
+
+const SLOTS: Slot[] = [
+  { id: "select", toolId: "select", label: "Select", hint: "Select and drag objects", Icon: MousePointer2 },
+  { id: "point",  toolId: "point",  label: "Point",  hint: "Click to place a point", Icon: Dot },
+  { id: "line",   toolId: "line",   label: "Line",   hint: "Click two points to connect them", Icon: Minus },
+  // Circle uses the compass flow: click centre, then a radius point.
+  { id: "circle", toolId: "compass", label: "Circle", hint: "Click centre, then a radius point", Icon: Circle },
+  { id: "arc",    toolId: "arc",    label: "Arc",    hint: "Click start, through, end (in that order)", Icon: ArcIcon },
+  { id: "curve",  toolId: "curve",  label: "Curve",  hint: "Click points; double-click to finish", Icon: Waves },
+];
+
+function ArcIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+         strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 18 A 10 10 0 0 1 20 18" />
+      <circle cx="4" cy="18" r="1.4" fill="currentColor" />
+      <circle cx="20" cy="18" r="1.4" fill="currentColor" />
+    </svg>
+  );
+}
 
 const KEY = "geometry-toolbox:expanded";
 
@@ -79,39 +84,26 @@ export function GeometryToolbox() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">
-        {TOOL_GROUPS.map((g) => {
-          const items = TOOLS.filter((t) => t.group === g.id);
-          if (!items.length) return null;
+        {SLOTS.map((s) => {
+          const active = tool === s.toolId;
+          const Icon = s.Icon;
           return (
-            <div key={g.id} className="mb-1">
-              {expanded && (
-                <div className="px-2 pt-1 pb-0.5 text-[9px] uppercase tracking-wider text-foreground/40">
-                  {g.label}
-                </div>
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setTool(s.toolId)}
+              title={`${s.label} — ${s.hint}`}
+              className={cn(
+                "w-full flex items-center gap-2 px-2 py-1.5 text-[12px] transition",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground/80 hover:bg-foreground/5",
+                expanded ? "justify-start" : "justify-center",
               )}
-              {items.map((t) => {
-                const Icon = ICONS[t.id] ?? Type;
-                const active = tool === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTool(t.id)}
-                    title={`${t.label}${t.shortcut ? ` (${t.shortcut})` : ""} — ${t.hint}`}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-2 py-1 text-[12px] transition",
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "text-foreground/75 hover:bg-foreground/5",
-                      expanded ? "justify-start" : "justify-center",
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    {expanded && <span className="truncate">{t.label}</span>}
-                  </button>
-                );
-              })}
-            </div>
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {expanded && <span className="truncate">{s.label}</span>}
+            </button>
           );
         })}
       </div>
