@@ -46,58 +46,122 @@ export function snap(scene: GeometryScene, x: number, y: number, radius = SNAP_R
   return best;
 }
 
-/** Pick the topmost object at (x,y) within hit-radius. Used by select/erase/label. */
-export function pickObject(scene: GeometryScene, x: number, y: number, hit = 8): string | null {
-  // Walk in reverse so the most recently added object wins.
+/** Rich hit kind. */
+export type HitKind =
+  | "point"
+  | "pointLabel"
+  | "segmentBody"
+  | "segmentLabel"
+  | "segmentDistance"
+  | "circle"
+  | "arc"
+  | "curve"
+  | "polygon"
+  | "angle"
+  | "label";
+
+export interface Hit { id: string; kind: HitKind }
+
+/** Pick the topmost object at (x,y). Segments split into body/label/distance;
+ *  points split into dot/label. */
+export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hit | null {
+  // 1) Point dot (highest priority)
+  for (let i = scene.objects.length - 1; i >= 0; i--) {
+    const o = scene.objects[i];
+    if (o.type === "point" && !o.hidden && Math.hypot(o.x - x, o.y - y) <= hit) {
+      return { id: o.id, kind: "point" };
+    }
+  }
+  // 2) Point label glyph (approx bbox around label anchor)
+  for (let i = scene.objects.length - 1; i >= 0; i--) {
+    const o = scene.objects[i];
+    if (o.type !== "point" || o.hidden || !o.label) continue;
+    const dx = o.labelOffset?.dx ?? 6;
+    const dy = o.labelOffset?.dy ?? -6;
+    const lx = o.x + dx, ly = o.y + dy;
+    // label is ~14px tall, ~10px wide per char; use small box
+    const w = Math.max(10, o.label.length * 8);
+    if (x >= lx - 2 && x <= lx + w && y >= ly - 12 && y <= ly + 4) {
+      return { id: o.id, kind: "pointLabel" };
+    }
+  }
+  // 3) Segment label + distance chip
+  for (let i = scene.objects.length - 1; i >= 0; i--) {
+    const o = scene.objects[i];
+    if (o.type !== "segment") continue;
+    const a = pointById(scene, o.a); const b = pointById(scene, o.b);
+    if (!a || !b) continue;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    if (o.label) {
+      const off = o.labelOffset;
+      const lx = off ? mx + off.dx : mx + nx * 14;
+      const ly = off ? my + off.dy : my + ny * 14;
+      if (Math.hypot(lx - x, ly - y) <= 12) return { id: o.id, kind: "segmentLabel" };
+    }
+    const dist = o.distance ?? o.length;
+    if (dist) {
+      const off = o.distanceOffset;
+      const lx = off ? mx + off.dx : mx - nx * 14;
+      const ly = off ? my + off.dy : my - ny * 14;
+      if (Math.hypot(lx - x, ly - y) <= 14) return { id: o.id, kind: "segmentDistance" };
+    }
+  }
+  // 4) Shapes (segment body last so label wins).
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];
     switch (o.type) {
-      case "point": {
-        if (o.hidden) break;
-        if (Math.hypot(o.x - x, o.y - y) <= hit) return o.id;
-        break;
-      }
       case "segment": {
-        const a = pointById(scene, o.a);
-        const b = pointById(scene, o.b);
+        const a = pointById(scene, o.a); const b = pointById(scene, o.b);
         if (!a || !b) break;
-        if (distPointToSegment({ x, y }, a, b) <= hit) return o.id;
+        if (distPointToSegment({ x, y }, a, b) <= hit) return { id: o.id, kind: "segmentBody" };
         break;
       }
       case "circle": {
-        const c = pointById(scene, o.center);
-        if (!c) break;
-        const d = Math.abs(Math.hypot(c.x - x, c.y - y) - o.r);
-        if (d <= hit) return o.id;
+        const c = pointById(scene, o.center); if (!c) break;
+        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) <= hit) return { id: o.id, kind: "circle" };
         break;
       }
       case "arc": {
-        const c = pointById(scene, o.center);
-        if (!c) break;
-        const d = Math.abs(Math.hypot(c.x - x, c.y - y) - o.r);
-        if (d <= hit) return o.id;
+        const c = pointById(scene, o.center); if (!c) break;
+        if (Math.abs(Math.hypot(c.x - x, c.y - y) - o.r) <= hit) return { id: o.id, kind: "arc" };
+        break;
+      }
+      case "curve": {
+        for (let k = 0; k < o.points.length - 1; k++) {
+          const a = pointById(scene, o.points[k]);
+          const b = pointById(scene, o.points[k + 1]);
+          if (a && b && distPointToSegment({ x, y }, a, b) <= hit) return { id: o.id, kind: "curve" };
+        }
         break;
       }
       case "polygon": {
-        // hit-test on edges
         for (let k = 0; k < o.points.length; k++) {
           const a = pointById(scene, o.points[k]);
           const b = pointById(scene, o.points[(k + 1) % o.points.length]);
-          if (a && b && distPointToSegment({ x, y }, a, b) <= hit) return o.id;
+          if (a && b && distPointToSegment({ x, y }, a, b) <= hit) return { id: o.id, kind: "polygon" };
         }
         break;
       }
       case "angle": {
-        const v = pointById(scene, o.vertex);
-        if (!v) break;
-        if (Math.hypot(v.x - x, v.y - y) <= 22) return o.id;
+        const v = pointById(scene, o.vertex); if (!v) break;
+        if (Math.hypot(v.x - x, v.y - y) <= 22) return { id: o.id, kind: "angle" };
         break;
       }
-      default:
+      case "label": {
+        if (Math.hypot(o.x - x, o.y - y) <= 14) return { id: o.id, kind: "label" };
         break;
+      }
     }
   }
   return null;
+}
+
+/** Legacy: pick just an id. */
+export function pickObject(scene: GeometryScene, x: number, y: number, hit = 8): string | null {
+  return pickHit(scene, x, y, hit)?.id ?? null;
 }
 
 function distPointToSegment(
