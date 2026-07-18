@@ -90,6 +90,12 @@ export interface GeoAngle {
   marker?: "arc" | "double" | "right";
   /** When true, the arc is drawn on the opposite (reflex) side. */
   reflex?: boolean;
+  /** Draggable offset for the value chip. */
+  valueOffset?: { dx: number; dy: number };
+  /** Font size for the value chip. */
+  valueFontSize?: number;
+  /** Colour for the value chip. */
+  valueColor?: string;
 }
 export interface GeoRegion {
   id: GeoId;
