@@ -43,6 +43,12 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
 
   const patch = (id: string, p: Partial<GeoObject>) => onApply(patchObject(scene, id, p).scene);
 
+  const addTextAt = (shape: GeoObject) => {
+    const { scene: next, id } = addFloatingLabelAtShape(scene, shape);
+    onApply(next);
+    if (onSelect) onSelect(id, "label");
+  };
+
   if (effective === "point" && primary.type === "point") {
     return <PointPanel point={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
@@ -56,7 +62,7 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
     return <SegmentDistancePanel segment={primary} onPatch={(p) => patch(primary.id, p)} />;
   }
   if (effective === "segmentBody" && primary.type === "segment") {
-    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => onApply(addFloatingLabelAtShape(scene, primary))} />;
+    return <SegmentBodyPanel segment={primary} onPatchAll={(p) => patch(primary.id, p)} count={1} title={`Line · ${primary.label ?? labelForSegment(scene, primary)}`} onAddText={() => addTextAt(primary)} />;
   }
   if (effective === "angleValue" && primary.type === "angle") {
     return <AngleValueTextPanel angle={primary} onPatch={(p) => patch(primary.id, p)} />;
@@ -65,14 +71,14 @@ export function SelectionInspector({ scene, selected, kind, onApply, onSelect }:
     return <AngleEditPanel scene={scene} angle={primary} onApply={onApply} />;
   }
   if (primary.type === "region") {
-    return <RegionPanel scene={scene} region={primary} onApply={onApply} />;
+    return <RegionPanel scene={scene} region={primary} onApply={onApply} onAddText={() => addTextAt(primary)} />;
   }
   if (primary.type === "label") {
     return <LabelPanel label={primary} onPatch={(p) => patch(primary.id, p)} onDelete={() => onApply({ ...scene, objects: scene.objects.filter((o) => o.id !== primary.id) })} />;
   }
 
   if (primary.type === "circle" || primary.type === "arc" || primary.type === "curve") {
-    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} onAddText={() => onApply(addFloatingLabelAtShape(scene, primary))} />;
+    return <FillablePanel obj={primary as any} onPatch={(p) => patch(primary.id, p as any)} onAddText={() => addTextAt(primary)} />;
   }
 
   // Fallback minimal editor for other kinds
