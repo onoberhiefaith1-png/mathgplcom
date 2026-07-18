@@ -550,8 +550,8 @@ function SegmentDistancePanel({ segment, onPatch }: { segment: GeoSegment; onPat
 
 /* ─────── Segment body ─────── */
 function SegmentBodyPanel({
-  segment, onPatchAll, count,
-}: { segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number }) {
+  segment, onPatchAll, count, title,
+}: { segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string }) {
   const dashedMode: "solid" | "dotted" | "dashed" =
     segment.dashed === true ? "dashed" : segment.dashed === "dotted" ? "dotted" : "solid";
   const arrow = segment.arrow ?? "none";
@@ -565,7 +565,7 @@ function SegmentBodyPanel({
 
   return (
     <div className="space-y-2 text-xs">
-      <Header>Segment {count > 1 ? `· ${count} selected` : segment.label ? `· ${segment.label}` : ""}</Header>
+      <Header>{title ?? `Segment${count > 1 ? ` · ${count} selected` : segment.label ? ` · ${segment.label}` : ""}`}</Header>
 
       <Fold title="Basic Line" defaultOpen>
         <Radios
