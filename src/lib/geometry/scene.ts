@@ -18,6 +18,8 @@ export interface GeoPoint {
   color?: string;
   /** Dot radius (default 2.4). */
   size?: number;
+  /** Font size (px) of the point's letter label (default 14). */
+  labelFontSize?: number;
 }
 export interface GeoSegment {
   id: GeoId;

@@ -85,6 +85,17 @@ function PointPanel({ point, onPatch }: { point: GeoPoint; onPatch: (p: Partial<
           className="w-full"
         />
       </Row>
+      <Row label="Label size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={9} max={28} step={1}
+            value={point.labelFontSize ?? 14}
+            onChange={(e) => onPatch({ labelFontSize: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{point.labelFontSize ?? 14}</span>
+        </div>
+      </Row>
       <Row label="Hide Point">
         <input
           type="checkbox"
@@ -108,6 +119,17 @@ function PointLabelPanel({ point, onPatch }: { point: GeoPoint; onPatch: (p: Par
           placeholder="A"
           className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
         />
+      </Row>
+      <Row label="Size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={9} max={28} step={1}
+            value={point.labelFontSize ?? 14}
+            onChange={(e) => onPatch({ labelFontSize: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{point.labelFontSize ?? 14}</span>
+        </div>
       </Row>
       <p className="text-[10px] text-foreground/55">Drag the label on the canvas to move it. The point stays in place.</p>
     </div>

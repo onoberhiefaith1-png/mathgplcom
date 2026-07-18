@@ -118,7 +118,7 @@ function renderObject(
               y={y + labelDy}
               fontFamily={LABEL_FONT}
               fontStyle="italic"
-              fontSize={14}
+              fontSize={p.labelFontSize ?? 14}
               fill={color}
             >
               {p.label}
