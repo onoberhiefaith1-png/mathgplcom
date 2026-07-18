@@ -825,8 +825,8 @@ function AngleValueTextPanel({ angle, onPatch }: { angle: GeoAngle; onPatch: (p:
 
 /* ─────── Segment body ─────── */
 function SegmentBodyPanel({
-  segment, onPatchAll, count, title, onAddText,
-}: { segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string; onAddText?: () => void }) {
+  scene, segment, onPatchAll, count, title, onAddText,
+}: { scene?: GeometryScene; segment: GeoSegment; onPatchAll: (p: Partial<GeoSegment>) => void; count: number; title?: string; onAddText?: () => void }) {
   const dashedMode: "solid" | "dotted" | "dashed" =
     segment.dashed === true ? "dashed" : segment.dashed === "dotted" ? "dotted" : "solid";
   const arrow = segment.arrow ?? "none";
@@ -836,11 +836,40 @@ function SegmentBodyPanel({
     : segment.marks === "quadruple" ? 4
     : 0;
   const par = segment.parallelMarks ?? 0;
-  const hasDist = segment.distance !== undefined || segment.length !== undefined;
+  // One-line law: Distance is ALWAYS visible. Prefill with the computed
+  // pixel length when the teacher hasn't typed anything yet.
+  const computed = useMemo(() => {
+    if (!scene) return "";
+    const a = pointById(scene, segment.a);
+    const b = pointById(scene, segment.b);
+    if (!a || !b) return "";
+    return (Math.hypot(b.x - a.x, b.y - a.y) / 10).toFixed(1);
+  }, [scene, segment.a, segment.b]);
+  const distValue = segment.distance ?? segment.length ?? "";
 
   return (
     <div className="space-y-2 text-xs">
       <Header>{title ?? `Segment${count > 1 ? ` · ${count} selected` : segment.label ? ` · ${segment.label}` : ""}`}</Header>
+
+      <Fold title="Distance" defaultOpen>
+        <div className="space-y-1">
+          <input
+            value={distValue}
+            onChange={(e) => onPatchAll({ distance: e.target.value, length: undefined } as any)}
+            placeholder={computed ? `${computed} (measured)` : "5 cm, 2x + 3"}
+            className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          />
+          {distValue !== "" && (
+            <button
+              type="button"
+              onClick={() => onPatchAll({ distance: undefined, length: undefined, distanceOffset: undefined } as any)}
+              className="text-[11px] text-destructive underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </Fold>
 
       <Fold title="Basic Line" defaultOpen>
         <Radios
@@ -876,34 +905,6 @@ function SegmentBodyPanel({
           onChange={(v) => onPatchAll({ parallelMarks: Number(v) as any })}
           options={[["0", "None"], ["1", "1"], ["2", "2"], ["3", "3"]]}
         />
-      </Fold>
-
-      <Fold title="Distance">
-        {hasDist ? (
-          <div className="space-y-1">
-            <input
-              value={segment.distance ?? segment.length ?? ""}
-              onChange={(e) => onPatchAll({ distance: e.target.value, length: undefined } as any)}
-              placeholder="5 cm, 2x + 3"
-              className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={() => onPatchAll({ distance: undefined, length: undefined, distanceOffset: undefined } as any)}
-              className="text-[11px] text-destructive underline"
-            >
-              Remove
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onPatchAll({ distance: "" } as any)}
-            className="text-[11px] px-2 py-1 rounded border border-foreground/20 bg-background hover:bg-muted"
-          >
-            + Add distance
-          </button>
-        )}
       </Fold>
 
       <Row label="Line Colour">
