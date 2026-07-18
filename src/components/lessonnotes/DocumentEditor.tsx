@@ -1590,7 +1590,7 @@ function DocumentEditorInner({
               onMouseDown={handlePaperMouseDown}
             >
               <EditorContent editor={editor} />
-              <NotebookGeometryOverlay notebookId={notebookId} paperLayerRef={paperLayerRef} />
+              <NotebookGeometryOverlay notebookId={notebookId} paperLayerRef={paperLayerRef} tiptapEditor={editor} />
               {canvasBoxes.map((b) => (
                 <CanvasBoxView
                   key={b.id}
