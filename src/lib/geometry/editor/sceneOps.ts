@@ -270,6 +270,36 @@ export function addRegion(
   return ok(withObjects(scene, [...scene.objects, region]), [id]);
 }
 
+/**
+ * Build a filled region whose boundary is a chain of continuous
+ * quadratic curves. `pointIds` is the full ordered click sequence
+ * (P1, P2, P3, P4, P5, …). Curves are formed on overlapping triplets:
+ * (P1,P2,P3), (P3,P4,P5), (P5,P6,P7) … so every odd-indexed point is a
+ * shared endpoint. The region is closed with a straight edge from the
+ * last shared endpoint back to P1.
+ */
+export function addCurvedRegion(
+  scene: GeometryScene,
+  pointIds: GeoId[],
+): OpResult {
+  // Need at least 3 clicks (one curve).
+  if (pointIds.length < 3) return ok(scene);
+  let s = scene;
+  const curveIds: GeoId[] = [];
+  const boundary: GeoId[] = [pointIds[0]];
+  for (let i = 0; i + 2 < pointIds.length; i += 2) {
+    const trip = [pointIds[i], pointIds[i + 1], pointIds[i + 2]];
+    const op = addCurve(s, trip);
+    s = op.scene;
+    curveIds.push(op.addedIds[0]);
+    boundary.push(pointIds[i + 2]);
+  }
+  const edges: import("../scene").GeoRegionEdge[] = curveIds.map((id) => ({ kind: "curve", ref: id }));
+  // Closing edge back to start.
+  edges.push({ kind: "straight" });
+  return addRegion(s, boundary, { edges });
+}
+
 
 /* ─── Equal mark: cycle tick → double → triple → tick ───────────────── */
 export function cycleEqualMarks(scene: GeometryScene, ids: GeoId[]): OpResult {
