@@ -481,6 +481,25 @@ function renderObject(
       );
     }
     case "region": {
+      // If per-edge geometry references exist, build an SVG path that
+      // follows those edges (arcs/circles/curves as well as straight
+      // segments). Fall back to the straight-polygon renderer when no
+      // edges are stored (legacy regions).
+      if (o.edges && o.edges.length === o.boundary.length) {
+        const { regionEdgesToPath } = require("@/lib/geometry/editor/boundary") as typeof import("@/lib/geometry/editor/boundary");
+        const d = regionEdgesToPath(scene, o.boundary, o.edges, pad);
+        if (!d) return null;
+        return (
+          <path
+            key={o.id}
+            d={d}
+            fill={o.fill ?? "#2563eb"}
+            fillOpacity={o.opacity ?? 0.2}
+            stroke="none"
+            fillRule="evenodd"
+          />
+        );
+      }
       const pts = o.boundary
         .map((id) => pointById(scene, id))
         .filter((p): p is GeoPoint => !!p)
