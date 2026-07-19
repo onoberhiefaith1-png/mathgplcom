@@ -17,6 +17,7 @@ import type {
 } from "../scene";
 import { pointById } from "../scene";
 import { nextPointLabel, newId } from "./labels";
+import { findConnectingEdge } from "./boundary";
 
 export interface OpResult {
   scene: GeometryScene;
