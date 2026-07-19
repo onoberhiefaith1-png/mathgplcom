@@ -120,7 +120,44 @@ export function GeometryToolbox() {
             onCancel={() => setTool("select")}
           />
         )}
-        {expanded && annotationDraft?.confirmed && (
+        {expanded && annotationDraft?.confirmed && annotationDraft.tool === "addArea" && (
+          <div className="mx-2 mt-2 p-2 rounded border border-primary/40 bg-primary/5 space-y-1.5">
+            <div className="text-[10px] uppercase tracking-wider text-primary font-semibold">Trace</div>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setAnnotationDraft({ ...annotationDraft, traceMode: "straight" })}
+                className={cn(
+                  "flex-1 text-[11px] px-1.5 py-1 rounded border",
+                  (annotationDraft.traceMode ?? "straight") === "straight"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-foreground/20 hover:bg-foreground/5",
+                )}
+              >Straight</button>
+              <button
+                type="button"
+                onClick={() => setAnnotationDraft({ ...annotationDraft, traceMode: "curve" })}
+                className={cn(
+                  "flex-1 text-[11px] px-1.5 py-1 rounded border",
+                  annotationDraft.traceMode === "curve"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-foreground/20 hover:bg-foreground/5",
+                )}
+              >Curved</button>
+            </div>
+            <div className="text-[10px] text-foreground/60 leading-snug">
+              {annotationDraft.traceMode === "curve"
+                ? "Click points in triplets — each three points curve through the middle."
+                : "Click boundary points; close by clicking the first point or double-clicking."}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTool("select")}
+              className="text-[10px] underline opacity-70 hover:opacity-100"
+            >Cancel</button>
+          </div>
+        )}
+        {expanded && annotationDraft?.confirmed && annotationDraft.tool !== "addArea" && (
           <div className="mx-2 mt-2 px-2 py-1.5 rounded bg-primary/10 border border-primary/30 text-[10.5px] text-primary leading-snug">
             {hintFor(annotationDraft.tool, annotationDraft.value)}
             <button
