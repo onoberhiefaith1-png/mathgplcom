@@ -16,15 +16,6 @@ const normalise = (s: GeometryScene): GeometryScene =>
   ensureIntersectionPoints(normalizeScene(s));
 
 
-export interface AnnotationDraft {
-  /** The annotation tool the draft belongs to. */
-  tool: "addText" | "addDistance" | "addAngle" | "addArea";
-  /** Confirmed value/text (empty until the teacher presses Enter). */
-  value: string;
-  /** True once the value has been confirmed and the tool is waiting for canvas clicks. */
-  confirmed: boolean;
-}
-
 export interface UseGeometryEditorReturn {
   scene: GeometryScene;
   tool: ToolId;
@@ -41,8 +32,6 @@ export interface UseGeometryEditorReturn {
   pendingIds: GeoId[];
   setPendingIds: (ids: GeoId[]) => void;
   resetPending: () => void;
-  annotationDraft: AnnotationDraft | null;
-  setAnnotationDraft: (d: AnnotationDraft | null) => void;
   doUndo: () => void;
   doRedo: () => void;
   canUndo: boolean;
