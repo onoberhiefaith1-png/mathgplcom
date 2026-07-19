@@ -2,7 +2,7 @@
 // pointer events for every tool. Coordinates are in scene logical space
 // (top-left = 0,0 inside `bounds`, padded by `pad`).
 
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import type { GeometryScene, GeoPoint, GeoId } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
 import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
