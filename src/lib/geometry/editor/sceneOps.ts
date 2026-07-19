@@ -12,6 +12,7 @@ import type {
   GeoAngle,
   GeoPolygon,
   GeoLabel,
+  GeoRegion,
   GeoId,
 } from "../scene";
 import { pointById } from "../scene";
