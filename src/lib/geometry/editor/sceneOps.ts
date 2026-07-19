@@ -246,14 +246,25 @@ export function addFloatingLabel(scene: GeometryScene, x: number, y: number, tex
 export function addRegion(
   scene: GeometryScene,
   boundary: GeoId[],
-  opts?: { fill?: string; opacity?: number },
+  opts?: { fill?: string; opacity?: number; edges?: import("../scene").GeoRegionEdge[] },
 ): OpResult {
   if (boundary.length < 3) return ok(scene);
   const id = newId("rgn", scene);
+  // Auto-resolve per-edge geometry if not provided so the fill follows
+  // curved boundaries (arcs, circles, curves) rather than straight chords.
+  let edges = opts?.edges;
+  if (!edges) {
+    // Lazy import to avoid circular type deps in some bundlers.
+    const { findConnectingEdge } = require("./boundary") as typeof import("./boundary");
+    edges = boundary.map((_, i) =>
+      findConnectingEdge(scene, boundary[i], boundary[(i + 1) % boundary.length]),
+    );
+  }
   const region: GeoRegion = {
     id,
     type: "region",
     boundary,
+    edges,
     fill: opts?.fill ?? "#3b82f6",
     opacity: opts?.opacity ?? 0.25,
   };
