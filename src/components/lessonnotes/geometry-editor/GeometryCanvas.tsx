@@ -556,7 +556,7 @@ export function GeometryCanvas({ editor }: Props) {
 
   // In-progress previews
   const previews: React.ReactNode[] = [];
-  if (hover && (tool === "line" || tool === "polygon" || tool === "addArea") && pendingIds.length > 0) {
+  if (hover && (tool === "line" || tool === "polygon") && pendingIds.length > 0) {
     const last = pointById(scene, pendingIds[pendingIds.length - 1]);
     if (last) previews.push(
       <line key="pv" x1={last.x + PAD} y1={last.y + PAD} x2={hover.snap.x + PAD} y2={hover.snap.y + PAD} stroke="#10b981" strokeWidth={1.2} strokeDasharray="4 3" />,
