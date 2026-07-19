@@ -113,6 +113,7 @@ function GeometryDiagramView({
             instanceId={instanceId}
             scene={scene}
             onChange={(next) => updateAttributes({ scene: next })}
+            onDeleteDiagram={() => deleteNode()}
           />
         ) : (
           <StaticGeometryDiagram scene={scene} />
