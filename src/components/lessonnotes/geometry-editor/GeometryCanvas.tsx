@@ -13,7 +13,7 @@ import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
   movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
-  addCurve, addRegion,
+  addCurve, addRegion, addCurvedRegion,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
