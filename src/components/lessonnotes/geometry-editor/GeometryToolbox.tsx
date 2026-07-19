@@ -256,8 +256,46 @@ function AnnotationDraftInput({
   );
 }
 
+function PointLabelsToggle({
+  value, onChange, embedded = false,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+  embedded?: boolean;
+}) {
+  return (
+    <div className={cn(!embedded && "mx-2 mt-2 p-2 rounded border border-primary/40 bg-primary/5")}>
+      <div className="text-[10px] uppercase tracking-wider text-foreground/60 font-semibold mb-1">
+        Point Labels
+      </div>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={cn(
+            "flex-1 text-[11px] px-1.5 py-1 rounded border",
+            value
+              ? "bg-primary text-primary-foreground border-primary"
+              : "border-foreground/20 hover:bg-foreground/5",
+          )}
+        >With Label</button>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={cn(
+            "flex-1 text-[11px] px-1.5 py-1 rounded border",
+            !value
+              ? "bg-primary text-primary-foreground border-primary"
+              : "border-foreground/20 hover:bg-foreground/5",
+          )}
+        >Without Label</button>
+      </div>
+    </div>
+  );
+}
+
 function hintFor(t: "addText" | "addDistance" | "addAngle" | "addArea", value: string): string {
-  if (t === "addText") return `Select a point to place “${value}”.`;
+  if (t === "addText") return `Select a point to place "${value}".`;
   if (t === "addDistance") return `Select the first point (value: ${value}).`;
   if (t === "addAngle") return `Select the first arm (angle: ${value}).`;
   return "Trace the enclosed region by selecting boundary points.";
