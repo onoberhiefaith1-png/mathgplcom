@@ -356,6 +356,80 @@ export function GeometryCanvas({ editor }: Props) {
         }
         break;
       }
+      case "addText": {
+        // 1 click anywhere → free floating label, immediately editable.
+        const op = addFloatingLabel(scene, p.x, p.y, "Text");
+        apply(op);
+        const newId = op.addedIds[0];
+        if (newId) {
+          setInlineEdit({ id: newId, field: "text", value: "Text", x: p.x, y: p.y });
+        }
+        break;
+      }
+      case "addDistance": {
+        // 2 clicks → ensure segment exists between them → edit distance.
+        const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        if (pendingIds.length === 0) {
+          setPendingIds([id]);
+        } else {
+          const prev = pendingIds[0];
+          if (prev === id) break;
+          // Find or create segment between prev and id.
+          const existing = s1.objects.find(
+            (o) => o.type === "segment" &&
+              ((o.a === prev && o.b === id) || (o.a === id && o.b === prev)),
+          );
+          let segId: GeoId | null = existing?.id ?? null;
+          let sceneNow = s1;
+          if (!segId) {
+            const op = addSegment(s1, prev, id);
+            apply(op);
+            segId = op.addedIds[0];
+            sceneNow = op.scene;
+          }
+          setPendingIds([]);
+          if (segId) {
+            const a = pointById(sceneNow, prev);
+            const b = pointById(sceneNow, id);
+            const mx = a && b ? (a.x + b.x) / 2 : p.x;
+            const my = a && b ? (a.y + b.y) / 2 : p.y;
+            const cur = (sceneNow.objects.find((o) => o.id === segId) as any)?.distance ?? "";
+            setInlineEdit({ id: segId, field: "distance" as any, value: cur, x: mx, y: my });
+          }
+        }
+        break;
+      }
+      case "addAngle": {
+        // 3 clicks: arm1, vertex, arm2. Then edit value; 90° swaps to right-angle marker.
+        const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        const next = [...pendingIds, id];
+        if (next.length === 3) {
+          const op = addAngle(s1, next[1], next[0], next[2]);
+          apply(op);
+          setPendingIds([]);
+          const angId = op.addedIds[0];
+          const v = pointById(op.scene, next[1]);
+          if (angId && v) {
+            setInlineEdit({ id: angId, field: "value", value: "", x: v.x, y: v.y });
+          }
+        } else {
+          setPendingIds(next);
+        }
+        break;
+      }
+      case "addArea": {
+        // Manual trace: each click adds a boundary point (snapping to
+        // existing geometry). Closing (click near start, double-click,
+        // or Enter) commits a filled region.
+        const { id } = ensurePoint(p.x, p.y);
+        if (pendingIds.length >= 3 && id === pendingIds[0]) {
+          apply(addRegion(scene, pendingIds));
+          setPendingIds([]);
+        } else if (pendingIds[pendingIds.length - 1] !== id) {
+          setPendingIds([...pendingIds, id]);
+        }
+        break;
+      }
       default:
         break;
     }
