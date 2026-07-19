@@ -10,7 +10,7 @@ import { patchObject, addAngle, addFloatingLabel } from "@/lib/geometry/editor/s
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import { pointsOnCircle, pointsOnArc } from "@/lib/geometry/editor/snap";
 import type { HitKind } from "@/lib/geometry/editor/snap";
-import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Undo2, Redo2, Trash2 } from "lucide-react";
 
 interface Props {
   scene: GeometryScene;
@@ -21,6 +21,13 @@ interface Props {
   onApply: (next: GeometryScene) => void;
   /** Select an object by id after a scene edit (e.g. new floating label). */
   onSelect?: (id: GeoId, kind: HitKind) => void;
+  /** Undo/redo the geometry editor's own history. */
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  /** Delete the whole diagram node from the lesson note. */
+  onDeleteDiagram?: () => void;
 }
 
 /** A single line-like item the teacher can distance-annotate. */
