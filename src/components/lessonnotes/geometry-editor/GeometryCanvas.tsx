@@ -546,10 +546,19 @@ export function GeometryCanvas({ editor }: Props) {
 
   // In-progress previews
   const previews: React.ReactNode[] = [];
-  if (hover && (tool === "line" || tool === "polygon") && pendingIds.length > 0) {
+  if (hover && (tool === "line" || tool === "polygon" || tool === "addArea") && pendingIds.length > 0) {
     const last = pointById(scene, pendingIds[pendingIds.length - 1]);
     if (last) previews.push(
       <line key="pv" x1={last.x + PAD} y1={last.y + PAD} x2={hover.snap.x + PAD} y2={hover.snap.y + PAD} stroke="#10b981" strokeWidth={1.2} strokeDasharray="4 3" />,
+    );
+  }
+  if (tool === "addArea" && pendingIds.length >= 2) {
+    const pts = pendingIds
+      .map((id) => pointById(scene, id))
+      .filter(Boolean) as GeoPoint[];
+    const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
+    previews.push(
+      <path key="area-pv" d={d} fill="#3b82f6" fillOpacity={0.12} stroke="#3b82f6" strokeWidth={1.2} strokeDasharray="4 3" />,
     );
   }
   if (tool === "curve" && pendingIds.length > 0) {
