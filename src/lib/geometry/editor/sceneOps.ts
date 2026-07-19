@@ -255,8 +255,6 @@ export function addRegion(
   // curved boundaries (arcs, circles, curves) rather than straight chords.
   let edges = opts?.edges;
   if (!edges) {
-    // Lazy import to avoid circular type deps in some bundlers.
-    const { findConnectingEdge } = require("./boundary") as typeof import("./boundary");
     edges = boundary.map((_, i) =>
       findConnectingEdge(scene, boundary[i], boundary[(i + 1) % boundary.length]),
     );
