@@ -35,6 +35,48 @@ export function GeometryCanvas({ editor }: Props) {
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
+  // Tracks temporary construction points created during the current
+  // Add Angle / Add Area session. Used to auto-remove them when the
+  // teacher chose "Without Label" and the annotation is completed or
+  // the tool is changed.
+  const sessionRef = useRef<{ tool: "addAngle" | "addArea"; keepLabels: boolean; ids: GeoId[] } | null>(null);
+  const trackSessionPoint = (t: "addAngle" | "addArea", id: GeoId) => {
+    const keepLabels = annotationDraft?.keepLabels ?? true;
+    const cur = sessionRef.current;
+    if (!cur || cur.tool !== t) {
+      sessionRef.current = { tool: t, keepLabels, ids: [id] };
+    } else {
+      cur.keepLabels = keepLabels;
+      if (!cur.ids.includes(id)) cur.ids.push(id);
+    }
+  };
+  const finalizeSession = (postScene: GeometryScene) => {
+    const sess = sessionRef.current;
+    sessionRef.current = null;
+    if (!sess || sess.keepLabels || sess.ids.length === 0) return;
+    let s = postScene;
+    for (const id of sess.ids) s = eraseObject(s, id).scene;
+    commit(s);
+  };
+  // If the teacher switches to another tool mid-session, clean up
+  // temporary points from the previous annotation if it was "Without Label".
+  const prevAnnotationToolRef = useRef<string | null>(null);
+  useEffect(() => {
+    const cur = annotationDraft?.tool ?? null;
+    const prev = prevAnnotationToolRef.current;
+    if (prev && prev !== cur) {
+      const sess = sessionRef.current;
+      if (sess && !sess.keepLabels && sess.ids.length) {
+        let s = scene;
+        for (const id of sess.ids) s = eraseObject(s, id).scene;
+        commit(s);
+      }
+      sessionRef.current = null;
+    }
+    prevAnnotationToolRef.current = cur;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annotationDraft?.tool]);
+
   const { minX, minY, W, H } = computeSceneViewBox(scene, PAD);
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
