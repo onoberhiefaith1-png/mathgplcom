@@ -650,7 +650,8 @@ export function GeometryCanvas({ editor }: Props) {
             apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (tool === "addArea" && pendingIds.length >= 3) {
-            apply(addRegion(scene, pendingIds));
+            const curveMode = annotationDraft?.traceMode === "curve";
+            apply(curveMode ? addCurvedRegion(scene, pendingIds) : addRegion(scene, pendingIds));
             setPendingIds([]);
           } else if (tool === "line") {
             setPendingIds([]);
