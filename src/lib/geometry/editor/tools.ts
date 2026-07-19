@@ -21,9 +21,14 @@ export type ToolId =
   | "erase"
   | "constraint"
   | "rotate"
-  | "sketch";
+  | "sketch"
+  | "addText"
+  | "addDistance"
+  | "addAngle"
+  | "addArea";
 
-export type ToolGroup = "draw" | "shape" | "mark" | "measure" | "edit" | "ai";
+export type ToolGroup = "draw" | "shape" | "mark" | "measure" | "edit" | "ai" | "annotate";
+
 
 export interface ToolDescriptor {
   id: ToolId;

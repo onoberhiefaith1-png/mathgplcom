@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import {
   MousePointer2, Dot, Minus, Circle, Waves, ChevronLeft, ChevronRight, X,
+  Type, Ruler, Triangle, Paintbrush,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ToolId } from "@/lib/geometry/editor/tools";
@@ -20,7 +21,7 @@ interface Slot {
   Icon: React.ComponentType<{ className?: string }>;
 }
 
-const SLOTS: Slot[] = [
+const GEOMETRY_SLOTS: Slot[] = [
   { id: "select", toolId: "select", label: "Select", hint: "Select and drag objects", Icon: MousePointer2 },
   { id: "point",  toolId: "point",  label: "Point",  hint: "Click to place a point", Icon: Dot },
   { id: "line",   toolId: "line",   label: "Line",   hint: "Click two points to connect them", Icon: Minus },
@@ -29,6 +30,14 @@ const SLOTS: Slot[] = [
   { id: "arc",    toolId: "arc",    label: "Arc",    hint: "Click start, through, end (in that order)", Icon: ArcIcon },
   { id: "curve",  toolId: "curve",  label: "Curve",  hint: "Click points; double-click to finish", Icon: Waves },
 ];
+
+const ANNOTATION_SLOTS: Slot[] = [
+  { id: "addText",     toolId: "addText",     label: "Add Text",     hint: "Click anywhere to place a text label", Icon: Type },
+  { id: "addDistance", toolId: "addDistance", label: "Add Distance", hint: "Click two points to label a distance", Icon: Ruler },
+  { id: "addAngle",    toolId: "addAngle",    label: "Add Angle",    hint: "Click arm, vertex, arm to label an angle", Icon: Triangle },
+  { id: "addArea",     toolId: "addArea",     label: "Add Area",     hint: "Trace a boundary; click start point or double-click to close", Icon: Paintbrush },
+];
+
 
 function ArcIcon({ className }: { className?: string }) {
   return (
@@ -84,29 +93,46 @@ export function GeometryToolbox() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">
-        {SLOTS.map((s) => {
-          const active = tool === s.toolId;
-          const Icon = s.Icon;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setTool(s.toolId)}
-              title={`${s.label} — ${s.hint}`}
-              className={cn(
-                "w-full flex items-center gap-2 px-2 py-1.5 text-[12px] transition",
-                active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-foreground/80 hover:bg-foreground/5",
-                expanded ? "justify-start" : "justify-center",
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {expanded && <span className="truncate">{s.label}</span>}
-            </button>
-          );
-        })}
+        {GEOMETRY_SLOTS.map((s) => renderSlot(s, tool, setTool, expanded))}
+
+        {expanded ? (
+          <div className="mt-2 px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-foreground/45 border-t border-foreground/10">
+            Annotation
+          </div>
+        ) : (
+          <div className="mt-2 mx-2 border-t border-foreground/10" />
+        )}
+        {ANNOTATION_SLOTS.map((s) => renderSlot(s, tool, setTool, expanded))}
       </div>
     </aside>
   );
 }
+
+function renderSlot(
+  s: Slot,
+  tool: ToolId,
+  setTool: (t: ToolId) => void,
+  expanded: boolean,
+) {
+  const active = tool === s.toolId;
+  const Icon = s.Icon;
+  return (
+    <button
+      key={s.id}
+      type="button"
+      onClick={() => setTool(s.toolId)}
+      title={`${s.label} — ${s.hint}`}
+      className={cn(
+        "w-full flex items-center gap-2 px-2 py-1.5 text-[12px] transition",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "text-foreground/80 hover:bg-foreground/5",
+        expanded ? "justify-start" : "justify-center",
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      {expanded && <span className="truncate">{s.label}</span>}
+    </button>
+  );
+}
+

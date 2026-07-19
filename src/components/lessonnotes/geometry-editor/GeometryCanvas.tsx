@@ -13,7 +13,7 @@ import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
   movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
-  addCurve,
+  addCurve, addRegion,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
@@ -356,6 +356,80 @@ export function GeometryCanvas({ editor }: Props) {
         }
         break;
       }
+      case "addText": {
+        // 1 click anywhere → free floating label, immediately editable.
+        const op = addFloatingLabel(scene, p.x, p.y, "Text");
+        apply(op);
+        const newId = op.addedIds[0];
+        if (newId) {
+          setInlineEdit({ id: newId, field: "text", value: "Text", x: p.x, y: p.y });
+        }
+        break;
+      }
+      case "addDistance": {
+        // 2 clicks → ensure segment exists between them → edit distance.
+        const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        if (pendingIds.length === 0) {
+          setPendingIds([id]);
+        } else {
+          const prev = pendingIds[0];
+          if (prev === id) break;
+          // Find or create segment between prev and id.
+          const existing = s1.objects.find(
+            (o) => o.type === "segment" &&
+              ((o.a === prev && o.b === id) || (o.a === id && o.b === prev)),
+          );
+          let segId: GeoId | null = existing?.id ?? null;
+          let sceneNow = s1;
+          if (!segId) {
+            const op = addSegment(s1, prev, id);
+            apply(op);
+            segId = op.addedIds[0];
+            sceneNow = op.scene;
+          }
+          setPendingIds([]);
+          if (segId) {
+            const a = pointById(sceneNow, prev);
+            const b = pointById(sceneNow, id);
+            const mx = a && b ? (a.x + b.x) / 2 : p.x;
+            const my = a && b ? (a.y + b.y) / 2 : p.y;
+            const cur = (sceneNow.objects.find((o) => o.id === segId) as any)?.distance ?? "";
+            setInlineEdit({ id: segId, field: "distance" as any, value: cur, x: mx, y: my });
+          }
+        }
+        break;
+      }
+      case "addAngle": {
+        // 3 clicks: arm1, vertex, arm2. Then edit value; 90° swaps to right-angle marker.
+        const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        const next = [...pendingIds, id];
+        if (next.length === 3) {
+          const op = addAngle(s1, next[1], next[0], next[2]);
+          apply(op);
+          setPendingIds([]);
+          const angId = op.addedIds[0];
+          const v = pointById(op.scene, next[1]);
+          if (angId && v) {
+            setInlineEdit({ id: angId, field: "value", value: "", x: v.x, y: v.y });
+          }
+        } else {
+          setPendingIds(next);
+        }
+        break;
+      }
+      case "addArea": {
+        // Manual trace: each click adds a boundary point (snapping to
+        // existing geometry). Closing (click near start, double-click,
+        // or Enter) commits a filled region.
+        const { id } = ensurePoint(p.x, p.y);
+        if (pendingIds.length >= 3 && id === pendingIds[0]) {
+          apply(addRegion(scene, pendingIds));
+          setPendingIds([]);
+        } else if (pendingIds[pendingIds.length - 1] !== id) {
+          setPendingIds([...pendingIds, id]);
+        }
+        break;
+      }
       default:
         break;
     }
@@ -472,10 +546,19 @@ export function GeometryCanvas({ editor }: Props) {
 
   // In-progress previews
   const previews: React.ReactNode[] = [];
-  if (hover && (tool === "line" || tool === "polygon") && pendingIds.length > 0) {
+  if (hover && (tool === "line" || tool === "polygon" || tool === "addArea") && pendingIds.length > 0) {
     const last = pointById(scene, pendingIds[pendingIds.length - 1]);
     if (last) previews.push(
       <line key="pv" x1={last.x + PAD} y1={last.y + PAD} x2={hover.snap.x + PAD} y2={hover.snap.y + PAD} stroke="#10b981" strokeWidth={1.2} strokeDasharray="4 3" />,
+    );
+  }
+  if (tool === "addArea" && pendingIds.length >= 2) {
+    const pts = pendingIds
+      .map((id) => pointById(scene, id))
+      .filter(Boolean) as GeoPoint[];
+    const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
+    previews.push(
+      <path key="area-pv" d={d} fill="#3b82f6" fillOpacity={0.12} stroke="#3b82f6" strokeWidth={1.2} strokeDasharray="4 3" />,
     );
   }
   if (tool === "curve" && pendingIds.length > 0) {
@@ -501,11 +584,18 @@ export function GeometryCanvas({ editor }: Props) {
     );
   }
 
+  const annotationHint = annotationHintFor(tool, pendingIds.length);
+
   return (
     <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
       <div className="absolute inset-0">
         <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} />
       </div>
+      {annotationHint && (
+        <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow pointer-events-none">
+          {annotationHint} <span className="opacity-70">· Esc to cancel</span>
+        </div>
+      )}
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
@@ -525,6 +615,9 @@ export function GeometryCanvas({ editor }: Props) {
           } else if (tool === "curve" && pendingIds.length >= 2) {
             apply(addCurve(scene, pendingIds));
             setPendingIds([]);
+          } else if (tool === "addArea" && pendingIds.length >= 3) {
+            apply(addRegion(scene, pendingIds));
+            setPendingIds([]);
           } else if (tool === "line") {
             setPendingIds([]);
           }
@@ -535,6 +628,9 @@ export function GeometryCanvas({ editor }: Props) {
             setPendingIds([]);
           } else if (e.key === "Enter" && tool === "curve" && pendingIds.length >= 2) {
             apply(addCurve(scene, pendingIds));
+            setPendingIds([]);
+          } else if (e.key === "Enter" && tool === "addArea" && pendingIds.length >= 3) {
+            apply(addRegion(scene, pendingIds));
             setPendingIds([]);
           } else if (e.key === "Escape") {
             setPendingIds([]);
@@ -569,7 +665,18 @@ export function GeometryCanvas({ editor }: Props) {
           value={inlineEdit.value}
           onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
           onBlur={() => {
-            apply(patchObject(scene, inlineEdit.id, { [inlineEdit.field]: inlineEdit.value } as any));
+            const patch: Record<string, unknown> = { [inlineEdit.field]: inlineEdit.value };
+            // If an angle value normalises to 90°, swap to the right-angle marker.
+            if (inlineEdit.field === "value") {
+              const obj = scene.objects.find((o) => o.id === inlineEdit.id);
+              if (obj?.type === "angle") {
+                const n = parseFloat(inlineEdit.value.replace(/[^0-9.]/g, ""));
+                if (Number.isFinite(n) && Math.abs(n - 90) < 0.5) {
+                  patch.marker = "right";
+                }
+              }
+            }
+            apply(patchObject(scene, inlineEdit.id, patch as any));
             setInlineEdit(null);
           }}
           onKeyDown={(e) => {
@@ -589,6 +696,25 @@ function cursorFor(t: ToolId): string {
   if (t === "move") return "grab";
   if (t === "erase") return "not-allowed";
   return "crosshair";
+}
+
+function annotationHintFor(t: ToolId, pending: number): string | null {
+  switch (t) {
+    case "addText":
+      return "Add Text — click anywhere to place a label";
+    case "addDistance":
+      return pending === 0 ? "Add Distance — select the first point" : "Select the second point";
+    case "addAngle":
+      return pending === 0 ? "Add Angle — select the first arm point"
+        : pending === 1 ? "Select the vertex"
+        : "Select the second arm point";
+    case "addArea":
+      return pending < 3
+        ? `Add Area — trace the boundary (${pending} pt${pending === 1 ? "" : "s"})`
+        : "Click the starting point or double-click to close";
+    default:
+      return null;
+  }
 }
 
 function catmullRomPreview(p: { x: number; y: number }[]): string {

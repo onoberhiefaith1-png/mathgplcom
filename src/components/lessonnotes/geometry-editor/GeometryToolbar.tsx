@@ -15,6 +15,10 @@ import {
 
 const ICONS: Record<ToolId, React.ComponentType<{ className?: string }>> = {
   select: MousePointer2,
+  addText: Type,
+  addDistance: Ruler,
+  addAngle: Triangle,
+  addArea: Pentagon,
   point: Dot,
   line: Minus,
   arc: RadioTower,

@@ -12,6 +12,7 @@ import type {
   GeoAngle,
   GeoPolygon,
   GeoLabel,
+  GeoRegion,
   GeoId,
 } from "../scene";
 import { pointById } from "../scene";
@@ -240,6 +241,25 @@ export function addFloatingLabel(scene: GeometryScene, x: number, y: number, tex
   const lbl: GeoLabel = { id, type: "label", x, y, text };
   return ok(withObjects(scene, [...scene.objects, lbl]), [id]);
 }
+
+/* ─── Add a filled region from an ordered list of boundary point ids ── */
+export function addRegion(
+  scene: GeometryScene,
+  boundary: GeoId[],
+  opts?: { fill?: string; opacity?: number },
+): OpResult {
+  if (boundary.length < 3) return ok(scene);
+  const id = newId("rgn", scene);
+  const region: GeoRegion = {
+    id,
+    type: "region",
+    boundary,
+    fill: opts?.fill ?? "#3b82f6",
+    opacity: opts?.opacity ?? 0.25,
+  };
+  return ok(withObjects(scene, [...scene.objects, region]), [id]);
+}
+
 
 /* ─── Equal mark: cycle tick → double → triple → tick ───────────────── */
 export function cycleEqualMarks(scene: GeometryScene, ids: GeoId[]): OpResult {
