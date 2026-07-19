@@ -17,6 +17,7 @@ import {
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
+import { useGeometryMode } from "./GeometryModeContext";
 
 interface Props {
   editor: UseGeometryEditorReturn;
