@@ -59,7 +59,6 @@ export function useGeometryEditor(
     if (ids.length === 0) setSelectionKind(null);
   }, []);
   const [pendingIds, setPendingIds] = useState<GeoId[]>([]);
-  const [annotationDraft, setAnnotationDraft] = useState<AnnotationDraft | null>(null);
   const [flashIds, setFlashIds] = useState<GeoId[]>([]);
   const flashTimer = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
