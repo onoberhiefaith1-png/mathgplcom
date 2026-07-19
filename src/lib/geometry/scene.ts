@@ -110,11 +110,25 @@ export interface GeoAngle {
   /** Colour for the value chip. */
   valueColor?: string;
 }
+/**
+ * A boundary edge inside a `GeoRegion`. The order of the region's
+ * `boundary` point ids determines the traversal direction; each `edges[i]`
+ * describes how boundary[i] is connected to boundary[i+1].
+ */
+export type GeoRegionEdge =
+  | { kind: "segment"; ref: GeoId }
+  | { kind: "arc"; ref: GeoId; sweep?: "short" | "long" }
+  | { kind: "circle"; ref: GeoId; sweep?: "short" | "long" }
+  | { kind: "curve"; ref: GeoId }
+  | { kind: "straight" };
+
 export interface GeoRegion {
   id: GeoId;
   type: "region";
   /** Ordered boundary point ids that form a closed loop. */
   boundary: GeoId[];
+  /** Optional per-edge geometry references (parallel to boundary). */
+  edges?: GeoRegionEdge[];
   fill?: string;
   opacity?: number;
   /** Teacher-facing area override (any text). */
