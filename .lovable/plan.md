@@ -1,39 +1,78 @@
-## Selection Laws — refined per-count rules
+## Manual Annotation Tools — Left Toolbar
 
-Rewrite the multi-selection inspector so the panel content is driven strictly by **how many lines/arcs the teacher clicked** and **whether those clicks form a closed loop**. Never assume "the full circle is enclosed" from a single sub-arc click.
+Add a second section in the left `GeometryToolbox` beneath the five construction tools, containing four permanent annotation tools that guide the teacher through step-by-step workflows. These are independent of selection and act as a reliable fallback when auto-detection fails.
 
-### The laws (final)
+### 1. Toolbox UI (`GeometryToolbox.tsx`)
 
-Let N = number of line-like items selected (segments, sub-arcs, sub-curves). A "full circle with no points on it" counts as N = 0 (closed by itself).
+Add a divider + section titled **"ANNOTATION"** below the existing 6 slots, containing:
 
-| N | Panel shows |
-|---|---|
-| 0 (bare full circle, no points) | Area / Shade only |
-| 1 (one segment OR one sub-arc OR one sub-curve) | **Distance** for that one item + Add text. **No Area, no Angle.** |
-| 2 sharing a vertex | **Distance ×2** (one per item) + **Angle at shared vertex** + Add text. **No Area** unless the two items plus a third edge already close — which at N=2 they don't, so never. |
-| 2 not sharing a vertex | Distance ×2 + Add text. No Angle, no Area. |
-| ≥3 | Distance ×N (one field per selected item) + Angle ×K at every shared vertex among the selection + **if the selected items form a closed loop → Area + Shade controls + Add text inside** |
+- Add Text (icon: `Type`)
+- Add Distance (icon: `Ruler`)
+- Add Angle (icon: `Triangle` / arc-with-vertex)
+- Add Area (icon: `Paintbrush` / filled polygon)
 
-Closure test for N ≥ 3: build a graph of endpoints of the selected items; it's closed iff every endpoint has even degree ≥ 2 and the items form a single connected cycle. Sub-arcs contribute their two endpoint points; a bare full circle contributes zero endpoints and is always closed.
+Each activates a new `ToolId` and shows a small status hint bar at the top of the canvas: *"Select a position…" / "Select the first point…" / "Trace the enclosed region…"*. Esc cancels; clicking the tool again also cancels.
 
-### Changes
+### 2. New Tool IDs (`src/lib/geometry/editor/tools.ts`)
 
-**`src/lib/geometry/editor/snap.ts`** — add `classifySelection(scene, ids): { items: SelectedItem[]; sharedVertices: GeoId[]; closed: boolean }`. `closed` uses the endpoint-graph cycle test above. Never returns `closed: true` for a single sub-arc just because its parent circle is closed.
+Add: `addText`, `addDistance`, `addAngle`, `addArea` to `ToolId`. Add group `"annotate"` in `TOOL_GROUPS`.
 
-**`src/components/lessonnotes/geometry-editor/SelectionInspector.tsx`**
-- Replace the current `MultiPanel` branching with one component driven by `classifySelection`:
-  - Render one `DistanceRow` per selected item (segment length, sub-arc chord/arc length, sub-curve length). Each row: label of the item (e.g. "I₁L₁", "arc P₁Q₁"), editable value, Add-text button that drops the value as a floating label near that item's midpoint.
-  - Render one `AngleRow` per shared vertex, listing the two (or more) items meeting there. Each row: value input, reflex toggle, marker style, Add-text button placing the label at the vertex.
-  - Render the `AreaPanel` (Shade toggle, color, opacity, Area value, "+ Add text inside") **only when `closed === true`**.
-- Remove the current "circle → always show Area / Shade" behaviour. `FillablePanel` for a bare circle stays, but a sub-arc selection routes through the new classifier and shows Distance only.
-- `AngleFromSegmentsPanel` is deleted; its behaviour is folded into the per-vertex `AngleRow`.
+### 3. Canvas behaviour (`GeometryCanvas.tsx`)
 
-**`src/lib/geometry/editor/regions.ts`** — expose `isClosedLoop(scene, ids)` used by the classifier (mixed segments + sub-arcs + sub-curves).
+Extend the existing pending-step state machine (already used by line/curve/arc/compass) with four new modes:
 
-**`src/lib/geometry/scene.ts`** — no schema change; the existing optional `area` field on region/circle/arc/curve stays and is only surfaced when the classifier says `closed`.
+**Add Text** — 1 click anywhere → create a free floating text at the click point (not attached to any object) → auto-focus its content field in the right panel → tool stays active for the next placement until Esc.
 
-### Acceptance (matches the three screenshots)
+**Add Distance** — 2 clicks. Each click resolves to a point (snap to existing point or create a new free point). After the 2nd click, place a distance label at the midpoint of the segment those two points define; if a segment between them doesn't exist yet, we do NOT create geometry — the label just stores `{fromPointId, toPointId}` and renders at the live midpoint. Auto-focus value field.
 
-1. Image 1 — one sub-arc selected on the big circle: panel shows **Distance** + Add text only. No "Shade enclosed area", no Area field, no Angle.
-2. Image 2 — two segments meeting at a vertex: panel shows **Distance (seg 1)**, **Distance (seg 2)**, **Angle at vertex** with value + Add text. No Area.
-3. Image 3 — three items forming a closed triangle-like loop: panel shows **Distance ×3**, **Angle ×3** (one per shared vertex, each independently editable with its own Add text), plus **Area + Shade + Add text inside**. If the same three items don't close, Area disappears automatically.
+**Add Angle** — 3 clicks: arm1, vertex, arm2 (each snaps or creates). Store as `{a, vertex, b}` angle annotation. Render standard arc + label. If value entered is `90` or `90°`, swap to right-angle square automatically (already handled elsewhere; reuse).
+
+**Add Area** — Manual trace. Each click snaps to nearest geometry (segment/arc/circle/curve) via existing `snap.ts` helpers, appending a boundary vertex. Show a live rubber-band polyline along the traced boundary segments. Closing (click near start point, or Enter) commits an area annotation whose boundary is an ordered list of geometry references + snap points; the region is filled and opens the Area panel.
+
+### 4. Annotation data model
+
+Extend `GeometryScene` with a new `annotations` array (does not affect existing geometry objects):
+
+```ts
+type Annotation =
+  | { id; kind: "text"; x; y; content; fontSize; color; rotation }
+  | { id; kind: "distance"; a: PointId; b: PointId; value; fontSize; color; offset }
+  | { id; kind: "angle"; a: PointId; vertex: PointId; b: PointId; value; fontSize; color }
+  | { id; kind: "area"; boundary: TraceStep[]; fill; opacity; label; texts: TextRef[] };
+```
+
+Where existing floating labels already have similar plumbing — reuse the `floating` label system for Text/Distance/Angle rendering and drag; Area is new.
+
+### 5. Right-hand panels (`SelectionInspector.tsx`)
+
+Route each annotation kind to a dedicated panel:
+
+- **TextPanel** — Content textarea, Font Size slider, Colour swatch, Rotation slider, Delete.
+- **DistancePanel** — Value input, Label Size slider, Colour, Offset slider (perpendicular offset from midpoint), Delete.
+- **AnglePanel** — Value input (auto-converts `90` → right-angle square), Colour, Label Size, Delete.
+- **AreaPanel** — Fill Colour, Opacity slider, Area label input, "+ Add text inside" button (creates a Text annotation seeded at region centroid), Delete fill.
+
+All annotations are click-selectable and draggable (label position stored separately from anchor). Clicking any existing floating label / measurement on the canvas continues to open its panel as it does today.
+
+### 6. Interaction rules
+
+- Tool stays active after completion so the teacher can place multiple annotations in a row; Esc or clicking Select exits.
+- Snap radius identical to construction tools.
+- Auto-detection Selection Laws are unchanged — these tools are additive.
+
+### Files touched
+
+- `src/lib/geometry/editor/tools.ts` — add 4 ToolIds + group.
+- `src/components/lessonnotes/geometry-editor/GeometryToolbox.tsx` — add Annotation section.
+- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — 4 new step machines + trace renderer.
+- `src/lib/geometry/scene.ts` (or nearest scene type file) — add `annotations` array + types.
+- `src/lib/geometry/editor/sceneOps.ts` — add/update/delete annotation helpers.
+- `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx` — four new panels + routing.
+- `src/components/lessonnotes/geometry-editor/GeometryEditorPanel.tsx` — pass annotations to inspector / renderer.
+
+### Out of scope
+
+- No changes to the automatic Selection Laws behaviour.
+- No new backend/schema — annotations persist inside the existing scene JSON already saved for the diagram.
+
+Confirm and I'll implement.
