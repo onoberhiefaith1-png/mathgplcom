@@ -446,20 +446,26 @@ export function GeometryCanvas({ editor }: Props) {
         const raw = annotationDraft.value.trim();
         const isRight = /^\s*90\s*°?\s*$/.test(raw);
         const value = isRight ? "90°" : raw;
+        const sn2 = snap(scene, p.x, p.y);
+        const wasExisting = !!sn2.pointId;
         const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        if (!wasExisting) trackSessionPoint("addAngle", id);
         const next = [...pendingIds, id];
         if (next.length === 3) {
           const op = addAngle(s1, next[1], next[0], next[2]);
           apply(op);
           setPendingIds([]);
           const angId = op.addedIds[0];
+          let postScene = op.scene;
           if (angId) {
             const patched = patchObject(op.scene, angId, {
               value,
               marker: isRight ? "right" : "arc",
             } as any);
             apply(patched);
+            postScene = patched.scene;
           }
+          finalizeSession(postScene);
         } else {
           setPendingIds(next);
         }
@@ -471,11 +477,31 @@ export function GeometryCanvas({ editor }: Props) {
         // overlapping triplets so every three clicks draw a curve
         // through the middle point.
         const curveMode = annotationDraft?.traceMode === "curve";
+        const fill = annotationDraft?.fillColor ?? "#3b82f6";
+        const opacity = annotationDraft?.fillOpacity ?? 0.25;
+        const sn2 = snap(scene, p.x, p.y);
+        const wasExisting = !!sn2.pointId;
         const { id } = ensurePoint(p.x, p.y);
-        const closeOnStart = pendingIds.length >= (curveMode ? 3 : 3) && id === pendingIds[0];
+        if (!wasExisting) trackSessionPoint("addArea", id);
+        const closeOnStart = pendingIds.length >= 3 && id === pendingIds[0];
         if (closeOnStart) {
-          if (curveMode) apply(addCurvedRegion(scene, pendingIds));
-          else apply(addRegion(scene, pendingIds));
+          let op;
+          if (curveMode) {
+            op = addCurvedRegion(scene, pendingIds);
+            apply(op);
+            const rgnId = op.addedIds[0];
+            if (rgnId) {
+              const patched = patchObject(op.scene, rgnId, { fill, opacity } as any);
+              apply(patched);
+              finalizeSession(patched.scene);
+            } else {
+              finalizeSession(op.scene);
+            }
+          } else {
+            op = addRegion(scene, pendingIds, { fill, opacity });
+            apply(op);
+            finalizeSession(op.scene);
+          }
           setPendingIds([]);
         } else if (pendingIds[pendingIds.length - 1] !== id) {
           setPendingIds([...pendingIds, id]);
