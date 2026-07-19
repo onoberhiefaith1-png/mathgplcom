@@ -13,6 +13,8 @@ export interface AnnotationDraft {
   tool: "addText" | "addDistance" | "addAngle" | "addArea";
   value: string;
   confirmed: boolean;
+  /** For addArea only: straight-edge trace or continuous curve trace. */
+  traceMode?: "straight" | "curve";
 }
 
 interface GeometryModeCtx {
