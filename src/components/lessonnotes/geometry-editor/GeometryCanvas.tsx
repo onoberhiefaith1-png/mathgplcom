@@ -678,6 +678,25 @@ function cursorFor(t: ToolId): string {
   return "crosshair";
 }
 
+function annotationHintFor(t: ToolId, pending: number): string | null {
+  switch (t) {
+    case "addText":
+      return "Add Text — click anywhere to place a label";
+    case "addDistance":
+      return pending === 0 ? "Add Distance — select the first point" : "Select the second point";
+    case "addAngle":
+      return pending === 0 ? "Add Angle — select the first arm point"
+        : pending === 1 ? "Select the vertex"
+        : "Select the second arm point";
+    case "addArea":
+      return pending < 3
+        ? `Add Area — trace the boundary (${pending} pt${pending === 1 ? "" : "s"})`
+        : "Click the starting point or double-click to close";
+    default:
+      return null;
+  }
+}
+
 function catmullRomPreview(p: { x: number; y: number }[]): string {
   if (p.length < 2) return "";
   if (p.length === 2) return `M ${p[0].x} ${p[0].y} L ${p[1].x} ${p[1].y}`;
