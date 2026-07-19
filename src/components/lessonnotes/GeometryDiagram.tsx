@@ -10,6 +10,7 @@ import type {
   SceneDiff,
 } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
+import { regionEdgesToPath } from "@/lib/geometry/editor/boundary";
 
 interface Props {
   scene: GeometryScene;
@@ -481,6 +482,24 @@ function renderObject(
       );
     }
     case "region": {
+      // If per-edge geometry references exist, build an SVG path that
+      // follows those edges (arcs/circles/curves as well as straight
+      // segments). Fall back to the straight-polygon renderer when no
+      // edges are stored (legacy regions).
+      if (o.edges && o.edges.length === o.boundary.length) {
+        const d = regionEdgesToPath(scene, o.boundary, o.edges, pad);
+        if (!d) return null;
+        return (
+          <path
+            key={o.id}
+            d={d}
+            fill={o.fill ?? "#2563eb"}
+            fillOpacity={o.opacity ?? 0.2}
+            stroke="none"
+            fillRule="evenodd"
+          />
+        );
+      }
       const pts = o.boundary
         .map((id) => pointById(scene, id))
         .filter((p): p is GeoPoint => !!p)
@@ -505,6 +524,8 @@ function renderObject(
           key={o.id}
           x={lx} y={ly}
           fontFamily={LABEL_FONT} fontSize={o.fontSize ?? 13}
+          fontWeight={o.bold ? 700 : 400}
+          fontStyle={o.italic ? "italic" : "normal"}
           fill={o.color ?? stroke} textAnchor="middle"
           transform={rot ? `rotate(${rot} ${lx} ${ly})` : undefined}
         >

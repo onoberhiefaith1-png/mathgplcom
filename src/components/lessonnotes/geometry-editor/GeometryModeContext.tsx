@@ -9,6 +9,12 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 
+export interface AnnotationDraft {
+  tool: "addText" | "addDistance" | "addAngle" | "addArea";
+  value: string;
+  confirmed: boolean;
+}
+
 interface GeometryModeCtx {
   mode: boolean;
   setMode: (b: boolean) => void;
@@ -16,6 +22,8 @@ interface GeometryModeCtx {
   setTool: (t: ToolId) => void;
   activeFrameId: string | null;
   setActiveFrameId: (id: string | null) => void;
+  annotationDraft: AnnotationDraft | null;
+  setAnnotationDraft: (d: AnnotationDraft | null) => void;
 }
 
 const Ctx = createContext<GeometryModeCtx>({
@@ -25,14 +33,30 @@ const Ctx = createContext<GeometryModeCtx>({
   setTool: () => {},
   activeFrameId: null,
   setActiveFrameId: () => {},
+  annotationDraft: null,
+  setAnnotationDraft: () => {},
 });
 
 export function GeometryModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState(false);
-  const [tool, setTool] = useState<ToolId>("select");
+  const [toolState, setToolState] = useState<ToolId>("select");
   const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
+  const [annotationDraft, setAnnotationDraft] = useState<AnnotationDraft | null>(null);
+
+  // When switching tools, seed / clear the annotation draft.
+  const setTool = (t: ToolId) => {
+    setToolState(t);
+    if (t === "addText" || t === "addDistance" || t === "addAngle") {
+      setAnnotationDraft({ tool: t, value: "", confirmed: false });
+    } else if (t === "addArea") {
+      setAnnotationDraft({ tool: "addArea", value: "", confirmed: true });
+    } else {
+      setAnnotationDraft(null);
+    }
+  };
+
   return (
-    <Ctx.Provider value={{ mode, setMode, tool, setTool, activeFrameId, setActiveFrameId }}>
+    <Ctx.Provider value={{ mode, setMode, tool: toolState, setTool, activeFrameId, setActiveFrameId, annotationDraft, setAnnotationDraft }}>
       {children}
     </Ctx.Provider>
   );

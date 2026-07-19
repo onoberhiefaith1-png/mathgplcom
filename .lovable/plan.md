@@ -1,78 +1,116 @@
-## Manual Annotation Tools — Left Toolbar
+# Annotation Tools — Value-First Workflow
 
-Add a second section in the left `GeometryToolbox` beneath the five construction tools, containing four permanent annotation tools that guide the teacher through step-by-step workflows. These are independent of selection and act as a reliable fallback when auto-detection fails.
+Rework the four Annotation tools already docked in the left toolbar so the teacher enters the text/value **first** in an inline input on the toolbar, then places it on the canvas. Also add intelligent boundary detection to Add Area.
 
-### 1. Toolbox UI (`GeometryToolbox.tsx`)
+## 1. Left-toolbar inline input
 
-Add a divider + section titled **"ANNOTATION"** below the existing 6 slots, containing:
+When any of `addText`, `addDistance`, `addAngle` is activated, expand a small input area **inside the Annotation section** of `GeometryToolbox` (not on the canvas). It shows:
 
-- Add Text (icon: `Type`)
-- Add Distance (icon: `Ruler`)
-- Add Angle (icon: `Triangle` / arc-with-vertex)
-- Add Area (icon: `Paintbrush` / filled polygon)
+- A label ("Text", "Distance", "Angle")
+- A text field auto-focused
+- ✓ button (Enter) to confirm, ✗ (Esc) to cancel
 
-Each activates a new `ToolId` and shows a small status hint bar at the top of the canvas: *"Select a position…" / "Select the first point…" / "Trace the enclosed region…"*. Esc cancels; clicking the tool again also cancels.
+Until the value is confirmed, canvas clicks do nothing. After confirm, the toolbar swaps to a small hint strip: *"Select a point to place the text."* / *"Select the first point."* / *"Select the first arm."* etc.
 
-### 2. New Tool IDs (`src/lib/geometry/editor/tools.ts`)
+`addArea` skips the input step and goes straight into trace mode with hint *"Trace the enclosed region by selecting its boundary points."*
 
-Add: `addText`, `addDistance`, `addAngle`, `addArea` to `ToolId`. Add group `"annotate"` in `TOOL_GROUPS`.
+State lives in a new `annotationDraft` object in `useGeometryEditor` (`{ tool, value, step, collected: GeoId[] }`) so the canvas step machine reads a single source of truth.
 
-### 3. Canvas behaviour (`GeometryCanvas.tsx`)
+## 2. Add Text
 
-Extend the existing pending-step state machine (already used by line/curve/arc/compass) with four new modes:
+1. Enter text → Enter.
+2. Hint: *Select a point to place the text.*
+3. One click anywhere → create a floating `label` at the click point with the entered content (no inline-edit needed — value is already known).
+4. Tool stays active; toolbar re-opens the text input for the next placement.
 
-**Add Text** — 1 click anywhere → create a free floating text at the click point (not attached to any object) → auto-focus its content field in the right panel → tool stays active for the next placement until Esc.
+## 3. Add Distance
 
-**Add Distance** — 2 clicks. Each click resolves to a point (snap to existing point or create a new free point). After the 2nd click, place a distance label at the midpoint of the segment those two points define; if a segment between them doesn't exist yet, we do NOT create geometry — the label just stores `{fromPointId, toPointId}` and renders at the live midpoint. Auto-focus value field.
+1. Enter value → Enter.
+2. Two clicks (snap-or-create points). If a segment already exists between them, reuse it; otherwise create a lightweight *distance-only* annotation stored on a new floating measurement whose anchors are the two point ids and whose midpoint is computed live.
+3. Set `distance = <value>` on the segment (or on the new measurement label).
+4. Tool stays active.
 
-**Add Angle** — 3 clicks: arm1, vertex, arm2 (each snaps or creates). Store as `{a, vertex, b}` angle annotation. Render standard arc + label. If value entered is `90` or `90°`, swap to right-angle square automatically (already handled elsewhere; reuse).
+Implementation note: reuse existing `GeoSegment.distance` when a segment exists so the label auto-drags with the segment. When no segment exists, create a `label` with `anchor: { a, b, kind: "midpoint" }` — requires a small extension to `GeoLabel` (optional `anchor` field; renderer computes position from the two points).
 
-**Add Area** — Manual trace. Each click snaps to nearest geometry (segment/arc/circle/curve) via existing `snap.ts` helpers, appending a boundary vertex. Show a live rubber-band polyline along the traced boundary segments. Closing (click near start point, or Enter) commits an area annotation whose boundary is an ordered list of geometry references + snap points; the region is filled and opens the Area panel.
+## 4. Add Angle
 
-### 4. Annotation data model
+1. Enter value → Enter. If value normalises to `90`, remember `marker: "right"`.
+2. Three clicks: arm1 → vertex → arm2 (each snaps or creates).
+3. Create `GeoAngle { a, vertex, b, value, marker }`. No further inline edit.
+4. Tool stays active.
 
-Extend `GeometryScene` with a new `annotations` array (does not affect existing geometry objects):
+## 5. Add Area — smart boundary tracing
 
-```ts
-type Annotation =
-  | { id; kind: "text"; x; y; content; fontSize; color; rotation }
-  | { id; kind: "distance"; a: PointId; b: PointId; value; fontSize; color; offset }
-  | { id; kind: "angle"; a: PointId; vertex: PointId; b: PointId; value; fontSize; color }
-  | { id; kind: "area"; boundary: TraceStep[]; fill; opacity; label; texts: TextRef[] };
+Trace mode collects an ordered list of existing point ids. Between each consecutive pair, resolve the connecting geometry:
+
+```text
+for i in 0..N-1:
+  p, q = collected[i], collected[i+1]  (last→first closes the loop)
+  edge = findConnectingObject(scene, p, q)
+    - GeoSegment with endpoints {p,q}       → straight edge
+    - GeoArc where p,q both lie on the arc  → arc edge (use its center/r/angles)
+    - GeoCircle where p,q both lie on it    → circular edge (shorter sweep by default)
+    - GeoCurve where p,q are endpoints of a spline segment → follow curve
+    - none                                   → fallback to straight edge (with warn hint)
 ```
 
-Where existing floating labels already have similar plumbing — reuse the `floating` label system for Text/Distance/Angle rendering and drag; Area is new.
+Store the region as an extended shape:
 
-### 5. Right-hand panels (`SelectionInspector.tsx`)
+```ts
+interface GeoRegion {
+  id; type: "region";
+  boundary: GeoId[];                     // ordered point ids (existing)
+  edges?: Array<                          // NEW: per-edge geometry ref
+    | { kind: "segment"; ref: GeoId }
+    | { kind: "arc"; ref: GeoId; sweep: "short" | "long" }
+    | { kind: "circle"; ref: GeoId; sweep: "short" | "long" }
+    | { kind: "curve"; ref: GeoId }
+    | { kind: "straight" }               // fallback
+  >;
+  fill?; opacity?; area?;
+}
+```
 
-Route each annotation kind to a dedicated panel:
+Region renderer builds an SVG `path` from the edges array (M start; then A rx ry … for arc/circle sweeps; C … for curves; L … for straight). Falls back to straight polygon when `edges` is missing (existing regions still work).
 
-- **TextPanel** — Content textarea, Font Size slider, Colour swatch, Rotation slider, Delete.
-- **DistancePanel** — Value input, Label Size slider, Colour, Offset slider (perpendicular offset from midpoint), Delete.
-- **AnglePanel** — Value input (auto-converts `90` → right-angle square), Colour, Label Size, Delete.
-- **AreaPanel** — Fill Colour, Opacity slider, Area label input, "+ Add text inside" button (creates a Text annotation seeded at region centroid), Delete fill.
+Closing:
+- Click near the first point, **or** Enter, **or** double-click closes the loop.
+- Region is inserted into `scene.objects` as a permanent editable object (already the case) and auto-selected so the existing Area properties panel opens.
 
-All annotations are click-selectable and draggable (label position stored separately from anchor). Clicking any existing floating label / measurement on the canvas continues to open its panel as it does today.
+Helper additions in `src/lib/geometry/editor/`:
+- `boundary.ts` (new) — `findConnectingObject(scene, p, q)`, `pointLiesOnArc`, `pointLiesOnCircle`, `curveEndpointsMatch`.
+- `sceneOps.ts` — extend `addRegion` to accept `edges`.
 
-### 6. Interaction rules
+## 6. Right-hand properties panels
 
-- Tool stays active after completion so the teacher can place multiple annotations in a row; Esc or clicking Select exits.
-- Snap radius identical to construction tools.
-- Auto-detection Selection Laws are unchanged — these tools are additive.
+Selecting each annotation opens the panel already routed by `SelectionInspector`, extended per the master prompt:
 
-### Files touched
+- **Text (`label`)**: Edit Text, Font Size, Colour, Bold, Italic, Rotation, Delete.
+- **Distance**: Edit Value, Font Size, Colour, Position Offset (dx/dy), Rotation, Delete.
+- **Angle**: Edit Value (auto-swaps marker to `right` when normalised to 90), Font Size, Colour, Marker Style (arc/double/right), Label Position (offset), Delete.
+- **Area (region)**: Fill Colour, Opacity, Area Value, "+ Add / Edit text inside", Remove Fill, Delete Area — reuse existing `ClosedAreaPanel`/`FillablePanel`.
 
-- `src/lib/geometry/editor/tools.ts` — add 4 ToolIds + group.
-- `src/components/lessonnotes/geometry-editor/GeometryToolbox.tsx` — add Annotation section.
-- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx` — 4 new step machines + trace renderer.
-- `src/lib/geometry/scene.ts` (or nearest scene type file) — add `annotations` array + types.
-- `src/lib/geometry/editor/sceneOps.ts` — add/update/delete annotation helpers.
-- `src/components/lessonnotes/geometry-editor/SelectionInspector.tsx` — four new panels + routing.
-- `src/components/lessonnotes/geometry-editor/GeometryEditorPanel.tsx` — pass annotations to inspector / renderer.
+Add missing controls (Bold, Italic on `GeoLabel`; Rotation on distance/angle chips) as optional fields on the scene types; renderers ignore when absent.
 
-### Out of scope
+## 7. Canvas hint bar
 
-- No changes to the automatic Selection Laws behaviour.
-- No new backend/schema — annotations persist inside the existing scene JSON already saved for the diagram.
+Replace the previous per-click hint with a compact strip anchored to the left toolbox showing the current step verbatim ("Select the vertex."). Esc cancels the draft; re-clicking the same tool cancels too. Tool stays active after each completion for rapid repeat placement.
+
+## Files touched
+
+- `GeometryToolbox.tsx` — inline value input + step hint strip.
+- `useGeometryEditor.ts` — `annotationDraft` state, setters, cancel.
+- `GeometryCanvas.tsx` — replace inline-edit-on-create flow with draft-driven placement; add smart trace closing.
+- `src/lib/geometry/scene.ts` — optional `edges` on `GeoRegion`; optional `bold/italic/rotation` on label/segment.distance/angle.value.
+- `src/lib/geometry/editor/sceneOps.ts` — extend `addRegion`, add distance-only label anchor.
+- `src/lib/geometry/editor/boundary.ts` — new resolver.
+- Region renderer in geometry viewer — draw path from `edges` when present.
+- `SelectionInspector.tsx` — add Bold/Italic/Rotation controls; wire distance/angle rotation.
+
+## Out of scope
+
+- Automatic Selection Laws (unchanged).
+- No changes to construction tools.
+- No new persistence — extended fields ride along in the existing scene JSON.
 
 Confirm and I'll implement.
