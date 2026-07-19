@@ -359,24 +359,25 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "addText": {
-        // 1 click anywhere → free floating label, immediately editable.
-        const op = addFloatingLabel(scene, p.x, p.y, "Text");
+        // Value-first: teacher types text in toolbar, then clicks to place.
+        if (!annotationDraft?.confirmed || !annotationDraft.value.trim()) break;
+        const text = annotationDraft.value;
+        const op = addFloatingLabel(scene, p.x, p.y, text);
         apply(op);
-        const newId = op.addedIds[0];
-        if (newId) {
-          setInlineEdit({ id: newId, field: "text", value: "Text", x: p.x, y: p.y });
-        }
+        // Stay on tool for placing multiple; clear draft so teacher types the next one.
+        setPendingIds([]);
         break;
       }
       case "addDistance": {
-        // 2 clicks → ensure segment exists between them → edit distance.
+        // Value-first: value already in draft; click two points to place at midpoint.
+        if (!annotationDraft?.confirmed || !annotationDraft.value.trim()) break;
+        const value = annotationDraft.value;
         const { id, scene: s1 } = ensurePoint(p.x, p.y);
         if (pendingIds.length === 0) {
           setPendingIds([id]);
         } else {
           const prev = pendingIds[0];
           if (prev === id) break;
-          // Find or create segment between prev and id.
           const existing = s1.objects.find(
             (o) => o.type === "segment" &&
               ((o.a === prev && o.b === id) || (o.a === id && o.b === prev)),
@@ -389,20 +390,20 @@ export function GeometryCanvas({ editor }: Props) {
             segId = op.addedIds[0];
             sceneNow = op.scene;
           }
-          setPendingIds([]);
           if (segId) {
-            const a = pointById(sceneNow, prev);
-            const b = pointById(sceneNow, id);
-            const mx = a && b ? (a.x + b.x) / 2 : p.x;
-            const my = a && b ? (a.y + b.y) / 2 : p.y;
-            const cur = (sceneNow.objects.find((o) => o.id === segId) as any)?.distance ?? "";
-            setInlineEdit({ id: segId, field: "distance" as any, value: cur, x: mx, y: my });
+            const patched = patchObject(sceneNow, segId, { distance: value } as any);
+            apply(patched);
           }
+          setPendingIds([]);
         }
         break;
       }
       case "addAngle": {
-        // 3 clicks: arm1, vertex, arm2. Then edit value; 90° swaps to right-angle marker.
+        // Value-first: 3 clicks arm-vertex-arm; value already known.
+        if (!annotationDraft?.confirmed || !annotationDraft.value.trim()) break;
+        const raw = annotationDraft.value.trim();
+        const isRight = /^\s*90\s*°?\s*$/.test(raw);
+        const value = isRight ? "90°" : raw;
         const { id, scene: s1 } = ensurePoint(p.x, p.y);
         const next = [...pendingIds, id];
         if (next.length === 3) {
@@ -410,9 +411,12 @@ export function GeometryCanvas({ editor }: Props) {
           apply(op);
           setPendingIds([]);
           const angId = op.addedIds[0];
-          const v = pointById(op.scene, next[1]);
-          if (angId && v) {
-            setInlineEdit({ id: angId, field: "value", value: "", x: v.x, y: v.y });
+          if (angId) {
+            const patched = patchObject(op.scene, angId, {
+              value,
+              marker: isRight ? "right" : "arc",
+            } as any);
+            apply(patched);
           }
         } else {
           setPendingIds(next);
