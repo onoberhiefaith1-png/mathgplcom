@@ -15,6 +15,11 @@ export interface AnnotationDraft {
   confirmed: boolean;
   /** For addArea only: straight-edge trace or continuous curve trace. */
   traceMode?: "straight" | "curve";
+  /** For addAngle & addArea: keep temporary construction points after completion. */
+  keepLabels?: boolean;
+  /** For addArea only: pre-selected fill colour + opacity. */
+  fillColor?: string;
+  fillOpacity?: number;
 }
 
 interface GeometryModeCtx {
