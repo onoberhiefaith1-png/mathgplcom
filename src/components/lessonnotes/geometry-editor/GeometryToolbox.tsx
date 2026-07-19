@@ -93,29 +93,46 @@ export function GeometryToolbox() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">
-        {SLOTS.map((s) => {
-          const active = tool === s.toolId;
-          const Icon = s.Icon;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setTool(s.toolId)}
-              title={`${s.label} — ${s.hint}`}
-              className={cn(
-                "w-full flex items-center gap-2 px-2 py-1.5 text-[12px] transition",
-                active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-foreground/80 hover:bg-foreground/5",
-                expanded ? "justify-start" : "justify-center",
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {expanded && <span className="truncate">{s.label}</span>}
-            </button>
-          );
-        })}
+        {GEOMETRY_SLOTS.map((s) => renderSlot(s, tool, setTool, expanded))}
+
+        {expanded ? (
+          <div className="mt-2 px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-foreground/45 border-t border-foreground/10">
+            Annotation
+          </div>
+        ) : (
+          <div className="mt-2 mx-2 border-t border-foreground/10" />
+        )}
+        {ANNOTATION_SLOTS.map((s) => renderSlot(s, tool, setTool, expanded))}
       </div>
     </aside>
   );
+}
+
+function renderSlot(
+  s: Slot,
+  tool: ToolId,
+  setTool: (t: ToolId) => void,
+  expanded: boolean,
+) {
+  const active = tool === s.toolId;
+  const Icon = s.Icon;
+  return (
+    <button
+      key={s.id}
+      type="button"
+      onClick={() => setTool(s.toolId)}
+      title={`${s.label} — ${s.hint}`}
+      className={cn(
+        "w-full flex items-center gap-2 px-2 py-1.5 text-[12px] transition",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "text-foreground/80 hover:bg-foreground/5",
+        expanded ? "justify-start" : "justify-center",
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      {expanded && <span className="truncate">{s.label}</span>}
+    </button>
+  );
+}
 }
