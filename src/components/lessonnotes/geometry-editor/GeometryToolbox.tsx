@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import {
   MousePointer2, Dot, Minus, Circle, Waves, ChevronLeft, ChevronRight, X,
+  Type, Ruler, Triangle, Paintbrush,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ToolId } from "@/lib/geometry/editor/tools";
@@ -20,7 +21,7 @@ interface Slot {
   Icon: React.ComponentType<{ className?: string }>;
 }
 
-const SLOTS: Slot[] = [
+const GEOMETRY_SLOTS: Slot[] = [
   { id: "select", toolId: "select", label: "Select", hint: "Select and drag objects", Icon: MousePointer2 },
   { id: "point",  toolId: "point",  label: "Point",  hint: "Click to place a point", Icon: Dot },
   { id: "line",   toolId: "line",   label: "Line",   hint: "Click two points to connect them", Icon: Minus },
@@ -29,6 +30,14 @@ const SLOTS: Slot[] = [
   { id: "arc",    toolId: "arc",    label: "Arc",    hint: "Click start, through, end (in that order)", Icon: ArcIcon },
   { id: "curve",  toolId: "curve",  label: "Curve",  hint: "Click points; double-click to finish", Icon: Waves },
 ];
+
+const ANNOTATION_SLOTS: Slot[] = [
+  { id: "addText",     toolId: "addText",     label: "Add Text",     hint: "Click anywhere to place a text label", Icon: Type },
+  { id: "addDistance", toolId: "addDistance", label: "Add Distance", hint: "Click two points to label a distance", Icon: Ruler },
+  { id: "addAngle",    toolId: "addAngle",    label: "Add Angle",    hint: "Click arm, vertex, arm to label an angle", Icon: Triangle },
+  { id: "addArea",     toolId: "addArea",     label: "Add Area",     hint: "Trace a boundary; click start point or double-click to close", Icon: Paintbrush },
+];
+
 
 function ArcIcon({ className }: { className?: string }) {
   return (
