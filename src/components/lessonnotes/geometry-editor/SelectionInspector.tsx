@@ -628,6 +628,22 @@ function LabelPanel({ label, onPatch, onDelete }: { label: GeoLabel; onPatch: (p
           className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
         />
       </Row>
+      <Row label="Style">
+        <div className="flex items-center gap-2 w-full">
+          <button
+            type="button"
+            onClick={() => onPatch({ bold: !label.bold })}
+            className={`px-2 py-0.5 rounded border text-[11px] font-bold ${label.bold ? "bg-primary text-primary-foreground border-primary" : "bg-white text-black border-foreground/20"}`}
+            title="Bold"
+          >B</button>
+          <button
+            type="button"
+            onClick={() => onPatch({ italic: !label.italic })}
+            className={`px-2 py-0.5 rounded border text-[11px] italic ${label.italic ? "bg-primary text-primary-foreground border-primary" : "bg-white text-black border-foreground/20"}`}
+            title="Italic"
+          >I</button>
+        </div>
+      </Row>
       <Row label="Rotate">
         <div className="flex items-center gap-2 w-full">
           <input
