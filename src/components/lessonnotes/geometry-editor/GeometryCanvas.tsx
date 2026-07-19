@@ -2,7 +2,7 @@
 // pointer events for every tool. Coordinates are in scene logical space
 // (top-left = 0,0 inside `bounds`, padded by `pad`).
 
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import type { GeometryScene, GeoPoint, GeoId } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
 import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
@@ -34,6 +34,48 @@ export function GeometryCanvas({ editor }: Props) {
   const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "angleValue" | "label"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
+
+  // Tracks temporary construction points created during the current
+  // Add Angle / Add Area session. Used to auto-remove them when the
+  // teacher chose "Without Label" and the annotation is completed or
+  // the tool is changed.
+  const sessionRef = useRef<{ tool: "addAngle" | "addArea"; keepLabels: boolean; ids: GeoId[] } | null>(null);
+  const trackSessionPoint = (t: "addAngle" | "addArea", id: GeoId) => {
+    const keepLabels = annotationDraft?.keepLabels ?? true;
+    const cur = sessionRef.current;
+    if (!cur || cur.tool !== t) {
+      sessionRef.current = { tool: t, keepLabels, ids: [id] };
+    } else {
+      cur.keepLabels = keepLabels;
+      if (!cur.ids.includes(id)) cur.ids.push(id);
+    }
+  };
+  const finalizeSession = (postScene: GeometryScene) => {
+    const sess = sessionRef.current;
+    sessionRef.current = null;
+    if (!sess || sess.keepLabels || sess.ids.length === 0) return;
+    let s = postScene;
+    for (const id of sess.ids) s = eraseObject(s, id).scene;
+    commit(s);
+  };
+  // If the teacher switches to another tool mid-session, clean up
+  // temporary points from the previous annotation if it was "Without Label".
+  const prevAnnotationToolRef = useRef<string | null>(null);
+  useEffect(() => {
+    const cur = annotationDraft?.tool ?? null;
+    const prev = prevAnnotationToolRef.current;
+    if (prev && prev !== cur) {
+      const sess = sessionRef.current;
+      if (sess && !sess.keepLabels && sess.ids.length) {
+        let s = scene;
+        for (const id of sess.ids) s = eraseObject(s, id).scene;
+        commit(s);
+      }
+      sessionRef.current = null;
+    }
+    prevAnnotationToolRef.current = cur;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annotationDraft?.tool]);
 
   const { minX, minY, W, H } = computeSceneViewBox(scene, PAD);
 
@@ -404,20 +446,26 @@ export function GeometryCanvas({ editor }: Props) {
         const raw = annotationDraft.value.trim();
         const isRight = /^\s*90\s*°?\s*$/.test(raw);
         const value = isRight ? "90°" : raw;
+        const sn2 = snap(scene, p.x, p.y);
+        const wasExisting = !!sn2.pointId;
         const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        if (!wasExisting) trackSessionPoint("addAngle", id);
         const next = [...pendingIds, id];
         if (next.length === 3) {
           const op = addAngle(s1, next[1], next[0], next[2]);
           apply(op);
           setPendingIds([]);
           const angId = op.addedIds[0];
+          let postScene = op.scene;
           if (angId) {
             const patched = patchObject(op.scene, angId, {
               value,
               marker: isRight ? "right" : "arc",
             } as any);
             apply(patched);
+            postScene = patched.scene;
           }
+          finalizeSession(postScene);
         } else {
           setPendingIds(next);
         }
@@ -429,11 +477,31 @@ export function GeometryCanvas({ editor }: Props) {
         // overlapping triplets so every three clicks draw a curve
         // through the middle point.
         const curveMode = annotationDraft?.traceMode === "curve";
+        const fill = annotationDraft?.fillColor ?? "#3b82f6";
+        const opacity = annotationDraft?.fillOpacity ?? 0.25;
+        const sn2 = snap(scene, p.x, p.y);
+        const wasExisting = !!sn2.pointId;
         const { id } = ensurePoint(p.x, p.y);
-        const closeOnStart = pendingIds.length >= (curveMode ? 3 : 3) && id === pendingIds[0];
+        if (!wasExisting) trackSessionPoint("addArea", id);
+        const closeOnStart = pendingIds.length >= 3 && id === pendingIds[0];
         if (closeOnStart) {
-          if (curveMode) apply(addCurvedRegion(scene, pendingIds));
-          else apply(addRegion(scene, pendingIds));
+          let op;
+          if (curveMode) {
+            op = addCurvedRegion(scene, pendingIds);
+            apply(op);
+            const rgnId = op.addedIds[0];
+            if (rgnId) {
+              const patched = patchObject(op.scene, rgnId, { fill, opacity } as any);
+              apply(patched);
+              finalizeSession(patched.scene);
+            } else {
+              finalizeSession(op.scene);
+            }
+          } else {
+            op = addRegion(scene, pendingIds, { fill, opacity });
+            apply(op);
+            finalizeSession(op.scene);
+          }
           setPendingIds([]);
         } else if (pendingIds[pendingIds.length - 1] !== id) {
           setPendingIds([...pendingIds, id]);

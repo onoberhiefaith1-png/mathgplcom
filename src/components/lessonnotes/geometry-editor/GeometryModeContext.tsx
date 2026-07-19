@@ -15,6 +15,11 @@ export interface AnnotationDraft {
   confirmed: boolean;
   /** For addArea only: straight-edge trace or continuous curve trace. */
   traceMode?: "straight" | "curve";
+  /** For addAngle & addArea: keep temporary construction points after completion. */
+  keepLabels?: boolean;
+  /** For addArea only: pre-selected fill colour + opacity. */
+  fillColor?: string;
+  fillOpacity?: number;
 }
 
 interface GeometryModeCtx {
@@ -48,10 +53,16 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
   // When switching tools, seed / clear the annotation draft.
   const setTool = (t: ToolId) => {
     setToolState(t);
-    if (t === "addText" || t === "addDistance" || t === "addAngle") {
+    if (t === "addText" || t === "addDistance") {
       setAnnotationDraft({ tool: t, value: "", confirmed: false });
+    } else if (t === "addAngle") {
+      setAnnotationDraft({ tool: t, value: "", confirmed: false, keepLabels: true });
     } else if (t === "addArea") {
-      setAnnotationDraft({ tool: "addArea", value: "", confirmed: true, traceMode: "straight" });
+      setAnnotationDraft({
+        tool: "addArea", value: "", confirmed: true,
+        traceMode: "straight", keepLabels: true,
+        fillColor: "#3b82f6", fillOpacity: 0.25,
+      });
     } else {
       setAnnotationDraft(null);
     }
