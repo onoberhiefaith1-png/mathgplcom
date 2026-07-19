@@ -424,12 +424,16 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "addArea": {
-        // Manual trace: each click adds a boundary point (snapping to
-        // existing geometry). Closing (click near start, double-click,
-        // or Enter) commits a filled region.
+        // Manual trace: each click adds a boundary point. Straight mode
+        // connects them with straight edges; curve mode groups points in
+        // overlapping triplets so every three clicks draw a curve
+        // through the middle point.
+        const curveMode = annotationDraft?.traceMode === "curve";
         const { id } = ensurePoint(p.x, p.y);
-        if (pendingIds.length >= 3 && id === pendingIds[0]) {
-          apply(addRegion(scene, pendingIds));
+        const closeOnStart = pendingIds.length >= (curveMode ? 3 : 3) && id === pendingIds[0];
+        if (closeOnStart) {
+          if (curveMode) apply(addCurvedRegion(scene, pendingIds));
+          else apply(addRegion(scene, pendingIds));
           setPendingIds([]);
         } else if (pendingIds[pendingIds.length - 1] !== id) {
           setPendingIds([...pendingIds, id]);
