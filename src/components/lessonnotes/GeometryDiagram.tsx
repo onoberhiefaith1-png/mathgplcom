@@ -524,6 +524,8 @@ function renderObject(
           key={o.id}
           x={lx} y={ly}
           fontFamily={LABEL_FONT} fontSize={o.fontSize ?? 13}
+          fontWeight={o.bold ? 700 : 400}
+          fontStyle={o.italic ? "italic" : "normal"}
           fill={o.color ?? stroke} textAnchor="middle"
           transform={rot ? `rotate(${rot} ${lx} ${ly})` : undefined}
         >
