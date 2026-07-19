@@ -13,6 +13,8 @@ export interface AnnotationDraft {
   tool: "addText" | "addDistance" | "addAngle" | "addArea";
   value: string;
   confirmed: boolean;
+  /** For addArea only: straight-edge trace or continuous curve trace. */
+  traceMode?: "straight" | "curve";
 }
 
 interface GeometryModeCtx {
@@ -49,7 +51,7 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
     if (t === "addText" || t === "addDistance" || t === "addAngle") {
       setAnnotationDraft({ tool: t, value: "", confirmed: false });
     } else if (t === "addArea") {
-      setAnnotationDraft({ tool: "addArea", value: "", confirmed: true });
+      setAnnotationDraft({ tool: "addArea", value: "", confirmed: true, traceMode: "straight" });
     } else {
       setAnnotationDraft(null);
     }

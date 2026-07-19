@@ -270,6 +270,35 @@ export function addRegion(
   return ok(withObjects(scene, [...scene.objects, region]), [id]);
 }
 
+/**
+ * Build a filled region whose boundary is a chain of continuous
+ * quadratic curves. `pointIds` is the full ordered click sequence
+ * (P1, P2, P3, P4, P5, …). Curves are formed on overlapping triplets:
+ * (P1,P2,P3), (P3,P4,P5), (P5,P6,P7) … so every odd-indexed point is a
+ * shared endpoint. The region is closed with a straight edge from the
+ * last shared endpoint back to P1.
+ */
+export function addCurvedRegion(
+  scene: GeometryScene,
+  pointIds: GeoId[],
+): OpResult {
+  if (pointIds.length < 3) return ok(scene);
+  let s = scene;
+  const curveIds: GeoId[] = [];
+  const boundary: GeoId[] = [pointIds[0]];
+  for (let i = 0; i + 2 < pointIds.length; i += 2) {
+    const a = pointIds[i], mid = pointIds[i + 1], b = pointIds[i + 2];
+    const id = newId("cv", s);
+    const cv: import("../scene").GeoCurve = { id, type: "curve", a, mid, b, points: [a, mid, b] };
+    s = withObjects(s, [...s.objects, cv]);
+    curveIds.push(id);
+    boundary.push(b);
+  }
+  const edges: import("../scene").GeoRegionEdge[] = curveIds.map((id) => ({ kind: "curve", ref: id }));
+  edges.push({ kind: "straight" });
+  return addRegion(s, boundary, { edges });
+}
+
 
 /* ─── Equal mark: cycle tick → double → triple → tick ───────────────── */
 export function cycleEqualMarks(scene: GeometryScene, ids: GeoId[]): OpResult {

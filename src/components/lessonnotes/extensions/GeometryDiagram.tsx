@@ -113,6 +113,7 @@ function GeometryDiagramView({
             instanceId={instanceId}
             scene={scene}
             onChange={(next) => updateAttributes({ scene: next })}
+            onDeleteDiagram={() => deleteNode()}
           />
         ) : (
           <StaticGeometryDiagram scene={scene} />
@@ -193,10 +194,12 @@ function LiveEditor({
   instanceId,
   scene,
   onChange,
+  onDeleteDiagram,
 }: {
   instanceId: string;
   scene: GeometryScene;
   onChange: (next: GeometryScene) => void;
+  onDeleteDiagram?: () => void;
 }) {
   const editor = useGeometryEditor(scene, onChange);
   const { tool: modeTool } = useGeometryMode();
@@ -207,6 +210,22 @@ function LiveEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeTool]);
 
+  // Keyboard shortcuts: Ctrl/Cmd+Z (undo), Ctrl/Cmd+Shift+Z or Ctrl+Y (redo).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) {
+        if (editor.canUndo) { e.preventDefault(); editor.doUndo(); }
+      } else if ((key === "z" && e.shiftKey) || key === "y") {
+        if (editor.canRedo) { e.preventDefault(); editor.doRedo(); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo]);
+
   const selected = editor.selectedObjects[0] ?? null;
   const editorNode = useMemo(() => (
     <SelectionInspector
@@ -214,8 +233,13 @@ function LiveEditor({
       selected={editor.selectedObjects}
       kind={editor.selectionKind}
       onApply={(next) => editor.commit(next)}
+      onUndo={editor.doUndo}
+      onRedo={editor.doRedo}
+      canUndo={editor.canUndo}
+      canRedo={editor.canRedo}
+      onDeleteDiagram={onDeleteDiagram}
     />
-  ), [editor.scene, editor.selectedObjects, editor.selectionKind]);
+  ), [editor.scene, editor.selectedObjects, editor.selectionKind, editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo, onDeleteDiagram]);
 
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
   useRegisterAssetEditor(true, `geometry:${instanceId}`, title, editorNode);

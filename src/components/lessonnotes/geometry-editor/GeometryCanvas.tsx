@@ -13,7 +13,7 @@ import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
   movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
-  addCurve, addRegion,
+  addCurve, addRegion, addCurvedRegion,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
@@ -424,12 +424,16 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "addArea": {
-        // Manual trace: each click adds a boundary point (snapping to
-        // existing geometry). Closing (click near start, double-click,
-        // or Enter) commits a filled region.
+        // Manual trace: each click adds a boundary point. Straight mode
+        // connects them with straight edges; curve mode groups points in
+        // overlapping triplets so every three clicks draw a curve
+        // through the middle point.
+        const curveMode = annotationDraft?.traceMode === "curve";
         const { id } = ensurePoint(p.x, p.y);
-        if (pendingIds.length >= 3 && id === pendingIds[0]) {
-          apply(addRegion(scene, pendingIds));
+        const closeOnStart = pendingIds.length >= (curveMode ? 3 : 3) && id === pendingIds[0];
+        if (closeOnStart) {
+          if (curveMode) apply(addCurvedRegion(scene, pendingIds));
+          else apply(addRegion(scene, pendingIds));
           setPendingIds([]);
         } else if (pendingIds[pendingIds.length - 1] !== id) {
           setPendingIds([...pendingIds, id]);
@@ -552,20 +556,44 @@ export function GeometryCanvas({ editor }: Props) {
 
   // In-progress previews
   const previews: React.ReactNode[] = [];
-  if (hover && (tool === "line" || tool === "polygon" || tool === "addArea") && pendingIds.length > 0) {
+  if (hover && (tool === "line" || tool === "polygon") && pendingIds.length > 0) {
     const last = pointById(scene, pendingIds[pendingIds.length - 1]);
     if (last) previews.push(
       <line key="pv" x1={last.x + PAD} y1={last.y + PAD} x2={hover.snap.x + PAD} y2={hover.snap.y + PAD} stroke="#10b981" strokeWidth={1.2} strokeDasharray="4 3" />,
     );
   }
-  if (tool === "addArea" && pendingIds.length >= 2) {
+  if (tool === "addArea" && pendingIds.length >= 1) {
     const pts = pendingIds
       .map((id) => pointById(scene, id))
       .filter(Boolean) as GeoPoint[];
-    const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + PAD} ${p.y + PAD}`).join(" ");
-    previews.push(
-      <path key="area-pv" d={d} fill="#3b82f6" fillOpacity={0.12} stroke="#3b82f6" strokeWidth={1.2} strokeDasharray="4 3" />,
-    );
+    const curveMode = annotationDraft?.traceMode === "curve";
+    const previewPts = pts.map((p) => ({ x: p.x + PAD, y: p.y + PAD }));
+    if (hover) previewPts.push({ x: hover.snap.x + PAD, y: hover.snap.y + PAD });
+    if (previewPts.length >= 2) {
+      let d = "";
+      if (curveMode) {
+        // Overlapping-triplet quadratic curves through the middle point.
+        d = `M ${previewPts[0].x} ${previewPts[0].y}`;
+        let i = 0;
+        while (i + 2 < previewPts.length) {
+          const m = previewPts[i + 1], e = previewPts[i + 2];
+          const s = previewPts[i];
+          const cx = 2 * m.x - (s.x + e.x) / 2;
+          const cy = 2 * m.y - (s.y + e.y) / 2;
+          d += ` Q ${cx} ${cy} ${e.x} ${e.y}`;
+          i += 2;
+        }
+        // Trailing 1 or 2 uncommitted points → draw as straight preview.
+        for (let j = i + 1; j < previewPts.length; j++) {
+          d += ` L ${previewPts[j].x} ${previewPts[j].y}`;
+        }
+      } else {
+        d = previewPts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+      }
+      previews.push(
+        <path key="area-pv" d={d} fill="#3b82f6" fillOpacity={0.12} stroke="#3b82f6" strokeWidth={1.2} strokeDasharray="4 3" />,
+      );
+    }
   }
   if (tool === "curve" && pendingIds.length > 0) {
     const anchors = pendingIds
@@ -622,7 +650,8 @@ export function GeometryCanvas({ editor }: Props) {
             apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (tool === "addArea" && pendingIds.length >= 3) {
-            apply(addRegion(scene, pendingIds));
+            const curveMode = annotationDraft?.traceMode === "curve";
+            apply(curveMode ? addCurvedRegion(scene, pendingIds) : addRegion(scene, pendingIds));
             setPendingIds([]);
           } else if (tool === "line") {
             setPendingIds([]);
@@ -636,7 +665,8 @@ export function GeometryCanvas({ editor }: Props) {
             apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (e.key === "Enter" && tool === "addArea" && pendingIds.length >= 3) {
-            apply(addRegion(scene, pendingIds));
+            const curveMode = annotationDraft?.traceMode === "curve";
+            apply(curveMode ? addCurvedRegion(scene, pendingIds) : addRegion(scene, pendingIds));
             setPendingIds([]);
           } else if (e.key === "Escape") {
             setPendingIds([]);
