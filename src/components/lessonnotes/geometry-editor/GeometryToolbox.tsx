@@ -4,10 +4,10 @@
 // (centre + radius point). All editing options live on the right-hand
 // Properties Panel — never here.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   MousePointer2, Dot, Minus, Circle, Waves, ChevronLeft, ChevronRight, X,
-  Type, Ruler, Triangle, Paintbrush,
+  Type, Ruler, Triangle, Paintbrush, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ToolId } from "@/lib/geometry/editor/tools";
