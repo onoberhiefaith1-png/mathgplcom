@@ -249,7 +249,10 @@ export function addRegion(
   boundary: GeoId[],
   opts?: { fill?: string; opacity?: number; edges?: import("../scene").GeoRegionEdge[] },
 ): OpResult {
-  if (boundary.length < 3) return ok(scene);
+  if (boundary.length < 2) return ok(scene);
+  // 2-point boundary is only valid when the caller supplies edges
+  // that form a closed loop (e.g. two arcs of the same circle).
+  if (boundary.length === 2 && (!opts?.edges || opts.edges.length < 2)) return ok(scene);
   const id = newId("rgn", scene);
   // Auto-resolve per-edge geometry if not provided so the fill follows
   // curved boundaries (arcs, circles, curves) rather than straight chords.
