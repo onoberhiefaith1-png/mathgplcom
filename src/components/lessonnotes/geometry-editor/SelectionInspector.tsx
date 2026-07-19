@@ -177,7 +177,54 @@ function sharedVertices(items: LineItem[]): Array<{ vertex: GeoId; items: LineIt
   return out;
 }
 
-export function SelectionInspector({ scene, selected, selectedIds, kind, onApply, onSelect }: Props) {
+export function SelectionInspector(props: Props) {
+  const { onUndo, onRedo, canUndo, canRedo, onDeleteDiagram, selected } = props;
+  const showChrome = !!(onUndo || onRedo || onDeleteDiagram);
+  const body = <SelectionInspectorBody {...props} />;
+  if (!showChrome) return body;
+  return (
+    <div className="space-y-2">
+      {(onUndo || onRedo) && (
+        <div className="flex items-center gap-1 pb-1.5 border-b border-foreground/10">
+          <span className="text-[10px] uppercase tracking-wider text-foreground/50 mr-1">History</span>
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-foreground/20 text-[11px] hover:bg-foreground/5 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Undo (Ctrl+Z)"
+          ><Undo2 className="h-3 w-3" /> Undo</button>
+          <button
+            type="button"
+            onClick={onRedo}
+            disabled={!canRedo}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-foreground/20 text-[11px] hover:bg-foreground/5 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Redo (Ctrl+Shift+Z)"
+          ><Redo2 className="h-3 w-3" /> Redo</button>
+        </div>
+      )}
+      {body}
+      {onDeleteDiagram && (
+        <div className="pt-2 mt-2 border-t border-foreground/10">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm("Delete this entire diagram? This cannot be undone from inside the diagram.")) {
+                onDeleteDiagram();
+              }
+            }}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded border border-red-300 text-red-600 text-[12px] hover:bg-red-50"
+            title="Delete this diagram"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete diagram
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SelectionInspectorBody({ scene, selected, selectedIds, kind, onApply, onSelect }: Props) {
   if (selected.length === 0) {
     return (
       <p className="text-[11px] text-foreground/55">
