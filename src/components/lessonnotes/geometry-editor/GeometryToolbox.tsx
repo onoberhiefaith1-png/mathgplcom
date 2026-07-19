@@ -120,6 +120,12 @@ export function GeometryToolbox() {
             onCancel={() => setTool("select")}
           />
         )}
+        {expanded && annotationDraft && annotationDraft.tool === "addAngle" && (
+          <PointLabelsToggle
+            value={annotationDraft.keepLabels ?? true}
+            onChange={(v) => setAnnotationDraft({ ...annotationDraft, keepLabels: v })}
+          />
+        )}
         {expanded && annotationDraft?.confirmed && annotationDraft.tool === "addArea" && (
           <div className="mx-2 mt-2 p-2 rounded border border-primary/40 bg-primary/5 space-y-1.5">
             <div className="text-[10px] uppercase tracking-wider text-primary font-semibold">Trace</div>
@@ -145,6 +151,39 @@ export function GeometryToolbox() {
                 )}
               >Curved</button>
             </div>
+
+            <div className="pt-1 mt-1 border-t border-foreground/10">
+              <div className="text-[10px] uppercase tracking-wider text-foreground/60 font-semibold mb-1">Fill Colour</div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={annotationDraft.fillColor ?? "#3b82f6"}
+                  onChange={(e) => setAnnotationDraft({ ...annotationDraft, fillColor: e.target.value })}
+                  className="h-6 w-8 rounded border border-foreground/25 bg-white cursor-pointer p-0"
+                  title="Fill colour"
+                />
+                <input
+                  type="range"
+                  min={0} max={1} step={0.05}
+                  value={annotationDraft.fillOpacity ?? 0.25}
+                  onChange={(e) => setAnnotationDraft({ ...annotationDraft, fillOpacity: parseFloat(e.target.value) })}
+                  className="flex-1"
+                  title="Fill density"
+                />
+                <span className="text-[10px] tabular-nums text-foreground/60 w-7 text-right">
+                  {Math.round((annotationDraft.fillOpacity ?? 0.25) * 100)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-1 mt-1 border-t border-foreground/10">
+              <PointLabelsToggle
+                value={annotationDraft.keepLabels ?? true}
+                onChange={(v) => setAnnotationDraft({ ...annotationDraft, keepLabels: v })}
+                embedded
+              />
+            </div>
+
             <div className="text-[10px] text-foreground/60 leading-snug">
               {annotationDraft.traceMode === "curve"
                 ? "Click points in triplets — each three points curve through the middle."
