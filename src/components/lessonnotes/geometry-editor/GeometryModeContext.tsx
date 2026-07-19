@@ -51,7 +51,7 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
     if (t === "addText" || t === "addDistance" || t === "addAngle") {
       setAnnotationDraft({ tool: t, value: "", confirmed: false });
     } else if (t === "addArea") {
-      setAnnotationDraft({ tool: "addArea", value: "", confirmed: true });
+      setAnnotationDraft({ tool: "addArea", value: "", confirmed: true, traceMode: "straight" });
     } else {
       setAnnotationDraft(null);
     }
