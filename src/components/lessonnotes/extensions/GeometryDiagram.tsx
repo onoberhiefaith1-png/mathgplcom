@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Copy, CopyPlus, Sparkles, Trash2 } from "lucide-react";
+import { Copy, CopyPlus, Sparkles, Trash2, Undo2, Redo2 } from "lucide-react";
 import {
   type GeometryScene,
   sanitizeScene,
