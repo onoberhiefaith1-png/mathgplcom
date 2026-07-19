@@ -575,11 +575,18 @@ export function GeometryCanvas({ editor }: Props) {
     );
   }
 
+  const annotationHint = annotationHintFor(tool, pendingIds.length);
+
   return (
     <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
       <div className="absolute inset-0">
         <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} />
       </div>
+      {annotationHint && (
+        <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow pointer-events-none">
+          {annotationHint} <span className="opacity-70">· Esc to cancel</span>
+        </div>
+      )}
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
