@@ -111,7 +111,7 @@ export function GeometryToolbox() {
         )}
         {ANNOTATION_SLOTS.map((s) => renderSlot(s, tool, setTool, expanded))}
 
-        {expanded && draftNeedsInput && (
+        {expanded && draftNeedsInput && annotationDraft && annotationDraft.tool !== "addArea" && (
           <AnnotationDraftInput
             tool={annotationDraft.tool}
             value={annotationDraft.value}
