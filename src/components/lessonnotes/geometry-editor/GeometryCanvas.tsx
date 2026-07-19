@@ -8,6 +8,7 @@ import { pointById } from "@/lib/geometry/scene";
 import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, pickHit, pointsOnCircle, pointsOnArc, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
 import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
+import { projectOntoNearestEdge, findConnectingEdge } from "@/lib/geometry/editor/boundary";
 
 import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
