@@ -10,6 +10,7 @@ import type {
   SceneDiff,
 } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
+import { regionEdgesToPath } from "@/lib/geometry/editor/boundary";
 
 interface Props {
   scene: GeometryScene;
