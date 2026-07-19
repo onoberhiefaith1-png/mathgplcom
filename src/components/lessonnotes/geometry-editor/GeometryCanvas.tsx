@@ -665,7 +665,18 @@ export function GeometryCanvas({ editor }: Props) {
           value={inlineEdit.value}
           onChange={(e) => setInlineEdit({ ...inlineEdit, value: e.target.value })}
           onBlur={() => {
-            apply(patchObject(scene, inlineEdit.id, { [inlineEdit.field]: inlineEdit.value } as any));
+            const patch: Record<string, unknown> = { [inlineEdit.field]: inlineEdit.value };
+            // If an angle value normalises to 90°, swap to the right-angle marker.
+            if (inlineEdit.field === "value") {
+              const obj = scene.objects.find((o) => o.id === inlineEdit.id);
+              if (obj?.type === "angle") {
+                const n = parseFloat(inlineEdit.value.replace(/[^0-9.]/g, ""));
+                if (Number.isFinite(n) && Math.abs(n - 90) < 0.5) {
+                  patch.marker = "right";
+                }
+              }
+            }
+            apply(patchObject(scene, inlineEdit.id, patch as any));
             setInlineEdit(null);
           }}
           onKeyDown={(e) => {
