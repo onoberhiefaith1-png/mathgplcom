@@ -153,6 +153,8 @@ export interface GeoLabel {
   fontSize?: number;
   /** Text color. */
   color?: string;
+  bold?: boolean;
+  italic?: boolean;
 }
 
 export interface GeoCurve {
