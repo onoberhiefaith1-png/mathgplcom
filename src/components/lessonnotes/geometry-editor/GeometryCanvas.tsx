@@ -8,7 +8,6 @@ import { pointById } from "@/lib/geometry/scene";
 import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, pickHit, pointsOnCircle, pointsOnArc, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
 import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
-import { projectOntoNearestEdge, findConnectingEdge } from "@/lib/geometry/editor/boundary";
 
 import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
@@ -425,37 +424,16 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "addArea": {
-        // Manual trace: snap to nearest edge so the boundary point lands
-        // ON the underlying geometry (circle, arc, segment, curve).
-        // Region resolution then follows that geometry instead of
-        // drawing a straight chord.
-        const projected = projectOntoNearestEdge(scene, p.x, p.y);
-        const { id } = ensurePoint(projected.x, projected.y);
-        // Close on click-back-to-start (need at least 3 pts), OR close
-        // with just 2 points if they share a closed edge (e.g. two
-        // points on a circle → the two arcs already form a region).
+        // Manual trace: each click adds a boundary point (snapping to
+        // existing geometry). Closing (click near start, double-click,
+        // or Enter) commits a filled region.
+        const { id } = ensurePoint(p.x, p.y);
         if (pendingIds.length >= 3 && id === pendingIds[0]) {
           apply(addRegion(scene, pendingIds));
           setPendingIds([]);
-          break;
+        } else if (pendingIds[pendingIds.length - 1] !== id) {
+          setPendingIds([...pendingIds, id]);
         }
-        if (pendingIds[pendingIds.length - 1] === id) break;
-        const next = [...pendingIds, id];
-        if (next.length === 2) {
-          const edge = findConnectingEdge(scene, next[0], next[1]);
-          if (edge.kind === "circle") {
-            // Two arcs of the same circle enclose a region on their own.
-            apply(addRegion(scene, next, {
-              edges: [
-                { kind: "circle", ref: edge.ref, sweep: "short" },
-                { kind: "circle", ref: edge.ref, sweep: "long" },
-              ],
-            }));
-            setPendingIds([]);
-            break;
-          }
-        }
-        setPendingIds(next);
         break;
       }
       default:

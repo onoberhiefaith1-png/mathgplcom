@@ -102,65 +102,6 @@ export function findConnectingEdge(
 }
 
 /**
- * Project a raw pointer (x,y) onto the nearest edge in the scene
- * (segment, circle, arc, or curve chord samples) so the "Add Area"
- * tool creates its boundary points ON the existing geometry rather
- * than in free space next to it. Falls back to the original point
- * when no edge is within `tol` pixels.
- */
-export function projectOntoNearestEdge(
-  scene: GeometryScene,
-  x: number,
-  y: number,
-  tol = 12,
-): { x: number; y: number } {
-  let best: { d: number; x: number; y: number } | null = null;
-  const take = (px: number, py: number) => {
-    const d = Math.hypot(px - x, py - y);
-    if (d <= tol && (!best || d < best.d)) best = { d, x: px, y: py };
-  };
-
-  for (const o of scene.objects) {
-    if (o.type === "segment") {
-      const a = pointById(scene, o.a); const b = pointById(scene, o.b);
-      if (!a || !b) continue;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const L2 = dx * dx + dy * dy || 1;
-      const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / L2));
-      take(a.x + t * dx, a.y + t * dy);
-    } else if (o.type === "circle" || o.type === "arc") {
-      const c = pointById(scene, (o as GeoCircle | GeoArc).center);
-      const r = (o as GeoCircle | GeoArc).r;
-      if (!c) continue;
-      const dx = x - c.x, dy = y - c.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const px = c.x + (dx / d) * r;
-      const py = c.y + (dy / d) * r;
-      if (o.type === "arc") {
-        const a = angleOf(c, { x: px, y: py });
-        if (!angleWithin(a, (o as GeoArc).from, (o as GeoArc).to)) continue;
-      }
-      take(px, py);
-    } else if (o.type === "curve") {
-      const cv = o as GeoCurve;
-      const anchors = (cv.points ?? [cv.a, cv.mid, cv.b]).filter(Boolean) as GeoId[];
-      const pts = anchors.map((id) => pointById(scene, id)).filter((p): p is GeoPoint => !!p);
-      if (pts.length < 2) continue;
-      // Sample chords between anchors — good enough for snap-to-curve.
-      for (let i = 0; i < pts.length - 1; i++) {
-        const a = pts[i], b = pts[i + 1];
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const L2 = dx * dx + dy * dy || 1;
-        const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / L2));
-        take(a.x + t * dx, a.y + t * dy);
-      }
-    }
-  }
-
-  return best ? { x: (best as { d: number; x: number; y: number }).x, y: (best as { d: number; x: number; y: number }).y } : { x, y };
-}
-
-/**
  * Build an SVG path `d` string for a region given its boundary + edges,
  * using the current scene's point positions. `pad` is the render offset.
  */

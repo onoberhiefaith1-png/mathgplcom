@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Copy, CopyPlus, Sparkles, Trash2, Undo2, Redo2 } from "lucide-react";
+import { Copy, CopyPlus, Sparkles, Trash2 } from "lucide-react";
 import {
   type GeometryScene,
   sanitizeScene,
@@ -113,7 +113,6 @@ function GeometryDiagramView({
             instanceId={instanceId}
             scene={scene}
             onChange={(next) => updateAttributes({ scene: next })}
-            onDelete={() => deleteNode()}
           />
         ) : (
           <StaticGeometryDiagram scene={scene} />
@@ -194,12 +193,10 @@ function LiveEditor({
   instanceId,
   scene,
   onChange,
-  onDelete,
 }: {
   instanceId: string;
   scene: GeometryScene;
   onChange: (next: GeometryScene) => void;
-  onDelete: () => void;
 }) {
   const editor = useGeometryEditor(scene, onChange);
   const { tool: modeTool } = useGeometryMode();
@@ -212,49 +209,13 @@ function LiveEditor({
 
   const selected = editor.selectedObjects[0] ?? null;
   const editorNode = useMemo(() => (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 min-h-0 overflow-auto">
-        <SelectionInspector
-          scene={editor.scene}
-          selected={editor.selectedObjects}
-          kind={editor.selectionKind}
-          onApply={(next) => editor.commit(next)}
-        />
-      </div>
-      <div className="mt-3 pt-2 border-t border-foreground/10 flex flex-col gap-1.5">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            disabled={!editor.canUndo}
-            onClick={() => editor.doUndo()}
-            className="flex-1 inline-flex items-center justify-center gap-1 h-7 rounded border border-foreground/15 text-[11px] text-foreground/80 hover:bg-foreground/5 disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Undo"
-          >
-            <Undo2 className="h-3 w-3" /> Undo
-          </button>
-          <button
-            type="button"
-            disabled={!editor.canRedo}
-            onClick={() => editor.doRedo()}
-            className="flex-1 inline-flex items-center justify-center gap-1 h-7 rounded border border-foreground/15 text-[11px] text-foreground/80 hover:bg-foreground/5 disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Redo"
-          >
-            <Redo2 className="h-3 w-3" /> Redo
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm("Delete this diagram? This cannot be undone.")) onDelete();
-          }}
-          className="inline-flex items-center justify-center gap-1.5 h-7 rounded border border-red-500/40 text-[11px] text-red-500 hover:bg-red-500/10"
-          title="Delete diagram"
-        >
-          <Trash2 className="h-3 w-3" /> Delete Diagram
-        </button>
-      </div>
-    </div>
-  ), [editor.scene, editor.selectedObjects, editor.selectionKind, editor.canUndo, editor.canRedo, onDelete]);
+    <SelectionInspector
+      scene={editor.scene}
+      selected={editor.selectedObjects}
+      kind={editor.selectionKind}
+      onApply={(next) => editor.commit(next)}
+    />
+  ), [editor.scene, editor.selectedObjects, editor.selectionKind]);
 
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
   useRegisterAssetEditor(true, `geometry:${instanceId}`, title, editorNode);
