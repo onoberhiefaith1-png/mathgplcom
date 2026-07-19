@@ -161,6 +161,15 @@ export function useGeometryEditor(
       }
       setTool(t);
       setPendingIds([]);
+      // When switching tools reset any in-progress annotation draft.
+      if (t === "addText" || t === "addDistance" || t === "addAngle") {
+        setAnnotationDraft({ tool: t, value: "", confirmed: false });
+      } else if (t === "addArea") {
+        // Add Area skips the value input step and traces immediately.
+        setAnnotationDraft({ tool: "addArea", value: "", confirmed: true });
+      } else {
+        setAnnotationDraft(null);
+      }
     },
     apply,
     commit,
@@ -174,6 +183,8 @@ export function useGeometryEditor(
     pendingIds,
     setPendingIds,
     resetPending,
+    annotationDraft,
+    setAnnotationDraft,
     doUndo,
     doRedo,
     canUndo: history.past.length > 0,
