@@ -487,7 +487,6 @@ function renderObject(
       // segments). Fall back to the straight-polygon renderer when no
       // edges are stored (legacy regions).
       if (o.edges && o.edges.length === o.boundary.length) {
-        const { regionEdgesToPath } = require("@/lib/geometry/editor/boundary") as typeof import("@/lib/geometry/editor/boundary");
         const d = regionEdgesToPath(scene, o.boundary, o.edges, pad);
         if (!d) return null;
         return (
