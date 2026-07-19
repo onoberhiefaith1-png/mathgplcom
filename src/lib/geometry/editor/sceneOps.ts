@@ -282,20 +282,19 @@ export function addCurvedRegion(
   scene: GeometryScene,
   pointIds: GeoId[],
 ): OpResult {
-  // Need at least 3 clicks (one curve).
   if (pointIds.length < 3) return ok(scene);
   let s = scene;
   const curveIds: GeoId[] = [];
   const boundary: GeoId[] = [pointIds[0]];
   for (let i = 0; i + 2 < pointIds.length; i += 2) {
-    const trip = [pointIds[i], pointIds[i + 1], pointIds[i + 2]];
-    const op = addCurve(s, trip);
-    s = op.scene;
-    curveIds.push(op.addedIds[0]);
-    boundary.push(pointIds[i + 2]);
+    const a = pointIds[i], mid = pointIds[i + 1], b = pointIds[i + 2];
+    const id = newId("cv", s);
+    const cv: import("../scene").GeoCurve = { id, type: "curve", a, mid, b, points: [a, mid, b] };
+    s = withObjects(s, [...s.objects, cv]);
+    curveIds.push(id);
+    boundary.push(b);
   }
   const edges: import("../scene").GeoRegionEdge[] = curveIds.map((id) => ({ kind: "curve", ref: id }));
-  // Closing edge back to start.
   edges.push({ kind: "straight" });
   return addRegion(s, boundary, { edges });
 }
