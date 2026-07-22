@@ -126,6 +126,19 @@ const ClassLessonNotesPage = () => {
     load();
   };
 
+  const toggleAdventure = async (row: Attached) => {
+    if (!classId) return;
+    const existing = adventures.get(row.notebook_id);
+    if (existing) {
+      await unassignAdventureNote(existing);
+      toast({ title: "Adventure removed" });
+    } else {
+      await assignAdventureNote({ classId, notebookId: row.notebook_id, sectionId: null });
+      toast({ title: "Assigned as Adventure" });
+    }
+    load();
+  };
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
