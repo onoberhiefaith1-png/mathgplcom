@@ -31,6 +31,8 @@ const ClassLessonNotesPage = () => {
   const [picker, setPicker] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  const [adventures, setAdventures] = useState<Map<string, string>>(new Map());
+
   const load = useCallback(async () => {
     if (!classId) return;
     const { data: cls } = await supabase.from("classes").select("name").eq("id", classId).single();
