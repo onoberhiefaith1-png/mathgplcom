@@ -9,6 +9,7 @@ import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureHeartbeat } from "@/hooks/useAdventureHeartbeat";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
+import TimeBarControls from "@/components/games/TimeBarControls";
 import type { GameRow } from "@/lib/games/types";
 
 const StudentGameLivePage = () => {
@@ -69,6 +70,20 @@ const StudentGameLivePage = () => {
         <p className="text-sm text-muted-foreground">Class total: {achievedTotal} / {requiredTotal} marks</p>
       </header>
       <GameCanvas elements={elements} selectedId={null} editable={false} />
+      {gameId && elements.filter((el) => el.progress).length > 0 && (
+        <section className="grid gap-2 sm:grid-cols-2">
+          {elements
+            .filter((el) => el.progress)
+            .map((el) => (
+              <TimeBarControls
+                key={el.id}
+                gameId={gameId}
+                progressElementId={el.id}
+                label={el.label ?? "Progress bar"}
+              />
+            ))}
+        </section>
+      )}
       {buttons.length > 0 && (
         <section className="flex flex-wrap gap-2">
           {buttons.map((b) => (
