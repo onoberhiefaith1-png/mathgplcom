@@ -79,14 +79,8 @@ const ClassGamesPage = () => {
           ))}
         </ul>
       )}
-      {classId && linkGameId && (
-        <LinkAdventureDialog
-          open={Boolean(linkGameId)}
-          onOpenChange={(open) => { if (!open) setLinkGameId(null); }}
-          classId={classId}
-          gameId={linkGameId}
-        />
-      )}
+      {/* LinkAdventureDialog is invoked from ClassAdventuresPage where lesson-note context is available. */}
+
     </div>
   );
 };
