@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, EyeOff, Eye, Trash2, Check } from "lucide-react";
+import { ArrowLeft, Plus, EyeOff, Eye, Trash2, Check, Compass } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
+import {
+  assignAdventureNote,
+  listAdventureNotes,
+  unassignAdventureNote,
+} from "@/lib/adventures/classAdventures";
 
 type Notebook = NotebookCoverData & { id: string; subtopic: string };
 type Attached = {
