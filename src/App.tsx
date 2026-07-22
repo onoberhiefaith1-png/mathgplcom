@@ -78,6 +78,8 @@ import AssessmentBoardPage from "./pages/student/AssessmentBoardPage.tsx";
 import StudentAssignmentPage from "./pages/student/StudentAssignmentPage.tsx";
 import AssignmentDashboardPage from "./pages/class/AssignmentDashboardPage.tsx";
 import TeacherAssessmentViewerPage from "./pages/class/TeacherAssessmentViewerPage.tsx";
+import ClassGameLivePage from "./pages/class/ClassGameLivePage.tsx";
+import StudentGameLivePage from "./pages/student/StudentGameLivePage.tsx";
 import OAuthConsent from "./pages/OAuthConsent.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
 import { FullscreenToggle } from "./components/common/FullscreenToggle";
@@ -106,6 +108,8 @@ const App = () => (
           <Route path="/teaching-hub/classes/:classId/lesson-notes" element={<ClassLessonNotesPage />} />
           <Route path="/teaching-hub/classes/:classId/assignments" element={<ClassAssignmentsPage />} />
           <Route path="/teaching-hub/classes/:classId/smartboard" element={<ClassSmartBoardLauncher />} />
+          <Route path="/teaching-hub/classes/:classId/games/:gameId/live" element={<ClassGameLivePage />} />
+          <Route path="/student/classes/:classId/games/:gameId/live" element={<StudentGameLivePage />} />
           <Route path="/teaching-hub/settings" element={<TeachingHubSettings />} />
           <Route path="/teaching-hub/settings/archive" element={<TeachingHubArchive />} />
           <Route path="/join" element={<JoinClassPage />} />
