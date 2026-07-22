@@ -1,51 +1,112 @@
-## Refine Add Angle & Add Area annotation settings
 
-Existing workflows for Add Angle and Add Area stay intact. This adds two new pre-placement options to the left toolbar and a cleanup pass on completion.
+# Migrate gameplay features from `gameful` → this project
 
-### 1. Data model — `GeometryModeContext.tsx`
+Purely additive. Nothing existing is replaced. Where a filename exists in both projects, I keep this project's version and only add integration seams inside it (1–2 lines) with your approval mid-flight.
 
-Extend `AnnotationDraft`:
-- `keepLabels?: boolean` (default `true`) — applies to Add Angle and Add Area.
-- `fillColor?: string`, `fillOpacity?: number` — applies to Add Area (defaults: current scene fill defaults).
+## Guardrails (apply to every phase)
 
-Seed these defaults when a tool is activated (Add Angle / Add Area). Do not alter existing fields.
+- **Do-not-touch UI files (this project wins):** `SmartBoardPage.tsx`, `PresentationView.tsx` and everything under `src/components/smartboard/**`, `MathBoardPage.tsx`, `LessonNotesPage.tsx`, `NotebookEditorPage.tsx`, `src/pages/adventure/AdventureGameEditor.tsx`, `src/pages/adventure/AdventureGamesDashboard.tsx`, `QuestionProgressContainerEditor.tsx`, and all current `src/components/adventure/**`. If a gameful feature needs to reach into one, I add a small hook/prop seam and pause to show you the diff.
+- **Additive schema only.** Every migration uses `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` / `CREATE POLICY IF NOT EXISTS`. No `DROP` on existing objects. No changes to existing columns' types or defaults. If a gameful migration would conflict (e.g. tightening an existing policy), I stop and ask.
+- **Reuse before create.** If a table/column/function already exists (even under a different name), I reuse it and note the mapping in the phase notes rather than duplicating.
+- **Not migrated (per your list):** old Smartboard, old Game Editor, 3D geometry, Reports, anything unfinished on the branch.
 
-### 2. Toolbox UI — `GeometryToolbox.tsx`
+## Phase 0 — Schema foundations (approval gate: one migration)
 
-Inside the annotation panel, add controls under the value input:
+Additive DDL only. Adds what every later phase depends on.
 
-**Add Angle** (after "Enter Angle Value"):
-- "Point Labels" radio group: `With Label` / `Without Label`.
+- Helper functions (create if absent): `is_class_owner(uuid)`, `is_class_member(uuid)`, `shares_class_with(uuid)`, `notebook_shared_to_member(uuid)`, `can_access_realtime_topic(text)`, `ensure_class_game_boards(uuid, uuid)`, plus the `assessment_progress_guard` / `_insert_guard` / `game_progress_guard` triggers.
+- Columns (`ADD COLUMN IF NOT EXISTS` only):
+  - `assessments`: `assigned_at`, `due_at`, `unassigned_at`
+  - `assessment_progress`: `per_question jsonb default '{}'`
+  - `class_game_boards`: `notebook_id`, `required_marks`, `section_id`
+  - `notebooks`: `score_label text default 'Marks'`
+- New tables (all with GRANTs → RLS → policies in the required order):
+  - `class_adventure_notes`
+  - `game_sessions`, `game_progress` (only if absent — they're referenced by gameful policies)
+  - `game_time_bars`
+  - `adventure_live_sessions`
+- Realtime publication: add the new/needed tables (`class_game_boards`, `class_adventure_notes`, `assessment_progress`, `assessments`, `class_games`, `class_members`, `game_time_bars`, `adventure_live_sessions`) using the `DO $$ … EXCEPTION WHEN duplicate_object` pattern so re-runs are safe. Set `REPLICA IDENTITY FULL` where gameful does.
+- No policy replacements on existing tables. If a stricter policy is required (e.g. the split student SELECT/INSERT/UPDATE on `assessment_progress`), I list it and ask before running.
 
-**Add Area** (after the existing Straight / Curve toggle, then above the tracing hint):
-- "Fill Colour" row: color swatch + opacity slider (0–1). Wire to `annotationDraft.fillColor` / `fillOpacity`.
-- "Point Labels" radio group: `With Label` / `Without Label`.
+After you approve and it runs, the regenerated `types.ts` unblocks all later phases.
 
-Styling matches the current annotation panel (compact chips / radio buttons already used in the toolbox).
+## Phase 1 — Lesson Note → Assignment → Smartboard workflow
 
-### 3. Canvas behavior — `GeometryCanvas.tsx`
+- Copy `src/lib/assessments/{createAssessment.ts, lessonProgress.ts}` and refresh `assessmentBoardSource.ts` from gameful (already present here; diff and merge additively).
+- Copy `src/pages/class/AssignmentDashboardPage.tsx`, `TeacherAssessmentViewerPage.tsx`, `src/pages/student/StudentAssignmentPage.tsx`.
+- Update `src/pages/student/AssessmentBoardPage.tsx` only where needed to write `assigned_at` / `due_at` / `per_question` fields; existing student flow preserved.
+- Add routes in `src/App.tsx` for the new pages.
+- Seams into protected UI: none required — this phase adds sibling pages.
 
-Add Area:
-- When creating the region, apply `fillColor` / `fillOpacity` from the draft (instead of scene defaults) so the teacher's pre-chosen appearance is used.
-- Track the temporary tracing point ids created during this Area session in a local ref/list.
+## Phase 2 — Adventure → Game → Smartboard workflow
 
-Add Angle:
-- Track the temporary vertex/arm point ids created during this Angle session.
+- Copy `src/lib/adventures/classAdventures.ts`, `src/lib/games/{classGames.ts, gameQuestions.ts, prefetch.ts}` (merge into existing files where already present — additive only).
+- Copy `src/components/adventures/LinkAdventureDialog.tsx`.
+- Copy `src/pages/class/{ClassAdventuresPage.tsx, AdventureDashboardPage.tsx, ClassGamesPage.tsx}` and `src/pages/student/GamePlayPage.tsx`.
+- Route wiring in `src/App.tsx`.
+- Reuse existing `adventure_games` / `adventure_scenes` tables — no schema changes here (Phase 0 already added the linking columns).
+- Seam: launcher buttons on the existing Class dashboard use existing patterns; no edits to Smartboard/Editor UI.
 
-On completion of either tool (region finalized / angle finalized) **or** when the tool changes / annotation draft clears:
-- If `keepLabels === false`, delete the tracked temporary points (and their auto-labels) via existing scene ops. The angle/area object itself is untouched.
-- If `keepLabels === true`, leave points and labels in place (current behavior).
+## Phase 3 — Progress Bar system (dynamic slots, dynamic reconstruction)
 
-Only points that were **created by this annotation session** are removed — pre-existing points that the user clicked on are never deleted.
+- Copy `src/lib/games/progressPresets.ts` additions and any new preset assets from gameful `src/assets/progress/`.
+- Copy `src/components/gamebuilder/ProgressColumn.tsx` as a new **sibling** component (do not modify the existing Game Editor). Expose it via a hook so any consumer that wants the dynamic-slot behaviour opts in.
+- Add the required-marks / teacher-configurable slot logic behind a new `useProgressBar` hook reading `class_game_boards.required_marks` + `progress_element_id`.
+- Old fixed-10-slot code stays untouched but is bypassed by the new hook when the row has `required_marks`.
 
-### 4. No changes to
+## Phase 4 — Realtime synchronization
 
-- Existing Add Angle / Add Area workflows, hints, keyboard shortcuts.
-- Right-panel property editing for finalized angles / areas.
-- Add Text / Add Distance tools.
+- Copy `src/lib/realtime/**` additions (assessment presence, class-assessments, adventure-live-session channels).
+- Add subscribers in the new dashboard/student pages from Phases 1–2 only. Existing hooks (`useSmartboardSync`, etc.) are not modified.
+- All channels are private + go through `ensureRealtimeAuth` (already present here).
 
-### Files touched
+## Phase 5 — Assessment Status workflow (In progress / Inactive / Completed)
 
-- `src/components/lessonnotes/geometry-editor/GeometryModeContext.tsx`
-- `src/components/lessonnotes/geometry-editor/GeometryToolbox.tsx`
-- `src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx`
+- Adopt gameful's rule: `in_progress` when the student's Smartboard is open (heartbeat into `adventure_live_sessions` or a new `assessment_presence` channel), `inactive` otherwise, `completed` when `score ≥ required_marks`.
+- Implemented as a small hook mounted by `AssessmentBoardPage.tsx` (writes `last_seen_at`) plus a derived column read in the teacher dashboard. No smartboard UI edits.
+
+## Phase 6 — Percentage-based scoring
+
+- Copy `src/lib/assessments/lessonProgress.ts` grand-total / required-score helpers.
+- Add a teacher percentage input on `AssignmentDashboardPage`. Persist to `class_game_boards.required_marks = ceil(total_marks * pct/100)`.
+- Live recalculation via the Phase 4 subscription.
+
+## Phase 7 — Adventure Dashboard improvements
+
+- Populate `AdventureDashboardPage` (added in Phase 2) with grouped lesson questions, question counts, total marks, progress-bar link picker, dynamic calculations, teacher controls. All in the new page — no edits to existing Adventure pages.
+
+## Phase 8 — Time Bar foundation
+
+- Copy `src/components/adventures/TimeBarControl.tsx` and wire it to `game_time_bars` (Phase 0). Exposed only inside the new Adventure Dashboard — no changes to Game Editor UI.
+
+## Files that will be added (net new, non-conflicting)
+
+```text
+src/lib/adventures/classAdventures.ts
+src/lib/assessments/lessonProgress.ts
+src/lib/games/prefetch.ts                 (if not present)
+src/lib/games/gameQuestions.ts            (merge additively if present)
+src/components/adventures/LinkAdventureDialog.tsx
+src/components/adventures/TimeBarControl.tsx
+src/components/dashboards/AssessmentStatusPanel.tsx
+src/components/gamebuilder/ProgressColumn.tsx   (sibling, not a replacement)
+src/pages/class/AssignmentDashboardPage.tsx
+src/pages/class/AdventureDashboardPage.tsx
+src/pages/class/ClassAdventuresPage.tsx
+src/pages/class/ClassGamesPage.tsx
+src/pages/class/TeacherAssessmentViewerPage.tsx
+src/pages/student/StudentAssignmentPage.tsx
+src/pages/student/GamePlayPage.tsx
+```
+
+## Files I will only touch with your per-file approval
+
+`src/App.tsx` (route additions), `src/pages/student/AssessmentBoardPage.tsx` (write new columns), `src/pages/ClassDashboardPage.tsx` and existing class/student pages that need launcher buttons.
+
+## Explicitly out of scope
+
+Old Smartboard, old Game Editor, 3D geometry, Reports, any not-yet-built work. Existing UI in this project always wins on conflict.
+
+## Execution rhythm
+
+Phase 0 first (single migration, you approve). After each subsequent phase, I stop, show a diff summary, and wait before moving on. If any phase turns up a real conflict with your current architecture, I pause and ask instead of overwriting.
