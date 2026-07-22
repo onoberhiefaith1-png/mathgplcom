@@ -80,6 +80,8 @@ import AssignmentDashboardPage from "./pages/class/AssignmentDashboardPage.tsx";
 import TeacherAssessmentViewerPage from "./pages/class/TeacherAssessmentViewerPage.tsx";
 import ClassGameLivePage from "./pages/class/ClassGameLivePage.tsx";
 import StudentGameLivePage from "./pages/student/StudentGameLivePage.tsx";
+import ClassAdventuresPage from "./pages/class/ClassAdventuresPage.tsx";
+import StudentAdventuresPage from "./pages/student/StudentAdventuresPage.tsx";
 import OAuthConsent from "./pages/OAuthConsent.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
 import { FullscreenToggle } from "./components/common/FullscreenToggle";
