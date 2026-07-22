@@ -7,7 +7,7 @@ import { getGame } from "@/lib/games/games";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
-import AssessmentStatusPanel from "@/components/dashboards/AssessmentStatusPanel";
+import { AssessmentStatusPanel } from "@/components/dashboards/AssessmentStatusPanel";
 import type { GameRow } from "@/lib/games/types";
 
 const ClassGameLivePage = () => {
