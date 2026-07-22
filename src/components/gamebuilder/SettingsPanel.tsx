@@ -471,6 +471,24 @@ const SettingsPanel = ({
             <Row label={`Glow (${Math.round(progress.glow * 100)}%)`}>
               <Slider min={0} max={100} step={1} value={[progress.glow * 100]} onValueChange={([v]) => patchProgress({ glow: v / 100 })} />
             </Row>
+            <Row label={`Class goal (${Math.round(progress.progressGoalPct ?? 100)}% of grand total)`}>
+              <div className="flex items-center gap-2">
+                <Slider min={10} max={100} step={5}
+                  value={[Math.round(progress.progressGoalPct ?? 100)]}
+                  onValueChange={([v]) => patchProgress({ progressGoalPct: v })}
+                  className="flex-1" />
+                <Input type="number" min={10} max={100}
+                  value={Math.round(progress.progressGoalPct ?? 100)}
+                  onChange={(e) => {
+                    const raw = Math.round(Number(e.target.value) || 0);
+                    patchProgress({ progressGoalPct: Math.min(100, Math.max(10, raw)) });
+                  }}
+                  className="h-8 w-16" />
+              </div>
+            </Row>
+            <p className="text-[11px] text-muted-foreground">
+              Live class total needed = marks × students × goal%. Lower the goal for a partial-completion challenge.
+            </p>
           </Section>
 
           <Section title="Fill style">
