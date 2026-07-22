@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, EyeOff, Eye, Trash2, Check } from "lucide-react";
+import { ArrowLeft, Plus, EyeOff, Eye, Trash2, Check, Compass } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
+import {
+  assignAdventureNote,
+  listAdventureNotes,
+  unassignAdventureNote,
+} from "@/lib/adventures/classAdventures";
 
 type Notebook = NotebookCoverData & { id: string; subtopic: string };
 type Attached = {
@@ -25,6 +30,8 @@ const ClassLessonNotesPage = () => {
   const [available, setAvailable] = useState<Notebook[]>([]);
   const [picker, setPicker] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const [adventures, setAdventures] = useState<Map<string, string>>(new Map());
 
   const load = useCallback(async () => {
     if (!classId) return;
@@ -48,6 +55,14 @@ const ClassLessonNotesPage = () => {
         notebook: (notebooks.find((n) => n.id === l.notebook_id) as Notebook | undefined) ?? null,
       })),
     );
+
+    const advRows = await listAdventureNotes(classId);
+    // Only track note-level (section_id null) adventures for the cover toggle.
+    const map = new Map<string, string>();
+    for (const row of advRows) {
+      if (row.section_id === null) map.set(row.notebook_id, row.id);
+    }
+    setAdventures(map);
   }, [classId]);
 
   useEffect(() => {
@@ -111,6 +126,19 @@ const ClassLessonNotesPage = () => {
     load();
   };
 
+  const toggleAdventure = async (row: Attached) => {
+    if (!classId) return;
+    const existing = adventures.get(row.notebook_id);
+    if (existing) {
+      await unassignAdventureNote(existing);
+      toast({ title: "Adventure removed" });
+    } else {
+      await assignAdventureNote({ classId, notebookId: row.notebook_id, sectionId: null });
+      toast({ title: "Assigned as Adventure" });
+    }
+    load();
+  };
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
@@ -133,6 +161,7 @@ const ClassLessonNotesPage = () => {
             {attached.map((row) => {
               if (!row.notebook) return null;
               const enabled = row.visibility === "student_access_enabled";
+              const isAdventure = adventures.has(row.notebook_id);
               return (
                 <div key={row.id} className="relative">
                   <NotebookCover notebook={row.notebook} />
@@ -145,6 +174,16 @@ const ClassLessonNotesPage = () => {
                     >
                       {enabled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                       {enabled ? "Visible" : "Teacher Only"}
+                    </button>
+                    <button
+                      onClick={() => toggleAdventure(row)}
+                      className={`inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium ${
+                        isAdventure ? "bg-primary text-primary-foreground" : "bg-white/10 text-white/80"
+                      }`}
+                      aria-label={isAdventure ? "Unassign Adventure" : "Assign as Adventure"}
+                    >
+                      <Compass className="h-3 w-3" />
+                      {isAdventure ? "Adventure" : "Assign"}
                     </button>
                     <button
                       onClick={() => detach(row)}
