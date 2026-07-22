@@ -161,6 +161,7 @@ const ClassLessonNotesPage = () => {
             {attached.map((row) => {
               if (!row.notebook) return null;
               const enabled = row.visibility === "student_access_enabled";
+              const isAdventure = adventures.has(row.notebook_id);
               return (
                 <div key={row.id} className="relative">
                   <NotebookCover notebook={row.notebook} />
@@ -173,6 +174,16 @@ const ClassLessonNotesPage = () => {
                     >
                       {enabled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                       {enabled ? "Visible" : "Teacher Only"}
+                    </button>
+                    <button
+                      onClick={() => toggleAdventure(row)}
+                      className={`inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium ${
+                        isAdventure ? "bg-primary text-primary-foreground" : "bg-white/10 text-white/80"
+                      }`}
+                      aria-label={isAdventure ? "Unassign Adventure" : "Assign as Adventure"}
+                    >
+                      <Compass className="h-3 w-3" />
+                      {isAdventure ? "Adventure" : "Assign"}
                     </button>
                     <button
                       onClick={() => detach(row)}
