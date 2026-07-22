@@ -121,6 +121,8 @@ const App = () => (
           <Route path="/teaching-hub/classes/:classId/games" element={<ClassGamesPage />} />
           <Route path="/student/class/:classId/games" element={<StudentGamesPage />} />
           <Route path="/teaching-hub/settings" element={<TeachingHubSettings />} />
+          <Route path="/teaching-hub/classes/:classId/games/:gameId/dashboard" element={<AdventureDashboardPage />} />
+          <Route path="/student/class/:classId/games/:gameId/play" element={<GamePlayPage />} />
           <Route path="/teaching-hub/settings/archive" element={<TeachingHubArchive />} />
           <Route path="/join" element={<JoinClassPage />} />
           <Route path="/join/:code" element={<JoinClassPage />} />
