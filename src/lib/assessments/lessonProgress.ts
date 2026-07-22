@@ -8,9 +8,6 @@
 //   - Status mode (Assignment, default): completion follows the DB
 //     `assessment_progress.status='completed'` column, which the Submit
 //     button flips.
-//
-// In Progress is always driven by presence; Inactive is everyone else.
-// Counts always sum to the roster size.
 
 import { supabase } from "@/integrations/supabase/client";
 import type { StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";
@@ -34,10 +31,10 @@ export async function loadLessonProgress(
       .select("assessment_id, student_id, score, status")
       .in("assessment_id", ids);
     for (const r of data ?? []) {
-      const sid = (r as { student_id: string }).student_id;
+      const sid = (r as any).student_id as string;
       const cur = byStudent.get(sid) ?? { score: 0, anyCompleted: false };
-      cur.score += Number((r as { score?: number }).score ?? 0);
-      if ((r as { status?: string }).status === "completed") cur.anyCompleted = true;
+      cur.score += Number((r as any).score ?? 0);
+      if ((r as any).status === "completed") cur.anyCompleted = true;
       byStudent.set(sid, cur);
     }
   }

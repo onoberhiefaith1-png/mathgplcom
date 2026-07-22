@@ -1,8 +1,3 @@
-// Heartbeat writer for the Adventure "In progress" bucket. The student page
-// upserts an `adventure_live_sessions` row every 10s while they're on the
-// question board. The teacher dashboard treats a heartbeat < 45s old as
-// "in progress". Ported additively from gameful for Phase 2.
-
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -38,7 +33,7 @@ export function useAdventureHeartbeat({
           student_id: studentId,
           is_active: isActive,
           last_seen_at: new Date().toISOString(),
-        } as never,
+        },
         { onConflict: "class_id,game_id,assessment_id,student_id" },
       );
     };

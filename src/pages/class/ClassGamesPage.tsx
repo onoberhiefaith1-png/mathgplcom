@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Gamepad2 } from "lucide-react";
 import { listClassGames, unassignGameFromClass, type ClassGameRow } from "@/lib/games/classGames";
-import LinkAdventureDialog from "@/components/games/LinkAdventureDialog";
+import LinkAdventureDialog from "@/components/adventures/LinkAdventureDialog";
 
 const ClassGamesPage = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -79,14 +79,8 @@ const ClassGamesPage = () => {
           ))}
         </ul>
       )}
-      {classId && linkGameId && (
-        <LinkAdventureDialog
-          open={Boolean(linkGameId)}
-          onOpenChange={(open) => { if (!open) setLinkGameId(null); }}
-          classId={classId}
-          gameId={linkGameId}
-        />
-      )}
+      {/* LinkAdventureDialog is invoked from ClassAdventuresPage where lesson-note context is available. */}
+
     </div>
   );
 };

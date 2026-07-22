@@ -1,16 +1,13 @@
-// Shared Assessment/Assignment status panel used by both the Assignment
-// Dashboard (per lesson note) and (in a later phase) the Adventure Dashboard.
-// Renders three clickable status buckets — In Progress / Completed / Inactive
-// — and expands the selected bucket into a per-student table with a
-// "View Student Work" action.
+// Shared Assessment/Assignment status panel used by both Assignment
+// Dashboard and Adventure Dashboard.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { CheckCircle2, Circle, CircleDashed } from "lucide-react";
 
 export type StudentProgressRow = {
   studentId: string;
   displayName: string;
-  progressPct: number; // 0..100
+  progressPct: number;
   score: number;
   totalMarks: number;
   status: "inactive" | "in_progress" | "completed";
@@ -111,7 +108,7 @@ export function AssessmentStatusPanel({
 function BucketCard({
   label, count, color, icon, active, onClick,
 }: {
-  label: string; count: number; color: string; icon: ReactNode;
+  label: string; count: number; color: string; icon: React.ReactNode;
   active: boolean; onClick: () => void;
 }) {
   return (

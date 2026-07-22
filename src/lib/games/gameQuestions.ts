@@ -1,4 +1,5 @@
 // Game questions authoring + compilation.
+
 import { supabase } from "@/integrations/supabase/client";
 import { compileSectionQuestions } from "@/lib/assessments/createAssessment";
 import { normalizeCanvas, type CanvasElement, type GameRow } from "./types";
@@ -87,7 +88,7 @@ export interface GameBoard {
   assessmentId: string;
   title: string;
   totalMarks: number;
-  questions: { id: string; questionText: string; lines: { marks: number }[] }[];
+  questions: { id: string; questionText: string; lines: { lineId: string; marks: number }[] }[];
 }
 
 export async function ensureClassGameBoards(
@@ -117,7 +118,7 @@ export async function ensureClassGameBoards(
     const { questions, answerKey, total } = await compileSectionQuestions(sectionId);
     if (questions.length === 0) continue;
 
-    const target = bar.progress?.totalMarks || total;
+    const target = total;
     const { data: created, error: insErr } = await supabase
       .from("assessments")
       .insert({
@@ -130,14 +131,14 @@ export async function ensureClassGameBoards(
         score_label: "Marks",
         total_marks: target,
         questions: questions as any,
-      } as never)
+      })
       .select("id")
       .single();
     if (insErr || !created) continue;
 
     const { error: keyErr } = await supabase
       .from("assessment_answer_keys")
-      .insert({ assessment_id: created.id, lines: answerKey as any } as never);
+      .insert({ assessment_id: created.id, lines: answerKey as any });
     if (keyErr) {
       await supabase.from("assessments").delete().eq("id", created.id);
       continue;
@@ -169,8 +170,9 @@ export async function loadClassGameBoards(
 
   const { data: assessments } = await supabase
     .from("assessments")
-    .select("id, title, total_marks, questions")
-    .in("id", ids);
+    .select("id, title, total_marks, questions, unassigned_at")
+    .in("id", ids)
+    .is("unassigned_at", null);
   const byId = new Map<string, any>((assessments ?? []).map((a: any) => [a.id, a]));
 
   return (rows ?? [])

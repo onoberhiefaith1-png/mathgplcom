@@ -53,9 +53,51 @@ export const DEFAULT_SCORING: FloatingScoring = {
   marksPerLine: 1,
 };
 
+/** One saved line's mark value. Saved line marks are the source of truth. */
+export const markForLine = (line: Pick<FloatingLine, "marks">): number => {
+  const n = Number(line.marks);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+};
+
 /** Sum the per-line marks into a Total Available. */
-export const totalMarks = (lines: FloatingLine[]): number =>
-  lines.reduce((sum, l) => sum + (Number(l.marks) || 0), 0);
+export const totalMarks = (lines: Pick<FloatingLine, "marks">[]): number =>
+  lines.reduce((sum, l) => sum + markForLine(l), 0);
+
+/** Brace-depth-aware whitespace tokenizer. Fallback when saved fillers empty. */
+export const tokensFromEquation = (equation: string): string[] => {
+  const src = String(equation ?? "");
+  if (!src.trim()) return [];
+  const out: string[] = [];
+  let cur = "";
+  let depth = 0;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") depth = Math.max(0, depth - 1);
+    if (/\s/.test(ch) && depth === 0) {
+      if (cur) { out.push(cur); cur = ""; }
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) out.push(cur);
+  if (out.length <= 1 && !/\s/.test(src)) {
+    const parts: string[] = [];
+    let buf = "";
+    for (const ch of src) {
+      if (/[+\-=×÷]/.test(ch)) {
+        if (buf) { parts.push(buf); buf = ""; }
+        parts.push(ch);
+      } else {
+        buf += ch;
+      }
+    }
+    if (buf) parts.push(buf);
+    return parts.filter(Boolean);
+  }
+  return out;
+};
+
 
 export interface FloatingBucket {
   fillers: string[];
