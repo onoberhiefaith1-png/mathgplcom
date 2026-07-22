@@ -56,7 +56,7 @@ const ClassGameLivePage = () => {
         </div>
       </header>
       <GameCanvas elements={elements} selectedId={null} editable={false} />
-      <AssessmentStatusPanel rows={rows} />
+      <AssessmentStatusPanel rows={rows} onViewStudent={() => {}} />
     </div>
   );
 };
