@@ -91,6 +91,21 @@ const ProgressColumn = ({
         />
       )}
 
+      {/* Channel base — masks the preset's baked-in 10 dividers so only the
+          `segments` compartments drawn on top are visible. */}
+      <div
+        className="pointer-events-none absolute"
+        style={{
+          left: `${geo.left}%`,
+          right: `${geo.right}%`,
+          top: `${geo.top}%`,
+          bottom: `${geo.bottom}%`,
+          background:
+            "linear-gradient(180deg, rgba(6,8,14,0.98), rgba(2,3,6,0.98))",
+          boxShadow: `inset 0 0 0 1px rgba(${tint},0.25), inset 0 2px 6px rgba(0,0,0,0.6)`,
+        }}
+      />
+
       <div
         className="absolute flex flex-col-reverse overflow-hidden"
         style={{
@@ -107,8 +122,15 @@ const ProgressColumn = ({
           const slot = isLit && fillStyle === "effect" && !perSlotPlain ? resolveSlot(i) : null;
           const isPlain = fillStyle === "plain" || perSlotPlain || !slot?.path;
           const cellRgb = perSlotPlain ? slotPlainRgb(i) : fillRgb;
+          const isBottom = i === 0;
           return (
-            <div key={i} className={cn("relative flex-1", isPlain ? "overflow-hidden" : "overflow-visible")}>
+            <div
+              key={i}
+              className={cn("relative flex-1", isPlain ? "overflow-hidden" : "overflow-visible")}
+              style={{
+                borderTop: isBottom ? undefined : `1px solid rgba(${tint},0.45)`,
+              }}
+            >
               {isLit && (
                 <div
                   className="gb-slot-ignite absolute inset-0"
