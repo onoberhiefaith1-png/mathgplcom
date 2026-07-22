@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Compass } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Compass, Gamepad2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
@@ -196,6 +196,19 @@ const StudentClassPage = () => {
           >
             <div className="text-lg font-semibold">Open Adventures</div>
             <p className="mt-1 text-sm text-muted-foreground">Play the interactive lesson adventures assigned by your teacher.</p>
+          </Link>
+        </section>
+
+        <section>
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Gamepad2 className="h-3.5 w-3.5" /> Games
+          </div>
+          <Link
+            to={`/student/class/${classId}/games`}
+            className="block rounded-2xl border border-sky-300/40 bg-gradient-to-br from-sky-400/20 to-sky-600/5 p-6 backdrop-blur transition hover:scale-[1.01] hover:shadow-2xl"
+          >
+            <div className="text-lg font-semibold">Open Games</div>
+            <p className="mt-1 text-sm text-muted-foreground">Play the games your teacher has assigned.</p>
           </Link>
         </section>
 
