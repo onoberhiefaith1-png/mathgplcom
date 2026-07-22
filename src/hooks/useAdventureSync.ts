@@ -1,8 +1,3 @@
-// Live sync for a class + game: members, per-student scores, presence, and
-// heartbeat-derived "in progress" state. Composes progress bars into per-bar
-// summaries and per-student rows for the Adventure Dashboard. Ported additively
-// from gameful for Phase 2 (Adventure → Game workflow).
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
