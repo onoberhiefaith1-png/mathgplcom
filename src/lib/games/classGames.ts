@@ -12,14 +12,19 @@ export interface ClassGameRow {
 
 export async function listClassGames(classId: string): Promise<ClassGameRow[]> {
   const { data } = await supabase
-    .from("class_games")
+    .from("class_game_boards")
     .select("game_id, created_at, games:game_id(id, title, thumbnail_path)")
     .eq("class_id", classId)
     .order("created_at", { ascending: false });
-  return ((data ?? []) as any[])
-    .map((r) => r.games)
-    .filter(Boolean)
-    .map((g: any) => ({ id: g.id, title: g.title, thumbnail_path: g.thumbnail_path }));
+  const seen = new Set<string>();
+  const out: ClassGameRow[] = [];
+  for (const row of (data ?? []) as any[]) {
+    const g = row.games;
+    if (!g?.id || seen.has(g.id)) continue;
+    seen.add(g.id);
+    out.push({ id: g.id, title: g.title, thumbnail_path: g.thumbnail_path });
+  }
+  return out;
 }
 
 export async function assignedGameIds(classId: string): Promise<Set<string>> {

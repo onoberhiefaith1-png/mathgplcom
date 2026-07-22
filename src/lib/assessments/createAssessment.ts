@@ -1,9 +1,5 @@
 // Build a class Assessment from a Lesson Note question section.
 //
-// Grouping rule: every subsection within the SAME question section (Example 1,
-// Example 2, … added via the "+ Add another" button) becomes one question on a
-// single assignment board. Different sections are separate assignments.
-//
 // The student receives ONLY the question text + the shuffled floating chips +
 // the per-line marks. The correct ordering is stored separately in
 // assessment_answer_keys (owner-only RLS) and never reaches the client.
@@ -11,7 +7,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   type FloatingLine,
+  markForLine,
   rearrangeStream,
+  tokensFromEquation,
 } from "@/lib/lessonnotes/floatingCompile";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
@@ -19,21 +17,22 @@ import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 export type AssessmentKind = "classwork" | "homework" | "assessment" | "practice";
 
 export interface CreateAssessmentInput {
-  subsectionId: string; // the clicked Solution's subsection
+  subsectionId: string;
   classId: string;
   notebookId: string;
   kind: AssessmentKind;
   title: string;
   scoreLabel: string;
+  totalMarksOverride?: number | null;
 }
 
-interface QuestionPayload {
+export interface QuestionPayload {
   id: string;
   questionText: string;
   lines: { lineId: string; chips: string[]; marks: number; containers: ContainerKind[] }[];
 }
 
-interface AnswerKeyLine {
+export interface AnswerKeyLine {
   questionId: string;
   lineId: string;
   tokens: string[];
@@ -50,10 +49,18 @@ const cleanFillers = (fillers: string[] | undefined): string[] =>
     .map((f) => toUnicodeMath(String(f ?? "")))
     .filter((f) => f && !isStillDirty(f));
 
-/**
- * Compile every subsection in a section into shuffled student questions plus a
- * hidden answer key. Shared by class assignments and game questions.
- */
+const marksFor = (line: FloatingLine): number => markForLine(line);
+
+export async function getNotebookScoreLabel(notebookId: string): Promise<string> {
+  const { data } = await supabase
+    .from("notebooks")
+    .select("score_label")
+    .eq("id", notebookId)
+    .maybeSingle();
+  const lbl = (data as any)?.score_label;
+  return (lbl && String(lbl).trim()) || "Marks";
+}
+
 export async function compileSectionQuestions(sectionId: string): Promise<CompiledSection> {
   const { data: subs } = await supabase
     .from("notebook_subsections")
@@ -83,9 +90,12 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     const flLines = ((s as any).floating_lines ?? []) as FloatingLine[];
     const lines: QuestionPayload["lines"] = [];
     for (const line of flLines) {
-      const tokens = cleanFillers(line.fillers);
-      if (tokens.length < 2) continue;
-      const marks = Math.max(0, Number(line.marks) || 0);
+      let tokens = cleanFillers(line.fillers);
+      if (tokens.length < 1) {
+        tokens = cleanFillers(tokensFromEquation(line.equation));
+      }
+      if (tokens.length < 1) continue;
+      const marks = marksFor(line);
       total += marks;
       lines.push({
         lineId: line.lineId,
@@ -102,8 +112,48 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
   return { questions, answerKey, total };
 }
 
+export async function compileNotebookQuestions(notebookId: string): Promise<CompiledSection> {
+  const { data: sections } = await supabase
+    .from("notebook_sections")
+    .select("id, order_index")
+    .eq("notebook_id", notebookId)
+    .order("order_index", { ascending: true });
 
-/** Create the assessment + hidden answer key. Returns the new assessment id. */
+  const questions: QuestionPayload[] = [];
+  const answerKey: AnswerKeyLine[] = [];
+  let total = 0;
+  for (const s of sections ?? []) {
+    const compiled = await compileSectionQuestions((s as any).id as string);
+    questions.push(...compiled.questions);
+    answerKey.push(...compiled.answerKey);
+    total += compiled.total;
+  }
+  return { questions, answerKey, total };
+}
+
+export async function compileQuestionSections(sectionIds: string[]): Promise<CompiledSection> {
+  const questions: QuestionPayload[] = [];
+  const answerKey: AnswerKeyLine[] = [];
+  let total = 0;
+  const seen = new Set<string>();
+
+  for (const rawId of sectionIds) {
+    const sectionId = String(rawId ?? "").trim();
+    if (!sectionId || seen.has(sectionId)) continue;
+    seen.add(sectionId);
+    const compiled = await compileSectionQuestions(sectionId);
+    questions.push(...compiled.questions);
+    answerKey.push(...compiled.answerKey);
+    total += compiled.total;
+  }
+
+  return { questions, answerKey, total };
+}
+
+export async function compileQuestionSection(sectionId: string): Promise<CompiledSection> {
+  return compileSectionQuestions(sectionId);
+}
+
 export async function createAssessmentFromSubsection(
   input: CreateAssessmentInput,
 ): Promise<string> {
@@ -111,7 +161,6 @@ export async function createAssessmentFromSubsection(
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
 
-  // Resolve the parent section of the clicked solution.
   const { data: clicked, error: subErr } = await supabase
     .from("notebook_subsections")
     .select("id, section_id")
@@ -120,62 +169,41 @@ export async function createAssessmentFromSubsection(
   if (subErr || !clicked?.section_id) throw new Error("subsection_not_found");
   const sectionId = clicked.section_id as string;
 
-  // Load ALL subsections of that section (the grouped questions), in order.
-  const { data: subs } = await supabase
-    .from("notebook_subsections")
-    .select("id, order_index, floating_lines")
+  const { questions, answerKey, total } = await compileSectionQuestions(sectionId);
+  if (questions.length === 0) throw new Error("no_floating_lines");
+  const displayTotal = total;
+
+  const { data: existingRows } = await supabase
+    .from("assessments")
+    .select("id, updated_at, created_at")
+    .eq("class_id", input.classId)
     .eq("section_id", sectionId)
-    .order("order_index", { ascending: true });
+    .neq("kind", "adventure")
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false });
 
-  const subIds = (subs ?? []).map((s: any) => s.id as string);
-
-  // Problem text per subsection.
-  const { data: blocks } = await supabase
-    .from("notebook_blocks")
-    .select("subsection_id, kind, content_ascii")
-    .in("subsection_id", subIds.length ? subIds : ["00000000-0000-0000-0000-000000000000"]);
-  const problemBySub = new Map<string, string>();
-  for (const b of blocks ?? []) {
-    if ((b as any).kind === "problem" && (b as any).subsection_id) {
-      problemBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
-    }
+  const rows = (existingRows ?? []) as { id: string }[];
+  const keep = rows[0]?.id ?? null;
+  const extras = rows.slice(1).map((r) => r.id);
+  if (extras.length) {
+    await supabase.from("assessments").delete().in("id", extras);
   }
 
-  const questions: QuestionPayload[] = [];
-  const answerKey: AnswerKeyLine[] = [];
-  let total = 0;
-
-  for (const s of subs ?? []) {
-    const sid = (s as any).id as string;
-    const flLines = ((s as any).floating_lines ?? []) as FloatingLine[];
-    const lines: QuestionPayload["lines"] = [];
-    for (const line of flLines) {
-      const tokens = cleanFillers(line.fillers);
-      if (tokens.length < 2) continue; // not enough chips to solve
-      const marks = Math.max(0, Number(line.marks) || 0);
-      total += marks;
-      lines.push({
-        lineId: line.lineId,
-        chips: rearrangeStream(tokens), // shuffled for the student
-        marks,
-        containers: (line.containers ?? []) as ContainerKind[], // structures from the lesson note
-      });
-      answerKey.push({
-        questionId: sid,
-        lineId: line.lineId,
-        tokens, // correct order
-      });
-    }
-    if (lines.length === 0) continue;
-    questions.push({
-      id: sid,
-      questionText: problemBySub.get(sid) ?? "",
-      lines,
-    });
-  }
-
-  if (questions.length === 0) {
-    throw new Error("no_floating_lines");
+  if (keep) {
+    await supabase
+      .from("assessments")
+      .update({
+        unassigned_at: null,
+        kind: input.kind,
+        title: input.title,
+        score_label: input.scoreLabel,
+        total_marks: displayTotal,
+        questions: questions as any,
+      } as never)
+      .eq("id", keep);
+    await supabase.from("assessment_answer_keys").delete().eq("assessment_id", keep);
+    await supabase.from("assessment_answer_keys").insert({ assessment_id: keep, lines: answerKey as any });
+    return keep;
   }
 
   const { data: created, error: insErr } = await supabase
@@ -188,12 +216,8 @@ export async function createAssessmentFromSubsection(
       kind: input.kind,
       title: input.title,
       score_label: input.scoreLabel,
-      total_marks: total,
+      total_marks: displayTotal,
       questions: questions as any,
-      // Phase 1 seam: mark the assignment as assigned at creation time so the
-      // teacher/student dashboards can show "Assigned" dates without a
-      // separate publishing step.
-      assigned_at: new Date().toISOString(),
     })
     .select("id")
     .single();
@@ -203,10 +227,13 @@ export async function createAssessmentFromSubsection(
     .from("assessment_answer_keys")
     .insert({ assessment_id: created.id, lines: answerKey as any });
   if (keyErr) {
-    // Roll back the assessment so we never leave an ungradeable shell.
     await supabase.from("assessments").delete().eq("id", created.id);
     throw new Error(keyErr.message);
   }
 
   return created.id as string;
+}
+
+export async function unassignAssessment(id: string): Promise<void> {
+  await supabase.from("assessments").delete().eq("id", id);
 }
