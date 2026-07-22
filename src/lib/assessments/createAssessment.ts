@@ -190,6 +190,10 @@ export async function createAssessmentFromSubsection(
       score_label: input.scoreLabel,
       total_marks: total,
       questions: questions as any,
+      // Phase 1 seam: mark the assignment as assigned at creation time so the
+      // teacher/student dashboards can show "Assigned" dates without a
+      // separate publishing step.
+      assigned_at: new Date().toISOString(),
     })
     .select("id")
     .single();
