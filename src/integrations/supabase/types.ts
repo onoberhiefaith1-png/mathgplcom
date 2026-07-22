@@ -359,6 +359,7 @@ export type Database = {
           id: string
           notebook_id: string
           section_id: string | null
+          unassigned_at: string | null
           updated_at: string
         }
         Insert: {
@@ -369,6 +370,7 @@ export type Database = {
           id?: string
           notebook_id: string
           section_id?: string | null
+          unassigned_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -379,6 +381,7 @@ export type Database = {
           id?: string
           notebook_id?: string
           section_id?: string | null
+          unassigned_at?: string | null
           updated_at?: string
         }
         Relationships: [

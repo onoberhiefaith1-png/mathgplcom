@@ -95,6 +95,12 @@ export interface ProgressConfig {
   plainColor?: string;
   questionNotebookId?: string;
   questionSectionId?: string;
+  /**
+   * Teacher-set progress goal as a percentage of Grand Total (Phase 2 seam).
+   * Grand Total = totalMarks × currentActiveStudents.
+   * Required Score = Grand Total × progressGoalPct/100. Defaults to 100.
+   */
+  progressGoalPct?: number;
   fill: number;
   glow: number;
   effectScale: number;
