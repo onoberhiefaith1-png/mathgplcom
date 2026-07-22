@@ -36,12 +36,20 @@ const StudentGamesPage = () => {
           {rows.map((g) => (
             <li key={g.id} className="flex items-center justify-between rounded-md border border-border bg-card p-3">
               <div className="min-w-0 truncate font-medium">{g.title}</div>
-              <Link
-                to={`/student/classes/${classId}/games/${g.id}/live`}
-                className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
-              >
-                Play
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/student/class/${classId}/games/${g.id}/play`}
+                  className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
+                >
+                  Play
+                </Link>
+                <Link
+                  to={`/student/classes/${classId}/games/${g.id}/live`}
+                  className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
+                >
+                  Live
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

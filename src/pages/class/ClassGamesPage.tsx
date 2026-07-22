@@ -1,14 +1,17 @@
-// Phase 12 — Class Games page (teacher). Lists games assigned to this class
-// with a link into the live game view and a quick unassign.
+// Phase 12/13 — Class Games page (teacher). Lists games assigned to this
+// class with links into the live game view, Adventure Dashboard, and a
+// Link-Adventure dialog for quickly jumping between adventures and games.
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Gamepad2 } from "lucide-react";
 import { listClassGames, unassignGameFromClass, type ClassGameRow } from "@/lib/games/classGames";
+import LinkAdventureDialog from "@/components/games/LinkAdventureDialog";
 
 const ClassGamesPage = () => {
   const { classId } = useParams<{ classId: string }>();
   const [rows, setRows] = useState<ClassGameRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [linkGameId, setLinkGameId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!classId) return;
@@ -49,8 +52,21 @@ const ClassGamesPage = () => {
                   to={`/teaching-hub/classes/${classId}/games/${g.id}/live`}
                   className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
                 >
-                  Open Live
+                  Live
                 </Link>
+                <Link
+                  to={`/teaching-hub/classes/${classId}/games/${g.id}/dashboard`}
+                  className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setLinkGameId(g.id)}
+                  className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
+                >
+                  Link Adventure
+                </button>
                 <button
                   type="button"
                   onClick={() => onUnassign(g.id)}
@@ -62,6 +78,14 @@ const ClassGamesPage = () => {
             </li>
           ))}
         </ul>
+      )}
+      {classId && linkGameId && (
+        <LinkAdventureDialog
+          open={Boolean(linkGameId)}
+          onOpenChange={(open) => { if (!open) setLinkGameId(null); }}
+          classId={classId}
+          gameId={linkGameId}
+        />
       )}
     </div>
   );
