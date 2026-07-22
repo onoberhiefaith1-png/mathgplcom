@@ -50,6 +50,67 @@ export type Database = {
         }
         Relationships: []
       }
+      adventure_live_sessions: {
+        Row: {
+          assessment_id: string
+          class_id: string
+          created_at: string
+          game_id: string
+          id: string
+          is_active: boolean
+          last_seen_at: string
+          question_id: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          class_id: string
+          created_at?: string
+          game_id: string
+          id?: string
+          is_active?: boolean
+          last_seen_at?: string
+          question_id?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          is_active?: boolean
+          last_seen_at?: string
+          question_id?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventure_live_sessions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_live_sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_live_sessions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adventure_scene_questions: {
         Row: {
           claim_once: boolean
@@ -188,6 +249,7 @@ export type Database = {
           assessment_id: string
           created_at: string
           id: string
+          per_question: Json
           score: number
           solved_lines: Json
           status: string
@@ -198,6 +260,7 @@ export type Database = {
           assessment_id: string
           created_at?: string
           id?: string
+          per_question?: Json
           score?: number
           solved_lines?: Json
           status?: string
@@ -208,6 +271,7 @@ export type Database = {
           assessment_id?: string
           created_at?: string
           id?: string
+          per_question?: Json
           score?: number
           solved_lines?: Json
           status?: string
@@ -226,8 +290,10 @@ export type Database = {
       }
       assessments: {
         Row: {
+          assigned_at: string | null
           class_id: string
           created_at: string
+          due_at: string | null
           id: string
           kind: string
           notebook_id: string | null
@@ -237,11 +303,14 @@ export type Database = {
           section_id: string | null
           title: string
           total_marks: number
+          unassigned_at: string | null
           updated_at: string
         }
         Insert: {
+          assigned_at?: string | null
           class_id: string
           created_at?: string
+          due_at?: string | null
           id?: string
           kind?: string
           notebook_id?: string | null
@@ -251,11 +320,14 @@ export type Database = {
           section_id?: string | null
           title?: string
           total_marks?: number
+          unassigned_at?: string | null
           updated_at?: string
         }
         Update: {
+          assigned_at?: string | null
           class_id?: string
           created_at?: string
+          due_at?: string | null
           id?: string
           kind?: string
           notebook_id?: string | null
@@ -265,6 +337,7 @@ export type Database = {
           section_id?: string | null
           title?: string
           total_marks?: number
+          unassigned_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -277,6 +350,54 @@ export type Database = {
           },
         ]
       }
+      class_adventure_notes: {
+        Row: {
+          assigned_by: string
+          class_id: string
+          created_at: string
+          due_at: string | null
+          id: string
+          notebook_id: string
+          section_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_by: string
+          class_id: string
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          notebook_id: string
+          section_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string
+          class_id?: string
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          notebook_id?: string
+          section_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_adventure_notes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_adventure_notes_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_game_boards: {
         Row: {
           assessment_id: string
@@ -284,7 +405,10 @@ export type Database = {
           created_at: string
           game_id: string
           id: string
+          notebook_id: string | null
           progress_element_id: string
+          required_marks: number | null
+          section_id: string | null
         }
         Insert: {
           assessment_id: string
@@ -292,7 +416,10 @@ export type Database = {
           created_at?: string
           game_id: string
           id?: string
+          notebook_id?: string | null
           progress_element_id: string
+          required_marks?: number | null
+          section_id?: string | null
         }
         Update: {
           assessment_id?: string
@@ -300,7 +427,10 @@ export type Database = {
           created_at?: string
           game_id?: string
           id?: string
+          notebook_id?: string | null
           progress_element_id?: string
+          required_marks?: number | null
+          section_id?: string | null
         }
         Relationships: [
           {
@@ -322,6 +452,20 @@ export type Database = {
             columns: ["game_id"]
             isOneToOne: false
             referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_game_boards_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_game_boards_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "notebook_sections"
             referencedColumns: ["id"]
           },
         ]
@@ -1052,6 +1196,145 @@ export type Database = {
         }
         Relationships: []
       }
+      game_progress: {
+        Row: {
+          id: string
+          marks: number
+          session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          marks?: number
+          session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          marks?: number
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_progress_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_sessions: {
+        Row: {
+          class_id: string
+          created_at: string
+          ended_at: string | null
+          game_id: string
+          id: string
+          mode: string
+          segment_count: number
+          started_at: string | null
+          status: string
+          time_limit_sec: number | null
+          updated_at: string
+          win_threshold: number
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          ended_at?: string | null
+          game_id: string
+          id?: string
+          mode?: string
+          segment_count?: number
+          started_at?: string | null
+          status?: string
+          time_limit_sec?: number | null
+          updated_at?: string
+          win_threshold?: number
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          ended_at?: string | null
+          game_id?: string
+          id?: string
+          mode?: string
+          segment_count?: number
+          started_at?: string | null
+          status?: string
+          time_limit_sec?: number | null
+          updated_at?: string
+          win_threshold?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_sessions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_time_bars: {
+        Row: {
+          accumulated_paused_ms: number
+          created_at: string
+          duration_seconds: number
+          game_id: string
+          paused_at: string | null
+          progress_element_id: string
+          scheduled_start_at: string | null
+          start_mode: string
+          started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          accumulated_paused_ms?: number
+          created_at?: string
+          duration_seconds?: number
+          game_id: string
+          paused_at?: string | null
+          progress_element_id: string
+          scheduled_start_at?: string | null
+          start_mode?: string
+          started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accumulated_paused_ms?: number
+          created_at?: string
+          duration_seconds?: number
+          game_id?: string
+          paused_at?: string | null
+          progress_element_id?: string
+          scheduled_start_at?: string | null
+          start_mode?: string
+          started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_time_bars_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           canvas: Json
@@ -1226,6 +1509,7 @@ export type Database = {
           paper_size: string
           paper_style: string
           purpose: string
+          score_label: string
           session: string
           subject: string
           subtopic: string
@@ -1244,6 +1528,7 @@ export type Database = {
           paper_size?: string
           paper_style?: string
           purpose?: string
+          score_label?: string
           session?: string
           subject?: string
           subtopic?: string
@@ -1262,6 +1547,7 @@ export type Database = {
           paper_size?: string
           paper_style?: string
           purpose?: string
+          score_label?: string
           session?: string
           subject?: string
           subtopic?: string
@@ -1329,6 +1615,11 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: string
       }
+      can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
+      ensure_class_game_boards: {
+        Args: { _class_id: string; _game_id: string }
+        Returns: undefined
+      }
       generate_mathgpl_id: { Args: never; Returns: string }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {
@@ -1353,6 +1644,8 @@ export type Database = {
           join_code: string
         }[]
       }
+      is_class_member: { Args: { _class_id: string }; Returns: boolean }
+      is_class_owner: { Args: { _class_id: string }; Returns: boolean }
       lookup_class_by_code: {
         Args: { code: string }
         Returns: {
@@ -1367,6 +1660,11 @@ export type Database = {
           user_id: string
         }[]
       }
+      notebook_shared_to_member: {
+        Args: { _notebook_id: string }
+        Returns: boolean
+      }
+      shares_class_with: { Args: { _other: string }; Returns: boolean }
     }
     Enums: {
       block_kind: "problem" | "solution" | "reasoning" | "text"
