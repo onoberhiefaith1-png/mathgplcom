@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Compass } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
