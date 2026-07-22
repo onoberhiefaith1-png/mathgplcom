@@ -57,6 +57,21 @@ const ClassGameLivePage = () => {
         </div>
       </header>
       <GameCanvas elements={elements} selectedId={null} editable={false} />
+      {gameId && elements.filter((el) => el.progress).length > 0 && (
+        <section className="grid gap-2 sm:grid-cols-2">
+          {elements
+            .filter((el) => el.progress)
+            .map((el) => (
+              <TimeBarControls
+                key={el.id}
+                gameId={gameId}
+                progressElementId={el.id}
+                label={el.label ?? "Progress bar"}
+                canControl
+              />
+            ))}
+        </section>
+      )}
       <AssessmentStatusPanel rows={rows} onViewStudent={() => {}} />
     </div>
   );
