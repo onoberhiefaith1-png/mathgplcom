@@ -84,6 +84,8 @@ import ClassAdventuresPage from "./pages/class/ClassAdventuresPage.tsx";
 import StudentAdventuresPage from "./pages/student/StudentAdventuresPage.tsx";
 import ClassGamesPage from "./pages/class/ClassGamesPage.tsx";
 import StudentGamesPage from "./pages/student/StudentGamesPage.tsx";
+import AdventureDashboardPage from "./pages/class/AdventureDashboardPage.tsx";
+import GamePlayPage from "./pages/student/GamePlayPage.tsx";
 import OAuthConsent from "./pages/OAuthConsent.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
 import { FullscreenToggle } from "./components/common/FullscreenToggle";
