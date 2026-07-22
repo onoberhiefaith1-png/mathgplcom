@@ -2,9 +2,7 @@
 //
 // Assign is a soft toggle — unassigning sets `unassigned_at` so any student
 // progress that was already recorded against linked assessments survives, and
-// re-assigning the same note simply clears the flag. Ported additively from
-// gameful for Phase 2 (Adventure → Game workflow) without touching any
-// existing tables or UI.
+// re-assigning the same note simply clears the flag.
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -43,9 +41,6 @@ export async function assignAdventureNote(params: {
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
 
-  // Re-activate any soft-unassigned row for this exact question so we don't
-  // lose linked game boards. Scope by section_id so each question in a
-  // notebook is assigned independently.
   const sectionId = params.sectionId ?? null;
   let query = supabase
     .from("class_adventure_notes")
@@ -59,9 +54,6 @@ export async function assignAdventureNote(params: {
 
   const rows = ((existingRows ?? []) as { id: string; unassigned_at: string | null }[]);
   const active = rows.find((row) => row.unassigned_at === null);
-
-  // If this exact class + lesson note + question is already active, do not
-  // insert another row. This keeps repeated clicks idempotent.
   if (active?.id) return active.id;
 
   const reusable = rows[0];
@@ -89,7 +81,7 @@ export async function assignAdventureNote(params: {
     .select("id")
     .single();
   if (error || !created?.id) throw new Error(error?.message ?? "adventure_assign_failed");
-  return (created as { id: string }).id;
+  return created.id as string;
 }
 
 /** List active adventure notes for a class. */
