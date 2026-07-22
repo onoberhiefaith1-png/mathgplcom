@@ -55,6 +55,14 @@ const ClassLessonNotesPage = () => {
         notebook: (notebooks.find((n) => n.id === l.notebook_id) as Notebook | undefined) ?? null,
       })),
     );
+
+    const advRows = await listAdventureNotes(classId);
+    // Only track note-level (section_id null) adventures for the cover toggle.
+    const map = new Map<string, string>();
+    for (const row of advRows) {
+      if (row.section_id === null) map.set(row.notebook_id, row.id);
+    }
+    setAdventures(map);
   }, [classId]);
 
   useEffect(() => {
