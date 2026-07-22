@@ -1,36 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
-import blueFrame from "@/assets/qpc/frame-blue.png.asset.json";
-import greenFrame from "@/assets/qpc/frame-green.png.asset.json";
-import purpleFrame from "@/assets/qpc/frame-purple.png.asset.json";
-import orangeFrame from "@/assets/qpc/frame-orange.png.asset.json";
-import goldFrame from "@/assets/qpc/frame-gold.png.asset.json";
-import chambers from "@/assets/qpc/chambers.json";
 
 /**
- * Question Progress Container — fantasy stone-and-crystal vessel. The outer
- * frame (stone, crystal apex, side rocks) is an externally provided painted
- * asset. The glass chamber and animated magical liquid are rendered as SVG
- * inside the cut-out hole so progress (current ÷ max) drives the fill level
- * continuously.
+ * Question Progress Container — Cyber-Charged Energy Pillar.
+ * Replaces the previous painted crystal frame with a modern, high-contrast
+ * energy pillar suitable for classroom game HUDs. Themes recolor the fill
+ * gradient and glow while keeping the same slate vessel silhouette.
  */
 
 export type CrystalTheme = "blue" | "green" | "purple" | "orange" | "gold";
 
 interface ThemeTokens {
-  primary: string;
-  light: string;
-  deep: string;
-  glow: string;
-  counter: string;
-  frame: string;
+  from: string;   // deep base
+  via: string;    // mid
+  to: string;     // bright surface
+  glow: string;   // rgba glow
+  accent: string; // marker + label accent
 }
 
 const THEMES: Record<CrystalTheme, ThemeTokens> = {
-  blue:   { primary: "#3fb6ff", light: "#d5f1ff", deep: "#0a3a78", glow: "#5ec8ff", counter: "#f5faff", frame: blueFrame.url },
-  green:  { primary: "#43e36b", light: "#d6ffe1", deep: "#0f5524", glow: "#5cff86", counter: "#f5fff7", frame: greenFrame.url },
-  purple: { primary: "#a460ff", light: "#ecd9ff", deep: "#3a107a", glow: "#c08bff", counter: "#fff3c0", frame: purpleFrame.url },
-  orange: { primary: "#ff8a1f", light: "#ffe1bd", deep: "#6e2c05", glow: "#ffaa55", counter: "#fff1d0", frame: orangeFrame.url },
-  gold:   { primary: "#ffc83a", light: "#fff4c2", deep: "#6e4500", glow: "#ffd96a", counter: "#fff8d6", frame: goldFrame.url },
+  blue:   { from: "#1e3a8a", via: "#4f46e5", to: "#22d3ee", glow: "34,211,238",  accent: "#67e8f9" },
+  green:  { from: "#065f46", via: "#10b981", to: "#a7f3d0", glow: "16,185,129",  accent: "#6ee7b7" },
+  purple: { from: "#4c1d95", via: "#8b5cf6", to: "#e9d5ff", glow: "167,139,250", accent: "#c4b5fd" },
+  orange: { from: "#7c2d12", via: "#f97316", to: "#fde68a", glow: "249,115,22",  accent: "#fdba74" },
+  gold:   { from: "#78350f", via: "#f59e0b", to: "#fef3c7", glow: "245,158,11",  accent: "#fcd34d" },
 };
 
 interface Props {
@@ -55,277 +47,210 @@ export const QuestionProgressContainer = ({
   className,
 }: Props) => {
   const t = THEMES[theme];
-  const ch = (chambers as Record<string, { x1: number; y1: number; x2: number; y2: number; w: number; h: number }>)[theme];
   const pct = max > 0 ? clamp01(current / max) : 0;
-  const id = useMemo(() => Math.random().toString(36).slice(2, 9), []);
+  const pctText = Math.round(pct * 100);
 
-  const [tNow, setTNow] = useState(0);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      setTNow((now - start) / 1000);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const id = setInterval(() => setTick((n) => n + 1), 900);
+    return () => clearInterval(id);
   }, []);
 
-  // SVG uses image's native pixel dimensions as viewBox so chamber pixels align.
-  const VB_W = ch.w;
-  const VB_H = ch.h;
-  const CH_X = ch.x1 * VB_W;
-  const CH_Y = ch.y1 * VB_H;
-  const CH_W = (ch.x2 - ch.x1) * VB_W;
-  const CH_H = (ch.y2 - ch.y1) * VB_H;
+  // Height ~ 2.1x width for a tall pillar with header + footer chips.
+  const height = Math.round(width * 2.1);
+  const pillarH = Math.round(width * 1.55);
+  const chipH = Math.round(width * 0.16);
+  const labelH = Math.round(width * 0.18);
 
-  const surfaceY = CH_Y + CH_H * (1 - pct);
-  const liquidH = CH_H * pct;
-
-  const wave = useMemo(() => {
-    const amp = pct > 0.02 && pct < 0.98 ? CH_W * 0.022 : 0;
-    const segments = 16;
-    const stepX = CH_W / segments;
-    const phase = tNow * 1.7;
-    let d = `M ${CH_X} ${surfaceY}`;
-    for (let i = 1; i <= segments; i += 1) {
-      const x = CH_X + i * stepX;
-      const y = surfaceY + Math.sin(phase + i * 0.7) * amp + Math.sin(phase * 0.6 + i * 1.3) * (amp * 0.4);
-      d += ` L ${x.toFixed(2)} ${y.toFixed(2)}`;
-    }
-    d += ` L ${CH_X + CH_W} ${CH_Y + CH_H} L ${CH_X} ${CH_Y + CH_H} Z`;
-    return d;
-  }, [tNow, surfaceY, pct, CH_X, CH_Y, CH_W, CH_H]);
-
-  const height = (width * VB_H) / VB_W;
-
-  const bubbles = useMemo(() => {
-    const seed = id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-    const rand = (n: number) => {
-      const x = Math.sin(seed * 13.37 + n * 7.91) * 10000;
-      return x - Math.floor(x);
-    };
-    return Array.from({ length: 6 }, (_, i) => ({
-      x: CH_X + CH_W * 0.1 + rand(i) * CH_W * 0.8,
-      r: CH_W * 0.008 + rand(i + 9) * CH_W * 0.014,
-      speed: CH_H * 0.04 + rand(i + 17) * CH_H * 0.06,
-      offset: rand(i + 23) * CH_H,
-    }));
-  }, [id, CH_X, CH_Y, CH_W, CH_H]);
-
-  // Label plate sizing relative to chamber (in normalized % of total component box).
-  const chXPct = ch.x1 * 100;
-  const chWPct = (ch.x2 - ch.x1) * 100;
-  const topPlateW = chWPct * 1.15;
-  const topPlateLeft = chXPct + chWPct / 2 - topPlateW / 2;
-  const topPlateTopPct = (ch.y1 - 0.16) * 100;
-  const topPlateHPct = 0.13 * 100;
-  const botPlateW = chWPct * 1.1;
-  const botPlateLeft = chXPct + chWPct / 2 - botPlateW / 2;
-  const botPlateTopPct = (ch.y2 + 0.02) * 100;
-  const botPlateHPct = 0.1 * 100;
-
-  // Engraved-stone text style: warm dark fill with light highlight to look
-  // chiselled into the rock instead of pasted on a black tag.
-  // Dynamic label text: thick white, no background plate. The baked-in
-  // numbers on the painted frame are hidden by a transparent backdrop-blur
-  // patch underneath.
-  const engravedStyle: React.CSSProperties = {
-    fontFamily: "'Cinzel', 'Trajan Pro', Georgia, serif",
-    fontWeight: 900,
-    color: "#ffffff",
-    textShadow:
-      "0 0 2px rgba(0,0,0,0.85), 0 2px 4px rgba(0,0,0,0.7), 0 0 10px rgba(0,0,0,0.5)",
-    letterSpacing: "0.05em",
-    textTransform: "uppercase",
-    lineHeight: 1,
-    userSelect: "none",
-    whiteSpace: "nowrap",
-    WebkitTextStroke: "1px rgba(0,0,0,0.55)",
-  };
-
-
+  const surfaceOn = pct > 0.01 && pct < 0.99;
 
   return (
     <div
       className={className}
-      style={{ width, height, position: "relative", display: "inline-block", lineHeight: 0 }}
+      style={{
+        width,
+        height,
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: Math.round(width * 0.04),
+        fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif",
+        userSelect: "none",
+      }}
       role="img"
       aria-label={`Question ${questionNumber}, progress ${current} of ${max}`}
     >
-      {/* Painted stone-and-crystal frame */}
-      <img
-        src={t.frame}
-        alt=""
-        draggable={false}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", userSelect: "none" }}
-      />
-
-      {/* Glass chamber + liquid overlay, plus dynamic labels */}
-      <svg
-        viewBox={`0 0 ${VB_W} ${VB_H}`}
-        width="100%"
-        height="100%"
-        style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-      >
-        <defs>
-          <linearGradient id={`liq-${id}`} x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor={t.deep} />
-            <stop offset="55%" stopColor={t.primary} />
-            <stop offset="100%" stopColor={t.light} />
-          </linearGradient>
-          <linearGradient id={`glass-${id}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={t.light} stopOpacity="0.18" />
-            <stop offset="100%" stopColor={t.deep} stopOpacity="0.22" />
-          </linearGradient>
-          <radialGradient id={`chamberGlow-${id}`} cx="50%" cy="50%" r="60%">
-            <stop offset="0%" stopColor={t.glow} stopOpacity="0.45" />
-            <stop offset="70%" stopColor={t.glow} stopOpacity="0.12" />
-            <stop offset="100%" stopColor={t.glow} stopOpacity="0" />
-          </radialGradient>
-          <filter id={`soft-${id}`} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation={CH_W * 0.012} />
-          </filter>
-          <clipPath id={`chamber-${id}`}>
-            <rect x={CH_X} y={CH_Y} width={CH_W} height={CH_H} rx={CH_W * 0.06} />
-          </clipPath>
-        </defs>
-
-        {/* Chamber background tint */}
-        <rect x={CH_X} y={CH_Y} width={CH_W} height={CH_H} rx={CH_W * 0.06} fill={`url(#glass-${id})`} />
-
-        {/* Soft inner aura */}
-        <ellipse
-          cx={CH_X + CH_W / 2}
-          cy={CH_Y + CH_H / 2}
-          rx={CH_W * 0.55}
-          ry={CH_H * 0.55}
-          fill={`url(#chamberGlow-${id})`}
-          opacity={0.6 + 0.15 * Math.sin(tNow * 2)}
-        />
-
-        <g clipPath={`url(#chamber-${id})`}>
-          {/* Liquid body */}
-          <rect
-            x={CH_X}
-            y={surfaceY}
-            width={CH_W}
-            height={Math.max(0, liquidH)}
-            fill={`url(#liq-${id})`}
-            style={{ transition: "y 600ms cubic-bezier(0.4, 0, 0.2, 1), height 600ms cubic-bezier(0.4, 0, 0.2, 1)" }}
-          />
-
-          {/* Caustic glow at surface */}
-          {pct > 0.02 && (
-            <ellipse
-              cx={CH_X + CH_W / 2}
-              cy={surfaceY + CH_W * 0.02}
-              rx={CH_W * 0.45}
-              ry={CH_W * 0.04}
-              fill={t.light}
-              opacity="0.6"
-              filter={`url(#soft-${id})`}
-              style={{ transition: "cy 600ms cubic-bezier(0.4, 0, 0.2, 1)" }}
-            />
-          )}
-
-          {/* Wave surface */}
-          {pct > 0 && <path d={wave} fill={`url(#liq-${id})`} opacity={0.95} />}
-
-          {/* Bright surface line */}
-          {pct > 0.01 && pct < 0.99 && (
-            <line
-              x1={CH_X + CH_W * 0.04}
-              x2={CH_X + CH_W * 0.96}
-              y1={surfaceY}
-              y2={surfaceY}
-              stroke="#ffffff"
-              strokeWidth={CH_W * 0.012}
-              opacity="0.85"
-              style={{ transition: "y1 600ms cubic-bezier(0.4, 0, 0.2, 1), y2 600ms cubic-bezier(0.4, 0, 0.2, 1)" }}
-            />
-          )}
-
-          {/* Bubbles */}
-          {pct > 0.05 &&
-            bubbles.map((b, i) => {
-              const travel = liquidH + 10;
-              const y = CH_Y + CH_H - ((tNow * b.speed + b.offset) % travel);
-              if (y < surfaceY + 2) return null;
-              return <circle key={i} cx={b.x} cy={y} r={b.r} fill="#ffffff" opacity="0.55" />;
-            })}
-
-          {/* Caustic flecks */}
-          {pct > 0.1 &&
-            Array.from({ length: 3 }).map((_, i) => (
-              <ellipse
-                key={i}
-                cx={CH_X + CH_W * 0.18 + i * CH_W * 0.28 + Math.sin(tNow * 1.5 + i) * CH_W * 0.025}
-                cy={surfaceY + CH_H * 0.05 + i * CH_H * 0.06}
-                rx={CH_W * 0.06}
-                ry={CH_H * 0.005}
-                fill={t.light}
-                opacity="0.35"
-              />
-            ))}
-        </g>
-
-        {/* Vertical glass shines */}
-        <rect x={CH_X + CH_W * 0.06} y={CH_Y + CH_H * 0.04} width={CH_W * 0.04} height={CH_H * 0.55} rx={CH_W * 0.012} fill="#ffffff" opacity="0.22" />
-        <rect x={CH_X + CH_W * 0.88} y={CH_Y + CH_H * 0.1} width={CH_W * 0.02} height={CH_H * 0.5} rx={CH_W * 0.008} fill="#ffffff" opacity="0.12" />
-        <ellipse cx={CH_X + CH_W / 2} cy={CH_Y + CH_H * 0.03} rx={CH_W * 0.4} ry={CH_H * 0.012} fill="#ffffff" opacity="0.18" />
-
-        {/* Rim outline matching the cut hole */}
-        <rect
-          x={CH_X}
-          y={CH_Y}
-          width={CH_W}
-          height={CH_H}
-          rx={CH_W * 0.06}
-          fill="none"
-          stroke={t.primary}
-          strokeOpacity="0.55"
-          strokeWidth={CH_W * 0.012}
-        />
-
-      </svg>
-
-      {/* Thick white dynamic labels over the frame's painted dark plates.
-          The new frame artwork has no baked-in numbers, so no backdrop blur
-          is needed. */}
+      {/* Top label */}
       <div
         style={{
-          position: "absolute",
-          left: `${topPlateLeft}%`,
-          top: `${topPlateTopPct}%`,
-          width: `${topPlateW}%`,
-          height: `${topPlateHPct}%`,
+          height: labelH,
+          textAlign: "center",
+          lineHeight: 1,
           display: "flex",
-          alignItems: "center",
+          flexDirection: "column",
           justifyContent: "center",
-          pointerEvents: "none",
-          ...engravedStyle,
+          gap: 2,
         }}
       >
-        <span style={{ fontSize: `${width * 0.11}px` }}>Q{questionNumber}</span>
+        <span
+          style={{
+            color: t.accent,
+            fontSize: width * 0.075,
+            fontWeight: 800,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+          }}
+        >
+          Question
+        </span>
+        <span
+          style={{
+            color: "#ffffff",
+            fontFamily: "'Kanit', 'Space Grotesk', sans-serif",
+            fontWeight: 800,
+            fontSize: width * 0.22,
+            textShadow: `0 0 12px rgba(${t.glow},0.55)`,
+          }}
+        >
+          {questionNumber}
+        </span>
       </div>
 
-      {!hideProgressText && (
+      {/* Pillar vessel */}
+      <div
+        style={{
+          position: "relative",
+          width: Math.round(width * 0.62),
+          height: pillarH,
+          borderRadius: width * 0.11,
+          background: "rgba(15,23,42,0.85)",
+          border: "2px solid rgba(51,65,85,0.6)",
+          boxShadow:
+            "inset 0 0 22px rgba(0,0,0,0.85), 0 6px 24px rgba(0,0,0,0.45)",
+          overflow: "hidden",
+        }}
+      >
+        {/* Grid pattern */}
         <div
           style={{
             position: "absolute",
-            left: `${botPlateLeft}%`,
-            top: `${botPlateTopPct}%`,
-            width: `${botPlateW}%`,
-            height: `${botPlateHPct}%`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "none",
-            ...engravedStyle,
+            inset: 0,
+            opacity: 0.12,
+            backgroundImage:
+              "linear-gradient(rgba(148,163,184,1) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,1) 1px, transparent 1px)",
+            backgroundSize: `${Math.round(width * 0.09)}px ${Math.round(width * 0.09)}px`,
+          }}
+        />
+
+        {/* Milestone marker lines (25/50/75) */}
+        {[0.25, 0.5, 0.75].map((frac) => (
+          <div
+            key={frac}
+            style={{
+              position: "absolute",
+              left: 6,
+              right: 6,
+              bottom: `${frac * 100}%`,
+              height: 1,
+              background: pct >= frac ? `rgba(${t.glow},0.55)` : "rgba(255,255,255,0.12)",
+              boxShadow: pct >= frac ? `0 0 6px rgba(${t.glow},0.7)` : undefined,
+            }}
+          />
+        ))}
+
+        {/* Fill */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: `${pct * 100}%`,
+            background: `linear-gradient(to top, ${t.from}, ${t.via} 55%, ${t.to})`,
+            boxShadow: `0 0 32px rgba(${t.glow},0.45)`,
+            transition: "height 700ms cubic-bezier(0.4,0,0.2,1)",
           }}
         >
-          <span style={{ fontSize: `${width * 0.085}px` }}>{current}/{max}</span>
+          {/* Surface ripple */}
+          {surfaceOn && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 2,
+                background: "rgba(255,255,255,0.85)",
+                filter: "blur(1px)",
+                boxShadow: `0 0 14px rgba(${t.glow},0.9), 0 0 24px #fff`,
+              }}
+            />
+          )}
+
+          {/* Particles */}
+          {pct > 0.05 && (
+            <>
+              {[0, 1, 2].map((i) => {
+                const phase = (tick + i) % 3;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      position: "absolute",
+                      left: `${20 + i * 25}%`,
+                      bottom: `${10 + phase * 25}%`,
+                      width: 4 + i,
+                      height: 4 + i,
+                      borderRadius: "50%",
+                      background: "rgba(255,255,255,0.55)",
+                      transition: "bottom 900ms linear, opacity 900ms linear",
+                      opacity: 0.35 + (i * 0.15),
+                    }}
+                  />
+                );
+              })}
+            </>
+          )}
+        </div>
+
+        {/* Rim highlight */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: width * 0.11,
+            pointerEvents: "none",
+            boxShadow: `inset 0 0 0 1px rgba(${t.glow},0.35)`,
+          }}
+        />
+      </div>
+
+      {/* Bottom chip */}
+      {!hideProgressText && (
+        <div
+          style={{
+            height: chipH,
+            padding: `0 ${Math.round(width * 0.06)}px`,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: Math.round(width * 0.03),
+            background: "rgba(30,41,59,0.9)",
+            border: `1px solid rgba(${t.glow},0.35)`,
+            borderRadius: 999,
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: width * 0.08,
+            letterSpacing: "0.04em",
+            boxShadow: `0 0 12px rgba(${t.glow},0.25)`,
+          }}
+        >
+          <span style={{ color: t.accent, fontVariantNumeric: "tabular-nums" }}>
+            {current}/{max}
+          </span>
+          <span style={{ opacity: 0.5 }}>·</span>
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{pctText}%</span>
         </div>
       )}
     </div>
@@ -333,4 +258,3 @@ export const QuestionProgressContainer = ({
 };
 
 export default QuestionProgressContainer;
-
