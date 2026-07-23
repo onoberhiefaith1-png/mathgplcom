@@ -1,13 +1,13 @@
-// Student — per-lesson-note question list. Reached from the Assignments tile
-// (one card per notebook). Numbers questions in the notebook's section order
-// so they always match what the teacher sees on the Assignment Dashboard.
+// Student — per-lesson-note question list. Numbers questions in the notebook's
+// section order so they always match what the teacher sees on the Assignment
+// Dashboard.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Check, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-type NotebookMeta = { id: string; title: string | null; subtopic: string | null; subject: string | null; score_label: string | null };
+type NotebookMeta = { id: string; title: string | null; subtopic: string | null; topic: string | null; score_label: string | null };
 type Assessment = {
   id: string;
   section_id: string | null;
@@ -49,7 +49,7 @@ const StudentAssignmentPage = () => {
       if (!membership) { navigate("/join"); return; }
 
       const [{ data: nb }, { data: ass }, { data: sects }] = await Promise.all([
-        supabase.from("notebooks").select("id, title, subtopic, subject, score_label").eq("id", notebookId).maybeSingle(),
+        supabase.from("notebooks").select("id, title, subtopic, topic, score_label").eq("id", notebookId).maybeSingle(),
         supabase
           .from("assessments")
           .select("id, section_id, title, total_marks, assigned_at, due_at, created_at, unassigned_at, kind")
@@ -60,16 +60,11 @@ const StudentAssignmentPage = () => {
       ]);
       if (cancelled) return;
 
-      setNotebook((nb as NotebookMeta | null) ?? null);
+      setNotebook((nb as any) ?? null);
       const order = new Map<string, number>();
-      ((sects ?? []) as { id: string; order_index: number }[]).forEach((s, i) => order.set(s.id, i));
+      ((sects ?? []) as any[]).forEach((s, i) => order.set(s.id as string, i));
 
-      type AssRow = {
-        id: string; section_id: string | null; title: string | null;
-        total_marks: number | null; assigned_at: string | null; due_at: string | null;
-        created_at: string | null; kind: string | null;
-      };
-      const list = ((ass ?? []) as AssRow[])
+      const list = ((ass ?? []) as any[])
         .filter((r) => r.kind !== "adventure")
         .sort((a, b) => {
           const aOrder = a.section_id && order.has(a.section_id) ? order.get(a.section_id)! : Number.MAX_SAFE_INTEGER;
@@ -78,7 +73,7 @@ const StudentAssignmentPage = () => {
           return String(a.assigned_at ?? a.created_at ?? "").localeCompare(String(b.assigned_at ?? b.created_at ?? ""));
         });
 
-      const ids = list.map((r) => r.id);
+      const ids = list.map((r) => r.id as string);
       const progMap = new Map<string, { score: number; status: string }>();
       if (ids.length) {
         const { data: progs } = await supabase
@@ -86,13 +81,13 @@ const StudentAssignmentPage = () => {
           .select("assessment_id, score, status")
           .eq("student_id", uid)
           .in("assessment_id", ids);
-        for (const p of (progs ?? []) as { assessment_id: string; score: number | null; status: string | null }[]) {
-          progMap.set(p.assessment_id, { score: Number(p.score ?? 0), status: p.status ?? "" });
+        for (const p of progs ?? []) {
+          progMap.set((p as any).assessment_id, { score: Number((p as any).score ?? 0), status: (p as any).status });
         }
       }
 
       setAssessments(list.map((r): Assessment => {
-        const p = progMap.get(r.id);
+        const p = progMap.get(r.id as string);
         return {
           id: r.id,
           section_id: r.section_id ?? null,
@@ -140,7 +135,7 @@ const StudentAssignmentPage = () => {
       <main className="mx-auto max-w-3xl space-y-5 px-6 py-4">
         <section className="rounded-2xl border border-border bg-card/40 p-5 backdrop-blur">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Topic</div>
-          <div className="text-lg font-semibold">{notebook?.title || notebook?.subject || "—"}</div>
+          <div className="text-lg font-semibold">{notebook?.title || notebook?.topic || "—"}</div>
           {notebook?.subtopic && (
             <div className="mt-0.5 text-sm text-muted-foreground">{notebook.subtopic}</div>
           )}

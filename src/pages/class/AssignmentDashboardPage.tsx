@@ -1,6 +1,6 @@
 // Teacher — Assignment Dashboard for a single lesson note. Aggregates every
 // assessment authored under that note in this class, shows In Progress /
-// Completed / Inactive buckets, and lets the teacher open any student's
+// Completed / Not Started buckets, and lets the teacher open any student's
 // SmartBoard to observe or assist.
 
 import { useCallback, useEffect, useState } from "react";
@@ -59,16 +59,16 @@ const AssignmentDashboardPage = () => {
           .eq("notebook_id", notebookId)
           .is("unassigned_at", null),
       ]);
-      setClassName((cls as { name?: string } | null)?.name ?? "");
-      setNotebook((nb as NotebookMeta | null) ?? null);
-      const userIds = ((cmRows ?? []) as { user_id: string }[]).map((r) => r.user_id);
+      setClassName((cls as any)?.name ?? "");
+      setNotebook((nb as any) ?? null);
+      const userIds = ((cmRows ?? []) as any[]).map((r) => r.user_id as string);
       const nameByUid = new Map<string, string>();
       if (userIds.length) {
         const { data: profs } = await supabase
           .from("profiles")
           .select("user_id, display_name")
           .in("user_id", userIds);
-        for (const p of (profs ?? []) as { user_id: string; display_name: string | null }[]) {
+        for (const p of (profs ?? []) as any[]) {
           nameByUid.set(p.user_id, p.display_name ?? "Student");
         }
       }
@@ -76,7 +76,7 @@ const AssignmentDashboardPage = () => {
         user_id: uid,
         display_name: nameByUid.get(uid) ?? "Student",
       }));
-      const assList = ((ass ?? []) as { id: string; total_marks: number | null; kind: string | null }[])
+      const assList = ((ass ?? []) as any[])
         .filter((x) => x.kind !== "adventure")
         .map((x) => ({ id: x.id, total_marks: Number(x.total_marks ?? 0) }));
       setMembers(memList);
