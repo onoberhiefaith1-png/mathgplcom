@@ -118,21 +118,29 @@ export const RowView = ({
           <span
             key={i}
             data-erase-path={JSON.stringify([...path, i])}
-            style={{ display: "inline-flex", alignItems: "baseline" }}
+            style={{
+              display: "inline-flex",
+              alignItems: "baseline",
+              position: "relative",
+            }}
           >
             {isActive && i === cursor.index && <Caret color={caretColor} />}
-            {/* Inter-node tap gap — places cursor BEFORE this node so the
-                sensor can land between every pair of items on the active
-                line (e.g. between -b and ±). */}
+            {/* Inter-node tap zone — places cursor BEFORE this node.
+                Absolutely positioned so it does NOT consume horizontal
+                space: chips render tight against each other. A visible
+                gap only appears when a real space character is typed. */}
             <span
               onPointerDown={(e) =>
                 stopAnd(e, () => onCursorChange({ path, index: i }))
               }
               style={{
-                display: "inline-block",
-                width: "0.22em",
-                alignSelf: "stretch",
+                position: "absolute",
+                left: "-0.15em",
+                top: 0,
+                bottom: 0,
+                width: "0.3em",
                 cursor: "text",
+                zIndex: 1,
               }}
               aria-hidden
             />
@@ -149,16 +157,43 @@ export const RowView = ({
         );
       })}
       {isActive && cursor.index === row.length && <Caret color={caretColor} />}
-      {/* trailing tap area → place cursor at end of this row */}
-      <span
-        onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: row.length }))}
-        style={{
-          display: "inline-block",
-          width: isRoot ? "1em" : "0.3em",
-          minHeight: "1em",
-          cursor: "text",
-        }}
-      />
+      {/* trailing tap area → place cursor at end of this row. Root keeps a
+          visible 1em pad so tapping past the last chip lands the caret at
+          end; sub-rows use a zero-layout overlay so nested containers do
+          not inflate spacing. */}
+      {isRoot ? (
+        <span
+          onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: row.length }))}
+          style={{
+            display: "inline-block",
+            width: "1em",
+            minHeight: "1em",
+            cursor: "text",
+          }}
+        />
+      ) : (
+        <span
+          onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path, index: row.length }))}
+          style={{
+            display: "inline-block",
+            width: 0,
+            alignSelf: "stretch",
+            position: "relative",
+            cursor: "text",
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: "-0.15em",
+              right: "-0.15em",
+              top: 0,
+              bottom: 0,
+            }}
+          />
+        </span>
+      )}
     </span>
   );
 };
