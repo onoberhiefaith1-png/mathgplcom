@@ -1,14 +1,23 @@
 // Compact "Assign to Students" dialog. Opened from the 👥 icon on a Solution
-// heading. The teacher picks the class + assignment type + title; on confirm we
-// build a class assessment from the parent question section (solution hidden).
+// heading. Supports two targets — Assignment (student solves on the smartboard
+// directly) and Adventure (student solves inside a game).
+//
+// Assignment is a per-question TOGGLE: ticking an assigned class opens a
+// confirmation before soft-unassigning. Student progress is preserved so a
+// mistaken un-tick can be reversed without data loss.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Users } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -16,13 +25,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   createAssessmentFromSubsection,
+  unassignAssessment,
   type AssessmentKind,
 } from "@/lib/assessments/createAssessment";
+import { totalMarks as computeTotalMarks, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
+import {
+  assignAdventureNote,
+  unassignAdventureNote,
+} from "@/lib/adventures/classAdventures";
+
+type AssignTarget = "assignment" | "adventure";
+type ClassRow = {
+  id: string;
+  name: string;
+  /** Existing active assignment id (assignment target) if any. */
+  assignmentId: string | null;
+  /** Existing active adventure row id if any. */
+  adventureId: string | null;
+};
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  /** Resolved subsection id of the clicked Solution. */
   subsectionId: string | null;
   notebookId: string;
   defaultTitle: string;
@@ -36,13 +60,18 @@ const KIND_OPTIONS: { value: AssessmentKind; label: string }[] = [
 ];
 
 export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, defaultTitle }: Props) {
-  const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
-  const [classId, setClassId] = useState<string>("");
+  const [target, setTarget] = useState<AssignTarget>("assignment");
+  const [classes, setClasses] = useState<ClassRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [initiallySelected, setInitiallySelected] = useState<Set<string>>(new Set());
   const [kind, setKind] = useState<AssessmentKind>("classwork");
   const [title, setTitle] = useState(defaultTitle);
   const [scoreLabel, setScoreLabel] = useState("Marks");
+  const [totalMarks, setTotalMarks] = useState<number>(0);
+  const [clickedSectionId, setClickedSectionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [confirmUnassign, setConfirmUnassign] = useState<{ classId: string; className: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -55,61 +84,243 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
         .select("id, name")
         .eq("owner_id", uid ?? "")
         .order("created_at", { ascending: true });
-      const list = (rows ?? []).map((r: any) => ({ id: r.id, name: r.name ?? "Class" }));
-      setClasses(list);
-      if (list.length && !classId) setClassId(list[0].id);
+      const classList = (rows ?? []).map((r: any) => ({ id: r.id, name: r.name ?? "Class" }));
 
-      // Default the title from the notebook subtopic/title when none provided.
+      let resolvedSectionId: string | null = null;
+      if (subsectionId) {
+        const { data: sub } = await supabase
+          .from("notebook_subsections")
+          .select("section_id")
+          .eq("id", subsectionId)
+          .maybeSingle();
+        resolvedSectionId = (sub as any)?.section_id ?? null;
+      }
+      setClickedSectionId(resolvedSectionId);
+
+      // Existing active assignments for this exact question (section).
+      const assignmentByClass = new Map<string, string>();
+      if (resolvedSectionId && notebookId) {
+        let q = supabase
+          .from("assessments")
+          .select("id, class_id, kind, section_id, unassigned_at")
+          .eq("notebook_id", notebookId)
+          .eq("section_id", resolvedSectionId)
+          .is("unassigned_at", null);
+        const { data: existing } = await q;
+        const assessmentIds = (existing ?? []).map((r: any) => r.id as string);
+        let adventureAssessmentIds = new Set<string>();
+        if (assessmentIds.length) {
+          const { data: boards } = await supabase
+            .from("class_game_boards")
+            .select("assessment_id")
+            .in("assessment_id", assessmentIds);
+          adventureAssessmentIds = new Set((boards ?? []).map((r: any) => r.assessment_id as string));
+        }
+        for (const r of existing ?? []) {
+          const rr: any = r;
+          if (rr.kind !== "adventure" && !adventureAssessmentIds.has(rr.id)) {
+            assignmentByClass.set(rr.class_id as string, rr.id as string);
+          }
+        }
+      }
+
+      // Existing active adventure notes for this exact question (section).
+      const adventureByClass = new Map<string, string>();
+      if (notebookId) {
+        let advQ = supabase
+          .from("class_adventure_notes")
+          .select("id, class_id, section_id")
+          .eq("notebook_id", notebookId)
+          .is("unassigned_at", null);
+        if (resolvedSectionId) advQ = advQ.eq("section_id", resolvedSectionId);
+        else advQ = advQ.is("section_id", null);
+        const { data: existing } = await advQ;
+        for (const r of existing ?? []) {
+          adventureByClass.set((r as any).class_id as string, (r as any).id as string);
+        }
+      }
+
+      const enriched: ClassRow[] = classList.map((c) => ({
+        ...c,
+        assignmentId: assignmentByClass.get(c.id) ?? null,
+        adventureId: adventureByClass.get(c.id) ?? null,
+      }));
+      setClasses(enriched);
+
+      const preSelected = new Set(
+        enriched
+          .filter((c) => (target === "assignment" ? c.assignmentId : c.adventureId))
+          .map((c) => c.id),
+      );
+      setSelected(new Set(preSelected));
+      setInitiallySelected(new Set(preSelected));
+
       let nbTitle = defaultTitle;
-      if (!nbTitle && notebookId) {
+      let nbLabel = "Marks";
+      if (notebookId) {
         const { data: nb } = await supabase
           .from("notebooks")
-          .select("subtopic, title")
+          .select("subtopic, title, score_label")
           .eq("id", notebookId)
           .maybeSingle();
-        nbTitle = (nb as any)?.subtopic || (nb as any)?.title || "Assignment";
+        if (!nbTitle) nbTitle = (nb as any)?.subtopic || (nb as any)?.title || "Assignment";
+        nbLabel = ((nb as any)?.score_label ?? "").toString().trim() || "Marks";
       }
       setTitle(nbTitle || "Assignment");
-
+      setScoreLabel(nbLabel);
 
       if (subsectionId) {
         const { data: ss } = await supabase
           .from("notebook_subsections")
-          .select("floating_scoring")
+          .select("floating_lines")
           .eq("id", subsectionId)
           .maybeSingle();
-        const lbl = (ss as any)?.floating_scoring?.label;
-        if (lbl) setScoreLabel(String(lbl));
+        const lines = ((ss as any)?.floating_lines ?? []) as FloatingLine[];
+        // Mirror Floating Numbers page exactly: sum(line.marks), unset = 0.
+        setTotalMarks(computeTotalMarks(lines));
       }
       setLoading(false);
     })();
-  }, [open, defaultTitle, subsectionId, notebookId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, defaultTitle, subsectionId, notebookId, target]);
 
-  const assign = async () => {
-    if (!subsectionId) {
-      toast({ title: "Save the lesson note first", description: "Floating numbers aren't ready yet.", variant: "destructive" });
+  // Live sync: while the dialog is open, keep Total marks in lockstep with the
+  // Floating Numbers page. Any edit there triggers a postgres_changes UPDATE on
+  // the subsection row, and we recompute the total from the new floating_lines.
+  useEffect(() => {
+    if (!open || !subsectionId) return;
+    const channel = supabase
+      .channel(`assign-dialog-fl-${subsectionId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notebook_subsections", filter: `id=eq.${subsectionId}` },
+        (payload) => {
+          const lines = (((payload.new as any)?.floating_lines) ?? []) as FloatingLine[];
+          setTotalMarks(computeTotalMarks(lines));
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [open, subsectionId]);
+
+  const toggle = (row: ClassRow) => {
+    const currentlyOn = selected.has(row.id);
+    const wasAlreadyAssigned = target === "assignment" ? !!row.assignmentId : !!row.adventureId;
+
+    if (currentlyOn && wasAlreadyAssigned) {
+      // Ask before removing an existing assignment.
+      setConfirmUnassign({ classId: row.id, className: row.name });
       return;
     }
-    if (!classId) {
-      toast({ title: "Pick a class", variant: "destructive" });
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(row.id)) next.delete(row.id);
+      else next.add(row.id);
+      return next;
+    });
+  };
+
+  const confirmUnassignApply = () => {
+    if (!confirmUnassign) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(confirmUnassign.classId);
+      return next;
+    });
+    setConfirmUnassign(null);
+  };
+
+  const selectAll = () => setSelected(new Set(classes.map((c) => c.id)));
+
+  const { toAssign, toUnassign } = useMemo(() => {
+    const add: ClassRow[] = [];
+    const rem: ClassRow[] = [];
+    for (const c of classes) {
+      const was = initiallySelected.has(c.id);
+      const now = selected.has(c.id);
+      if (now && !was) add.push(c);
+      else if (!now && was) rem.push(c);
+    }
+    return { toAssign: add, toUnassign: rem };
+  }, [classes, selected, initiallySelected]);
+
+  const apply = async () => {
+    if (toAssign.length === 0 && toUnassign.length === 0) {
+      toast({ title: "No changes", variant: "destructive" });
       return;
     }
     setBusy(true);
     try {
-      await createAssessmentFromSubsection({
-        subsectionId,
-        classId,
-        notebookId,
-        kind,
-        title: title.trim() || defaultTitle,
-        scoreLabel,
+      // ---- Unassign side ----
+      for (const c of toUnassign) {
+        if (target === "assignment" && c.assignmentId) {
+          await unassignAssessment(c.assignmentId);
+        } else if (target === "adventure" && c.adventureId) {
+          await unassignAdventureNote(c.adventureId);
+        }
+      }
+
+      // ---- Assign side ----
+      let ok = 0;
+      const errors: string[] = [];
+      const assignedIds = new Map<string, string>();
+      for (const c of toAssign) {
+        try {
+          if (target === "adventure") {
+            if (!notebookId || !clickedSectionId) throw new Error("no_question");
+            const id = await assignAdventureNote({
+              classId: c.id,
+              notebookId,
+              sectionId: clickedSectionId,
+            });
+            assignedIds.set(c.id, id);
+          } else {
+            if (!subsectionId) throw new Error("no_subsection");
+            const id = await createAssessmentFromSubsection({
+              subsectionId,
+              classId: c.id,
+              notebookId,
+              kind,
+              title: title.trim() || defaultTitle,
+              scoreLabel,
+            });
+            assignedIds.set(c.id, id);
+          }
+          ok += 1;
+        } catch (e: any) {
+          errors.push(`${c.name}: ${e?.message ?? "failed"}`);
+        }
+      }
+
+      if (ok > 0 || toUnassign.length > 0) {
+        const unassignedIds = new Set(toUnassign.map((c) => c.id));
+        setClasses((prev) => prev.map((c) => {
+          if (unassignedIds.has(c.id)) {
+            return target === "assignment"
+              ? { ...c, assignmentId: null }
+              : { ...c, adventureId: null };
+          }
+          const assignedId = assignedIds.get(c.id);
+          if (!assignedId) return c;
+          return target === "assignment"
+            ? { ...c, assignmentId: assignedId }
+            : { ...c, adventureId: assignedId };
+        }));
+        setInitiallySelected(new Set(selected));
+      }
+
+      const parts: string[] = [];
+      if (ok > 0) parts.push(`Assigned to ${ok}`);
+      if (toUnassign.length > 0) parts.push(`Unassigned ${toUnassign.length}`);
+      toast({
+        title: parts.length ? parts.join(" · ") : "Nothing changed",
+        description: errors.length ? errors.join(" • ") : undefined,
+        variant: parts.length ? undefined : "destructive",
       });
-      toast({ title: "Assigned", description: "Students can now open this assignment." });
-      onOpenChange(false);
+      if (parts.length) onOpenChange(false);
     } catch (e: any) {
       const msg = String(e?.message ?? e);
       toast({
-        title: "Could not assign",
+        title: "Could not update",
         description: msg === "no_floating_lines"
           ? "This question has no floating-number lines yet. Open Floating Numbers and generate them first."
           : msg,
@@ -120,74 +331,168 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
     }
   };
 
+  const changeCount = toAssign.length + toUnassign.length;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-4 w-4" /> Assign to Students
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-4 w-4" /> Assign to Students
+            </DialogTitle>
+          </DialogHeader>
 
-        {loading ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading classes…
-          </div>
-        ) : classes.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">
-            You have no classes yet. Create a class first, then assign.
-          </div>
-        ) : (
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Class</Label>
-              <Select value={classId} onValueChange={setClassId}>
-                <SelectTrigger><SelectValue placeholder="Select a class" /></SelectTrigger>
-                <SelectContent>
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          <div className="flex-1 overflow-y-auto pr-1 -mr-1">
+          {loading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading classes…
+            </div>
+          ) : classes.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              You have no classes yet. Create a class first, then assign.
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label>Assign to</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { value: "assignment", label: "Assignment", hint: "Solve on the smartboard" },
+                    { value: "adventure", label: "Adventure", hint: "Play inside a game" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTarget(opt.value)}
+                      className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+                        target === opt.value
+                          ? "border-primary bg-primary/10"
+                          : "border-input hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="font-medium">{opt.label}</div>
+                      <div className="text-[11px] text-muted-foreground">{opt.hint}</div>
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+              </div>
 
-            <div className="space-y-1.5">
-              <Label>Type</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as AssessmentKind)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {KIND_OPTIONS.map((k) => (
-                    <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label>Classes</Label>
+                  <button
+                    type="button"
+                    onClick={selectAll}
+                    className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    Select all
+                  </button>
+                </div>
+                <div className="max-h-48 overflow-y-auto rounded-md border border-input">
+                  {classes.map((c) => {
+                    const checked = selected.has(c.id);
+                    const wasAssigned = target === "assignment" ? !!c.assignmentId : !!c.adventureId;
+                    return (
+                      <label
+                        key={c.id}
+                        className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2 text-sm last:border-b-0 cursor-pointer hover:bg-accent/50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggle(c)}
+                          />
+                          <span>{c.name}</span>
+                        </div>
+                        {wasAssigned && (
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {checked ? "Assigned" : "Will unassign"}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
 
-            <div className="space-y-1.5">
-              <Label>Title</Label>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Assignment title"
-              />
-            </div>
+              <div className="space-y-1.5">
+                <Label>Type</Label>
+                {target === "assignment" ? (
+                  <Select value={kind} onValueChange={(v) => setKind(v as AssessmentKind)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {KIND_OPTIONS.map((k) => (
+                        <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                    Adventure
+                  </div>
+                )}
+              </div>
 
-            <p className="text-xs text-muted-foreground">
-              Students receive the question and floating chips only — the solution and marking key stay hidden.
-            </p>
+              <div className="space-y-1.5">
+                <Label>Title</Label>
+                <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  {title || defaultTitle}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Taken from the lesson note's subtopic.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Total {scoreLabel.toLowerCase()}</Label>
+                <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  {totalMarks || 0} {scoreLabel}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Live from the Floating Numbers page — changes there update here instantly.
+                  {target === "assignment"
+                    ? ` Shown as 0 / ${totalMarks || 0} ${scoreLabel} on the student card.`
+                    : " This is the mark total for this Adventure question."}
+                </p>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                {target === "assignment" ? (
+                  "Students receive the question and floating chips only — the solution and marking key stay hidden."
+                ) : (
+                  <>Adds this question to each selected class's <span className="font-medium text-foreground">Adventures</span>. Link it to a progress bar from there.</>
+                )}
+              </p>
+            </div>
+          )}
           </div>
-        )}
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
-          <Button onClick={assign} disabled={busy || loading || classes.length === 0}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Users className="h-4 w-4 mr-1.5" />}
-            Assign
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
+            <Button onClick={apply} disabled={busy || loading || changeCount === 0}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Users className="h-4 w-4 mr-1.5" />}
+              {toUnassign.length > 0 && toAssign.length === 0
+                ? `Unassign (${toUnassign.length})`
+                : `Apply${changeCount > 0 ? ` (${changeCount})` : ""}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!confirmUnassign} onOpenChange={(v) => { if (!v) setConfirmUnassign(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unassign from {confirmUnassign?.className}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide the question from students in this class. Any progress they've already made is preserved — re-assigning restores it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep assigned</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUnassignApply}>Yes, unassign</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
