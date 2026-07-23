@@ -117,6 +117,29 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
     return () => { cancelled = true; if (channel) supabase.removeChannel(channel); };
   }, [userId, navigate, toast]);
 
+  // Polling fallback — if realtime is delayed or blocked, still bounce the
+  // student into the classroom within a few seconds of teacher approval.
+  useEffect(() => {
+    if (!userId || !pendingClassId) return;
+    let cancelled = false;
+    const tick = async () => {
+      const { data } = await supabase
+        .from("class_members")
+        .select("class_id")
+        .eq("class_id", pendingClassId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data?.class_id) {
+        toast({ title: "Approved", description: "Opening your classroom…" });
+        navigate(`/student/class/${data.class_id}`);
+      }
+    };
+    const id = window.setInterval(tick, 3000);
+    void tick();
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [userId, pendingClassId, navigate, toast]);
+
   const submit = async (rawCode: string) => {
     const code = extractCode(rawCode);
     if (!code) {
