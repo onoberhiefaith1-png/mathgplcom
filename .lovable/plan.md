@@ -1,54 +1,45 @@
-# Fix: Students can't see assigned Adventures
+## Problem
 
-## Root cause (verified against live data)
+On the student game/adventure page, the three visual layers appear at different times:
 
-Data for the class `55079b0c…`:
-- `class_game_boards`: 1 row linking notebook → game `019d94d8…` (ADDIV) ✅
-- `class_adventure_notes`: 1 active row ✅
-- `assessments` (kind=adventure): 1 row ✅
-- `class_members`: 2
+1. Background image loads first (or last)
+2. Reward images (progress-bar effects / slot effects) trickle in seconds later
+3. Progress bar chrome is up before its reward artwork
 
-So the teacher's assign flow already wrote the correct rows. The student's Adventures tile calls `listClassGames`, which selects from `class_game_boards` and embeds `games:game_id(id, title, thumbnail_path)`. The `class_game_boards` read succeeds under member RLS, but the embedded `games` join returns `null` for every row because:
+Root cause, confirmed by reading the code:
 
-1. `public.games` has only one SELECT policy: `auth.uid() = owner_id` — students are not the owner.
-2. `information_schema.role_table_grants` shows **no grants** on `public.games` to `authenticated` (the PostgREST role students use).
+- `SignedMedia` (`src/components/gamebuilder/SignedMedia.tsx`) always starts with `url = null` and does an async `getSignedUrl` on mount, even when the URL is already cached from prefetch. Each element mounts independently, so each fades in on its own async tick.
+- `prefetchGame` (`src/lib/games/prefetch.ts`) fetches URLs for reward effects and warms them, but `waitForSceneReady` only awaits the main element source — it does NOT wait for `progress.effectStoragePath` or `progress.slotEffects[*].effectStoragePath`. So rewards decode after the gate has already resolved.
+- `GamePlayPage` renders `GameCanvas` as soon as `waitForSceneReady` resolves, before rewards have decoded.
 
-Result: PostgREST silently drops the embedded game → `listClassGames` returns `[]` → tile shows "No adventures yet." Assignments tile correctly shows nothing because the teacher only assigned as Adventure (kind=`adventure` is filtered out on the assignments tile by design, matching gameful).
+## Fix — three small, contained changes
 
-## Change (single additive migration)
+### 1. Synchronous cache read in the URL layer
+`src/lib/games/urls.ts`
+- Add `getCachedSignedUrl(path)` — synchronous, returns the URL if a non-expired entry exists in the existing `cache` Map, else `null`. No new state, no new cache.
 
-Open read access to `games` for class members whose class is linked to the game, plus the missing grant. No table shape changes, no data mutation, no other policies touched.
+### 2. First-paint uses the cache
+`src/components/gamebuilder/SignedMedia.tsx`
+- In `useSignedUrl`, initialise state with `getCachedSignedUrl(path)` when `source === "storage"` (and with `path` directly when `source === "url"`). Only run the async fetch if the initial value is `null`.
+- Result: after prefetch has warmed URLs, every `<SignedMedia>` renders its real `<img>`/`<video>` on the very first render — no "empty then pop in" per element.
 
-```sql
-GRANT SELECT ON public.games TO authenticated;
+### 3. Extend the readiness gate to include rewards
+`src/lib/games/prefetch.ts` — `waitForSceneReady`
+- Collect URLs for every element's main source AND for `el.progress.effectStoragePath` and every `el.progress.slotEffects[*].effectStoragePath`.
+- Await image `decode()` / video `canplaythrough` for all of them (existing pattern, just applied to the extra paths).
+- Keep the existing 6s timeout as a safety net.
 
-CREATE POLICY "Class members can read linked games"
-  ON public.games
-  FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.class_game_boards b
-      WHERE b.game_id = games.id
-        AND (public.is_class_member(b.class_id) OR public.is_class_owner(b.class_id))
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.class_games cg
-      WHERE cg.game_id = games.id
-        AND (public.is_class_member(cg.class_id) OR public.is_class_owner(cg.class_id))
-    )
-  );
-```
+`src/pages/student/GamePlayPage.tsx`
+- No structural change. The existing "hide until `loading=false`" gate already exists; extending `waitForSceneReady` is enough to make it wait for rewards too.
+- Add a single `opacity-0 → opacity-100` fade (200ms) on the canvas wrapper the first time `loading` flips false, so the three layers appear as one visual event.
 
-The existing `Owners manage their games` policy (FOR ALL) stays untouched so teachers keep full control of their own games.
+## What stays untouched
+
+- No DB schema changes.
+- No changes to `GameCanvas`, `CanvasElementView`, `ProgressColumn`, teacher pages, adventure sync, or heartbeat.
+- No behavioural change for the teacher preview — only the student play view fades in atomically.
 
 ## Verification
 
-1. Reload the student's `/student/class/<classId>` — Adventures tile should now list "ADDIV" with count 1 (already-open realtime channel on `class_games` + refetch on focus).
-2. Tap the tile → `/student/class/<classId>/games/<gameId>/play` opens the ported gameful `GamePlayPage` with the progress bar wired to `class_game_boards`.
-3. Student solves a question on the SmartBoard-style assessment board → `assessment_progress.score` updates → `useAdventureSync` mirrors it and the bar rises on both teacher `AdventureDashboardPage` and student `GamePlayPage` (already ported from gameful).
-
-## Out of scope
-
-- No changes to `AssignDialog`, `LinkAdventureDialog`, or any ported page — the gameful workflow (Lesson Note → Assign as Adventure → LinkAdventureDialog wires it to a game board → student plays → bars rise) is already in place; only the games-table read gate was blocking it.
-- Existing "Owner manages their games" policy, other tables, and grants remain unchanged.
+- Open a student session where the game has a background + progress bar + reward. Reload. All three should appear in the same frame after the "Opening game…" spinner disappears, with a single short fade-in.
+- Toggle offline/online to confirm the cache path (second load) is instant with no per-element pop-in.
