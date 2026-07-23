@@ -1,6 +1,4 @@
-// Student — per-lesson-note question list. Numbers questions in the notebook's
-// section order so they always match what the teacher sees on the Assignment
-// Dashboard.
+// Student — per-lesson-note question list.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";

@@ -115,7 +115,6 @@ export async function listAdventureNotes(classId: string): Promise<ClassAdventur
   }));
 }
 
-/** Soft-unassign — student progress on any linked assessments is preserved. */
 export async function unassignAdventureNote(id: string): Promise<void> {
   await supabase
     .from("class_adventure_notes")
@@ -123,7 +122,6 @@ export async function unassignAdventureNote(id: string): Promise<void> {
     .eq("id", id);
 }
 
-/** Look up the active row for a (class, notebook) pair, if any. */
 export async function findActiveAdventureNote(
   classId: string,
   notebookId: string,
@@ -133,8 +131,8 @@ export async function findActiveAdventureNote(
     .from("class_adventure_notes")
     .select("id")
     .eq("class_id", classId)
-    .is("unassigned_at", null)
-    .eq("notebook_id", notebookId);
+    .eq("notebook_id", notebookId)
+    .is("unassigned_at", null);
   if (sectionId !== undefined) {
     query = sectionId === null ? query.is("section_id", null) : query.eq("section_id", sectionId);
   }

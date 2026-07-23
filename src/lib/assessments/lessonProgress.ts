@@ -1,13 +1,5 @@
 // Shared helpers to aggregate per-student progress rows for a set of
 // assessments (a lesson note's assessments, or an adventure's linked bars).
-//
-// Two modes:
-//   - Contribution mode (Adventure): pass `requiredContribution` — a student
-//     is Completed when their summed score across these assessments reaches
-//     their share of the collaborative target. Submit is irrelevant.
-//   - Status mode (Assignment, default): completion follows the DB
-//     `assessment_progress.status='completed'` column, which the Submit
-//     button flips.
 
 import { supabase } from "@/integrations/supabase/client";
 import type { StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";

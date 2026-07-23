@@ -1,6 +1,4 @@
-// Student — play an assigned game. Only progress bars are interactive; tapping
-// one shrinks the canvas to 80% width and reveals a 20% right-side panel with
-// that bar's questions. Score/status update live via realtime.
+// Student — play an assigned game.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -88,6 +86,7 @@ const GamePlayPage = () => {
       if (!bundle) { navigate(`/student/class/${classId}`); return; }
 
       const { game: g, boards: b, urls } = bundle;
+
       await waitForSceneReady(g, urls);
       if (cancelled) return;
 

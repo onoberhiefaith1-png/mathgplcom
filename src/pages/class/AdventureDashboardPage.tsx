@@ -1,7 +1,4 @@
-// Teacher — Adventure Dashboard for a single class+game. Shows the live game
-// (read-only) with a right-side slide-out Assessment Dashboard identical to
-// the Assignment Dashboard, scoped to the assessments linked to this game's
-// progress bars.
+// Teacher — Adventure Dashboard for a single class+game.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -71,11 +68,12 @@ const AdventureDashboardPage = () => {
     return { label, segments };
   }, [timeBar.elementId, sync.elements]);
 
+
   useEffect(() => {
     (async () => {
       if (!classId || !gameId) return;
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) { navigate(`/auth?redirect=/teaching-hub/classes/${classId}/games/${gameId}/dashboard`); return; }
+      if (!userData.user) { navigate(`/auth?redirect=/teaching-hub/classes/${classId}/adventures/${gameId}/dashboard`); return; }
       const redirect = await ensureClassOwner(classId, userData.user.id);
       if (redirect) { navigate(redirect, { replace: true }); return; }
 
@@ -121,7 +119,6 @@ const AdventureDashboardPage = () => {
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, gameId, boards.length, reloadBoards, reloadGame]);
 
-  // Mirror the teacher's live canvas to every student in this class+game via broadcast.
   useEffect(() => {
     if (!classId || !gameId) return;
     let cancelled = false;
@@ -172,10 +169,11 @@ const AdventureDashboardPage = () => {
     void refreshAdventureSync();
   }, [game, gameId, classId, refreshAdventureSync]);
 
+
   const onViewStudent = (studentId: string) => {
     const first = boards[0]?.assessmentId;
     if (!first) return;
-    navigate(`/teaching-hub/classes/${classId}/assessments/${first}/student/${studentId}?returnTo=${encodeURIComponent(`/teaching-hub/classes/${classId}/games/${gameId}/dashboard`)}`);
+    navigate(`/teaching-hub/classes/${classId}/assessments/${first}/student/${studentId}?returnTo=${encodeURIComponent(`/teaching-hub/classes/${classId}/adventures/${gameId}/dashboard`)}`);
   };
 
   return (

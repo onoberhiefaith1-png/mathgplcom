@@ -1,5 +1,4 @@
-// Teacher — Adventures for a class. One card per Lesson Note. Each card
-// aggregates every assigned Revision ticket (question) for that notebook.
+// Teacher — Adventures for a class.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -341,7 +340,7 @@ const ClassAdventuresPage = () => {
                   </button>
                   {primaryGameId && (
                     <Link
-                      to={`/teaching-hub/classes/${classId}/games/${primaryGameId}/dashboard`}
+                      to={`/teaching-hub/classes/${classId}/adventures/${primaryGameId}/dashboard`}
                       className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
                     >
                       <LayoutDashboard className="h-3.5 w-3.5" /> Adventure Dashboard
