@@ -90,7 +90,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
-import { Check as CheckIcon, Loader2 } from "lucide-react";
+import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 
 
@@ -2830,45 +2833,35 @@ const PresentationView = ({
     return n;
   }, [assessmentMode, current, guidedLines, solvedSlots]);
 
-  const checkActiveLine = async () => {
+  const checkActiveLine = async (kOverride?: number) => {
     if (!assessmentMode || !assessmentId || !current || !activeLayout) return;
-    if (activeLineIdx >= guidedLines.length) {
+    const k = typeof kOverride === "number" ? kOverride : activeLineIdx;
+    if (k < 0 || k >= guidedLines.length) {
       toast({ title: "All lines done", description: "You've solved every line in this question." });
       return;
     }
-    const target = guidedLines[activeLineIdx];
+    const target = guidedLines[k];
     if (!target?.lineId) return;
 
-    // This line's OWN floating numbers (its tag): the fragments reserved for it.
-    const expectedFrags = (activeReservoir?.fragments ?? [])
-      .slice(target.fragmentStart, target.fragmentEnd)
-      .filter(Boolean);
-    const expectedSet = chipMultiset(expectedFrags);
-    const showIncomplete = (unused: string[], lineNum?: number) => {
-      if (typeof lineNum === "number") setWrongLine(lineNum);
-      toast({
-        title: `⚠ Line ${activeLineIdx + 1} incomplete`,
-        description: unused.length > 0
-          ? `Unused floating numbers: ${unused.join("  ")}`
-          : `Values from line ${activeLineIdx + 1} have not yet been entered.`,
-        variant: "destructive",
-      });
-    };
-
-    // Locate the student's row by TAG MATCH, not physical position: scan every
-    // written row in the active band and pick the one whose chips overlap this
-    // line's expected floating numbers the most. This lets the student write
-    // the line anywhere on the board and still be recognised.
-    const fallbackLineNum = clampToActiveBand(bandStart(activeLayout) + activeLineIdx);
+    // Locate the student's row by TAG MATCH so the line can be written anywhere.
+    const fallbackLineNum = clampToActiveBand(bandStart(activeLayout) + k);
     const writtenRows = Object.keys(freeLines)
       .map(Number)
       .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
       .sort((x, y) => x - y);
     if (writtenRows.length === 0) {
-      showIncomplete(expectedFrags.map((frag) => String(frag).trim()).filter(Boolean), fallbackLineNum);
+      setWrongLine(fallbackLineNum);
+      toast({
+        title: `⚠ Line ${k + 1} incomplete`,
+        description: `Write your working for line ${k + 1} first.`,
+        variant: "destructive",
+      });
       return;
     }
-
+    const expectedFrags = (activeReservoir?.fragments ?? [])
+      .slice(target.fragmentStart, target.fragmentEnd)
+      .filter(Boolean);
+    const expectedSet = chipMultiset(expectedFrags);
     let expectedLineNum = fallbackLineNum;
     if (expectedSet.size > 0) {
       let bestRow = -1, bestScore = -1;
@@ -2882,33 +2875,11 @@ const PresentationView = ({
 
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) {
-      showIncomplete(expectedFrags.map((frag) => String(frag).trim()).filter(Boolean), expectedLineNum);
+      setWrongLine(expectedLineNum);
+      toast({ title: `⚠ Line ${k + 1} incomplete`, description: "No ink found on this line.", variant: "destructive" });
       return;
     }
     const ascii = rowToAscii(row);
-    const arrangement = extractTermsFromAscii(ascii).map((t) => t.ascii).filter(Boolean);
-
-    // ── Phase 1: floating-number usage check (state-driven) ───────────────
-    // The conveyor records each token as USED the moment it is tapped onto the
-    // board (consumedAbsIdx). Check Line simply trusts that record: any of this
-    // line's fragments not yet marked used means the line is incomplete. No ink
-    // re-parsing — the tap itself is the proof the token was used.
-    {
-      const unused: string[] = [];
-      for (let i = target.fragmentStart; i < target.fragmentEnd; i++) {
-        if (consumedAbsIdx.has(i)) continue;
-        const frag = (activeReservoir?.fragments ?? [])[i];
-        const glyph = String(frag ?? "").trim();
-        if (glyph) unused.push(glyph); // keep display glyph
-      }
-      if (unused.length > 0) {
-        showIncomplete(unused, expectedLineNum);
-        return;
-      }
-    }
-
-
-    // ── Phase 2: mathematical validation (server-authoritative) ───────────
     const eqIdx = ascii.indexOf("=");
     const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
     const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
@@ -2917,34 +2888,38 @@ const PresentationView = ({
       toast({ title: "Finish the line", description: "Make sure it's a complete equation (both sides of =).", variant: "destructive" });
       return;
     }
-    if (arrangement.length === 0) return;
+
     setAssessChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke("grade-assessment", {
-        body: { assessmentId, questionId: current.id, lineId: target.lineId, arrangement, studentAscii: ascii },
+      // Server-authoritative per-line grader (symbolic → numeric → LLM).
+      const { data, error } = await supabase.functions.invoke("grade-line", {
+        body: { assessmentId, questionId: current.id, lineId: target.lineId, studentAscii: ascii },
       });
       if (error) throw error;
-      const res = data as { correct: boolean; score: number; solvedLines: Record<string, number> };
+      const res = data as { correct: boolean; score: number; solvedLines: Record<string, number>; marks?: number };
       if (res.correct) {
         setSolvedSlots(res.solvedLines ?? {});
         setAssessScore(Number(res.score ?? 0));
         setWrongLine((w) => (w === expectedLineNum ? null : w));
-        const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
-        setActiveLineIdx(nextIdx);
-        setFloatingLineIdx(nextIdx);
-        const nextWritable = activeLayout
-          ? firstWritableRowAfter(expectedLineNum, activeLayout)
-          : expectedLineNum + 1;
-        if (activeLayout && nextWritable > bandEnd(activeLayout)) growActiveBand();
-        setSensor({ line: clampToActiveBand(nextWritable), x: 0 });
-        setLiveCursor({ path: [], index: 0 });
-        activeSensorLogicalIdxRef.current = nextIdx;
-        activeSensorPhysicalLineRef.current = clampToActiveBand(nextWritable);
-        manualPushedRef.current = null;
-        toast({ title: "✓ Line verified", description: `+${target.marks ?? 0} marks` });
+        // Advance active line if the user checked the current one.
+        if (typeof kOverride !== "number" || kOverride === activeLineIdx) {
+          const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
+          setActiveLineIdx(nextIdx);
+          setFloatingLineIdx(nextIdx);
+          const nextWritable = activeLayout
+            ? firstWritableRowAfter(expectedLineNum, activeLayout)
+            : expectedLineNum + 1;
+          if (activeLayout && nextWritable > bandEnd(activeLayout)) growActiveBand();
+          setSensor({ line: clampToActiveBand(nextWritable), x: 0 });
+          setLiveCursor({ path: [], index: 0 });
+          activeSensorLogicalIdxRef.current = nextIdx;
+          activeSensorPhysicalLineRef.current = clampToActiveBand(nextWritable);
+          manualPushedRef.current = null;
+        }
+        toast({ title: "✓ Line verified", description: `+${res.marks ?? target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
-        toast({ title: "Error in your solution", description: "Please check your arrangement.", variant: "destructive" });
+        toast({ title: "Error in your solution", description: "That line isn't mathematically equivalent to the expected step.", variant: "destructive" });
       }
     } catch (e: any) {
       toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
@@ -5314,19 +5289,59 @@ const PresentationView = ({
             </div>
           </div>
 
-          {/* Per-line Check button — grades the current line server-side. */}
+          {/* Per-line Check menu — grades any line server-side (grade-line). */}
           {hasGuidedLines && (
-            <button
-              onClick={checkActiveLine}
-              disabled={assessChecking || activeLineIdx >= guidedLines.length}
-              className="absolute bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
-              style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
-            >
-              {assessChecking
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <CheckIcon className="h-4 w-4" />}
-              {activeLineIdx >= guidedLines.length ? "All lines solved" : `Check line ${activeLineIdx + 1}`}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  disabled={assessChecking || guidedLines.length === 0}
+                  className="absolute bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
+                  style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
+                >
+                  {assessChecking
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <CheckIcon className="h-4 w-4" />}
+                  Check
+                  <span className="opacity-70 text-xs tabular-nums">
+                    {guidedLines.reduce((n, _l, k) => {
+                      const s = slotFor(k);
+                      return n + (s && s in solvedSlots ? 1 : 0);
+                    }, 0)}/{guidedLines.length}
+                  </span>
+                  <ChevronDownIcon className="h-4 w-4 opacity-80" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top" className="min-w-[220px] z-[70]">
+                <DropdownMenuLabel>Check any line</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {guidedLines.map((ln, k) => {
+                  const slot = slotFor(k);
+                  const solved = !!slot && slot in solvedSlots;
+                  const isLast = k === guidedLines.length - 1;
+                  const label = isLast ? `Check Final Line (Line ${k + 1})` : `Check Line ${k + 1}`;
+                  return (
+                    <DropdownMenuItem
+                      key={k}
+                      onSelect={(e) => { e.preventDefault(); checkActiveLine(k); }}
+                      className="flex items-center gap-2"
+                    >
+                      <span
+                        className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
+                        style={solved
+                          ? { background: "rgba(34,197,94,0.18)", color: "#16a34a", borderColor: "rgba(34,197,94,0.5)" }
+                          : { borderColor: "currentColor", opacity: 0.55 }}
+                      >
+                        {solved ? <CheckIcon className="h-3 w-3" /> : k + 1}
+                      </span>
+                      <span className="flex-1">{label}</span>
+                      {typeof ln.marks === "number" && ln.marks > 0 && (
+                        <span className="text-[11px] opacity-60 tabular-nums">{ln.marks}m</span>
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </>
       )}
