@@ -37,13 +37,20 @@ export const asciiToNodes = (s: string): Node[] => {
     .replace(/÷/g, "/")
     .replace(/×/g, "*")
     .replace(/−/g, "-")
-    .replace(/\s+/g, "");
+    // Keep interior spaces so a deliberate spacebar press renders as a
+    // visible gap; only trim edges.
+    .replace(/^\s+|\s+$/g, "");
   const out: Node[] = [];
   let i = 0;
   const isDigit = (c: string) => c >= "0" && c <= "9";
   const isAlpha = (c: string) => /[a-zA-Z]/.test(c);
   while (i < src.length) {
     const c = src[i];
+    if (c === " ") {
+      out.push(mkChar(" "));
+      i++;
+      continue;
+    }
     if (isDigit(c)) {
       let j = i;
       while (j < src.length && (isDigit(src[j]) || src[j] === ".")) j++;
