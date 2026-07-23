@@ -112,6 +112,7 @@ export function useAdventureSync({
     }
     setMembers(memberUserIds.map((uid) => ({ user_id: uid, display_name: nameByUser.get(uid) ?? "Student" })));
 
+
     const scoreMap: ScoresByAssessment = {};
     const mine: SolvedByAssessment = {};
     for (const r of progressResult.data ?? []) {

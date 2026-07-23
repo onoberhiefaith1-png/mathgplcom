@@ -1,4 +1,7 @@
-// Live enrolled class members.
+// Live enrolled class members (progress-bar math source of truth).
+// This is intentionally distinct from any presence/"active" concept — it only
+// reflects whether a student currently belongs to the class.
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 

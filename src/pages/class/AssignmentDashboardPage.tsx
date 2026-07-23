@@ -1,7 +1,4 @@
-// Teacher — Assignment Dashboard for a single lesson note. Aggregates every
-// assessment authored under that note in this class, shows In Progress /
-// Completed / Not Started buckets, and lets the teacher open any student's
-// SmartBoard to observe or assist.
+// Teacher — Assignment Dashboard for a single lesson note.
 
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -36,6 +33,7 @@ const AssignmentDashboardPage = () => {
     const r = await loadLessonProgress(a, m, active);
     setRows(r);
   }, [assessments, members, activeSet]);
+
 
   useEffect(() => {
     (async () => {
@@ -90,6 +88,7 @@ const AssignmentDashboardPage = () => {
   }, [classId, notebookId, navigate]);
 
   useEffect(() => { void refresh(assessments, members); }, [assessments, members, refresh]);
+
 
   useEffect(() => {
     if (!classId || assessments.length === 0) return;

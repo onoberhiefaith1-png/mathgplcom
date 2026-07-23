@@ -1,12 +1,8 @@
-// Teacher — viewer for a specific student's Assessment SmartBoard. Renders
-// the same PresentationView the student sees. This project's PresentationView
-// does not expose a `readOnly` or `viewStudentId` prop, so any local edits
-// stay ephemeral (they cannot be persisted onto the student's row because
-// row-level security scopes writes to the student).
+// Teacher — read-only viewer of a specific student's Assessment SmartBoard.
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import PresentationView from "@/components/smartboard/PresentationView";
@@ -14,8 +10,6 @@ import {
   buildAssessmentBoardSource,
   type AssessmentLike,
 } from "@/lib/assessments/assessmentBoardSource";
-
-type MemberRow = { user_id: string; display_name: string | null };
 
 const TeacherAssessmentViewerPage = () => {
   const { classId, assessmentId, studentId } = useParams<{ classId: string; assessmentId: string; studentId: string }>();
@@ -25,6 +19,7 @@ const TeacherAssessmentViewerPage = () => {
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
   const [studentName, setStudentName] = useState<string>("");
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -40,7 +35,7 @@ const TeacherAssessmentViewerPage = () => {
       ]);
       if (!a) { navigate(returnTo, { replace: true }); return; }
       setAssessment(a as unknown as AssessmentLike);
-      const m = ((mem ?? []) as MemberRow[]).find((x) => x.user_id === studentId);
+      const m = ((mem ?? []) as any[]).find((x) => x.user_id === studentId);
       setStudentName(m?.display_name ?? "Student");
       setLoading(false);
     })();
@@ -66,6 +61,8 @@ const TeacherAssessmentViewerPage = () => {
         source={source}
         assessmentId={assessmentId ?? null}
         classId={classId ?? null}
+        viewStudentId={studentId ?? null}
+        readOnly={!editMode}
       />
 
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
@@ -79,6 +76,14 @@ const TeacherAssessmentViewerPage = () => {
           </button>
           <div className="text-xs text-muted-foreground">Viewing:</div>
           <div className="text-xs font-semibold">{studentName}</div>
+          <button
+            type="button"
+            onClick={() => setEditMode((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${editMode ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+            title={editMode ? "Return to view-only" : "Enable edit mode (local demo)"}
+          >
+            {editMode ? <><Pencil className="h-3.5 w-3.5" /> Edit Mode</> : <><Eye className="h-3.5 w-3.5" /> View Only</>}
+          </button>
         </div>
       </div>
     </>

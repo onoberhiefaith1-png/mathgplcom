@@ -1,11 +1,3 @@
-// Lightweight per-lesson presence. A student joining the channel signals
-// "SmartBoard for this lesson is currently open on my device". Dashboards
-// observe the same channel to derive the live "In Progress" bucket.
-//
-// Two flavors share the same helpers:
-//  - Assignment: `lesson-presence-<classId>-<notebookId>`
-//  - Adventure:  `adventure-presence-<classId>-<gameId>`
-
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "./auth";
 
@@ -22,12 +14,10 @@ export function adventurePresenceTopic(classId: string, gameId: string): string 
   return `adventure-presence-${classId}-${gameId}`;
 }
 
-/** Per-lesson-assignment presence: one channel per (class, assessment). */
 export function assessmentPresenceTopic(classId: string, assessmentId: string): string {
   return `assessment-presence-${classId}-${assessmentId}`;
 }
 
-/** Join a presence topic and track this user as active. */
 export async function joinPresence(topic: string, userId: string): Promise<PresenceHandle> {
   await ensureRealtimeAuth();
   const channel = supabase.channel(topic, { config: { presence: { key: userId } } });
@@ -39,7 +29,6 @@ export async function joinPresence(topic: string, userId: string): Promise<Prese
   return { channel, unsubscribe: () => { supabase.removeChannel(channel); } };
 }
 
-/** Observe who is currently active on a presence topic. */
 export async function observePresence(
   topic: string,
   onChange: (active: Set<string>) => void,

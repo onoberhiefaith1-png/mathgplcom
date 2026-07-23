@@ -1,10 +1,4 @@
-// Student Assessment Board — the SAME SmartBoard the teacher uses, scoped to a
-// single assigned question. Grading is server-authoritative.
-//
-// Submission: a "Submit" button flips assessment_progress.status to 'completed'.
-// The student may keep improving until the assignment's due date passes; after
-// that the board renders read-only. Adventure entries are collaborative and
-// auto-derive Completed from contribution, so no Submit is shown.
+// Student Assessment Board.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -120,6 +114,7 @@ const AssessmentBoardPage = () => {
     };
   }, [shouldTrackPresence, classId, assessmentId, uid]);
 
+
   const boardSource = useMemo(() => {
     if (!assessment) return null;
     const scoped = questionId
@@ -127,6 +122,7 @@ const AssessmentBoardPage = () => {
       : assessment;
     return buildAssessmentBoardSource(scoped.questions?.length ? scoped : assessment);
   }, [assessment, questionId]);
+
 
   const isPastDue = !!assessment?.due_at && new Date(assessment.due_at).getTime() <= Date.now();
   const isAdventure = openedFrom === "adventure" || !!gameId;
@@ -184,23 +180,12 @@ const AssessmentBoardPage = () => {
         key={questionId ?? assessmentId ?? "assessment"}
         role="student"
         source={boardSource}
-        assessmentId={assessmentId ?? undefined}
-        classId={classId ?? undefined}
+        assessmentId={assessmentId ?? null}
+        classId={classId ?? null}
+        readOnly={readOnly}
+        onSubmit={showSubmit ? onSubmit : null}
+        submitLabel={status === "completed" ? "Undo Submit" : "Submit"}
       />
-      {showSubmit && (
-        <button
-          type="button"
-          onClick={onSubmit}
-          className="fixed bottom-3 right-3 z-[70] rounded-full border border-primary/50 bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:opacity-90"
-        >
-          {status === "completed" ? "Undo Submit" : "Submit"}
-        </button>
-      )}
-      {readOnly && (
-        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-border bg-background/90 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow">
-          Read-only view.
-        </div>
-      )}
       {!isAdventure && status === "completed" && !isPastDue && (
         <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1.5 text-xs font-medium text-green-700 shadow">
           Submitted — press "Undo Submit" to reopen before the due date.
