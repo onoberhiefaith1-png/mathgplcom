@@ -1,59 +1,34 @@
-## Diagnosis
+## Problem
 
-The student's game screen renders only the progress-bar frame (bundled asset from `src/assets/adventure/card-frames/…`) — the **background image and rewards are blank**. The prefetch fetches game data and signs URLs, but for students every `storage.createSignedUrl(...)` call on the `game-assets` bucket returns `null` because the current storage RLS is teacher-only:
+On the Smartboard, tapping chips like `2`, `+2`, `+4` writes them onto the active line, but each character shows a visible gap around it — e.g. `2 + 2   +4`. The user wants chips to sit tight next to each other; a visible gap should appear only when the physical **Space** key is pressed.
 
-```
-SELECT: bucket_id='game-assets' AND foldername[1] = auth.uid()::text  -- teacher only
-```
+## Root cause
 
-Students never own the folder, so signing fails → `SignedMedia` renders the empty placeholder → background + rewards stay blank while the progress-bar (which uses bundled frames, not storage) still shows. This is why the port from Gameful looked partial: same code path, but storage policies weren't opened to class members.
+`src/components/smartboard/MathTreeRender.tsx` renders an **invisible tap zone before every node** (0.22em) plus a **trailing tap zone** (0.3em / 1em at root). These are intentional targets so a user can tap between chips to place the caret — but they consume horizontal space, so every pair of characters ends up with ~0.22em of empty space between them. Char nodes themselves render with `whiteSpace: "pre"`, so real space characters would render correctly if inserted.
 
-Prefetch also silently drops missing URLs, so `waitForSceneReady` resolves fine and the page reveals — but there's nothing to reveal.
+Verified: no space is inserted by chip taps (`insertAscii` strips whitespace in `asciiToNodes`, line 40 of `nodeUtils.ts`), and the physical Space key is not currently bound to insert a character on the smartboard — so a user pressing Space today does nothing.
 
-## Fix (backend RLS only, additive)
+## Fix
 
-Add a second SELECT policy on `storage.objects` for the `game-assets` bucket that grants access to **any authenticated user who shares a class with the folder-owner teacher, when that teacher owns a game the class is using**. This keeps the existing teacher-only policy intact and simply widens read access to enrolled students.
+1. In `MathTreeRender.tsx` `RowView`:
+   - Convert the inter-node tap zone from an inline element with `width: 0.22em` to a **zero-layout hit area** — an absolutely-positioned overlay sitting on the left half of the following node so taps still land between chips, but it no longer pushes the chips apart. Practically: wrap the node in a `position: relative` span and put the tap zone as `position: absolute; left: -0.15em; width: 0.3em; top: 0; bottom: 0;`.
+   - Shrink the trailing (non-root) tap width from `0.3em` to `0` visually by making it absolutely positioned as well, extending past the row's right edge. Keep the root's `1em` trailing zone unchanged so tapping past the last chip on the root line still places the caret at end.
 
-Migration (additive):
+2. Bind Space on the physical keyboard to insert a real space character on the active line, so the user's stated "gap only when I press Space" behavior works:
+   - In `PresentationView.tsx` (or wherever `insertAscii` is wired to keydown for the smartboard active line), add `if (e.key === " ") { insertAscii(" "); e.preventDefault(); return; }`.
+   - Extend `asciiToNodes` in `src/lib/smartboard/nodeUtils.ts` to preserve `" "` as a `char` node (currently `\s+` is stripped). Only strip leading/trailing whitespace; keep interior spaces as `mkChar(" ")`.
 
-```sql
-create policy "Class members read teacher game files"
-on storage.objects for select
-to authenticated
-using (
-  bucket_id = 'game-assets'
-  and exists (
-    select 1
-    from public.class_members cm
-    join public.classes c on c.id = cm.class_id
-    where cm.user_id = auth.uid()
-      and c.owner_id::text = (storage.foldername(name))[1]
-      and (
-        exists (
-          select 1 from public.class_game_boards cgb
-          join public.games g on g.id = cgb.game_id
-          where cgb.class_id = cm.class_id and g.owner_id::text = (storage.foldername(name))[1]
-        )
-        or exists (
-          select 1 from public.class_games cg
-          join public.games g on g.id = cg.game_id
-          where cg.class_id = cm.class_id and g.owner_id::text = (storage.foldername(name))[1]
-        )
-      )
-  )
-);
-```
-
-(If `games` uses a different owner column, or `class_games`/`class_game_boards` differ, the migration is adjusted to the real columns before running — no schema changes, policy only.)
-
-## Frontend robustness (small, targeted)
-
-1. In `src/lib/games/prefetch.ts`, log a single `console.warn` when `getSignedUrls` returns fewer URLs than requested paths, so a future storage-permission regression is visible in the console instead of a silent blank canvas.
-2. No UI/layout changes. Atomic fade-in stays as it is.
+Char nodes already render with `whiteSpace: "pre"`, so a `mkChar(" ")` will display as a visible gap of exactly one space.
 
 ## Verification
 
-- Sign in as a student and open `/student/class/:classId/games/:gameId/play`.
-- Confirm background image + reward assets paint together with the progress bar (single fade-in, no pop-in).
-- Network: `object/sign/game-assets/...` requests return 200 for the student.
-- Teacher-side smartboard/game editor still works unchanged (existing owner policy untouched).
+- Tap `2`, `+2`, `+4` in sequence — the line reads `2+2+4` with no visible gap between chips.
+- Tap between two chips — caret still lands between them (overlay hit zone still works).
+- Press Space on the physical keyboard — a visible space is inserted at the caret.
+- No change to lesson-note writers, chip validation, or grading.
+
+## Files touched
+
+- `src/components/smartboard/MathTreeRender.tsx` — reflow inter-node and trailing tap zones as absolute overlays.
+- `src/components/smartboard/PresentationView.tsx` — add Space keybinding to insert a real space.
+- `src/lib/smartboard/nodeUtils.ts` — allow interior spaces to survive `asciiToNodes`.
