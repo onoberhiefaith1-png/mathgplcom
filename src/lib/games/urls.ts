@@ -10,6 +10,13 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 const SIGN_TTL = 60 * 60;
 
+export const getCachedSignedUrl = (path?: string | null): string | null => {
+  if (!path) return null;
+  const hit = cache.get(path);
+  if (hit && hit.expires > Date.now() + 60_000) return hit.url;
+  return null;
+};
+
 export const getSignedUrl = async (path: string): Promise<string | null> => {
   if (!path) return null;
   const hit = cache.get(path);
