@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
-import { getSignedUrl } from "@/lib/games/urls";
+import { getSignedUrl, getCachedSignedUrl } from "@/lib/games/urls";
 import type { MediaSource, MediaType } from "@/lib/games/types";
 import { cn } from "@/lib/utils";
 
 export const useSignedUrl = (path?: string | null) => {
-  const [url, setUrl] = useState<string | null>(null);
+  // Initialise synchronously from the cache so prefetched URLs render on the
+  // first paint — no per-element "empty → pop-in" tick.
+  const [url, setUrl] = useState<string | null>(() => getCachedSignedUrl(path));
   useEffect(() => {
     let alive = true;
     if (!path) {
       setUrl(null);
       return;
     }
+    const cached = getCachedSignedUrl(path);
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
+    setUrl(null);
     getSignedUrl(path).then((u) => {
       if (alive) setUrl(u);
     });

@@ -108,50 +108,74 @@ export function updatePrefetchedGame(classId: string, gameId: string, game: Game
   if (hit) cache.set(key, { ...hit, game });
 }
 
+type ReadyJob = { url: string; kind: "image" | "video" };
+
+const collectReadyJobs = (
+  game: GameRow,
+  urls: Record<string, string>,
+): ReadyJob[] => {
+  const canvas = normalizeCanvas(game.canvas);
+  const scene = canvas.scenes.find((s) => s.id === canvas.activeSceneId) ?? canvas.scenes[0];
+  if (!scene) return [];
+  const jobs: ReadyJob[] = [];
+  const seen = new Set<string>();
+  const push = (url: string | undefined, kind: "image" | "video") => {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    jobs.push({ url, kind });
+  };
+  const resolvePath = (source: string | undefined, path: string | undefined | null) => {
+    if (!path) return undefined;
+    return source === "url" ? path : urls[path];
+  };
+  for (const el of scene.elements) {
+    // Main element source
+    push(resolvePath(el.source, el.storagePath), el.mediaType);
+    // Reward / progress-bar effects
+    const p = el.progress;
+    if (p) {
+      push(resolvePath(p.effectSource, p.effectStoragePath), "image");
+      for (const slot of Object.values(p.slotEffects ?? {})) {
+        if (!slot) continue;
+        push(resolvePath(slot.effectSource, slot.effectStoragePath), "image");
+      }
+    }
+  }
+  return jobs;
+};
+
 export async function waitForSceneReady(
   game: GameRow,
   urls: Record<string, string>,
   timeoutMs = 6000,
 ): Promise<void> {
-  const canvas = normalizeCanvas(game.canvas);
-  const scene = canvas.scenes.find((s) => s.id === canvas.activeSceneId) ?? canvas.scenes[0];
-  if (!scene) return;
-
-  const jobs: Promise<void>[] = [];
-  for (const el of scene.elements) {
-    const paths = pathsFor(el);
-    const url = el.source === "url" ? el.storagePath : (paths[0] ? urls[paths[0]] : undefined);
-    if (!url) continue;
-    if (el.mediaType === "image") {
-      jobs.push(
-        new Promise<void>((resolve) => {
-          const img = new Image();
-          img.decoding = "async";
-          img.onload = () => (img.decode ? img.decode().then(() => resolve(), () => resolve()) : resolve());
-          img.onerror = () => resolve();
-          img.src = url;
-        }),
-      );
-    } else {
-      jobs.push(
-        new Promise<void>((resolve) => {
-          const v = document.createElement("video");
-          v.preload = "auto";
-          v.muted = true;
-          v.playsInline = true;
-          const done = () => resolve();
-          v.oncanplaythrough = done;
-          v.onloadeddata = done;
-          v.onerror = done;
-          v.src = url;
-          v.load();
-        }),
-      );
+  const jobs = collectReadyJobs(game, urls);
+  const tasks = jobs.map(({ url, kind }) => {
+    if (kind === "image") {
+      return new Promise<void>((resolve) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.onload = () => (img.decode ? img.decode().then(() => resolve(), () => resolve()) : resolve());
+        img.onerror = () => resolve();
+        img.src = url;
+      });
     }
-  }
+    return new Promise<void>((resolve) => {
+      const v = document.createElement("video");
+      v.preload = "auto";
+      v.muted = true;
+      v.playsInline = true;
+      const done = () => resolve();
+      v.oncanplaythrough = done;
+      v.onloadeddata = done;
+      v.onerror = done;
+      v.src = url;
+      v.load();
+    });
+  });
 
   await Promise.race([
-    Promise.all(jobs).then(() => undefined),
+    Promise.all(tasks).then(() => undefined),
     new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
   ]);
 }

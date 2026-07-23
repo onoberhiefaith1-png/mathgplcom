@@ -202,7 +202,7 @@ const GamePlayPage = () => {
       <main className="w-full px-4 pb-6">
         <div className="mx-auto flex w-full max-w-[1400px] gap-4 transition-all duration-300">
           <div
-            className="relative origin-top transition-all duration-300"
+            className="relative origin-top transition-all duration-300 animate-fade-in"
             style={{ width: isOpen ? "80%" : "100%" }}
           >
             <div className="pointer-events-none">
