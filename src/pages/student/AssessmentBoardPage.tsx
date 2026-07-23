@@ -184,12 +184,23 @@ const AssessmentBoardPage = () => {
         key={questionId ?? assessmentId ?? "assessment"}
         role="student"
         source={boardSource}
-        assessmentId={assessmentId ?? null}
-        classId={classId ?? null}
-        readOnly={readOnly}
-        onSubmit={showSubmit ? onSubmit : null}
-        submitLabel={status === "completed" ? "Undo Submit" : "Submit"}
+        assessmentId={assessmentId ?? undefined}
+        classId={classId ?? undefined}
       />
+      {showSubmit && (
+        <button
+          type="button"
+          onClick={onSubmit}
+          className="fixed bottom-3 right-3 z-[70] rounded-full border border-primary/50 bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:opacity-90"
+        >
+          {status === "completed" ? "Undo Submit" : "Submit"}
+        </button>
+      )}
+      {readOnly && (
+        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-border bg-background/90 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow">
+          Read-only view.
+        </div>
+      )}
       {!isAdventure && status === "completed" && !isPastDue && (
         <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1.5 text-xs font-medium text-green-700 shadow">
           Submitted — press "Undo Submit" to reopen before the due date.
