@@ -1,45 +1,59 @@
-## Problem
+## Diagnosis
 
-On the student game/adventure page, the three visual layers appear at different times:
+The student's game screen renders only the progress-bar frame (bundled asset from `src/assets/adventure/card-frames/…`) — the **background image and rewards are blank**. The prefetch fetches game data and signs URLs, but for students every `storage.createSignedUrl(...)` call on the `game-assets` bucket returns `null` because the current storage RLS is teacher-only:
 
-1. Background image loads first (or last)
-2. Reward images (progress-bar effects / slot effects) trickle in seconds later
-3. Progress bar chrome is up before its reward artwork
+```
+SELECT: bucket_id='game-assets' AND foldername[1] = auth.uid()::text  -- teacher only
+```
 
-Root cause, confirmed by reading the code:
+Students never own the folder, so signing fails → `SignedMedia` renders the empty placeholder → background + rewards stay blank while the progress-bar (which uses bundled frames, not storage) still shows. This is why the port from Gameful looked partial: same code path, but storage policies weren't opened to class members.
 
-- `SignedMedia` (`src/components/gamebuilder/SignedMedia.tsx`) always starts with `url = null` and does an async `getSignedUrl` on mount, even when the URL is already cached from prefetch. Each element mounts independently, so each fades in on its own async tick.
-- `prefetchGame` (`src/lib/games/prefetch.ts`) fetches URLs for reward effects and warms them, but `waitForSceneReady` only awaits the main element source — it does NOT wait for `progress.effectStoragePath` or `progress.slotEffects[*].effectStoragePath`. So rewards decode after the gate has already resolved.
-- `GamePlayPage` renders `GameCanvas` as soon as `waitForSceneReady` resolves, before rewards have decoded.
+Prefetch also silently drops missing URLs, so `waitForSceneReady` resolves fine and the page reveals — but there's nothing to reveal.
 
-## Fix — three small, contained changes
+## Fix (backend RLS only, additive)
 
-### 1. Synchronous cache read in the URL layer
-`src/lib/games/urls.ts`
-- Add `getCachedSignedUrl(path)` — synchronous, returns the URL if a non-expired entry exists in the existing `cache` Map, else `null`. No new state, no new cache.
+Add a second SELECT policy on `storage.objects` for the `game-assets` bucket that grants access to **any authenticated user who shares a class with the folder-owner teacher, when that teacher owns a game the class is using**. This keeps the existing teacher-only policy intact and simply widens read access to enrolled students.
 
-### 2. First-paint uses the cache
-`src/components/gamebuilder/SignedMedia.tsx`
-- In `useSignedUrl`, initialise state with `getCachedSignedUrl(path)` when `source === "storage"` (and with `path` directly when `source === "url"`). Only run the async fetch if the initial value is `null`.
-- Result: after prefetch has warmed URLs, every `<SignedMedia>` renders its real `<img>`/`<video>` on the very first render — no "empty then pop in" per element.
+Migration (additive):
 
-### 3. Extend the readiness gate to include rewards
-`src/lib/games/prefetch.ts` — `waitForSceneReady`
-- Collect URLs for every element's main source AND for `el.progress.effectStoragePath` and every `el.progress.slotEffects[*].effectStoragePath`.
-- Await image `decode()` / video `canplaythrough` for all of them (existing pattern, just applied to the extra paths).
-- Keep the existing 6s timeout as a safety net.
+```sql
+create policy "Class members read teacher game files"
+on storage.objects for select
+to authenticated
+using (
+  bucket_id = 'game-assets'
+  and exists (
+    select 1
+    from public.class_members cm
+    join public.classes c on c.id = cm.class_id
+    where cm.user_id = auth.uid()
+      and c.owner_id::text = (storage.foldername(name))[1]
+      and (
+        exists (
+          select 1 from public.class_game_boards cgb
+          join public.games g on g.id = cgb.game_id
+          where cgb.class_id = cm.class_id and g.owner_id::text = (storage.foldername(name))[1]
+        )
+        or exists (
+          select 1 from public.class_games cg
+          join public.games g on g.id = cg.game_id
+          where cg.class_id = cm.class_id and g.owner_id::text = (storage.foldername(name))[1]
+        )
+      )
+  )
+);
+```
 
-`src/pages/student/GamePlayPage.tsx`
-- No structural change. The existing "hide until `loading=false`" gate already exists; extending `waitForSceneReady` is enough to make it wait for rewards too.
-- Add a single `opacity-0 → opacity-100` fade (200ms) on the canvas wrapper the first time `loading` flips false, so the three layers appear as one visual event.
+(If `games` uses a different owner column, or `class_games`/`class_game_boards` differ, the migration is adjusted to the real columns before running — no schema changes, policy only.)
 
-## What stays untouched
+## Frontend robustness (small, targeted)
 
-- No DB schema changes.
-- No changes to `GameCanvas`, `CanvasElementView`, `ProgressColumn`, teacher pages, adventure sync, or heartbeat.
-- No behavioural change for the teacher preview — only the student play view fades in atomically.
+1. In `src/lib/games/prefetch.ts`, log a single `console.warn` when `getSignedUrls` returns fewer URLs than requested paths, so a future storage-permission regression is visible in the console instead of a silent blank canvas.
+2. No UI/layout changes. Atomic fade-in stays as it is.
 
 ## Verification
 
-- Open a student session where the game has a background + progress bar + reward. Reload. All three should appear in the same frame after the "Opening game…" spinner disappears, with a single short fade-in.
-- Toggle offline/online to confirm the cache path (second load) is instant with no per-element pop-in.
+- Sign in as a student and open `/student/class/:classId/games/:gameId/play`.
+- Confirm background image + reward assets paint together with the progress bar (single fade-in, no pop-in).
+- Network: `object/sign/game-assets/...` requests return 200 for the student.
+- Teacher-side smartboard/game editor still works unchanged (existing owner policy untouched).

@@ -69,10 +69,15 @@ export async function prefetchGame(classId: string, gameId: string): Promise<Cac
     const { data: g } = await supabase.from("games").select("*").eq("id", gameId).maybeSingle();
     if (!g) return null;
     const game = g as unknown as GameRow;
+    const paths = allPaths(game);
     const [urls, boards] = await Promise.all([
-      getSignedUrls(allPaths(game)),
+      getSignedUrls(paths),
       loadClassGameBoards(gameId, classId).catch(() => [] as GameBoard[]),
     ]);
+    const missing = paths.filter((p) => !urls[p]);
+    if (missing.length > 0) {
+      console.warn("[prefetchGame] Missing signed URLs — check storage RLS:", missing);
+    }
     const canvas = normalizeCanvas(game.canvas);
     for (const s of canvas.scenes) {
       for (const el of s.elements) {
