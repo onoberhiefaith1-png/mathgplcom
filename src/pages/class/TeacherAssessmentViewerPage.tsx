@@ -61,8 +61,6 @@ const TeacherAssessmentViewerPage = () => {
         source={source}
         assessmentId={assessmentId ?? null}
         classId={classId ?? null}
-        viewStudentId={studentId ?? null}
-        readOnly={!editMode}
       />
 
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
