@@ -5289,19 +5289,59 @@ const PresentationView = ({
             </div>
           </div>
 
-          {/* Per-line Check button — grades the current line server-side. */}
+          {/* Per-line Check menu — grades any line server-side (grade-line). */}
           {hasGuidedLines && (
-            <button
-              onClick={checkActiveLine}
-              disabled={assessChecking || activeLineIdx >= guidedLines.length}
-              className="absolute bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
-              style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
-            >
-              {assessChecking
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <CheckIcon className="h-4 w-4" />}
-              {activeLineIdx >= guidedLines.length ? "All lines solved" : `Check line ${activeLineIdx + 1}`}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  disabled={assessChecking || guidedLines.length === 0}
+                  className="absolute bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
+                  style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
+                >
+                  {assessChecking
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <CheckIcon className="h-4 w-4" />}
+                  Check
+                  <span className="opacity-70 text-xs tabular-nums">
+                    {guidedLines.reduce((n, _l, k) => {
+                      const s = slotFor(k);
+                      return n + (s && s in solvedSlots ? 1 : 0);
+                    }, 0)}/{guidedLines.length}
+                  </span>
+                  <ChevronDownIcon className="h-4 w-4 opacity-80" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top" className="min-w-[220px] z-[70]">
+                <DropdownMenuLabel>Check any line</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {guidedLines.map((ln, k) => {
+                  const slot = slotFor(k);
+                  const solved = !!slot && slot in solvedSlots;
+                  const isLast = k === guidedLines.length - 1;
+                  const label = isLast ? `Check Final Line (Line ${k + 1})` : `Check Line ${k + 1}`;
+                  return (
+                    <DropdownMenuItem
+                      key={k}
+                      onSelect={(e) => { e.preventDefault(); checkActiveLine(k); }}
+                      className="flex items-center gap-2"
+                    >
+                      <span
+                        className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
+                        style={solved
+                          ? { background: "rgba(34,197,94,0.18)", color: "#16a34a", borderColor: "rgba(34,197,94,0.5)" }
+                          : { borderColor: "currentColor", opacity: 0.55 }}
+                      >
+                        {solved ? <CheckIcon className="h-3 w-3" /> : k + 1}
+                      </span>
+                      <span className="flex-1">{label}</span>
+                      {typeof ln.marks === "number" && ln.marks > 0 && (
+                        <span className="text-[11px] opacity-60 tabular-nums">{ln.marks}m</span>
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </>
       )}
