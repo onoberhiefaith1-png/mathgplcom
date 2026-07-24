@@ -3896,7 +3896,7 @@ const PresentationView = ({
     sensorLineIdx < guidedLines.length
       ? sensorLineIdx
       : null;
-  const showPresenterChrome = isTeacher && !!notebookId;
+  const showPresenterChrome = isTeacher && (!!notebookId || assessmentMode);
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
