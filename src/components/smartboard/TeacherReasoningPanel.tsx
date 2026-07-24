@@ -1,6 +1,7 @@
-// Teacher Mathematical Reasoning Panel — debugging surface that shows, live,
-// exactly how the grader is evaluating each of the selected student's lines
-// against the answer key. Never rewrites student ink; never persists progress.
+// Teacher Mathematical Reasoning Panel — a narrow (~20%) debugging surface
+// that shows, live, how the grader evaluates the CURRENT line the student is
+// working on. It never rewrites student ink and never persists progress
+// (all grading here is a dry run).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X as XIcon, CheckCircle2, XCircle, Loader2 } from "lucide-react";
@@ -16,6 +17,7 @@ type LivePayload = {
   lineIds: Array<string | null>;
   rowsAscii: Record<number, string>;
   linesAscii: Record<string, string>;
+  floatingTokens?: Record<string, string[]>;
 };
 type Verdict = {
   correct: boolean;
@@ -28,7 +30,7 @@ const verdictLabel = (v: string): string => {
   switch (v) {
     case "equal": return "Mathematically equivalent";
     case "not_equal": return "Not mathematically equivalent";
-    case "not_in_floating_set": return "Uses tokens outside available floating numbers";
+    case "not_in_floating_set": return "Uses tokens outside the floating numbers given for this line";
     case "parse_error": return "Could not parse the student's expression";
     default: return v || "—";
   }
@@ -46,12 +48,10 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
   const [keyLines, setKeyLines] = useState<KeyLine[]>([]);
   const [progress, setProgress] = useState<{ solved_lines: Record<string, number>; score: number } | null>(null);
   const [live, setLive] = useState<LivePayload | null>(null);
-  const [selectedQid, setSelectedQid] = useState<string | null>(null);
-  const [selectedLid, setSelectedLid] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [checking, setChecking] = useState(false);
 
-  // Load assessment shape + answer key + student progress.
+  // Assessment shape + answer key + current progress.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -66,20 +66,18 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
           .maybeSingle(),
       ]);
       if (cancelled) return;
-      const qs = ((a?.questions as unknown) as QuestionShape[]) ?? [];
-      setQuestions(qs);
+      setQuestions(((a?.questions as unknown) as QuestionShape[]) ?? []);
       setKeyLines(((k?.lines as unknown) as KeyLine[]) ?? []);
-      setProgress(p ? { solved_lines: (p.solved_lines as Record<string, number>) ?? {}, score: Number(p.score ?? 0) } : { solved_lines: {}, score: 0 });
-      if (!selectedQid && qs[0]) {
-        setSelectedQid(qs[0].id);
-        setSelectedLid(qs[0].lines?.[0]?.lineId ?? null);
-      }
+      setProgress(
+        p
+          ? { solved_lines: (p.solved_lines as Record<string, number>) ?? {}, score: Number(p.score ?? 0) }
+          : { solved_lines: {}, score: 0 },
+      );
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentId, studentId]);
 
-  // Live progress updates for the awarded-marks column.
+  // Live progress updates for the awarded-marks readout.
   useEffect(() => {
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
@@ -101,7 +99,7 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [assessmentId, studentId]);
 
-  // Subscribe to the student's live board broadcast.
+  // Live board broadcast from the student's Smartboard.
   useEffect(() => {
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
@@ -118,28 +116,47 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [assessmentId, studentId]);
 
-  const selectedQ = useMemo(() => questions.find((q) => q.id === selectedQid) ?? null, [questions, selectedQid]);
-  const expectedAscii = useMemo(() => {
-    const k = keyLines.find((x) => x.questionId === selectedQid && x.lineId === selectedLid);
-    return (k?.tokens ?? []).join(" ").trim();
-  }, [keyLines, selectedQid, selectedLid]);
-  const studentAscii = useMemo(() => {
-    if (!selectedLid || !live) return "";
-    return live.linesAscii?.[selectedLid] ?? "";
-  }, [live, selectedLid]);
-  const awardedMarks = useMemo(() => {
-    if (!selectedQid || !selectedLid) return 0;
-    return Number(progress?.solved_lines?.[`${selectedQid}:${selectedLid}`] ?? 0);
-  }, [progress, selectedQid, selectedLid]);
-  const lineMarks = useMemo(() => {
-    const l = selectedQ?.lines?.find((x) => x.lineId === selectedLid);
-    return Number(l?.marks ?? 0);
-  }, [selectedQ, selectedLid]);
+  // ── The CURRENT line — always follows the student's cursor. ──────────────
+  const currentQid = live?.questionId ?? null;
+  const currentLid = useMemo(() => {
+    if (!live) return null;
+    const idx = Math.max(0, Math.floor(live.activeLineIdx ?? 0));
+    return live.lineIds?.[idx] ?? null;
+  }, [live]);
 
-  // Dry-run grade whenever the student's line changes.
+  const currentQ = useMemo(() => questions.find((q) => q.id === currentQid) ?? null, [questions, currentQid]);
+  const questionNo = useMemo(() => questions.findIndex((q) => q.id === currentQid) + 1, [questions, currentQid]);
+  const lineNo = (live?.activeLineIdx ?? 0) + 1;
+
+  const expectedAscii = useMemo(() => {
+    const k = keyLines.find((x) => x.questionId === currentQid && x.lineId === currentLid);
+    return (k?.tokens ?? []).join(" ").trim();
+  }, [keyLines, currentQid, currentLid]);
+
+  const studentAscii = useMemo(() => {
+    if (!currentLid || !live) return "";
+    return live.linesAscii?.[currentLid] ?? "";
+  }, [live, currentLid]);
+
+  const allowedTokens = useMemo(() => {
+    if (!currentLid || !live?.floatingTokens) return undefined;
+    return live.floatingTokens[currentLid];
+  }, [live, currentLid]);
+
+  const awardedMarks = useMemo(() => {
+    if (!currentQid || !currentLid) return 0;
+    return Number(progress?.solved_lines?.[`${currentQid}:${currentLid}`] ?? 0);
+  }, [progress, currentQid, currentLid]);
+
+  const lineMarks = useMemo(() => {
+    const l = currentQ?.lines?.find((x) => x.lineId === currentLid);
+    return Number(l?.marks ?? 0);
+  }, [currentQ, currentLid]);
+
+  // Dry-run grade whenever the current line's content changes.
   const debounceRef = useRef<number | null>(null);
   const runDryGrade = useCallback(async () => {
-    if (!selectedQid || !selectedLid || !studentAscii || studentAscii.trim().length === 0) {
+    if (!currentQid || !currentLid || studentAscii.trim().length === 0) {
       setVerdict(null);
       return;
     }
@@ -148,10 +165,11 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
       const { data, error } = await supabase.functions.invoke("grade-line", {
         body: {
           assessmentId,
-          questionId: selectedQid,
-          lineId: selectedLid,
+          questionId: currentQid,
+          lineId: currentLid,
           studentAscii,
           mode: "manual",
+          allowedFloatingTokens: allowedTokens,
           persist: false,
         },
       });
@@ -162,22 +180,22 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
     } finally {
       setChecking(false);
     }
-  }, [assessmentId, selectedQid, selectedLid, studentAscii]);
+  }, [assessmentId, currentQid, currentLid, studentAscii, allowedTokens]);
 
   useEffect(() => {
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(() => { void runDryGrade(); }, 300);
+    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
   }, [runDryGrade]);
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-background text-foreground">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-baseline gap-2">
-          <span className="text-lg">🧠</span>
-          <div>
-            <div className="text-sm font-semibold">Mathematical Reasoning</div>
-            <div className="text-xs text-muted-foreground">Live debug view · {studentName}</div>
+      <div className="flex items-start justify-between gap-2 border-b border-border px-3 py-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-sm font-semibold">
+            <span>🧠</span> Reasoning
           </div>
+          <div className="truncate text-[11px] text-muted-foreground">{studentName}</div>
         </div>
         <button
           type="button"
@@ -189,106 +207,70 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
         </button>
       </div>
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left: question / line picker */}
-        <aside className="w-56 flex-none overflow-y-auto border-r border-border bg-muted/20">
-          {questions.map((q, qi) => (
-            <div key={q.id} className="border-b border-border/50 py-2">
-              <div className="px-3 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground">
-                Question {qi + 1}
-              </div>
-              {q.lines.map((l, li) => {
-                const slot = `${q.id}:${l.lineId}`;
-                const awarded = Number(progress?.solved_lines?.[slot] ?? 0);
-                const isActive = selectedQid === q.id && selectedLid === l.lineId;
-                const isLive = live?.questionId === q.id && live?.lineIds?.[li] === l.lineId;
-                return (
-                  <button
-                    key={l.lineId}
-                    type="button"
-                    onClick={() => { setSelectedQid(q.id); setSelectedLid(l.lineId); }}
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors ${isActive ? "bg-primary/15 text-primary" : "hover:bg-accent"}`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      Line {li + 1}
-                      {isLive && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-label="live" />}
-                    </span>
-                    <span className={`tabular-nums ${awarded > 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
-                      {awarded}/{Number(l.marks ?? 0)}
-                    </span>
-                  </button>
-                );
-              })}
+      <div className="flex-1 min-h-0 space-y-3 overflow-y-auto p-3">
+        {!live ? (
+          <div className="text-xs text-muted-foreground">
+            Waiting for the student's board… the current line appears here as soon as they write.
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+              <span>Question {questionNo > 0 ? questionNo : "—"} · Line {lineNo}</span>
+              <span className="tabular-nums">t+{Math.max(0, Math.floor((Date.now() - live.ts) / 1000))}s</span>
             </div>
-          ))}
-        </aside>
 
-        {/* Right: reasoning detail */}
-        <section className="flex-1 min-w-0 overflow-y-auto p-5 space-y-4">
-          {!selectedQid || !selectedLid ? (
-            <div className="text-sm text-muted-foreground">Pick a line to inspect.</div>
-          ) : (
-            <>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">
-                {(() => {
-                  const qi = questions.findIndex((q) => q.id === selectedQid);
-                  const li = selectedQ?.lines.findIndex((l) => l.lineId === selectedLid) ?? -1;
-                  return `Question ${qi + 1} · Line ${li + 1}`;
-                })()}
+            <div className="rounded-lg border border-border bg-card/40 p-3">
+              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Expected line</div>
+              <pre className="whitespace-pre-wrap break-words font-mono text-sm">
+                {expectedAscii || <span className="italic text-muted-foreground">no answer key</span>}
+              </pre>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card/40 p-3">
+              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Student line (live)</div>
+              <pre className="whitespace-pre-wrap break-words font-mono text-sm">
+                {studentAscii || <span className="italic text-muted-foreground">nothing written yet</span>}
+              </pre>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">AI evaluation</div>
+              <div className="flex items-center gap-1.5 text-sm font-semibold">
+                {checking ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> checking…</>
+                ) : verdict?.correct ? (
+                  <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Equivalent</>
+                ) : verdict ? (
+                  <><XCircle className="h-4 w-4 text-red-500" /> Not equivalent</>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
               </div>
-
-              <div className="rounded-lg border border-border bg-card/40 p-4">
-                <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Expected Line</div>
-                <pre className="whitespace-pre-wrap break-words font-mono text-base text-foreground">
-                  {expectedAscii || <span className="text-muted-foreground italic">no answer key</span>}
-                </pre>
+              <div className="text-xs text-muted-foreground">
+                {verdict ? verdictLabel(verdict.verdict) : "—"}
               </div>
-
-              <div className="rounded-lg border border-border bg-card/40 p-4">
-                <div className="mb-1 flex items-center justify-between">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Student Line (live)</div>
-                  {live && <div className="text-[10px] text-muted-foreground tabular-nums">t+{Math.max(0, Math.floor((Date.now() - live.ts) / 1000))}s</div>}
-                </div>
-                <pre className="whitespace-pre-wrap break-words font-mono text-base text-foreground">
-                  {studentAscii || <span className="text-muted-foreground italic">nothing written yet</span>}
-                </pre>
+              <div className="text-xs tabular-nums">
+                Awarded <span className="font-semibold">{awardedMarks}</span>
+                <span className="text-muted-foreground">/{lineMarks}</span>
               </div>
+            </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg border border-border bg-card/40 p-3">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Equivalent?</div>
-                  <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold">
-                    {checking ? (
-                      <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> checking…</>
-                    ) : verdict?.correct ? (
-                      <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> YES</>
-                    ) : verdict ? (
-                      <><XCircle className="h-4 w-4 text-red-500" /> NO</>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </div>
+            {allowedTokens && allowedTokens.length > 0 && (
+              <div className="rounded-lg border border-border bg-card/40 p-3">
+                <div className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Floating numbers for this line
                 </div>
-                <div className="rounded-lg border border-border bg-card/40 p-3">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Reason</div>
-                  <div className="mt-1 text-xs">{verdict ? verdictLabel(verdict.verdict) : <span className="text-muted-foreground">—</span>}</div>
-                </div>
-                <div className="rounded-lg border border-border bg-card/40 p-3">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Awarded</div>
-                  <div className="mt-1 text-sm font-semibold tabular-nums">
-                    {awardedMarks}<span className="text-muted-foreground">/{lineMarks}</span>
-                  </div>
+                <div className="flex flex-wrap gap-1">
+                  {allowedTokens.map((t, i) => (
+                    <span key={`${t}-${i}`} className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px]">
+                      {t}
+                    </span>
+                  ))}
                 </div>
               </div>
-
-              {verdict?.teacherAscii && verdict.teacherAscii !== expectedAscii && (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
-                  Grader used a normalised expected: <span className="font-mono">{verdict.teacherAscii}</span>
-                </div>
-              )}
-            </>
-          )}
-        </section>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
