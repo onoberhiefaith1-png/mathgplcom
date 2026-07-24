@@ -2609,11 +2609,11 @@ const PresentationView = ({
     }
     if (matchedRow == null) return;
     const ascii = stripEqLabel(rowToAscii(freeLines[matchedRow]));
-    const eqIdx = ascii.indexOf("=");
-    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
-    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
+    // Completion is judged by mathematical content, never by the presence of
+    // an "=" sign: a line may legitimately be a bare expression.
     const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
-    if (eqIdx < 0 || !lhs || !rhs || dangling) return;
+    if (!ascii.trim() || dangling) return;
+
     setConsumedAbsIdx((prev) => {
       const next = new Set(prev);
       for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.add(i);
