@@ -257,6 +257,8 @@ const PresentationView = ({
   role = "teacher",
   source = null,
   assessmentId = null,
+  boardStudentId = null,
+  viewOnly = false,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -266,6 +268,12 @@ const PresentationView = ({
   source?: { beats: Beat[]; reservoirs: Reservoir[]; title?: string } | null;
   /** Set together with `source` to enable server-graded assessment mode. */
   assessmentId?: string | null;
+  /** Owner of the assessment board session. The student passes their own id;
+   *  a teacher reviewing "View Student Work" passes the student's id so both
+   *  sides render ONE shared board (live mirror). */
+  boardStudentId?: string | null;
+  /** Force a read-only mirror (teacher "View Only" mode). */
+  viewOnly?: boolean;
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
@@ -282,8 +290,20 @@ const PresentationView = ({
   // teacher-only chrome is shown.
   const isTeacher = role === "teacher" && !assessmentMode;
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
-  const canEdit = assessmentMode ? true : (isTeacher || isActiveStudent);
+  const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
+
+  // ── Shared assessment board session (live mirror, one state) ─────────────
+  const {
+    sessionActive: boardSessionActive,
+    incoming: boardIncoming,
+    push: pushBoardState,
+  } = useAssessmentBoardSession({
+    assessmentId,
+    studentId: boardStudentId,
+    enabled: assessmentMode && !!boardStudentId,
+  });
   const applyingRemoteRef = useRef(false);
+
   const rawBeats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
   const rawReservoirs = useMemo(() => buildReservoirs(sections), [sections]);
   // Apply the teacher's approved Preview plan (Present / Skip flags). The
