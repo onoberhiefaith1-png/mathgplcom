@@ -2951,8 +2951,17 @@ const PresentationView = ({
         toast({ title: "✓ Line verified", description: `+${res.marks ?? target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
-        toast({ title: "Error in your solution", description: "That line isn't mathematically equivalent to the expected step.", variant: "destructive" });
+        // Teaching feedback comes from the grader's verdict — never from a
+        // syntax rule about equals signs.
+        const feedback =
+          res.verdict === "not_in_floating_set"
+            ? "You used a number that wasn't given for this line. Use only the floating numbers shown."
+            : res.verdict === "parse_error"
+              ? "I couldn't read this line. Check for a missing bracket or a stray symbol."
+              : "That line isn't mathematically equivalent to the expected step.";
+        toast({ title: "Error in your solution", description: feedback, variant: "destructive" });
       }
+
     } catch (e: any) {
       toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
     } finally {
