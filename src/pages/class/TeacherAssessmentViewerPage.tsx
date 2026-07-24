@@ -59,16 +59,18 @@ const TeacherAssessmentViewerPage = () => {
   return (
     <>
       <div className="fixed inset-0 flex bg-background">
-        <div className={reasoningOpen ? "w-[20%] min-w-[240px] flex-none overflow-hidden" : "flex-1 min-w-0"}>
+        <div className={reasoningOpen ? "flex-1 min-w-0" : "flex-1 min-w-0"}>
           <PresentationView
             role="teacher"
             source={source}
             assessmentId={assessmentId ?? null}
             classId={classId ?? null}
+            boardStudentId={studentId ?? null}
+            viewOnly={!editMode}
           />
         </div>
         {reasoningOpen && assessmentId && studentId && (
-          <div className="flex-1 min-w-0">
+          <div className="w-[20%] min-w-[260px] flex-none overflow-hidden">
             <TeacherReasoningPanel
               assessmentId={assessmentId}
               studentId={studentId}
@@ -78,6 +80,7 @@ const TeacherAssessmentViewerPage = () => {
           </div>
         )}
       </div>
+
 
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
         <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 shadow-lg backdrop-blur">
