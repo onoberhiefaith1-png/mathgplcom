@@ -15,7 +15,7 @@ import {
 import {
   Plus, LogOut, Presentation, MoreVertical,
   Pencil, Copy, Trash2, Play, Sparkles,
-  Archive, Share2, Download, FolderOpen,
+  Archive, Share2, Download, FolderOpen, ArrowLeft,
 } from "lucide-react";
 
 
@@ -131,6 +131,15 @@ const LessonNotesPage = () => {
     <main className="min-h-screen bg-gradient-to-b from-[hsl(28_35%_14%)] via-[hsl(28_30%_10%)] to-[hsl(28_38%_7%)] text-foreground">
       <header className="sticky top-0 z-10 backdrop-blur-md bg-background/40 border-b border-amber-200/10">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-2 sm:gap-3 flex-wrap">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/teaching-hub"))}
+            className="text-amber-100/80 hover:text-amber-50 hover:bg-amber-200/10"
+            title="Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70">MathGPL</p>
             <h1 className="text-xl font-semibold truncate">Lesson Notes</h1>
