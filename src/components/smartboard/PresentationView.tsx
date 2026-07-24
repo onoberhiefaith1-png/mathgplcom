@@ -2986,11 +2986,9 @@ const PresentationView = ({
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) return;
     const ascii = rowToAscii(row);
-    const eqIdx = ascii.indexOf("=");
-    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
-    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
     const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
-    if (eqIdx < 0 || !lhs || !rhs || dangling) return;
+    if (!ascii.trim() || dangling) return;
+
     try {
       const { data, error } = await supabase.functions.invoke("grade-line", {
         body: {
