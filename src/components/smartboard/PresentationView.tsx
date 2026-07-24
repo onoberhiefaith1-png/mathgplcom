@@ -2946,6 +2946,16 @@ const PresentationView = ({
       });
       if (error) throw error;
       const res = data as { correct: boolean; verdict?: string; score: number; solvedLines: Record<string, number>; marks?: number };
+      broadcastCheckResultRef.current?.({
+        questionId: current.id,
+        lineId: target.lineId,
+        mode: "manual",
+        correct: !!res.correct,
+        verdict: res.verdict,
+        marks: Number(res.marks ?? 0),
+        studentAscii: ascii,
+      });
+
 
       if (res.correct) {
         setSolvedSlots(res.solvedLines ?? {});
