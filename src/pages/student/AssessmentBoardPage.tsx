@@ -180,6 +180,7 @@ const AssessmentBoardPage = () => {
         key={questionId ?? assessmentId ?? "assessment"}
         role="student"
         source={boardSource}
+        notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
         assessmentId={assessmentId ?? null}
         classId={classId ?? null}
         boardStudentId={uid}

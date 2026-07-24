@@ -3901,7 +3901,10 @@ const PresentationView = ({
     sensorLineIdx < guidedLines.length
       ? sensorLineIdx
       : null;
-  const showPresenterChrome = isTeacher && (!!notebookId || assessmentMode);
+  // Presenter Preview is available to the teacher (full) and to the student
+  // (Present mode only — never Normal mode, so answers can never leak).
+  const showPresenterChrome =
+    (isTeacher || role === "student") && (!!notebookId || assessmentMode);
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
@@ -3912,8 +3915,7 @@ const PresentationView = ({
           bottom panel) reflows with it. */}
       {showPresenterChrome && (
         <aside
-          data-sb-chrome
-          data-sb-teacher-only
+          data-sb-presenter
           className="relative flex flex-col border-r overflow-hidden"
           style={{
             width: presenterSplitOpen ? "30%" : 0,
@@ -3958,6 +3960,7 @@ const PresentationView = ({
               <div className="flex-1 min-h-0">
                 <PresenterPreviewPanel
                   notebookId={notebookId}
+                  presentOnly={!isTeacher}
                   activeBeatId={activePreviewBeatId}
                   activeLineIdx={activePreviewLineIdx}
                   placeholderColor={placeholderColor}
@@ -4032,8 +4035,7 @@ const PresentationView = ({
             style={{ left: 0, top: 0, width: 72, height: 96 }}
           />
           <button
-            data-sb-chrome
-            data-sb-teacher-only
+            data-sb-presenter
             onClick={() => { setPresenterPanelOpen((v) => !v); revealPresenterIcon(); }}
             aria-label={presenterPanelOpen ? "Close presenter preview" : "Open presenter preview"}
             title={presenterPanelOpen ? "Close presenter preview" : "Open presenter preview"}
@@ -5540,8 +5542,9 @@ const PresentationView = ({
             </div>
           </div>
 
-          {/* Per-line Check menu — grades any line server-side (grade-line). */}
-          {hasGuidedLines && (
+          {/* Per-line Check menu — grades any line server-side (grade-line).
+              Hidden entirely in View Only mode; returns in Edit mode. */}
+          {hasGuidedLines && canEdit && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

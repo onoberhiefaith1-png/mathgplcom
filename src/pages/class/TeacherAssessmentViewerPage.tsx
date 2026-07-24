@@ -32,7 +32,7 @@ const TeacherAssessmentViewerPage = () => {
       if (redirect) { navigate(redirect, { replace: true }); return; }
 
       const [{ data: a }, { data: mem }] = await Promise.all([
-        supabase.from("assessments").select("id, title, questions").eq("id", assessmentId).maybeSingle(),
+        supabase.from("assessments").select("id, title, questions, notebook_id").eq("id", assessmentId).maybeSingle(),
         supabase.rpc("get_class_member_names", { _class_id: classId }),
       ]);
       if (!a) { navigate(returnTo, { replace: true }); return; }
@@ -63,6 +63,7 @@ const TeacherAssessmentViewerPage = () => {
           <PresentationView
             role="teacher"
             source={source}
+            notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
             assessmentId={assessmentId ?? null}
             classId={classId ?? null}
             boardStudentId={studentId ?? null}
