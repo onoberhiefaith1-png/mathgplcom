@@ -172,7 +172,9 @@ const ClassAdventuresPage = () => {
       }
       g.rows.push(r);
       const seenSections = seenSectionsByNotebook.get(nbId) ?? new Set<string>();
-      const sectionKey = r.section_id ?? r.id;
+      // Dedupe on the PERMANENT question key first — two rows for the same
+      // question (from an older duplicate link) must count once.
+      const sectionKey = r.question_key ?? r.section_id ?? r.id;
       const isUniqueQuestion = !seenSections.has(sectionKey);
       if (isUniqueQuestion) {
         seenSections.add(sectionKey);
@@ -184,8 +186,14 @@ const ClassAdventuresPage = () => {
       const qNumber = typeof r.section?.order_index === "number" ? r.section.order_index + 1 : null;
       const label = qNumber ? `Question ${qNumber}` : (r.section?.title || "Question");
       if (r.section_id && isUniqueQuestion) {
-        g.questions.push({ sectionId: r.section_id, label, marks: marksBySection[r.section_id] ?? 0 });
+        g.questions.push({
+          sectionId: r.section_id,
+          questionKey: r.question_key ?? null,
+          label,
+          marks: marksBySection[r.section_id] ?? 0,
+        });
       }
+
     }
     for (const g of map.values()) {
       g.questions.sort((a, b) => {
