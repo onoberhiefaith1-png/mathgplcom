@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X as XIcon, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { rowToAscii } from "@/lib/smartboard/rowAscii";
 
 type KeyLine = { questionId: string; lineId: string; tokens: string[] };
 type QuestionShape = { id: string; lines: Array<{ lineId: string; marks?: number }> };
@@ -19,6 +20,16 @@ type LivePayload = {
   linesAscii: Record<string, string>;
   floatingTokens?: Record<string, string[]>;
 };
+type CheckPayload = {
+  ts: number;
+  questionId: string;
+  lineId: string;
+  mode: "manual" | "auto";
+  correct: boolean;
+  verdict?: string;
+  marks?: number;
+  studentAscii?: string;
+};
 type Verdict = {
   correct: boolean;
   verdict: string;
@@ -28,13 +39,16 @@ type Verdict = {
 
 const verdictLabel = (v: string): string => {
   switch (v) {
-    case "equal": return "Mathematically equivalent";
-    case "not_equal": return "Not mathematically equivalent";
-    case "not_in_floating_set": return "Uses tokens outside the floating numbers given for this line";
-    case "parse_error": return "Could not parse the student's expression";
+    case "equal": return "Mathematically equivalent to the expected step.";
+    case "not_equal": return "Not mathematically equivalent to the expected step.";
+    case "not_in_floating_set": return "Uses a token that was not in this line's floating numbers.";
+    case "parse_error": return "Could not read the expression — check brackets or stray symbols.";
     default: return v || "—";
   }
 };
+
+const atomize = (s: string): string[] =>
+  (s.match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
 
 interface Props {
   assessmentId: string;
@@ -48,58 +62,106 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
   const [keyLines, setKeyLines] = useState<KeyLine[]>([]);
   const [progress, setProgress] = useState<{ solved_lines: Record<string, number>; score: number } | null>(null);
   const [live, setLive] = useState<LivePayload | null>(null);
+  const [fallback, setFallback] = useState<LivePayload | null>(null);
+  const [fallbackAt, setFallbackAt] = useState<number | null>(null);
+  const [lastCheck, setLastCheck] = useState<CheckPayload | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [checking, setChecking] = useState(false);
+  const [, forceTick] = useState(0);
 
-  // Assessment shape + answer key + current progress.
+  const liveAtRef = useRef<number>(0);
+
+  // Repaint the freshness indicator once a second.
+  useEffect(() => {
+    const id = window.setInterval(() => forceTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Assessment shape + answer key.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [{ data: a }, { data: k }, { data: p }] = await Promise.all([
+      const [{ data: a }, { data: k }] = await Promise.all([
         supabase.from("assessments").select("questions").eq("id", assessmentId).maybeSingle(),
         supabase.from("assessment_answer_keys").select("lines").eq("assessment_id", assessmentId).maybeSingle(),
-        supabase
-          .from("assessment_progress")
-          .select("solved_lines, score")
-          .eq("assessment_id", assessmentId)
-          .eq("student_id", studentId)
-          .maybeSingle(),
       ]);
       if (cancelled) return;
       setQuestions(((a?.questions as unknown) as QuestionShape[]) ?? []);
       setKeyLines(((k?.lines as unknown) as KeyLine[]) ?? []);
-      setProgress(
-        p
-          ? { solved_lines: (p.solved_lines as Record<string, number>) ?? {}, score: Number(p.score ?? 0) }
-          : { solved_lines: {}, score: 0 },
-      );
     })();
     return () => { cancelled = true; };
-  }, [assessmentId, studentId]);
+  }, [assessmentId]);
 
-  // Live progress updates for the awarded-marks readout.
-  useEffect(() => {
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`assessment-progress-panel-${assessmentId}-${studentId}`, { config: { private: true } })
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "assessment_progress", filter: `assessment_id=eq.${assessmentId}` },
-          (payload) => {
-            const row = payload.new as { student_id?: string; solved_lines?: Record<string, number>; score?: number } | null;
-            if (!row || row.student_id !== studentId) return;
-            setProgress({ solved_lines: row.solved_lines ?? {}, score: Number(row.score ?? 0) });
-          },
-        )
-        .subscribe();
+  // ── Progress (awarded marks). Refreshed on open, on every check event and
+  // on a light interval — no private realtime channel involved. ────────────
+  const refreshProgress = useCallback(async () => {
+    const { data } = await supabase
+      .from("assessment_progress")
+      .select("solved_lines, score")
+      .eq("assessment_id", assessmentId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    setProgress({
+      solved_lines: (data?.solved_lines as Record<string, number>) ?? {},
+      score: Number(data?.score ?? 0),
     });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [assessmentId, studentId]);
 
-  // Live board broadcast from the student's Smartboard.
+  useEffect(() => {
+    void refreshProgress();
+    const id = window.setInterval(() => { void refreshProgress(); }, 4000);
+    return () => window.clearInterval(id);
+  }, [refreshProgress]);
+
+  // ── Durable fallback: the persisted board state row. Used whenever no
+  // broadcast has arrived recently (idle / offline student). ───────────────
+  const loadFallback = useCallback(async () => {
+    const { data } = await supabase
+      .from("assessment_board_state")
+      .select("state_json, question_id, active_line_idx, updated_at")
+      .eq("assessment_id", assessmentId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (!data) return;
+    const sj = (data.state_json ?? {}) as {
+      freeLines?: Record<string, unknown[]>;
+      sensor?: { line?: number };
+      activeLineIdx?: number;
+      questionId?: string | null;
+    };
+    const activeLineIdx = Math.max(0, Math.floor(data.active_line_idx ?? sj.activeLineIdx ?? 0));
+    const questionId = (data.question_id as string | null) ?? sj.questionId ?? null;
+    const rowsAscii: Record<number, string> = {};
+    for (const [k, v] of Object.entries(sj.freeLines ?? {})) {
+      const n = Number(k);
+      if (!Number.isFinite(n)) continue;
+      if (Array.isArray(v) && v.length > 0) {
+        try { rowsAscii[n] = rowToAscii(v as never); } catch { /* ignore */ }
+      }
+    }
+    const cursorRow = Math.floor(sj.sensor?.line ?? -1);
+    const cursorAscii = rowsAscii[cursorRow] ?? "";
+    setFallback({
+      ts: new Date(data.updated_at as string).getTime(),
+      questionId,
+      activeLineIdx,
+      lineIds: [],
+      rowsAscii,
+      linesAscii: cursorAscii ? { __cursor: cursorAscii } : {},
+    });
+    setFallbackAt(new Date(data.updated_at as string).getTime());
+  }, [assessmentId, studentId]);
+
+  useEffect(() => {
+    void loadFallback();
+    const id = window.setInterval(() => {
+      // Only poll while the live feed is stale.
+      if (Date.now() - liveAtRef.current > 5000) void loadFallback();
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [loadFallback]);
+
+  // ── Live board broadcast from the student's Smartboard. ──────────────────
   useEffect(() => {
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
@@ -109,24 +171,38 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
         .channel(`assessment-live-${assessmentId}-${studentId}`, { config: { broadcast: { self: false } } })
         .on("broadcast", { event: "board" }, (msg) => {
           const p = (msg as { payload?: LivePayload }).payload;
-          if (p) setLive(p);
+          if (!p) return;
+          liveAtRef.current = Date.now();
+          setLive(p);
+        })
+        .on("broadcast", { event: "check" }, (msg) => {
+          const p = (msg as { payload?: CheckPayload }).payload;
+          if (!p) return;
+          setLastCheck(p);
+          void refreshProgress();
         })
         .subscribe();
     });
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [assessmentId, studentId]);
+  }, [assessmentId, studentId, refreshProgress]);
+
+  const isLive = Date.now() - liveAtRef.current < 6000 && !!live;
+  const feed = isLive ? live : (live ?? fallback);
+  const usingFallback = !isLive && !!fallback && !live;
 
   // ── The CURRENT line — always follows the student's cursor. ──────────────
-  const currentQid = live?.questionId ?? null;
-  const currentLid = useMemo(() => {
-    if (!live) return null;
-    const idx = Math.max(0, Math.floor(live.activeLineIdx ?? 0));
-    return live.lineIds?.[idx] ?? null;
-  }, [live]);
-
+  const currentQid = feed?.questionId ?? null;
   const currentQ = useMemo(() => questions.find((q) => q.id === currentQid) ?? null, [questions, currentQid]);
   const questionNo = useMemo(() => questions.findIndex((q) => q.id === currentQid) + 1, [questions, currentQid]);
-  const lineNo = (live?.activeLineIdx ?? 0) + 1;
+  const activeIdx = Math.max(0, Math.floor(feed?.activeLineIdx ?? 0));
+  const lineNo = activeIdx + 1;
+
+  const currentLid = useMemo(() => {
+    if (!feed) return null;
+    const fromBroadcast = feed.lineIds?.[activeIdx] ?? null;
+    if (fromBroadcast) return fromBroadcast;
+    return currentQ?.lines?.[activeIdx]?.lineId ?? null;
+  }, [feed, activeIdx, currentQ]);
 
   const expectedAscii = useMemo(() => {
     const k = keyLines.find((x) => x.questionId === currentQid && x.lineId === currentLid);
@@ -134,14 +210,21 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
   }, [keyLines, currentQid, currentLid]);
 
   const studentAscii = useMemo(() => {
-    if (!currentLid || !live) return "";
-    return live.linesAscii?.[currentLid] ?? "";
-  }, [live, currentLid]);
+    if (!feed) return "";
+    if (currentLid && feed.linesAscii?.[currentLid] != null) return feed.linesAscii[currentLid];
+    return feed.linesAscii?.__cursor ?? "";
+  }, [feed, currentLid]);
 
   const allowedTokens = useMemo(() => {
-    if (!currentLid || !live?.floatingTokens) return undefined;
-    return live.floatingTokens[currentLid];
-  }, [live, currentLid]);
+    if (!currentLid || !feed?.floatingTokens) return undefined;
+    return feed.floatingTokens[currentLid];
+  }, [feed, currentLid]);
+
+  const invalidTokens = useMemo(() => {
+    if (!allowedTokens || allowedTokens.length === 0 || !studentAscii.trim()) return [];
+    const allowed = new Set(allowedTokens.flatMap(atomize));
+    return Array.from(new Set(atomize(studentAscii).filter((a) => !allowed.has(a))));
+  }, [allowedTokens, studentAscii]);
 
   const awardedMarks = useMemo(() => {
     if (!currentQid || !currentLid) return 0;
@@ -152,6 +235,12 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
     const l = currentQ?.lines?.find((x) => x.lineId === currentLid);
     return Number(l?.marks ?? 0);
   }, [currentQ, currentLid]);
+
+  // Reset the evaluation whenever the student moves to a different line —
+  // one line is one page.
+  useEffect(() => {
+    setVerdict(null);
+  }, [currentLid, currentQid]);
 
   // Dry-run grade whenever the current line's content changes.
   const debounceRef = useRef<number | null>(null);
@@ -188,6 +277,15 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
     return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
   }, [runDryGrade]);
 
+  // The check event wins when it refers to the line currently on screen.
+  const checkForThisLine =
+    lastCheck && lastCheck.questionId === currentQid && lastCheck.lineId === currentLid ? lastCheck : null;
+  const shownCorrect = checkForThisLine ? checkForThisLine.correct : verdict?.correct ?? null;
+  const shownVerdict = checkForThisLine?.verdict ?? verdict?.verdict ?? null;
+  const sourceBadge = checkForThisLine
+    ? checkForThisLine.mode === "manual" ? "student Check" : "auto check"
+    : verdict ? "live dry run" : null;
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-background text-foreground">
       <div className="flex items-start justify-between gap-2 border-b border-border px-3 py-3">
@@ -208,15 +306,23 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
       </div>
 
       <div className="flex-1 min-h-0 space-y-3 overflow-y-auto p-3">
-        {!live ? (
+        {!feed ? (
           <div className="text-xs text-muted-foreground">
-            Waiting for the student's board… the current line appears here as soon as they write.
+            Waiting for the student's board… the current line appears here as soon as they open it.
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
               <span>Question {questionNo > 0 ? questionNo : "—"} · Line {lineNo}</span>
-              <span className="tabular-nums">t+{Math.max(0, Math.floor((Date.now() - live.ts) / 1000))}s</span>
+              <span className="tabular-nums">
+                {isLive ? (
+                  <span className="text-emerald-500">live</span>
+                ) : usingFallback && fallbackAt ? (
+                  `saved ${Math.max(0, Math.floor((Date.now() - fallbackAt) / 1000))}s ago`
+                ) : (
+                  `t+${Math.max(0, Math.floor((Date.now() - (feed.ts || Date.now())) / 1000))}s`
+                )}
+              </span>
             </div>
 
             <div className="rounded-lg border border-border bg-card/40 p-3">
@@ -234,20 +340,27 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
             </div>
 
             <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">AI evaluation</div>
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">AI evaluation</div>
+                {sourceBadge && (
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {sourceBadge}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-1.5 text-sm font-semibold">
-                {checking ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> checking…</>
-                ) : verdict?.correct ? (
+                {checking && !checkForThisLine ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> Waiting…</>
+                ) : shownCorrect === true ? (
                   <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Equivalent</>
-                ) : verdict ? (
+                ) : shownCorrect === false ? (
                   <><XCircle className="h-4 w-4 text-red-500" /> Not equivalent</>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-muted-foreground">Waiting…</span>
                 )}
               </div>
               <div className="text-xs text-muted-foreground">
-                {verdict ? verdictLabel(verdict.verdict) : "—"}
+                {shownVerdict ? verdictLabel(shownVerdict) : "No line content to evaluate yet."}
               </div>
               <div className="text-xs tabular-nums">
                 Awarded <span className="font-semibold">{awardedMarks}</span>
@@ -267,6 +380,15 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
                     </span>
                   ))}
                 </div>
+                {invalidTokens.length > 0 ? (
+                  <div className="mt-2 text-[11px] text-red-500">
+                    Not in the floating set: <span className="font-mono">{invalidTokens.join(", ")}</span>
+                  </div>
+                ) : (
+                  studentAscii.trim() && (
+                    <div className="mt-2 text-[11px] text-emerald-500">Only available floating numbers used.</div>
+                  )
+                )}
               </div>
             )}
           </>
