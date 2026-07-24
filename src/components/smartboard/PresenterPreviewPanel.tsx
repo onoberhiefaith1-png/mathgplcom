@@ -173,6 +173,8 @@ export interface PresenterPreviewPanelProps {
    *  rendered as an inline badge directly on the clicked item. */
   mirrorStatus?: MirrorUiStatus | null;
   placeholderColor?: string;
+  /** Lock the panel to Present mode — Normal mode (answers) is unreachable. */
+  presentOnly?: boolean;
 }
 
 const PresenterPreviewPanel = ({
@@ -183,11 +185,14 @@ const PresenterPreviewPanel = ({
   onMirrorChange,
   mirrorStatus,
   placeholderColor = PLACEHOLDER_COLOR,
+  presentOnly = false,
 }: PresenterPreviewPanelProps) => {
   const { notebook, sections, loading } = useNotebook(notebookId ?? undefined);
 
   // ─── Mode + selection ────────────────────────────────────────────────
-  const [mode, setMode] = useState<"normal" | "edit">("normal");
+  const [modeState, setMode] = useState<"normal" | "edit">(presentOnly ? "edit" : "normal");
+  // Present-only consumers (students) can never reach Normal mode.
+  const mode: "normal" | "edit" = presentOnly ? "edit" : modeState;
   const [selection, setSelection] = useState<EditTarget | null>(null);
   const [plan, setPlan] = useState<PresentationPlan>(() => loadPlan(notebookId));
   useEffect(() => {
@@ -502,25 +507,27 @@ const PresenterPreviewPanel = ({
         <p className="text-[10px] uppercase tracking-widest" style={{ color: ACCENT }}>
           {mode === "edit" ? "Present mode — click any item to send it to the Smartboard" : "Normal mode"}
         </p>
-        <button
-          onClick={() => setMode((m) => (m === "edit" ? "normal" : "edit"))}
-          className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold hover:bg-black/5"
-          style={{
-            borderColor: mode === "edit" ? "rgba(59,130,246,0.5)" : "rgba(138,106,31,0.35)",
-            color: mode === "edit" ? "#1e40af" : INK,
-            background: mode === "edit" ? "rgba(59,130,246,0.08)" : "transparent",
-          }}
-        >
-          {mode === "edit" ? (
-            <>
-              <Check className="h-3.5 w-3.5" /> Done
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-3.5 w-3.5" /> Present
-            </>
-          )}
-        </button>
+        {!presentOnly && (
+          <button
+            onClick={() => setMode((m) => (m === "edit" ? "normal" : "edit"))}
+            className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold hover:bg-black/5"
+            style={{
+              borderColor: mode === "edit" ? "rgba(59,130,246,0.5)" : "rgba(138,106,31,0.35)",
+              color: mode === "edit" ? "#1e40af" : INK,
+              background: mode === "edit" ? "rgba(59,130,246,0.08)" : "transparent",
+            }}
+          >
+            {mode === "edit" ? (
+              <>
+                <Check className="h-3.5 w-3.5" /> Done
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" /> Present
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       <div
