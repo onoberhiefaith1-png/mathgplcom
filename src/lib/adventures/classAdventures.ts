@@ -11,6 +11,7 @@ export interface ClassAdventureNoteRow {
   class_id: string;
   notebook_id: string;
   section_id: string | null;
+  question_key: string | null;
   assigned_by: string;
   due_at: string | null;
   created_at: string;
@@ -89,7 +90,7 @@ export async function listAdventureNotes(classId: string): Promise<ClassAdventur
   const { data } = await supabase
     .from("class_adventure_notes")
     .select(
-      "id, class_id, notebook_id, section_id, assigned_by, due_at, created_at, unassigned_at, notebook:notebook_id(id, title, subtopic, subject, score_label)",
+      "id, class_id, notebook_id, section_id, question_key, assigned_by, due_at, created_at, unassigned_at, notebook:notebook_id(id, title, subtopic, subject, score_label)",
     )
     .eq("class_id", classId)
     .is("unassigned_at", null)

@@ -17,6 +17,8 @@ const TeacherAssessmentViewerPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get("returnTo") || `/teaching-hub/classes/${classId}`;
+  // Students write one board per question — mirror the same scope here.
+  const questionId = searchParams.get("q");
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
   const [studentName, setStudentName] = useState<string>("");
@@ -43,10 +45,14 @@ const TeacherAssessmentViewerPage = () => {
     })();
   }, [classId, assessmentId, studentId, navigate, returnTo]);
 
-  const source = useMemo(
-    () => (assessment ? buildAssessmentBoardSource(assessment) : null),
-    [assessment],
-  );
+  const source = useMemo(() => {
+    if (!assessment) return null;
+    if (questionId) {
+      const scoped = (assessment.questions ?? []).filter((q) => q.id === questionId);
+      if (scoped.length) return buildAssessmentBoardSource({ ...assessment, questions: scoped });
+    }
+    return buildAssessmentBoardSource(assessment);
+  }, [assessment, questionId]);
 
   if (loading || !source) {
     return (
@@ -66,7 +72,9 @@ const TeacherAssessmentViewerPage = () => {
             notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
             assessmentId={assessmentId ?? null}
             classId={classId ?? null}
+            key={questionId ?? assessmentId ?? "assessment"}
             boardStudentId={studentId ?? null}
+            boardQuestionId={questionId}
             viewOnly={!editMode}
           />
         </div>

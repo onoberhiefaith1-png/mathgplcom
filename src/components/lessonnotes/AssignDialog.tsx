@@ -23,16 +23,18 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import {
-  createAssessmentFromSubsection,
-  unassignAssessment,
-  type AssessmentKind,
-} from "@/lib/assessments/createAssessment";
+import { type AssessmentKind } from "@/lib/assessments/createAssessment";
 import { totalMarks as computeTotalMarks, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import {
-  assignAdventureNote,
-  unassignAdventureNote,
-} from "@/lib/adventures/classAdventures";
+  resolveQuestionRef,
+  loadAssignmentState,
+  assignAdventureQuestion,
+  unassignAdventureQuestion,
+  assignAssessmentQuestion,
+  unassignAssessmentQuestion,
+  syncAdventureBoards,
+  type QuestionRef,
+} from "@/lib/assignments/pipeline";
 
 type AssignTarget = "assignment" | "adventure";
 type ClassRow = {
@@ -68,7 +70,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   const [title, setTitle] = useState(defaultTitle);
   const [scoreLabel, setScoreLabel] = useState("Marks");
   const [totalMarks, setTotalMarks] = useState<number>(0);
-  const [clickedSectionId, setClickedSectionId] = useState<string | null>(null);
+  const [questionRef, setQuestionRef] = useState<QuestionRef>({ subsectionId: null, sectionId: null, questionKey: null });
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmUnassign, setConfirmUnassign] = useState<{ classId: string; className: string } | null>(null);
@@ -86,59 +88,11 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
         .order("created_at", { ascending: true });
       const classList = (rows ?? []).map((r: any) => ({ id: r.id, name: r.name ?? "Class" }));
 
-      let resolvedSectionId: string | null = null;
-      if (subsectionId) {
-        const { data: sub } = await supabase
-          .from("notebook_subsections")
-          .select("section_id")
-          .eq("id", subsectionId)
-          .maybeSingle();
-        resolvedSectionId = (sub as any)?.section_id ?? null;
-      }
-      setClickedSectionId(resolvedSectionId);
+      // Permanent question identity — survives every note edit.
+      const ref = await resolveQuestionRef(subsectionId);
+      setQuestionRef(ref);
 
-      // Existing active assignments for this exact question (section).
-      const assignmentByClass = new Map<string, string>();
-      if (resolvedSectionId && notebookId) {
-        let q = supabase
-          .from("assessments")
-          .select("id, class_id, kind, section_id, unassigned_at")
-          .eq("notebook_id", notebookId)
-          .eq("section_id", resolvedSectionId)
-          .is("unassigned_at", null);
-        const { data: existing } = await q;
-        const assessmentIds = (existing ?? []).map((r: any) => r.id as string);
-        let adventureAssessmentIds = new Set<string>();
-        if (assessmentIds.length) {
-          const { data: boards } = await supabase
-            .from("class_game_boards")
-            .select("assessment_id")
-            .in("assessment_id", assessmentIds);
-          adventureAssessmentIds = new Set((boards ?? []).map((r: any) => r.assessment_id as string));
-        }
-        for (const r of existing ?? []) {
-          const rr: any = r;
-          if (rr.kind !== "adventure" && !adventureAssessmentIds.has(rr.id)) {
-            assignmentByClass.set(rr.class_id as string, rr.id as string);
-          }
-        }
-      }
-
-      // Existing active adventure notes for this exact question (section).
-      const adventureByClass = new Map<string, string>();
-      if (notebookId) {
-        let advQ = supabase
-          .from("class_adventure_notes")
-          .select("id, class_id, section_id")
-          .eq("notebook_id", notebookId)
-          .is("unassigned_at", null);
-        if (resolvedSectionId) advQ = advQ.eq("section_id", resolvedSectionId);
-        else advQ = advQ.is("section_id", null);
-        const { data: existing } = await advQ;
-        for (const r of existing ?? []) {
-          adventureByClass.set((r as any).class_id as string, (r as any).id as string);
-        }
-      }
+      const { assignmentByClass, adventureByClass } = await loadAssignmentState(notebookId, ref);
 
       const enriched: ClassRow[] = classList.map((c) => ({
         ...c,
@@ -154,6 +108,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       );
       setSelected(new Set(preSelected));
       setInitiallySelected(new Set(preSelected));
+
 
       let nbTitle = defaultTitle;
       let nbLabel = "Marks";
@@ -250,46 +205,50 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
     }
     setBusy(true);
     try {
-      // ---- Unassign side ----
+      const touchedClasses = new Set<string>();
+
+      // ---- Unassign side (soft — the card leaves the dashboard) ----
       for (const c of toUnassign) {
         if (target === "assignment" && c.assignmentId) {
-          await unassignAssessment(c.assignmentId);
+          await unassignAssessmentQuestion(c.assignmentId);
         } else if (target === "adventure" && c.adventureId) {
-          await unassignAdventureNote(c.adventureId);
+          await unassignAdventureQuestion(c.adventureId);
         }
+        touchedClasses.add(c.id);
       }
 
-      // ---- Assign side ----
+      // ---- Assign side (idempotent — revives the same row) ----
       let ok = 0;
       const errors: string[] = [];
       const assignedIds = new Map<string, string>();
       for (const c of toAssign) {
         try {
-          if (target === "adventure") {
-            if (!notebookId || !clickedSectionId) throw new Error("no_question");
-            const id = await assignAdventureNote({
-              classId: c.id,
-              notebookId,
-              sectionId: clickedSectionId,
-            });
-            assignedIds.set(c.id, id);
-          } else {
-            if (!subsectionId) throw new Error("no_subsection");
-            const id = await createAssessmentFromSubsection({
-              subsectionId,
-              classId: c.id,
-              notebookId,
-              kind,
-              title: title.trim() || defaultTitle,
-              scoreLabel,
-            });
-            assignedIds.set(c.id, id);
-          }
+          if (!notebookId || !questionRef.sectionId) throw new Error("no_question");
+          const id = target === "adventure"
+            ? await assignAdventureQuestion({ classId: c.id, notebookId, ref: questionRef })
+            : await assignAssessmentQuestion({
+                classId: c.id,
+                notebookId,
+                ref: questionRef,
+                kind,
+                title: title.trim() || defaultTitle,
+                scoreLabel,
+              });
+          assignedIds.set(c.id, id);
+          touchedClasses.add(c.id);
           ok += 1;
         } catch (e: any) {
           errors.push(`${c.name}: ${e?.message ?? "failed"}`);
         }
       }
+
+      // Keep every linked progress bar in step with what is now assigned.
+      if (notebookId) {
+        for (const cid of touchedClasses) {
+          try { await syncAdventureBoards(cid, notebookId); } catch { /* non-fatal */ }
+        }
+      }
+
 
       if (ok > 0 || toUnassign.length > 0) {
         const unassignedIds = new Set(toUnassign.map((c) => c.id));

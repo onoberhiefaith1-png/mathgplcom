@@ -184,6 +184,7 @@ const AssessmentBoardPage = () => {
         assessmentId={assessmentId ?? null}
         classId={classId ?? null}
         boardStudentId={uid}
+        boardQuestionId={questionId}
         viewOnly={readOnly}
       />
 

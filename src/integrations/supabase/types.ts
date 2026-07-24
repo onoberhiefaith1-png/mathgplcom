@@ -329,6 +329,39 @@ export type Database = {
           },
         ]
       }
+      assessment_question_board_state: {
+        Row: {
+          active_line_idx: number
+          assessment_id: string
+          author: string | null
+          created_at: string
+          question_id: string
+          state_json: Json
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          active_line_idx?: number
+          assessment_id: string
+          author?: string | null
+          created_at?: string
+          question_id: string
+          state_json?: Json
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          active_line_idx?: number
+          assessment_id?: string
+          author?: string | null
+          created_at?: string
+          question_id?: string
+          state_json?: Json
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assessments: {
         Row: {
           assigned_at: string | null
@@ -339,6 +372,7 @@ export type Database = {
           kind: string
           notebook_id: string | null
           owner_id: string
+          question_key: string | null
           questions: Json
           score_label: string
           section_id: string | null
@@ -356,6 +390,7 @@ export type Database = {
           kind?: string
           notebook_id?: string | null
           owner_id: string
+          question_key?: string | null
           questions?: Json
           score_label?: string
           section_id?: string | null
@@ -373,6 +408,7 @@ export type Database = {
           kind?: string
           notebook_id?: string | null
           owner_id?: string
+          question_key?: string | null
           questions?: Json
           score_label?: string
           section_id?: string | null
@@ -399,6 +435,7 @@ export type Database = {
           due_at: string | null
           id: string
           notebook_id: string
+          question_key: string | null
           section_id: string | null
           unassigned_at: string | null
           updated_at: string
@@ -410,6 +447,7 @@ export type Database = {
           due_at?: string | null
           id?: string
           notebook_id: string
+          question_key?: string | null
           section_id?: string | null
           unassigned_at?: string | null
           updated_at?: string
@@ -421,6 +459,7 @@ export type Database = {
           due_at?: string | null
           id?: string
           notebook_id?: string
+          question_key?: string | null
           section_id?: string | null
           unassigned_at?: string | null
           updated_at?: string
@@ -451,6 +490,7 @@ export type Database = {
           id: string
           notebook_id: string | null
           progress_element_id: string
+          question_keys: string[]
           required_marks: number | null
           section_id: string | null
         }
@@ -462,6 +502,7 @@ export type Database = {
           id?: string
           notebook_id?: string | null
           progress_element_id: string
+          question_keys?: string[]
           required_marks?: number | null
           section_id?: string | null
         }
@@ -473,6 +514,7 @@ export type Database = {
           id?: string
           notebook_id?: string | null
           progress_element_id?: string
+          question_keys?: string[]
           required_marks?: number | null
           section_id?: string | null
         }
@@ -1473,6 +1515,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["section_kind"]
           notebook_id: string
           order_index: number
+          stable_key: string
           title: string | null
         }
         Insert: {
@@ -1481,6 +1524,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["section_kind"]
           notebook_id: string
           order_index?: number
+          stable_key?: string
           title?: string | null
         }
         Update: {
@@ -1489,6 +1533,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["section_kind"]
           notebook_id?: string
           order_index?: number
+          stable_key?: string
           title?: string | null
         }
         Relationships: [
@@ -1511,6 +1556,7 @@ export type Database = {
           id: string
           order_index: number
           section_id: string
+          stable_key: string
         }
         Insert: {
           created_at?: string
@@ -1521,6 +1567,7 @@ export type Database = {
           id?: string
           order_index?: number
           section_id: string
+          stable_key?: string
         }
         Update: {
           created_at?: string
@@ -1531,6 +1578,7 @@ export type Database = {
           id?: string
           order_index?: number
           section_id?: string
+          stable_key?: string
         }
         Relationships: [
           {
