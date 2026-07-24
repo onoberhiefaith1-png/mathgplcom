@@ -154,61 +154,75 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
   });
 }
 
-/** Replace the legacy section/subsection/block rows for `notebookId` with a
- *  fresh structure derived from the document JSON. Preserves all floating
- *  teacher state attached to subsections whose problem text is unchanged.
+/** Reconcile the legacy section/subsection/block rows for `notebookId` with
+ *  the structure derived from the document JSON.
+ *
+ *  IDENTITY IS PERMANENT:
+ *  Section and subsection rows are matched to the document and UPDATED IN
+ *  PLACE — their ids (and therefore their `stable_key`s) survive every edit,
+ *  re-save and re-generation. Class assignments, adventure links and progress
+ *  bars reference those keys, so a tick a teacher applied must never be
+ *  orphaned by a note edit. Only questions the teacher genuinely removed are
+ *  deleted; only genuinely new questions are inserted.
  *
  *  FLOATING HIGHLIGHT PERSISTENCE IS PERMANENT:
  *  `floating_highlights` is saved teacher intent, not temporary UI state.
- *  Sync/rebuild paths must never drop it; only explicit teacher actions may
- *  remove it.
+ *  Because rows are no longer recreated, floating state simply stays where it
+ *  is; nothing has to be re-paired heuristically.
  */
-interface FloatingSnapshot { highlights: any; lines: any; bucket: any }
 
-/** True when a snapshot carries real teacher state worth preserving. */
-const hasFloatingState = (f: FloatingSnapshot | undefined | null): boolean => {
-  if (!f) return false;
-  const hl = f.highlights;
-  const ln = f.lines;
-  const bk = f.bucket;
-  const hlHas = Array.isArray(hl) && hl.length > 0;
-  const lnHas = Array.isArray(ln) && ln.length > 0;
-  const bkHas = !!bk && typeof bk === "object";
-  return hlHas || lnHas || bkHas;
-};
+interface ExistingSub {
+  id: string;
+  order_index: number;
+  problem: string;
+}
+
+interface ExistingSection {
+  id: string;
+  kind: string;
+  order_index: number;
+  subs: ExistingSub[];
+}
+
+async function writeBlocks(
+  sectionId: string,
+  subsectionId: string,
+  problem: string,
+  solution: string,
+): Promise<void> {
+  await supabase.from("notebook_blocks").delete().eq("subsection_id", subsectionId);
+  await supabase.from("notebook_blocks").insert([
+    { section_id: sectionId, subsection_id: subsectionId, kind: "problem" as any, order_index: 0, content_ascii: problem },
+    { section_id: sectionId, subsection_id: subsectionId, kind: "solution" as any, order_index: 1, content_ascii: solution },
+    { section_id: sectionId, subsection_id: subsectionId, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
+  ]);
+}
 
 export async function syncDocumentToNotebook(notebookId: string, doc: any): Promise<void> {
   if (!notebookId || !doc) return;
   const parsed = parseDocumentToSections(doc);
   if (!parsed.length) return; // never wipe legacy data for an empty/unknown doc
 
-  // 1. Snapshot existing floating data. Highlights are PERMANENT teacher
-  //    intent, so we keep two ways to re-pair them after the rebuild:
-  //      (a) by normalized problem text (survives reordering), and
-  //      (b) by position — the Nth question subsection in document order
-  //          (survives problem-text edits, empty problems, and math/LaTeX
-  //          normalization drift).
-  const { data: oldSecs } = await supabase
+  // ---- 1. Load the current tree ------------------------------------------
+  const { data: secRows } = await supabase
     .from("notebook_sections")
-    .select("id, order_index")
-    .eq("notebook_id", notebookId);
-  const oldSecList = (oldSecs ?? []) as { id: string; order_index: number }[];
-  const oldSecIds = oldSecList.map((s) => s.id);
-  const secOrder = new Map<string, number>();
-  for (const s of oldSecList) secOrder.set(s.id, Number(s.order_index) || 0);
+    .select("id, kind, order_index")
+    .eq("notebook_id", notebookId)
+    .order("order_index", { ascending: true });
+  const secList = (secRows ?? []) as { id: string; kind: string; order_index: number }[];
+  const secIds = secList.map((s) => s.id);
 
-  const floatingByProblem = new Map<string, FloatingSnapshot>();
-  const floatingOrdered: FloatingSnapshot[] = [];
-  if (oldSecIds.length) {
+  const subsBySection = new Map<string, ExistingSub[]>();
+  if (secIds.length) {
     const [{ data: subs }, { data: blks }] = await Promise.all([
       supabase
         .from("notebook_subsections")
-        .select("id, section_id, order_index, floating_highlights, floating_lines, floating_bucket")
-        .in("section_id", oldSecIds),
+        .select("id, section_id, order_index")
+        .in("section_id", secIds),
       supabase
         .from("notebook_blocks")
         .select("subsection_id, kind, content_ascii")
-        .in("section_id", oldSecIds),
+        .in("section_id", secIds),
     ]);
     const problemBySub = new Map<string, string>();
     for (const b of blks ?? []) {
@@ -216,93 +230,139 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         problemBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
       }
     }
-    // Order subsections globally: section order, then subsection order. This
-    // mirrors the rebuild order so positional fallback lines up 1:1 when the
-    // structure is unchanged.
-    const orderedSubs = [...(subs ?? [])].sort((a: any, b: any) => {
-      const sa = secOrder.get(a.section_id) ?? 0;
-      const sb = secOrder.get(b.section_id) ?? 0;
-      if (sa !== sb) return sa - sb;
-      return (Number(a.order_index) || 0) - (Number(b.order_index) || 0);
-    });
-    for (const s of orderedSubs) {
-      const snap: FloatingSnapshot = {
-        highlights: (s as any).floating_highlights,
-        lines: (s as any).floating_lines,
-        bucket: (s as any).floating_bucket,
-      };
-      floatingOrdered.push(snap);
-      const problem = problemBySub.get((s as any).id) ?? "";
-      const key = normalizeProblem(problem);
-      // Only index by problem when there is real state AND no meaningful entry
-      // already exists for that key (don't let an empty dup clobber a good one).
-      if (key && hasFloatingState(snap) && !floatingByProblem.has(key)) {
-        floatingByProblem.set(key, snap);
-      }
+    for (const s of subs ?? []) {
+      const sid = (s as any).section_id as string;
+      const list = subsBySection.get(sid) ?? [];
+      list.push({
+        id: (s as any).id as string,
+        order_index: Number((s as any).order_index) || 0,
+        problem: problemBySub.get((s as any).id as string) ?? "",
+      });
+      subsBySection.set(sid, list);
     }
+    for (const list of subsBySection.values()) list.sort((a, b) => a.order_index - b.order_index);
   }
 
-  // 2. Wipe the legacy tree (cascades to subsections + blocks).
-  if (oldSecIds.length) {
-    await supabase.from("notebook_sections").delete().in("id", oldSecIds);
-  }
+  const existing: ExistingSection[] = secList.map((s) => ({
+    id: s.id,
+    kind: String(s.kind),
+    order_index: Number(s.order_index) || 0,
+    subs: subsBySection.get(s.id) ?? [],
+  }));
 
-  // 3. Rebuild from parsed structure.
-  //    `globalSubIndex` walks question subsections in the same global order as
-  //    the snapshot so positional fallback re-pairs preserved floating state.
-  let globalSubIndex = 0;
-  const usedPositions = new Set<number>();
+  // ---- 2. Match parsed sections to existing rows --------------------------
+  // Greedy, kind-aware, order-preserving: each parsed section claims the first
+  // unclaimed existing section of the same DB kind. Falls back to the first
+  // unclaimed section of any kind so a kind change (e.g. Example → Exercise)
+  // still keeps the same row — and therefore the same assignment link.
+  const unclaimed = new Set(existing.map((e) => e.id));
+  const byId = new Map(existing.map((e) => [e.id, e]));
+  const claimSection = (dbKind: string): ExistingSection | null => {
+    for (const e of existing) {
+      if (unclaimed.has(e.id) && e.kind === dbKind) { unclaimed.delete(e.id); return e; }
+    }
+    for (const e of existing) {
+      if (unclaimed.has(e.id)) { unclaimed.delete(e.id); return e; }
+    }
+    return null;
+  };
+
   for (let i = 0; i < parsed.length; i++) {
     const sec = parsed[i];
-    const { data: secRow, error: secErr } = await supabase
-      .from("notebook_sections")
-      .insert({ notebook_id: notebookId, kind: DB_KIND[sec.kind] as any, order_index: i })
-      .select("id")
-      .single();
-    if (secErr || !secRow) continue;
-    const sectionId = secRow.id as string;
+    const dbKind = DB_KIND[sec.kind];
+    let target = claimSection(dbKind);
+
+    if (target) {
+      if (target.kind !== dbKind || target.order_index !== i) {
+        await supabase
+          .from("notebook_sections")
+          .update({ kind: dbKind as any, order_index: i })
+          .eq("id", target.id);
+        target.kind = dbKind;
+        target.order_index = i;
+      }
+    } else {
+      const { data: created, error } = await supabase
+        .from("notebook_sections")
+        .insert({ notebook_id: notebookId, kind: dbKind as any, order_index: i })
+        .select("id")
+        .single();
+      if (error || !created) continue;
+      target = { id: created.id as string, kind: dbKind, order_index: i, subs: [] };
+      byId.set(target.id, target);
+    }
+
+    const sectionId = target.id;
 
     if (sec.subsections.length) {
+      // Match subsections: exact problem text first, then leftover rows in
+      // document order. Matched rows keep their id AND their floating state.
+      const pool = [...target.subs];
+      const takeByProblem = (problem: string): ExistingSub | null => {
+        const key = normalizeProblem(problem);
+        if (!key) return null;
+        const idx = pool.findIndex((p) => normalizeProblem(p.problem) === key);
+        if (idx === -1) return null;
+        return pool.splice(idx, 1)[0];
+      };
+
+      const claimed: (ExistingSub | null)[] = sec.subsections.map((s) => takeByProblem(s.problem));
+      for (let j = 0; j < claimed.length; j++) {
+        if (!claimed[j] && pool.length) claimed[j] = pool.shift()!;
+      }
+
       for (let j = 0; j < sec.subsections.length; j++) {
         const { problem, solution } = sec.subsections[j];
-        const positionIdx = globalSubIndex++;
-        // (a) exact problem match → (b) positional fallback.
-        let preserved = floatingByProblem.get(normalizeProblem(problem));
-        if (!hasFloatingState(preserved)) {
-          const byPos = floatingOrdered[positionIdx];
-          if (hasFloatingState(byPos) && !usedPositions.has(positionIdx)) {
-            preserved = byPos;
-            usedPositions.add(positionIdx);
+        let subId = claimed[j]?.id ?? null;
+        if (subId) {
+          if ((claimed[j] as ExistingSub).order_index !== j) {
+            await supabase.from("notebook_subsections").update({ order_index: j }).eq("id", subId);
           }
+        } else {
+          const { data: subRow } = await supabase
+            .from("notebook_subsections")
+            .insert({
+              section_id: sectionId,
+              order_index: j,
+              floating_highlights: null,
+              floating_lines: [],
+              floating_bucket: null,
+            })
+            .select("id")
+            .single();
+          if (!subRow) continue;
+          subId = subRow.id as string;
         }
-        const { data: subRow } = await supabase
-          .from("notebook_subsections")
-          .insert({
-            section_id: sectionId,
-            order_index: j,
-            // Never clobber real teacher state with empty. When nothing is
-            // preserved, seed neutral defaults.
-            floating_highlights: (preserved?.highlights as any) ?? null,
-            floating_lines: (preserved?.lines as any) ?? [],
-            floating_bucket: (preserved?.bucket as any) ?? null,
-          })
-          .select("id")
-          .single();
-        if (!subRow) continue;
-        await supabase.from("notebook_blocks").insert([
-          { section_id: sectionId, subsection_id: subRow.id, kind: "problem" as any, order_index: 0, content_ascii: problem },
-          { section_id: sectionId, subsection_id: subRow.id, kind: "solution" as any, order_index: 1, content_ascii: solution },
-          { section_id: sectionId, subsection_id: subRow.id, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
-        ]);
+        await writeBlocks(sectionId, subId, problem, solution);
       }
-    } else if (sec.loose.length) {
-      const rows = sec.loose.map((text, k) => ({
-        section_id: sectionId,
-        kind: "text" as any,
-        order_index: k,
-        content_ascii: text,
-      }));
-      await supabase.from("notebook_blocks").insert(rows);
+
+      // Subsections the teacher genuinely deleted.
+      if (pool.length) {
+        await supabase.from("notebook_subsections").delete().in("id", pool.map((p) => p.id));
+      }
+    } else {
+      // Loose (non-question) section — its blocks are disposable.
+      if (target.subs.length) {
+        await supabase.from("notebook_subsections").delete().in("id", target.subs.map((p) => p.id));
+      }
+      await supabase.from("notebook_blocks").delete().eq("section_id", sectionId).is("subsection_id", null);
+      if (sec.loose.length) {
+        await supabase.from("notebook_blocks").insert(
+          sec.loose.map((text, k) => ({
+            section_id: sectionId,
+            kind: "text" as any,
+            order_index: k,
+            content_ascii: text,
+          })),
+        );
+      }
+      target.subs = [];
     }
   }
+
+  // ---- 3. Sections the teacher genuinely removed ---------------------------
+  if (unclaimed.size) {
+    await supabase.from("notebook_sections").delete().in("id", Array.from(unclaimed));
+  }
 }
+
