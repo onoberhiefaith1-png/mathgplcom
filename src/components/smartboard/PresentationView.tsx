@@ -3043,6 +3043,32 @@ const PresentationView = ({
         if (!Number.isFinite(n)) continue;
         if (v && v.length > 0) rowsAscii[n] = rowToAscii(v);
       }
+      // Per-lineId ascii using the same tag-match heuristic as the grader.
+      const linesAscii: Record<string, string> = {};
+      const writtenRows = Object.keys(freeLines)
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
+        .sort((x, y) => x - y);
+      for (let k = 0; k < guidedLines.length; k++) {
+        const target = guidedLines[k];
+        if (!target?.lineId) continue;
+        const expectedFrags = (activeReservoir?.fragments ?? [])
+          .slice(target.fragmentStart, target.fragmentEnd)
+          .filter(Boolean);
+        const expectedSet = chipMultiset(expectedFrags);
+        let rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
+        if (expectedSet.size > 0 && writtenRows.length > 0) {
+          let bestRow = -1, bestScore = -1;
+          for (const n of writtenRows) {
+            const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
+            const score = multisetOverlap(expectedSet, used);
+            if (score > bestScore) { bestScore = score; bestRow = n; }
+          }
+          if (bestRow >= 0) rowNum = bestRow;
+        }
+        const row = freeLines[rowNum];
+        linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";
+      }
       const lineIds = guidedLines.map((g) => g.lineId ?? null);
       void ch.send({
         type: "broadcast",
@@ -3053,10 +3079,12 @@ const PresentationView = ({
           activeLineIdx,
           lineIds,
           rowsAscii,
+          linesAscii,
         },
       });
     }, 120);
-  }, [freeLines, activeLineIdx, assessmentMode, role, current?.id, guidedLines]);
+  }, [freeLines, activeLineIdx, assessmentMode, role, current?.id, guidedLines, activeReservoir, activeLayout]);
+
 
 
 
