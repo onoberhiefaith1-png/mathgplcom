@@ -3047,11 +3047,21 @@ const PresentationView = ({
         },
       });
       if (error) return; // silent
-      const res = data as { correct: boolean; score: number; solvedLines: Record<string, number> } | null;
+      const res = data as { correct: boolean; verdict?: string; marks?: number; score: number; solvedLines: Record<string, number> } | null;
+      broadcastCheckResultRef.current?.({
+        questionId: current.id,
+        lineId: target.lineId,
+        mode: "auto",
+        correct: !!res?.correct,
+        verdict: res?.verdict,
+        marks: Number(res?.marks ?? 0),
+        studentAscii: ascii,
+      });
       if (res?.correct) {
         setSolvedSlots(res.solvedLines ?? {});
         setAssessScore(Number(res.score ?? 0));
       }
+
     } catch {
       // silent
     }
