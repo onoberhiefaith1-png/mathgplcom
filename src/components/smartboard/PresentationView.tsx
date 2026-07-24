@@ -2917,10 +2917,18 @@ const PresentationView = ({
     try {
       // Server-authoritative per-line grader (symbolic → numeric → LLM).
       const { data, error } = await supabase.functions.invoke("grade-line", {
-        body: { assessmentId, questionId: current.id, lineId: target.lineId, studentAscii: ascii },
+        body: {
+          assessmentId,
+          questionId: current.id,
+          lineId: target.lineId,
+          studentAscii: ascii,
+          mode: "manual",
+          allowedFloatingTokens: expectedFrags,
+        },
       });
       if (error) throw error;
-      const res = data as { correct: boolean; score: number; solvedLines: Record<string, number>; marks?: number };
+      const res = data as { correct: boolean; verdict?: string; score: number; solvedLines: Record<string, number>; marks?: number };
+
       if (res.correct) {
         setSolvedSlots(res.solvedLines ?? {});
         setAssessScore(Number(res.score ?? 0));
