@@ -1,60 +1,87 @@
+## What is actually broken (verified in your data)
 
-# Complete the Teacher Reasoning Panel (only)
+I inspected the live rows for your class. The findings:
 
-Scope: only `TeacherReasoningPanel.tsx`, its data feed in `PresentationView.tsx`, and the panel slot in `TeacherAssessmentViewerPage.tsx`. No View/Edit-mode work, no new checking engine, no other feature.
+- Your lesson note currently has **3 sections**, all created at `22:03` today — every earlier section id is gone.
+- `class_adventure_notes` holds **5 active rows** for that one note. Only 2 point at sections that still exist; **3 are orphans** pointing at deleted sections.
+- The adventure assessment linked to bar `ADDIV` contains **1 question, 14 marks** — compiled at a moment when most references were orphaned.
 
-## What already exists (verified)
+Cause: `src/lib/lessonnotes/syncDocumentToNotebook.ts` **deletes every section/subsection row and re-inserts them with brand-new UUIDs on every document save** (line 247). Assignments store `section_id`. So every time you edit or even re-open/save the note:
 
-- The Reasoning button is wired: it toggles a right-side 20%-width panel that pushes the board left (`TeacherAssessmentViewerPage.tsx`), and the panel component renders Expected / Student / AI evaluation for a single line.
-- The teacher's correct line is stored server-side in the answer-key table and is the source `grade-line` compares against (the assessment on screen has 3 stored key lines). The teacher is allowed to read that key and the student's progress.
-- The student's board already broadcasts `questionId`, `activeLineIdx`, `lineIds`, per-line ASCII and per-line floating tokens; manual Check and silent auto-check both already call `grade-line`.
+1. The stored `section_id` stops matching anything → the Assign dialog can't find your assignment → **the tick disappears**.
+2. The orphan row is still "active", so the dashboard still counts it → **"3 questions / 0 marks"** (0 because the compiler finds no subsections).
+3. You tick again → a **new** row is inserted for the new section id → **5 questions** where you have 2.
 
-So the panel is not missing an engine — its feed is fragile. That is what this plan fixes.
+Nothing in the assign code can fix this — the identity it depends on is destroyed underneath it. So the pipeline gets rebuilt on a stable identity.
 
-## Problems to fix
+---
 
-1. **Panel stays on "Waiting for the student's board…"**
-   - The snapshot is sent through a ref-held channel; the send effect never re-runs when the channel finishes subscribing, so nothing is published until the student happens to type again.
-   - There is no fallback: if the student is idle, offline, or the broadcast is dropped, the panel has no data at all — even though the durable board-state row (question id, active line index, board snapshot) already exists in the database.
+## Rule 0 — Permanent tick
 
-2. **Live marks may never refresh.** The panel's progress subscription joins a *private* realtime channel, but the project currently has **no realtime authorization policies at all**, so private joins are the wrong mechanism here. The panel needs a feed that is guaranteed to work.
+A tick, once applied, survives note edits, re-saves, re-generation, reloads and time. The only way it turns off is the teacher clicking it, confirming "Remove from this class?", and applying. Un-assigning removes the card from the Adventures/Assignments dashboard. Re-assigning reuses the same row — never a second one.
 
-3. **Evaluation display is thin.** It shows equivalent / not equivalent, but not: an explicit "Waiting…" state, which tokens fell outside the line's floating set, or whether the last result came from the student's own Check vs the panel's live dry run.
+---
 
-## Implementation
+## Part 1 — Stable question identity (the foundation)
 
-### A. Make the student's feed reliable
-- Track channel readiness in state (not a ref) so the first snapshot is published as soon as the channel subscribes, and re-published on reconnect.
-- Add a small heartbeat: re-publish the current snapshot every few seconds while the student's assessment board is open, so a teacher who opens the panel mid-session immediately gets the current line.
-- When the student's manual Check or silent auto-check returns, broadcast a `check` event carrying `{ questionId, lineId, mode: "manual" | "auto", correct, verdict, marks }`.
+**Migration (additive only):**
+- `notebook_sections.stable_key uuid` and `notebook_subsections.stable_key uuid`, defaulted to `gen_random_uuid()`, unique per notebook.
+- `class_adventure_notes.question_key uuid`, `assessments.question_key uuid`, `class_game_boards.question_keys uuid[]`.
+- Backfill `stable_key` for all existing rows and copy the matching key into existing assignment rows.
+- Partial unique index: one **active** (`unassigned_at is null`) `class_adventure_notes` row per `(class_id, notebook_id, question_key)`, and the same for active `assessments`. Duplicates become impossible at the database level, not just in code.
 
-### B. Add a durable fallback source
-- On open, and whenever no broadcast has arrived for a few seconds, the panel reads the persisted board-state row for this (assessment, student) to recover `question_id`, `active_line_idx` and the line ASCII, and subscribes to row changes on that row.
-- Broadcast always wins when present; the stored row only fills the gap. The panel shows a small "live" vs "last saved Xs ago" indicator.
+**Rewrite `syncDocumentToNotebook.ts` — no more delete-and-recreate.** It becomes a reconcile:
+- Each question node in the document carries its `stable_key` as a node attribute (written back on first sync).
+- Sync matches document nodes to existing rows by `stable_key`, then falls back to problem text, then to position.
+- Matched rows are **updated in place** (ids preserved). Only genuinely new questions insert; only genuinely deleted questions delete.
+- Floating lines/highlights/buckets stay on their own row instead of being re-paired heuristically.
 
-### C. Single-line rendering (page-per-line)
-- Keep exactly one line visible: the student's current line derived from `activeLineIdx` → `lineIds[idx]`.
-- When the student moves, the panel replaces the content immediately (no history, no list) and resets the evaluation to "Waiting…".
-- Header shows `Question N · Line M`.
+This alone makes the tick permanent, because the thing the tick points at stops changing.
 
-### D. Panel content
-- **Expected Line** — the stored teacher solution for the current line (the same one `grade-line` grades against). Never generated in the panel.
-- **Student's Current Line** — mirrored verbatim, no reordering, simplification or reformatting.
-- **AI Evaluation** — `Waiting… / Equivalent / Not Equivalent`, plus:
-  - reason text mapped from the grader verdict (not equivalent, token outside the floating set, unparseable, incomplete),
-  - awarded mark vs the line's available mark,
-  - a badge showing whether the last verdict came from *live dry run*, *student Check*, or *auto check on line-leave*.
-- **Floating numbers for this line** — the allowed token chips, with any student token that is not in the allowed set highlighted as invalid.
+**One-off repair:** delete the 3 orphaned `class_adventure_notes` rows for your class, and re-key the 2 valid ones to the surviving questions, so today's dashboard shows 2 questions with real marks.
 
-### E. Marks / progress feed
-- Replace the private-channel progress subscription with the same authenticated path the rest of the panel uses: refresh the student's progress row on each incoming `check` event and on a light interval while the panel is open, so the awarded mark updates the moment a line is credited.
-- No grading is performed by the panel itself with persistence — panel grading stays a dry run (`persist: false`); marks are only ever written by the student's Check or auto-check, exactly as today.
+---
 
-### F. Panel shell
-- Keep the 20% width, min width, close button, and the push-not-overlay layout already in place; add a scroll-free compact layout since only one line is shown.
+## Part 2 — Delete and replace the assign pipeline
 
-## Out of scope
-View Only / Edit mode behaviour, co-editing, reports, presenter-preview changes, progress-circle redesign, and any change to the equivalence engine or the grade-line contract beyond reading it.
+Removed: the current lookup/insert logic in `AssignDialog.tsx`, `assignAdventureNote` in `classAdventures.ts`, and the delete-then-recreate block in `LinkAdventureDialog.tsx`.
 
-## Verification
-- Open a student board and the teacher viewer side by side in the preview: confirm the panel populates within ~1s of opening (even with an idle student), follows line changes, mirrors ink verbatim, flags an out-of-set token, and updates the awarded mark right after the student presses Check.
+New `src/lib/assignments/pipeline.ts` — single source of truth for the whole flow:
+- `loadAssignmentState(notebookId, questionKey)` → which classes are ticked, for both Assignment and Adventure targets, keyed by `question_key`.
+- `assign(...)` → idempotent upsert on `(class_id, notebook_id, question_key)`; if a soft-unassigned row exists it is revived, never duplicated.
+- `unassign(...)` → sets `unassigned_at`, which drops the card off the dashboard immediately.
+- `syncAdventureBoard(...)` → recompiles the linked assessment **in place** (same assessment id) from the currently active question keys, instead of delete + insert. Marks and question counts follow the note automatically.
+
+The Assign dialog keeps its look; it just reads and writes through this module and shows the "Remove from this class?" confirmation on untick.
+
+---
+
+## Part 3 — Linking to a progress bar
+
+- A bar link stores the list of `question_keys` it covers.
+- Re-opening "Link to Adventure" shows the existing selection already ticked.
+- Re-linking updates the existing `class_game_boards` + `assessments` rows; it never creates a parallel copy.
+- Question count and marks on the Adventures card come from the active question keys, so "5 questions / 0 marks" cannot recur.
+
+---
+
+## Part 4 — Student side: all questions, each on its own board
+
+- The right-hand panel opened by clicking a progress bar lists **every** question attached to that bar (currently it shows one because the assessment was compiled with one).
+- Each question row shows its number, marks and completion state, and is clickable.
+- Clicking opens `/student/class/:classId/assessment/:assessmentId?q=<questionId>` — a **separate board session per question**.
+- **Board state migration (additive):** new table `assessment_question_board_state` keyed on `(assessment_id, student_id, question_id)` with the same grants/RLS shape as today's table. `useAssessmentBoardSession` and the teacher's live-mirror read/write this. The old table stays untouched.
+- Realtime channel names include the question id, so the teacher's live mirror follows the exact question the student is on and **the previous question's working never bleeds into the next one**.
+
+---
+
+## Verification before I report done
+
+1. Assign 2 questions → edit and re-save the lesson note several times → reopen Assign: both still ticked, dashboard still shows 2 questions with correct marks.
+2. Untick one, confirm removal → card leaves the dashboard → re-tick → still 2 questions, no duplicate rows (checked directly in the database).
+3. Link to a bar twice in a row → exactly one `class_game_boards` row and one assessment.
+4. As a student in a real browser session: click the bar → panel lists both questions → open Q1, write, go back, open Q2 → Q2's board is empty; return to Q1 → its work is intact.
+
+## Technical notes
+
+Additive migrations only; no existing table or column is modified or dropped. The Smartboard, Game Editor and all current layouts stay as they are — the changes are in identity, assignment persistence, and the student question panel/routing.
