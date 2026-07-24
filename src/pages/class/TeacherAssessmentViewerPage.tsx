@@ -59,7 +59,7 @@ const TeacherAssessmentViewerPage = () => {
   return (
     <>
       <div className="fixed inset-0 flex bg-background">
-        <div className={reasoningOpen ? "flex-1 min-w-0" : "flex-1 min-w-0"}>
+        <div className="relative flex-1 min-w-0">
           <PresentationView
             role="teacher"
             source={source}

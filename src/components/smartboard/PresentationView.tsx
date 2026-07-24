@@ -3969,7 +3969,7 @@ const PresentationView = ({
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
-    <div className="fixed inset-0 flex overflow-hidden" style={{ background: palette.background }}>
+    <div className="absolute inset-0 flex overflow-hidden" style={{ background: palette.background }}>
       {/* Presenter Preview — 30% split pane (teacher only). Not an overlay:
           it lives as a flex sibling so the Smartboard container shrinks to
           fill the remaining space and every child (chrome, toolbars,
