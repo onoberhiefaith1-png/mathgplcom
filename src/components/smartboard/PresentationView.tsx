@@ -3096,6 +3096,7 @@ const PresentationView = ({
   // teacher Reasoning Panel can display it live. Broadcast-only (no DB
   // writes). Uses a per-(assessment, student) private channel.
   const liveBroadcastChanRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [liveChanReady, setLiveChanReady] = useState(false);
   useEffect(() => {
     if (!assessmentMode || !assessmentId || role !== "student" || !selfId) return;
     let cancelled = false;
@@ -3103,11 +3104,15 @@ const PresentationView = ({
     void ensureRealtimeAuth().then(() => {
       if (cancelled) return;
       const ch = supabase.channel(chanName, { config: { broadcast: { self: false } } });
-      ch.subscribe();
+      ch.subscribe((status) => {
+        if (cancelled) return;
+        setLiveChanReady(status === "SUBSCRIBED");
+      });
       liveBroadcastChanRef.current = ch;
     });
     return () => {
       cancelled = true;
+      setLiveChanReady(false);
       if (liveBroadcastChanRef.current) {
         supabase.removeChannel(liveBroadcastChanRef.current);
         liveBroadcastChanRef.current = null;
@@ -3115,67 +3120,89 @@ const PresentationView = ({
     };
   }, [assessmentMode, assessmentId, role, selfId]);
 
-  // Push a snapshot on every board change (debounced).
+  // Build the snapshot the reasoning panel needs. Values are preserved
+  // verbatim — never normalised or reordered.
+  const buildLiveSnapshot = useCallback(() => {
+    const rowsAscii: Record<number, string> = {};
+    for (const [k, v] of Object.entries(freeLines)) {
+      const n = Number(k);
+      if (!Number.isFinite(n)) continue;
+      if (v && v.length > 0) rowsAscii[n] = rowToAscii(v);
+    }
+    const linesAscii: Record<string, string> = {};
+    const floatingTokens: Record<string, string[]> = {};
+    const writtenRows = Object.keys(freeLines)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
+      .sort((x, y) => x - y);
+    for (let k = 0; k < guidedLines.length; k++) {
+      const target = guidedLines[k];
+      if (!target?.lineId) continue;
+      const expectedFrags = (activeReservoir?.fragments ?? [])
+        .slice(target.fragmentStart, target.fragmentEnd)
+        .filter(Boolean);
+      floatingTokens[target.lineId] = expectedFrags;
+      const expectedSet = chipMultiset(expectedFrags);
+      let rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
+      if (expectedSet.size > 0 && writtenRows.length > 0) {
+        let bestRow = -1, bestScore = -1;
+        for (const n of writtenRows) {
+          const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
+          const score = multisetOverlap(expectedSet, used);
+          if (score > bestScore) { bestScore = score; bestRow = n; }
+        }
+        if (bestRow >= 0) rowNum = bestRow;
+      }
+      const row = freeLines[rowNum];
+      linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";
+    }
+    return {
+      ts: Date.now(),
+      questionId: current?.id ?? null,
+      activeLineIdx,
+      lineIds: guidedLines.map((g) => g.lineId ?? null),
+      rowsAscii,
+      linesAscii,
+      floatingTokens,
+    };
+  }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx]);
+
+  const publishLiveSnapshot = useCallback(() => {
+    const ch = liveBroadcastChanRef.current;
+    if (!ch || !liveChanReady) return;
+    void ch.send({ type: "broadcast", event: "board", payload: buildLiveSnapshot() });
+  }, [liveChanReady, buildLiveSnapshot]);
+
+  // Push a snapshot on every board change (debounced) — and immediately once
+  // the channel is ready so a teacher joining mid-session sees the line.
   const liveBroadcastTimer = useRef<number | null>(null);
   useEffect(() => {
-    if (!assessmentMode || role !== "student") return;
-    const ch = liveBroadcastChanRef.current;
-    if (!ch) return;
+    if (!assessmentMode || role !== "student" || !liveChanReady) return;
     if (liveBroadcastTimer.current) window.clearTimeout(liveBroadcastTimer.current);
-    liveBroadcastTimer.current = window.setTimeout(() => {
-      // Serialise only what the reasoning panel needs. Preserve keys/values
-      // verbatim — never normalise or reorder.
-      const rowsAscii: Record<number, string> = {};
-      for (const [k, v] of Object.entries(freeLines)) {
-        const n = Number(k);
-        if (!Number.isFinite(n)) continue;
-        if (v && v.length > 0) rowsAscii[n] = rowToAscii(v);
-      }
-      // Per-lineId ascii using the same tag-match heuristic as the grader.
-      const linesAscii: Record<string, string> = {};
-      const floatingTokens: Record<string, string[]> = {};
-      const writtenRows = Object.keys(freeLines)
-        .map(Number)
-        .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
-        .sort((x, y) => x - y);
-      for (let k = 0; k < guidedLines.length; k++) {
-        const target = guidedLines[k];
-        if (!target?.lineId) continue;
-        const expectedFrags = (activeReservoir?.fragments ?? [])
-          .slice(target.fragmentStart, target.fragmentEnd)
-          .filter(Boolean);
-        floatingTokens[target.lineId] = expectedFrags;
-        const expectedSet = chipMultiset(expectedFrags);
-        let rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
-        if (expectedSet.size > 0 && writtenRows.length > 0) {
-          let bestRow = -1, bestScore = -1;
-          for (const n of writtenRows) {
-            const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
-            const score = multisetOverlap(expectedSet, used);
-            if (score > bestScore) { bestScore = score; bestRow = n; }
-          }
-          if (bestRow >= 0) rowNum = bestRow;
-        }
-        const row = freeLines[rowNum];
-        linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";
-      }
-      const lineIds = guidedLines.map((g) => g.lineId ?? null);
-      void ch.send({
-        type: "broadcast",
-        event: "board",
-        payload: {
-          ts: Date.now(),
-          questionId: current?.id ?? null,
-          activeLineIdx,
-          lineIds,
-          rowsAscii,
-          linesAscii,
-          floatingTokens,
-        },
-      });
+    liveBroadcastTimer.current = window.setTimeout(() => { publishLiveSnapshot(); }, 120);
+    return () => { if (liveBroadcastTimer.current) window.clearTimeout(liveBroadcastTimer.current); };
+  }, [assessmentMode, role, liveChanReady, publishLiveSnapshot]);
 
-    }, 120);
-  }, [freeLines, activeLineIdx, assessmentMode, role, current?.id, guidedLines, activeReservoir, activeLayout]);
+  // Heartbeat — keeps a late-opening reasoning panel populated even when the
+  // student is idle.
+  useEffect(() => {
+    if (!assessmentMode || role !== "student" || !liveChanReady) return;
+    const id = window.setInterval(() => { publishLiveSnapshot(); }, 4000);
+    return () => window.clearInterval(id);
+  }, [assessmentMode, role, liveChanReady, publishLiveSnapshot]);
+
+  // Broadcast the outcome of a real (persisting) check so the reasoning panel
+  // can show what the student actually scored, and from which path.
+  const broadcastCheckResult = useCallback(
+    (info: { questionId: string; lineId: string; mode: "manual" | "auto"; correct: boolean; verdict?: string; marks?: number; studentAscii?: string }) => {
+      const ch = liveBroadcastChanRef.current;
+      if (!ch || !liveChanReady) return;
+      void ch.send({ type: "broadcast", event: "check", payload: { ...info, ts: Date.now() } });
+    },
+    [liveChanReady],
+  );
+  broadcastCheckResultRef.current = broadcastCheckResult;
+
 
 
 
