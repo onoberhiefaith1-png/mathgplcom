@@ -1,57 +1,33 @@
-## Problem
+## Goal
 
-Back buttons currently do `navigate(-1)` (or hard-coded parent links). When a page calls `navigate("/somewhere")` on mount (auth checks, redirects, "Back to X" links that push a new entry, dashboard cards linking to a sibling), the browser history becomes:
+1. Students get the Presenter Preview panel on their Smartboard — but **Present mode only**, never Normal mode (no answers).
+2. Teacher "View Student Work" shows the Preview too (already teacher-enabled), and the **Check** button disappears in View Only mode, returning when Edit mode is on.
 
-```
-A → B → C → B(push again)
-```
+## Current state (verified)
 
-so pressing Back yields C → B → C → B — the loop the user is seeing.
+- `PresenterPreviewPanel.tsx` holds `mode: "normal" | "edit"` (line 190). Confusingly, `"edit"` is the **Present mode** ("click any item to send it to the Smartboard") and `"normal"` is the answers view. A toolbar toggle at lines 495–524 flips between them; default is `"normal"`.
+- `PresentationView.tsx` line 294: `showPresenterChrome = isTeacher && (!!notebookId || assessmentMode)` — the 30% split pane and the top-left icon are teacher-only.
+- The per-line **Check** pill (bottom-right, lines ~5543+) renders whenever `hasGuidedLines` is true, regardless of `viewOnly`.
+- `TeacherAssessmentViewerPage.tsx` passes `viewOnly={!editMode}` but no `notebookId`; `AssessmentBoardPage.tsx` passes no `notebookId` either, though the assessment row already selects `notebook_id`.
 
-`navigate(-1)` cannot fix this because it only replays browser history, which already contains the duplicate push. We need our own stack that records genuine forward navigations and pops one entry per Back press.
+## Changes
 
-## Solution: app-wide NavHistory context + shared BackButton
+**1. `PresenterPreviewPanel.tsx` — present-only lock**
+- Add prop `presentOnly?: boolean`.
+- When true: initialise `mode` to `"edit"` (Present), ignore/force it so it can never become `"normal"`, and hide the mode toggle button. Header label reads "Present mode — click any item to send it to the Smartboard".
+- Every `mode === "normal"` branch (answer equations at line 719, `AiEditButton` at 802, the normal-mode block at 467) stays off automatically, so no solutions leak.
 
-### 1. New `src/lib/nav/NavHistory.tsx`
+**2. `PresentationView.tsx` — student access + Check gating**
+- Change the chrome gate to `showPresenterChrome = (isTeacher || role === "student") && (!!notebookId || assessmentMode)`. Same top-left icon (10s auto-hide) and same 30% split pane for both roles.
+- Pass `presentOnly={!isTeacher}` to `PresenterPreviewPanel`.
+- Keep the `data-sb-teacher-only` attribute off the student-visible instances so existing teacher-only hiding rules don't strip it.
+- Wrap the bottom-right **Check** pill (and its dropdown) in `canEdit` so it is hidden whenever `viewOnly` is on, and reappears in Edit mode. Students in a live assignment keep it (they are not view-only).
 
-- React context holding `stack: string[]` (pathname + search).
-- `NavHistoryProvider` wraps `<Routes>` inside `BrowserRouter` (in `src/App.tsx`).
-- Uses `useLocation()` + `useNavigationType()`:
-  - `PUSH` → append current location to stack (dedupe if same as top).
-  - `POP` (browser back/forward) → pop top.
-  - `REPLACE` → replace top (so redirect pages don't add an entry).
-- Exposes `useNavHistory()` returning `{ canGoBack, goBack(fallback) }`.
-  - `goBack(fallback)` pops the top entry and `navigate(-1)` when possible; if the stack has ≤1 entry, `navigate(fallback, { replace: true })`.
+**3. Wire the notebook id so the preview has content**
+- `AssessmentBoardPage.tsx`: pass `notebookId={assessment.notebook_id}` to `PresentationView`.
+- `TeacherAssessmentViewerPage.tsx`: fetch/pass the assessment's `notebook_id` the same way so the teacher's preview panel loads on that page too.
 
-### 2. Shared `src/components/common/BackButton.tsx`
+## Notes
 
-Thin wrapper around `useNavHistory().goBack(fallback)` with the same visual style already used in headers (icon + optional label). Accepts a `fallback` prop for direct-entry cases (e.g. Lesson Notes → `/teaching-hub`).
-
-### 3. Replace ad-hoc Back handlers
-
-Swap the existing back handlers to use `BackButton` / `goBack`. These are the current call sites found:
-
-- `src/pages/LessonNotesPage.tsx` (header Back — fallback `/teaching-hub`)
-- `src/pages/floating/VerificationPage.tsx`
-- `src/pages/floating/ReasoningPage.tsx`
-- `src/components/smartboard/TopBar.tsx`
-- `src/components/smartboard/PresentationView.tsx` (line ~5465)
-- Class pages that use `<Link to="…">` styled as Back (e.g. `ClassLessonNotesPage.tsx` "← Class") — convert to `BackButton fallback={parentPath}`.
-
-Non-back `navigate(..., { replace: true })` redirects (auth gates, "not found" bounces) stay as-is because `REPLACE` doesn't grow the stack.
-
-### 4. Why this fixes the loop
-
-When a page pushes its parent (e.g. dashboard card → detail → "Back" link that pushes parent again), our stack still records only the real forward moves. `goBack` pops one stack entry and navigates to the previous real location — never bouncing between two adjacent entries.
-
-### Out of scope
-
-- No route table changes.
-- No changes to auth redirect logic.
-- No visual redesign of headers.
-
-## Verification
-
-- Manual: A → B → C → D, press Back four times, land on A.
-- Manual: open C directly (fresh tab) → Back uses the provided fallback route.
-- `tsgo` typecheck for new files.
+- No backend/schema changes; nothing about grading logic changes — the Check button is only hidden, not removed.
+- Auto-silent line checking stays as-is.
