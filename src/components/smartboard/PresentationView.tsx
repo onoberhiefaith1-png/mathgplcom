@@ -3060,8 +3060,10 @@ const PresentationView = ({
 
 
 
+  // Structures the carrier should expose — current line first, then anything
   // still needed in upcoming lines. Used structures stay visible (just dim)
   // because the same fraction bar / radical may recur many times.
+
   const requiredStructures = useMemo<ContainerKind[]>(() => {
     const seen = new Set<ContainerKind>();
     const out: ContainerKind[] = [];
