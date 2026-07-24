@@ -102,16 +102,18 @@ Deno.serve(async (req) => {
     if (!correct) return json({ error: "key_not_found" }, 404);
     const teacherAscii = (correct.tokens ?? []).join(" ").trim();
 
-    // Floating-set enforcement — auto mode only. Student atoms (numbers +
-    // variable identifiers) must be a subset of the line's available chips.
+    // Floating-set enforcement. Student atoms (numbers + variable identifiers)
+    // must be a subset of the line's available chips. Applied in BOTH modes:
+    // a student can never invent a token that wasn't floated to them.
     let inFloatingSet = true;
-    if (mode === "auto" && Array.isArray(allowedFloatingTokens) && allowedFloatingTokens.length > 0) {
+    if (Array.isArray(allowedFloatingTokens) && allowedFloatingTokens.length > 0) {
       const atomize = (s: string): string[] =>
         (s.match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
       const allowed = new Set(allowedFloatingTokens.flatMap(atomize));
       const used = atomize(studentAscii);
       inFloatingSet = used.every((a) => allowed.has(a));
     }
+
 
     const verdict = inFloatingSet ? await equivalent(teacherAscii, studentAscii) : "not_in_floating_set";
     const isCorrect = inFloatingSet && verdict === "equal";
