@@ -3026,6 +3026,51 @@ const PresentationView = ({
     }
   }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine]);
 
+  // ── SHARED SESSION: apply the other side's board snapshot ────────────────
+  // The student's board and the teacher's "View Student Work" board are ONE
+  // session. Whoever authored the snapshot skips its own echo.
+  useEffect(() => {
+    if (!boardSessionActive || !boardIncoming) return;
+    if (boardIncoming.author && selfId && boardIncoming.author === selfId) return;
+    applyingRemoteRef.current = true;
+    if (typeof boardIncoming.beatCursor === "number") setBeatCursor(boardIncoming.beatCursor);
+    if (boardIncoming.bandExtra) setBandExtra(boardIncoming.bandExtra);
+    if (boardIncoming.freeLines) setFreeLines(boardIncoming.freeLines as FreeLineMap);
+    if (boardIncoming.lineOffsets) setLineOffsets(boardIncoming.lineOffsets);
+    if (boardIncoming.smartLines) setSmartLines(boardIncoming.smartLines as SmartLine[]);
+    if (boardIncoming.boxes) setBoxes(boardIncoming.boxes as MagnetBox[]);
+    if (boardIncoming.sensor) setSensor(boardIncoming.sensor);
+    if (typeof boardIncoming.zoom === "number") setZoom(boardIncoming.zoom);
+    if (boardIncoming.surface) setSurface(boardIncoming.surface as Surface);
+    if (boardIncoming.profileId) setProfileId(boardIncoming.profileId as WritingProfileId);
+    if (boardIncoming.inkColorId) setInkColorId(boardIncoming.inkColorId as InkColorId);
+    if (boardIncoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(boardIncoming.placeholderColorId));
+    if (typeof boardIncoming.activeLineIdx === "number") {
+      setActiveLineIdx(boardIncoming.activeLineIdx);
+      setFloatingLineIdx(boardIncoming.activeLineIdx);
+    }
+    const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
+    return () => window.clearTimeout(t);
+  }, [boardIncoming, boardSessionActive, selfId]);
+
+  // ── SHARED SESSION: publish our board while we hold edit rights ──────────
+  useEffect(() => {
+    if (!boardSessionActive || !canEdit) return;
+    if (applyingRemoteRef.current) return;
+    pushBoardState({
+      beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+      sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+      activeLineIdx, questionId: current?.id ?? null,
+    });
+  }, [
+    boardSessionActive, canEdit, pushBoardState,
+    beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+    sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+    activeLineIdx, current?.id,
+  ]);
+
+
+
   // ── LIVE MIRROR TO TEACHER — broadcast the student's board state so the
   // teacher Reasoning Panel can display it live. Broadcast-only (no DB
   // writes). Uses a per-(assessment, student) private channel.
