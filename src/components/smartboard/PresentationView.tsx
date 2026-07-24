@@ -3960,6 +3960,7 @@ const PresentationView = ({
               <div className="flex-1 min-h-0">
                 <PresenterPreviewPanel
                   notebookId={notebookId}
+                  presentOnly={!isTeacher}
                   activeBeatId={activePreviewBeatId}
                   activeLineIdx={activePreviewLineIdx}
                   placeholderColor={placeholderColor}
