@@ -37,10 +37,15 @@ export type AssessBoardSnapshot = AssessBoardState & {
 export function useAssessmentBoardSession(opts: {
   assessmentId?: string | null;
   studentId?: string | null;
+  /** When set, the board is scoped to ONE question — each question gets its
+   *  own independent board so a previous solution can never bleed into the
+   *  next question. */
+  questionId?: string | null;
   enabled: boolean;
 }) {
-  const { assessmentId, studentId, enabled } = opts;
+  const { assessmentId, studentId, questionId = null, enabled } = opts;
   const active = enabled && !!assessmentId && !!studentId;
+  const perQuestion = !!questionId;
 
   const [selfId, setSelfId] = useState<string | null>(null);
   const [incoming, setIncoming] = useState<AssessBoardSnapshot | null>(null);
@@ -62,27 +67,35 @@ export function useAssessmentBoardSession(opts: {
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
-    supabase
-      .from("assessment_board_state")
-      .select("state_json, author, updated_at")
-      .eq("assessment_id", assessmentId!)
-      .eq("student_id", studentId!)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled || !data?.state_json) return;
-        const sj = data.state_json as unknown;
-        if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
-          setIncoming(sj as AssessBoardSnapshot);
-        }
-      });
+    const query = perQuestion
+      ? supabase
+          .from("assessment_question_board_state")
+          .select("state_json, author, updated_at")
+          .eq("assessment_id", assessmentId!)
+          .eq("student_id", studentId!)
+          .eq("question_id", questionId!)
+          .maybeSingle()
+      : supabase
+          .from("assessment_board_state")
+          .select("state_json, author, updated_at")
+          .eq("assessment_id", assessmentId!)
+          .eq("student_id", studentId!)
+          .maybeSingle();
+    query.then(({ data }) => {
+      if (cancelled || !data?.state_json) return;
+      const sj = data.state_json as unknown;
+      if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
+        setIncoming(sj as AssessBoardSnapshot);
+      }
+    });
     return () => { cancelled = true; };
-  }, [active, assessmentId, studentId]);
+  }, [active, assessmentId, studentId, questionId, perQuestion]);
 
   // Live channel.
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
-    const name = `assessment-board-${assessmentId}-${studentId}`;
+    const name = `assessment-board-${assessmentId}-${studentId}${questionId ? `-${questionId}` : ""}`;
     void ensureRealtimeAuth().then(() => {
       if (cancelled) return;
       const ch = supabase
@@ -101,7 +114,7 @@ export function useAssessmentBoardSession(opts: {
         chanRef.current = null;
       }
     };
-  }, [active, assessmentId, studentId]);
+  }, [active, assessmentId, studentId, questionId]);
 
   const push = useCallback((state: AssessBoardState) => {
     if (!active || !selfId) return;
@@ -122,6 +135,24 @@ export function useAssessmentBoardSession(opts: {
     // Durable path — debounced upsert.
     if (dbTimer.current) window.clearTimeout(dbTimer.current);
     dbTimer.current = window.setTimeout(() => {
+      const activeLine = Math.max(0, Math.floor(state.activeLineIdx ?? 0));
+      if (perQuestion) {
+        void supabase
+          .from("assessment_question_board_state")
+          .upsert(
+            {
+              assessment_id: assessmentId!,
+              student_id: studentId!,
+              question_id: questionId!,
+              state_json: snapshot as never,
+              active_line_idx: activeLine,
+              author: selfId,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "assessment_id,student_id,question_id" },
+          );
+        return;
+      }
       void supabase
         .from("assessment_board_state")
         .upsert(
@@ -130,14 +161,15 @@ export function useAssessmentBoardSession(opts: {
             student_id: studentId!,
             state_json: snapshot as never,
             question_id: state.questionId,
-            active_line_idx: Math.max(0, Math.floor(state.activeLineIdx ?? 0)),
+            active_line_idx: activeLine,
             author: selfId,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "assessment_id,student_id" },
         );
     }, 1200);
-  }, [active, assessmentId, studentId, selfId]);
+  }, [active, assessmentId, studentId, questionId, perQuestion, selfId]);
+
 
   useEffect(() => () => {
     if (bcTimer.current) window.clearTimeout(bcTimer.current);
