@@ -136,46 +136,77 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
 
       const compiled = await compileQuestionSections(sectionIds);
       if (compiled.questions.length === 0) throw new Error("no_questions");
+      const questionKeys = questions.map((q) => q.questionKey).filter(Boolean) as string[];
 
       const { data: existing } = await supabase
         .from("class_game_boards")
         .select("id, assessment_id")
         .eq("class_id", classId).eq("game_id", gameId).eq("progress_element_id", barElementId)
         .maybeSingle();
-      if (existing?.assessment_id) {
-        await supabase.from("assessments").delete().eq("id", (existing as any).assessment_id);
-        await supabase.from("class_game_boards").delete().eq("id", (existing as any).id);
+
+      // UPDATE IN PLACE — never delete + recreate, so a re-link can't produce a
+      // second assessment (the source of duplicated questions).
+      let assessmentId = (existing as any)?.assessment_id as string | undefined;
+      if (assessmentId) {
+        const { error: updErr } = await supabase
+          .from("assessments")
+          .update({
+            notebook_id: notebookId,
+            title: `${chosenGame?.title ?? "Adventure"} — ${barLabel}`,
+            score_label: lbl,
+            total_marks: compiled.total,
+            questions: compiled.questions as never,
+            unassigned_at: null,
+          } as never)
+          .eq("id", assessmentId);
+        if (updErr) throw new Error(updErr.message);
+        await supabase.from("assessment_answer_keys").delete().eq("assessment_id", assessmentId);
+        await supabase
+          .from("assessment_answer_keys")
+          .insert({ assessment_id: assessmentId, lines: compiled.answerKey as never } as never);
+        await supabase
+          .from("class_game_boards")
+          .update({
+            notebook_id: notebookId,
+            section_id: null,
+            question_keys: questionKeys as never,
+            required_marks: compiled.total,
+          } as never)
+          .eq("id", (existing as any).id);
+      } else {
+        const { data: created, error: insErr } = await supabase
+          .from("assessments")
+          .insert({
+            class_id: classId, owner_id: uid, notebook_id: notebookId, section_id: null,
+            kind: "adventure" as never, title: `${chosenGame?.title ?? "Adventure"} — ${barLabel}`,
+            score_label: lbl, total_marks: compiled.total, questions: compiled.questions as never,
+          } as never)
+          .select("id").single();
+        if (insErr || !created) throw new Error(insErr?.message ?? "create_failed");
+        assessmentId = (created as any).id as string;
+
+        const { error: keyErr } = await supabase
+          .from("assessment_answer_keys")
+          .insert({ assessment_id: assessmentId, lines: compiled.answerKey as never } as never);
+        if (keyErr) {
+          await supabase.from("assessments").delete().eq("id", assessmentId);
+          throw new Error(keyErr.message);
+        }
+
+        const { error: boardErr } = await supabase
+          .from("class_game_boards")
+          .insert({
+            class_id: classId, game_id: gameId, progress_element_id: barElementId,
+            assessment_id: assessmentId, notebook_id: notebookId, section_id: null,
+            question_keys: questionKeys as never,
+            required_marks: compiled.total,
+          } as never);
+        if (boardErr) {
+          await supabase.from("assessments").delete().eq("id", assessmentId);
+          throw new Error(boardErr.message);
+        }
       }
 
-      const { data: created, error: insErr } = await supabase
-        .from("assessments")
-        .insert({
-          class_id: classId, owner_id: uid, notebook_id: notebookId, section_id: null,
-          kind: "adventure" as never, title: `${chosenGame?.title ?? "Adventure"} — ${barLabel}`,
-          score_label: lbl, total_marks: compiled.total, questions: compiled.questions as never,
-        } as never)
-        .select("id").single();
-      if (insErr || !created) throw new Error(insErr?.message ?? "create_failed");
-
-      const { error: keyErr } = await supabase
-        .from("assessment_answer_keys")
-        .insert({ assessment_id: (created as any).id, lines: compiled.answerKey as never } as never);
-      if (keyErr) {
-        await supabase.from("assessments").delete().eq("id", (created as any).id);
-        throw new Error(keyErr.message);
-      }
-
-      const { error: boardErr } = await supabase
-        .from("class_game_boards")
-        .insert({
-          class_id: classId, game_id: gameId, progress_element_id: barElementId,
-          assessment_id: (created as any).id, notebook_id: notebookId, section_id: null,
-          required_marks: compiled.total,
-        } as never);
-      if (boardErr) {
-        await supabase.from("assessments").delete().eq("id", (created as any).id);
-        throw new Error(boardErr.message);
-      }
 
       if (chosenGame) {
         const canvas = normalizeCanvas(chosenGame.canvas);
