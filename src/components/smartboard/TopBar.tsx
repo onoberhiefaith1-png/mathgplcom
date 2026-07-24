@@ -1,9 +1,10 @@
-import { ArrowLeft, Search, History as HistoryIcon, Bookmark, ChevronDown, BarChart3, Undo2, Redo2 } from "lucide-react";
+import { Search, History as HistoryIcon, Bookmark, ChevronDown, BarChart3, Undo2, Redo2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Difficulty } from "@/lib/smartboard/linearGenerator";
+import { BackButton } from "@/components/common/BackButton";
 
 interface Props {
   difficulty: Difficulty;
@@ -41,9 +42,9 @@ export const TopBar = ({ difficulty, onDifficulty, onHistory, onSave, onMore, sa
     >
       {/* Left */}
       <div className="flex items-center gap-1">
-        <button onClick={() => navigate(-1)} className={ICON_BTN} style={{ color: "var(--sb-muted)" }}>
-          <ArrowLeft className="h-4 w-4" /> Back
-        </button>
+        <BackButton className={ICON_BTN} style={{ color: "var(--sb-muted)" }} iconClassName="h-4 w-4">
+          {" "}Back
+        </BackButton>
         <button className={ICON_BTN} style={{ color: "var(--sb-muted)" }}>
           <Search className="h-4 w-4" /> Search
         </button>

@@ -89,6 +89,7 @@ import GamePlayPage from "./pages/student/GamePlayPage.tsx";
 import OAuthConsent from "./pages/OAuthConsent.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
 import { FullscreenToggle } from "./components/common/FullscreenToggle";
+import { NavHistoryProvider } from "./lib/nav/NavHistory";
 
 // Keep the realtime socket authenticated so private channels stay authorized.
 registerRealtimeAuthSync();
@@ -101,7 +102,8 @@ const App = () => (
       <Toaster />
       <FullscreenToggle />
       <BrowserRouter>
-        <Routes>
+        <NavHistoryProvider>
+          <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/teaching-hub" element={<TeachingHub />} />
           <Route path="/adventure" element={<Adventure />} />
@@ -208,7 +210,8 @@ const App = () => (
           <Route path="/subjects/:subject/:topic/:subtopic" element={<SubtopicGame />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
-        </Routes>
+          </Routes>
+        </NavHistoryProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

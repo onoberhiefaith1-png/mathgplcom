@@ -1,28 +1,57 @@
-## What I found
+## Problem
 
-The `AssignDialog.tsx` and `classAdventures.ts` in this project already match Gameful line-for-line. The real cause of both symptoms you saw is a database constraint that Gameful does not have:
+Back buttons currently do `navigate(-1)` (or hard-coded parent links). When a page calls `navigate("/somewhere")` on mount (auth checks, redirects, "Back to X" links that push a new entry, dashboard cards linking to a sibling), the browser history becomes:
 
-- Table `public.class_adventure_notes` has `UNIQUE (class_id, notebook_id)`.
-- That constraint means only **one** adventure row can ever exist per (class, notebook), regardless of `section_id` or `unassigned_at`.
-- Consequences you observed:
-  1. **Duplicate key error** ("class_adventure_notes_class_id_notebook_id_key") when assigning a second question from the same lesson note, or re-assigning after an unassign that left a soft-deleted row behind.
-  2. **Tick disappears on reopen** — the assign succeeded on the first click via the `reusable` code path, but when a second question tried to insert, the insert failed silently for that class row, so on reopen `assignmentByClass` / `adventureByClass` didn't find an active row and the checkbox came up empty.
+```
+A → B → C → B(push again)
+```
 
-In Gameful, the same code works because rows are scoped by `(class_id, notebook_id, section_id)` and there is no unique constraint blocking additional sections or soft-deleted rows.
+so pressing Back yields C → B → C → B — the loop the user is seeing.
 
-## Changes
+`navigate(-1)` cannot fix this because it only replays browser history, which already contains the duplicate push. We need our own stack that records genuine forward navigations and pops one entry per Back press.
 
-1. **Database migration** — drop the bad constraint (additive, no data loss):
-   ```sql
-   ALTER TABLE public.class_adventure_notes
-     DROP CONSTRAINT IF EXISTS class_adventure_notes_class_id_notebook_id_key;
-   ```
-   After this, each question (section) can be assigned as its own adventure, ticks persist across reopens, and the "duplicate key" toast is gone. No table/column changes.
+## Solution: app-wide NavHistory context + shared BackButton
 
-2. **Lesson Notes page — add Back button** (`src/pages/LessonNotesPage.tsx`)
-   Add an `ArrowLeft` icon button at the far left of the header that calls `navigate(-1)` (falls back to `/teaching-hub` if there's no history). Purely visual/navigation — no behavior change to any other flow.
+### 1. New `src/lib/nav/NavHistory.tsx`
 
-## Out of scope
+- React context holding `stack: string[]` (pathname + search).
+- `NavHistoryProvider` wraps `<Routes>` inside `BrowserRouter` (in `src/App.tsx`).
+- Uses `useLocation()` + `useNavigationType()`:
+  - `PUSH` → append current location to stack (dedupe if same as top).
+  - `POP` (browser back/forward) → pop top.
+  - `REPLACE` → replace top (so redirect pages don't add an entry).
+- Exposes `useNavHistory()` returning `{ canGoBack, goBack(fallback) }`.
+  - `goBack(fallback)` pops the top entry and `navigate(-1)` when possible; if the stack has ≤1 entry, `navigate(fallback, { replace: true })`.
 
-- No changes to `AssignDialog.tsx` or `classAdventures.ts` — they already mirror Gameful; the constraint was the blocker.
-- No schema changes beyond dropping the one constraint.
+### 2. Shared `src/components/common/BackButton.tsx`
+
+Thin wrapper around `useNavHistory().goBack(fallback)` with the same visual style already used in headers (icon + optional label). Accepts a `fallback` prop for direct-entry cases (e.g. Lesson Notes → `/teaching-hub`).
+
+### 3. Replace ad-hoc Back handlers
+
+Swap the existing back handlers to use `BackButton` / `goBack`. These are the current call sites found:
+
+- `src/pages/LessonNotesPage.tsx` (header Back — fallback `/teaching-hub`)
+- `src/pages/floating/VerificationPage.tsx`
+- `src/pages/floating/ReasoningPage.tsx`
+- `src/components/smartboard/TopBar.tsx`
+- `src/components/smartboard/PresentationView.tsx` (line ~5465)
+- Class pages that use `<Link to="…">` styled as Back (e.g. `ClassLessonNotesPage.tsx` "← Class") — convert to `BackButton fallback={parentPath}`.
+
+Non-back `navigate(..., { replace: true })` redirects (auth gates, "not found" bounces) stay as-is because `REPLACE` doesn't grow the stack.
+
+### 4. Why this fixes the loop
+
+When a page pushes its parent (e.g. dashboard card → detail → "Back" link that pushes parent again), our stack still records only the real forward moves. `goBack` pops one stack entry and navigates to the previous real location — never bouncing between two adjacent entries.
+
+### Out of scope
+
+- No route table changes.
+- No changes to auth redirect logic.
+- No visual redesign of headers.
+
+## Verification
+
+- Manual: A → B → C → D, press Back four times, land on A.
+- Manual: open C directly (fresh tab) → Back uses the provided fallback route.
+- `tsgo` typecheck for new files.
