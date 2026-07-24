@@ -1,34 +1,92 @@
-## Problem
+# Student Smartboard upgrade + Teacher Reasoning Panel
 
-On the Smartboard, tapping chips like `2`, `+2`, `+4` writes them onto the active line, but each character shows a visible gap around it — e.g. `2 + 2   +4`. The user wants chips to sit tight next to each other; a visible gap should appear only when the physical **Space** key is pressed.
+Reuse the existing Gameful-style grader (`supabase/functions/grade-line` + `_shared/mathEquivalence.ts`) and the existing `assessment_answer_keys` as the source of truth for expected lines. No new grading engine.
 
-## Root cause
+## 1. Force students into Presenter-Preview-only mode
 
-`src/components/smartboard/MathTreeRender.tsx` renders an **invisible tap zone before every node** (0.22em) plus a **trailing tap zone** (0.3em / 1em at root). These are intentional targets so a user can tap between chips to place the caret — but they consume horizontal space, so every pair of characters ends up with ~0.22em of empty space between them. Char nodes themselves render with `whiteSpace: "pre"`, so real space characters would render correctly if inserted.
+Both student surfaces already use `<PresentationView role="student" />`, but the component still exposes Normal Mode chrome (aligned solution lines, floating internals) to `role="student"`. Add a strict `presenterOnly` gate.
 
-Verified: no space is inserted by chip taps (`insertAscii` strips whitespace in `asciiToNodes`, line 40 of `nodeUtils.ts`), and the physical Space key is not currently bound to insert a character on the smartboard — so a user pressing Space today does nothing.
+- `src/components/smartboard/PresentationView.tsx`
+  - Derive `const presenterOnly = role === "student";`
+  - Wherever Normal Mode shows the aligned/correct solution rows and teacher-only floating internals (the same regions currently gated by `isTeacher`), also hide them when `presenterOnly` is true.
+  - Force the "Presenter Preview" render path on for students — floating numbers only, no aligned solution, no Normal/Preview toggle chrome.
+  - Keep the student input row, line navigation strip, Check button, and existing student affordances untouched.
+- `src/pages/student/StudentSmartBoardPage.tsx` and `src/pages/student/AssessmentBoardPage.tsx`
+  - No prop changes required beyond confirming both mount the current `PresentationView` (they already do). Remove any lingering legacy board fallback if present.
 
-## Fix
+Teacher pages (`SmartBoardPage`, `TeacherAssessmentViewerPage`) keep full Normal Mode.
 
-1. In `MathTreeRender.tsx` `RowView`:
-   - Convert the inter-node tap zone from an inline element with `width: 0.22em` to a **zero-layout hit area** — an absolutely-positioned overlay sitting on the left half of the following node so taps still land between chips, but it no longer pushes the chips apart. Practically: wrap the node in a `position: relative` span and put the tap zone as `position: absolute; left: -0.15em; width: 0.3em; top: 0; bottom: 0;`.
-   - Shrink the trailing (non-root) tap width from `0.3em` to `0` visually by making it absolutely positioned as well, extending past the row's right edge. Keep the root's `1em` trailing zone unchanged so tapping past the last chip on the root line still places the caret at end.
+## 2. Silent Auto Force Check on line-leave (student)
 
-2. Bind Space on the physical keyboard to insert a real space character on the active line, so the user's stated "gap only when I press Space" behavior works:
-   - In `PresentationView.tsx` (or wherever `insertAscii` is wired to keydown for the smartboard active line), add `if (e.key === " ") { insertAscii(" "); e.preventDefault(); return; }`.
-   - Extend `asciiToNodes` in `src/lib/smartboard/nodeUtils.ts` to preserve `" "` as a `char` node (currently `\s+` is stripped). Only strip leading/trailing whitespace; keep interior spaces as `mkChar(" ")`.
+Add a per-line silent grader that runs when the active line changes.
 
-Char nodes already render with `whiteSpace: "pre"`, so a `mkChar(" ")` will display as a visible gap of exactly one space.
+- In `PresentationView.tsx` (student branch), track `prevActiveLineId`. When the active line index changes or the board unmounts:
+  - Read the ascii of the line just left via existing `nodesToAscii`.
+  - If non-empty and not already marked correct, call the existing `grade-line` edge function with `{ assessmentId, questionId, lineId, studentAscii }`.
+  - No toast, no sound, no UI feedback. Only update the internal solved-lines state that the top line strip already reads (server returns `solvedLines`/`score`).
+- Manual Check button behaviour is unchanged (Mode 1 still shows feedback).
 
-## Verification
+## 3. Floating-number set enforcement (Auto Force Check only)
 
-- Tap `2`, `+2`, `+4` in sequence — the line reads `2+2+4` with no visible gap between chips.
-- Tap between two chips — caret still lands between them (overlay hit zone still works).
-- Press Space on the physical keyboard — a visible space is inserted at the caret.
-- No change to lesson-note writers, chip validation, or grading.
+Per the answer, this only gates the silent auto-check — Manual Check keeps its existing feedback path.
 
-## Files touched
+- `supabase/functions/grade-line/index.ts`
+  - Accept optional `mode: "manual" | "auto"` and optional `allowedFloatingTokens: string[]` in the body schema.
+  - When `mode === "auto"` and `allowedFloatingTokens` is provided: tokenise `studentAscii` into number/variable atoms; if any atom lies outside the allowed set, return `{ correct: false, verdict: "not_in_floating_set" }` and do NOT award marks. Existing equivalence path runs only when the subset check passes.
+  - Manual mode ignores the constraint.
+- Client passes the line's floating tokens (already available in the presenter preview data used to render the student's floating chips) alongside the auto-check call.
 
-- `src/components/smartboard/MathTreeRender.tsx` — reflow inter-node and trailing tap zones as absolute overlays.
-- `src/components/smartboard/PresentationView.tsx` — add Space keybinding to insert a real space.
-- `src/lib/smartboard/nodeUtils.ts` — allow interior spaces to survive `asciiToNodes`.
+## 4. Teacher live student-line broadcast (reuse existing presence/sync)
+
+Reuse `useSmartboardSync` / `class_smartboard_state` rather than adding a new channel.
+
+- Student `PresentationView` (role="student", assessment mode): on every edit of the active line, publish `{ questionId, lineId, ascii, nodesJson }` through the existing sync hook (extend its payload — additive field, no schema change if it uses JSON state; otherwise add a nullable `live_line jsonb` column via migration with GRANTs).
+- Teacher subscription reads the same channel keyed by `(assessmentId, studentId)`.
+
+## 5. Teacher Reasoning Panel
+
+Entry point: `src/pages/class/TeacherAssessmentViewerPage.tsx` — the existing "View Student Work" screen. Do not change the Adventure → Assessment → In Progress/Completed/Inactive → View Student Work flow.
+
+- Add a right-edge icon button (🧠 "Mathematical Reasoning") in the existing floating bottom bar or as a right-edge rail button.
+- New component `src/components/smartboard/TeacherReasoningPanel.tsx`.
+  - When toggled open, wrap the `PresentationView` in a flex row: board shrinks to ~20% width, panel takes ~80%. Use a layout wrapper local to `TeacherAssessmentViewerPage.tsx` (no changes to `PresentationView`'s internals). Toggle-able open/close, state persisted in component state.
+- Panel content, per selected line (defaults to the student's current active line, click any line in top strip to inspect):
+  - Line number
+  - Expected Line — pulled from `assessment_answer_keys.lines` matched by `(questionId, lineId)`, rendered via existing math renderer (raw ascii tokens joined, same source `grade-line` already uses).
+  - Student Line — live mirror of the broadcasted ascii/nodes. Render exactly as the student wrote it (use `MathRender` / `MathTreeRender` on the raw nodes; do not normalise, reorder, or collapse whitespace).
+  - Mathematically Equivalent? YES / NO — computed by calling `grade-line` in a new **dry-run** mode (`persist: false`) whenever the mirrored line changes (debounced ~300ms). Returns verdict + reason without writing `assessment_progress`.
+  - Reason — verdict string from equivalence engine (`equal`, `not_equal`, `not_in_floating_set`, `parse_error`, etc.), plus the human-readable label.
+  - Awarded Marks — from the student's `assessment_progress.solved_lines[questionId:lineId]` (already updated by the real auto/manual check paths).
+
+## 6. `grade-line` dry-run mode
+
+Extend the edge function to support the reasoning panel without corrupting student progress.
+
+- Body: add optional `persist: boolean` (default true).
+- When `persist === false`: run equivalence + floating-set logic exactly as normal, return the verdict + would-be marks, but skip the `assessment_progress` upsert.
+
+## Data / migration
+
+Only add a migration if `class_smartboard_state` cannot carry the per-line live payload. If needed, additive only:
+
+```
+ALTER TABLE public.class_smartboard_state ADD COLUMN IF NOT EXISTS live_line jsonb;
+```
+
+(No new table.) All existing policies/grants remain.
+
+## Non-goals / guardrails
+
+- Do not invent expected equations. Expected lines come strictly from `assessment_answer_keys` populated when the teacher publishes.
+- Do not change student layout, chrome, or beautify their input in the reasoning mirror.
+- Auto Force Check must be completely silent — no toast, sound, or focus change.
+- No changes to Adventure/Assignment routing or dashboards.
+
+## Technical file list
+
+- Edit: `src/components/smartboard/PresentationView.tsx` (presenterOnly gate, auto-check on line-leave, live broadcast for students).
+- Edit: `src/pages/class/TeacherAssessmentViewerPage.tsx` (layout split + toggle button + subscription).
+- New: `src/components/smartboard/TeacherReasoningPanel.tsx`.
+- Edit: `src/hooks/useSmartboardSync.ts` (carry live-line payload).
+- Edit: `supabase/functions/grade-line/index.ts` (`mode`, `allowedFloatingTokens`, `persist` flag).
+- Optional migration: add `class_smartboard_state.live_line jsonb`.
