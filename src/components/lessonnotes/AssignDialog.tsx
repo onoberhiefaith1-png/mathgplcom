@@ -205,46 +205,50 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
     }
     setBusy(true);
     try {
-      // ---- Unassign side ----
+      const touchedClasses = new Set<string>();
+
+      // ---- Unassign side (soft — the card leaves the dashboard) ----
       for (const c of toUnassign) {
         if (target === "assignment" && c.assignmentId) {
-          await unassignAssessment(c.assignmentId);
+          await unassignAssessmentQuestion(c.assignmentId);
         } else if (target === "adventure" && c.adventureId) {
-          await unassignAdventureNote(c.adventureId);
+          await unassignAdventureQuestion(c.adventureId);
         }
+        touchedClasses.add(c.id);
       }
 
-      // ---- Assign side ----
+      // ---- Assign side (idempotent — revives the same row) ----
       let ok = 0;
       const errors: string[] = [];
       const assignedIds = new Map<string, string>();
       for (const c of toAssign) {
         try {
-          if (target === "adventure") {
-            if (!notebookId || !clickedSectionId) throw new Error("no_question");
-            const id = await assignAdventureNote({
-              classId: c.id,
-              notebookId,
-              sectionId: clickedSectionId,
-            });
-            assignedIds.set(c.id, id);
-          } else {
-            if (!subsectionId) throw new Error("no_subsection");
-            const id = await createAssessmentFromSubsection({
-              subsectionId,
-              classId: c.id,
-              notebookId,
-              kind,
-              title: title.trim() || defaultTitle,
-              scoreLabel,
-            });
-            assignedIds.set(c.id, id);
-          }
+          if (!notebookId || !questionRef.sectionId) throw new Error("no_question");
+          const id = target === "adventure"
+            ? await assignAdventureQuestion({ classId: c.id, notebookId, ref: questionRef })
+            : await assignAssessmentQuestion({
+                classId: c.id,
+                notebookId,
+                ref: questionRef,
+                kind,
+                title: title.trim() || defaultTitle,
+                scoreLabel,
+              });
+          assignedIds.set(c.id, id);
+          touchedClasses.add(c.id);
           ok += 1;
         } catch (e: any) {
           errors.push(`${c.name}: ${e?.message ?? "failed"}`);
         }
       }
+
+      // Keep every linked progress bar in step with what is now assigned.
+      if (notebookId) {
+        for (const cid of touchedClasses) {
+          try { await syncAdventureBoards(cid, notebookId); } catch { /* non-fatal */ }
+        }
+      }
+
 
       if (ok > 0 || toUnassign.length > 0) {
         const unassignedIds = new Set(toUnassign.map((c) => c.id));
