@@ -244,6 +244,47 @@ export type Database = {
           },
         ]
       }
+      assessment_board_state: {
+        Row: {
+          active_line_idx: number
+          assessment_id: string
+          author: string | null
+          created_at: string
+          question_id: string | null
+          state_json: Json
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          active_line_idx?: number
+          assessment_id: string
+          author?: string | null
+          created_at?: string
+          question_id?: string | null
+          state_json?: Json
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          active_line_idx?: number
+          assessment_id?: string
+          author?: string | null
+          created_at?: string
+          question_id?: string | null
+          state_json?: Json
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_board_state_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_progress: {
         Row: {
           assessment_id: string
