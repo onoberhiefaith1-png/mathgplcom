@@ -11,7 +11,7 @@ import { normalizeCanvas, type CanvasElement, type GameRow } from "@/lib/games/t
 import { useClassMemberIds } from "@/hooks/useClassMemberIds";
 import { timeBarActions } from "@/hooks/useGameTimeBar";
 
-export type LinkAdventureQuestion = { sectionId: string; label: string; marks: number };
+export type LinkAdventureQuestion = { sectionId: string; label: string; marks: number; questionKey?: string | null };
 
 interface Props {
   open: boolean;
