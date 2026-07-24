@@ -2799,12 +2799,12 @@ const PresentationView = ({
       const row = freeLines[ln];
       if (!row || row.length === 0) continue;
       const ascii = rowToAscii(row);
-      const eqIdx = ascii.indexOf("=");
-      const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
-      const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
       const lastCh = ascii.slice(-1);
       const dangling = /[+\-−*×/÷=^]/.test(lastCh);
-      const completeShape = eqIdx >= 0 && lhs.length > 0 && rhs.length > 0 && !dangling;
+      // A line is "settled" once it holds ink and doesn't end on an operator.
+      // No equals-sign requirement — equivalence decides correctness.
+      const completeShape = ascii.trim().length > 0 && !dangling;
+
       if (!completeShape) {
         // ANY ink on the line → yellow ("solution in progress"). This is
         // the signal the teacher sees the instant they press the first key.
