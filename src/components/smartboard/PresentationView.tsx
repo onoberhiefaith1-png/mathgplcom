@@ -2859,6 +2859,20 @@ const PresentationView = ({
     return n;
   }, [assessmentMode, current, guidedLines, solvedSlots]);
 
+  // Forward reference — the live-mirror broadcaster is defined further down.
+  const broadcastCheckResultRef = useRef<
+    | ((info: {
+        questionId: string;
+        lineId: string;
+        mode: "manual" | "auto";
+        correct: boolean;
+        verdict?: string;
+        marks?: number;
+        studentAscii?: string;
+      }) => void)
+    | null
+  >(null);
+
   const checkActiveLine = async (kOverride?: number) => {
     if (!assessmentMode || !assessmentId || !current || !activeLayout) return;
     const k = typeof kOverride === "number" ? kOverride : activeLineIdx;
