@@ -3915,8 +3915,7 @@ const PresentationView = ({
           bottom panel) reflows with it. */}
       {showPresenterChrome && (
         <aside
-          data-sb-chrome
-          data-sb-teacher-only
+          data-sb-presenter
           className="relative flex flex-col border-r overflow-hidden"
           style={{
             width: presenterSplitOpen ? "30%" : 0,
@@ -4035,8 +4034,7 @@ const PresentationView = ({
             style={{ left: 0, top: 0, width: 72, height: 96 }}
           />
           <button
-            data-sb-chrome
-            data-sb-teacher-only
+            data-sb-presenter
             onClick={() => { setPresenterPanelOpen((v) => !v); revealPresenterIcon(); }}
             aria-label={presenterPanelOpen ? "Close presenter preview" : "Open presenter preview"}
             title={presenterPanelOpen ? "Close presenter preview" : "Open presenter preview"}
