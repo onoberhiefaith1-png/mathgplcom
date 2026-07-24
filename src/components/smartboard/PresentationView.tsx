@@ -261,6 +261,7 @@ const PresentationView = ({
   source = null,
   assessmentId = null,
   boardStudentId = null,
+  boardQuestionId = null,
   viewOnly = false,
 }: {
   notebookId?: string | null;
@@ -275,6 +276,7 @@ const PresentationView = ({
    *  a teacher reviewing "View Student Work" passes the student's id so both
    *  sides render ONE shared board (live mirror). */
   boardStudentId?: string | null;
+  boardQuestionId?: string | null;
   /** Force a read-only mirror (teacher "View Only" mode). */
   viewOnly?: boolean;
 } = {}) => {
@@ -306,6 +308,7 @@ const PresentationView = ({
   } = useAssessmentBoardSession({
     assessmentId,
     studentId: boardStudentId,
+    questionId: boardQuestionId,
     enabled: assessmentMode && !!boardStudentId,
   });
   const applyingRemoteRef = useRef(false);
