@@ -3132,6 +3132,7 @@ const PresentationView = ({
       }
       // Per-lineId ascii using the same tag-match heuristic as the grader.
       const linesAscii: Record<string, string> = {};
+      const floatingTokens: Record<string, string[]> = {};
       const writtenRows = Object.keys(freeLines)
         .map(Number)
         .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
@@ -3142,6 +3143,7 @@ const PresentationView = ({
         const expectedFrags = (activeReservoir?.fragments ?? [])
           .slice(target.fragmentStart, target.fragmentEnd)
           .filter(Boolean);
+        floatingTokens[target.lineId] = expectedFrags;
         const expectedSet = chipMultiset(expectedFrags);
         let rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
         if (expectedSet.size > 0 && writtenRows.length > 0) {
@@ -3167,8 +3169,10 @@ const PresentationView = ({
           lineIds,
           rowsAscii,
           linesAscii,
+          floatingTokens,
         },
       });
+
     }, 120);
   }, [freeLines, activeLineIdx, assessmentMode, role, current?.id, guidedLines, activeReservoir, activeLayout]);
 
