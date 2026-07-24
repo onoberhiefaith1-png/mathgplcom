@@ -16,7 +16,15 @@ const BodySchema = z.object({
   questionId: z.string().min(1),
   lineId: z.string().min(1),
   studentAscii: z.string().min(1).max(4000),
+  // Silent auto-check vs manual check (affects floating-set enforcement).
+  mode: z.enum(["manual", "auto"]).optional().default("manual"),
+  // When provided in auto mode, student ascii atoms must be a subset of these.
+  allowedFloatingTokens: z.array(z.string()).optional(),
+  // Dry-run: run equivalence + set checks but do not write progress.
+  // Used by the teacher Reasoning Panel.
+  persist: z.boolean().optional().default(true),
 });
+
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
