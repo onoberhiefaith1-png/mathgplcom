@@ -12,6 +12,22 @@ export type Verdict = "equal" | "not_equal" | "unknown";
 
 const EPS = 1e-6;
 
+const FUNCS = new Set([
+  "sin","cos","tan","cot","sec","csc","asin","acos","atan",
+  "sinh","cosh","tanh","log","ln","log10","log2","exp","sqrt","cbrt",
+  "abs","floor","ceil","round","min","max","nthRoot",
+]);
+
+/** `ab` means a·b in school notation. Split multi-letter runs into explicit
+ *  products, leaving recognised function names (when applied) intact. */
+function expandImplicitProducts(s: string): string {
+  return s.replace(/[A-Za-z]{2,}(\s*\()?/g, (run, call) => {
+    const name = call ? run.slice(0, run.length - call.length) : run;
+    if (FUNCS.has(name)) return run;
+    return name.split("").join("*") + (call ?? "");
+  });
+}
+
 function normalize(input: string): string {
   let s = String(input ?? "");
   s = s.replace(/\u2212/g, "-");
@@ -21,11 +37,18 @@ function normalize(input: string): string {
   s = s.replace(/\u00f7/g, "/");
   s = s.replace(/²/g, "^2").replace(/³/g, "^3");
   s = s.replace(/\s+/g, " ").trim();
+  s = expandImplicitProducts(s);
   s = s.replace(/(\d)\s*([A-Za-z(])/g, "$1*$2");
-  s = s.replace(/([A-Za-z0-9)])\s*\(/g, "$1*(");
+  s = s.replace(/([A-Za-z0-9)])\s*\(/g, (m, ch, off: number, whole: string) => {
+    const before = whole.slice(0, off + 1);
+    const nameMatch = before.match(/[A-Za-z]+$/);
+    if (nameMatch && FUNCS.has(nameMatch[0])) return m;
+    return `${ch}*(`;
+  });
   s = s.replace(/\)\s*([A-Za-z0-9(])/g, ")*$1");
   return s;
 }
+
 
 function splitEq(s: string): { lhs: string; rhs: string | null } {
   const i = s.indexOf("=");
