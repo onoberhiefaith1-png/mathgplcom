@@ -290,7 +290,10 @@ const PresentationView = ({
   const syncEnabled = !!classIdProp && !assessmentMode;
   // In assessment mode the student edits their OWN board (canEdit true) but no
   // teacher-only chrome is shown.
-  const isTeacher = role === "teacher" && !assessmentMode;
+  // Teacher chrome (Presenter Preview / Normal mode) is available whenever the
+  // viewer is a teacher — including while reviewing a student's assessment.
+  const isTeacher = role === "teacher";
+
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
 
