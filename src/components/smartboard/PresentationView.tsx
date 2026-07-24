@@ -85,6 +85,8 @@ import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
+import { useAssessmentBoardSession } from "@/hooks/useAssessmentBoardSession";
+
 import ActiveStudentControl from "./ActiveStudentControl";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -257,6 +259,8 @@ const PresentationView = ({
   role = "teacher",
   source = null,
   assessmentId = null,
+  boardStudentId = null,
+  viewOnly = false,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -266,6 +270,12 @@ const PresentationView = ({
   source?: { beats: Beat[]; reservoirs: Reservoir[]; title?: string } | null;
   /** Set together with `source` to enable server-graded assessment mode. */
   assessmentId?: string | null;
+  /** Owner of the assessment board session. The student passes their own id;
+   *  a teacher reviewing "View Student Work" passes the student's id so both
+   *  sides render ONE shared board (live mirror). */
+  boardStudentId?: string | null;
+  /** Force a read-only mirror (teacher "View Only" mode). */
+  viewOnly?: boolean;
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
@@ -280,10 +290,25 @@ const PresentationView = ({
   const syncEnabled = !!classIdProp && !assessmentMode;
   // In assessment mode the student edits their OWN board (canEdit true) but no
   // teacher-only chrome is shown.
-  const isTeacher = role === "teacher" && !assessmentMode;
+  // Teacher chrome (Presenter Preview / Normal mode) is available whenever the
+  // viewer is a teacher — including while reviewing a student's assessment.
+  const isTeacher = role === "teacher";
+
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
-  const canEdit = assessmentMode ? true : (isTeacher || isActiveStudent);
+  const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
+
+  // ── Shared assessment board session (live mirror, one state) ─────────────
+  const {
+    sessionActive: boardSessionActive,
+    incoming: boardIncoming,
+    push: pushBoardState,
+  } = useAssessmentBoardSession({
+    assessmentId,
+    studentId: boardStudentId,
+    enabled: assessmentMode && !!boardStudentId,
+  });
   const applyingRemoteRef = useRef(false);
+
   const rawBeats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
   const rawReservoirs = useMemo(() => buildReservoirs(sections), [sections]);
   // Apply the teacher's approved Preview plan (Present / Skip flags). The
@@ -2587,11 +2612,11 @@ const PresentationView = ({
     }
     if (matchedRow == null) return;
     const ascii = stripEqLabel(rowToAscii(freeLines[matchedRow]));
-    const eqIdx = ascii.indexOf("=");
-    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
-    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
+    // Completion is judged by mathematical content, never by the presence of
+    // an "=" sign: a line may legitimately be a bare expression.
     const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
-    if (eqIdx < 0 || !lhs || !rhs || dangling) return;
+    if (!ascii.trim() || dangling) return;
+
     setConsumedAbsIdx((prev) => {
       const next = new Set(prev);
       for (let i = target.fragmentStart; i < target.fragmentEnd; i++) next.add(i);
@@ -2777,12 +2802,12 @@ const PresentationView = ({
       const row = freeLines[ln];
       if (!row || row.length === 0) continue;
       const ascii = rowToAscii(row);
-      const eqIdx = ascii.indexOf("=");
-      const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
-      const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
       const lastCh = ascii.slice(-1);
       const dangling = /[+\-−*×/÷=^]/.test(lastCh);
-      const completeShape = eqIdx >= 0 && lhs.length > 0 && rhs.length > 0 && !dangling;
+      // A line is "settled" once it holds ink and doesn't end on an operator.
+      // No equals-sign requirement — equivalence decides correctness.
+      const completeShape = ascii.trim().length > 0 && !dangling;
+
       if (!completeShape) {
         // ANY ink on the line → yellow ("solution in progress"). This is
         // the signal the teacher sees the instant they press the first key.
@@ -2880,23 +2905,33 @@ const PresentationView = ({
       return;
     }
     const ascii = rowToAscii(row);
-    const eqIdx = ascii.indexOf("=");
-    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
-    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
     const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
-    if (eqIdx < 0 || !lhs || !rhs || dangling) {
-      toast({ title: "Finish the line", description: "Make sure it's a complete equation (both sides of =).", variant: "destructive" });
+    if (!ascii.trim() || dangling) {
+      toast({
+        title: "Incomplete expression",
+        description: "This line still ends on an operator — finish the step, then check.",
+        variant: "destructive",
+      });
       return;
     }
+
 
     setAssessChecking(true);
     try {
       // Server-authoritative per-line grader (symbolic → numeric → LLM).
       const { data, error } = await supabase.functions.invoke("grade-line", {
-        body: { assessmentId, questionId: current.id, lineId: target.lineId, studentAscii: ascii },
+        body: {
+          assessmentId,
+          questionId: current.id,
+          lineId: target.lineId,
+          studentAscii: ascii,
+          mode: "manual",
+          allowedFloatingTokens: expectedFrags,
+        },
       });
       if (error) throw error;
-      const res = data as { correct: boolean; score: number; solvedLines: Record<string, number>; marks?: number };
+      const res = data as { correct: boolean; verdict?: string; score: number; solvedLines: Record<string, number>; marks?: number };
+
       if (res.correct) {
         setSolvedSlots(res.solvedLines ?? {});
         setAssessScore(Number(res.score ?? 0));
@@ -2919,8 +2954,17 @@ const PresentationView = ({
         toast({ title: "✓ Line verified", description: `+${res.marks ?? target.marks ?? 0} marks` });
       } else {
         setWrongLine(expectedLineNum);
-        toast({ title: "Error in your solution", description: "That line isn't mathematically equivalent to the expected step.", variant: "destructive" });
+        // Teaching feedback comes from the grader's verdict — never from a
+        // syntax rule about equals signs.
+        const feedback =
+          res.verdict === "not_in_floating_set"
+            ? "You used a number that wasn't given for this line. Use only the floating numbers shown."
+            : res.verdict === "parse_error"
+              ? "I couldn't read this line. Check for a missing bracket or a stray symbol."
+              : "That line isn't mathematically equivalent to the expected step.";
+        toast({ title: "Error in your solution", description: feedback, variant: "destructive" });
       }
+
     } catch (e: any) {
       toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
     } finally {
@@ -2962,11 +3006,9 @@ const PresentationView = ({
     const row = freeLines[expectedLineNum];
     if (!row || row.length === 0) return;
     const ascii = rowToAscii(row);
-    const eqIdx = ascii.indexOf("=");
-    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
-    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
     const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
-    if (eqIdx < 0 || !lhs || !rhs || dangling) return;
+    if (!ascii.trim() || dangling) return;
+
     try {
       const { data, error } = await supabase.functions.invoke("grade-line", {
         body: {
@@ -3003,6 +3045,51 @@ const PresentationView = ({
       void silentAutoCheckLine(prev);
     }
   }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine]);
+
+  // ── SHARED SESSION: apply the other side's board snapshot ────────────────
+  // The student's board and the teacher's "View Student Work" board are ONE
+  // session. Whoever authored the snapshot skips its own echo.
+  useEffect(() => {
+    if (!boardSessionActive || !boardIncoming) return;
+    if (boardIncoming.author && selfId && boardIncoming.author === selfId) return;
+    applyingRemoteRef.current = true;
+    if (typeof boardIncoming.beatCursor === "number") setBeatCursor(boardIncoming.beatCursor);
+    if (boardIncoming.bandExtra) setBandExtra(boardIncoming.bandExtra);
+    if (boardIncoming.freeLines) setFreeLines(boardIncoming.freeLines as FreeLineMap);
+    if (boardIncoming.lineOffsets) setLineOffsets(boardIncoming.lineOffsets);
+    if (boardIncoming.smartLines) setSmartLines(boardIncoming.smartLines as SmartLine[]);
+    if (boardIncoming.boxes) setBoxes(boardIncoming.boxes as MagnetBox[]);
+    if (boardIncoming.sensor) setSensor(boardIncoming.sensor);
+    if (typeof boardIncoming.zoom === "number") setZoom(boardIncoming.zoom);
+    if (boardIncoming.surface) setSurface(boardIncoming.surface as Surface);
+    if (boardIncoming.profileId) setProfileId(boardIncoming.profileId as WritingProfileId);
+    if (boardIncoming.inkColorId) setInkColorId(boardIncoming.inkColorId as InkColorId);
+    if (boardIncoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(boardIncoming.placeholderColorId));
+    if (typeof boardIncoming.activeLineIdx === "number") {
+      setActiveLineIdx(boardIncoming.activeLineIdx);
+      setFloatingLineIdx(boardIncoming.activeLineIdx);
+    }
+    const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
+    return () => window.clearTimeout(t);
+  }, [boardIncoming, boardSessionActive, selfId]);
+
+  // ── SHARED SESSION: publish our board while we hold edit rights ──────────
+  useEffect(() => {
+    if (!boardSessionActive || !canEdit) return;
+    if (applyingRemoteRef.current) return;
+    pushBoardState({
+      beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+      sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+      activeLineIdx, questionId: current?.id ?? null,
+    });
+  }, [
+    boardSessionActive, canEdit, pushBoardState,
+    beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+    sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+    activeLineIdx, current?.id,
+  ]);
+
+
 
   // ── LIVE MIRROR TO TEACHER — broadcast the student's board state so the
   // teacher Reasoning Panel can display it live. Broadcast-only (no DB
@@ -3045,6 +3132,7 @@ const PresentationView = ({
       }
       // Per-lineId ascii using the same tag-match heuristic as the grader.
       const linesAscii: Record<string, string> = {};
+      const floatingTokens: Record<string, string[]> = {};
       const writtenRows = Object.keys(freeLines)
         .map(Number)
         .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
@@ -3055,6 +3143,7 @@ const PresentationView = ({
         const expectedFrags = (activeReservoir?.fragments ?? [])
           .slice(target.fragmentStart, target.fragmentEnd)
           .filter(Boolean);
+        floatingTokens[target.lineId] = expectedFrags;
         const expectedSet = chipMultiset(expectedFrags);
         let rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
         if (expectedSet.size > 0 && writtenRows.length > 0) {
@@ -3080,8 +3169,10 @@ const PresentationView = ({
           lineIds,
           rowsAscii,
           linesAscii,
+          floatingTokens,
         },
       });
+
     }, 120);
   }, [freeLines, activeLineIdx, assessmentMode, role, current?.id, guidedLines, activeReservoir, activeLayout]);
 
@@ -3809,7 +3900,7 @@ const PresentationView = ({
     sensorLineIdx < guidedLines.length
       ? sensorLineIdx
       : null;
-  const showPresenterChrome = isTeacher && !!notebookId;
+  const showPresenterChrome = isTeacher && (!!notebookId || assessmentMode);
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (

@@ -182,7 +182,10 @@ const AssessmentBoardPage = () => {
         source={boardSource}
         assessmentId={assessmentId ?? null}
         classId={classId ?? null}
+        boardStudentId={uid}
+        viewOnly={readOnly}
       />
+
       {!isAdventure && status === "completed" && !isPastDue && (
         <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1.5 text-xs font-medium text-green-700 shadow">
           Submitted — press "Undo Submit" to reopen before the due date.
