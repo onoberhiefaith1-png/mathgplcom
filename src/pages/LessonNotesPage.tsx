@@ -15,7 +15,7 @@ import {
 import {
   Plus, LogOut, Presentation, MoreVertical,
   Pencil, Copy, Trash2, Play, Sparkles,
-  Archive, Share2, Download, FolderOpen,
+  Archive, Share2, Download, FolderOpen, ArrowLeft,
 } from "lucide-react";
 
 
