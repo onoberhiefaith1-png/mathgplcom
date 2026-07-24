@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Loader2, RefreshCw, XCircle } from "lucide-react";
+import { BackButton } from "@/components/common/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { detectElements } from "@/lib/floating/elementDetector";
@@ -107,9 +108,9 @@ const VerificationPage = () => {
     <div className="min-h-screen bg-amber-50 py-8 px-4">
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => navigate(-1)}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Reasoning
-          </Button>
+          <BackButton className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-black/5" iconClassName="mr-2 h-4 w-4">
+            Back to Reasoning
+          </BackButton>
           <h1 className="text-2xl font-semibold text-amber-900">Verification</h1>
           <Button onClick={approve} disabled={!canApprove || approving}>
             {approving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
