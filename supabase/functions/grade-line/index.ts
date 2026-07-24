@@ -102,8 +102,19 @@ Deno.serve(async (req) => {
     if (!correct) return json({ error: "key_not_found" }, 404);
     const teacherAscii = (correct.tokens ?? []).join(" ").trim();
 
-    const verdict = await equivalent(teacherAscii, studentAscii);
-    const isCorrect = verdict === "equal";
+    // Floating-set enforcement — auto mode only. Student atoms (numbers +
+    // variable identifiers) must be a subset of the line's available chips.
+    let inFloatingSet = true;
+    if (mode === "auto" && Array.isArray(allowedFloatingTokens) && allowedFloatingTokens.length > 0) {
+      const atomize = (s: string): string[] =>
+        (s.match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
+      const allowed = new Set(allowedFloatingTokens.flatMap(atomize));
+      const used = atomize(studentAscii);
+      inFloatingSet = used.every((a) => allowed.has(a));
+    }
+
+    const verdict = inFloatingSet ? await equivalent(teacherAscii, studentAscii) : "not_in_floating_set";
+    const isCorrect = inFloatingSet && verdict === "equal";
 
     const { data: existing } = await admin
       .from("assessment_progress")
@@ -121,6 +132,21 @@ Deno.serve(async (req) => {
     const score = Object.values(solved).reduce((a, b) => a + (Number(b) || 0), 0);
     const totalMarks = Number(assessment.total_marks ?? 0);
     const status = totalMarks > 0 && score >= totalMarks ? "completed" : "in_progress";
+
+    // Dry-run: skip persistence, return the verdict + would-be marks.
+    if (!persist) {
+      return json({
+        correct: isCorrect,
+        verdict,
+        marks: isCorrect ? lineMarks : 0,
+        score: Number(existing?.score ?? 0),
+        totalMarks,
+        solvedLines: (existing?.solved_lines as Record<string, number>) ?? {},
+        status: "dry_run",
+        teacherAscii,
+        dryRun: true,
+      });
+    }
 
     let savedProgress: { solved_lines: Record<string, number>; score: number; status: string } | null = null;
     if (existing?.id) {
@@ -158,6 +184,7 @@ Deno.serve(async (req) => {
       status: savedProgress.status,
       progress: savedProgress,
     });
+
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
