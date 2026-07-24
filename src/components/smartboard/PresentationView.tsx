@@ -2902,14 +2902,16 @@ const PresentationView = ({
       return;
     }
     const ascii = rowToAscii(row);
-    const eqIdx = ascii.indexOf("=");
-    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
-    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
     const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
-    if (eqIdx < 0 || !lhs || !rhs || dangling) {
-      toast({ title: "Finish the line", description: "Make sure it's a complete equation (both sides of =).", variant: "destructive" });
+    if (!ascii.trim() || dangling) {
+      toast({
+        title: "Incomplete expression",
+        description: "This line still ends on an operator — finish the step, then check.",
+        variant: "destructive",
+      });
       return;
     }
+
 
     setAssessChecking(true);
     try {
