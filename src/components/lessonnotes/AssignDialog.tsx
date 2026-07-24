@@ -23,16 +23,18 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import {
-  createAssessmentFromSubsection,
-  unassignAssessment,
-  type AssessmentKind,
-} from "@/lib/assessments/createAssessment";
+import { type AssessmentKind } from "@/lib/assessments/createAssessment";
 import { totalMarks as computeTotalMarks, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import {
-  assignAdventureNote,
-  unassignAdventureNote,
-} from "@/lib/adventures/classAdventures";
+  resolveQuestionRef,
+  loadAssignmentState,
+  assignAdventureQuestion,
+  unassignAdventureQuestion,
+  assignAssessmentQuestion,
+  unassignAssessmentQuestion,
+  syncAdventureBoards,
+  type QuestionRef,
+} from "@/lib/assignments/pipeline";
 
 type AssignTarget = "assignment" | "adventure";
 type ClassRow = {
