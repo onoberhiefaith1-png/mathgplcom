@@ -2928,11 +2928,170 @@ const PresentationView = ({
     }
   };
 
+  // ── SILENT AUTO FORCE CHECK — grade the line the student just left ────
+  // No toast, no sound, no focus change. Awards marks silently on equivalence
+  // + floating-set subset. Manual Check (checkActiveLine) is untouched.
+  const silentAutoCheckLine = useCallback(async (k: number) => {
+    if (!assessmentMode || !assessmentId || !current || !activeLayout) return;
+    if (k < 0 || k >= guidedLines.length) return;
+    const target = guidedLines[k];
+    if (!target?.lineId) return;
+    // Skip already-solved lines.
+    const slot = `${current.id}:${target.lineId}`;
+    if (slot in solvedSlots) return;
+    // Locate the row by tag match (same heuristic as checkActiveLine).
+    const expectedFrags = (activeReservoir?.fragments ?? [])
+      .slice(target.fragmentStart, target.fragmentEnd)
+      .filter(Boolean);
+    const expectedSet = chipMultiset(expectedFrags);
+    const writtenRows = Object.keys(freeLines)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
+      .sort((x, y) => x - y);
+    if (writtenRows.length === 0) return;
+    let expectedLineNum = clampToActiveBand(bandStart(activeLayout) + k);
+    if (expectedSet.size > 0) {
+      let bestRow = -1, bestScore = -1;
+      for (const n of writtenRows) {
+        const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
+        const score = multisetOverlap(expectedSet, used);
+        if (score > bestScore) { bestScore = score; bestRow = n; }
+      }
+      if (bestRow >= 0) expectedLineNum = bestRow;
+    }
+    const row = freeLines[expectedLineNum];
+    if (!row || row.length === 0) return;
+    const ascii = rowToAscii(row);
+    const eqIdx = ascii.indexOf("=");
+    const lhs = eqIdx >= 0 ? ascii.slice(0, eqIdx) : "";
+    const rhs = eqIdx >= 0 ? ascii.slice(eqIdx + 1) : "";
+    const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
+    if (eqIdx < 0 || !lhs || !rhs || dangling) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("grade-line", {
+        body: {
+          assessmentId,
+          questionId: current.id,
+          lineId: target.lineId,
+          studentAscii: ascii,
+          mode: "auto",
+          allowedFloatingTokens: expectedFrags,
+          persist: true,
+        },
+      });
+      if (error) return; // silent
+      const res = data as { correct: boolean; score: number; solvedLines: Record<string, number> } | null;
+      if (res?.correct) {
+        setSolvedSlots(res.solvedLines ?? {});
+        setAssessScore(Number(res.score ?? 0));
+      }
+    } catch {
+      // silent
+    }
+  }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, solvedSlots]);
+
+  // Fire silent auto-check when the active line changes (line-leave event).
+  const prevAssessActiveLineRef = useRef<number>(activeLineIdx);
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") {
+      prevAssessActiveLineRef.current = activeLineIdx;
+      return;
+    }
+    const prev = prevAssessActiveLineRef.current;
+    prevAssessActiveLineRef.current = activeLineIdx;
+    if (prev !== activeLineIdx && prev >= 0) {
+      void silentAutoCheckLine(prev);
+    }
+  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine]);
+
+  // ── LIVE MIRROR TO TEACHER — broadcast the student's board state so the
+  // teacher Reasoning Panel can display it live. Broadcast-only (no DB
+  // writes). Uses a per-(assessment, student) private channel.
+  const liveBroadcastChanRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  useEffect(() => {
+    if (!assessmentMode || !assessmentId || role !== "student" || !selfId) return;
+    let cancelled = false;
+    const chanName = `assessment-live-${assessmentId}-${selfId}`;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      const ch = supabase.channel(chanName, { config: { broadcast: { self: false } } });
+      ch.subscribe();
+      liveBroadcastChanRef.current = ch;
+    });
+    return () => {
+      cancelled = true;
+      if (liveBroadcastChanRef.current) {
+        supabase.removeChannel(liveBroadcastChanRef.current);
+        liveBroadcastChanRef.current = null;
+      }
+    };
+  }, [assessmentMode, assessmentId, role, selfId]);
+
+  // Push a snapshot on every board change (debounced).
+  const liveBroadcastTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") return;
+    const ch = liveBroadcastChanRef.current;
+    if (!ch) return;
+    if (liveBroadcastTimer.current) window.clearTimeout(liveBroadcastTimer.current);
+    liveBroadcastTimer.current = window.setTimeout(() => {
+      // Serialise only what the reasoning panel needs. Preserve keys/values
+      // verbatim — never normalise or reorder.
+      const rowsAscii: Record<number, string> = {};
+      for (const [k, v] of Object.entries(freeLines)) {
+        const n = Number(k);
+        if (!Number.isFinite(n)) continue;
+        if (v && v.length > 0) rowsAscii[n] = rowToAscii(v);
+      }
+      // Per-lineId ascii using the same tag-match heuristic as the grader.
+      const linesAscii: Record<string, string> = {};
+      const writtenRows = Object.keys(freeLines)
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
+        .sort((x, y) => x - y);
+      for (let k = 0; k < guidedLines.length; k++) {
+        const target = guidedLines[k];
+        if (!target?.lineId) continue;
+        const expectedFrags = (activeReservoir?.fragments ?? [])
+          .slice(target.fragmentStart, target.fragmentEnd)
+          .filter(Boolean);
+        const expectedSet = chipMultiset(expectedFrags);
+        let rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
+        if (expectedSet.size > 0 && writtenRows.length > 0) {
+          let bestRow = -1, bestScore = -1;
+          for (const n of writtenRows) {
+            const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
+            const score = multisetOverlap(expectedSet, used);
+            if (score > bestScore) { bestScore = score; bestRow = n; }
+          }
+          if (bestRow >= 0) rowNum = bestRow;
+        }
+        const row = freeLines[rowNum];
+        linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";
+      }
+      const lineIds = guidedLines.map((g) => g.lineId ?? null);
+      void ch.send({
+        type: "broadcast",
+        event: "board",
+        payload: {
+          ts: Date.now(),
+          questionId: current?.id ?? null,
+          activeLineIdx,
+          lineIds,
+          rowsAscii,
+          linesAscii,
+        },
+      });
+    }, 120);
+  }, [freeLines, activeLineIdx, assessmentMode, role, current?.id, guidedLines, activeReservoir, activeLayout]);
+
+
 
 
   // Structures the carrier should expose — current line first, then anything
   // still needed in upcoming lines. Used structures stay visible (just dim)
   // because the same fraction bar / radical may recur many times.
+
   const requiredStructures = useMemo<ContainerKind[]>(() => {
     const seen = new Set<ContainerKind>();
     const out: ContainerKind[] = [];

@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Loader2, Eye, Pencil } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, Pencil, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import PresentationView from "@/components/smartboard/PresentationView";
+import TeacherReasoningPanel from "@/components/smartboard/TeacherReasoningPanel";
 import {
   buildAssessmentBoardSource,
   type AssessmentLike,
@@ -20,6 +21,7 @@ const TeacherAssessmentViewerPage = () => {
   const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
   const [studentName, setStudentName] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
+  const [reasoningOpen, setReasoningOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -56,12 +58,26 @@ const TeacherAssessmentViewerPage = () => {
 
   return (
     <>
-      <PresentationView
-        role="teacher"
-        source={source}
-        assessmentId={assessmentId ?? null}
-        classId={classId ?? null}
-      />
+      <div className="fixed inset-0 flex bg-background">
+        <div className={reasoningOpen ? "w-[20%] min-w-[240px] flex-none overflow-hidden" : "flex-1 min-w-0"}>
+          <PresentationView
+            role="teacher"
+            source={source}
+            assessmentId={assessmentId ?? null}
+            classId={classId ?? null}
+          />
+        </div>
+        {reasoningOpen && assessmentId && studentId && (
+          <div className="flex-1 min-w-0">
+            <TeacherReasoningPanel
+              assessmentId={assessmentId}
+              studentId={studentId}
+              studentName={studentName}
+              onClose={() => setReasoningOpen(false)}
+            />
+          </div>
+        )}
+      </div>
 
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
         <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 shadow-lg backdrop-blur">
@@ -81,6 +97,14 @@ const TeacherAssessmentViewerPage = () => {
             title={editMode ? "Return to view-only" : "Enable edit mode (local demo)"}
           >
             {editMode ? <><Pencil className="h-3.5 w-3.5" /> Edit Mode</> : <><Eye className="h-3.5 w-3.5" /> View Only</>}
+          </button>
+          <button
+            type="button"
+            onClick={() => setReasoningOpen((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${reasoningOpen ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+            title="Mathematical Reasoning (live debug)"
+          >
+            <Brain className="h-3.5 w-3.5" /> Reasoning
           </button>
         </div>
       </div>
