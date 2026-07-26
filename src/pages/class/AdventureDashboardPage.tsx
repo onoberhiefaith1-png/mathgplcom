@@ -97,6 +97,19 @@ const AdventureDashboardPage = () => {
 
   const timeBar = useGameTimeBar(gameId);
 
+  // Part 1/6 — the first bar to reach its target sends its reward to that
+  // group's Gallery; nothing transfers once the Time Bar has expired.
+  const transfer = useRewardTransfer({
+    classId,
+    gameId,
+    barSummaries: patchedBarSummaries,
+    barOwner: groups.barOwner,
+    timeExpired: timeBar.expired,
+    galleryPath: `/teaching-hub/classes/${classId}/gallery`,
+  });
+  const timeUp = timeBar.expired && !transfer.winnerBarId;
+
+
   const canvasElements = useMemo(() => {
     if (!timeBar.elementId) return sync.elements;
     const targetId = timeBar.elementId;
