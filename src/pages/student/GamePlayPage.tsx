@@ -212,10 +212,11 @@ const GamePlayPage = () => {
     [openBoard, sync.mySolvedByAssessment],
   );
 
-  // Freeze the board when time is up.
+  // Freeze the board when time is up or a winner has been declared.
   useEffect(() => {
-    if (timeUp) setOpenBarId(null);
-  }, [timeUp]);
+    if (frozen) setOpenBarId(null);
+  }, [frozen]);
+
 
 
   if (loading) {
