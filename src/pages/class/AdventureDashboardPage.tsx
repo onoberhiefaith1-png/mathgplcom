@@ -111,6 +111,15 @@ const AdventureDashboardPage = () => {
   });
   const timeUp = timeBar.expired && !transfer.winnerBarId;
 
+  // Step 2 — the teacher owns the time bar row, so pause it here on a win.
+  const pausedForWinRef = useRef(false);
+  useEffect(() => {
+    if (!transfer.won || pausedForWinRef.current) return;
+    if (!timeBar.running) return;
+    pausedForWinRef.current = true;
+    void timeBar.actions.pause().catch(() => { pausedForWinRef.current = false; });
+  }, [transfer.won, timeBar.running, timeBar.actions]);
+
 
   const canvasElements = useMemo(() => {
     const targetId = timeBar.elementId;
@@ -119,13 +128,15 @@ const AdventureDashboardPage = () => {
       .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
       .map((el) => {
         if (el.kind === "reward" && transfer.departing.has(el.id)) {
-          return { ...el, y: Math.max(-0.2, el.y - 0.35), opacity: 0 };
+          const off = transfer.exitOffsets.get(el.id);
+          return { ...el, y: el.y + (off?.dy ?? 0), opacity: off?.opacity ?? 1 };
         }
         if (!targetId || el.id !== targetId || el.kind !== "progress_bar" || !el.progress) return el;
         const segs = Math.max(1, Number(el.progress.segments) || 10);
         return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
       });
-  }, [sync.elements, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.transferredIds]);
+  }, [sync.elements, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
+
 
 
   const timeBarMeta = useMemo(() => {
