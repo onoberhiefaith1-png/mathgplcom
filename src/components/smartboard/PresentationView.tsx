@@ -3161,16 +3161,26 @@ const PresentationView = ({
   useEffect(() => {
     if (!assessmentMode || !assessmentId || role !== "student" || !selfId) return;
     let cancelled = false;
+    let retries = 0;
     const chanName = `assessment-live-${assessmentId}-${selfId}`;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      const ch = supabase.channel(chanName, { config: { broadcast: { self: false } } });
-      ch.subscribe((status) => {
+    const connect = () => {
+      void ensureRealtimeAuth().then(() => {
         if (cancelled) return;
-        setLiveChanReady(status === "SUBSCRIBED");
+        const ch = supabase.channel(chanName, { config: { broadcast: { self: false } } });
+        ch.subscribe((status) => {
+          if (cancelled) return;
+          setLiveChanReady(status === "SUBSCRIBED");
+          if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && retries < 3) {
+            retries += 1;
+            supabase.removeChannel(ch);
+            if (liveBroadcastChanRef.current === ch) liveBroadcastChanRef.current = null;
+            window.setTimeout(() => { if (!cancelled) connect(); }, 600 * retries);
+          }
+        });
+        liveBroadcastChanRef.current = ch;
       });
-      liveBroadcastChanRef.current = ch;
-    });
+    };
+    connect();
     return () => {
       cancelled = true;
       setLiveChanReady(false);
