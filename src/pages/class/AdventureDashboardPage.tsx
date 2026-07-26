@@ -109,7 +109,7 @@ const AdventureDashboardPage = () => {
     timeExpired: timeBar.expired,
     galleryPath: `/teaching-hub/classes/${classId}/gallery`,
   });
-  const timeUp = timeBar.expired && !transfer.winnerBarId;
+  const timeUp = timeBar.expired && !transfer.won;
 
   // Step 2 — the teacher owns the time bar row, so pause it here on a win.
   const pausedForWinRef = useRef(false);

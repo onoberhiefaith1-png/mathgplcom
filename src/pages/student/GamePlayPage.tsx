@@ -158,7 +158,8 @@ const GamePlayPage = () => {
     galleryPath: `/student/class/${classId}/gallery`,
   });
 
-  const timeUp = timeBar.expired && !transfer.winnerBarId;
+  // Time beat the goal (Part 7): expired with no valid, in-time win.
+  const timeUp = timeBar.expired && !transfer.won;
   const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
   // Winner declared → the game freezes exactly like Time Up does.
   const frozen = timeUp || transfer.won;
