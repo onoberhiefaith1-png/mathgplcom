@@ -88,6 +88,24 @@ export function useRewardTransfer({
   const won = !!winnerBar && !timeExpired;
   const winnerGroupId = winnerBar ? barOwner.get(winnerBar.id) ?? null : null;
 
+  /** The goal is met, regardless of whether a transfer is possible. */
+  const goalReached = !!winnerBar;
+  const pendingTargets = useMemo(
+    () => placements.filter((p) => !alreadyAwarded.has(p.reward_element_id)),
+    [placements, alreadyAwarded],
+  );
+
+  // Why nothing moved. Only meaningful once the goal is actually reached.
+  const blockedReason: TransferBlockedReason = useMemo(() => {
+    if (!goalReached || transferring) return null;
+    if (timeExpired) return "time_expired";
+    if (!placementsLoaded) return null;
+    if (placements.length === 0) return "no_reward";
+    if (pendingTargets.length === 0) return "already_awarded";
+    return null;
+  }, [goalReached, transferring, timeExpired, placementsLoaded, placements.length, pendingTargets.length]);
+
+
   const run = useCallback(
     async (barId: string) => {
       if (!classId || !gameId) return;
