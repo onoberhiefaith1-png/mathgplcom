@@ -593,6 +593,39 @@ export type Database = {
           },
         ]
       }
+      class_gallery_awards: {
+        Row: {
+          awarded_at: string
+          class_id: string
+          created_at: string
+          game_id: string
+          group_id: string | null
+          id: string
+          reward_element_id: string
+          updated_at: string
+        }
+        Insert: {
+          awarded_at?: string
+          class_id: string
+          created_at?: string
+          game_id: string
+          group_id?: string | null
+          id?: string
+          reward_element_id: string
+          updated_at?: string
+        }
+        Update: {
+          awarded_at?: string
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          group_id?: string | null
+          id?: string
+          reward_element_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       class_gallery_rewards: {
         Row: {
           asset_id: string | null
