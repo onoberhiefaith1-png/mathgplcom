@@ -1401,13 +1401,23 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
       {isGallery && (
-        <GalleryModeTabs
-          mode={galleryView}
-          onChange={handleGalleryModeChange}
-          title={title}
-          backHref={`/teaching-hub/classes/${classId}`}
-        />
+        <>
+          <GalleryModeTabs
+            mode={galleryView}
+            onChange={handleGalleryModeChange}
+            title={title}
+            backHref={`/teaching-hub/classes/${classId}`}
+          />
+          {!isConfiguringReward && (
+            <GalleryGroupTabs
+              groups={galleryGroups}
+              activeId={activeGroupId}
+              onChange={setActiveGroupId}
+            />
+          )}
+        </>
       )}
+
       {/* Collapsible top bar */}
       {topBarOpen && (
         <header className="z-20 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-2.5 backdrop-blur">
