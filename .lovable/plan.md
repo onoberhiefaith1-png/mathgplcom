@@ -1,52 +1,32 @@
-## Goal
 
-Connect the already-built systems (Adventure progress bars, Time Bar, Groups, Gallery, reward start/end config) into one runtime workflow. No component is redesigned or rebuilt.
+# Activate the Timer Controls
 
-## What already exists (verified)
+## What I verified
+- The buttons are already wired to `timeBarActions` in `src/components/adventures/TimeBarControl.tsx`, and the database writes **do** succeed: the row for the adventure currently open (`4996cb5d…`) has `duration_seconds = 540` and a `started_at` timestamp, even though the on-screen UI still shows `10` min, `00:00 / 10:00` and a "Start" button.
+- So the failure is not the logic or permissions — it's that the UI never re-reads the row. `src/hooks/useGameTimeBar.ts` updates its local state **only** from a realtime `postgres_changes` subscription; the mutation helpers write and discard the result, and nothing refetches. When that subscription doesn't deliver (auth timing, channel not yet joined), the panel stays frozen on the value loaded at mount.
 
-- Progress bars + live scoring: `useAdventureSync` (supports an optional `barScope` per bar).
-- Groups: `adventure_groups` / `adventure_group_members`, `useAdventureGroups` (gives `barOwner`, `studentsByGroup`, `studentGroup`). Teacher dashboard already passes `barScope`; the student play page does not.
-- Time Bar: `useGameTimeBar` with `expired`; student play page shows a "Time expired" overlay, assessment board blocks input.
-- Gallery: one canvas per class (`class_galleries`), reward start/end/scale/rotation/opacity/duration saved per class+game+reward in `class_gallery_rewards`, preview animation in `GameEditorPage`.
-- Missing link: nothing marks a reward as *earned*, nothing plays the transfer at runtime, and galleries have no group dimension.
+## Fix (no redesign, no visual changes)
 
-## Part 1 — Data (additive migration only)
+**1. Mutations return the new row and update state immediately**
+- In `useGameTimeBar.ts`, have every mutation (`setDuration`, `adjustDuration`, `start`, `pause`, `resume`, `reset`) use `.select().single()` and hand the returned row back.
+- Move the actions from the free-standing `timeBarActions` object into hook-bound callbacks (keeping `timeBarActions` exported for any other caller) so each action can call `setRow(returned)` right after the write.
+- Realtime stays as-is and simply reconciles; the local apply makes the display, the `mm:ss` totals and the lit-slot count update instantly with no refresh.
 
-New table `class_gallery_awards`:
-- `class_id`, `game_id`, `reward_element_id`, `group_id` (nullable = whole class), `awarded_at`
-- unique on (class_id, game_id, reward_element_id, group_id)
-- GRANTs + RLS: class members read; class owner and the awarding path write.
+**2. +1 / −1 minute**
+- `adjustDuration` keeps its ±60s step; change the floor from the current `10` seconds to `60` seconds so the duration can never drop below 1 minute (and never negative).
+- Because slots are derived (`slotsLit` = `elapsed ÷ (duration ÷ segments)`), time-per-slot recalculates automatically the moment `duration_seconds` changes — nothing else to add.
 
-`class_gallery_rewards` (the layout/placement) stays untouched — it is the shared layout used by every group's gallery.
+**3. Duration input**
+- Keeps working as today (min 1 minute), now with immediate local echo so typing/committing a value reflects at once. Editing before start is unaffected.
 
-## Part 2 — Reward transfer pipeline (runtime)
+**4. Reset**
+- Spec asks Reset to restore the *originally saved* duration. There is no column holding it today, so add one additively: `game_time_bars.default_duration_seconds` (backfilled from the current `duration_seconds`, set on insert).
+- Reset then clears `started_at`, `paused_at`, `accumulated_paused_ms` **and** restores `duration_seconds` to `default_duration_seconds`, returning the bar to `00:00 / original` with 0 slots lit, ready to start again.
 
-New hook `useRewardTransfer`:
-1. Watches each progress bar's `achieved >= required` (values already computed by `useAdventureSync`).
-2. On first completion, and only if the Time Bar has not expired, insert the award row for the winning bar's group (from `barOwner`).
-3. Plays the exit animation on the Adventure canvas: reward lifts, fades, and is removed from the rendered element list (it stays removed for that game once awarded).
-4. Navigates to the gallery (`/student/class/:classId/gallery` or teacher gallery), passing a `?animateReward=<gameId>:<elementId>` flag.
-5. The gallery plays the saved start → end animation over `duration_ms`, then leaves the reward permanently at the end position.
-
-Guard: the award insert is idempotent (unique constraint), so multiple clients completing simultaneously produce one award; the first group to insert is the winner.
-
-## Part 3 — Time Bar lockout
-
-- When `timeBar.expired` and no bar has reached its target: show a **"Time Up"** overlay, freeze the canvas, block opening question boards, and block navigation into the assessment board (the existing assessment-board block is reused).
-- No award row is inserted after expiry; every group's gallery is untouched.
-
-## Part 4 — Group-scoped scoring on the student side
-
-- `GamePlayPage` and `StudentGameLivePage` gain `useAdventureGroups` and pass the same `barScope` map the teacher dashboard already builds, so a student's marks only raise their own group's bar.
-- A student can only open the board of the bar owned by their group (other bars remain view-only).
-
-## Part 5 — Gallery: one layout, per-group data
-
-- `ClassGalleryEditorPage` (teacher): group tabs across the top (Whole Class + each group). Tabs only change which award rows are rendered — canvas, background, layout and reward end positions come from the single shared gallery record.
-- `StudentGalleryPage`: resolves the student's group automatically via `studentGroup` and renders that group's awards only. No group picker.
-- Both render: base gallery elements + awarded rewards drawn at their saved end position/scale/rotation/opacity.
+**5. Show failures instead of swallowing them**
+- Surface any write error with a toast so a permission/network failure is visible rather than looking like a dead button.
 
 ## Technical notes
-
-- Files touched: `src/pages/student/GamePlayPage.tsx`, `src/pages/student/StudentGameLivePage.tsx`, `src/pages/student/StudentGalleryPage.tsx`, `src/pages/GameEditorPage.tsx` (gallery mode: tabs + award rendering + arrival animation), `src/lib/games/classGalleryRewards.ts` (award read/write helpers), plus new `src/hooks/useRewardTransfer.ts`.
-- No changes to the reward config panel, Time Bar controls, Groups panel, progress bar rendering, or Smartboard.
+- Files: `src/hooks/useGameTimeBar.ts` (main change), `src/components/adventures/TimeBarControl.tsx` (use the hook-bound actions; markup untouched).
+- One additive migration: add `default_duration_seconds integer` to `public.game_time_bars` with a default and a backfill. No existing columns or tables modified.
+- `src/hooks/useTimeBar.ts` / `TimeBarControls.tsx` (student & class-live views) are read-only consumers and stay as they are.
