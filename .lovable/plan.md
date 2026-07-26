@@ -1,59 +1,52 @@
-## Source
+## Goal
 
-Everything is copied verbatim from **Remix of gamedraft (53)** (`d5636c20-…`) — the project in your screenshots. Nothing is redesigned or rebuilt. This project already shares the same `src/components/gamebuilder/*` canvas stack (GameCanvas, SettingsPanel, EffectsRail, AssetLibraryModal, ProgressColumn…), so the copied gallery code drops straight in.
+Connect the already-built systems (Adventure progress bars, Time Bar, Groups, Gallery, reward start/end config) into one runtime workflow. No component is redesigned or rebuilt.
 
-What is missing here today: `RewardConfigPanel.tsx`, `GroupsPanel.tsx`, the whole class-gallery library, the two gallery pages, the gallery half of the game editor, and the four database tables behind them.
+## What already exists (verified)
 
-## Part 1 — Group Bars ("+ New Group") on the Assessment Dashboard
+- Progress bars + live scoring: `useAdventureSync` (supports an optional `barScope` per bar).
+- Groups: `adventure_groups` / `adventure_group_members`, `useAdventureGroups` (gives `barOwner`, `studentsByGroup`, `studentGroup`). Teacher dashboard already passes `barScope`; the student play page does not.
+- Time Bar: `useGameTimeBar` with `expired`; student play page shows a "Time expired" overlay, assessment board blocks input.
+- Gallery: one canvas per class (`class_galleries`), reward start/end/scale/rotation/opacity/duration saved per class+game+reward in `class_gallery_rewards`, preview animation in `GameEditorPage`.
+- Missing link: nothing marks a reward as *earned*, nothing plays the transfer at runtime, and galleries have no group dimension.
 
-Copy verbatim:
-- `src/lib/adventures/groups.ts`
-- `src/hooks/useAdventureGroups.ts`
-- `src/components/adventures/GroupsPanel.tsx`
+## Part 1 — Data (additive migration only)
 
-Mount `GroupsPanel` in `src/pages/class/AdventureDashboardPage.tsx` exactly where it sits in the source (below the status buckets), passing class members, the canvas bars, group context, per-bar stats and reserved bar ids.
+New table `class_gallery_awards`:
+- `class_id`, `game_id`, `reward_element_id`, `group_id` (nullable = whole class), `awarded_at`
+- unique on (class_id, game_id, reward_element_id, group_id)
+- GRANTs + RLS: class members read; class owner and the awarding path write.
 
-Additive migration (new tables only):
-- `adventure_groups` (id, class_id, game_id, name, progress_element_id)
-- `adventure_group_members` (id, class_id, game_id, group_id, student_id)
-- GRANTs + RLS: teacher (class owner) full access, class members read.
+`class_gallery_rewards` (the layout/placement) stays untouched — it is the shared layout used by every group's gallery.
 
-Behaviour preserved: each group owns one Progress Bar, only unassigned students sit in "Whole Class", bars already used by the Time Bar or a linked lesson can't be picked twice.
+## Part 2 — Reward transfer pipeline (runtime)
 
-## Part 2 — Class Gallery (copied whole)
+New hook `useRewardTransfer`:
+1. Watches each progress bar's `achieved >= required` (values already computed by `useAdventureSync`).
+2. On first completion, and only if the Time Bar has not expired, insert the award row for the winning bar's group (from `barOwner`).
+3. Plays the exit animation on the Adventure canvas: reward lifts, fades, and is removed from the rendered element list (it stays removed for that game once awarded).
+4. Navigates to the gallery (`/student/class/:classId/gallery` or teacher gallery), passing a `?animateReward=<gameId>:<elementId>` flag.
+5. The gallery plays the saved start → end animation over `duration_ms`, then leaves the reward permanently at the end position.
 
-Copy verbatim:
-- `src/lib/games/classGallery.ts`, `src/lib/games/classGalleryRewards.ts`, `src/lib/games/galleryScroll.ts`
-- `src/components/gamebuilder/RewardConfigPanel.tsx`
-- `src/pages/ClassGalleryEditorPage.tsx`
-- `src/pages/student/StudentGalleryPage.tsx`
-- The gallery-specific branches of `src/pages/GameEditorPage.tsx` (fullscreen one-section-at-a-time stage, Extend Canvas / Shrink, scroll memory, Play Preview, Live, Focus, zoom Fit/100%/200%, camera target, toolbar) merged into this project's `src/pages/adventure/AdventureGameEditor.tsx` — copied, not reinterpreted.
+Guard: the award insert is idempotent (unique constraint), so multiple clients completing simultaneously produce one award; the first group to insert is the winner.
 
-Additive migration:
-- `class_galleries` (one canvas per class)
-- `class_gallery_rewards` (class_id, game_id, reward_element_id, asset/media fields, start & end position, transform)
-- GRANTs + RLS matching the source: teacher owns/edits, class students read.
+## Part 3 — Time Bar lockout
 
-Routes (same paths as source):
-- `/teaching-hub/classes/:classId/gallery` → `ClassGalleryEditorPage`
-- `/student/class/:classId/gallery` → `StudentGalleryPage`
+- When `timeBar.expired` and no bar has reached its target: show a **"Time Up"** overlay, freeze the canvas, block opening question boards, and block navigation into the assessment board (the existing assessment-board block is reused).
+- No award row is inserted after expiry; every group's gallery is untouched.
 
-Each class gets its own independent gallery, created on first open.
+## Part 4 — Group-scoped scoring on the student side
 
-## Part 3 — Link to Achievement Dashboard
+- `GamePlayPage` and `StudentGameLivePage` gain `useAdventureGroups` and pass the same `barScope` map the teacher dashboard already builds, so a student's marks only raise their own group's bar.
+- A student can only open the board of the bar owned by their group (other bars remain view-only).
 
-`RewardConfigPanel` keeps its **"Link to Class Gallery"** action untouched. When linked:
-- the reward is stored in `class_gallery_rewards` for that class + game, not inside the gallery canvas JSON;
-- Start Position / End Position / Size / Rotation / Opacity / animation preview all keep working exactly as they do now in the source;
-- when a student's progress bar fills, the reward animates out of the dashboard and lands in that class's Gallery — the existing source logic, copied as-is.
+## Part 5 — Gallery: one layout, per-group data
 
-## Part 4 — Entry points
-
-- Teacher: the **Gallery** tile already on the class dashboard grid routes to the class gallery editor.
-- Student: **Gallery** tile on the student class page routes to the read-only gallery.
+- `ClassGalleryEditorPage` (teacher): group tabs across the top (Whole Class + each group). Tabs only change which award rows are rendered — canvas, background, layout and reward end positions come from the single shared gallery record.
+- `StudentGalleryPage`: resolves the student's group automatically via `studentGroup` and renders that group's awards only. No group picker.
+- Both render: base gallery elements + awarded rewards drawn at their saved end position/scale/rotation/opacity.
 
 ## Technical notes
 
-- Only additive migrations; no existing table or column is altered.
-- Copies preserve file names and import paths so future diffs against the source project stay clean.
-- Any source file importing something this project lacks is copied along with its dependency rather than rewritten.
+- Files touched: `src/pages/student/GamePlayPage.tsx`, `src/pages/student/StudentGameLivePage.tsx`, `src/pages/student/StudentGalleryPage.tsx`, `src/pages/GameEditorPage.tsx` (gallery mode: tabs + award rendering + arrival animation), `src/lib/games/classGalleryRewards.ts` (award read/write helpers), plus new `src/hooks/useRewardTransfer.ts`.
+- No changes to the reward config panel, Time Bar controls, Groups panel, progress bar rendering, or Smartboard.
