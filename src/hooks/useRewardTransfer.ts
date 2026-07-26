@@ -41,6 +41,7 @@ export function useRewardTransfer({
 }) {
   const navigate = useNavigate();
   const [placements, setPlacements] = useState<ClassGalleryRewardRow[]>([]);
+  const [placementsLoaded, setPlacementsLoaded] = useState(false);
   const [alreadyAwarded, setAlreadyAwarded] = useState<Set<string>>(new Set());
   const [departing, setDeparting] = useState<Set<string>>(new Set());
   const [exitOffsets, setExitOffsets] = useState<Map<string, ExitOffset>>(new Map());
@@ -64,10 +65,13 @@ export function useRewardTransfer({
         );
       } catch (e) {
         console.error(e);
+      } finally {
+        if (!cancelled) setPlacementsLoaded(true);
       }
     })();
     return () => { cancelled = true; };
   }, [classId, gameId]);
+
 
   useEffect(() => () => { if (frameRef.current != null) cancelAnimationFrame(frameRef.current); }, []);
 
