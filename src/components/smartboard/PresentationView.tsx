@@ -86,7 +86,7 @@ import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
-import { useAssessmentBoardSession } from "@/hooks/useAssessmentBoardSession";
+import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 
 import ActiveStudentControl from "./ActiveStudentControl";
 import { supabase } from "@/integrations/supabase/client";
