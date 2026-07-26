@@ -62,6 +62,7 @@ const ClassDashboardPage = () => {
     { label: "Assignments", icon: ClipboardList, to: `/teaching-hub/classes/${classId}/assignments` },
     { label: "Adventures", icon: Compass, to: `/teaching-hub/classes/${classId}/adventures` },
     { label: "Games", icon: Gamepad2, to: `/teaching-hub/classes/${classId}/games` },
+    { label: "Gallery", icon: ImageIcon, to: `/teaching-hub/classes/${classId}/gallery` },
     { label: "Settings", icon: Settings, to: `/teaching-hub/classes/${classId}` },
   ];
 
