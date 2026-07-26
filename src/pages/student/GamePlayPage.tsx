@@ -260,7 +260,7 @@ const GamePlayPage = () => {
             </div>
 
             <div className="pointer-events-none absolute inset-0 z-30">
-              {playableBars.map((bar) => {
+              {!timeUp && playableBars.map((bar) => {
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
                   <button
@@ -280,19 +280,30 @@ const GamePlayPage = () => {
                 );
               })}
             </div>
-            {playableBars.length === 0 && (
+            {playableBars.length === 0 && !timeUp && (
               <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 mx-auto w-fit rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
                 Your teacher hasn't linked questions to this game's progress bars yet.
               </div>
             )}
-            {timeBar.expired && (
-              <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                <div className="rounded-xl border border-destructive/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
-                  <div className="text-sm font-semibold text-destructive">Time expired</div>
-                  <div className="mt-1 text-xs text-muted-foreground">Wait for your teacher to add time or reset the timer.</div>
+            {transfer.transferring && (
+              <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
+                  <div className="text-sm font-semibold text-primary">Adventure complete!</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Sending your reward to the Gallery…</div>
                 </div>
               </div>
             )}
+            {timeUp && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div className="rounded-xl border border-destructive/40 bg-background/90 px-8 py-5 text-center shadow-2xl">
+                  <div className="text-lg font-bold text-destructive">Time Up</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    The game has ended. No reward was awarded.
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
 
           {isOpen && openBoard && (
