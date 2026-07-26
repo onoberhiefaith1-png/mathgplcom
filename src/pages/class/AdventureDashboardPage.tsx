@@ -15,6 +15,8 @@ import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { GroupsPanel } from "@/components/adventures/GroupsPanel";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
+import { useRewardTransfer } from "@/hooks/useRewardTransfer";
+
 import { TimeBarControl } from "@/components/adventures/TimeBarControl";
 
 type ClassNameRow = { name: string | null };
