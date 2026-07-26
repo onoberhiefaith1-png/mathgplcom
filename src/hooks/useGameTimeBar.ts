@@ -205,6 +205,3 @@ export const timeBarActions = {
     if (error) throw error;
   },
 };
-
-  },
-};
