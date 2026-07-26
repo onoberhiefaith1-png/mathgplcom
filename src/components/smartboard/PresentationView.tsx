@@ -3112,6 +3112,16 @@ const PresentationView = ({
   }, [boardIncoming, boardSessionActive, selfId]);
 
   // ── SHARED SESSION: publish our board while we hold edit rights ──────────
+  // A ref of the live board is kept on every render so the safety re-publish
+  // below also catches mutations that happen in place (drag / rearrange /
+  // delete paths that don't produce a new state identity).
+  const liveBoardRef = useRef<AssessBoardState | null>(null);
+  liveBoardRef.current = {
+    beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+    sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+    activeLineIdx, questionId: current?.id ?? null,
+  } as AssessBoardState;
+
   useEffect(() => {
     if (!boardSessionActive || !canEdit) return;
     if (applyingRemoteRef.current) return;
@@ -3126,6 +3136,20 @@ const PresentationView = ({
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     activeLineIdx, current?.id,
   ]);
+
+  // Safety re-publish — `push` de-dupes identical content, so this is a no-op
+  // unless something changed without re-running the effect above.
+  useEffect(() => {
+    if (!boardSessionActive || !canEdit) return;
+    const id = window.setInterval(() => {
+      if (applyingRemoteRef.current) return;
+      const snap = liveBoardRef.current;
+      if (snap) pushBoardState(snap);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [boardSessionActive, canEdit, pushBoardState]);
+
+
 
 
 
