@@ -28,6 +28,7 @@ const AdventureDashboardPage = () => {
   const [className, setClassName] = useState<string>("");
   const [panelOpen, setPanelOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState<"none" | "game" | "panel">("none");
+  const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (fullscreen === "none") return;

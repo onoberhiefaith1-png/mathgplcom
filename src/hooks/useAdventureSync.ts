@@ -291,6 +291,11 @@ export function useAdventureSync({
     });
   }, [game, barSummaries]);
 
+  const heightUnits = useMemo(() => {
+    if (!game) return 1;
+    return Math.max(1, Math.floor(Number(normalizeCanvas(game.canvas).heightUnits) || 1));
+  }, [game]);
+
   const requiredContribution = useMemo(() => {
     if (memberIds.length <= 0) return 0;
     const totalRequired = barSummaries.reduce((sum, b) => sum + b.required, 0);
@@ -330,6 +335,7 @@ export function useAdventureSync({
     boardByElement,
     barSummaries,
     elements,
+    heightUnits,
     rows,
     achievedTotal,
     requiredTotal,
