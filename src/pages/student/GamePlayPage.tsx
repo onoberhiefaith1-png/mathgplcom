@@ -274,7 +274,7 @@ const GamePlayPage = () => {
             </div>
 
             <div className="pointer-events-none absolute inset-0 z-30">
-              {!timeUp && playableBars.map((bar) => {
+              {!frozen && playableBars.map((bar) => {
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
                   <button
