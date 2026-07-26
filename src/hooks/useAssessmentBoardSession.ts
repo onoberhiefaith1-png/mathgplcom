@@ -81,8 +81,13 @@ export function useAssessmentBoardSession(opts: {
           .eq("assessment_id", assessmentId!)
           .eq("student_id", studentId!)
           .maybeSingle();
-    query.then(({ data }) => {
-      if (cancelled || !data?.state_json) return;
+    query.then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) {
+        console.warn("[board-session] load failed", error.message);
+        return;
+      }
+      if (!data?.state_json) return;
       const sj = data.state_json as unknown;
       if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
         setIncoming(sj as AssessBoardSnapshot);
@@ -148,42 +153,51 @@ export function useAssessmentBoardSession(opts: {
       void ch.send({ type: "broadcast", event: "state", payload: snapshot });
     }, 90);
 
-    // Durable path — debounced upsert.
+    // Durable path — debounced upsert. Errors are surfaced (they used to be
+    // swallowed, which hid a missing-grant failure for the whole feature) and
+    // retried once before giving up.
     if (dbTimer.current) window.clearTimeout(dbTimer.current);
     dbTimer.current = window.setTimeout(() => {
       const activeLine = Math.max(0, Math.floor(state.activeLineIdx ?? 0));
-      if (perQuestion) {
-        void supabase
-          .from("assessment_question_board_state")
-          .upsert(
-            {
-              assessment_id: assessmentId!,
-              student_id: studentId!,
-              question_id: questionId!,
-              state_json: snapshot as never,
-              active_line_idx: activeLine,
-              author: selfId,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "assessment_id,student_id,question_id" },
-          );
-        return;
-      }
-      void supabase
-        .from("assessment_board_state")
-        .upsert(
-          {
-            assessment_id: assessmentId!,
-            student_id: studentId!,
-            state_json: snapshot as never,
-            question_id: state.questionId,
-            active_line_idx: activeLine,
-            author: selfId,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "assessment_id,student_id" },
-        );
-    }, 1200);
+      const write = () =>
+        perQuestion
+          ? supabase
+              .from("assessment_question_board_state")
+              .upsert(
+                {
+                  assessment_id: assessmentId!,
+                  student_id: studentId!,
+                  question_id: questionId!,
+                  state_json: snapshot as never,
+                  active_line_idx: activeLine,
+                  author: selfId,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "assessment_id,student_id,question_id" },
+              )
+          : supabase
+              .from("assessment_board_state")
+              .upsert(
+                {
+                  assessment_id: assessmentId!,
+                  student_id: studentId!,
+                  state_json: snapshot as never,
+                  question_id: state.questionId,
+                  active_line_idx: activeLine,
+                  author: selfId,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "assessment_id,student_id" },
+              );
+
+      void write().then(({ error }) => {
+        if (!error) return;
+        console.warn("[board-session] save failed, retrying", error.message);
+        void write().then(({ error: err2 }) => {
+          if (err2) console.error("[board-session] save failed", err2.message);
+        });
+      });
+    }, 700);
   }, [active, assessmentId, studentId, questionId, perQuestion, selfId]);
 
 

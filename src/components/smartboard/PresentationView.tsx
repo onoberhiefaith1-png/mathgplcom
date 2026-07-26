@@ -2876,102 +2876,118 @@ const PresentationView = ({
     | null
   >(null);
 
-  const checkActiveLine = async (kOverride?: number) => {
-    if (!assessmentMode || !assessmentId || !current || !activeLayout) return;
-    const k = typeof kOverride === "number" ? kOverride : activeLineIdx;
-    if (k < 0 || k >= guidedLines.length) {
-      toast({ title: "All lines done", description: "You've solved every line in this question." });
-      return;
-    }
+  // ── ONE GRADING PIPELINE ────────────────────────────────────────────────
+  // Manual "Check line" and the silent auto-grader resolve the student's line
+  // the SAME way and send it to the SAME server grader (`grade-line`, the very
+  // engine the Reasoning panel uses). There is no local/legacy validation:
+  // the server verdict is the only judge of correctness.
+  const resolveGradableLine = useCallback((k: number) => {
+    if (!assessmentMode || !assessmentId || !current || !activeLayout) return null;
+    if (k < 0 || k >= guidedLines.length) return null;
     const target = guidedLines[k];
-    if (!target?.lineId) return;
+    if (!target?.lineId) return null;
 
-    // Locate the student's row by TAG MATCH so the line can be written anywhere.
-    const fallbackLineNum = clampToActiveBand(bandStart(activeLayout) + k);
+    const expectedFrags = (activeReservoir?.fragments ?? [])
+      .slice(target.fragmentStart, target.fragmentEnd)
+      .filter(Boolean);
+
     const writtenRows = Object.keys(freeLines)
       .map(Number)
       .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
       .sort((x, y) => x - y);
-    if (writtenRows.length === 0) {
-      setWrongLine(fallbackLineNum);
-      toast({
-        title: `⚠ Line ${k + 1} incomplete`,
-        description: `Write your working for line ${k + 1} first.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    const expectedFrags = (activeReservoir?.fragments ?? [])
-      .slice(target.fragmentStart, target.fragmentEnd)
-      .filter(Boolean);
+
+    let rowNum = clampToActiveBand(bandStart(activeLayout) + k);
     const expectedSet = chipMultiset(expectedFrags);
-    let expectedLineNum = fallbackLineNum;
-    if (expectedSet.size > 0) {
+    if (expectedSet.size > 0 && writtenRows.length > 0) {
       let bestRow = -1, bestScore = -1;
       for (const n of writtenRows) {
         const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
         const score = multisetOverlap(expectedSet, used);
         if (score > bestScore) { bestScore = score; bestRow = n; }
       }
-      if (bestRow >= 0) expectedLineNum = bestRow;
+      if (bestRow >= 0) rowNum = bestRow;
+    }
+    // No ink on the resolved row — fall back to the row the sensor is on, then
+    // to the last written row, so the student's actual work is always graded.
+    if (!freeLines[rowNum]?.length) {
+      if (freeLines[sensor.line]?.length) rowNum = sensor.line;
+      else if (writtenRows.length > 0) rowNum = writtenRows[writtenRows.length - 1];
     }
 
-    const row = freeLines[expectedLineNum];
-    if (!row || row.length === 0) {
-      setWrongLine(expectedLineNum);
-      toast({ title: `⚠ Line ${k + 1} incomplete`, description: "No ink found on this line.", variant: "destructive" });
+    const row = freeLines[rowNum];
+    const ascii = row && row.length > 0 ? rowToAscii(row) : "";
+    return { target, expectedFrags, rowNum, ascii };
+  }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, sensor.line]);
+
+  /** Grade one line through the shared equivalence engine.
+   *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent. */
+  const gradeLineThroughEngine = useCallback(async (k: number, mode: "manual" | "auto") => {
+    const resolved = resolveGradableLine(k);
+    if (!resolved || !current || !assessmentId) return;
+    const { target, expectedFrags, rowNum, ascii } = resolved;
+
+    // Nothing written at all — nothing to evaluate. (Not a validation rule:
+    // there is simply no expression to send to the engine.)
+    if (!ascii.trim()) {
+      if (mode === "manual") {
+        toast({ title: "Nothing to check", description: "Write your working first, then press Check." });
+      }
       return;
     }
-    const ascii = rowToAscii(row);
-    const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
-    if (!ascii.trim() || dangling) {
-      toast({
-        title: "Incomplete expression",
-        description: "This line still ends on an operator — finish the step, then check.",
-        variant: "destructive",
-      });
-      return;
+    if (mode === "auto") {
+      const slot = `${current.id}:${target.lineId}`;
+      if (slot in solvedSlots) return; // already awarded
     }
 
-
-    setAssessChecking(true);
+    if (mode === "manual") setAssessChecking(true);
     try {
-      // Server-authoritative per-line grader (symbolic → numeric → LLM).
       const { data, error } = await supabase.functions.invoke("grade-line", {
         body: {
           assessmentId,
           questionId: current.id,
           lineId: target.lineId,
           studentAscii: ascii,
-          mode: "manual",
+          mode,
           allowedFloatingTokens: expectedFrags,
+          persist: true,
         },
       });
-      if (error) throw error;
-      const res = data as { correct: boolean; verdict?: string; score: number; solvedLines: Record<string, number>; marks?: number };
+      if (error) {
+        if (mode === "manual") throw error;
+        return;
+      }
+      const res = data as {
+        correct: boolean; verdict?: string; marks?: number;
+        score: number; solvedLines: Record<string, number>;
+      } | null;
+
       broadcastCheckResultRef.current?.({
         questionId: current.id,
         lineId: target.lineId,
-        mode: "manual",
-        correct: !!res.correct,
-        verdict: res.verdict,
-        marks: Number(res.marks ?? 0),
+        mode,
+        correct: !!res?.correct,
+        verdict: res?.verdict,
+        marks: Number(res?.marks ?? 0),
         studentAscii: ascii,
       });
 
-
-      if (res.correct) {
+      if (res?.correct) {
         setSolvedSlots(res.solvedLines ?? {});
         setAssessScore(Number(res.score ?? 0));
-        setWrongLine((w) => (w === expectedLineNum ? null : w));
-        // Advance active line if the user checked the current one.
-        if (typeof kOverride !== "number" || kOverride === activeLineIdx) {
+        setWrongLine((w) => (w === rowNum ? null : w));
+      }
+
+      if (mode !== "manual") return;
+
+      if (res?.correct) {
+        // Advance to the next line when the student checked the current one.
+        if (k === activeLineIdx) {
           const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
           setActiveLineIdx(nextIdx);
           setFloatingLineIdx(nextIdx);
           const nextWritable = activeLayout
-            ? firstWritableRowAfter(expectedLineNum, activeLayout)
-            : expectedLineNum + 1;
+            ? firstWritableRowAfter(rowNum, activeLayout)
+            : rowNum + 1;
           if (activeLayout && nextWritable > bandEnd(activeLayout)) growActiveBand();
           setSensor({ line: clampToActiveBand(nextWritable), x: 0 });
           setLiveCursor({ path: [], index: 0 });
@@ -2981,94 +2997,41 @@ const PresentationView = ({
         }
         toast({ title: "✓ Line verified", description: `+${res.marks ?? target.marks ?? 0} marks` });
       } else {
-        setWrongLine(expectedLineNum);
-        // Teaching feedback comes from the grader's verdict — never from a
-        // syntax rule about equals signs.
+        setWrongLine(rowNum);
         const feedback =
-          res.verdict === "not_in_floating_set"
+          res?.verdict === "not_in_floating_set"
             ? "You used a number that wasn't given for this line. Use only the floating numbers shown."
-            : res.verdict === "parse_error"
+            : res?.verdict === "parse_error"
               ? "I couldn't read this line. Check for a missing bracket or a stray symbol."
               : "That line isn't mathematically equivalent to the expected step.";
         toast({ title: "Error in your solution", description: feedback, variant: "destructive" });
       }
-
     } catch (e: any) {
-      toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
+      if (mode === "manual") {
+        toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
+      }
     } finally {
-      setAssessChecking(false);
+      if (mode === "manual") setAssessChecking(false);
     }
+  }, [
+    resolveGradableLine, current, assessmentId, solvedSlots, activeLineIdx,
+    guidedLines.length, activeLayout, toast,
+  ]);
+
+  const checkActiveLine = (kOverride?: number) => {
+    const k = typeof kOverride === "number" ? kOverride : activeLineIdx;
+    if (k < 0 || k >= guidedLines.length) {
+      toast({ title: "All lines done", description: "You've solved every line in this question." });
+      return;
+    }
+    void gradeLineThroughEngine(k, "manual");
   };
 
-  // ── SILENT AUTO FORCE CHECK — grade the line the student just left ────
-  // No toast, no sound, no focus change. Awards marks silently on equivalence
-  // + floating-set subset. Manual Check (checkActiveLine) is untouched.
-  const silentAutoCheckLine = useCallback(async (k: number) => {
-    if (!assessmentMode || !assessmentId || !current || !activeLayout) return;
-    if (k < 0 || k >= guidedLines.length) return;
-    const target = guidedLines[k];
-    if (!target?.lineId) return;
-    // Skip already-solved lines.
-    const slot = `${current.id}:${target.lineId}`;
-    if (slot in solvedSlots) return;
-    // Locate the row by tag match (same heuristic as checkActiveLine).
-    const expectedFrags = (activeReservoir?.fragments ?? [])
-      .slice(target.fragmentStart, target.fragmentEnd)
-      .filter(Boolean);
-    const expectedSet = chipMultiset(expectedFrags);
-    const writtenRows = Object.keys(freeLines)
-      .map(Number)
-      .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
-      .sort((x, y) => x - y);
-    if (writtenRows.length === 0) return;
-    let expectedLineNum = clampToActiveBand(bandStart(activeLayout) + k);
-    if (expectedSet.size > 0) {
-      let bestRow = -1, bestScore = -1;
-      for (const n of writtenRows) {
-        const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
-        const score = multisetOverlap(expectedSet, used);
-        if (score > bestScore) { bestScore = score; bestRow = n; }
-      }
-      if (bestRow >= 0) expectedLineNum = bestRow;
-    }
-    const row = freeLines[expectedLineNum];
-    if (!row || row.length === 0) return;
-    const ascii = rowToAscii(row);
-    const dangling = /[+\-−*×/÷=^]/.test(ascii.slice(-1));
-    if (!ascii.trim() || dangling) return;
-
-    try {
-      const { data, error } = await supabase.functions.invoke("grade-line", {
-        body: {
-          assessmentId,
-          questionId: current.id,
-          lineId: target.lineId,
-          studentAscii: ascii,
-          mode: "auto",
-          allowedFloatingTokens: expectedFrags,
-          persist: true,
-        },
-      });
-      if (error) return; // silent
-      const res = data as { correct: boolean; verdict?: string; marks?: number; score: number; solvedLines: Record<string, number> } | null;
-      broadcastCheckResultRef.current?.({
-        questionId: current.id,
-        lineId: target.lineId,
-        mode: "auto",
-        correct: !!res?.correct,
-        verdict: res?.verdict,
-        marks: Number(res?.marks ?? 0),
-        studentAscii: ascii,
-      });
-      if (res?.correct) {
-        setSolvedSlots(res.solvedLines ?? {});
-        setAssessScore(Number(res.score ?? 0));
-      }
-
-    } catch {
-      // silent
-    }
-  }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, solvedSlots]);
+  // Silent auto-grading — same resolver, same engine, no UI feedback.
+  const silentAutoCheckLine = useCallback(
+    async (k: number) => { await gradeLineThroughEngine(k, "auto"); },
+    [gradeLineThroughEngine],
+  );
 
   // Fire silent auto-check when the active line changes (line-leave event).
   const prevAssessActiveLineRef = useRef<number>(activeLineIdx);
@@ -3149,14 +3112,18 @@ const PresentationView = ({
   ]);
 
   // Safety re-publish — `push` de-dupes identical content, so this is a no-op
-  // unless something changed without re-running the effect above.
+  // unless something changed without re-running the effect above (drag,
+  // rearrange, delete and floating-number drops mutate in place). Publishes
+  // once immediately so a teacher joining late sees the whole board at once.
   useEffect(() => {
     if (!boardSessionActive || !canEdit) return;
-    const id = window.setInterval(() => {
+    const tick = () => {
       if (applyingRemoteRef.current) return;
       const snap = liveBoardRef.current;
       if (snap) pushBoardState(snap);
-    }, 1000);
+    };
+    tick();
+    const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
   }, [boardSessionActive, canEdit, pushBoardState]);
 
