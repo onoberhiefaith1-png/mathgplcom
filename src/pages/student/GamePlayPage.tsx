@@ -59,6 +59,17 @@ const GamePlayPage = () => {
     if (classId && gameId) updatePrefetchedGame(classId, gameId, updated);
   }, [classId, gameId]);
 
+  const groups = useAdventureGroups(classId, gameId);
+
+  // Part 4 — a student's marks only raise their own group's bar.
+  const barScope = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const g of groups.groups) {
+      map.set(g.progress_element_id, groups.studentsByGroup.get(g.id) ?? new Set<string>());
+    }
+    return map;
+  }, [groups.groups, groups.studentsByGroup]);
+
   const sync = useAdventureSync({
     classId,
     gameId,
@@ -66,7 +77,9 @@ const GamePlayPage = () => {
     boards,
     currentUserId: me,
     onGameUpdated: handleGameUpdated,
+    barScope,
   });
+
 
   useEffect(() => {
     let cancelled = false;
