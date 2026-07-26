@@ -15,6 +15,8 @@ import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { GroupsPanel } from "@/components/adventures/GroupsPanel";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
+import { useRewardTransfer } from "@/hooks/useRewardTransfer";
+
 import { TimeBarControl } from "@/components/adventures/TimeBarControl";
 
 type ClassNameRow = { name: string | null };
@@ -97,15 +99,34 @@ const AdventureDashboardPage = () => {
 
   const timeBar = useGameTimeBar(gameId);
 
+  // Part 1/6 — the first bar to reach its target sends its reward to that
+  // group's Gallery; nothing transfers once the Time Bar has expired.
+  const transfer = useRewardTransfer({
+    classId,
+    gameId,
+    barSummaries: patchedBarSummaries,
+    barOwner: groups.barOwner,
+    timeExpired: timeBar.expired,
+    galleryPath: `/teaching-hub/classes/${classId}/gallery`,
+  });
+  const timeUp = timeBar.expired && !transfer.winnerBarId;
+
+
   const canvasElements = useMemo(() => {
-    if (!timeBar.elementId) return sync.elements;
     const targetId = timeBar.elementId;
-    return sync.elements.map((el) => {
-      if (el.id !== targetId || el.kind !== "progress_bar" || !el.progress) return el;
-      const segs = Math.max(1, Number(el.progress.segments) || 10);
-      return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
-    });
-  }, [sync.elements, timeBar.elementId, timeBar.slotsLit]);
+    return sync.elements
+      // A reward that already moved to the Gallery no longer exists here.
+      .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
+      .map((el) => {
+        if (el.kind === "reward" && transfer.departing.has(el.id)) {
+          return { ...el, y: Math.max(-0.2, el.y - 0.35), opacity: 0 };
+        }
+        if (!targetId || el.id !== targetId || el.kind !== "progress_bar" || !el.progress) return el;
+        const segs = Math.max(1, Number(el.progress.segments) || 10);
+        return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
+      });
+  }, [sync.elements, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.transferredIds]);
+
 
   const timeBarMeta = useMemo(() => {
     if (!timeBar.elementId) return null;
@@ -312,6 +333,15 @@ const AdventureDashboardPage = () => {
                   onMove={() => { /* dashboard is read-only for positions */ }}
                   heightUnits={sync.heightUnits}
                 />
+                {timeUp && (
+                  <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                    <div className="rounded-2xl border border-destructive/50 bg-background px-8 py-5 text-center shadow-2xl">
+                      <div className="text-3xl font-black tracking-tight text-destructive">Time Up</div>
+                      <p className="mt-1 text-sm text-muted-foreground">No reward awarded — the game is frozen.</p>
+                    </div>
+                  </div>
+                )}
+
                 {selectedRewardId && (() => {
                   const el = canvasElements.find((e) => e.id === selectedRewardId);
                   if (!el || el.kind !== "reward") return null;

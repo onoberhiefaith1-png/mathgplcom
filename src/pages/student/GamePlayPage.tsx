@@ -13,6 +13,9 @@ import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } 
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
+import { useAdventureGroups } from "@/hooks/useAdventureGroups";
+import { useRewardTransfer } from "@/hooks/useRewardTransfer";
+
 
 type MirrorSnapshot = Record<string, { current: number; required: number }>;
 
@@ -59,6 +62,17 @@ const GamePlayPage = () => {
     if (classId && gameId) updatePrefetchedGame(classId, gameId, updated);
   }, [classId, gameId]);
 
+  const groups = useAdventureGroups(classId, gameId);
+
+  // Part 4 — a student's marks only raise their own group's bar.
+  const barScope = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const g of groups.groups) {
+      map.set(g.progress_element_id, groups.studentsByGroup.get(g.id) ?? new Set<string>());
+    }
+    return map;
+  }, [groups.groups, groups.studentsByGroup]);
+
   const sync = useAdventureSync({
     classId,
     gameId,
@@ -66,7 +80,9 @@ const GamePlayPage = () => {
     boards,
     currentUserId: me,
     onGameUpdated: handleGameUpdated,
+    barScope,
   });
+
 
   useEffect(() => {
     let cancelled = false;
@@ -131,29 +147,63 @@ const GamePlayPage = () => {
 
   const timeBar = useGameTimeBar(gameId);
 
+  // Part 1/6 — first bar to hit its target transfers the reward to that
+  // group's Gallery. Part 7 — nothing transfers once time is up.
+  const transfer = useRewardTransfer({
+    classId,
+    gameId,
+    barSummaries: sync.barSummaries,
+    barOwner: groups.barOwner,
+    timeExpired: timeBar.expired,
+    galleryPath: `/student/class/${classId}/gallery`,
+  });
+
+  const timeUp = timeBar.expired && !transfer.winnerBarId;
+  const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
+
   const mirroredElements = useMemo(() => {
     const timeBarId = timeBar.elementId;
-    return sync.elements.map((el) => {
-      if (el.kind !== "progress_bar" || !el.progress) return el;
-      if (timeBarId && el.id === timeBarId) {
-        const segs = Math.max(1, Number(el.progress.segments) || 10);
-        return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
-      }
-      const snap = mirror?.[el.id];
-      if (!snap) return el;
-      return { ...el, progress: { ...el.progress, currentMarks: snap.current, totalMarks: snap.required } };
-    });
-  }, [sync.elements, mirror, timeBar.elementId, timeBar.slotsLit]);
+    return sync.elements
+      // A reward that already lives in the Gallery no longer exists here.
+      .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
+      .map((el) => {
+        if (el.kind === "reward" && transfer.departing.has(el.id)) {
+          // Lift away + fade out before leaving the Adventure page.
+          return { ...el, y: Math.max(-0.2, el.y - 0.35), opacity: 0 };
+        }
+        if (el.kind !== "progress_bar" || !el.progress) return el;
+        if (timeBarId && el.id === timeBarId) {
+          const segs = Math.max(1, Number(el.progress.segments) || 10);
+          return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
+        }
+        const snap = mirror?.[el.id];
+        if (!snap) return el;
+        return { ...el, progress: { ...el.progress, currentMarks: snap.current, totalMarks: snap.required } };
+      });
+  }, [sync.elements, mirror, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.transferredIds]);
 
   const playableBars = useMemo(
-    () => mirroredElements.filter((e) => e.kind === "progress_bar" && sync.boardByElement.has(e.id)),
-    [mirroredElements, sync.boardByElement],
+    () =>
+      mirroredElements.filter((e) => {
+        if (e.kind !== "progress_bar" || !sync.boardByElement.has(e.id)) return false;
+        const owner = groups.barOwner.get(e.id);
+        // Grouped bars are only playable by their own group's students.
+        if (owner) return owner === myGroupId;
+        return true;
+      }),
+    [mirroredElements, sync.boardByElement, groups.barOwner, myGroupId],
   );
   const openBoard = sync.boardByElement.get(openBarId ?? "");
   const perQuestion = useMemo(
     () => (openBoard ? perQuestionFrom(openBoard, sync.mySolvedByAssessment[openBoard.assessmentId]) : {}),
     [openBoard, sync.mySolvedByAssessment],
   );
+
+  // Freeze the board when time is up.
+  useEffect(() => {
+    if (timeUp) setOpenBarId(null);
+  }, [timeUp]);
+
 
   if (loading) {
     return (
@@ -210,7 +260,7 @@ const GamePlayPage = () => {
             </div>
 
             <div className="pointer-events-none absolute inset-0 z-30">
-              {playableBars.map((bar) => {
+              {!timeUp && playableBars.map((bar) => {
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
                   <button
@@ -230,19 +280,30 @@ const GamePlayPage = () => {
                 );
               })}
             </div>
-            {playableBars.length === 0 && (
+            {playableBars.length === 0 && !timeUp && (
               <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 mx-auto w-fit rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
                 Your teacher hasn't linked questions to this game's progress bars yet.
               </div>
             )}
-            {timeBar.expired && (
-              <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                <div className="rounded-xl border border-destructive/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
-                  <div className="text-sm font-semibold text-destructive">Time expired</div>
-                  <div className="mt-1 text-xs text-muted-foreground">Wait for your teacher to add time or reset the timer.</div>
+            {transfer.transferring && (
+              <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
+                  <div className="text-sm font-semibold text-primary">Adventure complete!</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Sending your reward to the Gallery…</div>
                 </div>
               </div>
             )}
+            {timeUp && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div className="rounded-xl border border-destructive/40 bg-background/90 px-8 py-5 text-center shadow-2xl">
+                  <div className="text-lg font-bold text-destructive">Time Up</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    The game has ended. No reward was awarded.
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
 
           {isOpen && openBoard && (

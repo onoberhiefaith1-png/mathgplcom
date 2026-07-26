@@ -8,6 +8,9 @@ import {
   upsertClassGalleryReward,
   type ClassGalleryRewardRow,
 } from "@/lib/games/classGalleryRewards";
+import { listClassGroups, type AdventureGroup } from "@/lib/adventures/groups";
+import { parseAnimateReward, useGalleryAwards } from "@/hooks/useGalleryAwards";
+
 import {
   ArrowLeft,
   Camera,
@@ -136,6 +139,39 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   const suppressPinnedScrollRef = useRef(false);
   const DRAFT_REWARD_ID = "__reward_draft__";
   const PENDING_PREFIX = "__reward_pending_";
+
+  // ── Group tabs (gallery mode) — one shared layout, per-group rewards ──
+  const [galleryGroups, setGalleryGroups] = useState<AdventureGroup[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isGallery || !classId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const gs = await listClassGroups(classId);
+        if (!cancelled) setGalleryGroups(gs);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isGallery, classId]);
+
+  const animateReward = useMemo(
+    () => (isGallery ? parseAnimateReward(searchParams.get("animateReward")) : null),
+    [isGallery, searchParams],
+  );
+  useEffect(() => {
+    const g = searchParams.get("group");
+    if (g) setActiveGroupId(g);
+  }, [searchParams]);
+
+  const galleryAwards = useGalleryAwards({
+    classId: isGallery ? classId : null,
+    groupId: activeGroupId,
+    animate: animateReward,
+  });
+
 
 
   useEffect(() => {
@@ -361,9 +397,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   }, [isGallery, isConfiguringReward, pendingRewards]);
 
   const elements: CanvasElement[] = useMemo(() => {
-    const base = [...sceneElements, ...pendingRewardElements];
+    const earned = isGallery && !isConfiguringReward ? galleryAwards.elements : [];
+    const base = [...sceneElements, ...earned, ...pendingRewardElements];
     return draftRewardElement ? [...base, draftRewardElement] : base;
-  }, [sceneElements, pendingRewardElements, draftRewardElement]);
+  }, [sceneElements, pendingRewardElements, draftRewardElement, isGallery, isConfiguringReward, galleryAwards.elements]);
+
 
 
 
@@ -1305,6 +1343,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           title={title}
           backHref={`/teaching-hub/classes/${classId}`}
         />
+        <GalleryGroupTabs
+          groups={galleryGroups}
+          activeId={activeGroupId}
+          onChange={setActiveGroupId}
+        />
         <div
           className={
             stageFull
@@ -1321,7 +1364,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 }}
               >
                 <GameCanvas
-                  elements={sceneElements}
+                  elements={[...sceneElements, ...galleryAwards.elements]}
                   selectedId={null}
                   pinnedId={null}
                   editable={false}
@@ -1332,7 +1375,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
             ) : (
               <div className="mx-auto w-full max-w-6xl p-4">
                 <GameCanvas
-                  elements={sceneElements}
+                  elements={[...sceneElements, ...galleryAwards.elements]}
                   selectedId={null}
                   pinnedId={null}
                   editable={false}
@@ -1341,6 +1384,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
               </div>
             )}
           </div>
+
           <button
             type="button"
             onClick={enterFullscreen}
@@ -1357,13 +1401,23 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
       {isGallery && (
-        <GalleryModeTabs
-          mode={galleryView}
-          onChange={handleGalleryModeChange}
-          title={title}
-          backHref={`/teaching-hub/classes/${classId}`}
-        />
+        <>
+          <GalleryModeTabs
+            mode={galleryView}
+            onChange={handleGalleryModeChange}
+            title={title}
+            backHref={`/teaching-hub/classes/${classId}`}
+          />
+          {!isConfiguringReward && (
+            <GalleryGroupTabs
+              groups={galleryGroups}
+              activeId={activeGroupId}
+              onChange={setActiveGroupId}
+            />
+          )}
+        </>
       )}
+
       {/* Collapsible top bar */}
       {topBarOpen && (
         <header className="z-20 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-2.5 backdrop-blur">
@@ -1738,7 +1792,44 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   );
 };
 
+/** One shared Gallery layout, one tab per group. Tabs only switch which
+ *  earned rewards are shown — background, effects and layout never change. */
+const GalleryGroupTabs = ({
+  groups,
+  activeId,
+  onChange,
+}: {
+  groups: AdventureGroup[];
+  activeId: string | null;
+  onChange: (id: string | null) => void;
+}) => {
+  if (groups.length === 0) return null;
+  const tabs: Array<{ id: string | null; name: string }> = [
+    { id: null, name: "Whole Class" },
+    ...groups.map((g) => ({ id: g.id as string | null, name: g.name })),
+  ];
+  return (
+    <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/50 bg-background/95 px-4 py-1.5">
+      {tabs.map((t) => (
+        <button
+          key={t.id ?? "whole-class"}
+          type="button"
+          onClick={() => onChange(t.id)}
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
+            (activeId ?? null) === t.id
+              ? "bg-primary text-primary-foreground"
+              : "border border-border text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          {t.name}
+        </button>
+      ))}
+    </div>
+  );
+};
+
 const GalleryModeTabs = ({
+
   mode,
   onChange,
   title,
