@@ -61,7 +61,7 @@ export function TimeBarControl({ gameId, barLabel, segments }: { gameId: string;
       <div className="flex flex-wrap items-center gap-2">
         <label className="inline-flex items-center gap-1.5">
           <span className="text-muted-foreground">Duration</span>
-          <input type="number" min={1} value={durationMinutes} onChange={(e) => onDurationChange(Number(e.target.value))} className="h-7 w-16 rounded border border-input bg-background px-1.5 text-xs tabular-nums" />
+          <input type="number" min={1} value={minutesDraft} onChange={(e) => setMinutesDraft(e.target.value)} onBlur={(e) => onDurationCommit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") onDurationCommit((e.target as HTMLInputElement).value); }} className="h-7 w-16 rounded border border-input bg-background px-1.5 text-xs tabular-nums" />
           <span className="text-muted-foreground">min</span>
         </label>
         {!running && !paused && (<button type="button" onClick={onStart} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2 py-1 text-primary hover:bg-primary/20"><Play className="h-3 w-3" /> Start</button>)}
