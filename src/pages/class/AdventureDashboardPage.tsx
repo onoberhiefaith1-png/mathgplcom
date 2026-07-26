@@ -113,14 +113,20 @@ const AdventureDashboardPage = () => {
 
 
   const canvasElements = useMemo(() => {
-    if (!timeBar.elementId) return sync.elements;
     const targetId = timeBar.elementId;
-    return sync.elements.map((el) => {
-      if (el.id !== targetId || el.kind !== "progress_bar" || !el.progress) return el;
-      const segs = Math.max(1, Number(el.progress.segments) || 10);
-      return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
-    });
-  }, [sync.elements, timeBar.elementId, timeBar.slotsLit]);
+    return sync.elements
+      // A reward that already moved to the Gallery no longer exists here.
+      .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
+      .map((el) => {
+        if (el.kind === "reward" && transfer.departing.has(el.id)) {
+          return { ...el, y: Math.max(-0.2, el.y - 0.35), opacity: 0 };
+        }
+        if (!targetId || el.id !== targetId || el.kind !== "progress_bar" || !el.progress) return el;
+        const segs = Math.max(1, Number(el.progress.segments) || 10);
+        return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
+      });
+  }, [sync.elements, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.transferredIds]);
+
 
   const timeBarMeta = useMemo(() => {
     if (!timeBar.elementId) return null;
