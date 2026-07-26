@@ -50,6 +50,86 @@ export type Database = {
         }
         Relationships: []
       }
+      adventure_group_members: {
+        Row: {
+          class_id: string
+          created_at: string
+          game_id: string
+          group_id: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          game_id: string
+          group_id: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          group_id?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventure_group_members_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "adventure_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adventure_groups: {
+        Row: {
+          class_id: string
+          created_at: string
+          game_id: string
+          id: string
+          name: string
+          progress_element_id: string
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          game_id: string
+          id?: string
+          name: string
+          progress_element_id: string
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          name?: string
+          progress_element_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventure_groups_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adventure_live_sessions: {
         Row: {
           assessment_id: string
@@ -477,6 +557,109 @@ export type Database = {
             columns: ["notebook_id"]
             isOneToOne: false
             referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_galleries: {
+        Row: {
+          canvas: Json
+          class_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          canvas?: Json
+          class_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          canvas?: Json
+          class_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_galleries_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: true
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_gallery_rewards: {
+        Row: {
+          asset_id: string | null
+          class_id: string
+          created_at: string
+          duration_ms: number
+          end_x: number
+          end_y: number
+          game_id: string
+          id: string
+          media_type: string
+          opacity: number
+          reward_element_id: string
+          rotation: number
+          scale: number
+          source: string
+          start_x: number
+          start_y: number
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          class_id: string
+          created_at?: string
+          duration_ms?: number
+          end_x?: number
+          end_y?: number
+          game_id: string
+          id?: string
+          media_type?: string
+          opacity?: number
+          reward_element_id: string
+          rotation?: number
+          scale?: number
+          source?: string
+          start_x?: number
+          start_y?: number
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          class_id?: string
+          created_at?: string
+          duration_ms?: number
+          end_x?: number
+          end_y?: number
+          game_id?: string
+          id?: string
+          media_type?: string
+          opacity?: number
+          reward_element_id?: string
+          rotation?: number
+          scale?: number
+          source?: string
+          start_x?: number
+          start_y?: number
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_gallery_rewards_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
             referencedColumns: ["id"]
           },
         ]

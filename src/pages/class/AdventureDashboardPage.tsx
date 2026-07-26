@@ -12,6 +12,8 @@ import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } 
 import { normalizeCanvas, type GameRow } from "@/lib/games/types";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
+import { useAdventureGroups } from "@/hooks/useAdventureGroups";
+import { GroupsPanel } from "@/components/adventures/GroupsPanel";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { TimeBarControl } from "@/components/adventures/TimeBarControl";
 
@@ -26,6 +28,7 @@ const AdventureDashboardPage = () => {
   const [className, setClassName] = useState<string>("");
   const [panelOpen, setPanelOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState<"none" | "game" | "panel">("none");
+  const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (fullscreen === "none") return;
@@ -39,14 +42,58 @@ const AdventureDashboardPage = () => {
     if (classId && gameId) updatePrefetchedGame(classId, gameId, updated);
   }, [classId, gameId]);
 
+  const groups = useAdventureGroups(classId, gameId);
+
+  // Bar scope: group-owned bars count only their group's students; whole-class
+  // bars count only students not in any group.
+  const barScope = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const g of groups.groups) {
+      map.set(g.progress_element_id, groups.studentsByGroup.get(g.id) ?? new Set());
+    }
+    return map;
+  }, [groups.groups, groups.studentsByGroup]);
+
   const sync = useAdventureSync({
     classId,
     gameId,
     game,
     boards,
     onGameUpdated: handleGameUpdated,
+    barScope,
   });
   const refreshAdventureSync = sync.refresh;
+
+  // For every whole-class bar, restrict scope to students not in any group.
+  const wholeClassSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const uid of sync.memberIds) if (!groups.studentGroup.has(uid)) s.add(uid);
+    return s;
+  }, [sync.memberIds, groups.studentGroup]);
+
+  // Bars without a group entry are re-scoped to the whole class locally.
+  const patchedBarSummaries = useMemo(() => {
+    return sync.barSummaries.map((b) => {
+      if (groups.barOwner.has(b.id)) return b;
+      const students = wholeClassSet.size;
+      const grand = (b.total || 0) * students;
+      const required = Math.max(1, Math.round(grand * (b.goalPct / 100)));
+      const raw = sync.scoresByAssessment[b.assessmentId] ?? {};
+      let ach = 0;
+      for (const [sid, sc] of Object.entries(raw)) if (wholeClassSet.has(sid)) ach += sc ?? 0;
+      const per = required / Math.max(1, b.segments);
+      return {
+        ...b,
+        students,
+        grand,
+        required,
+        achieved: Math.min(required, ach),
+        perSlot: Number.isInteger(per) ? String(per) : per.toFixed(1),
+      };
+    });
+  }, [sync.barSummaries, groups.barOwner, wholeClassSet, sync.scoresByAssessment]);
+
+  const statsByBar = useMemo(() => new Map(patchedBarSummaries.map((b) => [b.id, b])), [patchedBarSummaries]);
 
   const timeBar = useGameTimeBar(gameId);
 
@@ -125,7 +172,7 @@ const AdventureDashboardPage = () => {
     let ch: ReturnType<typeof supabase.channel> | null = null;
     const snapshot = () => {
       const map: Record<string, { current: number; required: number }> = {};
-      for (const b of sync.barSummaries) map[b.id] = { current: b.achieved, required: b.required };
+      for (const b of patchedBarSummaries) map[b.id] = { current: b.achieved, required: b.required };
       return map;
     };
     void ensureRealtimeAuth().then(() => {
@@ -146,7 +193,7 @@ const AdventureDashboardPage = () => {
       window.clearInterval(interval);
       if (ch) supabase.removeChannel(ch);
     };
-  }, [classId, gameId, sync.barSummaries]);
+  }, [classId, gameId, patchedBarSummaries]);
 
   const setBarGoalPct = useCallback(async (barElementId: string, pct: number) => {
     if (!game || !gameId) return;
@@ -204,9 +251,9 @@ const AdventureDashboardPage = () => {
               <MetaField label="Total Marks" value={String(boards.reduce((a, b) => a + b.totalMarks, 0))} />
             </div>
           </div>
-          {sync.barSummaries.length > 0 && (
+          {patchedBarSummaries.length > 0 && (
             <div className="mx-auto mb-3 flex w-full max-w-[1500px] flex-wrap gap-2">
-              {sync.barSummaries.map((b) => (
+              {patchedBarSummaries.map((b) => (
                 <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs backdrop-blur">
                   <span className="font-medium">{b.label}</span>
                   <span className="text-muted-foreground">·</span>
@@ -253,9 +300,47 @@ const AdventureDashboardPage = () => {
               style={fullscreen === "game" ? undefined : { width: panelOpen ? "70%" : "100%" }}
             >
               <div className={fullscreen === "game" ? "relative w-full max-w-[1800px]" : "relative"}>
-                <div className="pointer-events-none">
-                  <GameCanvas elements={canvasElements} selectedId={null} editable={false} />
-                </div>
+                <GameCanvas
+                  elements={canvasElements}
+                  selectedId={selectedRewardId}
+                  editable
+                  onSelect={(id) => {
+                    if (!id) { setSelectedRewardId(null); return; }
+                    const el = canvasElements.find((e) => e.id === id);
+                    setSelectedRewardId(el?.kind === "reward" ? id : null);
+                  }}
+                  onMove={() => { /* dashboard is read-only for positions */ }}
+                  heightUnits={sync.heightUnits}
+                />
+                {selectedRewardId && (() => {
+                  const el = canvasElements.find((e) => e.id === selectedRewardId);
+                  if (!el || el.kind !== "reward") return null;
+                  return (
+                    <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+                      <span className="text-xs">
+                        <span className="text-muted-foreground">Reward · </span>
+                        <span className="font-semibold">{el.label || "Reward"}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => classId && gameId && navigate(
+                          `/teaching-hub/classes/${classId}/gallery?configureReward=${gameId}:${selectedRewardId}`,
+                        )}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Link to Class Gallery
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRewardId(null)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border hover:bg-accent"
+                        aria-label="Close"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })()}
                 <button
                   type="button"
                   onClick={() => setFullscreen(fullscreen === "game" ? "none" : "game")}
@@ -302,6 +387,19 @@ const AdventureDashboardPage = () => {
                   </div>
                 </div>
                 <AssessmentStatusPanel rows={sync.rows} onViewStudent={onViewStudent} />
+                {classId && gameId && (
+                  <div className="mt-6 border-t border-border pt-4">
+                    <GroupsPanel
+                      classId={classId}
+                      gameId={gameId}
+                      members={sync.members}
+                      bars={patchedBarSummaries}
+                      ctx={groups}
+                      statsByBar={statsByBar}
+                      reservedBarIds={timeBar.elementId ? new Set([timeBar.elementId]) : undefined}
+                    />
+                  </div>
+                )}
               </aside>
             ) : (
               <button

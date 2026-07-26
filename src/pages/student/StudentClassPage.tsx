@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Gamepad2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Gamepad2, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { joinClassPresence } from "@/lib/realtime/classPresence";
@@ -396,6 +396,19 @@ const StudentClassPage = () => {
                 ))}
               </ul>
             )}
+          </Tile>
+
+          <Tile
+            icon={<ImageIcon className="h-3.5 w-3.5" />}
+            label="Gallery"
+            accent="border-amber-300/40 bg-gradient-to-br from-amber-400/15 to-amber-600/5"
+          >
+            <Link
+              to={`/student/class/${classId}/gallery`}
+              className="flex h-full items-center justify-center rounded-xl border border-amber-300/30 bg-background/30 p-4 text-center text-sm font-semibold transition hover:border-amber-400/60"
+            >
+              Open class gallery
+            </Link>
           </Tile>
         </div>
       </main>
