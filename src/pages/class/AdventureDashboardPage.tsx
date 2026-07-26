@@ -109,7 +109,7 @@ const AdventureDashboardPage = () => {
     timeExpired: timeBar.expired,
     galleryPath: `/teaching-hub/classes/${classId}/gallery`,
   });
-  const timeUp = timeBar.expired && !transfer.winnerBarId;
+  const timeUp = timeBar.expired && !transfer.won;
 
   // Step 2 — the teacher owns the time bar row, so pause it here on a win.
   const pausedForWinRef = useRef(false);
@@ -139,7 +139,14 @@ const AdventureDashboardPage = () => {
 
 
 
+  /** Reward elements defined in this Adventure — used to link them to the Gallery. */
+  const rewardElements = useMemo(
+    () => sync.elements.filter((el) => el.kind === "reward"),
+    [sync.elements],
+  );
+
   const timeBarMeta = useMemo(() => {
+
     if (!timeBar.elementId) return null;
     const el = sync.elements.find((e) => e.id === timeBar.elementId);
     const label = el?.label || "Progress Bar";
@@ -317,6 +324,51 @@ const AdventureDashboardPage = () => {
               ))}
             </div>
           )}
+          {(transfer.goalReached || transfer.transferring) && (
+            <div className="mx-auto mb-3 flex w-full max-w-[1500px] flex-wrap items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs backdrop-blur">
+              {transfer.transferring && (
+                <span className="font-semibold text-primary">Goal reached — transferring reward…</span>
+              )}
+              {!transfer.transferring && transfer.blockedReason === "time_expired" && (
+                <span className="font-semibold text-destructive">
+                  Goal reached, but time had already expired — no reward transferred.
+                </span>
+              )}
+              {!transfer.transferring && transfer.blockedReason === "already_awarded" && (
+                <span className="font-semibold text-primary">
+                  Goal reached — this reward is already in the Class Gallery.
+                </span>
+              )}
+              {!transfer.transferring && transfer.blockedReason === "no_reward" && (
+                <>
+                  <span className="font-semibold text-destructive">
+                    Goal reached, but no reward is linked to this Adventure for this class.
+                  </span>
+                  {rewardElements.length === 0 ? (
+                    <span className="text-muted-foreground">
+                      Add a reward element to this Adventure first.
+                    </span>
+                  ) : (
+                    rewardElements.map((el) => (
+                      <button
+                        key={el.id}
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/teaching-hub/classes/${classId}/gallery?configureReward=${gameId}:${el.id}`,
+                          )
+                        }
+                        className="rounded border border-input bg-background px-2 py-1 font-medium hover:bg-accent"
+                      >
+                        Link “{el.label || "Reward"}” to Gallery
+                      </button>
+                    ))
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {gameId && timeBar.elementId && timeBarMeta && (
             <div className="mx-auto mb-3 w-full max-w-[1500px]">
               <TimeBarControl gameId={gameId} barLabel={timeBarMeta.label} segments={timeBarMeta.segments} />

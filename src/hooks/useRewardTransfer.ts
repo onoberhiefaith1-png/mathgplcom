@@ -13,8 +13,12 @@ import type { AdventureBarSummary } from "@/hooks/useAdventureSync";
 
 const FALLBACK_EXIT_MS = 2000;
 
+/** Why a full Progress Bar did not send its reward to the Gallery. */
+export type TransferBlockedReason = "time_expired" | "no_reward" | "already_awarded" | null;
+
 /** Live offset applied to a reward that is leaving the Adventure scene. */
 export type ExitOffset = { dy: number; opacity: number };
+
 
 export function useRewardTransfer({
   classId,
@@ -37,6 +41,7 @@ export function useRewardTransfer({
 }) {
   const navigate = useNavigate();
   const [placements, setPlacements] = useState<ClassGalleryRewardRow[]>([]);
+  const [placementsLoaded, setPlacementsLoaded] = useState(false);
   const [alreadyAwarded, setAlreadyAwarded] = useState<Set<string>>(new Set());
   const [departing, setDeparting] = useState<Set<string>>(new Set());
   const [exitOffsets, setExitOffsets] = useState<Map<string, ExitOffset>>(new Map());
@@ -60,10 +65,13 @@ export function useRewardTransfer({
         );
       } catch (e) {
         console.error(e);
+      } finally {
+        if (!cancelled) setPlacementsLoaded(true);
       }
     })();
     return () => { cancelled = true; };
   }, [classId, gameId]);
+
 
   useEffect(() => () => { if (frameRef.current != null) cancelAnimationFrame(frameRef.current); }, []);
 
@@ -79,6 +87,24 @@ export function useRewardTransfer({
 
   const won = !!winnerBar && !timeExpired;
   const winnerGroupId = winnerBar ? barOwner.get(winnerBar.id) ?? null : null;
+
+  /** The goal is met, regardless of whether a transfer is possible. */
+  const goalReached = !!winnerBar;
+  const pendingTargets = useMemo(
+    () => placements.filter((p) => !alreadyAwarded.has(p.reward_element_id)),
+    [placements, alreadyAwarded],
+  );
+
+  // Why nothing moved. Only meaningful once the goal is actually reached.
+  const blockedReason: TransferBlockedReason = useMemo(() => {
+    if (!goalReached || transferring) return null;
+    if (timeExpired) return "time_expired";
+    if (!placementsLoaded) return null;
+    if (placements.length === 0) return "no_reward";
+    if (pendingTargets.length === 0) return "already_awarded";
+    return null;
+  }, [goalReached, transferring, timeExpired, placementsLoaded, placements.length, pendingTargets.length]);
+
 
   const run = useCallback(
     async (barId: string) => {
@@ -144,10 +170,12 @@ export function useRewardTransfer({
     if (!enabled || firedRef.current) return;
     if (timeExpired) return; // Part 7 — time beat every group, no transfer.
     if (!winnerBar) return;
-    if (placements.length === 0) return;
+    // Only latch once a transfer can genuinely start: if placements arrive
+    // late (or a reward is linked after the goal was met) this can still fire.
+    if (!placementsLoaded || pendingTargets.length === 0) return;
     firedRef.current = true;
     void run(winnerBar.id);
-  }, [enabled, timeExpired, winnerBar, placements.length, run]);
+  }, [enabled, timeExpired, winnerBar, placementsLoaded, pendingTargets.length, run]);
 
   return {
     /** Reward element ids currently lifting away from the scene. */
@@ -159,7 +187,12 @@ export function useRewardTransfer({
     transferring,
     /** True as soon as a bar reaches its configured goal — freeze the game. */
     won,
+    /** Goal met, even if the transfer is blocked (e.g. time already expired). */
+    goalReached,
+    /** Why a met goal did not move a reward — drives the on-screen message. */
+    blockedReason,
     winnerGroupId,
     winnerBarId: winnerBar?.id ?? null,
   };
+
 }
