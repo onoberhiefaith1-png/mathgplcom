@@ -88,3 +88,23 @@ export async function assignStudentToGroup(
     if (error) throw error;
   }
 }
+
+/** All groups in a class across every game — used by the Gallery group tabs. */
+export async function listClassGroups(classId: string): Promise<AdventureGroup[]> {
+  const { data } = await supabase
+    .from("adventure_groups" as never)
+    .select("id, class_id, game_id, name, progress_element_id")
+    .eq("class_id", classId)
+    .order("created_at", { ascending: true });
+  return (data ?? []) as unknown as AdventureGroup[];
+}
+
+/** Group ids this student belongs to within a class (across games). */
+export async function listStudentGroupIds(classId: string, studentId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from("adventure_group_members" as never)
+    .select("group_id")
+    .eq("class_id", classId)
+    .eq("student_id", studentId);
+  return ((data ?? []) as unknown as Array<{ group_id: string }>).map((r) => r.group_id);
+}
