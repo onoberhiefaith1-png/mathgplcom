@@ -8,6 +8,9 @@ import {
   upsertClassGalleryReward,
   type ClassGalleryRewardRow,
 } from "@/lib/games/classGalleryRewards";
+import { listClassGroups, type AdventureGroup } from "@/lib/adventures/groups";
+import { parseAnimateReward, useGalleryAwards } from "@/hooks/useGalleryAwards";
+
 import {
   ArrowLeft,
   Camera,
