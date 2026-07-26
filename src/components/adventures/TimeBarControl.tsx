@@ -1,7 +1,8 @@
 // Teacher-only live controls for a game's Time Bar.
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Timer, Play, Pause, RotateCcw, Trash2, Plus, Minus } from "lucide-react";
 import { useGameTimeBar, timeBarActions } from "@/hooks/useGameTimeBar";
+import { toast } from "@/hooks/use-toast";
 
 const fmt = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -13,29 +14,38 @@ const fmt = (ms: number) => {
 export function TimeBarControl({ gameId, barLabel, segments }: { gameId: string; barLabel: string; segments: number }) {
   const tb = useGameTimeBar(gameId);
   const durationMinutes = useMemo(() => Math.round((tb.row?.duration_seconds ?? 600) / 60), [tb.row?.duration_seconds]);
+  const [minutesDraft, setMinutesDraft] = useState<string>(String(durationMinutes));
+
+  // Keep the input in sync whenever the stored duration changes (±1m, reset…).
+  useEffect(() => { setMinutesDraft(String(durationMinutes)); }, [durationMinutes]);
 
   if (tb.loading) return null;
   if (!tb.row) return null;
 
-  const row = tb.row;
   const running = tb.running;
   const paused = tb.paused;
   const slots = tb.slotsLit(segments);
 
-  const onDurationChange = (mins: number) => {
-    if (!Number.isFinite(mins)) return;
-    void timeBarActions.setDuration(gameId, Math.max(1, Math.round(mins)) * 60);
+  const run = (p: Promise<void>) => {
+    void p.catch((e) => toast({ title: "Time Bar update failed", description: String((e as Error)?.message ?? e), variant: "destructive" }));
   };
-  const onStart = () => void timeBarActions.start(gameId);
-  const onPause = () => void timeBarActions.pause(gameId);
-  const onResume = () => void timeBarActions.resume(gameId, row);
-  const onAdd = () => void timeBarActions.adjustDuration(gameId, row, 60);
-  const onSub = () => void timeBarActions.adjustDuration(gameId, row, -60);
-  const onReset = () => void timeBarActions.reset(gameId);
+
+  const onDurationCommit = (raw: string) => {
+    const mins = Number(raw);
+    if (!Number.isFinite(mins) || mins <= 0) { setMinutesDraft(String(durationMinutes)); return; }
+    run(tb.actions.setDuration(Math.max(1, Math.round(mins)) * 60));
+  };
+  const onStart = () => run(tb.actions.start());
+  const onPause = () => run(tb.actions.pause());
+  const onResume = () => run(tb.actions.resume());
+  const onAdd = () => run(tb.actions.adjustDuration(60));
+  const onSub = () => run(tb.actions.adjustDuration(-60));
+  const onReset = () => run(tb.actions.reset());
   const onRemove = () => {
     if (!confirm("Remove the Time Bar?")) return;
-    void timeBarActions.remove(gameId);
+    run(timeBarActions.remove(gameId));
   };
+
 
   return (
     <div className="rounded-lg border border-border bg-card/60 px-3 py-2 text-xs backdrop-blur">
