@@ -333,6 +333,15 @@ const AdventureDashboardPage = () => {
                   onMove={() => { /* dashboard is read-only for positions */ }}
                   heightUnits={sync.heightUnits}
                 />
+                {timeUp && (
+                  <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                    <div className="rounded-2xl border border-destructive/50 bg-background px-8 py-5 text-center shadow-2xl">
+                      <div className="text-3xl font-black tracking-tight text-destructive">Time Up</div>
+                      <p className="mt-1 text-sm text-muted-foreground">No reward awarded — the game is frozen.</p>
+                    </div>
+                  </div>
+                )}
+
                 {selectedRewardId && (() => {
                   const el = canvasElements.find((e) => e.id === selectedRewardId);
                   if (!el || el.kind !== "reward") return null;
