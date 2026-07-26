@@ -6,30 +6,43 @@ import { getPreset } from "@/lib/games/progressPresets";
 import type { BlendMode, CanvasElement, SlantSettings } from "@/lib/games/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * Build the combined lean transform. The base stays anchored
+ * (transform-origin bottom) while the body leans. Three independent axes stack:
+ *  - lean  → skewX (top slides sideways)
+ *  - slide → perspective rotateY (3D swing left/right — the old In/Out)
+ *  - tilt  → perspective rotateX (base fixed, top tips in/out)
+ */
 const slantTransform = (s?: SlantSettings): string => {
   if (!s) return "";
   const clamp = (n: number) => Math.max(0, Math.min(1, n));
   const flat: string[] = [];
   const rotated: string[] = [];
 
+  // In/Out — base-fixed 3D tip. Anchored at bottom center, rotateX(+deg) tips
+  // the top AWAY from the camera and rotateX(-deg) tips it TOWARD the camera.
   const tilt = clamp(s.tilt?.amount ?? 0);
   if (tilt > 0) {
     const deg = tilt * 45 * (s.tilt.dir === "in" ? -1 : 1);
     rotated.push(`rotateX(${deg.toFixed(2)}deg)`);
   }
 
+  // Slide — 3D swing left/right (the old In/Out).
   const slide = clamp(s.slide?.amount ?? 0);
   if (slide > 0) {
     const deg = slide * 45 * (s.slide.dir === "left" ? 1 : -1);
     rotated.push(`rotateY(${deg.toFixed(2)}deg)`);
   }
 
+  // Lean — flat sideways skew, no perspective needed.
   const lean = clamp(s.lean?.amount ?? 0);
   if (lean > 0) {
     const deg = lean * 35 * (s.lean.dir === "left" ? -1 : 1);
     flat.push(`skewX(${deg.toFixed(2)}deg)`);
   }
 
+  // A single shared perspective governs all 3D rotation so the top edge moves
+  // in Z (near/far) while the footprint size holds steady — no uniform zoom.
   const parts = [
     ...(rotated.length ? [`perspective(900px)`, ...rotated] : []),
     ...flat,
@@ -43,10 +56,12 @@ interface CanvasElementViewProps {
   stageEl: HTMLElement | null;
   stageWidth: number;
   selected: boolean;
+  pinned?: boolean;
   editable: boolean;
   onSelect: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
 }
+
 
 const animationCss = (el: CanvasElement, stageWidth: number): React.CSSProperties => {
   const { animation } = el;
@@ -65,7 +80,7 @@ const animationCss = (el: CanvasElement, stageWidth: number): React.CSSPropertie
     anims.push(`gb-fadein ${animation.fadeIn}s ease-out ${animation.delay ?? 0}s 1 both`);
   }
   if (anims.length === 0) return {};
-  return { animation: anims.join(", "), ...vars } as React.CSSProperties;
+  return { animation: anims.join(", "), ...vars };
 };
 
 const blendModeOf = (el: CanvasElement): React.CSSProperties => {
@@ -86,22 +101,23 @@ const CanvasElementView = ({
   stageEl,
   stageWidth,
   selected,
+  pinned = false,
   editable,
   onSelect,
   onMove,
 }: CanvasElementViewProps) => {
+
   const dragging = useRef(false);
-  const isBackground = element.kind === "background";
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (!editable || isBackground) return;
+      if (!editable) return;
       e.stopPropagation();
       onSelect(element.id);
       dragging.current = true;
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [editable, isBackground, element.id, onSelect],
+    [editable, element.id, onSelect],
   );
 
   const handlePointerMove = useCallback(
@@ -124,19 +140,6 @@ const CanvasElementView = ({
     }
   }, []);
 
-  if (isBackground) {
-    return (
-      <div className="absolute inset-0" style={{ zIndex: element.z }}>
-        <SignedMedia
-          path={element.storagePath}
-          source={element.source}
-          mediaType={element.mediaType}
-          fit="cover"
-          className="h-full w-full"
-        />
-      </div>
-    );
-  }
 
   const wrapperStyle: React.CSSProperties = {
     left: `${element.x * 100}%`,
@@ -155,13 +158,20 @@ const CanvasElementView = ({
     <div
       className={cn(
         "absolute select-none",
-        selected && editable && "outline outline-2 outline-primary/80 rounded-md",
+        selected && editable && !pinned && "outline outline-2 outline-primary/80 rounded-md",
+        pinned && editable && "outline-dashed outline-2 outline-primary rounded-md ring-4 ring-primary/30",
       )}
       style={wrapperStyle}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
+      {pinned && editable && (
+        <div className="pointer-events-none absolute -top-6 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow">
+          Pinned to scroll · click again to release
+        </div>
+      )}
+
       <div
         className="relative"
         style={{
