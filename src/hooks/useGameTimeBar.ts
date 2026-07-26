@@ -7,6 +7,7 @@ export type GameTimeBarRow = {
   game_id: string;
   progress_element_id: string;
   duration_seconds: number;
+  default_duration_seconds: number;
   start_mode: "manual" | "scheduled";
   scheduled_start_at: string | null;
   started_at: string | null;
@@ -25,7 +26,18 @@ export type UseGameTimeBar = {
   expired: boolean;
   slotsLit: (segments: number) => number;
   refresh: () => Promise<void>;
+  /** Live-updating controls: they apply the returned row locally at once. */
+  actions: {
+    setDuration: (seconds: number) => Promise<void>;
+    adjustDuration: (deltaSeconds: number) => Promise<void>;
+    start: () => Promise<void>;
+    pause: () => Promise<void>;
+    resume: () => Promise<void>;
+    reset: () => Promise<void>;
+  };
 };
+
+export const MIN_DURATION_SECONDS = 60;
 
 const elapsedFrom = (row: GameTimeBarRow | null): number => {
   if (!row || !row.started_at) return 0;
