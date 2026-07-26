@@ -1,21 +1,36 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getOrCreateClassGallery } from "@/lib/games/classGallery";
+import { listStudentGroupIds } from "@/lib/adventures/groups";
 import { normalizeCanvas, type GameCanvas as GameCanvasT } from "@/lib/games/types";
 import { useGalleryScrollMemory } from "@/lib/games/galleryScroll";
+import { parseAnimateReward, useGalleryAwards } from "@/hooks/useGalleryAwards";
 
-/** Student-facing Gallery — read-only mirror of the teacher's Gallery canvas. */
+/**
+ * Student-facing Gallery — read-only mirror of the teacher's Gallery canvas.
+ * The layout is shared by every group; the student's own group is resolved
+ * automatically and only that group's earned rewards are shown.
+ */
 const StudentGalleryPage = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [className, setClassName] = useState("Gallery");
   const [canvas, setCanvas] = useState<GameCanvasT | null>(null);
+  const [groupId, setGroupId] = useState<string | null>(null);
   const galleryScroll = useGalleryScrollMemory(classId);
+
+  const animate = useMemo(
+    () => parseAnimateReward(searchParams.get("animateReward")),
+    [searchParams],
+  );
+
+  const awards = useGalleryAwards({ classId, groupId, animate });
 
   const load = useCallback(async () => {
     if (!classId) return;
@@ -47,13 +62,14 @@ const StudentGalleryPage = () => {
         navigate("/join");
         return;
       }
-      const { data: cls } = await supabase
-        .from("classes")
-        .select("name")
-        .eq("id", classId)
-        .maybeSingle();
+      const [{ data: cls }, myGroups] = await Promise.all([
+        supabase.from("classes").select("name").eq("id", classId).maybeSingle(),
+        listStudentGroupIds(classId, uid),
+      ]);
       if (cancelled) return;
       setClassName((cls as { name?: string } | null)?.name ?? "Gallery");
+      // Students never pick a group — theirs is resolved for them.
+      setGroupId(myGroups[0] ?? null);
       await load();
       if (!cancelled) setLoading(false);
     })();
@@ -89,7 +105,7 @@ const StudentGalleryPage = () => {
     );
   }
 
-  const elements = canvas.scenes[0]?.elements ?? [];
+  const elements = [...(canvas.scenes[0]?.elements ?? []), ...awards.elements];
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -101,7 +117,13 @@ const StudentGalleryPage = () => {
           <ArrowLeft className="h-4 w-4" /> Classroom
         </Link>
         <h1 className="truncate text-lg font-semibold tracking-wide">{className} Gallery</h1>
-        <div className="w-24" />
+        <div className="w-24 text-right">
+          {awards.flying && (
+            <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              Reward arriving…
+            </span>
+          )}
+        </div>
       </header>
       <main ref={galleryScroll.ref} className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto w-full max-w-6xl p-4">
