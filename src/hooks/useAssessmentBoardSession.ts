@@ -81,8 +81,13 @@ export function useAssessmentBoardSession(opts: {
           .eq("assessment_id", assessmentId!)
           .eq("student_id", studentId!)
           .maybeSingle();
-    query.then(({ data }) => {
-      if (cancelled || !data?.state_json) return;
+    query.then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) {
+        console.warn("[board-session] load failed", error.message);
+        return;
+      }
+      if (!data?.state_json) return;
       const sj = data.state_json as unknown;
       if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
         setIncoming(sj as AssessBoardSnapshot);
