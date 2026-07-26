@@ -1343,6 +1343,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           title={title}
           backHref={`/teaching-hub/classes/${classId}`}
         />
+        <GalleryGroupTabs
+          groups={galleryGroups}
+          activeId={activeGroupId}
+          onChange={setActiveGroupId}
+        />
         <div
           className={
             stageFull
@@ -1359,7 +1364,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 }}
               >
                 <GameCanvas
-                  elements={sceneElements}
+                  elements={[...sceneElements, ...galleryAwards.elements]}
                   selectedId={null}
                   pinnedId={null}
                   editable={false}
@@ -1370,7 +1375,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
             ) : (
               <div className="mx-auto w-full max-w-6xl p-4">
                 <GameCanvas
-                  elements={sceneElements}
+                  elements={[...sceneElements, ...galleryAwards.elements]}
                   selectedId={null}
                   pinnedId={null}
                   editable={false}
@@ -1379,6 +1384,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
               </div>
             )}
           </div>
+
           <button
             type="button"
             onClick={enterFullscreen}
