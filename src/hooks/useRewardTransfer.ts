@@ -13,8 +13,12 @@ import type { AdventureBarSummary } from "@/hooks/useAdventureSync";
 
 const FALLBACK_EXIT_MS = 2000;
 
+/** Why a full Progress Bar did not send its reward to the Gallery. */
+export type TransferBlockedReason = "time_expired" | "no_reward" | "already_awarded" | null;
+
 /** Live offset applied to a reward that is leaving the Adventure scene. */
 export type ExitOffset = { dy: number; opacity: number };
+
 
 export function useRewardTransfer({
   classId,
