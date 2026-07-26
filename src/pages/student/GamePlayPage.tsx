@@ -307,6 +307,19 @@ const GamePlayPage = () => {
                 </div>
               </div>
             )}
+            {!transfer.transferring && transfer.goalReached && transfer.blockedReason && !timeUp && (
+              <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
+                  <div className="text-sm font-semibold text-primary">Goal reached!</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {transfer.blockedReason === "already_awarded"
+                      ? "Your reward is already in the Class Gallery."
+                      : "No reward is linked to this Adventure yet — ask your teacher."}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {timeUp && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                 <div className="rounded-xl border border-destructive/40 bg-background/90 px-8 py-5 text-center shadow-2xl">
