@@ -3084,6 +3084,17 @@ const PresentationView = ({
     }
   }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine]);
 
+  // Idle silent auto-check — a line that is finished but never left would
+  // otherwise never be graded. Debounced; the grader itself skips dangling
+  // lines and already-solved slots, so this never disturbs the student.
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") return;
+    const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 1500);
+    return () => window.clearTimeout(id);
+  }, [assessmentMode, role, activeLineIdx, freeLines, silentAutoCheckLine]);
+
+
+
   // ── SHARED SESSION: apply the other side's board snapshot ────────────────
   // The student's board and the teacher's "View Student Work" board are ONE
   // session. Whoever authored the snapshot skips its own echo.
