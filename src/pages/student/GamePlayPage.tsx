@@ -160,6 +160,17 @@ const GamePlayPage = () => {
 
   const timeUp = timeBar.expired && !transfer.winnerBarId;
   const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
+  // Winner declared → the game freezes exactly like Time Up does.
+  const frozen = timeUp || transfer.won;
+
+  // Step 2 — stop the clock the moment a winner exists.
+  const pausedForWinRef = useRef(false);
+  useEffect(() => {
+    if (!transfer.won || pausedForWinRef.current) return;
+    if (!timeBar.running) return;
+    pausedForWinRef.current = true;
+    void timeBar.actions.pause().catch(() => { pausedForWinRef.current = false; });
+  }, [transfer.won, timeBar.running, timeBar.actions]);
 
   const mirroredElements = useMemo(() => {
     const timeBarId = timeBar.elementId;
@@ -168,8 +179,9 @@ const GamePlayPage = () => {
       .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
       .map((el) => {
         if (el.kind === "reward" && transfer.departing.has(el.id)) {
-          // Lift away + fade out before leaving the Adventure page.
-          return { ...el, y: Math.max(-0.2, el.y - 0.35), opacity: 0 };
+          const off = transfer.exitOffsets.get(el.id);
+          // Continuous lift + fade at the Gallery's configured speed.
+          return { ...el, y: el.y + (off?.dy ?? 0), opacity: off?.opacity ?? 1 };
         }
         if (el.kind !== "progress_bar" || !el.progress) return el;
         if (timeBarId && el.id === timeBarId) {
@@ -180,7 +192,8 @@ const GamePlayPage = () => {
         if (!snap) return el;
         return { ...el, progress: { ...el.progress, currentMarks: snap.current, totalMarks: snap.required } };
       });
-  }, [sync.elements, mirror, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.transferredIds]);
+  }, [sync.elements, mirror, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
+
 
   const playableBars = useMemo(
     () =>
