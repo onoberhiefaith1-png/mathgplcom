@@ -299,9 +299,47 @@ const AdventureDashboardPage = () => {
               style={fullscreen === "game" ? undefined : { width: panelOpen ? "70%" : "100%" }}
             >
               <div className={fullscreen === "game" ? "relative w-full max-w-[1800px]" : "relative"}>
-                <div className="pointer-events-none">
-                  <GameCanvas elements={canvasElements} selectedId={null} editable={false} />
-                </div>
+                <GameCanvas
+                  elements={canvasElements}
+                  selectedId={selectedRewardId}
+                  editable
+                  onSelect={(id) => {
+                    if (!id) { setSelectedRewardId(null); return; }
+                    const el = canvasElements.find((e) => e.id === id);
+                    setSelectedRewardId(el?.kind === "reward" ? id : null);
+                  }}
+                  onMove={() => { /* dashboard is read-only for positions */ }}
+                  heightUnits={sync.heightUnits}
+                />
+                {selectedRewardId && (() => {
+                  const el = canvasElements.find((e) => e.id === selectedRewardId);
+                  if (!el || el.kind !== "reward") return null;
+                  return (
+                    <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+                      <span className="text-xs">
+                        <span className="text-muted-foreground">Reward · </span>
+                        <span className="font-semibold">{el.label || "Reward"}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => classId && gameId && navigate(
+                          `/teaching-hub/classes/${classId}/gallery?configureReward=${gameId}:${selectedRewardId}`,
+                        )}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Link to Class Gallery
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRewardId(null)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border hover:bg-accent"
+                        aria-label="Close"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })()}
                 <button
                   type="button"
                   onClick={() => setFullscreen(fullscreen === "game" ? "none" : "game")}
