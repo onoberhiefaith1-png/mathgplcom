@@ -397,9 +397,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   }, [isGallery, isConfiguringReward, pendingRewards]);
 
   const elements: CanvasElement[] = useMemo(() => {
-    const base = [...sceneElements, ...pendingRewardElements];
+    const earned = isGallery && !isConfiguringReward ? galleryAwards.elements : [];
+    const base = [...sceneElements, ...earned, ...pendingRewardElements];
     return draftRewardElement ? [...base, draftRewardElement] : base;
-  }, [sceneElements, pendingRewardElements, draftRewardElement]);
+  }, [sceneElements, pendingRewardElements, draftRewardElement, isGallery, isConfiguringReward, galleryAwards.elements]);
+
 
 
 
