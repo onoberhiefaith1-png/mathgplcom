@@ -91,22 +91,37 @@ export function useAssessmentBoardSession(opts: {
     return () => { cancelled = true; };
   }, [active, assessmentId, studentId, questionId, perQuestion]);
 
-  // Live channel.
+  // Live channel. Self-healing: a join can fail if the socket token was not
+  // ready yet, which would otherwise kill mirroring for the whole session.
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
+    let retries = 0;
     const name = `assessment-board-${assessmentId}-${studentId}${questionId ? `-${questionId}` : ""}`;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      const ch = supabase
-        .channel(name, { config: { broadcast: { self: false } } })
-        .on("broadcast", { event: "state" }, (msg) => {
-          const p = (msg as { payload?: AssessBoardSnapshot }).payload;
-          if (p) setIncoming(p);
-        })
-        .subscribe();
-      chanRef.current = ch;
-    });
+
+    const connect = () => {
+      void ensureRealtimeAuth().then(() => {
+        if (cancelled) return;
+        const ch = supabase
+          .channel(name, { config: { broadcast: { self: false } } })
+          .on("broadcast", { event: "state" }, (msg) => {
+            const p = (msg as { payload?: AssessBoardSnapshot }).payload;
+            if (p) setIncoming(p);
+          })
+          .subscribe((status) => {
+            if (cancelled) return;
+            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && retries < 3) {
+              retries += 1;
+              supabase.removeChannel(ch);
+              if (chanRef.current === ch) chanRef.current = null;
+              window.setTimeout(() => { if (!cancelled) connect(); }, 600 * retries);
+            }
+          });
+        chanRef.current = ch;
+      });
+    };
+    connect();
+
     return () => {
       cancelled = true;
       if (chanRef.current) {
@@ -115,6 +130,7 @@ export function useAssessmentBoardSession(opts: {
       }
     };
   }, [active, assessmentId, studentId, questionId]);
+
 
   const push = useCallback((state: AssessBoardState) => {
     if (!active || !selfId) return;

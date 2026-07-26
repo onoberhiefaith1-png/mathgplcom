@@ -1,32 +1,38 @@
+## What I checked first
 
-# Activate the Timer Controls
+- `supabase/functions/grade-line/index.ts` in this project vs Gameful's: this project's version is Gameful's file **plus** `mode` (manual/auto), `allowedFloatingTokens` floating-set enforcement and `persist` (dry-run). Same shared engine `_shared/mathEquivalence.ts`, same `equivalent()` call, same verdict/marks/progress shape.
+- Gameful has **no** `assessment_board_state` / `assessment_question_board_state` and no per-student assessment board session at all (searched the project — 0 matches). Its only board mirroring is the class-wide `class_smartboard_state` teacher board. So items 2–4 of the request are already present here, and item 1 (student board sync) cannot be literally copied from Gameful — this project's session layer is newer than Gameful's.
+- The sync layer that exists here: `useAssessmentBoardSession.ts` (broadcast on channel `assessment-board-<assessmentId>-<studentId>[-<questionId>]`, debounced durable upsert) plus a separate live snapshot broadcast on `assessment-live-<assessmentId>-<studentId>` consumed by `TeacherReasoningPanel`. Student and teacher pages pass matching `boardStudentId`; the teacher scopes `boardQuestionId` from the `?q=` search param.
 
-## What I verified
-- The buttons are already wired to `timeBarActions` in `src/components/adventures/TimeBarControl.tsx`, and the database writes **do** succeed: the row for the adventure currently open (`4996cb5d…`) has `duration_seconds = 540` and a `started_at` timestamp, even though the on-screen UI still shows `10` min, `00:00 / 10:00` and a "Start" button.
-- So the failure is not the logic or permissions — it's that the UI never re-reads the row. `src/hooks/useGameTimeBar.ts` updates its local state **only** from a realtime `postgres_changes` subscription; the mutation helpers write and discard the result, and nothing refetches. When that subscription doesn't deliver (auth timing, channel not yet joined), the panel stays frozen on the value loaded at mount.
+I have **not** confirmed why sync fails in practice, so step 1 is diagnosis, not a guessed fix.
 
-## Fix (no redesign, no visual changes)
+## Plan
 
-**1. Mutations return the new row and update state immediately**
-- In `useGameTimeBar.ts`, have every mutation (`setDuration`, `adjustDuration`, `start`, `pause`, `resume`, `reset`) use `.select().single()` and hand the returned row back.
-- Move the actions from the free-standing `timeBarActions` object into hook-bound callbacks (keeping `timeBarActions` exported for any other caller) so each action can call `setRow(returned)` right after the write.
-- Realtime stays as-is and simply reconciles; the local apply makes the display, the `mm:ss` totals and the lit-slot count update instantly with no refresh.
+### 1. Reproduce and diagnose (first, before any edit)
+Drive two Playwright sessions against the running app — student on `/student/.../assessment board` and teacher on the assessment viewer — typing on the student board and capturing: channel names actually subscribed, broadcast sends, and what the teacher board receives. Record which of these is true:
+- channel-name mismatch (teacher opened without `?q=` while the student board is per-question),
+- the publish effect never firing for some mutation classes,
+- realtime private-channel auth/join failure,
+- teacher side receiving but not applying the snapshot.
 
-**2. +1 / −1 minute**
-- `adjustDuration` keeps its ±60s step; change the floor from the current `10` seconds to `60` seconds so the duration can never drop below 1 minute (and never negative).
-- Because slots are derived (`slotsLit` = `elapsed ÷ (duration ÷ segments)`), time-per-slot recalculates automatically the moment `duration_seconds` changes — nothing else to add.
+### 2. Make the session scope match on both sides
+If the diagnosis confirms a scope mismatch, make teacher and student resolve the same `questionId` (teacher falls back to the student's currently active question from `assessment_question_board_state` instead of `null`) so both always join one channel.
 
-**3. Duration input**
-- Keeps working as today (min 1 minute), now with immediate local echo so typing/committing a value reflects at once. Editing before start is unaffected.
+### 3. Cover every mutation in the publish path
+Audit `PresentationView.tsx` for board mutations that bypass React state (drag/rearrange/delete paths that write refs or mutate in place) and ensure each ends in a state update that reaches the publish effect at ~line 3115, so writing, dragging, deleting, rearranging, editing and creating a line all push. Add a low-frequency safety re-publish so a missed change self-heals rather than leaving the teacher stale.
 
-**4. Reset**
-- Spec asks Reset to restore the *originally saved* duration. There is no column holding it today, so add one additively: `game_time_bars.default_duration_seconds` (backfilled from the current `duration_seconds`, set on insert).
-- Reset then clears `started_at`, `paused_at`, `accumulated_paused_ms` **and** restores `duration_seconds` to `default_duration_seconds`, returning the bar to `00:00 / original` with 0 slots lit, ready to start again.
+### 4. Self-healing realtime join
+Apply the same retry pattern already used in `useSmartboardSync.ts` (`CHANNEL_ERROR`/`TIMED_OUT` → re-auth → resubscribe once) to `useAssessmentBoardSession` and to the `assessment-live-*` channel, so a cold token doesn't permanently kill mirroring.
 
-**5. Show failures instead of swallowing them**
-- Surface any write error with a toast so a permission/network failure is visible rather than looking like a dead button.
+### 5. Silent grading triggers
+Keep the existing silent grader (`silentAutoCheckLine`) and its logic untouched. Only widen when it fires: currently only on `activeLineIdx` change. Add a debounced idle trigger on a settled, non-dangling line so a line completed without moving off it is still graded silently. No toasts, no focus change; Check stays as student-facing feedback only.
+
+### 6. Leave unchanged
+`TeacherReasoningPanel.tsx`, the equivalence engine, `grade-line`'s algorithm, marks/score computation, and all UI layout.
+
+### 7. Verify
+Re-run the two-session Playwright check: type/drag/delete on the student board, confirm the teacher board mirrors within ~a second, confirm the reasoning panel shows expected vs student line with an equivalence verdict, and confirm `assessment_progress.score` increments without any student interaction.
 
 ## Technical notes
-- Files: `src/hooks/useGameTimeBar.ts` (main change), `src/components/adventures/TimeBarControl.tsx` (use the hook-bound actions; markup untouched).
-- One additive migration: add `default_duration_seconds integer` to `public.game_time_bars` with a default and a backfill. No existing columns or tables modified.
-- `src/hooks/useTimeBar.ts` / `TimeBarControls.tsx` (student & class-live views) are read-only consumers and stay as they are.
+- No schema changes expected; no destructive migrations. If step 1 shows a missing grant/RLS on the board-state tables, the fix would be an additive policy migration only.
+- No file is copied from Gameful, because the relevant Gameful files either don't exist there (board session) or are already a strict subset of this project's (`grade-line`, `mathEquivalence`).

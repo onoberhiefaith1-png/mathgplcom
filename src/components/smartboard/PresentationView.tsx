@@ -86,7 +86,7 @@ import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
-import { useAssessmentBoardSession } from "@/hooks/useAssessmentBoardSession";
+import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 
 import ActiveStudentControl from "./ActiveStudentControl";
 import { supabase } from "@/integrations/supabase/client";
@@ -3084,6 +3084,17 @@ const PresentationView = ({
     }
   }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine]);
 
+  // Idle silent auto-check — a line that is finished but never left would
+  // otherwise never be graded. Debounced; the grader itself skips dangling
+  // lines and already-solved slots, so this never disturbs the student.
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") return;
+    const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 1500);
+    return () => window.clearTimeout(id);
+  }, [assessmentMode, role, activeLineIdx, freeLines, silentAutoCheckLine]);
+
+
+
   // ── SHARED SESSION: apply the other side's board snapshot ────────────────
   // The student's board and the teacher's "View Student Work" board are ONE
   // session. Whoever authored the snapshot skips its own echo.
@@ -3112,6 +3123,16 @@ const PresentationView = ({
   }, [boardIncoming, boardSessionActive, selfId]);
 
   // ── SHARED SESSION: publish our board while we hold edit rights ──────────
+  // A ref of the live board is kept on every render so the safety re-publish
+  // below also catches mutations that happen in place (drag / rearrange /
+  // delete paths that don't produce a new state identity).
+  const liveBoardRef = useRef<AssessBoardState | null>(null);
+  liveBoardRef.current = {
+    beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
+    sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+    activeLineIdx, questionId: current?.id ?? null,
+  } as AssessBoardState;
+
   useEffect(() => {
     if (!boardSessionActive || !canEdit) return;
     if (applyingRemoteRef.current) return;
@@ -3127,6 +3148,20 @@ const PresentationView = ({
     activeLineIdx, current?.id,
   ]);
 
+  // Safety re-publish — `push` de-dupes identical content, so this is a no-op
+  // unless something changed without re-running the effect above.
+  useEffect(() => {
+    if (!boardSessionActive || !canEdit) return;
+    const id = window.setInterval(() => {
+      if (applyingRemoteRef.current) return;
+      const snap = liveBoardRef.current;
+      if (snap) pushBoardState(snap);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [boardSessionActive, canEdit, pushBoardState]);
+
+
+
 
 
   // ── LIVE MIRROR TO TEACHER — broadcast the student's board state so the
@@ -3137,16 +3172,26 @@ const PresentationView = ({
   useEffect(() => {
     if (!assessmentMode || !assessmentId || role !== "student" || !selfId) return;
     let cancelled = false;
+    let retries = 0;
     const chanName = `assessment-live-${assessmentId}-${selfId}`;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      const ch = supabase.channel(chanName, { config: { broadcast: { self: false } } });
-      ch.subscribe((status) => {
+    const connect = () => {
+      void ensureRealtimeAuth().then(() => {
         if (cancelled) return;
-        setLiveChanReady(status === "SUBSCRIBED");
+        const ch = supabase.channel(chanName, { config: { broadcast: { self: false } } });
+        ch.subscribe((status) => {
+          if (cancelled) return;
+          setLiveChanReady(status === "SUBSCRIBED");
+          if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && retries < 3) {
+            retries += 1;
+            supabase.removeChannel(ch);
+            if (liveBroadcastChanRef.current === ch) liveBroadcastChanRef.current = null;
+            window.setTimeout(() => { if (!cancelled) connect(); }, 600 * retries);
+          }
+        });
+        liveBroadcastChanRef.current = ch;
       });
-      liveBroadcastChanRef.current = ch;
-    });
+    };
+    connect();
     return () => {
       cancelled = true;
       setLiveChanReady(false);

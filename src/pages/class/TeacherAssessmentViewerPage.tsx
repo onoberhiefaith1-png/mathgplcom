@@ -18,12 +18,39 @@ const TeacherAssessmentViewerPage = () => {
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get("returnTo") || `/teaching-hub/classes/${classId}`;
   // Students write one board per question — mirror the same scope here.
-  const questionId = searchParams.get("q");
+  // When the teacher arrives without an explicit ?q=, follow whichever question
+  // the student is actually working on; otherwise both sides would join
+  // different sessions and nothing would mirror.
+  const explicitQuestionId = searchParams.get("q");
+  const [followedQuestionId, setFollowedQuestionId] = useState<string | null>(null);
+  const questionId = explicitQuestionId ?? followedQuestionId;
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
   const [studentName, setStudentName] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
   const [reasoningOpen, setReasoningOpen] = useState(false);
+
+  // Poll the student's most recently touched question board and follow it.
+  useEffect(() => {
+    if (explicitQuestionId || !assessmentId || !studentId) return;
+    let cancelled = false;
+    const tick = async () => {
+      const { data } = await supabase
+        .from("assessment_question_board_state")
+        .select("question_id, updated_at")
+        .eq("assessment_id", assessmentId)
+        .eq("student_id", studentId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (cancelled) return;
+      const qid = (data?.[0] as { question_id?: string } | undefined)?.question_id ?? null;
+      if (qid) setFollowedQuestionId((prev) => (prev === qid ? prev : qid));
+    };
+    void tick();
+    const id = window.setInterval(tick, 3000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [explicitQuestionId, assessmentId, studentId]);
+
 
   useEffect(() => {
     (async () => {
