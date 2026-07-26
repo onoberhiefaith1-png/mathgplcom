@@ -1,6 +1,7 @@
-// Runtime pipeline: Adventure → Progress Bar complete → reward leaves the
-// scene → reward is recorded for the winning group → Class Gallery opens and
-// plays the saved Start → End animation.
+// Runtime pipeline: Adventure → Progress Bar full (teacher-defined goal) →
+// winner declared → timer frozen → reward lifts out of the scene at the
+// Gallery's own animation speed → reward recorded for the winning group →
+// Class Gallery opens and plays the saved Start → End animation.
 //
 // Nothing here recreates a reward: it transfers the reward the teacher already
 // configured (placement rows in `class_gallery_rewards`).
@@ -10,7 +11,10 @@ import { loadClassGalleryRewards, type ClassGalleryRewardRow } from "@/lib/games
 import { awardClassGalleryReward, loadClassGalleryAwards } from "@/lib/games/classGalleryAwards";
 import type { AdventureBarSummary } from "@/hooks/useAdventureSync";
 
-const EXIT_MS = 1400;
+const FALLBACK_EXIT_MS = 2000;
+
+/** Live offset applied to a reward that is leaving the Adventure scene. */
+export type ExitOffset = { dy: number; opacity: number };
 
 export function useRewardTransfer({
   classId,
@@ -35,8 +39,10 @@ export function useRewardTransfer({
   const [placements, setPlacements] = useState<ClassGalleryRewardRow[]>([]);
   const [alreadyAwarded, setAlreadyAwarded] = useState<Set<string>>(new Set());
   const [departing, setDeparting] = useState<Set<string>>(new Set());
+  const [exitOffsets, setExitOffsets] = useState<Map<string, ExitOffset>>(new Map());
   const [transferring, setTransferring] = useState(false);
   const firedRef = useRef(false);
+  const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!classId || !gameId) return;
@@ -59,13 +65,20 @@ export function useRewardTransfer({
     return () => { cancelled = true; };
   }, [classId, gameId]);
 
+  useEffect(() => () => { if (frameRef.current != null) cancelAnimationFrame(frameRef.current); }, []);
+
   /** Rewards of this game that have been transferred already — never re-render them. */
   const transferredIds = useMemo(() => alreadyAwarded, [alreadyAwarded]);
 
+  // A bar is "full" when it reaches the teacher-configured goal for that bar
+  // (`required` already encodes the goal percentage) — never a fixed 100%.
   const winnerBar = useMemo(
     () => barSummaries.find((b) => b.required > 0 && b.achieved >= b.required) ?? null,
     [barSummaries],
   );
+
+  const won = !!winnerBar && !timeExpired;
+  const winnerGroupId = winnerBar ? barOwner.get(winnerBar.id) ?? null : null;
 
   const run = useCallback(
     async (barId: string) => {
@@ -75,9 +88,34 @@ export function useRewardTransfer({
       if (targets.length === 0) return;
 
       setTransferring(true);
-      setDeparting(new Set(targets.map((t) => t.reward_element_id)));
+      const ids = targets.map((t) => t.reward_element_id);
+      setDeparting(new Set(ids));
 
-      await new Promise((r) => setTimeout(r, EXIT_MS));
+      // The Adventure scene never owns a speed of its own: the exit uses the
+      // same duration the teacher configured for this reward in the Gallery.
+      const exitMs = Math.max(
+        500,
+        Number(targets[0]?.duration_ms) || FALLBACK_EXIT_MS,
+      );
+
+      await new Promise<void>((resolve) => {
+        const t0 = performance.now();
+        const step = (now: number) => {
+          const t = Math.min(1, (now - t0) / exitMs);
+          // Ease-in: slow lift, then accelerates off the top of the scene.
+          const k = t * t;
+          const next = new Map<string, ExitOffset>();
+          for (const id of ids) next.set(id, { dy: -1.4 * k, opacity: Math.max(0, 1 - t * t) });
+          setExitOffsets(next);
+          if (t < 1) {
+            frameRef.current = requestAnimationFrame(step);
+          } else {
+            frameRef.current = null;
+            resolve();
+          }
+        };
+        frameRef.current = requestAnimationFrame(step);
+      });
 
       try {
         for (const t of targets) {
@@ -114,9 +152,14 @@ export function useRewardTransfer({
   return {
     /** Reward element ids currently lifting away from the scene. */
     departing,
+    /** Live per-reward offset while it exits (continuous, Gallery speed). */
+    exitOffsets,
     /** Reward element ids that already live in the Gallery — hide in the game. */
     transferredIds,
     transferring,
+    /** True as soon as a bar reaches its configured goal — freeze the game. */
+    won,
+    winnerGroupId,
     winnerBarId: winnerBar?.id ?? null,
   };
 }
