@@ -170,10 +170,12 @@ export function useRewardTransfer({
     if (!enabled || firedRef.current) return;
     if (timeExpired) return; // Part 7 — time beat every group, no transfer.
     if (!winnerBar) return;
-    if (placements.length === 0) return;
+    // Only latch once a transfer can genuinely start: if placements arrive
+    // late (or a reward is linked after the goal was met) this can still fire.
+    if (!placementsLoaded || pendingTargets.length === 0) return;
     firedRef.current = true;
     void run(winnerBar.id);
-  }, [enabled, timeExpired, winnerBar, placements.length, run]);
+  }, [enabled, timeExpired, winnerBar, placementsLoaded, pendingTargets.length, run]);
 
   return {
     /** Reward element ids currently lifting away from the scene. */
@@ -185,7 +187,12 @@ export function useRewardTransfer({
     transferring,
     /** True as soon as a bar reaches its configured goal — freeze the game. */
     won,
+    /** Goal met, even if the transfer is blocked (e.g. time already expired). */
+    goalReached,
+    /** Why a met goal did not move a reward — drives the on-screen message. */
+    blockedReason,
     winnerGroupId,
     winnerBarId: winnerBar?.id ?? null,
   };
+
 }
