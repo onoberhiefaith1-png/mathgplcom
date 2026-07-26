@@ -294,7 +294,7 @@ const GamePlayPage = () => {
                 );
               })}
             </div>
-            {playableBars.length === 0 && !timeUp && (
+            {playableBars.length === 0 && !frozen && (
               <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 mx-auto w-fit rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
                 Your teacher hasn't linked questions to this game's progress bars yet.
               </div>
