@@ -13,6 +13,9 @@ import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } 
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
+import { useAdventureGroups } from "@/hooks/useAdventureGroups";
+import { useRewardTransfer } from "@/hooks/useRewardTransfer";
+
 
 type MirrorSnapshot = Record<string, { current: number; required: number }>;
 
