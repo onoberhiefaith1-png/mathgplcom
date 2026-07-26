@@ -59,6 +59,7 @@ export function useAdventureSync({
   boards,
   currentUserId = null,
   onGameUpdated,
+  barScope,
 }: {
   classId: string | null | undefined;
   gameId: string | null | undefined;
@@ -66,6 +67,9 @@ export function useAdventureSync({
   boards: GameBoard[];
   currentUserId?: string | null;
   onGameUpdated?: (game: GameRow) => void;
+  /** Optional per-bar student scope. If a bar has an entry, only those
+   *  students count toward its Number of Students / Achieved / Required. */
+  barScope?: Map<string, Set<string>>;
 }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [scoresByAssessment, setScoresByAssessment] = useState<ScoresByAssessment>({});
@@ -244,11 +248,17 @@ export function useAdventureSync({
       const total = b.totalMarks || 0;
       const segments = Math.max(1, Number(el.progress?.segments) || 10);
       const goalPct = Number(el.progress?.progressGoalPct ?? 100);
-      const grand = total * memberIds.length;
+      const scope = barScope?.get(el.id) ?? null;
+      const students = scope ? scope.size : memberIds.length;
+      const grand = total * students;
       const required = Math.max(1, Math.round(grand * (goalPct / 100)));
       const scoresForBar = scoresByAssessment[b.assessmentId] ?? {};
       let collective = 0;
-      for (const sid of Object.keys(scoresForBar)) if (memberSet.has(sid)) collective += scoresForBar[sid] ?? 0;
+      for (const sid of Object.keys(scoresForBar)) {
+        if (!memberSet.has(sid)) continue;
+        if (scope && !scope.has(sid)) continue;
+        collective += scoresForBar[sid] ?? 0;
+      }
       const per = required / segments;
       items.push({
         id: el.id,
@@ -260,12 +270,12 @@ export function useAdventureSync({
         achieved: Math.min(required, collective),
         segments,
         perSlot: Number.isInteger(per) ? String(per) : per.toFixed(1),
-        students: memberIds.length,
+        students,
         assessmentId: b.assessmentId,
       });
     }
     return items;
-  }, [game, boardByElement, memberIds.length, scoresByAssessment, memberSet]);
+  }, [game, boardByElement, memberIds.length, scoresByAssessment, memberSet, barScope]);
 
   const elements = useMemo<CanvasElement[]>(() => {
     if (!game) return [];

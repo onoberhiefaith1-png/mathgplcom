@@ -12,6 +12,8 @@ import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } 
 import { normalizeCanvas, type GameRow } from "@/lib/games/types";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
+import { useAdventureGroups } from "@/hooks/useAdventureGroups";
+import { GroupsPanel } from "@/components/adventures/GroupsPanel";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { TimeBarControl } from "@/components/adventures/TimeBarControl";
 
@@ -39,14 +41,58 @@ const AdventureDashboardPage = () => {
     if (classId && gameId) updatePrefetchedGame(classId, gameId, updated);
   }, [classId, gameId]);
 
+  const groups = useAdventureGroups(classId, gameId);
+
+  // Bar scope: group-owned bars count only their group's students; whole-class
+  // bars count only students not in any group.
+  const barScope = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const g of groups.groups) {
+      map.set(g.progress_element_id, groups.studentsByGroup.get(g.id) ?? new Set());
+    }
+    return map;
+  }, [groups.groups, groups.studentsByGroup]);
+
   const sync = useAdventureSync({
     classId,
     gameId,
     game,
     boards,
     onGameUpdated: handleGameUpdated,
+    barScope,
   });
   const refreshAdventureSync = sync.refresh;
+
+  // For every whole-class bar, restrict scope to students not in any group.
+  const wholeClassSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const uid of sync.memberIds) if (!groups.studentGroup.has(uid)) s.add(uid);
+    return s;
+  }, [sync.memberIds, groups.studentGroup]);
+
+  // Bars without a group entry are re-scoped to the whole class locally.
+  const patchedBarSummaries = useMemo(() => {
+    return sync.barSummaries.map((b) => {
+      if (groups.barOwner.has(b.id)) return b;
+      const students = wholeClassSet.size;
+      const grand = (b.total || 0) * students;
+      const required = Math.max(1, Math.round(grand * (b.goalPct / 100)));
+      const raw = sync.scoresByAssessment[b.assessmentId] ?? {};
+      let ach = 0;
+      for (const [sid, sc] of Object.entries(raw)) if (wholeClassSet.has(sid)) ach += sc ?? 0;
+      const per = required / Math.max(1, b.segments);
+      return {
+        ...b,
+        students,
+        grand,
+        required,
+        achieved: Math.min(required, ach),
+        perSlot: Number.isInteger(per) ? String(per) : per.toFixed(1),
+      };
+    });
+  }, [sync.barSummaries, groups.barOwner, wholeClassSet, sync.scoresByAssessment]);
+
+  const statsByBar = useMemo(() => new Map(patchedBarSummaries.map((b) => [b.id, b])), [patchedBarSummaries]);
 
   const timeBar = useGameTimeBar(gameId);
 
@@ -125,7 +171,7 @@ const AdventureDashboardPage = () => {
     let ch: ReturnType<typeof supabase.channel> | null = null;
     const snapshot = () => {
       const map: Record<string, { current: number; required: number }> = {};
-      for (const b of sync.barSummaries) map[b.id] = { current: b.achieved, required: b.required };
+      for (const b of patchedBarSummaries) map[b.id] = { current: b.achieved, required: b.required };
       return map;
     };
     void ensureRealtimeAuth().then(() => {
@@ -146,7 +192,7 @@ const AdventureDashboardPage = () => {
       window.clearInterval(interval);
       if (ch) supabase.removeChannel(ch);
     };
-  }, [classId, gameId, sync.barSummaries]);
+  }, [classId, gameId, patchedBarSummaries]);
 
   const setBarGoalPct = useCallback(async (barElementId: string, pct: number) => {
     if (!game || !gameId) return;
@@ -204,9 +250,9 @@ const AdventureDashboardPage = () => {
               <MetaField label="Total Marks" value={String(boards.reduce((a, b) => a + b.totalMarks, 0))} />
             </div>
           </div>
-          {sync.barSummaries.length > 0 && (
+          {patchedBarSummaries.length > 0 && (
             <div className="mx-auto mb-3 flex w-full max-w-[1500px] flex-wrap gap-2">
-              {sync.barSummaries.map((b) => (
+              {patchedBarSummaries.map((b) => (
                 <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs backdrop-blur">
                   <span className="font-medium">{b.label}</span>
                   <span className="text-muted-foreground">·</span>
@@ -302,6 +348,19 @@ const AdventureDashboardPage = () => {
                   </div>
                 </div>
                 <AssessmentStatusPanel rows={sync.rows} onViewStudent={onViewStudent} />
+                {classId && gameId && (
+                  <div className="mt-6 border-t border-border pt-4">
+                    <GroupsPanel
+                      classId={classId}
+                      gameId={gameId}
+                      members={sync.members}
+                      bars={patchedBarSummaries}
+                      ctx={groups}
+                      statsByBar={statsByBar}
+                      reservedBarIds={timeBar.elementId ? new Set([timeBar.elementId]) : undefined}
+                    />
+                  </div>
+                )}
               </aside>
             ) : (
               <button
