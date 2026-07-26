@@ -137,6 +137,39 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   const DRAFT_REWARD_ID = "__reward_draft__";
   const PENDING_PREFIX = "__reward_pending_";
 
+  // ── Group tabs (gallery mode) — one shared layout, per-group rewards ──
+  const [galleryGroups, setGalleryGroups] = useState<AdventureGroup[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isGallery || !classId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const gs = await listClassGroups(classId);
+        if (!cancelled) setGalleryGroups(gs);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isGallery, classId]);
+
+  const animateReward = useMemo(
+    () => (isGallery ? parseAnimateReward(searchParams.get("animateReward")) : null),
+    [isGallery, searchParams],
+  );
+  useEffect(() => {
+    const g = searchParams.get("group");
+    if (g) setActiveGroupId(g);
+  }, [searchParams]);
+
+  const galleryAwards = useGalleryAwards({
+    classId: isGallery ? classId : null,
+    groupId: activeGroupId,
+    animate: animateReward,
+  });
+
+
 
   useEffect(() => {
     if (isGallery) {
