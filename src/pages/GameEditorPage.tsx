@@ -1782,7 +1782,44 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   );
 };
 
+/** One shared Gallery layout, one tab per group. Tabs only switch which
+ *  earned rewards are shown — background, effects and layout never change. */
+const GalleryGroupTabs = ({
+  groups,
+  activeId,
+  onChange,
+}: {
+  groups: AdventureGroup[];
+  activeId: string | null;
+  onChange: (id: string | null) => void;
+}) => {
+  if (groups.length === 0) return null;
+  const tabs: Array<{ id: string | null; name: string }> = [
+    { id: null, name: "Whole Class" },
+    ...groups.map((g) => ({ id: g.id as string | null, name: g.name })),
+  ];
+  return (
+    <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/50 bg-background/95 px-4 py-1.5">
+      {tabs.map((t) => (
+        <button
+          key={t.id ?? "whole-class"}
+          type="button"
+          onClick={() => onChange(t.id)}
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
+            (activeId ?? null) === t.id
+              ? "bg-primary text-primary-foreground"
+              : "border border-border text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          {t.name}
+        </button>
+      ))}
+    </div>
+  );
+};
+
 const GalleryModeTabs = ({
+
   mode,
   onChange,
   title,
