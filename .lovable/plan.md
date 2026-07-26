@@ -1,38 +1,32 @@
-## What I checked first
+## What I verified first
 
-- `supabase/functions/grade-line/index.ts` in this project vs Gameful's: this project's version is Gameful's file **plus** `mode` (manual/auto), `allowedFloatingTokens` floating-set enforcement and `persist` (dry-run). Same shared engine `_shared/mathEquivalence.ts`, same `equivalent()` call, same verdict/marks/progress shape.
-- Gameful has **no** `assessment_board_state` / `assessment_question_board_state` and no per-student assessment board session at all (searched the project — 0 matches). Its only board mirroring is the class-wide `class_smartboard_state` teacher board. So items 2–4 of the request are already present here, and item 1 (student board sync) cannot be literally copied from Gameful — this project's session layer is newer than Gameful's.
-- The sync layer that exists here: `useAssessmentBoardSession.ts` (broadcast on channel `assessment-board-<assessmentId>-<studentId>[-<questionId>]`, debounced durable upsert) plus a separate live snapshot broadcast on `assessment-live-<assessmentId>-<studentId>` consumed by `TeacherReasoningPanel`. Student and teacher pages pass matching `boardStudentId`; the teacher scopes `boardQuestionId` from the `?q=` search param.
+- The two tables that carry the shared student/teacher board (`assessment_board_state`, `assessment_question_board_state`) have **zero table privileges granted** to `authenticated` / `service_role`. Their row-level rules are correct, but with no grants every read and write from the app is rejected outright. Both tables contain **0 rows**, while grading progress rows do exist — so the board has never once persisted.
+- The client code that saves the board (`useAssessmentBoardSession.push`) fires the save and **ignores the returned error**, which is why this failed invisibly instead of showing a message.
+- Check Line already calls the shared equivalence grader, but it is wrapped in **legacy pre-checks that reject the line before grading**: an "⚠ Line N incomplete" guard, an "Incomplete expression … ends on an operator" guard, and a guess-the-row matcher that can pick the wrong written row and then report a mismatch. These are the legacy errors being seen.
+- Silent auto-grading exists and calls the same function, but it duplicates that same row-guessing logic and silently aborts on the same guards.
 
-I have **not** confirmed why sync fails in practice, so step 1 is diagnosis, not a guessed fix.
+## Fix 1 — Real-time synchronization
 
-## Plan
+1. Migration (additive, no schema change): grant the missing table privileges on `assessment_board_state` and `assessment_question_board_state` to `authenticated` and `service_role` so the existing access rules can actually take effect.
+2. In the board session hook, stop discarding save/load errors: surface them to the console and retry once, so a future permission or network failure is visible instead of silent.
+3. Publish coverage: keep the existing change-driven publish, and keep the periodic safety re-publish that catches in-place mutations (drag, delete, rearrange, floating-number drops) which don't create new state identities. Reduce its interval so those actions land near-instantly rather than up to a second late.
+4. Ensure the student's first snapshot is published as soon as the channel is ready (teacher joining late immediately gets the full board rather than waiting for the next edit).
 
-### 1. Reproduce and diagnose (first, before any edit)
-Drive two Playwright sessions against the running app — student on `/student/.../assessment board` and teacher on the assessment viewer — typing on the student board and capturing: channel names actually subscribed, broadcast sends, and what the teacher board receives. Record which of these is true:
-- channel-name mismatch (teacher opened without `?q=` while the student board is per-question),
-- the publish effect never firing for some mutation classes,
-- realtime private-channel auth/join failure,
-- teacher side receiving but not applying the snapshot.
+## Fix 2 — Check Line uses only the equivalence engine
 
-### 2. Make the session scope match on both sides
-If the diagnosis confirms a scope mismatch, make teacher and student resolve the same `questionId` (teacher falls back to the student's currently active question from `assessment_question_board_state` instead of `null`) so both always join one channel.
+Rewrite the body of the manual check so it:
 
-### 3. Cover every mutation in the publish path
-Audit `PresentationView.tsx` for board mutations that bypass React state (drag/rearrange/delete paths that write refs or mutate in place) and ensure each ends in a state update that reaches the publish effect at ~line 3115, so writing, dragging, deleting, rearranging, editing and creating a line all push. Add a low-frequency safety re-publish so a missed change self-heals rather than leaving the teacher stale.
+- resolves the student's current line, then sends it to the same `grade-line` function used by the Reasoning panel;
+- **removes** the "line incomplete", "no ink found" and "ends on an operator" pre-checks — the server verdict is the only judge;
+- keeps only genuinely empty input as a no-op (nothing to grade);
+- reports the result purely from the server verdict (equivalent → marks awarded; not equivalent → the grader's reason).
 
-### 4. Self-healing realtime join
-Apply the same retry pattern already used in `useSmartboardSync.ts` (`CHANNEL_ERROR`/`TIMED_OUT` → re-auth → resubscribe once) to `useAssessmentBoardSession` and to the `assessment-live-*` channel, so a cold token doesn't permanently kill mirroring.
+## Fix 3 — Silent auto-grading on one shared pipeline
 
-### 5. Silent grading triggers
-Keep the existing silent grader (`silentAutoCheckLine`) and its logic untouched. Only widen when it fires: currently only on `activeLineIdx` change. Add a debounced idle trigger on a settled, non-dangling line so a line completed without moving off it is still graded silently. No toasts, no focus change; Check stays as student-facing feedback only.
-
-### 6. Leave unchanged
-`TeacherReasoningPanel.tsx`, the equivalence engine, `grade-line`'s algorithm, marks/score computation, and all UI layout.
-
-### 7. Verify
-Re-run the two-session Playwright check: type/drag/delete on the student board, confirm the teacher board mirrors within ~a second, confirm the reasoning panel shows expected vs student line with an equivalence verdict, and confirm `assessment_progress.score` increments without any student interaction.
+- Extract the line-resolution + grader call into **one shared function** used by both manual Check and the silent grader; the only difference becomes the mode flag and whether feedback is shown.
+- Keep both existing triggers (leaving a line, and pausing on a line) so marks and the score counter update in the background without pressing Check.
 
 ## Technical notes
-- No schema changes expected; no destructive migrations. If step 1 shows a missing grant/RLS on the board-state tables, the fix would be an additive policy migration only.
-- No file is copied from Gameful, because the relevant Gameful files either don't exist there (board session) or are already a strict subset of this project's (`grade-line`, `mathEquivalence`).
+
+- Files touched: one additive SQL migration; `src/hooks/useAssessmentBoardSession.ts`; `src/components/smartboard/PresentationView.tsx`.
+- Not touched: `TeacherReasoningPanel.tsx`, the `grade-line` edge function, and `_shared/mathEquivalence.ts` — the working engine stays exactly as is; the other features are wired into it.
