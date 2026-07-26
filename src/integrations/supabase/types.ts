@@ -1594,6 +1594,7 @@ export type Database = {
         Row: {
           accumulated_paused_ms: number
           created_at: string
+          default_duration_seconds: number
           duration_seconds: number
           game_id: string
           paused_at: string | null
@@ -1606,6 +1607,7 @@ export type Database = {
         Insert: {
           accumulated_paused_ms?: number
           created_at?: string
+          default_duration_seconds?: number
           duration_seconds?: number
           game_id: string
           paused_at?: string | null
@@ -1618,6 +1620,7 @@ export type Database = {
         Update: {
           accumulated_paused_ms?: number
           created_at?: string
+          default_duration_seconds?: number
           duration_seconds?: number
           game_id?: string
           paused_at?: string | null

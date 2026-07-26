@@ -7,6 +7,7 @@ export type GameTimeBarRow = {
   game_id: string;
   progress_element_id: string;
   duration_seconds: number;
+  default_duration_seconds: number;
   start_mode: "manual" | "scheduled";
   scheduled_start_at: string | null;
   started_at: string | null;
@@ -25,7 +26,18 @@ export type UseGameTimeBar = {
   expired: boolean;
   slotsLit: (segments: number) => number;
   refresh: () => Promise<void>;
+  /** Live-updating controls: they apply the returned row locally at once. */
+  actions: {
+    setDuration: (seconds: number) => Promise<void>;
+    adjustDuration: (deltaSeconds: number) => Promise<void>;
+    start: () => Promise<void>;
+    pause: () => Promise<void>;
+    resume: () => Promise<void>;
+    reset: () => Promise<void>;
+  };
 };
+
+export const MIN_DURATION_SECONDS = 60;
 
 const elapsedFrom = (row: GameTimeBarRow | null): number => {
   if (!row || !row.started_at) return 0;
@@ -106,6 +118,53 @@ export function useGameTimeBar(gameId: string | null | undefined): UseGameTimeBa
     return Math.min(segs, Math.floor(elapsedMs / (durationMs / segs)));
   }, [row?.started_at, elapsedMs, durationMs]);
 
+  // Every action applies the row returned by the write immediately, so the
+  // panel updates without waiting on realtime (or a refresh).
+  const apply = useCallback(async (patch: Record<string, unknown>) => {
+    if (!gameId) return;
+    const { data, error } = await supabase
+      .from("game_time_bars" as never)
+      .update(patch as never)
+      .eq("game_id", gameId)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    if (data) setRow((data as unknown) as GameTimeBarRow);
+  }, [gameId]);
+
+  const actions = useMemo(() => ({
+    setDuration: async (seconds: number) => {
+      await apply({ duration_seconds: Math.max(MIN_DURATION_SECONDS, Math.round(seconds)) });
+    },
+    adjustDuration: async (deltaSeconds: number) => {
+      const base = Number(row?.duration_seconds ?? 0);
+      await apply({ duration_seconds: Math.max(MIN_DURATION_SECONDS, base + Math.round(deltaSeconds)) });
+    },
+    start: async () => {
+      await apply({ started_at: new Date().toISOString(), paused_at: null, accumulated_paused_ms: 0 });
+    },
+    pause: async () => {
+      await apply({ paused_at: new Date().toISOString() });
+    },
+    resume: async () => {
+      if (!row?.paused_at) return;
+      const addedPaused = Date.now() - new Date(row.paused_at).getTime();
+      await apply({
+        paused_at: null,
+        accumulated_paused_ms: (Number(row.accumulated_paused_ms) || 0) + Math.max(0, addedPaused),
+      });
+    },
+    reset: async () => {
+      const original = Number(row?.default_duration_seconds ?? row?.duration_seconds ?? 600);
+      await apply({
+        started_at: null,
+        paused_at: null,
+        accumulated_paused_ms: 0,
+        duration_seconds: Math.max(MIN_DURATION_SECONDS, Math.round(original)),
+      });
+    },
+  }), [apply, row]);
+
   return {
     row,
     loading,
@@ -117,17 +176,20 @@ export function useGameTimeBar(gameId: string | null | undefined): UseGameTimeBa
     expired,
     slotsLit,
     refresh,
+    actions,
   };
 }
 
 export const timeBarActions = {
   async assign(gameId: string, progressElementId: string, defaults?: { durationSeconds?: number }) {
+    const seconds = Math.max(MIN_DURATION_SECONDS, Math.round(defaults?.durationSeconds ?? 600));
     const { error } = await supabase
       .from("game_time_bars" as never)
       .insert({
         game_id: gameId,
         progress_element_id: progressElementId,
-        duration_seconds: Math.max(30, Math.round(defaults?.durationSeconds ?? 600)),
+        duration_seconds: seconds,
+        default_duration_seconds: seconds,
       } as never);
     if (error) throw error;
   },
@@ -135,56 +197,11 @@ export const timeBarActions = {
     const { error } = await supabase.from("game_time_bars" as never).delete().eq("game_id", gameId);
     if (error) throw error;
   },
-  async setDuration(gameId: string, durationSeconds: number) {
-    await supabase
-      .from("game_time_bars" as never)
-      .update({ duration_seconds: Math.max(10, Math.round(durationSeconds)) } as never)
-      .eq("game_id", gameId);
-  },
   async setStartMode(gameId: string, mode: "manual" | "scheduled", scheduledAt: string | null) {
-    await supabase
+    const { error } = await supabase
       .from("game_time_bars" as never)
       .update({ start_mode: mode, scheduled_start_at: scheduledAt } as never)
       .eq("game_id", gameId);
-  },
-  async start(gameId: string) {
-    await supabase
-      .from("game_time_bars" as never)
-      .update({
-        started_at: new Date().toISOString(),
-        paused_at: null,
-        accumulated_paused_ms: 0,
-      } as never)
-      .eq("game_id", gameId);
-  },
-  async pause(gameId: string) {
-    await supabase
-      .from("game_time_bars" as never)
-      .update({ paused_at: new Date().toISOString() } as never)
-      .eq("game_id", gameId);
-  },
-  async resume(gameId: string, row: GameTimeBarRow) {
-    if (!row.paused_at) return;
-    const addedPaused = Date.now() - new Date(row.paused_at).getTime();
-    await supabase
-      .from("game_time_bars" as never)
-      .update({
-        paused_at: null,
-        accumulated_paused_ms: (Number(row.accumulated_paused_ms) || 0) + Math.max(0, addedPaused),
-      } as never)
-      .eq("game_id", gameId);
-  },
-  async adjustDuration(gameId: string, row: GameTimeBarRow, deltaSeconds: number) {
-    const next = Math.max(10, Number(row.duration_seconds) + Math.round(deltaSeconds));
-    await supabase
-      .from("game_time_bars" as never)
-      .update({ duration_seconds: next } as never)
-      .eq("game_id", gameId);
-  },
-  async reset(gameId: string) {
-    await supabase
-      .from("game_time_bars" as never)
-      .update({ started_at: null, paused_at: null, accumulated_paused_ms: 0 } as never)
-      .eq("game_id", gameId);
+    if (error) throw error;
   },
 };
