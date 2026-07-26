@@ -3112,14 +3112,18 @@ const PresentationView = ({
   ]);
 
   // Safety re-publish — `push` de-dupes identical content, so this is a no-op
-  // unless something changed without re-running the effect above.
+  // unless something changed without re-running the effect above (drag,
+  // rearrange, delete and floating-number drops mutate in place). Publishes
+  // once immediately so a teacher joining late sees the whole board at once.
   useEffect(() => {
     if (!boardSessionActive || !canEdit) return;
-    const id = window.setInterval(() => {
+    const tick = () => {
       if (applyingRemoteRef.current) return;
       const snap = liveBoardRef.current;
       if (snap) pushBoardState(snap);
-    }, 1000);
+    };
+    tick();
+    const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
   }, [boardSessionActive, canEdit, pushBoardState]);
 
