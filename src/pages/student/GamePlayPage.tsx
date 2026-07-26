@@ -147,29 +147,63 @@ const GamePlayPage = () => {
 
   const timeBar = useGameTimeBar(gameId);
 
+  // Part 1/6 — first bar to hit its target transfers the reward to that
+  // group's Gallery. Part 7 — nothing transfers once time is up.
+  const transfer = useRewardTransfer({
+    classId,
+    gameId,
+    barSummaries: sync.barSummaries,
+    barOwner: groups.barOwner,
+    timeExpired: timeBar.expired,
+    galleryPath: `/student/class/${classId}/gallery`,
+  });
+
+  const timeUp = timeBar.expired && !transfer.winnerBarId;
+  const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
+
   const mirroredElements = useMemo(() => {
     const timeBarId = timeBar.elementId;
-    return sync.elements.map((el) => {
-      if (el.kind !== "progress_bar" || !el.progress) return el;
-      if (timeBarId && el.id === timeBarId) {
-        const segs = Math.max(1, Number(el.progress.segments) || 10);
-        return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
-      }
-      const snap = mirror?.[el.id];
-      if (!snap) return el;
-      return { ...el, progress: { ...el.progress, currentMarks: snap.current, totalMarks: snap.required } };
-    });
-  }, [sync.elements, mirror, timeBar.elementId, timeBar.slotsLit]);
+    return sync.elements
+      // A reward that already lives in the Gallery no longer exists here.
+      .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
+      .map((el) => {
+        if (el.kind === "reward" && transfer.departing.has(el.id)) {
+          // Lift away + fade out before leaving the Adventure page.
+          return { ...el, y: Math.max(-0.2, el.y - 0.35), opacity: 0 };
+        }
+        if (el.kind !== "progress_bar" || !el.progress) return el;
+        if (timeBarId && el.id === timeBarId) {
+          const segs = Math.max(1, Number(el.progress.segments) || 10);
+          return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
+        }
+        const snap = mirror?.[el.id];
+        if (!snap) return el;
+        return { ...el, progress: { ...el.progress, currentMarks: snap.current, totalMarks: snap.required } };
+      });
+  }, [sync.elements, mirror, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.transferredIds]);
 
   const playableBars = useMemo(
-    () => mirroredElements.filter((e) => e.kind === "progress_bar" && sync.boardByElement.has(e.id)),
-    [mirroredElements, sync.boardByElement],
+    () =>
+      mirroredElements.filter((e) => {
+        if (e.kind !== "progress_bar" || !sync.boardByElement.has(e.id)) return false;
+        const owner = groups.barOwner.get(e.id);
+        // Grouped bars are only playable by their own group's students.
+        if (owner) return owner === myGroupId;
+        return true;
+      }),
+    [mirroredElements, sync.boardByElement, groups.barOwner, myGroupId],
   );
   const openBoard = sync.boardByElement.get(openBarId ?? "");
   const perQuestion = useMemo(
     () => (openBoard ? perQuestionFrom(openBoard, sync.mySolvedByAssessment[openBoard.assessmentId]) : {}),
     [openBoard, sync.mySolvedByAssessment],
   );
+
+  // Freeze the board when time is up.
+  useEffect(() => {
+    if (timeUp) setOpenBarId(null);
+  }, [timeUp]);
+
 
   if (loading) {
     return (
