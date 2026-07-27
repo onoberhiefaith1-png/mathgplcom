@@ -1,32 +1,38 @@
 ## What I verified
 
-- The class in the screenshot (`kg3` → quadratic quest) has **no reward placement rows at all** — `class_gallery_rewards` is empty for every class in the project, so `useRewardTransfer` loads zero placements and `run()` returns immediately. That alone means nothing can lift out and nothing can land in the Gallery.
-- The Time Bar in the screenshot reads **`03:00 / 03:00` – Time expired**. The transfer hook deliberately bails when `timeExpired` is true (Part 7 rule: time beat the group → no reward). So even with a reward configured, this particular run would still do nothing.
-- The Progress Bar itself is correct: Goal 96%, Achieved 42/42 → the bar *is* full, `won` would be true if time had not expired.
-
-So "nothing happened" has two real causes, and neither is a bug in the animation code — they're an unconfigured reward plus a silent, unexplained bail-out.
+- `class_gallery_rewards` is empty project-wide, but the class in question (`fd91cf45…`) **does** have a Class Gallery row in `class_galleries`. So the real state is "Gallery exists, reward not yet linked to it" — not "no reward in the Adventure".
+- `useRewardTransfer` only ever loads `class_gallery_rewards` + `class_gallery_awards`; it never checks whether the class has a Gallery, and its `no_reward` message wrongly phrases the miss as an Adventure-level link.
+- Reward assets are already self-identifying: every canvas element carries `kind: "reward"` (`AssetKind = background | reward | progress_bar | effect`), so nothing needs to ask the teacher what a reward is.
+- The Gallery reward placement editor already exists and is reached at `/teaching-hub/classes/:classId/gallery?configureReward=<gameId>:<elementId>`, saving Start/End/scale/rotation/opacity/duration into `class_gallery_rewards`.
 
 ## Plan
 
-**1. Never fail silently — explain the block on the dashboard**
-In `AdventureDashboardPage.tsx` (and the same strip in the student `GamePlayPage.tsx`), when the bar is full show a small status line next to the Progress Bar:
-- "Goal reached — transferring reward…" while the exit animation runs.
-- "Goal reached, but time had already expired — no reward transferred." when `timeExpired`.
-- "Goal reached, but no reward is linked to this Adventure for this class." when there are zero placements, with a direct link to the Gallery reward setup for this game.
+**1. Make the Gallery the subject of the lookup**
+In `useRewardTransfer`, load three things for the class: the Gallery row, the reward placements for this game, and the awards. Replace `blockedReason` values with:
+- `no_gallery` — the class has no Gallery row.
+- `not_linked` — Gallery exists, but this reward has no placement row.
+- `already_awarded`, `time_expired` — unchanged.
+The hook stops treating "no placement" as "no reward in the Adventure".
 
-**2. Expose the block state from the hook**
-`useRewardTransfer` currently returns only `won`/`transferring`. Add a `blockedReason: "time_expired" | "no_reward" | "already_awarded" | null` derived from the state it already computes, so both pages can render the message above without duplicating logic.
+**2. Detect rewards automatically from the Adventure canvas**
+Pass the Adventure's reward elements (`kind === "reward"`) into the hook. They are the candidate rewards; the hook matches each against the Gallery placements by element id. No teacher input, no re-identification.
 
-**3. Add a "Link reward to Gallery" entry point**
-From the Adventure dashboard, add an action that opens the existing Gallery reward-config route (`GameEditorPage` in gallery mode with `?rewardGame=<gameId>&rewardElement=<elementId>`) for each reward element found in this game's canvas. This is wiring only — the reward-placement editor already exists and is untouched.
+**3. Correct the on-screen messages**
+Teacher dashboard and student page show exactly:
+- no Gallery: "This class does not have a Gallery yet. Please create a Class Gallery before rewards can be transferred." with a button to open the class Gallery.
+- not linked: "This reward has not yet been linked to this Class Gallery. Please link the reward to the Class Gallery and configure its Start Position and End Position." with one "Link <reward> to Class Gallery" button per unlinked reward element, opening the existing `?configureReward=` editor.
+The string "no reward is linked to this Adventure" is removed everywhere.
 
-**4. Re-arm the trigger when the block clears**
-Today `firedRef` latches once. Change it so it only latches after a transfer actually starts; if the run bailed (no placements yet, or placements loaded late), a later state change can still fire it. Also allow firing when the goal is already met on page load.
+**4. Keep the transfer itself unchanged, and make removal permanent**
+When a bar reaches its goal: freeze + pause timer (already in place), lift the reward out at the saved `duration_ms`, write the `class_gallery_awards` row, then navigate to *this class's* Gallery with `?animateReward=` so the saved Start → End path plays. Reward elements whose id appears in this class+game's awards are filtered out of the Adventure scene on every load — for both teacher and student — so a completed Adventure never shows the reward again.
 
-**5. Decide the time-expired-but-full case**
-Keep the current Part 7 behaviour (no reward). The new message makes it visible instead of looking broken. Resetting the Time Bar and re-running the Adventure will then transfer normally once a reward is linked.
+**5. Re-arm correctly**
+Fire the transfer as soon as the goal is met *and* a linked placement exists, including when the link is added after the goal was already reached.
 
 ## Technical notes
 
-- Files touched: `src/hooks/useRewardTransfer.ts`, `src/pages/class/AdventureDashboardPage.tsx`, `src/pages/student/GamePlayPage.tsx`. No database migration needed — `class_gallery_rewards` and `class_gallery_awards` already exist and are simply empty.
-- No changes to the Gallery animation, the reward editor, the Progress Bar maths, or the Time Bar controls.
+- Files: `src/hooks/useRewardTransfer.ts` (Gallery lookup, new `blockedReason` values, reward-element input), `src/pages/class/AdventureDashboardPage.tsx`, `src/pages/student/GamePlayPage.tsx` (messages + link buttons + unconditional award filtering).
+- New read helper for `class_galleries` by class id (read-only; does not create a Gallery as a side effect).
+- No database migration: `class_galleries`, `class_gallery_rewards` and `class_gallery_awards` already model Class → Gallery → Placement → Award.
+- The Gallery animation code, the reward placement editor, the Progress Bar maths and the Time Bar controls are untouched.
+- Existing Part 7 behaviour stays: if the timer expired before the goal, no transfer — now stated plainly rather than looking broken.

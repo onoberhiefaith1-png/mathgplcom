@@ -9,12 +9,29 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadClassGalleryRewards, type ClassGalleryRewardRow } from "@/lib/games/classGalleryRewards";
 import { awardClassGalleryReward, loadClassGalleryAwards } from "@/lib/games/classGalleryAwards";
+import { classGalleryExists } from "@/lib/games/classGallery";
 import type { AdventureBarSummary } from "@/hooks/useAdventureSync";
 
 const FALLBACK_EXIT_MS = 2000;
 
-/** Why a full Progress Bar did not send its reward to the Gallery. */
-export type TransferBlockedReason = "time_expired" | "no_reward" | "already_awarded" | null;
+/**
+ * Why a full Progress Bar did not send its reward to the Class Gallery.
+ * The reward belongs to the Class Gallery, never to the Adventure — so the
+ * only possible misses are "this class has no Gallery" and "this reward has
+ * not been linked to that Gallery yet".
+ */
+export type TransferBlockedReason =
+  | "time_expired"
+  | "no_gallery"
+  | "not_linked"
+  | "already_awarded"
+  | null;
+
+/** A reward object detected inside the Adventure canvas (kind === "reward"). */
+export interface RewardElementRef {
+  id: string;
+  label?: string | null;
+}
 
 /** Live offset applied to a reward that is leaving the Adventure scene. */
 export type ExitOffset = { dy: number; opacity: number };
@@ -27,6 +44,7 @@ export function useRewardTransfer({
   barOwner,
   timeExpired,
   galleryPath,
+  rewardElements = [],
   enabled = true,
 }: {
   classId: string | null | undefined;
@@ -37,11 +55,14 @@ export function useRewardTransfer({
   timeExpired: boolean;
   /** e.g. `/student/class/:id/gallery` */
   galleryPath: string;
+  /** Reward assets present in this Adventure — auto-detected from the canvas. */
+  rewardElements?: RewardElementRef[];
   enabled?: boolean;
 }) {
   const navigate = useNavigate();
   const [placements, setPlacements] = useState<ClassGalleryRewardRow[]>([]);
   const [placementsLoaded, setPlacementsLoaded] = useState(false);
+  const [galleryPresent, setGalleryPresent] = useState<boolean | null>(null);
   const [alreadyAwarded, setAlreadyAwarded] = useState<Set<string>>(new Set());
   const [departing, setDeparting] = useState<Set<string>>(new Set());
   const [exitOffsets, setExitOffsets] = useState<Map<string, ExitOffset>>(new Map());
@@ -54,11 +75,14 @@ export function useRewardTransfer({
     let cancelled = false;
     (async () => {
       try {
-        const [rows, awards] = await Promise.all([
+        // Class → Class Gallery → Reward Placement → Award.
+        const [hasGallery, rows, awards] = await Promise.all([
+          classGalleryExists(classId),
           loadClassGalleryRewards(classId),
           loadClassGalleryAwards(classId),
         ]);
         if (cancelled) return;
+        setGalleryPresent(hasGallery);
         setPlacements(rows.filter((r) => r.game_id === gameId));
         setAlreadyAwarded(
           new Set(awards.filter((a) => a.game_id === gameId).map((a) => a.reward_element_id)),
@@ -95,15 +119,33 @@ export function useRewardTransfer({
     [placements, alreadyAwarded],
   );
 
+  /** Reward assets in this Adventure with no placement in the Class Gallery. */
+  const unlinkedRewards = useMemo(() => {
+    const linked = new Set(placements.map((p) => p.reward_element_id));
+    return rewardElements.filter((el) => !linked.has(el.id) && !alreadyAwarded.has(el.id));
+  }, [rewardElements, placements, alreadyAwarded]);
+
   // Why nothing moved. Only meaningful once the goal is actually reached.
   const blockedReason: TransferBlockedReason = useMemo(() => {
     if (!goalReached || transferring) return null;
     if (timeExpired) return "time_expired";
     if (!placementsLoaded) return null;
-    if (placements.length === 0) return "no_reward";
-    if (pendingTargets.length === 0) return "already_awarded";
-    return null;
-  }, [goalReached, transferring, timeExpired, placementsLoaded, placements.length, pendingTargets.length]);
+    if (galleryPresent === false) return "no_gallery";
+    if (pendingTargets.length > 0) return null; // a transfer is about to run
+    if (unlinkedRewards.length > 0) return "not_linked";
+    if (alreadyAwarded.size > 0) return "already_awarded";
+    return "not_linked";
+  }, [
+    goalReached,
+    transferring,
+    timeExpired,
+    placementsLoaded,
+    galleryPresent,
+    pendingTargets.length,
+    unlinkedRewards.length,
+    alreadyAwarded.size,
+  ]);
+
 
 
   const run = useCallback(
@@ -191,6 +233,10 @@ export function useRewardTransfer({
     goalReached,
     /** Why a met goal did not move a reward — drives the on-screen message. */
     blockedReason,
+    /** Reward assets in this Adventure that still need a Gallery placement. */
+    unlinkedRewards,
+    /** null while loading; false when this class has no Class Gallery yet. */
+    galleryPresent,
     winnerGroupId,
     winnerBarId: winnerBar?.id ?? null,
   };

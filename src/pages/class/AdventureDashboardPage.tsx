@@ -101,6 +101,11 @@ const AdventureDashboardPage = () => {
 
   // Part 1/6 — the first bar to reach its target sends its reward to that
   // group's Gallery; nothing transfers once the Time Bar has expired.
+  const rewardRefs = useMemo(
+    () => sync.elements.filter((el) => el.kind === "reward").map((el) => ({ id: el.id, label: el.label })),
+    [sync.elements],
+  );
+
   const transfer = useRewardTransfer({
     classId,
     gameId,
@@ -108,6 +113,7 @@ const AdventureDashboardPage = () => {
     barOwner: groups.barOwner,
     timeExpired: timeBar.expired,
     galleryPath: `/teaching-hub/classes/${classId}/gallery`,
+    rewardElements: rewardRefs,
   });
   const timeUp = timeBar.expired && !transfer.won;
 
@@ -139,11 +145,6 @@ const AdventureDashboardPage = () => {
 
 
 
-  /** Reward elements defined in this Adventure — used to link them to the Gallery. */
-  const rewardElements = useMemo(
-    () => sync.elements.filter((el) => el.kind === "reward"),
-    [sync.elements],
-  );
 
   const timeBarMeta = useMemo(() => {
 
@@ -339,17 +340,33 @@ const AdventureDashboardPage = () => {
                   Goal reached — this reward is already in the Class Gallery.
                 </span>
               )}
-              {!transfer.transferring && transfer.blockedReason === "no_reward" && (
+              {!transfer.transferring && transfer.blockedReason === "no_gallery" && (
                 <>
                   <span className="font-semibold text-destructive">
-                    Goal reached, but no reward is linked to this Adventure for this class.
+                    This class does not have a Gallery yet. Please create a Class Gallery before
+                    rewards can be transferred.
                   </span>
-                  {rewardElements.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/teaching-hub/classes/${classId}/gallery`)}
+                    className="rounded border border-input bg-background px-2 py-1 font-medium hover:bg-accent"
+                  >
+                    Open Class Gallery
+                  </button>
+                </>
+              )}
+              {!transfer.transferring && transfer.blockedReason === "not_linked" && (
+                <>
+                  <span className="font-semibold text-destructive">
+                    This reward has not yet been linked to this Class Gallery. Please link the
+                    reward to the Class Gallery and configure its Start Position and End Position.
+                  </span>
+                  {transfer.unlinkedRewards.length === 0 ? (
                     <span className="text-muted-foreground">
-                      Add a reward element to this Adventure first.
+                      Add a reward asset to this Adventure first.
                     </span>
                   ) : (
-                    rewardElements.map((el) => (
+                    transfer.unlinkedRewards.map((el) => (
                       <button
                         key={el.id}
                         type="button"
@@ -360,7 +377,7 @@ const AdventureDashboardPage = () => {
                         }
                         className="rounded border border-input bg-background px-2 py-1 font-medium hover:bg-accent"
                       >
-                        Link “{el.label || "Reward"}” to Gallery
+                        Link “{el.label || "Reward"}” to Class Gallery
                       </button>
                     ))
                   )}
@@ -368,6 +385,7 @@ const AdventureDashboardPage = () => {
               )}
             </div>
           )}
+
 
           {gameId && timeBar.elementId && timeBarMeta && (
             <div className="mx-auto mb-3 w-full max-w-[1500px]">

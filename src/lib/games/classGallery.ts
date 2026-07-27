@@ -13,6 +13,17 @@ export interface ClassGalleryRow {
 const emptyCanvas = (): GameCanvas =>
   normalizeCanvas({ scenes: [], activeSceneId: null, heightUnits: 1 } as unknown);
 
+/** Read-only check: does this class already own a Gallery? Never creates one. */
+export const classGalleryExists = async (classId: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from("class_galleries")
+    .select("id")
+    .eq("class_id", classId)
+    .maybeSingle();
+  if (error) throw error;
+  return !!data;
+};
+
 export const getOrCreateClassGallery = async (
   classId: string,
 ): Promise<ClassGalleryRow> => {
