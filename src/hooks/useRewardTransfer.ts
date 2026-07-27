@@ -233,6 +233,10 @@ export function useRewardTransfer({
     goalReached,
     /** Why a met goal did not move a reward — drives the on-screen message. */
     blockedReason,
+    /** Reward assets in this Adventure that still need a Gallery placement. */
+    unlinkedRewards,
+    /** null while loading; false when this class has no Class Gallery yet. */
+    galleryPresent,
     winnerGroupId,
     winnerBarId: winnerBar?.id ?? null,
   };
