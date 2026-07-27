@@ -149,6 +149,11 @@ const GamePlayPage = () => {
 
   // Part 1/6 — first bar to hit its target transfers the reward to that
   // group's Gallery. Part 7 — nothing transfers once time is up.
+  const rewardRefs = useMemo(
+    () => sync.elements.filter((el) => el.kind === "reward").map((el) => ({ id: el.id, label: el.label })),
+    [sync.elements],
+  );
+
   const transfer = useRewardTransfer({
     classId,
     gameId,
@@ -156,6 +161,7 @@ const GamePlayPage = () => {
     barOwner: groups.barOwner,
     timeExpired: timeBar.expired,
     galleryPath: `/student/class/${classId}/gallery`,
+    rewardElements: rewardRefs,
   });
 
   // Time beat the goal (Part 7): expired with no valid, in-time win.
