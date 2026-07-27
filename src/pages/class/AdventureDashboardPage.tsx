@@ -145,11 +145,6 @@ const AdventureDashboardPage = () => {
 
 
 
-  /** Reward elements defined in this Adventure — used to link them to the Gallery. */
-  const rewardElements = useMemo(
-    () => sync.elements.filter((el) => el.kind === "reward"),
-    [sync.elements],
-  );
 
   const timeBarMeta = useMemo(() => {
 
