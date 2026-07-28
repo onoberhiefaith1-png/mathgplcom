@@ -13,6 +13,8 @@ export type FreeLineMap = Record<number, Row>;
 interface Props {
   lines: FreeLineMap;
   offsets?: Record<number, number>;
+  /** Downward push (px) applied to a line by taller ink above it. */
+  yShift?: (line: number) => number;
   grid: Grid;
   activeLine: number | null;
   cursor: Cursor;
@@ -25,7 +27,7 @@ interface Props {
 const INACTIVE_CURSOR: Cursor = { path: [-1], index: 0 };
 
 export const FreeWriteLayer = ({
-  lines, offsets, grid, activeLine, cursor, caretColor, placeholderColor, onCursorChange, onMeasure,
+  lines, offsets, yShift, grid, activeLine, cursor, caretColor, placeholderColor, onCursorChange, onMeasure,
 }: Props) => {
   const set = new Set<number>();
   if (activeLine != null && Number.isFinite(activeLine)) set.add(activeLine);
@@ -42,6 +44,7 @@ export const FreeWriteLayer = ({
           line={line}
           row={lines[line] ?? []}
           xOffset={offsets?.[line] ?? 0}
+          yShift={yShift?.(line) ?? 0}
           grid={grid}
           cursor={line === activeLine ? cursor : INACTIVE_CURSOR}
           caretColor={caretColor}
@@ -55,11 +58,12 @@ export const FreeWriteLayer = ({
 };
 
 const LineRender = ({
-  line, row, xOffset, grid, cursor, caretColor, placeholderColor, onCursorChange, onMeasure,
+  line, row, xOffset, yShift, grid, cursor, caretColor, placeholderColor, onCursorChange, onMeasure,
 }: {
   line: number;
   row: Row;
   xOffset: number;
+  yShift: number;
   grid: Grid;
   cursor: Cursor;
   caretColor: string;
@@ -68,7 +72,9 @@ const LineRender = ({
   onMeasure?: (line: number, w: number, h: number) => void;
 }) => {
   const ref = useRef<HTMLDivElement | null>(null);
-  const { top, left } = entryPosition({ line, x: xOffset }, grid);
+  const base = entryPosition({ line, x: xOffset }, grid);
+  const top = base.top + yShift;
+  const left = base.left;
 
   useEffect(() => {
     if (!ref.current || !onMeasure) return;
