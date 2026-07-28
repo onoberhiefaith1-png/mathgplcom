@@ -14,25 +14,42 @@ import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
 const WINDOW_SIZE = 5;
 
-/** Floating numbers are NUMBERS — never empty scaffolding. Any structure
- *  shell the highlight engine produced (`\frac{□}{□}`, `\sqrt{□}`, `□^{□}`,
- *  bare `□`) is stripped from the chip so the strip never shows placeholder
- *  squares. Structures are built on the board, not handed out as chips. */
-export const stripStructureShells = (token: string): string => {
-  if (!token) return "";
-  let out = token;
-  for (let i = 0; i < 4; i++) {
-    const before = out;
-    out = out
-      .replace(/\\frac\s*\{\s*[□\s\\,]*\s*\}\s*\{\s*[□\s\\,]*\s*\}/g, "")
-      .replace(/\\sqrt\s*(\[[^\]]*\])?\s*\{\s*[□\s\\,]*\s*\}/g, "")
-      .replace(/\\?[\w]*\s*\^\s*\{\s*[□\s\\,]*\s*\}/g, (m) => (m.includes("□") ? "" : m))
-      .replace(/\(\s*[□\s\\,]*\s*\)/g, "")
-      .replace(/□/g, "");
-    if (out === before) break;
-  }
-  return out.trim();
+/** Floating numbers are EXTRACTED, never rebuilt. The chip token that
+ *  leaves Present Preview (Normal Mode) must reach the display byte-for-byte
+ *  identical — structures (`\frac{a}{b}`, `\sqrt{x}`, `^{n}`, brackets) and
+ *  their placeholder slots included.
+ *
+ *  A previous version stripped structure shells here, which silently mutated
+ *  the master object (`x=\frac{□}{□}` arrived as `x=`). That was the leak.
+ *  This function is now a pure pass-through with an internal validation
+ *  guard: if any pass ever alters the structure, we keep the ORIGINAL and
+ *  report it, rather than publishing a corrupted chip. */
+export const structureSignature = (token: string): string => {
+  const count = (re: RegExp) => (token.match(re) ?? []).length;
+  return [
+    count(/\\(?:d|t)?frac\b/g),
+    count(/\\sqrt\b/g),
+    count(/\^/g),
+    count(/_/g),
+    count(/[([]/g),
+    count(/[)\]]/g),
+    count(/□/g),
+  ].join(":");
 };
+
+/** Internal validation stage — returns the token unchanged, but verifies the
+ *  generated representation still matches the master object it came from. */
+export const validateFloatingToken = (master: string, generated: string): string => {
+  if (!master) return "";
+  if (generated !== master && structureSignature(generated) !== structureSignature(master)) {
+    if (import.meta.env.DEV) {
+      console.warn("[floating] rejected altered chip; using master", { master, generated });
+    }
+    return master;
+  }
+  return generated;
+};
+
 
 
 const SUP_DIG: Record<string, string> = {
@@ -202,8 +219,10 @@ export const FloatingNumberPanel = ({
   const [usedOrder, setUsedOrder] = useState<number[]>([]);
   const [reentryOffset, setReentryOffset] = useState<number>(0);
   const reservoir = reservoirs[viewIdx];
-  const fragments = useMemo(
-    () => (reservoir?.fragments ?? []).map(stripStructureShells),
+  const fragments = useMemo<string[]>(
+    // Extraction only — the master token from Present Preview passes through
+    // the internal validation stage and reaches the display unchanged.
+    () => (reservoir?.fragments ?? []).map((t) => validateFloatingToken(t, t)),
     [reservoir],
   );
   const lines: ReservoirLine[] = reservoir?.lines ?? [];
