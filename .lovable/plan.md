@@ -1,60 +1,61 @@
 ## Goal
 
-One active line shared by Floating Number Display, Presenter Preview, Student SmartBoard, Teacher Reasoning, Check and Silent Marking — plus a clearly defined Start Point / End Point editing session that bounds what Check evaluates.
+Every question opened by a student gets its own independent SmartBoard. Work is restored only when the student returns to the exact same student + class + question + workspace (Assignment or Adventure). Anything else starts blank.
 
-## What the code actually does today (verified)
+## What I verified (current behaviour)
 
-All of this lives in `src/components/smartboard/PresentationView.tsx`:
+1. **Browser-cached board content is keyed only by notebook.** In `PresentationView.tsx`, the persisted ink/structure keys — `smartboard:smartlines:${notebookId}`, `smartboard:boxes:${notebookId}`, `smartboard:freewrite:${notebookId}`, plus sensor/zoom/offsets/float-line keys (lines ~487-492, 586, 638, 659, 2278) — contain no class, assessment, or question id. Two questions in the same lesson note share one cache, and the same lesson note assigned to Class A and Class B shares one cache. **This is the direct cause of both the question-to-question and Class A → Class B leaks the user saw.**
+2. **Nothing clears the board when the question changes.** The effect that applies loaded state returns early when there is no saved row (`PresentationView.tsx:3219`), so leftover React state from the previous question stays on screen. A `resetBoard` helper exists (~3947) but is never called anywhere.
+3. **The page does not remount between questions.** The route `/student/class/:classId/assessment/:assessmentId` (`App.tsx:139`) is unchanged when only `?q=` changes, and there is no `key` forcing a remount, so all in-memory board state survives the switch.
+4. **Server-side board rows are already per-question and per-class**: `assessment_question_board_state` is unique on `(assessment_id, student_id, question_id)`, and each `assessments` row is fixed to one `class_id`. There is one narrow fallback: when an assessment has no questions, the session drops to the legacy `assessment_board_state` row keyed only by `(assessment_id, student_id)` (`useAssessmentBoardSession.ts:107-114, 229-242`).
+5. **Re-assigning a question revives the old assessment row.** `src/lib/assignments/pipeline.ts:260-280` reuses the existing `assessments.id` and attaches it to a brand-new `learning_assignments` instance, while no board-state or progress rows are ever deleted. A reassigned question therefore reopens with the previous cycle's board and score, contradicting the "brand new instance starting from zero progress" contract documented in `src/lib/assignments/instances.ts:14-16`.
 
-- `activeLineIdx` (~line 2188) — the grading cursor. Check Line (`checkActiveLine`, ~3117) and silent marking (~3133, ~3149) both use it, and it is the value broadcast to the Reasoning panel (~3192). That is why Reasoning already "follows the right line".
-- `floatingLineIdx` / `manualFloatingLineIdx` (~2189) — drive the chip strip through `curLineIdx` (~4812) passed into `FloatingNumberPanel`.
-- `displayedGuidedIdx` (~2359) — a sensor/row-ownership derived index, used as `activePreviewLineIdx` for the Presenter Preview highlight (~4065). A comment at ~4060 documents that this deliberately diverges from the floating index.
+## The fix
 
-So there are three parallel cursors, hand-synced at several call sites (~3079, ~4864, ~4895, ~4932). Drift between them is the inconsistency being seen.
+### 1. One board scope key (frontend)
 
-Two more confirmed gaps:
-- Clicking an item in `PresenterPreviewPanel.tsx` (`selectTarget`, ~229) only sets a local mirror/AI-edit selection. It does **not** move any line cursor, so a Preview click never pulls the Floating strip or grading cursor to that line.
-- Check has no session boundary: `resolveGradableLine` (~2975) re-scans the board rows and grades whatever is currently written, so content typed after a line was left can still influence its result.
-
-No new ID system is needed — line index + `lineId` from `guidedLines` already exist.
-
-## Plan
-
-### 1. Single active-line state
-Replace `activeLineIdx`, `floatingLineIdx` and `manualFloatingLineIdx` with one state (`activeLine`) plus one setter `setActiveLine(idx, source)`. `displayedGuidedIdx` becomes a pure fallback used only when no line has been explicitly activated, never a competing source of truth. Collapse every lockstep triple-setter call site to the single setter.
-
-Consumers after the change:
-- `FloatingNumberPanel` ← `activeLine`
-- `activePreviewLineIdx` ← `activeLine`
-- grading / silent marking ← `activeLine`
-- live broadcast `activeLineIdx` ← `activeLine` (Reasoning keeps working unchanged)
-
-### 2. Presenter Preview drives the active line
-In `PresenterPreviewPanel`, clicking/dragging an item from line *k* calls a new `onActivateLine(k)` alongside its existing selection behaviour. `PresentationView` maps that to `setActiveLine(k, "preview")`. The mirror/AI-edit selection is left as is. Result: Preview click → Floating strip, board, Reasoning and Check all move to that line.
-
-Conversely the chip strip's Prev/Next/jump handlers already funnel into the same setter, so the Floating panel drives Preview too.
-
-### 3. Editing session (Start Point / End Point)
-Introduce a session record held in a ref:
+Add `src/lib/smartboard/boardScope.ts` exporting a single identity string:
 
 ```text
-session = { lineIdx, lineId, startedAt, entries[] }
+board:<studentId>:<classId>:<workspace>:<assessmentId>:<questionId>
 ```
 
-- **Start Point** — created whenever `setActiveLine` changes the index (from either panel).
-- During the session every input is appended to `entries`: floating chip taps, Preview insertions, keyboard/symbol input, AI insertions. Source does not matter.
-- **End Point** — the moment `setActiveLine` moves away: freeze the collected expression, grade it, persist the score, then open the new session.
+`workspace` is `assignment` or `adventure` (Adventure already routes through the same page with `?source=adventure&game=...`; the game id joins the key so different adventures stay separate).
 
-### 4. Check + Silent Marking read the frozen session
-`gradeLineThroughEngine` stops re-scanning the whole board. It takes the frozen session expression for the line being graded and compares it only against that line's expected key. Manual Check grades the *current* live session; silent marking grades the *just-closed* session. Anything written after the End Point belongs to the next session and cannot change an already-recorded result — matching the "teacher marking exercise books" rule in Examples 1–4.
+### 2. Namespace every cached key by that scope
 
-The idle-timeout auto-check stays, but evaluates the live session rather than the board.
+In `PresentationView.tsx`, replace the `notebookId`-only suffix with the scope key for all board-content keys: smartlines, boxes, freewrite, offsets, sensor, float-line index, lesson cursor. Purely cosmetic preferences (surface, ink colour, profile, zoom, panel open/closed) stay global — they are teacher/student display settings, not work.
+
+When not in assessment mode, the scope falls back to the current `notebook:<id>` suffix so the teacher SmartBoard behaves exactly as today.
+
+### 3. Reset the board on scope change
+
+Force a clean slate whenever the scope key changes:
+
+- Give `PresentationView` (or the `AssessmentBoardPage` wrapper) `key={boardScopeKey}` so React fully remounts on question/class/workspace change — the cheapest and most reliable reset.
+- As a belt-and-braces guard inside the board, an effect on `boardScopeKey` clears `smartLines`, `boxes`, `freeLines`, line offsets, active line index and beat cursor before the loader runs, and only paints content once the load for the *current* scope resolves. Stale in-flight loads from a previous question are discarded by comparing the scope captured at request time.
+
+### 4. Close the server-side gaps
+
+- **Legacy fallback**: when `questionId` is missing, do not read or write the shared `assessment_board_state` row — start empty instead. The per-question table becomes the only write path.
+- **Teacher Reasoning panel** (`TeacherReasoningPanel.tsx:121-127`) currently reads the legacy row without a `question_id` filter; scope that read to the active question so teachers never see another question's work.
+- **Assignment revival**: when `pipeline.ts` revives an existing `assessments` row for a new `learning_assignments` instance, delete that assessment's `assessment_question_board_state`, `assessment_board_state` and `assessment_progress` rows in the same operation, so a re-assigned question genuinely starts from zero.
 
 ### 5. Tests
-Add a test file covering: one active line across all consumers; Preview click moves the Floating index and vice-versa; Example 2 (post-End-Point `3x` ignored); Example 3 (`+ c`, `= 0` typed in-session count); Example 4 (duplicate `+ c` in-session marks Incorrect).
 
-## Technical notes
+Add `src/test/boardScopeIsolation.test.ts`:
+- Scope key changes when any one of student / class / question / workspace / game changes, and is stable when none do.
+- Storage keys built from the scope never collide across two questions of one notebook, or across two classes using the same notebook.
+- The load path ignores a response whose scope no longer matches the active scope.
 
-- Change is contained to `PresentationView.tsx`, `PresenterPreviewPanel.tsx`, `FloatingNumberPanel.tsx` (props only) and a new session helper module under `src/lib/smartboard/`.
-- No database migration and no edge-function contract change — `grade-line` still receives `{ questionId, lineId, studentAscii, allowedFloatingTokens }`; only the way `studentAscii` is assembled changes.
-- `TeacherReasoningPanel.tsx` needs no change; it keeps consuming the broadcast `activeLineIdx`.
+## Expected result
+
+- Open Question 1 → blank board. Leave, reopen Question 1 → previous work restored.
+- Open Question 2 → blank board, no trace of Question 1.
+- Same question in another class → blank board.
+- Same question via Adventure instead of Assignment → its own independent board.
+- Teacher SmartBoard and presentation behaviour unchanged.
+
+## Note on point 5
+
+Deleting board/progress rows on re-assignment means a teacher who unassigns and re-assigns a question wipes students' earlier attempts for it. That matches the "every assignment session is independent" rule you stated, but tell me if you'd rather keep the old work archived instead of deleted.
