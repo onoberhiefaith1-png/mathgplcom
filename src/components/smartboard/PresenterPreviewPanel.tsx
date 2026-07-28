@@ -163,6 +163,10 @@ export interface PresenterPreviewPanelProps {
   activeBeatId?: string | null;
   /** Solution line index (0-based) inside the active problem beat, if any. */
   activeLineIdx?: number | null;
+  /** Fires when the user touches any item that belongs to a solution line.
+   *  The host makes that line the single active line for the whole system. */
+  onActivateLine?: (lineIdx: number, beatId: string | null) => void;
+
   /** Emits true when the teacher is manually scrolling the panel. */
   onManualScrollChange?: (isManual: boolean) => void;
   /** Fires whenever Live Mirror Mode toggles or its selection changes.
