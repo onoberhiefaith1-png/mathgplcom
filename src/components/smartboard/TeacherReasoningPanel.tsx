@@ -27,12 +27,15 @@ type CheckPayload = {
   mode: "manual" | "auto";
   correct: boolean;
   verdict?: string;
+  diagnosis?: DiagnosisShape;
   marks?: number;
   studentAscii?: string;
 };
+type DiagnosisShape = { code: string; label: string; detail: string };
 type Verdict = {
   correct: boolean;
   verdict: string;
+  diagnosis?: DiagnosisShape;
   marks: number;
   teacherAscii?: string;
 };
