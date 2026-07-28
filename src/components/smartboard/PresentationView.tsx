@@ -3434,20 +3434,32 @@ const PresentationView = ({
         .slice(target.fragmentStart, target.fragmentEnd)
         .filter(Boolean);
       floatingTokens[target.lineId] = expectedFrags;
-      const expectedSet = chipMultiset(expectedFrags);
-      let rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
-      if (expectedSet.size > 0 && writtenRows.length > 0) {
-        let bestRow = -1, bestScore = -1;
-        for (const n of writtenRows) {
-          const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
-          const score = multisetOverlap(expectedSet, used);
-          if (score > bestScore) { bestScore = score; bestRow = n; }
+
+      // The engine's binding is the truth for every visited line. Only lines
+      // the student has never opened fall back to the overlap search.
+      const bound = reasoningRef.current.rowFor(k);
+      let rowNum: number;
+      if (bound !== null) {
+        rowNum = bound;
+      } else {
+        rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
+        const expectedSet = chipMultiset(expectedFrags);
+        if (expectedSet.size > 0 && writtenRows.length > 0) {
+          let bestRow = -1, bestScore = -1;
+          for (const n of writtenRows) {
+            const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
+            const score = multisetOverlap(expectedSet, used);
+            if (score > bestScore) { bestScore = score; bestRow = n; }
+          }
+          if (bestRow >= 0) rowNum = bestRow;
         }
-        if (bestRow >= 0) rowNum = bestRow;
       }
       const row = freeLines[rowNum];
       linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";
     }
+    const activeLid = guidedLines[activeLineIdx]?.lineId ?? null;
+    const activeAscii = activeLid ? (linesAscii[activeLid] ?? "") : "";
+    const activeTokens = activeLid ? (floatingTokens[activeLid] ?? []) : [];
     return {
       ts: Date.now(),
       questionId: current?.id ?? null,
@@ -3456,6 +3468,10 @@ const PresentationView = ({
       rowsAscii,
       linesAscii,
       floatingTokens,
+      // Reasoning-engine view of the ONE active line.
+      activeRow: reasoningRef.current.rowFor(activeLineIdx),
+      attempt: reasoningRef.current.attemptFor(activeLineIdx),
+      introducedTerms: introducedTermsOf(activeAscii, activeTokens),
     };
   }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx]);
 
