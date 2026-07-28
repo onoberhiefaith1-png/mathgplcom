@@ -4,7 +4,7 @@
 // (all grading here is a dry run).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X as XIcon, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { X as XIcon, CheckCircle2, XCircle, Loader2, Maximize2, Minimize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
@@ -50,14 +50,13 @@ const verdictLabel = (v: string): string => {
 const atomize = (s: string): string[] =>
   (s.match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
 
-/** A bounded viewer for ONE mathematical line.
+/** A viewer for ONE mathematical line.
  *
- *  The expression is rendered (never printed as source) and wraps freely.
- *  When it is taller than the viewer, a scroll track appears on the SIDE of
- *  the block — outside the math area — so the teacher can scroll through the
- *  whole line without any part of it being hidden behind the bar. The
- *  Expected line is `sticky`, so it stays visible while the rest of the
- *  panel scrolls. */
+ *  Vertical: unbounded — the block grows downward and everything below it
+ *  simply moves down (the panel's own scrollbar handles the page).
+ *  Horizontal: the width is FIXED. When the rendered expression is wider than
+ *  the box, the whole rendering is uniformly scaled down until it fits, so the
+ *  maths is never cropped, never overflows and never reflows. */
 const LineViewer = ({
   label,
   right,
@@ -71,10 +70,29 @@ const LineViewer = ({
   resetKey: string;
   sticky?: boolean;
 }) => {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState<number | undefined>(undefined);
+
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, [resetKey]);
+    const frame = frameRef.current;
+    const inner = innerRef.current;
+    if (!frame || !inner) return;
+    const fit = () => {
+      const avail = frame.clientWidth;
+      const natural = inner.scrollWidth;
+      const k = natural > 0 && avail > 0 ? Math.min(1, Math.max(0.35, avail / natural)) : 1;
+      setScale(k);
+      setHeight(inner.scrollHeight * k);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(frame);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [resetKey, children]);
+
   return (
     <div
       className={`rounded-lg border border-border bg-card/95 p-3 backdrop-blur ${
@@ -85,11 +103,11 @@ const LineViewer = ({
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
         {right}
       </div>
-      <div className="flex items-stretch gap-2">
+      <div ref={frameRef} className="w-full overflow-hidden" style={{ height }}>
         <div
-          ref={scrollRef}
-          className="reasoning-line-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden text-[15px] leading-relaxed"
-          style={{ maxHeight: "9.5rem", overflowWrap: "anywhere" }}
+          ref={innerRef}
+          className="inline-block whitespace-nowrap text-[15px] leading-relaxed"
+          style={{ transform: `scale(${scale})`, transformOrigin: "left top" }}
         >
           {children}
         </div>
@@ -107,9 +125,20 @@ interface Props {
   questionId?: string | null;
   studentName: string;
   onClose: () => void;
+  /** Dedicated Reasoning full screen (independent of the Smartboard's). */
+  fullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
-const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuestionId = null, studentName, onClose }: Props) => {
+const TeacherReasoningPanel = ({
+  assessmentId,
+  studentId,
+  questionId: scopeQuestionId = null,
+  studentName,
+  onClose,
+  fullscreen = false,
+  onToggleFullscreen,
+}: Props) => {
 
   const [questions, setQuestions] = useState<QuestionShape[]>([]);
   const [keyLines, setKeyLines] = useState<KeyLine[]>([]);
@@ -281,14 +310,12 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
     return currentQ?.lines?.[activeIdx]?.lineId ?? null;
   }, [feed, activeIdx, currentQ]);
 
-  // Expected line = the TEACHER'S orange equation (normal-mode presenter
-  // line). Legacy answer keys without `equationAscii` fall back to the
-  // stored tokens. Either way it is rendered, never printed as source.
+  // Expected line = the TEACHER'S authored equation (the orange normal-mode
+  // presenter line) and nothing else. It is NEVER reconstructed from the
+  // floating-number list — those are only an input source for the student.
   const expectedAscii = useMemo(() => {
     const k = keyLines.find((x) => x.questionId === currentQid && x.lineId === currentLid);
-    const eq = toDisplaySafe(k?.equationAscii);
-    if (eq) return eq;
-    return toDisplaySafe((k?.tokens ?? []).join(" "));
+    return toDisplaySafe(k?.equationAscii);
   }, [keyLines, currentQid, currentLid]);
 
 
@@ -361,14 +388,27 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
           </div>
           <div className="truncate text-[11px] text-muted-foreground">{studentName}</div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          aria-label="Close reasoning panel"
-        >
-          <XIcon className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={fullscreen ? "Exit reasoning full screen" : "Reasoning full screen"}
+              title={fullscreen ? "Exit full screen" : "Full screen"}
+            >
+              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Close reasoning panel"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 space-y-3 overflow-y-auto p-3">

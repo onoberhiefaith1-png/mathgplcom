@@ -1,29 +1,40 @@
-## What I verified
+## Root cause (confirmed)
 
-- `TeacherReasoningPanel.tsx:342` renders the Expected line inside a `<pre className="font-mono">` printing raw text — that is why `x₁ = \frac−42` appears. The Student line (line 354), the floating chips (line 404) and the student-introduced terms (line 419) all do the same.
-- The Presenter Preview "normal mode" orange equation does it correctly: `PresenterPreviewPanel.tsx:695-751` takes `line.equation`, wraps it in `InlineMath`, which calls `renderMathInline(...)` from `src/lib/notebook/mathRender.ts` — real stacked fractions, superscripts, radicals.
-- Expected line data currently comes from `keyLines.tokens.join(" ")` (`TeacherReasoningPanel.tsx:233-236`), even though the answer key now carries `equationAscii` (`createAssessment.ts:143`, already consumed by `grade-line/index.ts:110`). The panel is showing the token list, not the teacher's orange equation.
+I read the student's live board record for this assessment. The board tree for the active row is:
 
-## Plan
+```text
+x = frac( box( box( −b ± sqrt(b² − 4ac ...) ) ) , 2a )
+```
 
-### 1. Share the presenter's math renderer
-- Extract the `InlineMath` renderer used by Presenter Preview into a small shared component (`src/components/smartboard/PresenterMath.tsx`) wrapping `renderMathInline`, and have `PresenterPreviewPanel` import it so there is exactly one renderer.
-- The Reasoning panel uses that same component everywhere it currently prints text: Expected line, Student line, floating-number chips, student-introduced terms, and the Check verdict's echoed expression.
-- Result: whatever structure the orange line shows in normal mode is mirrored character-for-character in the panel; no `\frac`, `^{}`, `_{}` can reach the screen.
+The Smartboard renderer draws every node kind, including `box` (the outlined cell used by the fraction/box workflow). The shared flattener `nodeToAscii` in `src/lib/smartboard/rowAscii.ts` has cases for `char, frac, sqrt, power, sup, sub, subsup, bracket, bigop, accent, binom, matrix` — but **no case for `box`**. A `box` node therefore flattens to nothing, so the whole numerator vanishes and the Reasoning panel (and the grader, which uses the same string) sees `x=()/2a`.
 
-### 2. Expected line = the teacher's orange equation
-- Add `equationAscii` to the panel's `KeyLine` type and prefer it over `tokens.join(" ")`, falling back to tokens only for legacy answer keys.
-- Pass the value through the existing display gate (`assertDisplaySafe` / `stripLatexScaffolding`) before rendering, so even a legacy token string cannot leak scaffolding.
+So the Student Line is not being rebuilt from floating numbers or re-parsed — it already comes from the same live object as the board. The one live object simply has a lossy translation step.
 
-### 3. Line viewer: always visible, side scrollbar, never clipped
-- Expected line becomes a pinned block: it sticks to the top of the panel's scroll area so it stays on screen while the teacher scrolls the rest of the panel.
-- Expected line and Student line each get their own bounded viewer with a scrollbar **on the side of the block** (a dedicated vertical scroll track outside the math area, not overlaying the expression), so tall content (stacked fractions, nested powers) can be scrolled through in full without shrinking the math.
-- Content wraps rather than truncating: long expressions wrap onto further lines inside the viewer, and the viewer grows to a comfortable max height before scrolling starts.
-- Student line keeps its `row N` badge; the scroll position resets whenever the active line or question changes.
+## Changes
 
-### 4. Verification
-- Add a rendering test asserting the Reasoning panel's Expected line, Student line and chips contain no `\frac` / `\sqrt` / `^{` / `_{` text nodes for a LaTeX-bearing answer key.
-- Run typecheck plus the existing smartboard/reasoning suites.
+### 1. One lossless flattening of the live math object
+`src/lib/smartboard/rowAscii.ts`
+- Add a `box` case: a box is a transparent container — emit its body row verbatim (empty box → empty string, so a genuinely empty slot stays empty).
+- Make the switch exhaustive with a `never` check so any future node kind fails typecheck instead of silently deleting maths.
+- Same fix mirrored in the edge-side flattener if one exists under `supabase/functions/_shared` (checked during implementation).
 
-## Technical notes
-Files touched: new `src/components/smartboard/PresenterMath.tsx`; `src/components/smartboard/TeacherReasoningPanel.tsx`; `src/components/smartboard/PresenterPreviewPanel.tsx` (import the shared renderer); one new test. No database or edge-function change — `equationAscii` is already stored and already read by `grade-line`.
+Effect: Smartboard, Student Line, Teacher live board and the `grade-line` grader all receive identical text, since they all already read this one function. Regression test added: box-wrapped numerator round-trips to `(−b±sqrt(b²−4ac))/(2a)`.
+
+### 2. Expected Line comes only from the authored equation
+`src/components/smartboard/TeacherReasoningPanel.tsx`
+- Keep `equationAscii` (the teacher's orange normal-mode line) as the sole source. Verified the answer key for this assessment stores it (e.g. `x² + 5x + 6 = 0`).
+- Remove the fallback that joins the floating-number tokens into a pseudo-equation; when no authored equation exists, show "no authored equation for this line" instead of a reconstruction.
+
+### 3. Dynamic box behaviour
+`LineViewer` in `TeacherReasoningPanel.tsx`
+- Remove the `maxHeight: 9.5rem` cap and inner vertical scroller: boxes grow downward without limit and the sections below simply move down (the panel's own scrollbar already handles the page).
+- Fixed width, no crop, no overflow, no reflow of the maths: measure the rendered expression against the container and apply a single uniform `transform: scale(k)` (with `transform-origin: left top` and matching reserved height) so an over-wide equation shrinks until it fits. Re-measured on content change and on container resize (`ResizeObserver`), with a sensible minimum scale.
+
+### 4. Dedicated Reasoning full screen
+- Add a second icon button beside the "Reasoning" title in the panel header (expand / collapse), reporting the state up via a new optional `onToggleFullscreen` / `fullscreen` prop.
+- `src/pages/class/TeacherAssessmentViewerPage.tsx`: when active, hide the Smartboard column and let the Reasoning panel fill the window (all sections intact). The Smartboard stays mounted but visually hidden so the live realtime subscription, board feed and evaluation keep running uninterrupted.
+- The existing Smartboard full-screen button is untouched.
+
+### Verification
+- Unit test for the box-node flattening plus the existing reasoning/answer-key suites.
+- Manual pass in the preview on this student's board: confirm the Student Line renders `x = (−b ± √(b² − 4ac)) / 2a` identically to the board, the Expected Line renders the authored equation, a deliberately long expression scales down inside a fixed-width box, and Reasoning full screen keeps updating live.
