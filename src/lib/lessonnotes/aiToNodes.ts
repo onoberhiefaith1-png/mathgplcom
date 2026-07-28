@@ -14,6 +14,7 @@
 
 import { HAS_MATH } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 
 type TipTapNode = any;
 
@@ -215,8 +216,12 @@ function isAsciiArtLine(line: string): boolean {
 
 export function aiTextToNodes(text: string): TipTapNode[] {
   if (!text) return [{ type: "paragraph" }];
+  // Presentation hygiene FIRST — markdown, JSON, HTML, escape residue and AI
+  // placeholders must never become notebook text.
+  const hygienic = sanitizePresentation(text);
+  if (!hygienic) return [{ type: "paragraph" }];
   // Display gate — last line of defence before AI text reaches the editor.
-  const gated = assertDisplaySafe(text);
+  const gated = assertDisplaySafe(hygienic);
   if (!gated.safe) {
     // eslint-disable-next-line no-console
     console.warn("[aiTextToNodes] display gate flagged AI output:", gated.reasons);

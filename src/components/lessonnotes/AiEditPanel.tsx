@@ -18,6 +18,7 @@ import {
   EDIT_SUGGESTIONS, SELECTION_KIND_LABELS,
 } from "@/lib/lessonnotes/editSuggestions";
 import type { SelectionKind } from "@/lib/lessonnotes/detectSelectionKind";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 
 export interface AiEditTarget {
   text: string;
@@ -82,6 +83,12 @@ export function AiEditPanel({
   const [revealedCount, setRevealedCount] = useState(0);
   const voice = useVoiceInput(setInstruction as any);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  /** Never show raw syntax in a preview: clean first, then render. */
+  const safePreview = (text: string) => {
+    const clean = sanitizePresentation(text ?? "");
+    return renderPreview ? renderPreview(clean) : clean;
+  };
 
   // Reset when the panel opens for a fresh selection.
   useEffect(() => {
@@ -183,7 +190,7 @@ export function AiEditPanel({
           <div className="px-4 py-3 border-b bg-foreground/5">
             <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">Selected</p>
             <div className="text-sm max-h-24 overflow-auto whitespace-pre-wrap break-words">
-              {renderPreview ? renderPreview(target.text) : target.text}
+              {safePreview(target.text)}
             </div>
           </div>
         )}
@@ -391,14 +398,14 @@ export function AiEditPanel({
               <div className="rounded-md border border-foreground/15 p-2">
                 <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">Current</p>
                 <div className="text-sm whitespace-pre-wrap break-words">
-                  {renderPreview && target ? renderPreview(target.text) : target?.text}
+                  {target ? safePreview(target.text) : null}
                 </div>
               </div>
               <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
                 <p className="text-[10px] uppercase tracking-wider text-primary mb-1">Proposed</p>
                 <div className="text-sm whitespace-pre-wrap break-words">
                   {renderProposed ? renderProposed(proposed) :
-                    renderPreview ? renderPreview(proposed) : proposed}
+                    safePreview(proposed)}
                 </div>
               </div>
               {simpleMode && (

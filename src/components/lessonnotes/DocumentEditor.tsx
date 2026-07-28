@@ -93,6 +93,11 @@ import {
   detectSectionKind, type SectionKind,
 } from "@/lib/lessonnotes/sectionKinds";
 import { persistGeneratedExample } from "@/lib/lessonnotes/persistGenerated";
+import {
+  buildLessonTeachingContext,
+  type LessonTeachingContext,
+  type SectionChunk,
+} from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
 
 const SECTION_OPTIONS: SectionKind[] = [
@@ -260,6 +265,7 @@ async function aiGenerate(opts: {
   blockKind?: "problem" | "solution" | "text";
   activeQuestion?: string;
   inheritedContext?: boolean;
+  lessonContext?: LessonTeachingContext;
 }): Promise<string> {
   const { data, error } = await supabase.functions.invoke("notebook-ai", {
     body: {
@@ -274,6 +280,7 @@ async function aiGenerate(opts: {
       teacherPrompt: opts.teacherPrompt,
       activeQuestion: opts.activeQuestion ?? "",
       inheritedContext: opts.inheritedContext ?? false,
+      lessonContext: opts.lessonContext ?? null,
     },
   });
   if (error) {
@@ -477,6 +484,35 @@ function DocumentEditorInner({
     };
   };
 
+  /** Everything already taught in this lesson ABOVE `beforePos`, condensed
+   *  into the teaching context the AI needs so sections stay connected. */
+  const collectLessonContext = (beforePos: number, targetKind: SectionKind): LessonTeachingContext | undefined => {
+    if (!editor) return undefined;
+    const doc = editor.state.doc;
+    const headings: { pos: number; size: number; text: string }[] = [];
+    doc.descendants((n, p) => {
+      if (p >= beforePos) return false;
+      if (n.type.name === "heading" && (n.attrs?.level ?? 6) <= 3) {
+        headings.push({ pos: p, size: n.nodeSize, text: n.textContent });
+      }
+      return true;
+    });
+    const chunks: SectionChunk[] = [];
+    for (let i = 0; i < headings.length; i++) {
+      const h = headings[i];
+      const start = h.pos + h.size;
+      const end = Math.min(headings[i + 1]?.pos ?? beforePos, beforePos);
+      if (end <= start) continue;
+      let text = "";
+      try { text = serializeRangeAsMath(start, end); } catch { text = ""; }
+      if (!text.trim()) continue;
+      chunks.push({ kind: detectSectionKind(h.text), heading: h.text.trim(), text });
+    }
+    if (!chunks.length) return undefined;
+    return buildLessonTeachingContext({ sections: chunks, targetKind });
+  };
+
+
   /** Build a teacherPrompt that reflects scanned images + the requested action. */
   const buildPrompt = async (opts: {
     base: string; action: SectionAction; sectionText: string; images: string[]; kind: SectionKind;
@@ -592,6 +628,7 @@ function DocumentEditorInner({
         blockKind: generationBlockKind,
         activeQuestion: isSolutionBlock ? solutionSource?.problemText : undefined,
         inheritedContext: isSolutionBlock ? true : undefined,
+        lessonContext: collectLessonContext(info.headingPos, generationKind),
       })).trim();
     } catch (err: any) {
       const msg = String(err?.message ?? err);
@@ -1269,6 +1306,7 @@ function DocumentEditorInner({
         kind,
         teacherPrompt: base || "Write helpful content here.",
         ctx: ctxRef.current,
+        lessonContext: collectLessonContext(from, kind),
       })).trim();
       if (!content) { toast({ title: "No content returned" }); return; }
       const nodes = aiTextToNodes(content);
@@ -1293,6 +1331,7 @@ function DocumentEditorInner({
             ? `${base}\n\nFocus this block on the ${SECTION_LABELS[kind]} section.`
             : `Generate the ${SECTION_LABELS[kind]} for this lesson.`,
           ctx: ctxRef.current,
+          lessonContext: collectLessonContext(cursor, kind),
         })).trim();
         if (!content) continue;
         const headingNode = {

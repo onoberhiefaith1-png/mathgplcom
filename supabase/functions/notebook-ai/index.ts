@@ -9,6 +9,8 @@ import { BENCHMARK_STANDARD } from "./benchmarkStandard.ts";
 import { STRUCTURAL_STANDARD } from "./structuralStandard.ts";
 import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { INHERITANCE_STANDARD } from "./inheritanceStandard.ts";
+import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
+import { sanitizePresentation, residueReport } from "./outputHygiene.ts";
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
   runValidationPipeline,
@@ -182,7 +184,7 @@ async function generateValidated(opts: {
   const maxRounds = opts.maxRoundsPerStage ?? 2;
   const messages = [...opts.messages];
   let draft = await callAI(messages, model);
-  let cleaned = sanitizeMath(stripFences(draft));
+  let cleaned = sanitizePresentation(sanitizeMath(stripFences(draft)));
   let lastStage = 1;
 
   // Run the pipeline; on the first failing stage, correct in a loop until
@@ -221,7 +223,7 @@ ${cleaned}`;
         model,
       );
       draft = correction;
-      cleaned = sanitizeMath(stripFences(correction));
+      cleaned = sanitizePresentation(sanitizeMath(stripFences(correction)));
       const recheck = runValidationPipeline(cleaned, opts.kind);
       const stillFailing = firstFailingStage(recheck);
       if (!stillFailing || stillFailing.stage > failing.stage) {
@@ -236,11 +238,15 @@ ${cleaned}`;
   // Deterministic hard-strip: even if the corrector loop gave up, no raw
   // \letters, slash fraction, or unbalanced template may leave the server.
   cleaned = hardStripMath(cleaned);
+  // Presentation hygiene: markdown / JSON / escape residue / placeholders can
+  // NEVER reach the teacher. Deterministic and applied to every mode.
+  cleaned = sanitizePresentation(cleaned);
   const finalResults = runValidationPipeline(cleaned, opts.kind);
   const lastFailing = firstFailingStage(finalResults);
   const warnings = lastFailing
     ? lastFailing.violations.map((v) => `[Stage ${v.phase}] ${v.rule}: ${v.detail}`)
     : [];
+  for (const r of residueReport(cleaned)) warnings.push(`[Hygiene] raw syntax residue: ${r}`);
   if (warnings.length) {
     console.warn(`[notebook-ai] validation warnings remain after stage ${lastStage}:`, warnings);
   }
@@ -573,7 +579,44 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
         context?: string; currentContent?: string; teacherPrompt?: string;
         activeQuestion?: string;
         inheritedContext?: boolean;
+        /** Full teaching context of the lesson generated so far. */
+        lessonContext?: {
+          level?: string;
+          objectives?: string;
+          introduction?: string;
+          explanations?: string[];
+          examples?: { label: string; problem: string; method?: string }[];
+          definitions?: string[];
+          notation?: string[];
+          sequencePosition?: string;
+        };
       };
+
+      /** Render the lesson-so-far into a compact, prompt-friendly block. */
+      const buildLessonSoFar = (): string => {
+        const lc = b.lessonContext;
+        if (!lc) return "";
+        const seg: string[] = [];
+        if (lc.level) seg.push(`Curriculum level: ${lc.level}`);
+        if (lc.objectives) seg.push(`Learning objectives:\n${lc.objectives}`);
+        if (lc.introduction) seg.push(`Introduction already written:\n${lc.introduction}`);
+        if (lc.definitions?.length) seg.push(`Definitions already introduced:\n${lc.definitions.join("\n")}`);
+        if (lc.notation?.length) seg.push(`Notation already in use: ${lc.notation.join(", ")}`);
+        if (lc.explanations?.length) {
+          seg.push(`Explanations already taught:\n${lc.explanations.join("\n---\n")}`);
+        }
+        if (lc.examples?.length) {
+          seg.push(
+            `Worked examples already given (in order):\n` +
+              lc.examples
+                .map((e, i) => `${i + 1}. ${e.label}: ${e.problem}${e.method ? `\n   Method: ${e.method}` : ""}`)
+                .join("\n"),
+          );
+        }
+        if (lc.sequencePosition) seg.push(`Position in the lesson: ${lc.sequencePosition}`);
+        return seg.filter(Boolean).join("\n\n").trim();
+      };
+      const lessonSoFar = buildLessonSoFar();
 
       // QUESTION INHERITANCE GATE — Solution blocks must inherit ACTIVE_QUESTION
       // from the parent question block above. No inheritance → refuse to call the
@@ -636,11 +679,18 @@ ${RENDERING_STANDARD}
 ${STRUCTURAL_STANDARD}
 
 ${GEOMETRY_STANDARD}
+
+${CONTINUITY_STANDARD}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
 Task style for this block: ${styleLine}
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
 
       const parts: string[] = [];
+      if (lessonSoFar) {
+        parts.push(
+          `LESSON SO FAR (everything already taught in THIS lesson — read it fully, then continue the sequence. Do not repeat it, do not contradict it, do not switch topic or method):\n${lessonSoFar}`,
+        );
+      }
       if (isSolutionBlock) {
         parts.push(
           `ACTIVE_QUESTION (QUESTION_LOCK — immutable; solve THIS exact problem, do not substitute):\n${activeQuestion}`,
@@ -658,7 +708,9 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
       if (isSolutionBlock) {
         parts.push(`The FIRST output line MUST restate ACTIVE_QUESTION verbatim. Every subsequent line must derive from ACTIVE_QUESTION. Do not invent or substitute a different problem.`);
       } else {
-        parts.push(`Now generate the ${b.blockKind} for this ${b.sectionKind}.`);
+        parts.push(
+          `Now generate the ${b.blockKind} for this ${b.sectionKind}. It must be the LOGICAL NEXT STEP of the lesson above — same topic, same subtopic, same method, gradual increase in difficulty.`,
+        );
       }
 
       const validationKind: ValidationKind =
@@ -675,6 +727,29 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
         messages: baseMessages,
         kind: validationKind,
       });
+
+      // CONTINUITY GUARD — a newly generated question must not duplicate an
+      // example already in the lesson. One corrective round, then accept.
+      if (!isSolutionBlock && b.blockKind === "problem" && b.lessonContext?.examples?.length) {
+        const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+        const prior = b.lessonContext.examples.map((e) => norm(e.problem || "")).filter(Boolean);
+        if (prior.some((p) => p && norm(content).includes(p))) {
+          const retry = await generateValidated({
+            messages: [
+              ...baseMessages,
+              { role: "assistant", content },
+              {
+                role: "user",
+                content:
+                  `That question repeats an example already in this lesson. Write a DIFFERENT question that continues the sequence: same topic, same subtopic, same method, slightly more challenging than the last example. Output only the question.`,
+              },
+            ],
+            kind: validationKind,
+          });
+          content = retry.content;
+          warnings = retry.warnings;
+        }
+      }
 
       // Post-generation QUESTION_LOCK guard for solution blocks: solution[0]
       // (the first non-empty line) must match ACTIVE_QUESTION. One retry, then 422.
