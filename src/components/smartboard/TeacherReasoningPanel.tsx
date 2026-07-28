@@ -50,14 +50,13 @@ const verdictLabel = (v: string): string => {
 const atomize = (s: string): string[] =>
   (s.match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
 
-/** A bounded viewer for ONE mathematical line.
+/** A viewer for ONE mathematical line.
  *
- *  The expression is rendered (never printed as source) and wraps freely.
- *  When it is taller than the viewer, a scroll track appears on the SIDE of
- *  the block — outside the math area — so the teacher can scroll through the
- *  whole line without any part of it being hidden behind the bar. The
- *  Expected line is `sticky`, so it stays visible while the rest of the
- *  panel scrolls. */
+ *  Vertical: unbounded — the block grows downward and everything below it
+ *  simply moves down (the panel's own scrollbar handles the page).
+ *  Horizontal: the width is FIXED. When the rendered expression is wider than
+ *  the box, the whole rendering is uniformly scaled down until it fits, so the
+ *  maths is never cropped, never overflows and never reflows. */
 const LineViewer = ({
   label,
   right,
@@ -71,10 +70,29 @@ const LineViewer = ({
   resetKey: string;
   sticky?: boolean;
 }) => {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState<number | undefined>(undefined);
+
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, [resetKey]);
+    const frame = frameRef.current;
+    const inner = innerRef.current;
+    if (!frame || !inner) return;
+    const fit = () => {
+      const avail = frame.clientWidth;
+      const natural = inner.scrollWidth;
+      const k = natural > 0 && avail > 0 ? Math.min(1, Math.max(0.35, avail / natural)) : 1;
+      setScale(k);
+      setHeight(inner.scrollHeight * k);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(frame);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [resetKey, children]);
+
   return (
     <div
       className={`rounded-lg border border-border bg-card/95 p-3 backdrop-blur ${
@@ -85,11 +103,11 @@ const LineViewer = ({
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
         {right}
       </div>
-      <div className="flex items-stretch gap-2">
+      <div ref={frameRef} className="w-full overflow-hidden" style={{ height }}>
         <div
-          ref={scrollRef}
-          className="reasoning-line-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden text-[15px] leading-relaxed"
-          style={{ maxHeight: "9.5rem", overflowWrap: "anywhere" }}
+          ref={innerRef}
+          className="inline-block whitespace-nowrap text-[15px] leading-relaxed"
+          style={{ transform: `scale(${scale})`, transformOrigin: "left top" }}
         >
           {children}
         </div>
