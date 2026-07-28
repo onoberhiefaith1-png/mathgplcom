@@ -591,9 +591,11 @@ const FloatingPreparationPage = () => {
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading solution…
           </div>
         ) : lines.length === 0 ? (
-          <div className="text-center text-foreground/55 py-20 text-sm">
-            No solution found for this section. Generate the solution in the lesson note first.
+          <div className="mx-auto max-w-3xl rounded-md p-8 text-center text-foreground/55 text-sm border border-border/40">
+            This solution is still empty. Write or generate the solution in the
+            lesson note, then come back to pick your floating numbers.
           </div>
+
         ) : (
           <div
             ref={docRef}
