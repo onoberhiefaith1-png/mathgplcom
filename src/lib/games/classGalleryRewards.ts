@@ -5,7 +5,55 @@
 // can live in different places for different classes without touching gallery
 // content.
 import { supabase } from "@/integrations/supabase/client";
-import type { MediaType, MediaSource } from "./types";
+import type {
+  BgRemoval,
+  BlendMode,
+  CanvasElement,
+  MediaType,
+  MediaSource,
+  SlantSettings,
+  TintSettings,
+} from "./types";
+
+/**
+ * Snapshot of the reward EXACTLY as the teacher configured it inside the
+ * Adventure. The transfer moves this configured instance — it never reloads
+ * the original uploaded asset — so transparency, blend, tint and lean survive
+ * the journey and only the Gallery transform is adopted on arrival.
+ */
+export interface RewardElementStyle {
+  storagePath: string;
+  mediaType: MediaType;
+  source: MediaSource;
+  bgRemoval?: BgRemoval;
+  keyColor?: { r: number; g: number; b: number };
+  keyTolerance?: number;
+  blend?: BlendMode;
+  tint?: TintSettings;
+  slant?: SlantSettings;
+  /** Adventure-side transform, held for the whole flight. */
+  scale: number;
+  rotation: number;
+  opacity: number;
+  label?: string;
+}
+
+/** Capture the live Adventure element as a transferable instance snapshot. */
+export const captureRewardElementStyle = (el: CanvasElement): RewardElementStyle => ({
+  storagePath: el.storagePath,
+  mediaType: el.mediaType,
+  source: el.source ?? "storage",
+  bgRemoval: el.bgRemoval ?? "none",
+  keyColor: el.keyColor,
+  keyTolerance: el.keyTolerance,
+  blend: el.blend ?? "normal",
+  tint: el.tint,
+  slant: el.slant,
+  scale: el.scale,
+  rotation: el.rotation,
+  opacity: el.opacity,
+  label: el.label,
+});
 
 export interface ClassGalleryRewardRow {
   id: string;
@@ -24,7 +72,10 @@ export interface ClassGalleryRewardRow {
   rotation: number;
   opacity: number;
   duration_ms: number;
+  /** null on legacy rows saved before instance snapshots existed. */
+  element_style?: RewardElementStyle | null;
 }
+
 
 export const loadClassGalleryReward = async (
   classId: string,
