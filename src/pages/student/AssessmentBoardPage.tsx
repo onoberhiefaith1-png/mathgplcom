@@ -21,8 +21,8 @@ const AssessmentBoardPage = () => {
   const { classId, assessmentId } = useParams<{ classId: string; assessmentId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-  const questionId = searchParams.get("q");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const questionParam = searchParams.get("q");
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
   const shouldTrackPresence =
