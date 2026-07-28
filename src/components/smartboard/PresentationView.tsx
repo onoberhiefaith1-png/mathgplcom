@@ -3043,6 +3043,22 @@ const PresentationView = ({
       .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
       .sort((x, y) => x - y);
 
+    // 1) THE ENGINE'S BINDING WINS. The row a line is written on is the row
+    //    the student was on when that line became active — never a guess made
+    //    by comparing tokens, which used to hand one line another line's ink.
+    const bound = reasoningRef.current.rowFor(k);
+    if (bound !== null) {
+      const boundRow = freeLines[bound];
+      return {
+        target,
+        expectedFrags,
+        rowNum: bound,
+        ascii: boundRow && boundRow.length > 0 ? rowToAscii(boundRow) : "",
+      };
+    }
+
+    // 2) Lines the student never visited: fall back to the historic
+    //    best-overlap search so old boards still resolve.
     let rowNum = clampToActiveBand(bandStart(activeLayout) + k);
     const expectedSet = chipMultiset(expectedFrags);
     if (expectedSet.size > 0 && writtenRows.length > 0) {
@@ -3054,12 +3070,7 @@ const PresentationView = ({
       }
       if (bestRow >= 0) rowNum = bestRow;
     }
-    // No ink on the resolved row — fall back to the row the sensor is on, then
-    // to the last written row, so the student's actual work is always graded.
-    if (!freeLines[rowNum]?.length) {
-      if (freeLines[sensor.line]?.length) rowNum = sensor.line;
-      else if (writtenRows.length > 0) rowNum = writtenRows[writtenRows.length - 1];
-    }
+    if (!freeLines[rowNum]?.length && freeLines[sensor.line]?.length) rowNum = sensor.line;
 
     const row = freeLines[rowNum];
     const ascii = row && row.length > 0 ? rowToAscii(row) : "";
