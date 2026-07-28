@@ -241,7 +241,10 @@ export function AiPopover({
             ))}
           </div>
         )}
+        </>
+        )}
       </PopoverContent>
+
     </Popover>
   );
 }
