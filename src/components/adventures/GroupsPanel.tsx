@@ -73,13 +73,13 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
     setBusy(true);
     try {
       const res = await addGroup({ classId, gameId, game, groups: ctx.groups, memberIds, sourceBarId });
-      if (!res.ok) {
+      if (res.ok === false) {
+        const noSpace = res.reason === "no_space";
         toast({
-          title: res.reason === "no_space" ? "No space for another bar" : "No Progress Bar found",
-          description:
-            res.reason === "no_space"
-              ? "Move a bar or remove a group to make room."
-              : "Link this Adventure to a lesson question first.",
+          title: noSpace ? "No space for another bar" : "No Progress Bar found",
+          description: noSpace
+            ? "Move a bar or remove a group to make room."
+            : "Link this Adventure to a lesson question first.",
           variant: "destructive",
         });
         return;
