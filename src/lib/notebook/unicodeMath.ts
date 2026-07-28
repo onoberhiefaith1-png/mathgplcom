@@ -165,6 +165,11 @@ export const toUnicodeMath = (input: string): string => {
     s = s.split(token).join(markup);
   });
   s = s.split(POWER_SLOT).join("^{□}");
+  // Fractions come back whole — braces intact — so the renderer draws ONE
+  // fraction with exactly two cells.
+  fracHolds.forEach((markup, i) => {
+    s = s.split(FRAC_TOKEN(i)).join(markup);
+  });
 
   // Defence in depth: any leftover private-use sentinel must never reach the
   // DOM. If something earlier swallowed half a sentinel, drop the remnants
