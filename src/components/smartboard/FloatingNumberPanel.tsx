@@ -14,6 +14,27 @@ import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
 const WINDOW_SIZE = 5;
 
+/** Floating numbers are NUMBERS — never empty scaffolding. Any structure
+ *  shell the highlight engine produced (`\frac{□}{□}`, `\sqrt{□}`, `□^{□}`,
+ *  bare `□`) is stripped from the chip so the strip never shows placeholder
+ *  squares. Structures are built on the board, not handed out as chips. */
+export const stripStructureShells = (token: string): string => {
+  if (!token) return "";
+  let out = token;
+  for (let i = 0; i < 4; i++) {
+    const before = out;
+    out = out
+      .replace(/\\frac\s*\{\s*[□\s\\,]*\s*\}\s*\{\s*[□\s\\,]*\s*\}/g, "")
+      .replace(/\\sqrt\s*(\[[^\]]*\])?\s*\{\s*[□\s\\,]*\s*\}/g, "")
+      .replace(/\\?[\w]*\s*\^\s*\{\s*[□\s\\,]*\s*\}/g, (m) => (m.includes("□") ? "" : m))
+      .replace(/\(\s*[□\s\\,]*\s*\)/g, "")
+      .replace(/□/g, "");
+    if (out === before) break;
+  }
+  return out.trim();
+};
+
+
 const SUP_DIG: Record<string, string> = {
   "⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9",
 };
