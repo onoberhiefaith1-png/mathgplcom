@@ -3511,6 +3511,74 @@ const PresentationView = ({
   );
   broadcastCheckResultRef.current = broadcastCheckResult;
 
+  // ── LIVE REASONING EVALUATION ───────────────────────────────────────────
+  // The Reasoning panel no longer grades anything itself (it used to run its
+  // own dry run, which drifted away from the student's session). The student's
+  // engine runs one debounced, NON-PERSISTING evaluation of the active line
+  // and broadcasts it, so student, teacher, Check and silent marking can only
+  // ever see the same verdict.
+  const liveEvalKeyRef = useRef<string>("");
+  useEffect(() => {
+    if (!assessmentMode || role !== "student" || !liveChanReady) return;
+    if (!assessmentId || !current) return;
+    const lineId = guidedLines[activeLineIdx]?.lineId ?? null;
+    if (!lineId) return;
+    const resolved = resolveGradableLineRef.current(activeLineIdx);
+    const ascii = resolved?.ascii ?? "";
+    if (!ascii.trim()) return;
+    const slot = `${current.id}:${lineId}`;
+    if (slot in solvedSlots) return; // permanent — never re-evaluated
+    const key = `${slot}|${ascii}`;
+    if (liveEvalKeyRef.current === key) return;
+
+    const id = window.setTimeout(() => {
+      liveEvalKeyRef.current = key;
+      void (async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke("grade-line", {
+            body: {
+              assessmentId,
+              questionId: current.id,
+              lineId,
+              studentAscii: ascii,
+              mode: "manual",
+              allowedFloatingTokens: resolved?.expectedFrags ?? [],
+              persist: false,
+            },
+          });
+          if (error) return;
+          const res = data as {
+            correct?: boolean; verdict?: string; marks?: number;
+            diagnosis?: { code: string; label: string; detail: string };
+          } | null;
+          const ch = liveBroadcastChanRef.current;
+          if (!ch) return;
+          void ch.send({
+            type: "broadcast",
+            event: "check",
+            payload: {
+              ts: Date.now(),
+              questionId: current.id,
+              lineId,
+              mode: "live",
+              correct: !!res?.correct,
+              verdict: res?.verdict,
+              diagnosis: res?.diagnosis,
+              marks: Number(res?.marks ?? 0),
+              studentAscii: ascii,
+            },
+          });
+        } catch { /* live debugger only — never disturbs the student */ }
+      })();
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [
+    assessmentMode, role, liveChanReady, assessmentId, current, guidedLines,
+    activeLineIdx, freeLines, solvedSlots,
+  ]);
+
+
+
 
 
 
