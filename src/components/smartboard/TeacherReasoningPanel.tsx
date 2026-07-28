@@ -273,57 +273,40 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
     return Number(l?.marks ?? 0);
   }, [currentQ, currentLid]);
 
-  // Reset the evaluation whenever the student moves to a different line —
-  // one line is one page.
+  // Terms the student introduced themselves (not supplied by the teacher for
+  // this line). The engine computes these; we only fall back locally when an
+  // older client is broadcasting.
+  const studentAddedTerms = useMemo(() => {
+    if (Array.isArray(feed?.introducedTerms)) return feed!.introducedTerms;
+    return invalidTokens;
+  }, [feed, invalidTokens]);
+
+  const attemptNo = Math.max(1, Math.floor(feed?.attempt ?? 1));
+  const activeRow = feed?.activeRow ?? null;
+
+  // Reasoning is a live monitoring tool only — everything is discarded the
+  // moment the student moves to another line or another question.
   useEffect(() => {
     setVerdict(null);
+    setLastCheck(null);
+    setChecking(false);
   }, [currentLid, currentQid]);
 
-  // Dry-run grade whenever the current line's content changes.
-  const debounceRef = useRef<number | null>(null);
-  const runDryGrade = useCallback(async () => {
-    if (!currentQid || !currentLid || studentAscii.trim().length === 0) {
-      setVerdict(null);
-      return;
-    }
-    setChecking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("grade-line", {
-        body: {
-          assessmentId,
-          questionId: currentQid,
-          lineId: currentLid,
-          studentAscii,
-          mode: "manual",
-          allowedFloatingTokens: allowedTokens,
-          persist: false,
-        },
-      });
-      if (error) throw error;
-      setVerdict(data as Verdict);
-    } catch {
-      setVerdict(null);
-    } finally {
-      setChecking(false);
-    }
-  }, [assessmentId, currentQid, currentLid, studentAscii, allowedTokens]);
-
-  useEffect(() => {
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => { void runDryGrade(); }, 300);
-    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
-  }, [runDryGrade]);
-
-  // The check event wins when it refers to the line currently on screen.
+  // The panel NEVER grades. The student's reasoning engine is the single
+  // source of truth and broadcasts every evaluation (live, Check and silent
+  // auto-marking), so what we show can never disagree with what was awarded.
   const checkForThisLine =
     lastCheck && lastCheck.questionId === currentQid && lastCheck.lineId === currentLid ? lastCheck : null;
-  const shownCorrect = checkForThisLine ? checkForThisLine.correct : verdict?.correct ?? null;
-  const shownVerdict = checkForThisLine?.verdict ?? verdict?.verdict ?? null;
-  const shownDiagnosis: DiagnosisShape | null =
-    (checkForThisLine?.diagnosis ?? verdict?.diagnosis) ?? null;
+  const shownCorrect = checkForThisLine ? checkForThisLine.correct : null;
+  const shownVerdict = checkForThisLine?.verdict ?? null;
+  const shownDiagnosis: DiagnosisShape | null = checkForThisLine?.diagnosis ?? null;
   const sourceBadge = checkForThisLine
-    ? checkForThisLine.mode === "manual" ? "student Check" : "auto check"
-    : verdict ? "live dry run" : null;
+    ? checkForThisLine.mode === "manual"
+      ? "student Check"
+      : checkForThisLine.mode === "auto"
+        ? "auto check"
+        : "live reasoning"
+    : null;
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-background text-foreground">
