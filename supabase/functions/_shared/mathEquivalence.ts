@@ -113,7 +113,7 @@ function numericEqual(a: any, b: any): Verdict {
   return anySuccess ? "equal" : "unknown";
 }
 
-function deterministicVerdict(teacher: string, student: string): Verdict {
+export function deterministicVerdict(teacher: string, student: string): Verdict {
   const T = splitEq(normalize(teacher));
   const S = splitEq(normalize(student));
 
