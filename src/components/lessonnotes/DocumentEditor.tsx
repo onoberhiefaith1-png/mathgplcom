@@ -1306,6 +1306,7 @@ function DocumentEditorInner({
         kind,
         teacherPrompt: base || "Write helpful content here.",
         ctx: ctxRef.current,
+        lessonContext: collectLessonContext(from, kind),
       })).trim();
       if (!content) { toast({ title: "No content returned" }); return; }
       const nodes = aiTextToNodes(content);
