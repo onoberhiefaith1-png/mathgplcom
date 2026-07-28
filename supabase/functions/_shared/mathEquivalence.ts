@@ -28,7 +28,7 @@ function expandImplicitProducts(s: string): string {
   });
 }
 
-function normalize(input: string): string {
+export function normalize(input: string): string {
   let s = String(input ?? "");
   s = s.replace(/\u2212/g, "-");
   s = s.replace(/[–—]/g, "-");
