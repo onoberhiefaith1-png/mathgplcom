@@ -708,7 +708,9 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
       if (isSolutionBlock) {
         parts.push(`The FIRST output line MUST restate ACTIVE_QUESTION verbatim. Every subsequent line must derive from ACTIVE_QUESTION. Do not invent or substitute a different problem.`);
       } else {
-        parts.push(`Now generate the ${b.blockKind} for this ${b.sectionKind}.`);
+        parts.push(
+          `Now generate the ${b.blockKind} for this ${b.sectionKind}. It must be the LOGICAL NEXT STEP of the lesson above — same topic, same subtopic, same method, gradual increase in difficulty.`,
+        );
       }
 
       const validationKind: ValidationKind =
@@ -725,6 +727,29 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
         messages: baseMessages,
         kind: validationKind,
       });
+
+      // CONTINUITY GUARD — a newly generated question must not duplicate an
+      // example already in the lesson. One corrective round, then accept.
+      if (!isSolutionBlock && b.blockKind === "problem" && b.lessonContext?.examples?.length) {
+        const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+        const prior = b.lessonContext.examples.map((e) => norm(e.problem || "")).filter(Boolean);
+        if (prior.some((p) => p && norm(content).includes(p))) {
+          const retry = await generateValidated({
+            messages: [
+              ...baseMessages,
+              { role: "assistant", content },
+              {
+                role: "user",
+                content:
+                  `That question repeats an example already in this lesson. Write a DIFFERENT question that continues the sequence: same topic, same subtopic, same method, slightly more challenging than the last example. Output only the question.`,
+              },
+            ],
+            kind: validationKind,
+          });
+          content = retry.content;
+          warnings = retry.warnings;
+        }
+      }
 
       // Post-generation QUESTION_LOCK guard for solution blocks: solution[0]
       // (the first non-empty line) must match ACTIVE_QUESTION. One retry, then 422.
