@@ -50,7 +50,7 @@ import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
-import { clampRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
+import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import {
   type Cursor, type Node, type Row,
   mkChar, mkSub, mkSup,
@@ -505,11 +505,13 @@ const PresentationView = ({
         ?? localStorage.getItem(LEGACY_LINE_SPACING_KEY);
       if (raw) {
         const v = parseFloat(raw);
-        if (Number.isFinite(v) && v >= 0) return clampRowSpacing(v);
+        // Legacy values were a 0..1 slider — they all collapse to 1 row unit.
+        if (Number.isFinite(v)) return normalizeRowSpacing(v);
       }
     } catch { /* noop */ }
-    return 0;
+    return 1;
   });
+
   const [textScale, setTextScale] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(TEXT_SCALE_KEY);
@@ -1014,16 +1016,23 @@ const PresentationView = ({
   };
 
   /** Extra physical rows occupied by a Lesson Object on `line` beyond its
-   *  baseline row. THE LAW (fixed, deterministic — pixel measurements are
-   *  NEVER consulted, they inflate and cause 4-5 row overshoots):
+   *  baseline row. THE LAW:
    *  - Plain equation / handwriting / superscripts (x²) → 0 extra rows.
    *  - Tall structure (stacked fraction, binomial, matrix, big operator)
-   *    → exactly 1 extra row (the row its lower body occupies). */
+   *    → exactly 1 extra row (the row its lower body occupies).
+   *  - Text Size overflow → whatever additional rows the measured ink needs
+   *    beyond its allotted row pitch, so larger text pushes content DOWN
+   *    and smaller text releases the space again. */
   const extraRowsFor = (line: number): number => {
     const row = freeLines[line] ?? freeLines[line + 0.5];
-    if (!row || row.length === 0 || !rowHasTallStructure(row)) return 0;
-    return 1;
+    const structural = row && row.length > 0 && rowHasTallStructure(row) ? 1 : 0;
+    const measured = lineHeightsRef.current[line] ?? 0;
+    const overflow = grid.LINE_HEIGHT > 0
+      ? Math.max(0, Math.ceil(measured / grid.LINE_HEIGHT) - 1)
+      : 0;
+    return Math.max(structural, overflow);
   };
+
 
   /** Post-structure gap is folded into the fixed skip-one law above:
    *  a tall structure already yields sensor = row + 2 via extraRowsFor.

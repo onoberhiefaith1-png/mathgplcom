@@ -269,19 +269,33 @@ export const SettingsSheet = ({
                 <p className="text-[10px] uppercase tracking-[0.25em] opacity-60">
                   Row Spacing
                 </p>
-                <span className="text-[10px] opacity-60">{Math.round(clampRowSpacing(rowSpacing) * 100)}%</span>
+                <span className="text-[10px] opacity-60">
+                  {clampRowSpacing(rowSpacing)} × cursor height
+                </span>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={Math.round(clampRowSpacing(rowSpacing) * 100)}
-                onChange={(e) => setRowSpacing(clampRowSpacing(Number(e.target.value) / 100))}
-                className="w-full"
-              />
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5, 6].map((n) => {
+                  const active = clampRowSpacing(rowSpacing) === n;
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => setRowSpacing(n)}
+                      className="flex-1 rounded-md border py-1.5 text-xs font-medium"
+                      style={{
+                        borderColor: active ? chromeFg : chromeBorder,
+                        background: active ? "rgba(0,0,0,0.06)" : "transparent",
+                        opacity: active ? 1 : 0.65,
+                      }}
+                      aria-pressed={active}
+                    >
+                      {n}×
+                    </button>
+                  );
+                })}
+              </div>
               <p className="text-[10px] opacity-50 mt-1">
-                0% packs rows tightly; higher values push rows further apart. Never affects the inside of a fraction, root, or matrix.
+                Vertical gap between writable Rows, counted in whole cursor
+                heights. Does not change text size.
               </p>
             </section>
           )}
@@ -305,10 +319,13 @@ export const SettingsSheet = ({
                 className="w-full"
               />
               <p className="text-[10px] opacity-50 mt-1">
-                Grows lesson text, equations and math symbols. The page, margins and chrome stay the same.
+                Size of text and mathematical expressions only. Larger text
+                grows downward and pushes the content below it down; it never
+                changes Row Spacing.
               </p>
             </section>
           )}
+
 
 
 

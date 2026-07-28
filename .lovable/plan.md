@@ -1,44 +1,55 @@
-## How the Floating Number Display is meant to work
+## What's wrong today
 
-The strip is a **conveyor belt**, not a static list:
+Verified in `src/lib/smartboard/grid.ts`: all three values feed one formula.
 
-1. The lesson note supplies a fixed, ordered reservoir of fragments (the "Floating Collection"). The Smartboard only displays it — it never regenerates or reorders it.
-2. A fixed-size window shows a few fragments at a time.
-3. When the teacher **taps a fragment**, three things happen together:
-   - the fragment is written onto the whiteboard at the sensor,
-   - the fragment is marked **Used**,
-   - the window **shifts**: earlier visible chips hold their place, the used chip leaves the active ring, and the next hidden fragment flows in **from the right**.
-4. Tapping a **Used** chip returns it to the ring in its original reservoir position.
-5. Deleting the ink from the board also returns the fragment to the ring automatically (Used means "currently on the board").
+```text
+fontPx     = 34 * zoom * textScale
+naturalRow = fontPx * 1.16
+lineHeight = naturalRow + rowSpacing * 44 * zoom
+```
 
-So "moving to the right" is the visible result of rule 3 — the used chip is consumed and the belt advances.
+So `textScale` multiplies both font AND row pitch — identical in effect to `zoom`. And `rowSpacing` is a 0–100% continuous "extra pixels" slider, not a multiple of cursor height. That is exactly the duplication reported.
 
-## What is actually happening now
+## Target model
 
-The tap logic itself is intact. `handleActiveTap` in `FloatingNumberPanel.tsx` still marks the fragment used, records the click order, and recalculates the window anchor so a new chip enters from the right. The click handler still dispatches to it, and the parent still passes `consumedAbsIdx` / `onUse` / `onUnuse`.
+Three independent quantities:
 
-The break is **downstream**, in `PresentationView.tsx`. There is a reconciliation effect (around lines 2559-2590) that implements rule 5: after every board change it re-derives the Used set by searching the whiteboard's plain text for each used fragment's normalised label. If it cannot find the text, it assumes the ink was deleted and **un-marks the fragment**.
+```text
+CURSOR_H  = 34 * 1.16 * zoom          // one cursor height, zoom-only
+FONT_PX   = 34 * zoom * textScale     // ink size only
+ROW_PITCH = CURSOR_H * rowSpacing     // rowSpacing ∈ {1,2,3,4,...}
+```
 
-That text search cannot match ink that was not written as a plain matching string — most importantly fragments inserted as **stacked fractions** (`onInsertFrac` → `insertFractionAtSensor`), which build a structured fraction node rather than a `num/den` string. Any other structured write path (roots, powers rendered as structures) has the same problem.
+- **Zoom** — unchanged behaviour, scales the whole board (page, margins already stay fixed by design).
+- **Text Size** — changes `FONT_PX` only. Row pitch is untouched.
+- **Row Spacing** — integer multiplier of cursor height between writable rows. Nothing else.
 
-Result: tap → chip is marked used and the belt starts to advance → the effect runs on the very next render, fails to find the text, deletes the index from `consumedAbsIdx` → the chip snaps back into the ring. Visually: **the floating number does not move.**
+## Text grows downward
 
-## The fix
+The board already positions rows at a uniform pitch and reserves extra rows for tall objects via `extraRowsFor` in `PresentationView.tsx` (fraction/matrix/big-operator → +1 row). Text Size will hook into the same law instead of inflating the pitch:
 
-**1. Stop deriving Used from board text. Derive it from board identity.**
-Tag every board write that comes from a floating fragment with the fragment's absolute reservoir index (an id carried on the free-line row / fraction node / box that produced it). The reconciliation effect then asks "does a board element tagged with index N still exist?" instead of "does this string appear somewhere in the ink?". This is exact for every write path — plain text, fractions, roots, structures — and keeps rule 5 (delete the ink → chip returns) working correctly.
+- Rows keep their top edge fixed; ink is baseline-anchored downward from the row top.
+- A row whose measured height (already tracked in `lineHeightsRef` via `handleLineMeasure`) exceeds its allotted `ROW_PITCH` reserves `ceil(measured / ROW_PITCH) - 1` extra rows, so the following content moves down. Shrinking the text releases those rows and content moves back up.
+- This replaces the fixed `return 1` in `extraRowsFor` with `max(tallStructureRows, measuredOverflowRows)` — the structural law is preserved as a floor, so fractions never regress.
 
-**2. Make the reconciliation effect conservative during the transition.**
-Never un-mark an index that was marked in the same interaction tick; only un-mark on a genuine board mutation. This removes the snap-back race even if a write path is missed.
+## Changes
 
-**3. Verify against the live board, not just unit tests.**
-Drive the Smartboard with Playwright: tap a plain fragment, tap a fraction fragment, confirm in both cases that the chip becomes Used, the window advances by one and a new chip appears on the right, and that deleting the ink returns the chip to its original slot.
+1. `src/lib/smartboard/grid.ts`
+   - `getGrid(zoom, rowSpacing, textScale)`: `CURSOR_H = BASE_FONT_PX * MIN_ROW_PER_FONT * zoom`; `LINE_HEIGHT = CURSOR_H * clampRowSpacing(rowSpacing)`; `FONT_PX = BASE_FONT_PX * zoom * textScale`.
+   - `clampRowSpacing` becomes integer clamp 1..6 (was 0..1 fractional). Export `CURSOR_HEIGHT` on the Grid object for callers.
+   - Keep `clampTextScale` (0.7..1.8).
+2. `src/components/smartboard/PresentationView.tsx`
+   - Default `rowSpacing` state 1 (not 0); migrate old stored fractional values (`< 1` → 1) when reading `smartboard:rowSpacingV1:*`.
+   - `extraRowsFor`: add measured-height overflow term described above.
+   - Caret height uses `CURSOR_H` (zoom only) so the cursor stays a stable row unit while text scales.
+3. `src/components/smartboard/SettingsSheet.tsx`
+   - Row Spacing control becomes a stepped integer control (1×, 2×, 3×, 4×) labelled in cursor heights, with updated helper text.
+   - Text Size keeps its 70–180% slider, helper text corrected to "does not change row spacing".
+4. `src/components/smartboard/MoreMenu.tsx`
+   - Rename "Workspace Zoom" / "Zoom Controls" to a single **Zoom** entry (behaviour untouched) so there is one clearly-named zoom control.
+5. Tests — extend `src/test/sensorSpacing.test.ts` (or a new `gridIndependence.test.ts`) to assert: changing `textScale` does not change `LINE_HEIGHT`; changing `rowSpacing` does not change `FONT_PX`; `rowSpacing = n` gives exactly `n × CURSOR_H`.
 
-**4. Regression tests.**
-Add tests covering: tap advances the window right; tap of a fraction fragment stays Used after the reconciliation effect runs; deleting the ink un-marks it; tapping a Used chip restores its original position.
+## Notes
 
-## Technical notes
-
-- Files involved: `src/components/smartboard/FloatingNumberPanel.tsx` (tap + window model — expected to need little change), `src/components/smartboard/PresentationView.tsx` (the reconciliation effect, `normalizeFloatingPresence`, `countTokenOccurrences`, `onInsert` / `onInsertFrac` wiring), plus the sensor-write helpers that create fraction nodes.
-- No change to the lesson-note reservoir, its order, or the extraction pipeline — the Smartboard remains display-only.
-- One open item to confirm during implementation: whether any non-fraction write path also loses text fidelity; the identity-tag approach makes that moot, but I will confirm it in the live test.
+- Row Spacing is global to the Smartboard grid, so it applies uniformly to Introduction, Examples, Solutions, Classwork, Homework and Assessment bands automatically — they all read the same `grid`.
+- Fractions/roots/powers keep their intrinsic rendered height; only the gap between writable rows is governed by Row Spacing.
