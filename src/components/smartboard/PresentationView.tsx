@@ -2185,8 +2185,20 @@ const PresentationView = ({
      of each written line against the target. Tokens belonging to a
      completed line get dimmed in the carrier; structures it required get
      dimmed in the structures strip. */
+  // ── ONE ACTIVE LINE ──────────────────────────────────────────────────
+  // There used to be three parallel cursors (activeLineIdx for grading,
+  // floatingLineIdx for the chip strip, manualFloatingLineIdx for manual
+  // navigation) which drifted apart, so the Floating Number Display, the
+  // Presenter Preview and the Check engine could each believe a different
+  // line was active. They are now ONE state. The old setter names are kept
+  // as aliases so every existing call site funnels into the same value.
   const [activeLineIdx, setActiveLineIdx] = useState<number>(0);
-  const [floatingLineIdx, setFloatingLineIdx] = useState<number>(0);
+  const floatingLineIdx = activeLineIdx;
+  const setFloatingLineIdx = setActiveLineIdx;
+  const setManualFloatingLineIdx = useCallback((v: number | null) => {
+    if (typeof v === "number") setActiveLineIdx(v);
+  }, []);
+
 
   // ─── Placeholder sweep on advance ────────────────────────────────────
   // When the teacher moves forward (activeLineIdx increases), any row on
