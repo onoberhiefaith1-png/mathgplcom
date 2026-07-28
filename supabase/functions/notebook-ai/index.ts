@@ -238,11 +238,15 @@ ${cleaned}`;
   // Deterministic hard-strip: even if the corrector loop gave up, no raw
   // \letters, slash fraction, or unbalanced template may leave the server.
   cleaned = hardStripMath(cleaned);
+  // Presentation hygiene: markdown / JSON / escape residue / placeholders can
+  // NEVER reach the teacher. Deterministic and applied to every mode.
+  cleaned = sanitizePresentation(cleaned);
   const finalResults = runValidationPipeline(cleaned, opts.kind);
   const lastFailing = firstFailingStage(finalResults);
   const warnings = lastFailing
     ? lastFailing.violations.map((v) => `[Stage ${v.phase}] ${v.rule}: ${v.detail}`)
     : [];
+  for (const r of residueReport(cleaned)) warnings.push(`[Hygiene] raw syntax residue: ${r}`);
   if (warnings.length) {
     console.warn(`[notebook-ai] validation warnings remain after stage ${lastStage}:`, warnings);
   }
