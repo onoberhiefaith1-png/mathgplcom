@@ -21,7 +21,11 @@ const matchBrace = (s: string, i: number): number => {
     else if (s[j] === "}") d--;
     if (d) j++;
   }
-  return d === 0 ? j : -1;
+  // Returns the index AFTER the closing brace (every call site below slices
+  // with `end - 1` and resumes at `end`). Returning the index OF the brace
+  // silently dropped the last character of every group and made the
+  // `src[aEnd] === "{"` test in \frac fail, leaking raw LaTeX into notes.
+  return d === 0 ? j + 1 : -1;
 };
 
 const isBaseChar = (ch: string): boolean => /[A-Za-z0-9)\]}]/.test(ch);
