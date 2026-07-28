@@ -226,9 +226,19 @@ const PresenterPreviewPanel = ({
     [notebookId],
   );
 
+  const onActivateLineRef = useRef(onActivateLine);
+  onActivateLineRef.current = onActivateLine;
+
   const selectTarget = useCallback(
     (t: EditTarget) => {
       if (mode !== "edit") return;
+      // ONE ACTIVE LINE: touching an item that belongs to a solution line
+      // moves the whole system (Floating Number Display, Smartboard, Check,
+      // Reasoning) onto that line — even when the click merely toggles the
+      // mirror selection off.
+      if (typeof t.lineIdx === "number" && t.lineIdx >= 0) {
+        onActivateLineRef.current?.(t.lineIdx, t.beatId ?? null);
+      }
       setSelection((cur) =>
         cur &&
         cur.kind === t.kind &&
@@ -241,6 +251,7 @@ const PresenterPreviewPanel = ({
     },
     [mode],
   );
+
 
   const isSelected = (t: Partial<EditTarget>) =>
     !!selection &&
