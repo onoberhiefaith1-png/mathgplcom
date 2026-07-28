@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
-import { PLACEHOLDER_COLOR, visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
+import { visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
 
 /** Background of the floating chip bar — placeholders must stay visible on it. */
 const CHIP_SURFACE = "#ffffff";
