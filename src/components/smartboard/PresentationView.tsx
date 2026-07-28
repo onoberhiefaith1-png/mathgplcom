@@ -3101,6 +3101,18 @@ const PresentationView = ({
       }
       return;
     }
+    // AWARDED MARKS ARE PERMANENT — once a line has earned its mark it is
+    // never re-evaluated, in either mode. Editing it afterwards cannot take
+    // the mark away and cannot earn it twice.
+    {
+      const slot = `${current.id}:${target.lineId}`;
+      if (slot in solvedSlots) {
+        if (mode === "manual") {
+          toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slot]} marks.` });
+        }
+        return;
+      }
+    }
     if (mode === "auto") {
       const slot = `${current.id}:${target.lineId}`;
       if (slot in solvedSlots) return; // already awarded
