@@ -758,7 +758,7 @@ const PresentationView = ({
     const host = boardScrollRef.current;
     const cx = host ? host.clientWidth / 2 : 400;
     // Spawn within the active band if possible, otherwise at current sensor.
-    const lineY = grid.MARGIN_TOP + sensor.line * grid.LINE_HEIGHT + grid.LINE_HEIGHT * 0.5;
+    const lineY = rowTopPx(sensor.line) + grid.LINE_HEIGHT * 0.5;
     setSmartLines((prev) => [...prev, newSmartLine(cx, lineY, grid.LINE_HEIGHT * 2)]);
   };
 
