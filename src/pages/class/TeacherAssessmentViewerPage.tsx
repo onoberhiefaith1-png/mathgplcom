@@ -23,7 +23,10 @@ const TeacherAssessmentViewerPage = () => {
   // different sessions and nothing would mirror.
   const explicitQuestionId = searchParams.get("q");
   const [followedQuestionId, setFollowedQuestionId] = useState<string | null>(null);
-  const questionId = explicitQuestionId ?? followedQuestionId;
+  const [assessmentFirstQid, setAssessmentFirstQid] = useState<string | null>(null);
+  // Students always run a per-question board, so never fall back to the legacy
+  // shared scope: follow the student's live question, else the first question.
+  const questionId = explicitQuestionId ?? followedQuestionId ?? assessmentFirstQid;
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
   const [studentName, setStudentName] = useState<string>("");
@@ -66,6 +69,7 @@ const TeacherAssessmentViewerPage = () => {
       ]);
       if (!a) { navigate(returnTo, { replace: true }); return; }
       setAssessment(a as unknown as AssessmentLike);
+      setAssessmentFirstQid(((a as unknown as AssessmentLike).questions ?? [])[0]?.id ?? null);
       const m = ((mem ?? []) as any[]).find((x) => x.user_id === studentId);
       setStudentName(m?.display_name ?? "Student");
       setLoading(false);

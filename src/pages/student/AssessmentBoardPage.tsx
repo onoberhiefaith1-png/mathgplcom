@@ -21,8 +21,8 @@ const AssessmentBoardPage = () => {
   const { classId, assessmentId } = useParams<{ classId: string; assessmentId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-  const questionId = searchParams.get("q");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const questionParam = searchParams.get("q");
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
   const shouldTrackPresence =
@@ -115,6 +115,22 @@ const AssessmentBoardPage = () => {
   }, [shouldTrackPresence, classId, assessmentId, uid]);
 
 
+  // EVERY question gets its own Smartboard. When the URL omits ?q= (the
+  // assignment path), fall back to the assessment's first question so the
+  // board is never run in the legacy "one shared board per assessment" mode.
+  const questionId = useMemo(
+    () => questionParam ?? (assessment?.questions?.[0]?.id ?? null),
+    [questionParam, assessment],
+  );
+
+  // Keep ?q= in the URL so refresh / back restores the same question board.
+  useEffect(() => {
+    if (questionParam || !questionId) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("q", questionId);
+    setSearchParams(next, { replace: true });
+  }, [questionParam, questionId, searchParams, setSearchParams]);
+
   const boardSource = useMemo(() => {
     if (!assessment) return null;
     const scoped = questionId
@@ -122,6 +138,7 @@ const AssessmentBoardPage = () => {
       : assessment;
     return buildAssessmentBoardSource(scoped.questions?.length ? scoped : assessment);
   }, [assessment, questionId]);
+
 
 
   const isPastDue = !!assessment?.due_at && new Date(assessment.due_at).getTime() <= Date.now();

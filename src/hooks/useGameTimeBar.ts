@@ -73,35 +73,81 @@ export function useGameTimeBar(gameId: string | null | undefined): UseGameTimeBa
     return () => { cancelled = true; };
   }, [gameId, refresh]);
 
+  // Live mirror of the teacher's (master) timer row. Self-healing: a failed or
+  // dropped join would otherwise freeze the student on the row fetched at
+  // load, so the subscription retries and a slow refetch acts as a fallback.
   useEffect(() => {
     if (!gameId) return;
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`game-time-bar-${gameId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "game_time_bars", filter: `game_id=eq.${gameId}` },
-          (payload) => {
-            if (payload.eventType === "DELETE") {
-              setRow(null);
-            } else {
-              setRow((payload.new as unknown) as GameTimeBarRow);
+    let retries = 0;
+
+    const connect = () => {
+      void ensureRealtimeAuth().then(() => {
+        if (cancelled) return;
+        ch = supabase
+          .channel(`game-time-bar-${gameId}`)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "game_time_bars", filter: `game_id=eq.${gameId}` },
+            (payload) => {
+              if (payload.eventType === "DELETE") {
+                setRow(null);
+              } else {
+                setRow((payload.new as unknown) as GameTimeBarRow);
+              }
+            },
+          )
+          .subscribe((status) => {
+            if (cancelled) return;
+            if (status === "SUBSCRIBED") {
+              retries = 0;
+              void refresh();
+              return;
             }
-          },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [gameId]);
+            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && retries < 6) {
+              retries += 1;
+              const dead = ch;
+              if (dead) supabase.removeChannel(dead);
+              ch = null;
+              window.setTimeout(() => { if (!cancelled) connect(); }, Math.min(3000, 400 * retries));
+            }
+          });
+      });
+    };
+    connect();
+
+    const revive = () => {
+      if (cancelled || document.visibilityState === "hidden") return;
+      void refresh();
+      if (ch && ch.state === "joined") return;
+      if (ch) supabase.removeChannel(ch);
+      ch = null;
+      retries = 0;
+      connect();
+    };
+    window.addEventListener("online", revive);
+    document.addEventListener("visibilitychange", revive);
+
+    // Convergence fallback — cheap poll so the student's timer still matches
+    // the teacher's even if realtime is unavailable.
+    const poll = window.setInterval(() => { if (!cancelled) void refresh(); }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      window.removeEventListener("online", revive);
+      document.removeEventListener("visibilitychange", revive);
+      if (ch) supabase.removeChannel(ch);
+    };
+  }, [gameId, refresh]);
 
   useEffect(() => {
     if (!row?.started_at || row.paused_at) return;
     const id = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(id);
   }, [row?.started_at, row?.paused_at]);
+
 
   const durationMs = Math.max(1, Number(row?.duration_seconds ?? 0)) * 1000;
   const elapsedMs = useMemo(() => {

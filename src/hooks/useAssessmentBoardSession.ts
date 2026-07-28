@@ -54,6 +54,7 @@ export function useAssessmentBoardSession(opts: {
   const bcTimer = useRef<number | null>(null);
   const dbTimer = useRef<number | null>(null);
   const lastFingerprint = useRef<string>("");
+  const lastSnapshotRef = useRef<AssessBoardSnapshot | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,37 +68,60 @@ export function useAssessmentBoardSession(opts: {
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
-    const query = perQuestion
-      ? supabase
+
+    const applyRow = (data: { state_json?: unknown } | null) => {
+      if (cancelled || !data?.state_json) return false;
+      const sj = data.state_json as unknown;
+      if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
+        setIncoming(sj as AssessBoardSnapshot);
+        return true;
+      }
+      return false;
+    };
+
+    (async () => {
+      if (perQuestion) {
+        const { data, error } = await supabase
           .from("assessment_question_board_state")
           .select("state_json, author, updated_at")
           .eq("assessment_id", assessmentId!)
           .eq("student_id", studentId!)
           .eq("question_id", questionId!)
-          .maybeSingle()
-      : supabase
+          .maybeSingle();
+        if (error) console.warn("[board-session] load failed", error.message);
+        if (applyRow(data)) return;
+        // One-time migration read: work saved before per-question boards
+        // existed lives in the legacy shared row. Only adopt it when it
+        // belongs to THIS question, so nothing bleeds across questions.
+        const { data: legacy } = await supabase
           .from("assessment_board_state")
-          .select("state_json, author, updated_at")
+          .select("state_json, question_id")
           .eq("assessment_id", assessmentId!)
           .eq("student_id", studentId!)
           .maybeSingle();
-    query.then(({ data, error }) => {
-      if (cancelled) return;
-      if (error) {
-        console.warn("[board-session] load failed", error.message);
+        const legacyQid = (legacy as { question_id?: string | null } | null)?.question_id ?? null;
+        if (legacyQid && legacyQid === questionId) applyRow(legacy as never);
         return;
       }
-      if (!data?.state_json) return;
-      const sj = data.state_json as unknown;
-      if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
-        setIncoming(sj as AssessBoardSnapshot);
-      }
-    });
+
+      const { data, error } = await supabase
+        .from("assessment_board_state")
+        .select("state_json, author, updated_at")
+        .eq("assessment_id", assessmentId!)
+        .eq("student_id", studentId!)
+        .maybeSingle();
+      if (error) console.warn("[board-session] load failed", error.message);
+      applyRow(data);
+    })();
+
     return () => { cancelled = true; };
   }, [active, assessmentId, studentId, questionId, perQuestion]);
 
+
   // Live channel. Self-healing: a join can fail if the socket token was not
   // ready yet, which would otherwise kill mirroring for the whole session.
+  // It also re-subscribes when the browser comes back online / the tab is
+  // refocused, so neither side ever needs a manual page refresh.
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -115,11 +139,18 @@ export function useAssessmentBoardSession(opts: {
           })
           .subscribe((status) => {
             if (cancelled) return;
-            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && retries < 3) {
+            if (status === "SUBSCRIBED") {
+              retries = 0;
+              // Catch the other side up in one frame after a (re)join.
+              const last = lastSnapshotRef.current;
+              if (last) void ch.send({ type: "broadcast", event: "state", payload: last });
+              return;
+            }
+            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && retries < 6) {
               retries += 1;
               supabase.removeChannel(ch);
               if (chanRef.current === ch) chanRef.current = null;
-              window.setTimeout(() => { if (!cancelled) connect(); }, 600 * retries);
+              window.setTimeout(() => { if (!cancelled) connect(); }, Math.min(3000, 400 * retries));
             }
           });
         chanRef.current = ch;
@@ -127,8 +158,25 @@ export function useAssessmentBoardSession(opts: {
     };
     connect();
 
+    const revive = () => {
+      if (cancelled) return;
+      if (document.visibilityState === "hidden") return;
+      const ch = chanRef.current;
+      if (ch && ch.state === "joined") return;
+      if (ch) {
+        supabase.removeChannel(ch);
+        chanRef.current = null;
+      }
+      retries = 0;
+      connect();
+    };
+    window.addEventListener("online", revive);
+    document.addEventListener("visibilitychange", revive);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("online", revive);
+      document.removeEventListener("visibilitychange", revive);
       if (chanRef.current) {
         supabase.removeChannel(chanRef.current);
         chanRef.current = null;
@@ -144,14 +192,17 @@ export function useAssessmentBoardSession(opts: {
     lastFingerprint.current = fingerprint;
 
     const snapshot: AssessBoardSnapshot = { v: 1, author: selfId, ts: Date.now(), ...state };
+    lastSnapshotRef.current = snapshot;
 
-    // Fast path — broadcast (≈live TV latency).
+    // Fast path — broadcast (≈live TV latency). Kept at one frame so strokes,
+    // drags, deletes and floating-number drops all stream without lag.
     if (bcTimer.current) window.clearTimeout(bcTimer.current);
     bcTimer.current = window.setTimeout(() => {
       const ch = chanRef.current;
       if (!ch) return;
       void ch.send({ type: "broadcast", event: "state", payload: snapshot });
-    }, 90);
+    }, 30);
+
 
     // Durable path — debounced upsert. Errors are surfaced (they used to be
     // swallowed, which hid a missing-grant failure for the whole feature) and
