@@ -50,6 +50,55 @@ const verdictLabel = (v: string): string => {
 const atomize = (s: string): string[] =>
   (s.match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
 
+/** A bounded viewer for ONE mathematical line.
+ *
+ *  The expression is rendered (never printed as source) and wraps freely.
+ *  When it is taller than the viewer, a scroll track appears on the SIDE of
+ *  the block — outside the math area — so the teacher can scroll through the
+ *  whole line without any part of it being hidden behind the bar. The
+ *  Expected line is `sticky`, so it stays visible while the rest of the
+ *  panel scrolls. */
+const LineViewer = ({
+  label,
+  right,
+  children,
+  resetKey,
+  sticky = false,
+}: {
+  label: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  resetKey: string;
+  sticky?: boolean;
+}) => {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [resetKey]);
+  return (
+    <div
+      className={`rounded-lg border border-border bg-card/95 p-3 backdrop-blur ${
+        sticky ? "sticky top-0 z-10 shadow-sm" : ""
+      }`}
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+        {right}
+      </div>
+      <div className="flex items-stretch gap-2">
+        <div
+          ref={scrollRef}
+          className="reasoning-line-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden text-[15px] leading-relaxed"
+          style={{ maxHeight: "9.5rem", overflowWrap: "anywhere" }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 interface Props {
   assessmentId: string;
   studentId: string;
