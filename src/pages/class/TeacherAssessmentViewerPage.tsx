@@ -34,6 +34,7 @@ const TeacherAssessmentViewerPage = () => {
   const [studentName, setStudentName] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
   const [reasoningOpen, setReasoningOpen] = useState(false);
+  const [reasoningFull, setReasoningFull] = useState(false);
 
   // Poll the student's most recently touched question board and follow it.
   useEffect(() => {
