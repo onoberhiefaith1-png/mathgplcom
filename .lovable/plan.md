@@ -1,22 +1,33 @@
-## Problem
+## Goal
 
-On the teacher's student-viewer the top strip shows `0 / 45` and no line chips marked, while the student's own board shows `21 / 45` with lines 1–7 marked.
+Placeholders must be visible again on every floating chip (√□, □^{□}, (□), □/□ …). The only thing that was ever wrong was the **fraction chip showing four cells instead of two** — the correction should be "one slot per real cell", not "no slots at all".
 
-Confirmed cause (verified in the database and the code):
-- The student's row in `assessment_progress` for this assessment holds `score = 21` and 7 solved line slots — the data is correct and the teacher's account is allowed to read it (an owner read policy exists).
-- `PresentationView.tsx` seeds its grading state (`solvedSlots`, `assessScore`) by querying `assessment_progress` for **the currently logged-in user's id** (`auth.getUser()`), not for the student whose board is being viewed. On the teacher's screen that lookup finds no row, so the score renders as `0 / 45` and every line chip stays unmarked.
-- The realtime subscription filters only on `assessment_id`, with no student check, so it can also apply the wrong person's row when several students are graded during a class.
+## What I verified so far
 
-## Fix
+- The destructive `stripStructureShells` pass is already gone from `FloatingNumberPanel.tsx`; chip tokens now pass through a validation guard unchanged.
+- The renderer itself is still placeholder-capable: rendering `x=\frac{□}{□}` produces exactly 2 slots and `\sqrt{□}` produces 1 slot (existing tests `floatingChipPlaceholders`, `boardShellPlaceholders` pass).
+- So the missing squares are **not** coming from the panel's chip renderer — the tokens reaching it, or the slot styling used in that surface, must already be placeholder-free. I have not yet confirmed which of those two it is, so step 1 is a live trace, not an assumed cause.
 
-In `src/components/smartboard/PresentationView.tsx`:
+## Plan
 
-1. Resolve the progress owner once: use `boardStudentId` when present (teacher viewing a student), otherwise the signed-in user's id (student on their own board).
-2. Seed `solvedSlots` / `assessScore` from `assessment_progress` for that resolved id, and re-run when it changes.
-3. In the realtime handler, ignore any payload whose `student_id` differs from the resolved id, so the teacher only ever mirrors the student they opened.
+1. **Trace one real chip end-to-end (first step, no code change until this is answered).**
+   Instrument/inspect the actual reservoir data on the assessment board: log the raw `reservoir.fragments` token strings and compare them against what Present Preview holds. This tells us whether the `□` is missing from the token (upstream extraction/mirror) or present but rendered invisibly (styling/slot path).
 
-No schema changes, no policy changes, no writes from the teacher side — the teacher view stays read-only and simply mirrors the student's stored marks. The existing top strip and line-chip rendering already derive from `solvedSlots`, so both the `x / 45` score and the marked lines 1–7 will appear once the correct row is loaded.
+2. **If tokens lost their `□`** — repair at the point of loss, not in the panel:
+   - `src/lib/smartboard/rowAscii.ts`: an empty `box` node currently flattens to an empty string, so a shell round-tripping through ASCII silently loses its slot. Emit `□` for an empty box.
+   - `src/lib/smartboard/mathTree.ts`: the "drop redundant empty box inside a structural slot" rule must stay limited to *nested duplicates* (box inside a slot that already draws its own caret). It must never remove the slot itself, and must not apply to radicals, powers, brackets or standalone shells.
 
-## Verification
+3. **If tokens are fine but slots are invisible** — restore visible placeholder styling for the floating surfaces (`FloatingNumberPanel`, `FloatingDisplayStrip`) by passing the placeholder colour through and making sure a non-focused slot still paints its outlined square.
 
-Open the same teacher viewer route for this student and confirm the header shows `21 / 45` with lines 1–7 marked, and that a fresh mark on the student's board updates the teacher's strip live.
+4. **Enforce the real rule (fraction = 2 cells).**
+   Keep the "adopt orphan `□` as numerator/denominator" repair in `mathRender.ts` so a brace-stripped `\frac□□` still draws one fraction with two cells — never a shell plus two loose boxes.
+
+5. **Regression tests** (extend the existing files rather than adding new ones):
+   - `x=\frac{□}{□}` → exactly 2 placeholder slots (already covered).
+   - `±\sqrt{□}` → exactly 1 slot (must be visible, not stripped).
+   - `□^{□}`, `(□)`, bare `□` chips → their slots survive.
+   - A chip that is pure scaffolding is still displayed (no chip is dropped for "being empty scaffolding").
+
+## Technical notes
+
+Files in scope: `src/components/smartboard/FloatingNumberPanel.tsx`, `src/components/lessonnotes/FloatingDisplayStrip.tsx`, `src/lib/notebook/mathRender.ts`, `src/lib/smartboard/rowAscii.ts`, `src/lib/smartboard/mathTree.ts`, plus tests under `src/test/`. No backend or schema changes.
