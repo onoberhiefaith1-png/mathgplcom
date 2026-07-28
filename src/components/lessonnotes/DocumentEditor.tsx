@@ -93,6 +93,11 @@ import {
   detectSectionKind, type SectionKind,
 } from "@/lib/lessonnotes/sectionKinds";
 import { persistGeneratedExample } from "@/lib/lessonnotes/persistGenerated";
+import {
+  buildLessonTeachingContext,
+  type LessonTeachingContext,
+  type SectionChunk,
+} from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
 
 const SECTION_OPTIONS: SectionKind[] = [
