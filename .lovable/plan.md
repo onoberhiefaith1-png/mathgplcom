@@ -1,40 +1,31 @@
-## Root cause (confirmed)
+## What I verified
 
-I read the student's live board record for this assessment. The board tree for the active row is:
+- `PresentationView.tsx:3444` (`buildLiveSnapshot`) converts every student row to a **flat ASCII string** (`rowToAscii`) before broadcasting. Only `rowsAscii` / `linesAscii` are sent — the actual math tree never leaves the board.
+- `TeacherReasoningPanel.tsx:324` reads that string and hands it to `PresenterMath` → `renderMathInline`, which **re-parses the text back into a new structure**.
+- The durable fallback path (`TeacherReasoningPanel.tsx:239`) does the same: it reads the real tree out of `state_json.freeLines` and immediately flattens it to ASCII.
 
-```text
-x = frac( box( box( −b ± sqrt(b² − 4ac ...) ) ) , 2a )
-```
+So the Student Line is exactly what you diagnosed: a second mathematical object, rebuilt from text. An empty fraction on the board is `frac[ box[ ] , box[ ] ]`; ASCII turns it into `()/()`; the re-parser then makes a fraction whose numerator and denominator each contain a bracket pair — hence four placeholder cells instead of two, and hence a numerator cell that isn't the real one the student types into.
 
-The Smartboard renderer draws every node kind, including `box` (the outlined cell used by the fraction/box workflow). The shared flattener `nodeToAscii` in `src/lib/smartboard/rowAscii.ts` has cases for `char, frac, sqrt, power, sup, sub, subsup, bracket, bigop, accent, binom, matrix` — but **no case for `box`**. A `box` node therefore flattens to nothing, so the whole numerator vanishes and the Reasoning panel (and the grader, which uses the same string) sees `x=()/2a`.
+## Fix: broadcast the object, not a description of it
 
-So the Student Line is not being rebuilt from floating numbers or re-parsed — it already comes from the same live object as the board. The one live object simply has a lossy translation step.
+1. **Send the tree.** In `buildLiveSnapshot`, add `rowsTree: Record<number, Row>` and `linesTree: Record<string, Row>` alongside the existing ASCII fields (ASCII stays — the grader and diagnostics use it, and it remains the fallback for old clients). Rows are sent verbatim, no normalisation, no cloning through any parser.
+2. **Render the tree.** In `TeacherReasoningPanel`, the Student Line uses the SmartBoard's own recursive renderer (`MathTreeRender`) in a read-only mode (inert cursor, no `onCursorChange` writes, board ink/placeholder colours), instead of `PresenterMath`. Only if `linesTree` is absent (legacy payload) does it fall back to the ASCII renderer.
+3. **Fallback path mirrors too.** `loadFallback` keeps `state_json.freeLines[n]` as the raw row and stores it in `rowsTree`; ASCII is derived only for grading text, never for display.
+4. **Expected Line stays as-is** — it is authored teacher text, not a live object, so it keeps rendering through `PresenterMath`.
+5. **Read-only mode in `MathTreeRender`.** Add an optional `readOnly` flag that disables pointer/caret handlers and hides the caret, so the mirror can never mutate or steal focus.
 
-## Changes
+## Placeholder duplication at the source
 
-### 1. One lossless flattening of the live math object
-`src/lib/smartboard/rowAscii.ts`
-- Add a `box` case: a box is a transparent container — emit its body row verbatim (empty box → empty string, so a genuinely empty slot stays empty).
-- Make the switch exhaustive with a `never` check so any future node kind fails typecheck instead of silently deleting maths.
-- Same fix mirrored in the edge-side flattener if one exists under `supabase/functions/_shared` (checked during implementation).
+Even mirrored, an object like `frac[ box[ box[ ] ] , … ]` (nested empty boxes — I saw exactly this shape in the persisted student board state) renders as a cell inside a cell, which is why typing lands in the wrong one. I'll add a small normaliser applied where fraction/floating-chip structures are inserted on the board: a `box` whose only child is a single `box` collapses to one box. One writable cell per slot, on the board and therefore in the mirror.
 
-Effect: Smartboard, Student Line, Teacher live board and the `grade-line` grader all receive identical text, since they all already read this one function. Regression test added: box-wrapped numerator round-trips to `(−b±sqrt(b²−4ac))/(2a)`.
+## Debug aid
 
-### 2. Expected Line comes only from the authored equation
-`src/components/smartboard/TeacherReasoningPanel.tsx`
-- Keep `equationAscii` (the teacher's orange normal-mode line) as the sole source. Verified the answer key for this assessment stores it (e.g. `x² + 5x + 6 = 0`).
-- Remove the fallback that joins the floating-number tokens into a pseudo-equation; when no authored equation exists, show "no authored equation for this line" instead of a reconstruction.
+Add a tiny dev-only "object id" readout in the Reasoning panel: a stable structural hash of the rendered row (kind/arity path signature), shown next to the Student Line label, plus the same hash shown on the board in dev. Matching hashes prove one object; diverging hashes point at the copy.
 
-### 3. Dynamic box behaviour
-`LineViewer` in `TeacherReasoningPanel.tsx`
-- Remove the `maxHeight: 9.5rem` cap and inner vertical scroller: boxes grow downward without limit and the sections below simply move down (the panel's own scrollbar already handles the page).
-- Fixed width, no crop, no overflow, no reflow of the maths: measure the rendered expression against the container and apply a single uniform `transform: scale(k)` (with `transform-origin: left top` and matching reserved height) so an over-wide equation shrinks until it fits. Re-measured on content change and on container resize (`ResizeObserver`), with a sensible minimum scale.
+## Files
 
-### 4. Dedicated Reasoning full screen
-- Add a second icon button beside the "Reasoning" title in the panel header (expand / collapse), reporting the state up via a new optional `onToggleFullscreen` / `fullscreen` prop.
-- `src/pages/class/TeacherAssessmentViewerPage.tsx`: when active, hide the Smartboard column and let the Reasoning panel fill the window (all sections intact). The Smartboard stays mounted but visually hidden so the live realtime subscription, board feed and evaluation keep running uninterrupted.
-- The existing Smartboard full-screen button is untouched.
-
-### Verification
-- Unit test for the box-node flattening plus the existing reasoning/answer-key suites.
-- Manual pass in the preview on this student's board: confirm the Student Line renders `x = (−b ± √(b² − 4ac)) / 2a` identically to the board, the Expected Line renders the authored equation, a deliberately long expression scales down inside a fixed-width box, and Reasoning full screen keeps updating live.
+- `src/components/smartboard/PresentationView.tsx` — extend snapshot payload with `rowsTree` / `linesTree`.
+- `src/components/smartboard/TeacherReasoningPanel.tsx` — render Student Line via `MathTreeRender`; keep tree in fallback; hash readout.
+- `src/components/smartboard/MathTreeRender.tsx` — `readOnly` prop.
+- `src/lib/smartboard/mathTree.ts` (or a small helper) — nested-empty-box collapse + structural hash.
+- `src/test/` — a test asserting an empty fraction mirrors as exactly two slots, and that the mirrored row's structural hash equals the board row's.
