@@ -758,7 +758,7 @@ const PresentationView = ({
     const host = boardScrollRef.current;
     const cx = host ? host.clientWidth / 2 : 400;
     // Spawn within the active band if possible, otherwise at current sensor.
-    const lineY = grid.MARGIN_TOP + sensor.line * grid.LINE_HEIGHT + grid.LINE_HEIGHT * 0.5;
+    const lineY = rowTopPx(sensor.line) + grid.LINE_HEIGHT * 0.5;
     setSmartLines((prev) => [...prev, newSmartLine(cx, lineY, grid.LINE_HEIGHT * 2)]);
   };
 
@@ -1032,6 +1032,70 @@ const PresentationView = ({
       : 0;
     return Math.max(structural, overflow);
   };
+
+  // ── ROW PUSH-DOWN LAW ────────────────────────────────────────────────
+  // Row Spacing defines a CONSTANT gap between consecutive Rows. Text Size
+  // must never eat into that gap. When a Row's ink is taller than one
+  // cursor height, the overflow is taken from the INFINITE space below:
+  // every Row underneath is pushed down by exactly that overflow. Shrinking
+  // the text releases the space again and the rows below travel back up.
+  const beatOverflowRef = useRef<Record<string, { at: number; px: number }>>({});
+  const [beatTick, setBeatTick] = useState(0);
+
+  const shiftEntries = useMemo(() => {
+    const out: Array<[number, number]> = [];
+    const heights = lineHeightsRef.current;
+    for (const k of Object.keys(heights)) {
+      const line = Number(k);
+      if (!Number.isFinite(line)) continue;
+      const px = Math.max(0, (heights[line] ?? 0) - grid.CURSOR_HEIGHT);
+      if (px > 0.5) out.push([line, px]);
+    }
+    for (const v of Object.values(beatOverflowRef.current)) {
+      if (v.px > 0.5) out.push([v.at, v.px]);
+    }
+    out.sort((a, b) => a[0] - b[0]);
+    return out;
+    // heightsTick / beatTick force recomputation when measurements change.
+  }, [grid.CURSOR_HEIGHT, heightsTick, beatTick]);
+
+  /** Accumulated downward push (px) applied to `line` by taller ink above. */
+  const shiftFor = useCallback((line: number): number => {
+    let s = 0;
+    for (const [l, px] of shiftEntries) {
+      if (l >= line) break;
+      s += px;
+    }
+    return s;
+  }, [shiftEntries]);
+
+  /** Screen Y of a Row's top, including push-down. */
+  const rowTopPx = useCallback(
+    (line: number) => grid.MARGIN_TOP + line * grid.LINE_HEIGHT + shiftFor(line),
+    [grid.MARGIN_TOP, grid.LINE_HEIGHT, shiftFor],
+  );
+
+  /** Inverse of the push-down map: converts a canvas Y back into the
+   *  equivalent unshifted Y so all existing row math keeps working. */
+  const unshiftY = useCallback((y: number): number => {
+    let adj = y;
+    for (let i = 0; i < 4; i++) {
+      const approx = Math.max(0, Math.floor((adj - grid.MARGIN_TOP) / grid.LINE_HEIGHT));
+      adj = y - shiftFor(approx);
+    }
+    return adj;
+  }, [grid.MARGIN_TOP, grid.LINE_HEIGHT, shiftFor]);
+
+  const handleBeatMeasure = useCallback((id: string, at: number, allotmentPx: number, height: number) => {
+    const px = Math.max(0, height - allotmentPx);
+    const prev = beatOverflowRef.current[id];
+    if (!prev || Math.abs(prev.px - px) > 2 || prev.at !== at) {
+      beatOverflowRef.current[id] = { at, px };
+      setBeatTick((t) => (t + 1) & 0xffff);
+    }
+  }, []);
+
+
 
 
   /** Post-structure gap is folded into the fixed skip-one law above:
@@ -1494,7 +1558,7 @@ const PresentationView = ({
     if (!host) return;
     const rect = host.getBoundingClientRect();
     const sensorScreenY =
-      rect.top + 24 + lineToY(sensor.line, grid) - host.scrollTop + grid.CARET_HEIGHT * 0.5;
+      rect.top + 24 + lineToY(sensor.line, grid) + shiftFor(sensor.line) - host.scrollTop + grid.CARET_HEIGHT * 0.5;
     const halfH = Math.round(28 * carrierZoom);
     const band = grid.CARET_HEIGHT * 1.6 + halfH;
     const dy = carrierPos.y - sensorScreenY;
@@ -3463,7 +3527,7 @@ const PresentationView = ({
     const row = findBoardRowForLine(lineIdx);
     if (!host) return;
     if (row === null) return;
-    const y = lineToY(row, grid);
+    const y = lineToY(row, grid) + shiftFor(row);
     // Aim for row ~140px from the top (below the "Solution" header).
     const target = Math.max(0, y - 140);
     host.scrollTo({ top: target, behavior: "smooth" });
@@ -3475,7 +3539,7 @@ const PresentationView = ({
   const scrollBoardToRow = useCallback((row: number) => {
     const host = boardScrollRef.current;
     if (!host) return;
-    const y = lineToY(row, grid);
+    const y = lineToY(row, grid) + shiftFor(row);
     host.scrollTo({ top: Math.max(0, y - 140), behavior: "smooth" });
   }, [grid]);
 
@@ -4401,7 +4465,8 @@ const PresentationView = ({
           const host = boardScrollRef.current;
           if (!host) return;
           const rect = host.getBoundingClientRect();
-          const y = e.clientY - rect.top + host.scrollTop - 24;
+          const yRaw = e.clientY - rect.top + host.scrollTop - 24;
+          const y = unshiftY(yRaw);
           const x = e.clientX - rect.left;
           const snapped = snapToBaseline({ x, y }, grid);
           // Half-line snap: if the tap lands close to the gap between two
@@ -4539,10 +4604,10 @@ const PresentationView = ({
           style={{
             // Continuous-canvas height: enough for every revealed beat
             // plus a few empty baselines below the last band.
-            minHeight: `${grid.MARGIN_TOP + grid.LINE_HEIGHT * (
+            minHeight: `${rowTopPx(
               (layouts.length > 0
                 ? layouts[layouts.length - 1].startLine + layouts[layouts.length - 1].totalLines
-                : 10) + 10
+                : 10) + 10,
             )}px`,
             width: "100%",
           }}
@@ -4556,7 +4621,7 @@ const PresentationView = ({
               data-sb-beat
               style={{
                 position: "absolute",
-                top: grid.MARGIN_TOP + L.startLine * grid.LINE_HEIGHT,
+                top: rowTopPx(L.startLine),
                 left: 0,
                 right: 0,
                 paddingLeft: grid.MARGIN_LEFT,
@@ -4564,7 +4629,26 @@ const PresentationView = ({
                 pointerEvents: "none",
               }}
             >
-              <div style={{ pointerEvents: "auto", maxWidth: "64rem" }}>
+              <div
+                style={{
+                  pointerEvents: "auto",
+                  maxWidth: "64rem",
+                  // Beats scale with Text Size and follow Row Spacing just
+                  // like hand-written rows, so intro / example / explanation
+                  // all react to the same two controls.
+                  fontSize: `${grid.FONT_PX}px`,
+                  lineHeight: `${grid.LINE_HEIGHT}px`,
+                }}
+                ref={(el) => {
+                  if (!el) return;
+                  handleBeatMeasure(
+                    L.id,
+                    L.startLine + L.captionLines,
+                    L.captionLines * grid.LINE_HEIGHT,
+                    el.getBoundingClientRect().height,
+                  );
+                }}
+              >
                 <BeatBlock
                   beat={L.beat}
                   isCurrent={i === layouts.length - 1}
@@ -4591,6 +4675,7 @@ const PresentationView = ({
           <FreeWriteLayer
             lines={visibleFreeLines}
             offsets={lineOffsets}
+            yShift={shiftFor}
             grid={grid}
             activeLine={!solvingMode ? null : (activeBoxId ? null : sensor.line)}
             cursor={cursor}
@@ -4674,19 +4759,19 @@ const PresentationView = ({
           {(() => {
             if (!activeLayout || activeLayout.bandLines <= 0 || !current) return null;
             if (!carrierVisible) return null;
-            const bandTopPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
-            const bandBotPx = grid.MARGIN_TOP + (bandEnd(activeLayout) + 1) * grid.LINE_HEIGHT;
+            const bandTopPx = rowTopPx(bandStart(activeLayout));
+            const bandBotPx = rowTopPx(bandEnd(activeLayout) + 1);
             // Final written line within this band — drives the upper drag clamp.
             // Use measured DOM heights so tall structures (fractions, roots,
             // matrices) contribute their *full* vertical extent — never just
             // their first row. Falls back to one row pitch if unmeasured.
-            let finalLineBottomPx = grid.MARGIN_TOP + bandStart(activeLayout) * grid.LINE_HEIGHT;
+            let finalLineBottomPx = rowTopPx(bandStart(activeLayout));
             for (const k of Object.keys(freeLines)) {
               const ln = Number(k);
               if (!freeLines[ln] || freeLines[ln].length === 0) continue;
               const flr = Math.floor(ln);
               if (flr < bandStart(activeLayout) || flr > bandEnd(activeLayout)) continue;
-              const topPx = grid.MARGIN_TOP + ln * grid.LINE_HEIGHT;
+              const topPx = rowTopPx(ln);
               const measured = lineHeightsRef.current[ln] ?? grid.LINE_HEIGHT;
               const botPx = topPx + Math.max(grid.LINE_HEIGHT, measured);
               if (botPx > finalLineBottomPx) finalLineBottomPx = botPx;
