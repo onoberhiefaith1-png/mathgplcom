@@ -40,7 +40,6 @@ const verdictLabel = (v: string): string => {
   switch (v) {
     case "equal": return "Mathematically equivalent to the expected step.";
     case "not_equal": return "Not mathematically equivalent to the expected step.";
-    case "not_in_floating_set": return "Uses a token that was not in this line's floating numbers.";
     case "parse_error": return "Could not read the expression — check brackets or stray symbols.";
     default: return v || "—";
   }
