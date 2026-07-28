@@ -33,7 +33,6 @@ export type DiagnosisCode =
   | "symbol_not_supplied"
   | "cannot_evaluate_yet"
   | "not_equivalent";
-  | "not_equivalent";
 
 export interface Diagnosis {
   code: DiagnosisCode;
