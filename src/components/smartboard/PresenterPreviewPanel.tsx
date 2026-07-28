@@ -185,6 +185,8 @@ const PresenterPreviewPanel = ({
   notebookId,
   activeBeatId,
   activeLineIdx,
+  onActivateLine,
+
   onManualScrollChange,
   onMirrorChange,
   mirrorStatus,
