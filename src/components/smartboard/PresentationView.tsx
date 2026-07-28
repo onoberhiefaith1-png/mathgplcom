@@ -4149,6 +4149,14 @@ const PresentationView = ({
                   presentOnly={!isTeacher}
                   activeBeatId={activePreviewBeatId}
                   activeLineIdx={activePreviewLineIdx}
+                  onActivateLine={(lineIdx) => {
+                    // Presenter Preview drives the single active line: the
+                    // chip strip, board, Check and Reasoning all follow.
+                    if (!hasGuidedLines) return;
+                    const k = Math.max(0, Math.min(lineIdx, guidedLines.length - 1));
+                    setActiveLineIdx((cur) => (cur === k ? cur : k));
+                  }}
+
                   placeholderColor={placeholderColor}
                   onManualScrollChange={setPresenterManualScroll}
                   mirrorStatus={mirrorStatus}
