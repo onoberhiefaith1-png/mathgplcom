@@ -6070,6 +6070,17 @@ const PresentationView = ({
                 title="Zoom in"
               >+</button>
             </div>
+
+            {/* Board Settings — same sheet the teacher Smartboard uses. */}
+            <button
+              onClick={() => setSettingsOpen((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-black/5"
+              aria-label="Board settings"
+              title="Board settings"
+              style={{ color: palette.chromeFg }}
+            >
+              <SettingsIcon className="h-4 w-4" />
+            </button>
           </div>
 
           {/* CHECK EVALUATION VIEW — shows the student's own expression with the
