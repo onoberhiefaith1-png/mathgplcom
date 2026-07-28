@@ -3202,17 +3202,26 @@ const PresentationView = ({
     guidedLines.length, activeLayout, toast,
   ]);
 
+  // CHECK IS AN END POINT. Pressing Check closes the active session exactly
+  // like leaving the line: freeze, evaluate once, award. The button itself
+  // never grades — it asks the engine and shows what the engine decided.
   const checkActiveLine = (kOverride?: number) => {
     const k = typeof kOverride === "number" ? kOverride : activeLineIdx;
     if (k < 0 || k >= guidedLines.length) {
       toast({ title: "All lines done", description: "You've solved every line in this question." });
       return;
     }
-    // The live session is graded for the active line; a line the student has
-    // already left is graded from its frozen End Point expression.
-    const frozen = k === activeLineIdx ? undefined : frozenByLineRef.current[k];
+    let frozen: string | undefined;
+    if (k === activeLineIdx) {
+      const live = resolveGradableLineRef.current(k)?.ascii ?? "";
+      reasoningRef.current.end(k, live);
+      freezeSession(sessionRef.current, live);
+      if (live.trim()) frozenByLineRef.current[k] = live;
+      frozen = live.trim() ? live : undefined;
+    } else {
+      frozen = reasoningRef.current.frozenFor(k) ?? frozenByLineRef.current[k];
+    }
     void gradeLineThroughEngine(k, "manual", frozen);
-
   };
 
   // Silent auto-grading — same resolver, same engine, no UI feedback.
@@ -3234,6 +3243,14 @@ const PresentationView = ({
   const resolveGradableLineRef = useRef(resolveGradableLine);
   resolveGradableLineRef.current = resolveGradableLine;
 
+  // Keep the engine's row binding on the row the student is actually writing
+  // on. This is what makes "Student line (live)" always show THIS line.
+  const sensorLineRef = useRef<number>(sensor.line);
+  sensorLineRef.current = sensor.line;
+  useEffect(() => {
+    reasoningRef.current.bindRow(activeLineIdx, sensor.line);
+  }, [sensor.line, activeLineIdx]);
+
   // Fire silent auto-check when the active line changes (line-leave event).
   const prevAssessActiveLineRef = useRef<number>(activeLineIdx);
   useEffect(() => {
@@ -3244,6 +3261,7 @@ const PresentationView = ({
       // END POINT — freeze what exists right now for the line being left.
       const leaving = resolveGradableLineRef.current(prev);
       const ascii = leaving?.ascii ?? "";
+      reasoningRef.current.end(prev, ascii);
       freezeSession(sessionRef.current, ascii);
       if (ascii.trim()) frozenByLineRef.current[prev] = ascii;
       if (assessmentMode && role === "student") {
@@ -3252,9 +3270,17 @@ const PresentationView = ({
     }
 
     // START POINT — a fresh session for the line just entered. Re-entering a
-    // line opens a NEW session, so its earlier freeze is released.
+    // line opens a NEW session, so its earlier freeze is released. Starting
+    // the same line on a different row creates a new attempt and invalidates
+    // the previous one (only the latest attempt may ever be evaluated).
     if (!sessionRef.current || sessionRef.current.lineIdx !== activeLineIdx) {
       delete frozenByLineRef.current[activeLineIdx];
+      reasoningRef.current.start(
+        activeLineIdx,
+        guidedLines[activeLineIdx]?.lineId ?? null,
+        sensorLineRef.current,
+      );
+      reasoningRef.current.clearFreeze(activeLineIdx);
       sessionRef.current = startSession(
         activeLineIdx,
         guidedLines[activeLineIdx]?.lineId ?? null,
