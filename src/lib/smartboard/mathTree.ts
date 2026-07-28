@@ -146,25 +146,45 @@ export const firstEmptySub = (n: Node): number => {
 
 export interface EditResult { root: Row; cursor: Cursor; }
 
+/** The literal empty-slot glyph. It must NEVER survive as ink: it is a
+ *  placeholder, so it renders as a slot and the first typed character
+ *  replaces it (classic placeholder behaviour). */
+export const SLOT_GLYPH = "□";
+
+export const isSlotChar = (n: Node | undefined): boolean =>
+  !!n && n.kind === "char" && n.ch === SLOT_GLYPH;
+
 /** Insert a node at the cursor. For containers, descend into first empty sub-row. */
 export const insertNode = (
   root: Row, cursor: Cursor, node: Node, descend = true,
 ): EditResult => {
   const row = getRowAt(root, cursor.path);
-  const newRow = [...row.slice(0, cursor.index), node, ...row.slice(cursor.index)];
+  // Placeholder overwrite: typing on/into a `□` slot replaces the slot
+  // instead of pushing a character next to it.
+  const overwrite = isSlotChar(row[cursor.index])
+    ? cursor.index
+    : isSlotChar(row[cursor.index - 1])
+      ? cursor.index - 1
+      : -1;
+  const base = overwrite >= 0
+    ? [...row.slice(0, overwrite), ...row.slice(overwrite + 1)]
+    : row;
+  const at = overwrite >= 0 ? overwrite : cursor.index;
+  const newRow = [...base.slice(0, at), node, ...base.slice(at)];
   const newRoot = setRowAt(root, cursor.path, newRow);
   if (node.kind === "char" || !descend) {
-    return { root: newRoot, cursor: { path: cursor.path, index: cursor.index + 1 } };
+    return { root: newRoot, cursor: { path: cursor.path, index: at + 1 } };
   }
   const sub = firstEmptySub(node);
   return {
     root: newRoot,
-    cursor: { path: [...cursor.path, cursor.index, sub], index: 0 },
+    cursor: { path: [...cursor.path, at, sub], index: 0 },
   };
 };
 
 export const insertChar = (root: Row, cursor: Cursor, ch: string): EditResult =>
   insertNode(root, cursor, mkChar(ch));
+
 
 /** Backspace: delete previous node; if at row start of an empty container,
  *  remove the whole container; otherwise pop out to just before it. */
