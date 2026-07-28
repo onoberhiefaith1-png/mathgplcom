@@ -40,7 +40,7 @@ const matchParen = (s: string, i: number): number => {
     else if (s[j] === ")") depth--;
     if (depth) j++;
   }
-  return depth === 0 ? j : -1;
+  return depth === 0 ? j + 1 : -1;
 };
 
 /** Pre-clean: remove non-visual LaTeX scaffolding. Safe on both forms. */
