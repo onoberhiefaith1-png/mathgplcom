@@ -14,6 +14,7 @@
 
 import { HAS_MATH } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 
 type TipTapNode = any;
 
