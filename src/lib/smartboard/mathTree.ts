@@ -79,7 +79,48 @@ export const subRowsOf = (n: Node): Row[] =>
  *  by the line-lock sweep to hide orphaned □ boxes once a line is
  *  locked; when the teacher moves back to the line it unlocks and the
  *  placeholder can be brought back editable. */
+/** Collapse `box[ box[ … ] ]` down to a single box.
+ *
+ *  A `box` is a transparent writing cell. Nesting two of them creates TWO
+ *  visible placeholder slots for ONE logical slot, so a fraction ends up
+ *  showing four cells instead of two and typing lands in the wrong cell.
+ *  There must be exactly one writable cell per slot. */
+export const collapseNestedBoxes = (row: Row): Row =>
+  row.map((n) => {
+    if (n.kind === "char") return n;
+    let node = n as Exclude<Node, { kind: "char" }>;
+    // Unwrap chains of single-child boxes.
+    while (
+      node.kind === "box" &&
+      node.rows.length === 1 &&
+      node.rows[0].length === 1 &&
+      node.rows[0][0].kind === "box"
+    ) {
+      node = node.rows[0][0] as Exclude<Node, { kind: "char" }>;
+    }
+    return { ...node, rows: node.rows.map(collapseNestedBoxes) } as Node;
+  });
+
+/** Structural fingerprint of a row: node kinds + arity + literal chars.
+ *  Two renderings of the SAME mathematical object must produce the SAME
+ *  hash. Used as the Reasoning panel's "math object id" debug readout. */
+export const structureHash = (row: Row): string => {
+  const sig = (r: Row): string =>
+    r
+      .map((n) =>
+        n.kind === "char"
+          ? `c${n.ch}`
+          : `${n.kind}[${subRowsOf(n).map(sig).join("|")}]`,
+      )
+      .join(",");
+  const s = sig(row);
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36).toUpperCase().padStart(6, "0").slice(-6);
+};
+
 export const isPlaceholderOnly = (row: Row): boolean => {
+
   if (!row || row.length === 0) return false;
   for (const n of row) {
     if (n.kind === "char") return false;
