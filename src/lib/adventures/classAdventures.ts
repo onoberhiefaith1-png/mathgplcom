@@ -5,6 +5,7 @@
 // re-assigning the same note simply clears the flag.
 
 import { supabase } from "@/integrations/supabase/client";
+import { ensureAssignment, archiveAssignment } from "@/lib/assignments/instances";
 
 export interface ClassAdventureNoteRow {
   id: string;
@@ -31,21 +32,32 @@ export interface ClassAdventureNoteRow {
   } | null;
 }
 
-/** Assign (or re-assign) a lesson note to a class as an Adventure. */
+/** Assign (or re-assign) a lesson note to a class as an Adventure.
+ *  Always attached to an active learning-assignment instance; rows belonging to
+ *  an archived instance are permanent history and are never revived. */
 export async function assignAdventureNote(params: {
   classId: string;
   notebookId: string;
   sectionId?: string | null;
+  gameId?: string | null;
   dueAt?: string | null;
 }): Promise<string> {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
 
+  const { assignment } = await ensureAssignment({
+    classId: params.classId,
+    notebookId: params.notebookId,
+    gameId: params.gameId ?? null,
+    mode: "adventure",
+    dueAt: params.dueAt ?? null,
+  });
+
   const sectionId = params.sectionId ?? null;
   let query = supabase
     .from("class_adventure_notes")
-    .select("id, unassigned_at, created_at")
+    .select("id, unassigned_at, created_at, assignment_id")
     .eq("class_id", params.classId)
     .eq("notebook_id", params.notebookId);
   query = sectionId === null ? query.is("section_id", null) : query.eq("section_id", sectionId);
@@ -53,7 +65,8 @@ export async function assignAdventureNote(params: {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  const rows = ((existingRows ?? []) as { id: string; unassigned_at: string | null }[]);
+  const rows = ((existingRows ?? []) as { id: string; unassigned_at: string | null; assignment_id: string | null }[])
+    .filter((row) => !row.assignment_id || row.assignment_id === assignment.id);
   const active = rows.find((row) => row.unassigned_at === null);
   if (active?.id) return active.id;
 
@@ -65,6 +78,7 @@ export async function assignAdventureNote(params: {
         unassigned_at: null,
         due_at: params.dueAt ?? null,
         assigned_by: uid,
+        assignment_id: assignment.id,
       } as never)
       .eq("id", reusable.id);
     return reusable.id;
@@ -78,12 +92,14 @@ export async function assignAdventureNote(params: {
       section_id: sectionId,
       due_at: params.dueAt ?? null,
       assigned_by: uid,
+      assignment_id: assignment.id,
     } as never)
     .select("id")
     .single();
   if (error || !created?.id) throw new Error(error?.message ?? "adventure_assign_failed");
   return created.id as string;
 }
+
 
 /** List active adventure notes for a class. */
 export async function listAdventureNotes(classId: string): Promise<ClassAdventureNoteRow[]> {
@@ -117,11 +133,29 @@ export async function listAdventureNotes(classId: string): Promise<ClassAdventur
 }
 
 export async function unassignAdventureNote(id: string): Promise<void> {
+  const { data: row } = await supabase
+    .from("class_adventure_notes")
+    .select("id, assignment_id")
+    .eq("id", id)
+    .maybeSingle();
   await supabase
     .from("class_adventure_notes")
     .update({ unassigned_at: new Date().toISOString() } as never)
     .eq("id", id);
+
+  const assignmentId = (row as any)?.assignment_id as string | null | undefined;
+  if (!assignmentId) return;
+  const { data: remaining } = await supabase
+    .from("class_adventure_notes")
+    .select("id")
+    .eq("assignment_id" as never, assignmentId as never)
+    .is("unassigned_at", null)
+    .limit(1);
+  if (((remaining ?? []) as any[]).length === 0) {
+    await archiveAssignment(assignmentId, "teacher");
+  }
 }
+
 
 export async function findActiveAdventureNote(
   classId: string,

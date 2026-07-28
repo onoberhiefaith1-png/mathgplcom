@@ -445,6 +445,7 @@ export type Database = {
       assessments: {
         Row: {
           assigned_at: string | null
+          assignment_id: string | null
           class_id: string
           created_at: string
           due_at: string | null
@@ -463,6 +464,7 @@ export type Database = {
         }
         Insert: {
           assigned_at?: string | null
+          assignment_id?: string | null
           class_id: string
           created_at?: string
           due_at?: string | null
@@ -481,6 +483,7 @@ export type Database = {
         }
         Update: {
           assigned_at?: string | null
+          assignment_id?: string | null
           class_id?: string
           created_at?: string
           due_at?: string | null
@@ -499,6 +502,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "assessments_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "learning_assignments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "assessments_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
@@ -510,6 +520,7 @@ export type Database = {
       class_adventure_notes: {
         Row: {
           assigned_by: string
+          assignment_id: string | null
           class_id: string
           created_at: string
           due_at: string | null
@@ -522,6 +533,7 @@ export type Database = {
         }
         Insert: {
           assigned_by: string
+          assignment_id?: string | null
           class_id: string
           created_at?: string
           due_at?: string | null
@@ -534,6 +546,7 @@ export type Database = {
         }
         Update: {
           assigned_by?: string
+          assignment_id?: string | null
           class_id?: string
           created_at?: string
           due_at?: string | null
@@ -545,6 +558,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "class_adventure_notes_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "learning_assignments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "class_adventure_notes_class_id_fkey"
             columns: ["class_id"]
@@ -703,6 +723,7 @@ export type Database = {
       class_game_boards: {
         Row: {
           assessment_id: string
+          assignment_id: string | null
           class_id: string
           created_at: string
           game_id: string
@@ -715,6 +736,7 @@ export type Database = {
         }
         Insert: {
           assessment_id: string
+          assignment_id?: string | null
           class_id: string
           created_at?: string
           game_id: string
@@ -727,6 +749,7 @@ export type Database = {
         }
         Update: {
           assessment_id?: string
+          assignment_id?: string | null
           class_id?: string
           created_at?: string
           game_id?: string
@@ -743,6 +766,13 @@ export type Database = {
             columns: ["assessment_id"]
             isOneToOne: false
             referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_game_boards_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "learning_assignments"
             referencedColumns: ["id"]
           },
           {
@@ -1678,6 +1708,82 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      learning_assignments: {
+        Row: {
+          archived_at: string | null
+          archived_reason: string | null
+          class_id: string
+          created_at: string
+          created_by: string
+          due_at: string | null
+          game_id: string | null
+          id: string
+          mode: string
+          notebook_id: string
+          question_keys: string[]
+          started_at: string
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_reason?: string | null
+          class_id: string
+          created_at?: string
+          created_by: string
+          due_at?: string | null
+          game_id?: string | null
+          id?: string
+          mode?: string
+          notebook_id: string
+          question_keys?: string[]
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          archived_reason?: string | null
+          class_id?: string
+          created_at?: string
+          created_by?: string
+          due_at?: string | null
+          game_id?: string | null
+          id?: string
+          mode?: string
+          notebook_id?: string
+          question_keys?: string[]
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_assignments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_assignments_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_assignments_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notebook_blocks: {
         Row: {

@@ -15,6 +15,7 @@ import {
   compileQuestionSections,
   type AssessmentKind,
 } from "@/lib/assessments/createAssessment";
+import { ensureAssignment, archiveAssignment } from "@/lib/assignments/instances";
 
 export interface QuestionRef {
   subsectionId: string | null;
@@ -89,30 +90,46 @@ export async function loadAssignmentState(
   return { assignmentByClass, adventureByClass };
 }
 
-/** Find the one row (active OR previously removed) for this question. */
+/** Ids of archived instances for a class — rows under them are history and
+ *  must never be revived by a new assignment. */
+async function archivedIds(classId: string): Promise<Set<string>> {
+  const { data } = await (supabase.from("learning_assignments" as never) as any)
+    .select("id")
+    .eq("class_id", classId)
+    .eq("status", "archived");
+  return new Set(((data ?? []) as any[]).map((r) => r.id as string));
+}
+
+/** Find the one reusable row (active OR un-ticked) for this question. Rows that
+ *  belong to an archived instance are skipped — they are permanent history. */
 async function findAdventureRow(
   classId: string,
   notebookId: string,
   ref: QuestionRef,
 ): Promise<{ id: string } | null> {
-  const { data } = await supabase
-    .from("class_adventure_notes")
-    .select("id, section_id, question_key, unassigned_at, created_at")
-    .eq("class_id", classId)
-    .eq("notebook_id", notebookId)
-    .order("created_at", { ascending: false });
-  const rows = (data ?? []) as any[];
+  const [{ data }, archived] = await Promise.all([
+    supabase
+      .from("class_adventure_notes")
+      .select("id, section_id, question_key, unassigned_at, created_at, assignment_id")
+      .eq("class_id", classId)
+      .eq("notebook_id", notebookId)
+      .order("created_at", { ascending: false }),
+    archivedIds(classId),
+  ]);
+  const rows = ((data ?? []) as any[]).filter((r) => !archived.has(r.assignment_id));
   const hit =
     (ref.questionKey && rows.find((r) => r.question_key === ref.questionKey)) ||
     (ref.sectionId && rows.find((r) => !r.question_key && r.section_id === ref.sectionId));
   return hit ? { id: hit.id as string } : null;
 }
 
-/** Assign (or revive) a question to a class as an Adventure. Idempotent. */
+/** Assign (or revive) a question to a class as an Adventure. Idempotent within
+ *  one active learning-assignment instance. */
 export async function assignAdventureQuestion(params: {
   classId: string;
   notebookId: string;
   ref: QuestionRef;
+  gameId?: string | null;
   dueAt?: string | null;
 }): Promise<string> {
   const { classId, notebookId, ref } = params;
@@ -120,6 +137,15 @@ export async function assignAdventureQuestion(params: {
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
   if (!ref.sectionId) throw new Error("no_question");
+
+  const { assignment } = await ensureAssignment({
+    classId,
+    notebookId,
+    gameId: params.gameId ?? null,
+    mode: "adventure",
+    questionKeys: [ref.questionKey],
+    dueAt: params.dueAt ?? null,
+  });
 
   const existing = await findAdventureRow(classId, notebookId, ref);
   if (existing) {
@@ -130,6 +156,7 @@ export async function assignAdventureQuestion(params: {
         section_id: ref.sectionId,
         question_key: ref.questionKey,
         assigned_by: uid,
+        assignment_id: assignment.id,
         ...(params.dueAt !== undefined ? { due_at: params.dueAt } : {}),
       } as never)
       .eq("id", existing.id);
@@ -145,6 +172,7 @@ export async function assignAdventureQuestion(params: {
       question_key: ref.questionKey,
       due_at: params.dueAt ?? null,
       assigned_by: uid,
+      assignment_id: assignment.id,
     } as never)
     .select("id")
     .single();
@@ -152,15 +180,41 @@ export async function assignAdventureQuestion(params: {
   return (created as any).id as string;
 }
 
-/** Soft-remove: the card leaves every dashboard, student progress survives. */
+/** Soft-remove: the card leaves every dashboard, student progress survives.
+ *  When the row belongs to a learning-assignment instance whose last active
+ *  question this was, the whole instance is archived (read-only history). */
 export async function unassignAdventureQuestion(id: string): Promise<void> {
+  const { data: row } = await supabase
+    .from("class_adventure_notes")
+    .select("id, assignment_id")
+    .eq("id", id)
+    .maybeSingle();
   await supabase
     .from("class_adventure_notes")
     .update({ unassigned_at: new Date().toISOString() } as never)
     .eq("id", id);
+  await archiveIfEmpty((row as any)?.assignment_id ?? null, "class_adventure_notes");
 }
 
-/** Assign (or revive) a question to a class as an Assignment. Idempotent. */
+/** Archive the parent instance once none of its questions are active. */
+async function archiveIfEmpty(
+  assignmentId: string | null,
+  childTable: "class_adventure_notes" | "assessments",
+): Promise<void> {
+  if (!assignmentId) return;
+  const { data } = await (supabase.from(childTable) as any)
+    .select("id")
+    .eq("assignment_id", assignmentId)
+    .is("unassigned_at", null)
+    .limit(1);
+  if (((data ?? []) as any[]).length === 0) {
+    await archiveAssignment(assignmentId, "teacher");
+  }
+}
+
+
+/** Assign (or revive) a question to a class as an Assignment. Idempotent
+ *  within one active learning-assignment instance. */
 export async function assignAssessmentQuestion(params: {
   classId: string;
   notebookId: string;
@@ -168,6 +222,7 @@ export async function assignAssessmentQuestion(params: {
   kind: AssessmentKind;
   title: string;
   scoreLabel: string;
+  gameId?: string | null;
 }): Promise<string> {
   const { classId, notebookId, ref } = params;
   const { data: userData } = await supabase.auth.getUser();
@@ -178,14 +233,26 @@ export async function assignAssessmentQuestion(params: {
   const { questions, answerKey, total } = await compileSectionQuestions(ref.sectionId);
   if (questions.length === 0) throw new Error("no_floating_lines");
 
-  const { data } = await supabase
-    .from("assessments")
-    .select("id, section_id, question_key, created_at")
-    .eq("class_id", classId)
-    .eq("notebook_id", notebookId)
-    .neq("kind", "adventure")
-    .order("created_at", { ascending: false });
-  const rows = (data ?? []) as any[];
+  const { assignment } = await ensureAssignment({
+    classId,
+    notebookId,
+    gameId: params.gameId ?? null,
+    mode: "assignment",
+    questionKeys: [ref.questionKey],
+    title: params.title,
+  });
+
+  const [{ data }, archived] = await Promise.all([
+    supabase
+      .from("assessments")
+      .select("id, section_id, question_key, created_at, assignment_id")
+      .eq("class_id", classId)
+      .eq("notebook_id", notebookId)
+      .neq("kind", "adventure")
+      .order("created_at", { ascending: false }),
+    archivedIds(classId),
+  ]);
+  const rows = ((data ?? []) as any[]).filter((r) => !archived.has(r.assignment_id));
   const hit =
     (ref.questionKey && rows.find((r) => r.question_key === ref.questionKey)) ||
     (ref.sectionId && rows.find((r) => !r.question_key && r.section_id === ref.sectionId));
@@ -202,6 +269,7 @@ export async function assignAssessmentQuestion(params: {
         score_label: params.scoreLabel,
         total_marks: total,
         questions: questions as never,
+        assignment_id: assignment.id,
       } as never)
       .eq("id", hit.id);
     await supabase.from("assessment_answer_keys").delete().eq("assessment_id", hit.id);
@@ -224,6 +292,7 @@ export async function assignAssessmentQuestion(params: {
       score_label: params.scoreLabel,
       total_marks: total,
       questions: questions as never,
+      assignment_id: assignment.id,
     } as never)
     .select("id")
     .single();
@@ -239,13 +308,21 @@ export async function assignAssessmentQuestion(params: {
   return (created as any).id as string;
 }
 
-/** Soft-remove an Assignment. Progress rows are kept. */
+/** Soft-remove an Assignment. Progress rows are kept; the parent instance is
+ *  archived once its last active question is removed. */
 export async function unassignAssessmentQuestion(id: string): Promise<void> {
+  const { data: row } = await supabase
+    .from("assessments")
+    .select("id, assignment_id")
+    .eq("id", id)
+    .maybeSingle();
   await supabase
     .from("assessments")
     .update({ unassigned_at: new Date().toISOString() } as never)
     .eq("id", id);
+  await archiveIfEmpty((row as any)?.assignment_id ?? null, "assessments");
 }
+
 
 /** Recompile every progress-bar board of a class/notebook IN PLACE from the
  *  questions that are currently assigned. Never creates a second assessment,

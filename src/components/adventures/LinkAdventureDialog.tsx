@@ -10,6 +10,7 @@ import { compileQuestionSections } from "@/lib/assessments/createAssessment";
 import { normalizeCanvas, type CanvasElement, type GameRow } from "@/lib/games/types";
 import { useClassMemberIds } from "@/hooks/useClassMemberIds";
 import { timeBarActions } from "@/hooks/useGameTimeBar";
+import { ensureAssignment } from "@/lib/assignments/instances";
 
 export type LinkAdventureQuestion = { sectionId: string; label: string; marks: number; questionKey?: string | null };
 
@@ -138,6 +139,16 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
       if (compiled.questions.length === 0) throw new Error("no_questions");
       const questionKeys = questions.map((q) => q.questionKey).filter(Boolean) as string[];
 
+      // The (Lesson Note + Class + Adventure) triple IS the assignment instance.
+      const { assignment } = await ensureAssignment({
+        classId,
+        notebookId,
+        gameId,
+        mode: "adventure",
+        questionKeys,
+        title: `${chosenGame?.title ?? "Adventure"} — ${barLabel}`,
+      });
+
       const { data: existing } = await supabase
         .from("class_game_boards")
         .select("id, assessment_id")
@@ -157,6 +168,7 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
             total_marks: compiled.total,
             questions: compiled.questions as never,
             unassigned_at: null,
+            assignment_id: assignment.id,
           } as never)
           .eq("id", assessmentId);
         if (updErr) throw new Error(updErr.message);
@@ -171,6 +183,7 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
             section_id: null,
             question_keys: questionKeys as never,
             required_marks: compiled.total,
+            assignment_id: assignment.id,
           } as never)
           .eq("id", (existing as any).id);
       } else {
@@ -180,6 +193,7 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
             class_id: classId, owner_id: uid, notebook_id: notebookId, section_id: null,
             kind: "adventure" as never, title: `${chosenGame?.title ?? "Adventure"} — ${barLabel}`,
             score_label: lbl, total_marks: compiled.total, questions: compiled.questions as never,
+            assignment_id: assignment.id,
           } as never)
           .select("id").single();
         if (insErr || !created) throw new Error(insErr?.message ?? "create_failed");
@@ -200,12 +214,14 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
             assessment_id: assessmentId, notebook_id: notebookId, section_id: null,
             question_keys: questionKeys as never,
             required_marks: compiled.total,
+            assignment_id: assignment.id,
           } as never);
         if (boardErr) {
           await supabase.from("assessments").delete().eq("id", assessmentId);
           throw new Error(boardErr.message);
         }
       }
+
 
 
       if (chosenGame) {
