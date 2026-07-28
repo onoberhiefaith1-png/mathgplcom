@@ -133,11 +133,29 @@ export async function listAdventureNotes(classId: string): Promise<ClassAdventur
 }
 
 export async function unassignAdventureNote(id: string): Promise<void> {
+  const { data: row } = await supabase
+    .from("class_adventure_notes")
+    .select("id, assignment_id")
+    .eq("id", id)
+    .maybeSingle();
   await supabase
     .from("class_adventure_notes")
     .update({ unassigned_at: new Date().toISOString() } as never)
     .eq("id", id);
+
+  const assignmentId = (row as any)?.assignment_id as string | null | undefined;
+  if (!assignmentId) return;
+  const { data: remaining } = await supabase
+    .from("class_adventure_notes")
+    .select("id")
+    .eq("assignment_id" as never, assignmentId as never)
+    .is("unassigned_at", null)
+    .limit(1);
+  if (((remaining ?? []) as any[]).length === 0) {
+    await archiveAssignment(assignmentId, "teacher");
+  }
 }
+
 
 export async function findActiveAdventureNote(
   classId: string,
