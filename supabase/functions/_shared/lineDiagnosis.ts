@@ -29,6 +29,10 @@ export type DiagnosisCode =
   | "extra_term"
   | "invalid_expression"
   | "not_in_floating_set"
+  | "number_not_given"
+  | "symbol_not_supplied"
+  | "cannot_evaluate_yet"
+  | "not_equivalent";
   | "not_equivalent";
 
 export interface Diagnosis {
