@@ -2245,9 +2245,11 @@ const PresentationView = ({
       return changed ? nx : p;
     });
   }, [activeLineIdx]);
-  // Teacher-controlled override of which floating-number line shows in the
-  // FloatingNumberPanel (via the left-side line navigator). null = auto-follow.
-  const [manualFloatingLineIdx, setManualFloatingLineIdx] = useState<number | null>(null);
+  // Manual navigation no longer keeps a separate cursor — it writes straight
+  // into the single active line above. Kept as a null alias so the existing
+  // `manualFloatingLineIdx ?? floatingLineIdx` reads still resolve.
+  const manualFloatingLineIdx: number | null = null;
+
   // Notebook-reveal gate: when non-null, the FloatingNumberPanel is showing
   // the prose "Notebook N" instead of Line N's fillers. A second Prev/Next
   // tap commits the reveal — marks N as shown and advances to Line N.
