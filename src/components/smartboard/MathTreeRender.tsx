@@ -385,9 +385,16 @@ const NodeView = ({
 
     case "power":
       return (
-        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+        <span style={{ display: "inline-flex", alignItems: "baseline", lineHeight: 1 }}>
           {R(0)}
-          <span style={{ fontSize: "0.65em", position: "relative", top: "-0.7em", marginLeft: 1 }}>
+          <span style={{
+            display: "inline-block",
+            fontSize: "0.66em",
+            lineHeight: 1,
+            verticalAlign: "super",
+            transform: "translateY(0.06em)",
+            marginLeft: 1,
+          }}>
             {R(1)}
           </span>
           <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
@@ -397,8 +404,12 @@ const NodeView = ({
     case "sup":
       return (
         <span style={{
-          fontSize: "0.65em", position: "relative", top: "-0.7em",
-          display: "inline-block", marginLeft: 1,
+          display: "inline-block",
+          fontSize: "0.66em",
+          lineHeight: 1,
+          verticalAlign: "super",
+          transform: "translateY(0.06em)",
+          marginLeft: 1,
         }}>
           {R(0)}
         </span>
@@ -407,27 +418,69 @@ const NodeView = ({
     case "sub":
       return (
         <span style={{
-          fontSize: "0.65em", position: "relative", top: "0.45em",
-          display: "inline-block", marginLeft: 1,
+          display: "inline-block",
+          fontSize: "0.66em",
+          lineHeight: 1,
+          verticalAlign: "sub",
+          transform: "translateY(-0.04em)",
+          marginLeft: 1,
         }}>
           {R(0)}
         </span>
       );
 
     case "subsup":
-      return (
-        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
-          {R(0)}
-          <span style={{
-            display: "inline-flex", flexDirection: "column", fontSize: "0.65em",
-            marginLeft: 1, lineHeight: 1,
-          }}>
-            <span style={{ position: "relative", top: "-0.35em" }}>{R(2)}</span>
-            <span style={{ position: "relative", top: "0.3em" }}>{R(1)}</span>
+      {
+        const subRow = node.rows[1] ?? [];
+        const supRow = node.rows[2] ?? [];
+        const subPath = [...parentPath, idxInRow, 1];
+        const supPath = [...parentPath, idxInRow, 2];
+        const showSub = subRow.length > 0 || pathEq(cursor.path, subPath);
+        const showSup = supRow.length > 0 || pathEq(cursor.path, supPath);
+        const singleSup = showSup && !showSub;
+        const singleSub = showSub && !showSup;
+        if (singleSup || singleSub) {
+          return (
+            <span style={{ display: "inline-flex", alignItems: "baseline", lineHeight: 1 }}>
+              {R(0)}
+              <span style={{
+                display: "inline-block",
+                fontSize: "0.66em",
+                lineHeight: 1,
+                verticalAlign: singleSup ? "super" : "sub",
+                transform: singleSup ? "translateY(0.06em)" : "translateY(-0.04em)",
+                marginLeft: 1,
+              }}>
+                {singleSup ? R(2) : R(1)}
+              </span>
+              <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
+            </span>
+          );
+        }
+
+        if (!showSub && !showSup) {
+          return (
+            <span style={{ display: "inline-flex", alignItems: "baseline", lineHeight: 1 }}>
+              {R(0)}
+              <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
+            </span>
+          );
+        }
+
+        return (
+          <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+            {R(0)}
+            <span style={{
+              display: "inline-flex", flexDirection: "column", fontSize: "0.66em",
+              marginLeft: 1, lineHeight: 0.95,
+            }}>
+              <span style={{ transform: "translateY(-0.08em)" }}>{R(2)}</span>
+              <span style={{ transform: "translateY(0.06em)" }}>{R(1)}</span>
+            </span>
+            <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
           </span>
-          <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
-        </span>
-      );
+        );
+      }
 
     case "bracket":
       return <BracketView node={node} parentPath={parentPath} idxInRow={idxInRow}
