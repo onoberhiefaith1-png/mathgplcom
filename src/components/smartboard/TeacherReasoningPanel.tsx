@@ -19,12 +19,16 @@ type LivePayload = {
   rowsAscii: Record<number, string>;
   linesAscii: Record<string, string>;
   floatingTokens?: Record<string, string[]>;
+  /** Reasoning-engine view of the ONE active line. */
+  activeRow?: number | null;
+  attempt?: number;
+  introducedTerms?: string[];
 };
 type CheckPayload = {
   ts: number;
   questionId: string;
   lineId: string;
-  mode: "manual" | "auto";
+  mode: "manual" | "auto" | "live";
   correct: boolean;
   verdict?: string;
   diagnosis?: DiagnosisShape;
@@ -32,14 +36,6 @@ type CheckPayload = {
   studentAscii?: string;
 };
 type DiagnosisShape = { code: string; label: string; detail: string };
-type Verdict = {
-  correct: boolean;
-  verdict: string;
-  diagnosis?: DiagnosisShape;
-  marks: number;
-  teacherAscii?: string;
-};
-
 const verdictLabel = (v: string): string => {
   switch (v) {
     case "equal": return "Mathematically equivalent to the expected step.";
@@ -72,8 +68,6 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
   const [fallback, setFallback] = useState<LivePayload | null>(null);
   const [fallbackAt, setFallbackAt] = useState<number | null>(null);
   const [lastCheck, setLastCheck] = useState<CheckPayload | null>(null);
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
-  const [checking, setChecking] = useState(false);
   const [, forceTick] = useState(0);
 
   const liveAtRef = useRef<number>(0);
@@ -269,57 +263,38 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
     return Number(l?.marks ?? 0);
   }, [currentQ, currentLid]);
 
-  // Reset the evaluation whenever the student moves to a different line —
-  // one line is one page.
+  // Terms the student introduced themselves (not supplied by the teacher for
+  // this line). The engine computes these; we only fall back locally when an
+  // older client is broadcasting.
+  const studentAddedTerms = useMemo(() => {
+    if (Array.isArray(feed?.introducedTerms)) return feed!.introducedTerms;
+    return invalidTokens;
+  }, [feed, invalidTokens]);
+
+  const attemptNo = Math.max(1, Math.floor(feed?.attempt ?? 1));
+  const activeRow = feed?.activeRow ?? null;
+
+  // Reasoning is a live monitoring tool only — everything is discarded the
+  // moment the student moves to another line or another question.
   useEffect(() => {
-    setVerdict(null);
+    setLastCheck(null);
   }, [currentLid, currentQid]);
 
-  // Dry-run grade whenever the current line's content changes.
-  const debounceRef = useRef<number | null>(null);
-  const runDryGrade = useCallback(async () => {
-    if (!currentQid || !currentLid || studentAscii.trim().length === 0) {
-      setVerdict(null);
-      return;
-    }
-    setChecking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("grade-line", {
-        body: {
-          assessmentId,
-          questionId: currentQid,
-          lineId: currentLid,
-          studentAscii,
-          mode: "manual",
-          allowedFloatingTokens: allowedTokens,
-          persist: false,
-        },
-      });
-      if (error) throw error;
-      setVerdict(data as Verdict);
-    } catch {
-      setVerdict(null);
-    } finally {
-      setChecking(false);
-    }
-  }, [assessmentId, currentQid, currentLid, studentAscii, allowedTokens]);
-
-  useEffect(() => {
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => { void runDryGrade(); }, 300);
-    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
-  }, [runDryGrade]);
-
-  // The check event wins when it refers to the line currently on screen.
+  // The panel NEVER grades. The student's reasoning engine is the single
+  // source of truth and broadcasts every evaluation (live, Check and silent
+  // auto-marking), so what we show can never disagree with what was awarded.
   const checkForThisLine =
     lastCheck && lastCheck.questionId === currentQid && lastCheck.lineId === currentLid ? lastCheck : null;
-  const shownCorrect = checkForThisLine ? checkForThisLine.correct : verdict?.correct ?? null;
-  const shownVerdict = checkForThisLine?.verdict ?? verdict?.verdict ?? null;
-  const shownDiagnosis: DiagnosisShape | null =
-    (checkForThisLine?.diagnosis ?? verdict?.diagnosis) ?? null;
+  const shownCorrect = checkForThisLine ? checkForThisLine.correct : null;
+  const shownVerdict = checkForThisLine?.verdict ?? null;
+  const shownDiagnosis: DiagnosisShape | null = checkForThisLine?.diagnosis ?? null;
   const sourceBadge = checkForThisLine
-    ? checkForThisLine.mode === "manual" ? "student Check" : "auto check"
-    : verdict ? "live dry run" : null;
+    ? checkForThisLine.mode === "manual"
+      ? "student Check"
+      : checkForThisLine.mode === "auto"
+        ? "auto check"
+        : "live reasoning"
+    : null;
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-background text-foreground">
@@ -348,7 +323,10 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
         ) : (
           <>
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
-              <span>Question {questionNo > 0 ? questionNo : "—"} · Line {lineNo}</span>
+              <span>
+                Question {questionNo > 0 ? questionNo : "—"} · Line {lineNo}
+                {attemptNo > 1 && <span className="ml-1 text-amber-500">attempt {attemptNo}</span>}
+              </span>
               <span className="tabular-nums">
                 {isLive ? (
                   <span className="text-emerald-500">live</span>
@@ -368,7 +346,12 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
             </div>
 
             <div className="rounded-lg border border-border bg-card/40 p-3">
-              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Student line (live)</div>
+              <div className="mb-1 flex items-center justify-between">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Student line (live)</div>
+                {activeRow !== null && (
+                  <span className="text-[10px] tabular-nums text-muted-foreground">row {activeRow}</span>
+                )}
+              </div>
               <pre className="whitespace-pre-wrap break-words font-mono text-sm">
                 {studentAscii || <span className="italic text-muted-foreground">nothing written yet</span>}
               </pre>
@@ -384,22 +367,31 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
                 )}
               </div>
               <div className="flex items-center gap-1.5 text-sm font-semibold">
-                {checking && !checkForThisLine ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> Waiting…</>
-                ) : shownCorrect === true ? (
+                {shownCorrect === true ? (
                   <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {shownDiagnosis?.label ?? "Equivalent"}</>
                 ) : shownCorrect === false ? (
                   <><XCircle className="h-4 w-4 text-red-500" /> {shownDiagnosis?.label ?? "Not equivalent"}</>
+                ) : studentAscii.trim() ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> <span className="text-muted-foreground">Evaluating…</span></>
                 ) : (
-                  <span className="text-muted-foreground">Waiting…</span>
+                  <span className="text-muted-foreground">Nothing written</span>
                 )}
               </div>
               <div className="text-xs text-muted-foreground">
-                {shownDiagnosis?.detail ?? (shownVerdict ? verdictLabel(shownVerdict) : "No line content to evaluate yet.")}
+                {shownDiagnosis?.detail ??
+                  (shownVerdict
+                    ? verdictLabel(shownVerdict)
+                    : studentAscii.trim()
+                      ? "The reasoning engine is evaluating this line."
+                      : "No line content to evaluate yet.")}
               </div>
+              {shownDiagnosis?.code && (
+                <div className="font-mono text-[10px] text-muted-foreground">{shownDiagnosis.code}</div>
+              )}
               <div className="text-xs tabular-nums">
                 Awarded <span className="font-semibold">{awardedMarks}</span>
                 <span className="text-muted-foreground">/{lineMarks}</span>
+                {awardedMarks > 0 && <span className="ml-1 text-emerald-500">permanent</span>}
               </div>
             </div>
 
@@ -415,17 +407,28 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
                     </span>
                   ))}
                 </div>
-                {invalidTokens.length > 0 ? (
-                  <div className="mt-2 text-[11px] text-red-500">
-                    Not in the floating set: <span className="font-mono">{invalidTokens.join(", ")}</span>
-                  </div>
-                ) : (
-                  studentAscii.trim() && (
-                    <div className="mt-2 text-[11px] text-emerald-500">Only available floating numbers used.</div>
-                  )
-                )}
               </div>
             )}
+
+            <div className="rounded-lg border border-border bg-card/40 p-3">
+              <div className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                Student-introduced terms
+              </div>
+              {studentAddedTerms.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {studentAddedTerms.map((t, i) => (
+                    <span key={`${t}-${i}`} className="rounded border border-amber-500/50 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground">
+                  {studentAscii.trim() ? "Only the items supplied for this line were used." : "—"}
+                </div>
+              )}
+            </div>
+
           </>
         )}
       </div>

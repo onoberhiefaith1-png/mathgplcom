@@ -23,8 +23,17 @@ describe("line diagnosis", () => {
     expect(code("2x = 10", "x*2 = 10", "equal")).toBe("equivalent");
   });
 
-  it("flags tokens outside the floating set", () => {
-    expect(code("2x = 10", "3x = 10", "not_in_floating_set")).toBe("not_in_floating_set");
+  it("flags a number that was not supplied for this line", () => {
+    expect(code("2x = 10", "3x = 10", "not_in_floating_set")).toBe("number_not_given");
+  });
+
+  it("flags a symbol the student introduced", () => {
+    expect(diagnoseLine("2x = 10", "2x + c = 10", "not_in_floating_set", ["2", "x", "10"]).code)
+      .toBe("symbol_not_supplied");
+  });
+
+  it("cannot evaluate an empty line", () => {
+    expect(code("2x = 10", "")).toBe("cannot_evaluate_yet");
   });
 
   it("flags a line that stops on an operator", () => {

@@ -19,6 +19,7 @@ import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
 import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
 import { startSession, freezeSession, type EditingSession } from "@/lib/smartboard/editingSession";
+import { ReasoningEngine, introducedTerms as introducedTermsOf } from "@/lib/smartboard/reasoningEngine";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
@@ -2229,6 +2230,14 @@ const PresentationView = ({
     if (typeof v === "number") setActiveLineIdx(v);
   }, []);
 
+  // ── REASONING ENGINE ────────────────────────────────────────────────────
+  // The one brain: it owns the active line, binds it to the board row the
+  // student is actually writing on, tracks attempts, and produces the live
+  // snapshot the teacher Reasoning panel renders. In-memory only.
+  const reasoningRef = useRef<ReasoningEngine>(new ReasoningEngine());
+
+
+
 
   // ─── Placeholder sweep on advance ────────────────────────────────────
   // When the teacher moves forward (activeLineIdx increases), any row on
@@ -2312,6 +2321,9 @@ const PresentationView = ({
         if (Number.isFinite(n) && n >= 0) restoredIdx = Math.floor(n);
       }
     } catch { /* noop */ }
+    // Reasoning is a live monitoring tool only — a new question/reservoir
+    // starts from a completely empty engine.
+    reasoningRef.current.reset();
     setActiveLineIdx(restoredIdx);
     setFloatingLineIdx(restoredIdx);
     setManualFloatingLineIdx(null);
@@ -3031,6 +3043,22 @@ const PresentationView = ({
       .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
       .sort((x, y) => x - y);
 
+    // 1) THE ENGINE'S BINDING WINS. The row a line is written on is the row
+    //    the student was on when that line became active — never a guess made
+    //    by comparing tokens, which used to hand one line another line's ink.
+    const bound = reasoningRef.current.rowFor(k);
+    if (bound !== null) {
+      const boundRow = freeLines[bound];
+      return {
+        target,
+        expectedFrags,
+        rowNum: bound,
+        ascii: boundRow && boundRow.length > 0 ? rowToAscii(boundRow) : "",
+      };
+    }
+
+    // 2) Lines the student never visited: fall back to the historic
+    //    best-overlap search so old boards still resolve.
     let rowNum = clampToActiveBand(bandStart(activeLayout) + k);
     const expectedSet = chipMultiset(expectedFrags);
     if (expectedSet.size > 0 && writtenRows.length > 0) {
@@ -3042,12 +3070,7 @@ const PresentationView = ({
       }
       if (bestRow >= 0) rowNum = bestRow;
     }
-    // No ink on the resolved row — fall back to the row the sensor is on, then
-    // to the last written row, so the student's actual work is always graded.
-    if (!freeLines[rowNum]?.length) {
-      if (freeLines[sensor.line]?.length) rowNum = sensor.line;
-      else if (writtenRows.length > 0) rowNum = writtenRows[writtenRows.length - 1];
-    }
+    if (!freeLines[rowNum]?.length && freeLines[sensor.line]?.length) rowNum = sensor.line;
 
     const row = freeLines[rowNum];
     const ascii = row && row.length > 0 ? rowToAscii(row) : "";
@@ -3077,6 +3100,18 @@ const PresentationView = ({
         toast({ title: "Nothing to check", description: "Write your working first, then press Check." });
       }
       return;
+    }
+    // AWARDED MARKS ARE PERMANENT — once a line has earned its mark it is
+    // never re-evaluated, in either mode. Editing it afterwards cannot take
+    // the mark away and cannot earn it twice.
+    {
+      const slot = `${current.id}:${target.lineId}`;
+      if (slot in solvedSlots) {
+        if (mode === "manual") {
+          toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slot]} marks.` });
+        }
+        return;
+      }
     }
     if (mode === "auto") {
       const slot = `${current.id}:${target.lineId}`;
@@ -3167,17 +3202,26 @@ const PresentationView = ({
     guidedLines.length, activeLayout, toast,
   ]);
 
+  // CHECK IS AN END POINT. Pressing Check closes the active session exactly
+  // like leaving the line: freeze, evaluate once, award. The button itself
+  // never grades — it asks the engine and shows what the engine decided.
   const checkActiveLine = (kOverride?: number) => {
     const k = typeof kOverride === "number" ? kOverride : activeLineIdx;
     if (k < 0 || k >= guidedLines.length) {
       toast({ title: "All lines done", description: "You've solved every line in this question." });
       return;
     }
-    // The live session is graded for the active line; a line the student has
-    // already left is graded from its frozen End Point expression.
-    const frozen = k === activeLineIdx ? undefined : frozenByLineRef.current[k];
+    let frozen: string | undefined;
+    if (k === activeLineIdx) {
+      const live = resolveGradableLineRef.current(k)?.ascii ?? "";
+      reasoningRef.current.end(k, live);
+      freezeSession(sessionRef.current, live);
+      if (live.trim()) frozenByLineRef.current[k] = live;
+      frozen = live.trim() ? live : undefined;
+    } else {
+      frozen = reasoningRef.current.frozenFor(k) ?? frozenByLineRef.current[k];
+    }
     void gradeLineThroughEngine(k, "manual", frozen);
-
   };
 
   // Silent auto-grading — same resolver, same engine, no UI feedback.
@@ -3199,6 +3243,14 @@ const PresentationView = ({
   const resolveGradableLineRef = useRef(resolveGradableLine);
   resolveGradableLineRef.current = resolveGradableLine;
 
+  // Keep the engine's row binding on the row the student is actually writing
+  // on. This is what makes "Student line (live)" always show THIS line.
+  const sensorLineRef = useRef<number>(sensor.line);
+  sensorLineRef.current = sensor.line;
+  useEffect(() => {
+    reasoningRef.current.bindRow(activeLineIdx, sensor.line);
+  }, [sensor.line, activeLineIdx]);
+
   // Fire silent auto-check when the active line changes (line-leave event).
   const prevAssessActiveLineRef = useRef<number>(activeLineIdx);
   useEffect(() => {
@@ -3209,6 +3261,7 @@ const PresentationView = ({
       // END POINT — freeze what exists right now for the line being left.
       const leaving = resolveGradableLineRef.current(prev);
       const ascii = leaving?.ascii ?? "";
+      reasoningRef.current.end(prev, ascii);
       freezeSession(sessionRef.current, ascii);
       if (ascii.trim()) frozenByLineRef.current[prev] = ascii;
       if (assessmentMode && role === "student") {
@@ -3217,9 +3270,17 @@ const PresentationView = ({
     }
 
     // START POINT — a fresh session for the line just entered. Re-entering a
-    // line opens a NEW session, so its earlier freeze is released.
+    // line opens a NEW session, so its earlier freeze is released. Starting
+    // the same line on a different row creates a new attempt and invalidates
+    // the previous one (only the latest attempt may ever be evaluated).
     if (!sessionRef.current || sessionRef.current.lineIdx !== activeLineIdx) {
       delete frozenByLineRef.current[activeLineIdx];
+      reasoningRef.current.start(
+        activeLineIdx,
+        guidedLines[activeLineIdx]?.lineId ?? null,
+        sensorLineRef.current,
+      );
+      reasoningRef.current.clearFreeze(activeLineIdx);
       sessionRef.current = startSession(
         activeLineIdx,
         guidedLines[activeLineIdx]?.lineId ?? null,
@@ -3373,20 +3434,32 @@ const PresentationView = ({
         .slice(target.fragmentStart, target.fragmentEnd)
         .filter(Boolean);
       floatingTokens[target.lineId] = expectedFrags;
-      const expectedSet = chipMultiset(expectedFrags);
-      let rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
-      if (expectedSet.size > 0 && writtenRows.length > 0) {
-        let bestRow = -1, bestScore = -1;
-        for (const n of writtenRows) {
-          const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
-          const score = multisetOverlap(expectedSet, used);
-          if (score > bestScore) { bestScore = score; bestRow = n; }
+
+      // The engine's binding is the truth for every visited line. Only lines
+      // the student has never opened fall back to the overlap search.
+      const bound = reasoningRef.current.rowFor(k);
+      let rowNum: number;
+      if (bound !== null) {
+        rowNum = bound;
+      } else {
+        rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
+        const expectedSet = chipMultiset(expectedFrags);
+        if (expectedSet.size > 0 && writtenRows.length > 0) {
+          let bestRow = -1, bestScore = -1;
+          for (const n of writtenRows) {
+            const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
+            const score = multisetOverlap(expectedSet, used);
+            if (score > bestScore) { bestScore = score; bestRow = n; }
+          }
+          if (bestRow >= 0) rowNum = bestRow;
         }
-        if (bestRow >= 0) rowNum = bestRow;
       }
       const row = freeLines[rowNum];
       linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";
     }
+    const activeLid = guidedLines[activeLineIdx]?.lineId ?? null;
+    const activeAscii = activeLid ? (linesAscii[activeLid] ?? "") : "";
+    const activeTokens = activeLid ? (floatingTokens[activeLid] ?? []) : [];
     return {
       ts: Date.now(),
       questionId: current?.id ?? null,
@@ -3395,6 +3468,10 @@ const PresentationView = ({
       rowsAscii,
       linesAscii,
       floatingTokens,
+      // Reasoning-engine view of the ONE active line.
+      activeRow: reasoningRef.current.rowFor(activeLineIdx),
+      attempt: reasoningRef.current.attemptFor(activeLineIdx),
+      introducedTerms: introducedTermsOf(activeAscii, activeTokens),
     };
   }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx]);
 
@@ -3433,6 +3510,74 @@ const PresentationView = ({
     [liveChanReady],
   );
   broadcastCheckResultRef.current = broadcastCheckResult;
+
+  // ── LIVE REASONING EVALUATION ───────────────────────────────────────────
+  // The Reasoning panel no longer grades anything itself (it used to run its
+  // own dry run, which drifted away from the student's session). The student's
+  // engine runs one debounced, NON-PERSISTING evaluation of the active line
+  // and broadcasts it, so student, teacher, Check and silent marking can only
+  // ever see the same verdict.
+  const liveEvalKeyRef = useRef<string>("");
+  useEffect(() => {
+    if (!assessmentMode || role !== "student" || !liveChanReady) return;
+    if (!assessmentId || !current) return;
+    const lineId = guidedLines[activeLineIdx]?.lineId ?? null;
+    if (!lineId) return;
+    const resolved = resolveGradableLineRef.current(activeLineIdx);
+    const ascii = resolved?.ascii ?? "";
+    if (!ascii.trim()) return;
+    const slot = `${current.id}:${lineId}`;
+    if (slot in solvedSlots) return; // permanent — never re-evaluated
+    const key = `${slot}|${ascii}`;
+    if (liveEvalKeyRef.current === key) return;
+
+    const id = window.setTimeout(() => {
+      liveEvalKeyRef.current = key;
+      void (async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke("grade-line", {
+            body: {
+              assessmentId,
+              questionId: current.id,
+              lineId,
+              studentAscii: ascii,
+              mode: "manual",
+              allowedFloatingTokens: resolved?.expectedFrags ?? [],
+              persist: false,
+            },
+          });
+          if (error) return;
+          const res = data as {
+            correct?: boolean; verdict?: string; marks?: number;
+            diagnosis?: { code: string; label: string; detail: string };
+          } | null;
+          const ch = liveBroadcastChanRef.current;
+          if (!ch) return;
+          void ch.send({
+            type: "broadcast",
+            event: "check",
+            payload: {
+              ts: Date.now(),
+              questionId: current.id,
+              lineId,
+              mode: "live",
+              correct: !!res?.correct,
+              verdict: res?.verdict,
+              diagnosis: res?.diagnosis,
+              marks: Number(res?.marks ?? 0),
+              studentAscii: ascii,
+            },
+          });
+        } catch { /* live debugger only — never disturbs the student */ }
+      })();
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [
+    assessmentMode, role, liveChanReady, assessmentId, current, guidedLines,
+    activeLineIdx, freeLines, solvedSlots,
+  ]);
+
+
 
 
 
