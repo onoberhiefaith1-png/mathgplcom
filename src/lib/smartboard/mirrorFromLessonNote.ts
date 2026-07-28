@@ -16,7 +16,7 @@
 // gate fails, the Smartboard MUST refuse to commit the line.
 
 import {
-  mkChar, mkSup, mkSub,
+  mkChar, mkSubSup, subRowsOf,
   type Node, type Row,
 } from "@/lib/smartboard/mathTree";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
@@ -86,6 +86,24 @@ const SUP_TO_DIGIT: Record<string, string> = {
 };
 
 const charsOf = (s: string): Row => [...s].map(mkChar);
+
+const isScriptBase = (n: Node | undefined): boolean =>
+  !!n && (n.kind !== "char" || /[A-Za-z0-9)\]}]/.test(n.ch));
+
+const attachScript = (row: Row, slot: "sup" | "sub", body: Row): void => {
+  const last = row[row.length - 1];
+  const targetIdx = slot === "sub" ? 1 : 2;
+  if (last?.kind === "subsup" && subRowsOf(last)[targetIdx].length === 0) {
+    const rows = subRowsOf(last).slice();
+    rows[targetIdx] = body;
+    row[row.length - 1] = { ...last, rows } as Node;
+    return;
+  }
+  const base = isScriptBase(last) ? [row.pop() as Node] : [];
+  const script = mkSubSup() as Extract<Node, { kind: "subsup" }>;
+  script.rows = slot === "sub" ? [base, body, []] : [base, [], body];
+  row.push(script);
+};
 
 /* ─────────── LaTeX → Smartboard Row converter ─────────── */
 //
@@ -220,11 +238,11 @@ const latexToRow = (src: string): Row => {
       if (src[i + 1] === "{") {
         const end = matchBrace(src, i + 1);
         if (end > 0) {
-          out.push({ kind: "sup", rows: [latexToRow(src.slice(i + 2, end - 1))] } as Node);
+          attachScript(out, "sup", latexToRow(src.slice(i + 2, end - 1)));
           i = end; continue;
         }
       } else if (src[i + 1]) {
-        out.push({ kind: "sup", rows: [[mkChar(src[i + 1])]] } as Node);
+        attachScript(out, "sup", [mkChar(src[i + 1])]);
         i += 2; continue;
       }
       i++; continue;
@@ -235,11 +253,11 @@ const latexToRow = (src: string): Row => {
       if (src[i + 1] === "{") {
         const end = matchBrace(src, i + 1);
         if (end > 0) {
-          out.push({ kind: "sub", rows: [latexToRow(src.slice(i + 2, end - 1))] } as Node);
+          attachScript(out, "sub", latexToRow(src.slice(i + 2, end - 1)));
           i = end; continue;
         }
       } else if (src[i + 1]) {
-        out.push({ kind: "sub", rows: [[mkChar(src[i + 1])]] } as Node);
+        attachScript(out, "sub", [mkChar(src[i + 1])]);
         i += 2; continue;
       }
       i++; continue;
@@ -281,6 +299,12 @@ export const rowSignature = (row: Row): string => {
       }
       if (n.kind === "sup") { s += `^(${rowSignature(rs[0] || [])})`; continue; }
       if (n.kind === "sub") { s += `_(${rowSignature(rs[0] || [])})`; continue; }
+      if (n.kind === "subsup") {
+        s += rowSignature(rs[0] || []);
+        if ((rs[1] || []).length) s += `_(${rowSignature(rs[1] || [])})`;
+        if ((rs[2] || []).length) s += `^(${rowSignature(rs[2] || [])})`;
+        continue;
+      }
       for (const r of rs) s += rowSignature(r);
     }
   }

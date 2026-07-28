@@ -190,13 +190,13 @@ All colors MUST be HSL.
   position: relative;
   font-family: "Source Serif Pro", "Cambria", "Georgia", "Times New Roman", serif;
   font-size: 16px;
-  line-height: 28px;
+  line-height: 24px;
   color: hsl(220 35% 18%);
   caret-color: hsl(220 60% 40%);
 }
 .lesson-doc p {
   margin: 0;
-  min-height: 28px;
+  min-height: 24px;
 }
 .lesson-doc p + p {
   text-indent: 1.25em;
@@ -234,8 +234,19 @@ All colors MUST be HSL.
 .lesson-doc ol li { list-style: decimal; }
 .lesson-doc ::selection { background: hsl(48 90% 75% / 0.55); }
 .lesson-doc [data-math-inline],
-.lesson-doc [data-math-block] { vertical-align: baseline; }
-.lesson-doc [data-math-block] { display: block; min-height: 28px; }
+.lesson-doc [data-math-block] {
+  vertical-align: baseline;
+  line-height: 1.12;
+}
+.lesson-doc [data-math-block] {
+  display: block;
+  min-height: 24px;
+  margin-top: 0.1rem;
+  margin-bottom: 0.1rem;
+}
+.lesson-doc [data-math-inline] * {
+  line-height: 1;
+}
 .lesson-doc .ProseMirror-selectednode[data-geometry-diagram],
 .lesson-doc .ProseMirror-selectednode[data-geometry-diagram-node],
 .lesson-doc .ProseMirror-selectednode [data-geometry-diagram-wrapper],

@@ -30,7 +30,7 @@ export const BASE_FONT_PX = 34;
 
 /** Smallest natural distance between row baselines at 0% Row Spacing.
  *  This is the editor's default writing rhythm, not an added blank row. */
-const MIN_ROW_PER_FONT = 1.28;
+const MIN_ROW_PER_FONT = 1.16;
 
 /** Maximum extra gap added when the Row Spacing slider reaches 100%. */
 const MAX_EXTRA_GAP = 44;
