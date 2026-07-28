@@ -54,6 +54,7 @@ export function useAssessmentBoardSession(opts: {
   const bcTimer = useRef<number | null>(null);
   const dbTimer = useRef<number | null>(null);
   const lastFingerprint = useRef<string>("");
+  const lastSnapshotRef = useRef<AssessBoardSnapshot | null>(null);
 
   useEffect(() => {
     let cancelled = false;
