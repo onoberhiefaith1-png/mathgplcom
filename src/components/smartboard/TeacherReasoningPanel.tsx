@@ -125,9 +125,20 @@ interface Props {
   questionId?: string | null;
   studentName: string;
   onClose: () => void;
+  /** Dedicated Reasoning full screen (independent of the Smartboard's). */
+  fullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
-const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuestionId = null, studentName, onClose }: Props) => {
+const TeacherReasoningPanel = ({
+  assessmentId,
+  studentId,
+  questionId: scopeQuestionId = null,
+  studentName,
+  onClose,
+  fullscreen = false,
+  onToggleFullscreen,
+}: Props) => {
 
   const [questions, setQuestions] = useState<QuestionShape[]>([]);
   const [keyLines, setKeyLines] = useState<KeyLine[]>([]);
