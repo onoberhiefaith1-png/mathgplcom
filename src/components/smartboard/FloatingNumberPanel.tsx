@@ -14,6 +14,27 @@ import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
 const WINDOW_SIZE = 5;
 
+/** Floating numbers are NUMBERS — never empty scaffolding. Any structure
+ *  shell the highlight engine produced (`\frac{□}{□}`, `\sqrt{□}`, `□^{□}`,
+ *  bare `□`) is stripped from the chip so the strip never shows placeholder
+ *  squares. Structures are built on the board, not handed out as chips. */
+export const stripStructureShells = (token: string): string => {
+  if (!token) return "";
+  let out = token;
+  for (let i = 0; i < 4; i++) {
+    const before = out;
+    out = out
+      .replace(/\\frac\s*\{\s*[□\s\\,]*\s*\}\s*\{\s*[□\s\\,]*\s*\}/g, "")
+      .replace(/\\sqrt\s*(\[[^\]]*\])?\s*\{\s*[□\s\\,]*\s*\}/g, "")
+      .replace(/\\?[\w]*\s*\^\s*\{\s*[□\s\\,]*\s*\}/g, (m) => (m.includes("□") ? "" : m))
+      .replace(/\(\s*[□\s\\,]*\s*\)/g, "")
+      .replace(/□/g, "");
+    if (out === before) break;
+  }
+  return out.trim();
+};
+
+
 const SUP_DIG: Record<string, string> = {
   "⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9",
 };
@@ -181,8 +202,12 @@ export const FloatingNumberPanel = ({
   const [usedOrder, setUsedOrder] = useState<number[]>([]);
   const [reentryOffset, setReentryOffset] = useState<number>(0);
   const reservoir = reservoirs[viewIdx];
-  const fragments = reservoir?.fragments ?? [];
+  const fragments = useMemo(
+    () => (reservoir?.fragments ?? []).map(stripStructureShells),
+    [reservoir],
+  );
   const lines: ReservoirLine[] = reservoir?.lines ?? [];
+
   const viewingActive = viewIdx === activeIdx;
   const useLineMode =
     viewingActive && lines.length > 0 && activeLineIdx != null && activeLineIdx < lines.length;
@@ -220,9 +245,11 @@ export const FloatingNumberPanel = ({
       for (let i = line.fragmentStart; i < line.fragmentEnd; i++) {
         out.push({ token: fragments[i], absIdx: i });
       }
-      return out;
+      return out.filter((s) => s.token.trim().length > 0);
     }
-    return fragments.map((token, idx) => ({ token, absIdx: idx }));
+    return fragments
+      .map((token, idx) => ({ token, absIdx: idx }))
+      .filter((s) => s.token.trim().length > 0);
   }, [fragments, useLineMode, activeLineIdx, lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** USED zone (left) — the active line's fragments already tapped/used. */
@@ -230,13 +257,16 @@ export const FloatingNumberPanel = ({
     if (fragments.length === 0) return [];
     if (useLineMode) {
       const k = activeLineIdx as number;
-      return consumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
+      return consumedOfLine(k)
+        .map((idx) => ({ token: fragments[idx], absIdx: idx }))
+        .filter((s) => s.token.trim().length > 0);
     }
     const consumed = consumedAbsIdx ?? new Set<number>();
     return fragments
       .map((token, idx) => ({ token, absIdx: idx }))
-      .filter((s) => consumed.has(s.absIdx));
+      .filter((s) => consumed.has(s.absIdx) && s.token.trim().length > 0);
   }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   /** REMAINING (unused) flow — allSlots in teacher's saved order with
    *  consumed chips removed. It is not repeated while used chips exist: the
