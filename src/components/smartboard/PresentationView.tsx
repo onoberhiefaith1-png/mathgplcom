@@ -1033,6 +1033,70 @@ const PresentationView = ({
     return Math.max(structural, overflow);
   };
 
+  // ── ROW PUSH-DOWN LAW ────────────────────────────────────────────────
+  // Row Spacing defines a CONSTANT gap between consecutive Rows. Text Size
+  // must never eat into that gap. When a Row's ink is taller than one
+  // cursor height, the overflow is taken from the INFINITE space below:
+  // every Row underneath is pushed down by exactly that overflow. Shrinking
+  // the text releases the space again and the rows below travel back up.
+  const beatOverflowRef = useRef<Record<string, { at: number; px: number }>>({});
+  const [beatTick, setBeatTick] = useState(0);
+
+  const shiftEntries = useMemo(() => {
+    const out: Array<[number, number]> = [];
+    const heights = lineHeightsRef.current;
+    for (const k of Object.keys(heights)) {
+      const line = Number(k);
+      if (!Number.isFinite(line)) continue;
+      const px = Math.max(0, (heights[line] ?? 0) - grid.CURSOR_HEIGHT);
+      if (px > 0.5) out.push([line, px]);
+    }
+    for (const v of Object.values(beatOverflowRef.current)) {
+      if (v.px > 0.5) out.push([v.at, v.px]);
+    }
+    out.sort((a, b) => a[0] - b[0]);
+    return out;
+    // heightsTick / beatTick force recomputation when measurements change.
+  }, [grid.CURSOR_HEIGHT, heightsTick, beatTick]);
+
+  /** Accumulated downward push (px) applied to `line` by taller ink above. */
+  const shiftFor = useCallback((line: number): number => {
+    let s = 0;
+    for (const [l, px] of shiftEntries) {
+      if (l >= line) break;
+      s += px;
+    }
+    return s;
+  }, [shiftEntries]);
+
+  /** Screen Y of a Row's top, including push-down. */
+  const rowTopPx = useCallback(
+    (line: number) => grid.MARGIN_TOP + line * grid.LINE_HEIGHT + shiftFor(line),
+    [grid.MARGIN_TOP, grid.LINE_HEIGHT, shiftFor],
+  );
+
+  /** Inverse of the push-down map: converts a canvas Y back into the
+   *  equivalent unshifted Y so all existing row math keeps working. */
+  const unshiftY = useCallback((y: number): number => {
+    let adj = y;
+    for (let i = 0; i < 4; i++) {
+      const approx = Math.max(0, Math.floor((adj - grid.MARGIN_TOP) / grid.LINE_HEIGHT));
+      adj = y - shiftFor(approx);
+    }
+    return adj;
+  }, [grid.MARGIN_TOP, grid.LINE_HEIGHT, shiftFor]);
+
+  const handleBeatMeasure = useCallback((id: string, at: number, allotmentPx: number, height: number) => {
+    const px = Math.max(0, height - allotmentPx);
+    const prev = beatOverflowRef.current[id];
+    if (!prev || Math.abs(prev.px - px) > 2 || prev.at !== at) {
+      beatOverflowRef.current[id] = { at, px };
+      setBeatTick((t) => (t + 1) & 0xffff);
+    }
+  }, []);
+
+
+
 
   /** Post-structure gap is folded into the fixed skip-one law above:
    *  a tall structure already yields sensor = row + 2 via extraRowsFor.
