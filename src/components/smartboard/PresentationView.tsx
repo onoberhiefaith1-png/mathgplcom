@@ -2321,6 +2321,9 @@ const PresentationView = ({
         if (Number.isFinite(n) && n >= 0) restoredIdx = Math.floor(n);
       }
     } catch { /* noop */ }
+    // Reasoning is a live monitoring tool only — a new question/reservoir
+    // starts from a completely empty engine.
+    reasoningRef.current.reset();
     setActiveLineIdx(restoredIdx);
     setFloatingLineIdx(restoredIdx);
     setManualFloatingLineIdx(null);
