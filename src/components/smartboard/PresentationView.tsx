@@ -2871,6 +2871,7 @@ const PresentationView = ({
         mode: "manual" | "auto";
         correct: boolean;
         verdict?: string;
+        diagnosis?: { code: string; label: string; detail: string };
         marks?: number;
         studentAscii?: string;
       }) => void)
