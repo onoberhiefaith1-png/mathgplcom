@@ -722,6 +722,24 @@ function DocumentEditorInner({
       return found;
     };
 
+    /** Reset the body under this section's Solution heading to a single empty
+     *  paragraph, keeping the heading itself. Used on regenerate, where the
+     *  old solution no longer matches the new question. */
+    const clearSolutionBody = (): void => {
+      const sol = findSolutionHeading(info.headingPos);
+      if (!sol) return;
+      const doc = editor.state.doc;
+      const bodyStart = sol.pos + sol.size;
+      const bodyEnd = Math.min(liveSectionEnd(info.headingPos), doc.content.size);
+      if (bodyEnd <= bodyStart) return;
+      editor.chain().focus()
+        .deleteRange({ from: bodyStart, to: bodyEnd })
+        .insertContentAt(bodyStart, { type: "paragraph" })
+        .run();
+    };
+
+
+
     /** Collect every geometryDiagram node attrs found in [from, to). */
     const collectDiagrams = (from: number, to: number) => {
       const found: Array<{ scene: unknown; topic: unknown }> = [];
