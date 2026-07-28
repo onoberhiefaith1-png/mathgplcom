@@ -99,7 +99,20 @@ export async function ensureAssignment(params: {
   const gameId = params.gameId ?? null;
   const keys = (params.questionKeys ?? []).filter(Boolean) as string[];
 
-  const existing = await findActiveAssignment(params.classId, params.notebookId, gameId, params.mode);
+  let existing = await findActiveAssignment(params.classId, params.notebookId, gameId, params.mode);
+
+  // A note assigned before an Adventure was chosen has a game-less instance.
+  // Choosing the Adventure completes the SAME session — adopt it instead of
+  // opening a second one for the same note + class.
+  if (!existing && gameId) {
+    const gameless = await findActiveAssignment(params.classId, params.notebookId, null, params.mode);
+    if (gameless) {
+      await (table() as any).update({ game_id: gameId }).eq("id", gameless.id);
+      gameless.game_id = gameId;
+      existing = gameless;
+    }
+  }
+
   if (existing) {
     const merged = Array.from(new Set([...existing.question_keys, ...keys]));
     if (merged.length !== existing.question_keys.length) {
@@ -108,6 +121,7 @@ export async function ensureAssignment(params: {
     }
     return { assignment: existing, created: false };
   }
+
 
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
