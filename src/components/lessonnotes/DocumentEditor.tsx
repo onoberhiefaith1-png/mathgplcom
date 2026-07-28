@@ -1169,13 +1169,20 @@ function DocumentEditorInner({
   const insertSection = (kind: SectionKind) => {
     if (!editor) return;
     const insertAt = sectionInsertPosition();
+    // Question-style sections come with an empty Solution space by default so
+    // the teacher can type both the problem and the solution manually.
+    const trailing = isQuestionSectionKind(kind) && kind !== "game_questions"
+      ? solutionPlaceholderNodes()
+      : [];
     editor.chain().focus()
       .insertContentAt(insertAt, [
         { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: SECTION_LABELS[kind] }] },
         { type: "paragraph" },
+        ...trailing,
       ])
       .run();
   };
+
 
   /** Bridge so the floating Geometry Editor panel can list and insert into
    *  sections of this document. The panel dispatches window events; we reply
