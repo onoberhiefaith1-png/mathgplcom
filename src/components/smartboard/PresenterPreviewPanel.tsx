@@ -163,6 +163,10 @@ export interface PresenterPreviewPanelProps {
   activeBeatId?: string | null;
   /** Solution line index (0-based) inside the active problem beat, if any. */
   activeLineIdx?: number | null;
+  /** Fires when the user touches any item that belongs to a solution line.
+   *  The host makes that line the single active line for the whole system. */
+  onActivateLine?: (lineIdx: number, beatId: string | null) => void;
+
   /** Emits true when the teacher is manually scrolling the panel. */
   onManualScrollChange?: (isManual: boolean) => void;
   /** Fires whenever Live Mirror Mode toggles or its selection changes.
@@ -181,6 +185,8 @@ const PresenterPreviewPanel = ({
   notebookId,
   activeBeatId,
   activeLineIdx,
+  onActivateLine,
+
   onManualScrollChange,
   onMirrorChange,
   mirrorStatus,
@@ -226,9 +232,19 @@ const PresenterPreviewPanel = ({
     [notebookId],
   );
 
+  const onActivateLineRef = useRef(onActivateLine);
+  onActivateLineRef.current = onActivateLine;
+
   const selectTarget = useCallback(
     (t: EditTarget) => {
       if (mode !== "edit") return;
+      // ONE ACTIVE LINE: touching an item that belongs to a solution line
+      // moves the whole system (Floating Number Display, Smartboard, Check,
+      // Reasoning) onto that line — even when the click merely toggles the
+      // mirror selection off.
+      if (typeof t.lineIdx === "number" && t.lineIdx >= 0) {
+        onActivateLineRef.current?.(t.lineIdx, t.beatId ?? null);
+      }
       setSelection((cur) =>
         cur &&
         cur.kind === t.kind &&
@@ -241,6 +257,7 @@ const PresenterPreviewPanel = ({
     },
     [mode],
   );
+
 
   const isSelected = (t: Partial<EditTarget>) =>
     !!selection &&

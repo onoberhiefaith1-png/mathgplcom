@@ -18,6 +18,8 @@ import { BackButton } from "@/components/common/BackButton";
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
 import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
+import { startSession, freezeSession, type EditingSession } from "@/lib/smartboard/editingSession";
+
 import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
 
@@ -2185,8 +2187,20 @@ const PresentationView = ({
      of each written line against the target. Tokens belonging to a
      completed line get dimmed in the carrier; structures it required get
      dimmed in the structures strip. */
+  // ── ONE ACTIVE LINE ──────────────────────────────────────────────────
+  // There used to be three parallel cursors (activeLineIdx for grading,
+  // floatingLineIdx for the chip strip, manualFloatingLineIdx for manual
+  // navigation) which drifted apart, so the Floating Number Display, the
+  // Presenter Preview and the Check engine could each believe a different
+  // line was active. They are now ONE state. The old setter names are kept
+  // as aliases so every existing call site funnels into the same value.
   const [activeLineIdx, setActiveLineIdx] = useState<number>(0);
-  const [floatingLineIdx, setFloatingLineIdx] = useState<number>(0);
+  const floatingLineIdx = activeLineIdx;
+  const setFloatingLineIdx = setActiveLineIdx;
+  const setManualFloatingLineIdx = useCallback((v: number | null) => {
+    if (typeof v === "number") setActiveLineIdx(v);
+  }, []);
+
 
   // ─── Placeholder sweep on advance ────────────────────────────────────
   // When the teacher moves forward (activeLineIdx increases), any row on
@@ -2233,9 +2247,11 @@ const PresentationView = ({
       return changed ? nx : p;
     });
   }, [activeLineIdx]);
-  // Teacher-controlled override of which floating-number line shows in the
-  // FloatingNumberPanel (via the left-side line navigator). null = auto-follow.
-  const [manualFloatingLineIdx, setManualFloatingLineIdx] = useState<number | null>(null);
+  // Manual navigation no longer keeps a separate cursor — it writes straight
+  // into the single active line above. Kept as a null alias so the existing
+  // `manualFloatingLineIdx ?? floatingLineIdx` reads still resolve.
+  const manualFloatingLineIdx: number | null = null;
+
   // Notebook-reveal gate: when non-null, the FloatingNumberPanel is showing
   // the prose "Notebook N" instead of Line N's fillers. A second Prev/Next
   // tap commits the reveal — marks N as shown and advances to Line N.
@@ -3011,11 +3027,20 @@ const PresentationView = ({
   }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, sensor.line]);
 
   /** Grade one line through the shared equivalence engine.
-   *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent. */
-  const gradeLineThroughEngine = useCallback(async (k: number, mode: "manual" | "auto") => {
+   *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent.
+   *  `frozenAscii` (End Point) wins over whatever is on the board now. */
+  const gradeLineThroughEngine = useCallback(async (
+    k: number,
+    mode: "manual" | "auto",
+    frozenAscii?: string,
+  ) => {
     const resolved = resolveGradableLine(k);
     if (!resolved || !current || !assessmentId) return;
-    const { target, expectedFrags, rowNum, ascii } = resolved;
+    const { target, expectedFrags, rowNum } = resolved;
+    // Everything created between Start Point and End Point belongs to this
+    // line; anything typed after the End Point does not.
+    const ascii = typeof frozenAscii === "string" ? frozenAscii : resolved.ascii;
+
 
     // Nothing written at all — nothing to evaluate. (Not a validation rule:
     // there is simply no expression to send to the engine.)
@@ -3120,28 +3145,61 @@ const PresentationView = ({
       toast({ title: "All lines done", description: "You've solved every line in this question." });
       return;
     }
-    void gradeLineThroughEngine(k, "manual");
+    // The live session is graded for the active line; a line the student has
+    // already left is graded from its frozen End Point expression.
+    const frozen = k === activeLineIdx ? undefined : frozenByLineRef.current[k];
+    void gradeLineThroughEngine(k, "manual", frozen);
+
   };
 
   // Silent auto-grading — same resolver, same engine, no UI feedback.
   const silentAutoCheckLine = useCallback(
-    async (k: number) => { await gradeLineThroughEngine(k, "auto"); },
+    async (k: number, frozenAscii?: string) => {
+      await gradeLineThroughEngine(k, "auto", frozenAscii);
+    },
     [gradeLineThroughEngine],
   );
+
+  // ── EDITING SESSION: Start Point / End Point ─────────────────────────
+  // A session opens the moment the student enters a line (from the Floating
+  // Number Display, the Presenter Preview, or anywhere else) and closes the
+  // moment they leave it. Everything created in between belongs to that
+  // line; the expression is frozen at the End Point and never re-read, so
+  // maths written afterwards cannot change an already-recorded result.
+  const sessionRef = useRef<EditingSession | null>(null);
+  const frozenByLineRef = useRef<Record<number, string>>({});
+  const resolveGradableLineRef = useRef(resolveGradableLine);
+  resolveGradableLineRef.current = resolveGradableLine;
 
   // Fire silent auto-check when the active line changes (line-leave event).
   const prevAssessActiveLineRef = useRef<number>(activeLineIdx);
   useEffect(() => {
-    if (!assessmentMode || role !== "student") {
-      prevAssessActiveLineRef.current = activeLineIdx;
-      return;
-    }
     const prev = prevAssessActiveLineRef.current;
     prevAssessActiveLineRef.current = activeLineIdx;
+
     if (prev !== activeLineIdx && prev >= 0) {
-      void silentAutoCheckLine(prev);
+      // END POINT — freeze what exists right now for the line being left.
+      const leaving = resolveGradableLineRef.current(prev);
+      const ascii = leaving?.ascii ?? "";
+      freezeSession(sessionRef.current, ascii);
+      if (ascii.trim()) frozenByLineRef.current[prev] = ascii;
+      if (assessmentMode && role === "student") {
+        void silentAutoCheckLine(prev, frozenByLineRef.current[prev]);
+      }
     }
-  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine]);
+
+    // START POINT — a fresh session for the line just entered. Re-entering a
+    // line opens a NEW session, so its earlier freeze is released.
+    if (!sessionRef.current || sessionRef.current.lineIdx !== activeLineIdx) {
+      delete frozenByLineRef.current[activeLineIdx];
+      sessionRef.current = startSession(
+        activeLineIdx,
+        guidedLines[activeLineIdx]?.lineId ?? null,
+      );
+    }
+
+  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines]);
+
 
   // Idle silent auto-check — a line that is finished but never left would
   // otherwise never be graded. Debounced; the grader itself skips dangling
@@ -4135,6 +4193,14 @@ const PresentationView = ({
                   presentOnly={!isTeacher}
                   activeBeatId={activePreviewBeatId}
                   activeLineIdx={activePreviewLineIdx}
+                  onActivateLine={(lineIdx) => {
+                    // Presenter Preview drives the single active line: the
+                    // chip strip, board, Check and Reasoning all follow.
+                    if (!hasGuidedLines) return;
+                    const k = Math.max(0, Math.min(lineIdx, guidedLines.length - 1));
+                    setActiveLineIdx((cur) => (cur === k ? cur : k));
+                  }}
+
                   placeholderColor={placeholderColor}
                   onManualScrollChange={setPresenterManualScroll}
                   mirrorStatus={mirrorStatus}
