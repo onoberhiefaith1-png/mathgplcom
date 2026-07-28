@@ -3025,8 +3025,6 @@ const PresentationView = ({
   }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, sensor.line]);
 
   /** Grade one line through the shared equivalence engine.
-   *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent. */
-  /** Grade one line through the shared equivalence engine.
    *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent.
    *  `frozenAscii` (End Point) wins over whatever is on the board now. */
   const gradeLineThroughEngine = useCallback(async (
