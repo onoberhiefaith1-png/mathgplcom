@@ -184,7 +184,7 @@ async function generateValidated(opts: {
   const maxRounds = opts.maxRoundsPerStage ?? 2;
   const messages = [...opts.messages];
   let draft = await callAI(messages, model);
-  let cleaned = sanitizeMath(stripFences(draft));
+  let cleaned = sanitizePresentation(sanitizeMath(stripFences(draft)));
   let lastStage = 1;
 
   // Run the pipeline; on the first failing stage, correct in a loop until
@@ -223,7 +223,7 @@ ${cleaned}`;
         model,
       );
       draft = correction;
-      cleaned = sanitizeMath(stripFences(correction));
+      cleaned = sanitizePresentation(sanitizeMath(stripFences(correction)));
       const recheck = runValidationPipeline(cleaned, opts.kind);
       const stillFailing = firstFailingStage(recheck);
       if (!stillFailing || stillFailing.stage > failing.stage) {
