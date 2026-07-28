@@ -110,13 +110,44 @@ export function AiPopover({
   };
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) stopVoice(); }}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { stopVoice(); setView("prompt"); } }}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-80 p-2 space-y-2">
-        {title && (
-          <p className="text-[10px] uppercase tracking-wider text-foreground/55 px-0.5">{title}</p>
+        {view === "settings" ? (
+          <AiSettingsPanel
+            value={prefs}
+            onChange={(next) => { setPrefs(next); saveAiPreferences(notebookId, next); }}
+            onBack={() => setView("prompt")}
+          />
+        ) : (
+        <>
+        <div className="flex items-center gap-1">
+          {title && (
+            <p className="text-[10px] uppercase tracking-wider text-foreground/55 px-0.5">{title}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => setView("settings")}
+            title="AI settings — tell AI exactly what you want"
+            className="ml-auto p-1 rounded text-foreground/55 hover:text-foreground hover:bg-foreground/10 transition"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {chips.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {chips.map((c) => (
+              <span
+                key={c}
+                className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-foreground/70 border border-primary/25"
+              >
+                {c}
+              </span>
+            ))}
+          </div>
         )}
         {topControls}
+
         <input
           autoFocus
           value={text}
