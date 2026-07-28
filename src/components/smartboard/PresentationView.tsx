@@ -5746,16 +5746,16 @@ const BeatBlock = ({
             {dateLabel}
           </div>
           <div className="text-4xl md:text-5xl font-light leading-tight mb-3">
-            <Inked jitter={jitter * 0.6} seed={1}>{notebookTitle ?? beat.content}</Inked>
+            <Inked jitter={jitter * 0.6} seed={1}>{sanitizePresentation(notebookTitle ?? beat.content ?? "")}</Inked>
           </div>
           {topic && (
             <div className="text-lg md:text-xl opacity-80 mb-1">
-              <Inked jitter={jitter * 0.5} seed={2}>{topic}</Inked>
+              <Inked jitter={jitter * 0.5} seed={2}>{sanitizePresentation(topic)}</Inked>
             </div>
           )}
           {subtopic && (
             <div className="text-sm md:text-base opacity-55">
-              <Inked jitter={jitter * 0.5} seed={3}>{subtopic}</Inked>
+              <Inked jitter={jitter * 0.5} seed={3}>{sanitizePresentation(subtopic)}</Inked>
             </div>
           )}
         </div>
