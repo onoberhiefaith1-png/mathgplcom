@@ -19,12 +19,16 @@ type LivePayload = {
   rowsAscii: Record<number, string>;
   linesAscii: Record<string, string>;
   floatingTokens?: Record<string, string[]>;
+  /** Reasoning-engine view of the ONE active line. */
+  activeRow?: number | null;
+  attempt?: number;
+  introducedTerms?: string[];
 };
 type CheckPayload = {
   ts: number;
   questionId: string;
   lineId: string;
-  mode: "manual" | "auto";
+  mode: "manual" | "auto" | "live";
   correct: boolean;
   verdict?: string;
   diagnosis?: DiagnosisShape;
