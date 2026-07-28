@@ -115,10 +115,10 @@ function SectionHeadingView(props: NodeViewProps) {
     }
   }, [kind, computeSection, opts, text]);
 
-  /** When the cached subsectionId attr is stale (sync rewrites IDs on every
-   *  save), resolve the live subsection for this Solution heading by matching
-   *  its position within the doc against the DB ordering. */
-  const resolveSubsectionId = useCallback(async (): Promise<string | null> => {
+  /** Where this Solution heading sits in the document, expressed in the same
+   *  index space the sync layer uses for notebook_sections /
+   *  notebook_subsections rows. */
+  const locateIndices = useCallback((): { parentSectionIndex: number; subsectionIndex: number } | null => {
     if (!notebookId || kind !== "solution") return null;
     const pos = typeof getPos === "function" ? getPos() : null;
     if (pos == null) return null;
@@ -159,23 +159,91 @@ function SectionHeadingView(props: NodeViewProps) {
       return true;
     });
     if (!selfFound) return null;
+    return { parentSectionIndex, subsectionIndex };
+  }, [notebookId, kind, getPos, editor]);
 
+  /** When the cached subsectionId attr is stale (sync rewrites IDs on every
+   *  save), resolve the live subsection for this Solution heading by matching
+   *  its position within the doc against the DB ordering. */
+  const resolveSubsectionId = useCallback(async (): Promise<string | null> => {
+    const at = locateIndices();
+    if (!at || !notebookId) return null;
     // Look up sections in DB order, take parentSectionIndex.
     const { data: secs } = await supabase
       .from("notebook_sections")
       .select("id, order_index")
       .eq("notebook_id", notebookId)
       .order("order_index", { ascending: true });
-    const sec = (secs ?? [])[parentSectionIndex] as any;
+    const sec = (secs ?? [])[at.parentSectionIndex] as any;
     if (!sec?.id) return null;
     const { data: subs } = await supabase
       .from("notebook_subsections")
       .select("id, order_index")
       .eq("section_id", sec.id)
       .order("order_index", { ascending: true });
-    const sub = (subs ?? [])[subsectionIndex] as any;
+    const sub = (subs ?? [])[at.subsectionIndex] as any;
     return sub?.id ?? null;
-  }, [notebookId, kind, getPos, editor]);
+  }, [locateIndices, notebookId]);
+
+  /** Floating Numbers must ALWAYS be reachable from a Solution heading, even
+   *  when the solution is still empty — the workspace simply opens blank.
+   *  Resolve first; if the backing rows don't exist yet (brand-new section
+   *  that hasn't synced, or an empty question the sync layer skipped), create
+   *  them on the spot instead of refusing with a toast. */
+  const ensureSubsectionId = useCallback(async (): Promise<string | null> => {
+    const resolved = await resolveSubsectionId();
+    if (resolved) return resolved;
+    if (!notebookId) return null;
+    const at = locateIndices();
+    if (!at) return null;
+
+    const { data: secs } = await supabase
+      .from("notebook_sections")
+      .select("id, order_index")
+      .eq("notebook_id", notebookId)
+      .order("order_index", { ascending: true });
+    let sectionId = ((secs ?? [])[at.parentSectionIndex] as any)?.id as string | undefined;
+    if (!sectionId) {
+      const { data: created } = await supabase
+        .from("notebook_sections")
+        .insert({
+          notebook_id: notebookId,
+          kind: "example" as any,
+          order_index: (secs ?? []).length,
+        })
+        .select("id")
+        .single();
+      sectionId = (created as any)?.id;
+    }
+    if (!sectionId) return null;
+
+    const { data: subs } = await supabase
+      .from("notebook_subsections")
+      .select("id, order_index")
+      .eq("section_id", sectionId)
+      .order("order_index", { ascending: true });
+    const existingSub = ((subs ?? [])[at.subsectionIndex] as any)?.id as string | undefined;
+    if (existingSub) return existingSub;
+
+    const { data: newSub } = await supabase
+      .from("notebook_subsections")
+      .insert({
+        section_id: sectionId,
+        order_index: (subs ?? []).length,
+        floating_lines: [],
+      })
+      .select("id")
+      .single();
+    const subId = (newSub as any)?.id as string | undefined;
+    if (!subId) return null;
+    await supabase.from("notebook_blocks").insert([
+      { section_id: sectionId, subsection_id: subId, kind: "problem" as any, order_index: 0, content_ascii: "" },
+      { section_id: sectionId, subsection_id: subId, kind: "solution" as any, order_index: 1, content_ascii: "" },
+      { section_id: sectionId, subsection_id: subId, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
+    ]);
+    return subId;
+  }, [resolveSubsectionId, locateIndices, notebookId]);
+
 
 
 
