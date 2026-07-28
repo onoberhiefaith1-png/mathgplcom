@@ -10,6 +10,7 @@ import { compileQuestionSections } from "@/lib/assessments/createAssessment";
 import { normalizeCanvas, type CanvasElement, type GameRow } from "@/lib/games/types";
 import { useClassMemberIds } from "@/hooks/useClassMemberIds";
 import { timeBarActions } from "@/hooks/useGameTimeBar";
+import { ensureAssignment } from "@/lib/assignments/instances";
 
 export type LinkAdventureQuestion = { sectionId: string; label: string; marks: number; questionKey?: string | null };
 
