@@ -3488,6 +3488,7 @@ const PresentationView = ({
       }
       const row = freeLines[rowNum];
       linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";
+      if (row && row.length > 0) linesTree[target.lineId] = row;
     }
     const activeLid = guidedLines[activeLineIdx]?.lineId ?? null;
     const activeAscii = activeLid ? (linesAscii[activeLid] ?? "") : "";
@@ -3499,12 +3500,15 @@ const PresentationView = ({
       lineIds: guidedLines.map((g) => g.lineId ?? null),
       rowsAscii,
       linesAscii,
+      rowsTree,
+      linesTree,
       floatingTokens,
       // Reasoning-engine view of the ONE active line.
       activeRow: reasoningRef.current.rowFor(activeLineIdx),
       attempt: reasoningRef.current.attemptFor(activeLineIdx),
       introducedTerms: introducedTermsOf(activeAscii, activeTokens),
     };
+
   }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx]);
 
   const publishLiveSnapshot = useCallback(() => {
