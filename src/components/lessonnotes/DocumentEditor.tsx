@@ -260,6 +260,7 @@ async function aiGenerate(opts: {
   blockKind?: "problem" | "solution" | "text";
   activeQuestion?: string;
   inheritedContext?: boolean;
+  lessonContext?: LessonTeachingContext;
 }): Promise<string> {
   const { data, error } = await supabase.functions.invoke("notebook-ai", {
     body: {
@@ -274,6 +275,7 @@ async function aiGenerate(opts: {
       teacherPrompt: opts.teacherPrompt,
       activeQuestion: opts.activeQuestion ?? "",
       inheritedContext: opts.inheritedContext ?? false,
+      lessonContext: opts.lessonContext ?? null,
     },
   });
   if (error) {
