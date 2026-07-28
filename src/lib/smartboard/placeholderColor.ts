@@ -87,3 +87,46 @@ export const smartboardPlaceholderStyle = (
     transition: "background 120ms, border-color 120ms, box-shadow 120ms",
   };
 };
+
+/* ── contrast guard ────────────────────────────────────────────────────
+ * Placeholder slots are painted with the BOARD's placeholder colour, which
+ * is deliberately near-white (cream) so empty cells read as "chalk paper"
+ * on a dark/whiteboard surface. The Floating Number Display, however, is a
+ * WHITE chip bar: a cream slot on white is invisible, which made every
+ * placeholder (√□, □^□, the fraction cells…) look like it had been deleted.
+ * Any light surface must therefore fall back to a visible grey slot. */
+
+const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Relative luminance (0 = black, 1 = white) of a hex colour. */
+export const colorLuminance = (color: string): number => {
+  const m = HEX.exec(String(color ?? "").trim());
+  if (!m) return 0.5;
+  let hex = m[1];
+  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+  const n = parseInt(hex, 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+/** Neutral slot colour used when the board placeholder colour would vanish. */
+export const LIGHT_SURFACE_PLACEHOLDER_COLOR = "#9aa3af";
+export const DARK_SURFACE_PLACEHOLDER_COLOR = "#e8e4dc";
+
+/**
+ * Resolve a placeholder colour that is guaranteed to stay VISIBLE on the
+ * given surface. Never returns "invisible" — the slot must always be seen,
+ * because an empty slot is real mathematical information.
+ */
+export const visiblePlaceholderColor = (
+  color: string | undefined,
+  surfaceColor: string,
+): string => {
+  const surface = colorLuminance(surfaceColor);
+  const slot = colorLuminance(color ?? PLACEHOLDER_COLOR);
+  if (Math.abs(slot - surface) >= 0.18) return color ?? PLACEHOLDER_COLOR;
+  return surface > 0.5 ? LIGHT_SURFACE_PLACEHOLDER_COLOR : DARK_SURFACE_PLACEHOLDER_COLOR;
+};
