@@ -3145,7 +3145,11 @@ const PresentationView = ({
       toast({ title: "All lines done", description: "You've solved every line in this question." });
       return;
     }
-    void gradeLineThroughEngine(k, "manual");
+    // The live session is graded for the active line; a line the student has
+    // already left is graded from its frozen End Point expression.
+    const frozen = k === activeLineIdx ? undefined : frozenByLineRef.current[k];
+    void gradeLineThroughEngine(k, "manual", frozen);
+
   };
 
   // Silent auto-grading — same resolver, same engine, no UI feedback.
