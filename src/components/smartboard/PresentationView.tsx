@@ -3148,23 +3148,49 @@ const PresentationView = ({
 
   // Silent auto-grading — same resolver, same engine, no UI feedback.
   const silentAutoCheckLine = useCallback(
-    async (k: number) => { await gradeLineThroughEngine(k, "auto"); },
+    async (k: number, frozenAscii?: string) => {
+      await gradeLineThroughEngine(k, "auto", frozenAscii);
+    },
     [gradeLineThroughEngine],
   );
+
+  // ── EDITING SESSION: Start Point / End Point ─────────────────────────
+  // A session opens the moment the student enters a line (from the Floating
+  // Number Display, the Presenter Preview, or anywhere else) and closes the
+  // moment they leave it. Everything created in between belongs to that
+  // line; the expression is frozen at the End Point and never re-read, so
+  // maths written afterwards cannot change an already-recorded result.
+  const sessionRef = useRef<EditingSession | null>(null);
+  const frozenByLineRef = useRef<Record<number, string>>({});
+  const resolveGradableLineRef = useRef(resolveGradableLine);
+  resolveGradableLineRef.current = resolveGradableLine;
 
   // Fire silent auto-check when the active line changes (line-leave event).
   const prevAssessActiveLineRef = useRef<number>(activeLineIdx);
   useEffect(() => {
-    if (!assessmentMode || role !== "student") {
-      prevAssessActiveLineRef.current = activeLineIdx;
-      return;
-    }
     const prev = prevAssessActiveLineRef.current;
     prevAssessActiveLineRef.current = activeLineIdx;
+
     if (prev !== activeLineIdx && prev >= 0) {
-      void silentAutoCheckLine(prev);
+      // END POINT — freeze what exists right now for the line being left.
+      const leaving = resolveGradableLineRef.current(prev);
+      const ascii = leaving?.ascii ?? "";
+      freezeSession(sessionRef.current, ascii);
+      if (ascii.trim()) frozenByLineRef.current[prev] = ascii;
+      if (assessmentMode && role === "student") {
+        void silentAutoCheckLine(prev, frozenByLineRef.current[prev]);
+      }
     }
-  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine]);
+
+    // START POINT — a fresh session for the line just entered.
+    if (!sessionRef.current || sessionRef.current.lineIdx !== activeLineIdx) {
+      sessionRef.current = startSession(
+        activeLineIdx,
+        guidedLines[activeLineIdx]?.lineId ?? null,
+      );
+    }
+  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines]);
+
 
   // Idle silent auto-check — a line that is finished but never left would
   // otherwise never be graded. Debounced; the grader itself skips dangling
