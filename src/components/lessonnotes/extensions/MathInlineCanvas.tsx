@@ -91,6 +91,7 @@ function RowView({
       <span
         key="empty"
         aria-hidden
+        data-math-empty-slot="true"
         className="inline-block"
         style={{
           width: "0.6em",
@@ -154,15 +155,66 @@ function NodeView({
   }
   if (node.kind === "subsup") {
     const [base, sub, sup] = subRowsOf(node);
+    const subPath = [...path, 1];
+    const supPath = [...path, 2];
+    const subHasInk = sub.length > 0;
+    const supHasInk = sup.length > 0;
+    const showSub = subHasInk || (focused && pathsEqual(cursor.path, subPath));
+    const showSup = supHasInk || (focused && pathsEqual(cursor.path, supPath));
+
+    if (showSup && !showSub) {
+      return (
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+          <RowView row={base} path={[...path, 0]} cursor={cursor} focused={focused} />
+          <span
+            style={{
+              display: "inline-block",
+              fontSize: "0.7em",
+              lineHeight: 1,
+              marginLeft: 1,
+              transform: "translateY(-0.42em)",
+              transformOrigin: "left bottom",
+            }}
+          >
+            <RowView row={sup} path={supPath} cursor={cursor} focused={focused} />
+          </span>
+        </span>
+      );
+    }
+
+    if (showSub && !showSup) {
+      return (
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+          <RowView row={base} path={[...path, 0]} cursor={cursor} focused={focused} />
+          <span
+            style={{
+              display: "inline-block",
+              fontSize: "0.7em",
+              lineHeight: 1,
+              marginLeft: 1,
+              transform: "translateY(0.28em)",
+              transformOrigin: "left top",
+            }}
+          >
+            <RowView row={sub} path={subPath} cursor={cursor} focused={focused} />
+          </span>
+        </span>
+      );
+    }
+
+    if (!showSub && !showSup) {
+      return <RowView row={base} path={[...path, 0]} cursor={cursor} focused={focused} />;
+    }
+
     return (
       <span style={{ display: "inline-flex", alignItems: "baseline" }}>
         <RowView row={base} path={[...path, 0]} cursor={cursor} focused={focused} />
         <span style={{ display: "inline-flex", flexDirection: "column", fontSize: "0.7em", lineHeight: 1, marginLeft: 1 }}>
           <span style={{ minHeight: "0.6em" }}>
-            <RowView row={sup} path={[...path, 2]} cursor={cursor} focused={focused} />
+            <RowView row={sup} path={supPath} cursor={cursor} focused={focused} />
           </span>
           <span style={{ minHeight: "0.6em" }}>
-            <RowView row={sub} path={[...path, 1]} cursor={cursor} focused={focused} />
+            <RowView row={sub} path={subPath} cursor={cursor} focused={focused} />
           </span>
         </span>
       </span>

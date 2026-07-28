@@ -722,6 +722,33 @@ function DocumentEditorInner({
       return found;
     };
 
+    /** The default Example/Exercise skeleton contains one empty paragraph
+     *  before the pre-created Solution heading. Once AI generates the
+     *  question, remove only that placeholder so the question sits directly
+     *  under the section heading, exactly like the old pre-auto-Solution flow. */
+    const hasOnlyEmptyParagraphs = (from: number, to: number): boolean => {
+      if (to <= from) return false;
+      const doc = editor.state.doc;
+      let sawParagraph = false;
+      let ok = true;
+      doc.nodesBetween(from, Math.min(to, doc.content.size), (n) => {
+        if (!ok) return false;
+        if (n.type.name === "paragraph") {
+          sawParagraph = true;
+          if (n.textContent.trim()) ok = false;
+          return false;
+        }
+        if (n.isText) {
+          if (n.textContent.trim()) ok = false;
+          return true;
+        }
+        if (n.type.name === "hardBreak") return true;
+        ok = false;
+        return false;
+      });
+      return ok && sawParagraph;
+    };
+
     /** Reset the body under this section's Solution heading to a single empty
      *  paragraph, keeping the heading itself. Used on regenerate, where the
      *  old solution no longer matches the new question. */
@@ -811,6 +838,14 @@ function DocumentEditorInner({
       insertFrom = existingSolution
         ? Math.min(existingSolution.pos, info.sectionEndPos)
         : info.sectionEndPos;
+      if (existingSolution) {
+        const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
+        const bodyStart = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
+        if (hasOnlyEmptyParagraphs(bodyStart, existingSolution.pos)) {
+          editor.chain().focus().deleteRange({ from: bodyStart, to: existingSolution.pos }).run();
+          insertFrom = Math.min(bodyStart, editor.state.doc.content.size);
+        }
+      }
       const sizeBefore = editor.state.doc.content.size;
       editor.chain().focus().insertContentAt(insertFrom, questionBodyNodes).run();
       questionBodyEnd = insertFrom + (editor.state.doc.content.size - sizeBefore);
