@@ -466,10 +466,10 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
                 <div className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
                   Floating numbers for this line
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {allowedTokens.map((t, i) => (
-                    <span key={`${t}-${i}`} className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px]">
-                      {t}
+                    <span key={`${t}-${i}`} className="rounded border border-border px-2 py-0.5 text-[13px]">
+                      <PresenterMath ascii={toDisplaySafe(t)} keyBase={`reason-chip-${i}`} color="currentColor" />
                     </span>
                   ))}
                 </div>
@@ -481,13 +481,14 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
                 Student-introduced terms
               </div>
               {studentAddedTerms.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {studentAddedTerms.map((t, i) => (
-                    <span key={`${t}-${i}`} className="rounded border border-amber-500/50 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-600 dark:text-amber-400">
-                      {t}
+                    <span key={`${t}-${i}`} className="rounded border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[13px] text-amber-600 dark:text-amber-400">
+                      <PresenterMath ascii={toDisplaySafe(t)} keyBase={`reason-add-${i}`} color="currentColor" />
                     </span>
                   ))}
                 </div>
+
               ) : (
                 <div className="text-[11px] text-muted-foreground">
                   {studentAscii.trim() ? "Only the items supplied for this line were used." : "—"}
