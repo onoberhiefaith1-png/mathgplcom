@@ -14,6 +14,8 @@ import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { GroupsPanel } from "@/components/adventures/GroupsPanel";
+import { withGroupBars, isGroupBarElementId } from "@/lib/adventures/groupBars";
+import { moveGroupBar } from "@/lib/adventures/groups";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 
