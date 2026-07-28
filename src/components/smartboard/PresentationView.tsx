@@ -3245,7 +3245,7 @@ const PresentationView = ({
   // Broadcast the outcome of a real (persisting) check so the reasoning panel
   // can show what the student actually scored, and from which path.
   const broadcastCheckResult = useCallback(
-    (info: { questionId: string; lineId: string; mode: "manual" | "auto"; correct: boolean; verdict?: string; marks?: number; studentAscii?: string }) => {
+    (info: { questionId: string; lineId: string; mode: "manual" | "auto"; correct: boolean; verdict?: string; diagnosis?: { code: string; label: string; detail: string }; marks?: number; studentAscii?: string }) => {
       const ch = liveBroadcastChanRef.current;
       if (!ch || !liveChanReady) return;
       void ch.send({ type: "broadcast", event: "check", payload: { ...info, ts: Date.now() } });
