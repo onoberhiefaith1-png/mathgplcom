@@ -357,15 +357,15 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
                 {checking && !checkForThisLine ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> Waiting…</>
                 ) : shownCorrect === true ? (
-                  <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Equivalent</>
+                  <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {shownDiagnosis?.label ?? "Equivalent"}</>
                 ) : shownCorrect === false ? (
-                  <><XCircle className="h-4 w-4 text-red-500" /> Not equivalent</>
+                  <><XCircle className="h-4 w-4 text-red-500" /> {shownDiagnosis?.label ?? "Not equivalent"}</>
                 ) : (
                   <span className="text-muted-foreground">Waiting…</span>
                 )}
               </div>
               <div className="text-xs text-muted-foreground">
-                {shownVerdict ? verdictLabel(shownVerdict) : "No line content to evaluate yet."}
+                {shownDiagnosis?.detail ?? (shownVerdict ? verdictLabel(shownVerdict) : "No line content to evaluate yet.")}
               </div>
               <div className="text-xs tabular-nums">
                 Awarded <span className="font-semibold">{awardedMarks}</span>
