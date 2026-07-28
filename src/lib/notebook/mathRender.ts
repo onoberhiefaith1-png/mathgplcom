@@ -590,8 +590,21 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
         i = b.end;
         continue;
       }
-      // Unbalanced \frac{...} — never leak raw markup. Emit empty fraction.
+      // Unbalanced \frac — never leak raw markup, and never leave orphan
+      // placeholder boxes beside the shell. If the braces were stripped by an
+      // upstream pass (`\frac{□}{□}` → `\frac□□`), adopt the two following
+      // placeholder glyphs as numerator/denominator so the object keeps
+      // exactly two cells instead of showing four.
       flush();
+      let j = i + 5;
+      const eatSlot = (): boolean => {
+        let p = j;
+        while (src[p] === " ") p++;
+        if (src[p] === "□") { j = p + 1; return true; }
+        return false;
+      };
+      eatSlot();
+      eatSlot();
       out.push(
         fractionSpan(
           emptySlotBox(ctx.slotCounter.n++, ctx, `${keyBase}-fn${k}`),
@@ -599,7 +612,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
           `${keyBase}-fb-${k++}`,
         ),
       );
-      i += 5; // skip past "\frac"
+      i = j;
       continue;
     }
 

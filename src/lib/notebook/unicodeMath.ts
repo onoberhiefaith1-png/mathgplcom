@@ -20,6 +20,53 @@ const toSub = (s: string) => s.split("").map((c) => SUB[c] ?? c).join("");
 const canSup = (s: string) => s.split("").every((c) => SUP[c] !== undefined);
 const canSub = (s: string) => s.split("").every((c) => SUB[c] !== undefined);
 
+/* ── fraction protection ───────────────────────────────────────────────
+ * `\frac{a}{b}` is a STRUCTURE, not text. Every brace-stripping pass in
+ * this file would otherwise dissolve it into `\frac ab`, and a fraction
+ * with no arguments renders as an empty shell plus loose leftovers. So we
+ * lift complete fractions out behind pure private-use sentinels first and
+ * put them back verbatim at the very end.                              */
+
+const FRAC_TOKEN = (i: number) => `\uE002${String.fromCharCode(0xE200 + i)}\uE002`;
+
+/** Read a `{…}` group starting at `i`; returns the index AFTER the `}`. */
+const matchBrace = (s: string, i: number): number => {
+  if (s[i] !== "{") return -1;
+  let depth = 0;
+  for (let j = i; j < s.length; j++) {
+    if (s[j] === "{") depth++;
+    else if (s[j] === "}") {
+      depth--;
+      if (depth === 0) return j + 1;
+    }
+  }
+  return -1;
+};
+
+/** Replace every complete `\frac{a}{b}` with a sentinel, storing the parts. */
+const holdFractions = (src: string, holds: string[]): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const m = /^\\(?:d|t)?frac\s*(?=\{)/.exec(src.slice(i));
+    if (!m) { out += src[i++]; continue; }
+    const aStart = i + m[0].length;
+    const aEnd = matchBrace(src, aStart);
+    const bEnd = aEnd > 0 ? matchBrace(src, aEnd) : -1;
+    if (aEnd < 0 || bEnd < 0) { out += src[i++]; continue; }
+    const num = src.slice(aStart + 1, aEnd - 1);
+    const den = src.slice(aEnd + 1, bEnd - 1);
+    out += FRAC_TOKEN(holds.length);
+    // Placeholder so the index is reserved before the parts are normalised.
+    holds.push("");
+    const at = holds.length - 1;
+    holds[at] = `\\frac{${toUnicodeMath(num)}}{${toUnicodeMath(den)}}`;
+    i = bEnd;
+  }
+  return out;
+};
+
+
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
@@ -43,6 +90,13 @@ export const toUnicodeMath = (input: string): string => {
     return token;
   };
   s = s.replace(/\^\{\s*□\s*\}/g, POWER_SLOT);
+
+  // Protect COMPLETE fractions before any brace stripping. The blanket
+  // "strip stray braces" pass below used to turn `\frac{□}{□}` into
+  // `\frac□□`, which the renderer then drew as an empty fraction (2 slots)
+  // PLUS two orphan placeholder boxes — four cells for a two-cell object.
+  const fracHolds: string[] = [];
+  s = holdFractions(s, fracHolds);
 
   // Strip KaTeX-style $...$ / $$...$$ delimiters — they are valid in lesson-note
   // source but must NEVER reach the rendered DOM as visible "$" characters.
@@ -111,6 +165,11 @@ export const toUnicodeMath = (input: string): string => {
     s = s.split(token).join(markup);
   });
   s = s.split(POWER_SLOT).join("^{□}");
+  // Fractions come back whole — braces intact — so the renderer draws ONE
+  // fraction with exactly two cells.
+  fracHolds.forEach((markup, i) => {
+    s = s.split(FRAC_TOKEN(i)).join(markup);
+  });
 
   // Defence in depth: any leftover private-use sentinel must never reach the
   // DOM. If something earlier swallowed half a sentinel, drop the remnants

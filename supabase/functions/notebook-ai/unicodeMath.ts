@@ -20,6 +20,48 @@ const toSub = (s: string) => s.split("").map((c) => SUB[c] ?? c).join("");
 const canSup = (s: string) => s.split("").every((c) => SUP[c] !== undefined);
 const canSub = (s: string) => s.split("").every((c) => SUB[c] !== undefined);
 
+/* ── fraction protection ───────────────────────────────────────────────
+ * `\frac{a}{b}` is a STRUCTURE. Brace-stripping passes below would turn it
+ * into `\frac ab`, which renders as an empty fraction shell PLUS loose
+ * leftover placeholders. Lift complete fractions out first, restore last. */
+
+const FRAC_TOKEN = (i: number) => `\uE002${String.fromCharCode(0xE200 + i)}\uE002`;
+
+const matchBrace = (s: string, i: number): number => {
+  if (s[i] !== "{") return -1;
+  let depth = 0;
+  for (let j = i; j < s.length; j++) {
+    if (s[j] === "{") depth++;
+    else if (s[j] === "}") {
+      depth--;
+      if (depth === 0) return j + 1;
+    }
+  }
+  return -1;
+};
+
+const holdFractions = (src: string, holds: string[]): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const m = /^\\(?:d|t)?frac\s*(?=\{)/.exec(src.slice(i));
+    if (!m) { out += src[i++]; continue; }
+    const aStart = i + m[0].length;
+    const aEnd = matchBrace(src, aStart);
+    const bEnd = aEnd > 0 ? matchBrace(src, aEnd) : -1;
+    if (aEnd < 0 || bEnd < 0) { out += src[i++]; continue; }
+    const num = src.slice(aStart + 1, aEnd - 1);
+    const den = src.slice(aEnd + 1, bEnd - 1);
+    out += FRAC_TOKEN(holds.length);
+    holds.push("");
+    const at = holds.length - 1;
+    holds[at] = `\\frac{${toUnicodeMath(num)}}{${toUnicodeMath(den)}}`;
+    i = bEnd;
+  }
+  return out;
+};
+
+
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
@@ -36,6 +78,9 @@ export const toUnicodeMath = (input: string): string => {
     return token;
   };
   s = s.replace(/\^\{\s*□\s*\}/g, POWER_SLOT);
+
+  const fracHolds: string[] = [];
+  s = holdFractions(s, fracHolds);
 
   // Strip KaTeX-style $...$ / $$...$$ delimiters.
   s = s.replace(/\$+/g, "");
@@ -100,6 +145,9 @@ export const toUnicodeMath = (input: string): string => {
     s = s.replace(`\uE001SCRIPT_${i}\uE001`, markup);
   });
   s = s.replace(new RegExp(POWER_SLOT, "g"), "^{□}");
+  fracHolds.forEach((markup, i) => {
+    s = s.split(FRAC_TOKEN(i)).join(markup);
+  });
 
   return s.trim();
 };
