@@ -12,6 +12,8 @@ import {
   useEffect, useRef, useState,
 } from "react";
 import type { Cursor, Node, Row } from "@/lib/smartboard/mathTree";
+import { SLOT_GLYPH } from "@/lib/smartboard/mathTree";
+
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
 import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
@@ -354,6 +356,20 @@ const NodeView = ({
 
   switch (node.kind) {
     case "char":
+      // A literal `□` is NOT ink — it is an empty slot. Render it through the
+      // one placeholder authority so it takes the placeholder colour (blends
+      // with the board) and disappears the moment the teacher types.
+      if (node.ch === SLOT_GLYPH) {
+        return (
+          <SmartboardPlaceholderSlot
+            color={placeholderColor ?? PLACEHOLDER_COLOR}
+            active={pathEq(parentPath, cursor.path) && cursor.index === idxInRow}
+            caretColor={caretColor}
+            source="slot-char"
+            onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path: parentPath, index: idxInRow }))}
+          />
+        );
+      }
       return (
         <span
           onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path: parentPath, index: idxInRow }))}
@@ -362,6 +378,7 @@ const NodeView = ({
           {node.ch}
         </span>
       );
+
 
     case "frac":
       return (
