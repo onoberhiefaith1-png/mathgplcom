@@ -195,6 +195,7 @@ Deno.serve(async (req) => {
     return json({
       correct: isCorrect,
       verdict,
+      diagnosis,
       marks: isCorrect ? lineMarks : 0,
       score: savedProgress.score,
       totalMarks,
