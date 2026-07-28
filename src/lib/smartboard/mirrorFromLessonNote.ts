@@ -16,7 +16,7 @@
 // gate fails, the Smartboard MUST refuse to commit the line.
 
 import {
-  mkChar, mkSubSup, subRowsOf,
+  mkChar, mkSubSup, subRowsOf, collapseNestedBoxes,
   type Node, type Row,
 } from "@/lib/smartboard/mathTree";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
@@ -333,7 +333,8 @@ const stageRow = (raw: string): MirrorRowResult => {
   const gated = assertDisplaySafe(raw ?? "");
   // Use the gate's cleaned form as the canonical Lesson Note source.
   const cleaned = stripLatexScaffolding(gated.cleaned);
-  const row = latexToRow(cleaned);
+  // One writable cell per slot — never box-inside-box.
+  const row = collapseNestedBoxes(latexToRow(cleaned));
   const sig = rowSignature(row);
   const hit = containsForbidden(sig);
   return hit

@@ -3443,12 +3443,17 @@ const PresentationView = ({
   // verbatim — never normalised or reordered.
   const buildLiveSnapshot = useCallback(() => {
     const rowsAscii: Record<number, string> = {};
+    // The math OBJECT itself, sent verbatim. The Reasoning panel renders this
+    // — it must never rebuild an expression from the ASCII text.
+    const rowsTree: Record<number, Row> = {};
     for (const [k, v] of Object.entries(freeLines)) {
       const n = Number(k);
       if (!Number.isFinite(n)) continue;
-      if (v && v.length > 0) rowsAscii[n] = rowToAscii(v);
+      if (v && v.length > 0) { rowsAscii[n] = rowToAscii(v); rowsTree[n] = v; }
     }
     const linesAscii: Record<string, string> = {};
+    const linesTree: Record<string, Row> = {};
+
     const floatingTokens: Record<string, string[]> = {};
     const writtenRows = Object.keys(freeLines)
       .map(Number)
@@ -3483,6 +3488,7 @@ const PresentationView = ({
       }
       const row = freeLines[rowNum];
       linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";
+      if (row && row.length > 0) linesTree[target.lineId] = row;
     }
     const activeLid = guidedLines[activeLineIdx]?.lineId ?? null;
     const activeAscii = activeLid ? (linesAscii[activeLid] ?? "") : "";
@@ -3494,12 +3500,15 @@ const PresentationView = ({
       lineIds: guidedLines.map((g) => g.lineId ?? null),
       rowsAscii,
       linesAscii,
+      rowsTree,
+      linesTree,
       floatingTokens,
       // Reasoning-engine view of the ONE active line.
       activeRow: reasoningRef.current.rowFor(activeLineIdx),
       attempt: reasoningRef.current.attemptFor(activeLineIdx),
       introducedTerms: introducedTermsOf(activeAscii, activeTokens),
     };
+
   }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx]);
 
   const publishLiveSnapshot = useCallback(() => {
