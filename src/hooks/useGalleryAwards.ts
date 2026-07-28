@@ -11,7 +11,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
-import { loadClassGalleryRewards, type ClassGalleryRewardRow } from "@/lib/games/classGalleryRewards";
+import {
+  loadClassGalleryRewards,
+  type ClassGalleryRewardRow,
+  type RewardElementStyle,
+} from "@/lib/games/classGalleryRewards";
 import { loadClassGalleryAwards, type ClassGalleryAwardRow } from "@/lib/games/classGalleryAwards";
 import type { CanvasElement } from "@/lib/games/types";
 
