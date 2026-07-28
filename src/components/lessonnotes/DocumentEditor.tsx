@@ -310,6 +310,22 @@ const solutionPlaceholderNodes = () => ([
   { type: "paragraph" },
 ]);
 
+/** True for a heading that already acts as this question's Solution slot. */
+const isSolutionLabel = (raw: string): boolean => {
+  const t = String(raw ?? "").trim().toLowerCase().replace(/[:.\s]+$/, "");
+  return t === "solution" || t === "worked solution" || /^solution\b/.test(t) || t.includes("worked solution");
+};
+
+/** The AI sometimes restates the "Solution" label as the first body line.
+ *  Strip it so the section never grows a second Solution marker. */
+const stripLeadingSolutionLabel = (raw: string): string => {
+  const lines = String(raw ?? "").split("\n");
+  while (lines.length && !lines[0].trim()) lines.shift();
+  if (lines.length && isSolutionLabel(lines[0])) lines.shift();
+  return lines.join("\n").trim();
+};
+
+
 /** Run the existing notebook-ai `scan` mode on each image and merge problems. */
 async function scanImages(images: string[]): Promise<string[]> {
   const out: string[] = [];
@@ -653,13 +669,16 @@ function DocumentEditorInner({
     }
     if (!content) { toast({ title: "No content returned" }); return; }
 
+    // A Solution heading must never be duplicated, and the AI must never
+    // re-emit the label as body text.
+    if (isSolutionBlock) content = stripLeadingSolutionLabel(content);
+
     // Single-column flow: math + prose interleaved.
-    // For question-style sections we insert the question body and the
-    // Solution placeholder SEPARATELY so we have an exact position for the
-    // geometry diagram (which must sit BELOW the question and ABOVE the
+    // For question-style sections the question body and the Solution
+    // placeholder are inserted SEPARATELY so we have an exact position for
+    // the geometry diagram (which must sit BELOW the question and ABOVE the
     // "Solution" heading — the diagram is part of the question).
     const questionBodyNodes = aiTextToNodes(content);
-    const trailingNodes = isQuestionSectionKind(info.kind) ? solutionPlaceholderNodes() : [];
 
     // REGENERATE (and in-place EDIT): replace the section body, strictly
     // bounded by this section's range. Otherwise append at section end.
@@ -684,6 +703,43 @@ function DocumentEditorInner({
       return endPos;
     };
 
+    /** Position + size of the Solution heading already living inside this
+     *  section, or null. The question body must always be inserted ABOVE it,
+     *  and no second placeholder may ever be added. */
+    const findSolutionHeading = (headingPos: number): { pos: number; size: number } | null => {
+      const doc = editor.state.doc;
+      const end = liveSectionEnd(headingPos);
+      let found: { pos: number; size: number } | null = null;
+      doc.nodesBetween(headingPos, Math.min(end, doc.content.size), (n, p) => {
+        if (found) return false;
+        if (p <= headingPos) return true;
+        if (n.type.name === "heading" && isSolutionLabel(n.textContent)) {
+          found = { pos: p, size: n.nodeSize };
+          return false;
+        }
+        return true;
+      });
+      return found;
+    };
+
+    /** Reset the body under this section's Solution heading to a single empty
+     *  paragraph, keeping the heading itself. Used on regenerate, where the
+     *  old solution no longer matches the new question. */
+    const clearSolutionBody = (): void => {
+      const sol = findSolutionHeading(info.headingPos);
+      if (!sol) return;
+      const doc = editor.state.doc;
+      const bodyStart = sol.pos + sol.size;
+      const bodyEnd = Math.min(liveSectionEnd(info.headingPos), doc.content.size);
+      if (bodyEnd <= bodyStart) return;
+      editor.chain().focus()
+        .deleteRange({ from: bodyStart, to: bodyEnd })
+        .insertContentAt(bodyStart, { type: "paragraph" })
+        .run();
+    };
+
+
+
     /** Collect every geometryDiagram node attrs found in [from, to). */
     const collectDiagrams = (from: number, to: number) => {
       const found: Array<{ scene: unknown; topic: unknown }> = [];
@@ -697,6 +753,15 @@ function DocumentEditorInner({
       return found;
     };
 
+    // The section already owns a Solution heading (inserted with the section,
+    // or by an earlier generation) → reuse it instead of appending another.
+    const existingSolution = isQuestionSectionKind(info.kind)
+      ? findSolutionHeading(info.headingPos)
+      : null;
+    const trailingNodes = isQuestionSectionKind(info.kind) && !existingSolution
+      ? solutionPlaceholderNodes()
+      : [];
+
     let insertFrom: number;
     // Position immediately AFTER the question body — this is where the
     // geometry diagram for the question must be inserted.
@@ -709,8 +774,11 @@ function DocumentEditorInner({
       const start = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
       insertFrom = start;
       // Clamp the delete range to the LIVE next-heading position so we
-      // can never spill into the following section.
-      const liveEnd = Math.min(liveSectionEnd(info.headingPos), info.sectionEndPos);
+      // can never spill into the following section. When a Solution heading
+      // exists, stop at it: the heading (and the structure below) survives a
+      // regenerate — only the question body is replaced.
+      const sectionEnd = Math.min(liveSectionEnd(info.headingPos), info.sectionEndPos);
+      const liveEnd = existingSolution ? Math.min(existingSolution.pos, sectionEnd) : sectionEnd;
       // Preserve diagrams BEFORE we wipe.
       preservedDiagrams = collectDiagrams(start, liveEnd);
       editor.chain().focus()
@@ -731,9 +799,18 @@ function DocumentEditorInner({
       }
       if (trailingNodes.length) {
         editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
+      } else if (existingSolution) {
+        // The old solution belongs to the old question — reset its body to a
+        // single empty paragraph, leaving the heading itself in place.
+        clearSolutionBody();
       }
     } else {
-      insertFrom = info.sectionEndPos;
+      // Append path: the question ALWAYS goes above an existing Solution
+      // heading, never at the very end of the section (which would put the
+      // question underneath the solution).
+      insertFrom = existingSolution
+        ? Math.min(existingSolution.pos, info.sectionEndPos)
+        : info.sectionEndPos;
       const sizeBefore = editor.state.doc.content.size;
       editor.chain().focus().insertContentAt(insertFrom, questionBodyNodes).run();
       questionBodyEnd = insertFrom + (editor.state.doc.content.size - sizeBefore);
@@ -741,6 +818,7 @@ function DocumentEditorInner({
         editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
       }
     }
+
 
     // Whether the teacher explicitly asked for a new diagram. When they did
     // NOT and we already preserved one, skip the async geometry pass to
