@@ -31,7 +31,7 @@ describe("Student Line mirrors the SmartBoard object", () => {
     expect(structureHash(mirrored)).toBe(structureHash(board));
   });
 
-  it("a re-parsed copy does NOT hash the same (proving text round-trips差 differ)", () => {
+  it("a re-parsed copy does NOT hash the same (proving text round-trips differ)", () => {
     const board: Row = [mkFrac()];
     const reparsed: Row = [
       { kind: "frac", rows: [[{ kind: "bracket", left: "(", right: ")", rows: [[]] }], [{ kind: "bracket", left: "(", right: ")", rows: [[]] }]] },
