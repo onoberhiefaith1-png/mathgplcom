@@ -85,6 +85,11 @@ export const subRowsOf = (n: Node): Row[] =>
  *  visible placeholder slots for ONE logical slot, so a fraction ends up
  *  showing four cells instead of two and typing lands in the wrong cell.
  *  There must be exactly one writable cell per slot. */
+const isEmptyBoxRow = (r: Row): boolean =>
+  r.length === 1 &&
+  r[0].kind === "box" &&
+  (r[0] as Extract<Node, { kind: "box" }>).rows.every((sub) => sub.length === 0);
+
 export const collapseNestedBoxes = (row: Row): Row =>
   row.map((n) => {
     if (n.kind === "char") return n;
@@ -98,8 +103,15 @@ export const collapseNestedBoxes = (row: Row): Row =>
     ) {
       node = node.rows[0][0] as Exclude<Node, { kind: "char" }>;
     }
-    return { ...node, rows: node.rows.map(collapseNestedBoxes) } as Node;
+    let rows = node.rows.map(collapseNestedBoxes);
+    // A structural slot (fraction numerator, radicand, exponent…) whose only
+    // content is an empty placeholder box would render TWO placeholders: the
+    // slot's own caret glyph plus the box. The slot alone is the placeholder,
+    // so drop the redundant box.
+    if (node.kind !== "box") rows = rows.map((r) => (isEmptyBoxRow(r) ? [] : r));
+    return { ...node, rows } as Node;
   });
+
 
 /** Structural fingerprint of a row: node kinds + arity + literal chars.
  *  Two renderings of the SAME mathematical object must produce the SAME
