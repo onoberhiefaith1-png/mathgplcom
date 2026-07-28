@@ -183,7 +183,7 @@ export function AiEditPanel({
           <div className="px-4 py-3 border-b bg-foreground/5">
             <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">Selected</p>
             <div className="text-sm max-h-24 overflow-auto whitespace-pre-wrap break-words">
-              {renderPreview ? renderPreview(target.text) : target.text}
+              {safePreview(target.text)}
             </div>
           </div>
         )}
@@ -391,14 +391,14 @@ export function AiEditPanel({
               <div className="rounded-md border border-foreground/15 p-2">
                 <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">Current</p>
                 <div className="text-sm whitespace-pre-wrap break-words">
-                  {renderPreview && target ? renderPreview(target.text) : target?.text}
+                  {target ? safePreview(target.text) : null}
                 </div>
               </div>
               <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
                 <p className="text-[10px] uppercase tracking-wider text-primary mb-1">Proposed</p>
                 <div className="text-sm whitespace-pre-wrap break-words">
                   {renderProposed ? renderProposed(proposed) :
-                    renderPreview ? renderPreview(proposed) : proposed}
+                    safePreview(proposed)}
                 </div>
               </div>
               {simpleMode && (
