@@ -258,6 +258,17 @@ export async function assignAssessmentQuestion(params: {
     (ref.sectionId && rows.find((r) => !r.question_key && r.section_id === ref.sectionId));
 
   if (hit) {
+    // Reviving an assessment row for a DIFFERENT question means the old
+    // boards/progress attached to this id belong to other content. Clear them
+    // so no student ever reopens someone else's (or another question's) work.
+    const changedQuestion = (hit.question_key ?? null) !== (ref.questionKey ?? null);
+    if (changedQuestion) {
+      await Promise.all([
+        supabase.from("assessment_question_board_state").delete().eq("assessment_id", hit.id),
+        supabase.from("assessment_board_state").delete().eq("assessment_id", hit.id),
+        supabase.from("assessment_progress").delete().eq("assessment_id", hit.id),
+      ]);
+    }
     await supabase
       .from("assessments")
       .update({
@@ -278,6 +289,7 @@ export async function assignAssessmentQuestion(params: {
       .insert({ assessment_id: hit.id, lines: answerKey as never } as never);
     return hit.id as string;
   }
+
 
   const { data: created, error } = await supabase
     .from("assessments")
