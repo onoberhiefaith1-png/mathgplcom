@@ -310,6 +310,22 @@ const solutionPlaceholderNodes = () => ([
   { type: "paragraph" },
 ]);
 
+/** True for a heading that already acts as this question's Solution slot. */
+const isSolutionLabel = (raw: string): boolean => {
+  const t = String(raw ?? "").trim().toLowerCase().replace(/[:.\s]+$/, "");
+  return t === "solution" || t === "worked solution" || /^solution\b/.test(t) || t.includes("worked solution");
+};
+
+/** The AI sometimes restates the "Solution" label as the first body line.
+ *  Strip it so the section never grows a second Solution marker. */
+const stripLeadingSolutionLabel = (raw: string): string => {
+  const lines = String(raw ?? "").split("\n");
+  while (lines.length && !lines[0].trim()) lines.shift();
+  if (lines.length && isSolutionLabel(lines[0])) lines.shift();
+  return lines.join("\n").trim();
+};
+
+
 /** Run the existing notebook-ai `scan` mode on each image and merge problems. */
 async function scanImages(images: string[]): Promise<string[]> {
   const out: string[] = [];
