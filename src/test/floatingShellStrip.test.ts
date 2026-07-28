@@ -1,18 +1,26 @@
+// Floating numbers are EXTRACTED, never rebuilt. A token leaving Present
+// Preview (Normal Mode) must reach the Floating Number Display unchanged —
+// structures and their placeholder slots included.
 import { describe, it, expect } from "vitest";
-import { stripStructureShells } from "@/components/smartboard/FloatingNumberPanel";
+import {
+  structureSignature,
+  validateFloatingToken,
+} from "@/components/smartboard/FloatingNumberPanel";
 
-describe("floating chips carry numbers, never placeholder scaffolding", () => {
-  it("drops fraction / radical / power shells", () => {
-    expect(stripStructureShells("x=\\frac{□}{□}")).toBe("x=");
-    expect(stripStructureShells("\\frac{\\,□\\,}{\\,□\\,}")).toBe("");
-    expect(stripStructureShells("±\\sqrt{□}")).toBe("±");
-    expect(stripStructureShells("□^{□}")).toBe("");
-    expect(stripStructureShells("( □ )")).toBe("");
+describe("floating token fidelity", () => {
+  it("passes structures through untouched", () => {
+    for (const t of ["x=\\frac{□}{□}", "±\\sqrt{□}", "b^{2}", "\\frac{5}{2}", "2a", "−5"]) {
+      expect(validateFloatingToken(t, t)).toBe(t);
+    }
   });
-  it("leaves real numbers untouched", () => {
-    expect(stripStructureShells("−5")).toBe("−5");
-    expect(stripStructureShells("b^{2}")).toBe("b^{2}");
-    expect(stripStructureShells("\\frac{5}{2}")).toBe("\\frac{5}{2}");
-    expect(stripStructureShells("2a")).toBe("2a");
+
+  it("rejects a generated token that altered the structure", () => {
+    expect(validateFloatingToken("x=\\frac{□}{□}", "x=")).toBe("x=\\frac{□}{□}");
+    expect(validateFloatingToken("±\\sqrt{□}", "±")).toBe("±\\sqrt{□}");
+  });
+
+  it("signature counts fractions, roots, scripts, brackets and slots", () => {
+    expect(structureSignature("\\frac{□}{□}")).not.toBe(structureSignature(""));
+    expect(structureSignature("\\frac{a}{b}")).toBe(structureSignature("\\frac{x}{y}"));
   });
 });
