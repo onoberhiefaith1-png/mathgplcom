@@ -45,19 +45,60 @@ export const introducedTerms = (studentAscii: string, floatingTokens: string[]):
 export class ReasoningEngine {
   private attempts: ReasoningAttempt[] = [];
   private current: ReasoningAttempt | null = null;
+  /** Navigation-only visit. NOT an attempt until the student writes. */
+  private pending: { lineIdx: number; lineId: string | null; rowNum: number | null } | null = null;
 
   reset(): void {
     this.attempts = [];
     this.current = null;
+    this.pending = null;
   }
 
   get active(): ReasoningAttempt | null {
     return this.current;
   }
 
-  /** START POINT — the student entered `lineIdx`. Re-entering the same line
-   *  on the same row continues the attempt; entering it on a different row
-   *  opens a NEW attempt and invalidates the previous one. */
+  /** NAVIGATION — the student moved the Floating Number Display onto
+   *  `lineIdx`. This creates NO attempt and changes no counters. Moving
+   *  2 → 4 → 6 → 3 without writing leaves the attempt count untouched. */
+  enter(lineIdx: number, lineId: string | null, rowNum: number | null): void {
+    const cur = this.current;
+    if (cur && cur.lineIdx === lineIdx && !cur.endedAt) {
+      // Returning to the line we are already attempting: keep the attempt.
+      cur.lineId = lineId ?? cur.lineId;
+      if (rowNum !== null) cur.rowNum = rowNum;
+      this.pending = null;
+      return;
+    }
+    this.pending = { lineIdx, lineId, rowNum };
+  }
+
+  /** FIRST WRITE — the student actually produced content on `lineIdx`
+   *  (chip tap, keyboard, inserted object, Add tool). Only now does an
+   *  attempt exist. Idempotent while that attempt is alive. */
+  write(lineIdx: number, lineId?: string | null, rowNum?: number | null): ReasoningAttempt {
+    const cur = this.current;
+    if (cur && cur.lineIdx === lineIdx && !cur.endedAt) {
+      if (rowNum != null) cur.rowNum = rowNum;
+      return cur;
+    }
+    const p = this.pending && this.pending.lineIdx === lineIdx ? this.pending : null;
+    const prior = this.attempts.filter((a) => a.lineIdx === lineIdx);
+    for (const q of prior) q.invalid = true;
+    const next: ReasoningAttempt = {
+      lineIdx,
+      lineId: lineId ?? p?.lineId ?? null,
+      rowNum: rowNum ?? p?.rowNum ?? null,
+      attempt: prior.length + 1,
+      startedAt: Date.now(),
+    };
+    this.attempts.push(next);
+    this.current = next;
+    this.pending = null;
+    return next;
+  }
+
+  /** START POINT — legacy entry point: navigate AND begin writing at once. */
   start(lineIdx: number, lineId: string | null, rowNum: number | null): ReasoningAttempt {
     const cur = this.current;
     if (cur && cur.lineIdx === lineIdx && !cur.endedAt) {
@@ -67,26 +108,53 @@ export class ReasoningEngine {
         return cur;
       }
     }
+    this.enter(lineIdx, lineId, rowNum);
+    return this.write(lineIdx, lineId, rowNum);
+  }
+
+  /** CANCELLED ATTEMPT — everything written on `lineIdx` was deleted before
+   *  the student left. That attempt never existed: no history, no freeze,
+   *  no evaluation. The count returns to what it was before. */
+  cancel(lineIdx: number): void {
+    const live = this.attempts.filter((a) => a.lineIdx === lineIdx && !a.invalid).slice(-1)[0];
+    if (!live) return;
+    this.attempts = this.attempts.filter((a) => a !== live);
+    // The attempt it superseded (if any) becomes live again.
     const prior = this.attempts.filter((a) => a.lineIdx === lineIdx);
-    for (const p of prior) p.invalid = true;
-    const next: ReasoningAttempt = {
-      lineIdx,
-      lineId,
-      rowNum,
-      attempt: prior.length + 1,
-      startedAt: Date.now(),
-    };
-    this.attempts.push(next);
-    this.current = next;
-    return next;
+    const restored = prior[prior.length - 1];
+    if (restored) restored.invalid = false;
+    if (this.current === live) this.current = null;
+    this.pending = null;
+  }
+
+  /** The most recent attempt that is still unfinished (started, never
+   *  cancelled, not frozen) on a line OTHER than `exceptLine`. Ownership of
+   *  the editing session returns here when a temporary attempt is cancelled. */
+  lastUnfinishedLine(exceptLine?: number): number | null {
+    for (let i = this.attempts.length - 1; i >= 0; i--) {
+      const a = this.attempts[i];
+      if (a.invalid) continue;
+      if (exceptLine !== undefined && a.lineIdx === exceptLine) continue;
+      return a.lineIdx;
+    }
+    return null;
+  }
+
+  /** True when the line has a real (written) attempt. */
+  hasAttempt(lineIdx: number): boolean {
+    return this.attempts.some((a) => a.lineIdx === lineIdx && !a.invalid);
   }
 
   /** Keep the row binding in step with where the student is actually writing. */
   bindRow(lineIdx: number, rowNum: number): void {
     const cur = this.current;
-    if (!cur || cur.lineIdx !== lineIdx || cur.endedAt) return;
+    if (!cur || cur.lineIdx !== lineIdx || cur.endedAt) {
+      if (this.pending && this.pending.lineIdx === lineIdx) this.pending.rowNum = rowNum;
+      return;
+    }
     cur.rowNum = rowNum;
   }
+
 
   /** The row bound to a line — the only honest answer to "where is this line
    *  written?". `null` when the line was never visited. */
