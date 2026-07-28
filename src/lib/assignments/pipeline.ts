@@ -15,6 +15,7 @@ import {
   compileQuestionSections,
   type AssessmentKind,
 } from "@/lib/assessments/createAssessment";
+import { ensureAssignment, archiveAssignment } from "@/lib/assignments/instances";
 
 export interface QuestionRef {
   subsectionId: string | null;
