@@ -57,20 +57,24 @@ const asRow = (r: any): LearningAssignment => ({
 const SELECT =
   "id, class_id, notebook_id, game_id, question_keys, mode, status, title, due_at, started_at, archived_at, archived_reason, created_at";
 
-/** The one active instance for this exact combination, if it exists. */
+/**
+ * The one active instance for this exact combination, if it exists.
+ * `mode` is REQUIRED: Adventure and Assignment are independent workspaces, so a
+ * lookup must never match across them.
+ */
 export async function findActiveAssignment(
   classId: string,
   notebookId: string,
   gameId: string | null,
-  mode?: AssignmentMode,
+  mode: AssignmentMode,
 ): Promise<LearningAssignment | null> {
   let q = (table() as any)
     .select(SELECT)
     .eq("class_id", classId)
     .eq("notebook_id", notebookId)
+    .eq("mode", mode)
     .eq("status", "active");
   q = gameId ? q.eq("game_id", gameId) : q.is("game_id", null);
-  if (mode) q = q.eq("mode", mode);
   const { data } = await q.limit(1);
   const row = (data ?? [])[0];
   return row ? asRow(row) : null;
@@ -141,7 +145,15 @@ export async function ensureAssignment(params: {
     })
     .select(SELECT)
     .single();
-  if (error || !data) throw new Error(error?.message ?? "assignment_create_failed");
+  if (error || !data) {
+    // Lost a race against another tab/teacher creating the SAME
+    // (note + class + workspace + adventure) instance — adopt theirs.
+    if (error && /duplicate key|active_triple/i.test(error.message ?? "")) {
+      const raced = await findActiveAssignment(params.classId, params.notebookId, gameId, params.mode);
+      if (raced) return { assignment: raced, created: false };
+    }
+    throw new Error(error?.message ?? "assignment_create_failed");
+  }
   return { assignment: asRow(data), created: true };
 }
 

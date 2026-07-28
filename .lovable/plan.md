@@ -1,55 +1,31 @@
+## What's wrong
 
-# Group Competition on the Existing Progress Bar
+Verified in the database: the active-instance uniqueness index on `learning_assignments` is
 
-The current system already has groups (`adventure_groups`), per-group bar scoping, one Class Gallery, and group-tagged awards (`class_gallery_awards.group_id`). What is missing is the parts below. Nothing about the Adventure Editor, Smartboard, Gallery architecture or reward pipeline is redesigned.
+```text
+(class_id, notebook_id, COALESCE(game_id, <zero-uuid>))  WHERE status = 'active'
+```
 
-## What is wrong today (verified in code)
+`mode` ("assignment" vs "adventure") is not part of it. So once a Lesson Note is active in a class as an Adventure, assigning the same note to the same class as an Assignment collides and raises the duplicate error — exactly the case in the screenshot.
 
-- **Add Group requires an unused bar.** `GroupsPanel` only lets a teacher pick a Progress Bar the Adventure author already drew (`availableBars`). No adoption, no duplication.
-- **Every bar has its own assessment.** `ensureClassGameBoards` creates a *separate* `assessments` row per bar element. If two groups sat on two authored bars they would be answering two different assessments, so moving a student between groups would leave their score behind.
-- **Students not in a group form a hidden "Whole Class" bucket** (`wholeClassSet` in the dashboard, `groupId = myGroups[0] ?? null` in the student Gallery). Once grouping starts nobody should be left in that bucket.
+The application-level checks (`findActiveAssignment` / `checkDuplicate` in `src/lib/assignments/instances.ts`) already filter by mode when the caller passes it, so the database index is the blocking layer.
 
-## 1. Group A adoption (first Add Group)
+## Fix
 
-`GroupsPanel` gets a single primary action: **Add Group**.
+1. **Additive migration** — drop `learning_assignments_active_triple_idx` and recreate it including the workspace type:
 
-- First click: take the lesson's existing Progress Bar (the bar already linked to the assignment), create group "Group A" pointing at that same `progress_element_id`, and insert an `adventure_group_members` row for **every** current class member. The bar keeps its element, settings, and Adventure Editor position untouched.
-- Rename stays as it is today.
+   ```text
+   UNIQUE (class_id, notebook_id, mode, COALESCE(game_id, <zero-uuid>))  WHERE status = 'active'
+   ```
 
-## 2. Additional groups = exact clones
+   Identity becomes (Lesson Note + Class + Workspace Type + Adventure). No table or column changes, no data changes.
 
-Later clicks clone the Group A bar. Because the Adventure (`games` row) is a reusable template shared by every class, the clone is **not** written into the game canvas — it is a class-scoped overlay stored on the group row, rendered by cloning the source `CanvasElement` and overriding only `id`, `x`, `y`.
+2. **`src/lib/assignments/instances.ts`** — make `mode` a required argument of `findActiveAssignment` so a duplicate lookup can never silently match across workspaces. The "adopt a game-less instance when an Adventure is chosen" path stays, but only within the same mode.
 
-New additive columns on `adventure_groups`: `source_element_id text`, `is_primary boolean default false`, `position_x double precision`, `position_y double precision`.
+3. **Duplicate warning copy** — where the teacher-facing duplicate message is shown, make it name the workspace ("already assigned to this class as an Adventure") so the two workspaces read as distinct.
 
-Everything else — goal %, `progress.totalMarks`, segments, preset, slot effects, fill style, colours, animation, scale, rotation, opacity, tint, slant — is inherited verbatim from the source element at render time, so a later edit to the original bar in the Adventure Editor keeps every group identical.
+## Result
 
-## 3. Shared questions, shared assessment (the key fix)
-
-`ensureClassGameBoards` is extended so a cloned bar's `class_game_boards` row reuses the **source bar's `assessment_id`** instead of compiling a second assessment. Consequences:
-
-- All groups answer the same Lesson Note questions from the same Adventure — required by the spec.
-- A student's marks live once in `assessment_progress`. Moving them between groups instantly re-attributes their score, progress, assessment/assignment state, Smartboard work and live activity, because `barScope` aggregation in `useAdventureSync` is computed from group membership, not from stored per-bar totals. No data migration on move.
-- The clone still counts only its own members via the existing `barScope` map.
-
-## 4. Non-overlapping auto-placement
-
-A placement helper computes the clone's `x/y` on the normalised stage: it takes the source bar's footprint (scale × natural aspect), walks candidate slots on a grid with a fixed gap, and rejects any candidate whose rect intersects an existing bar, the Time Bar, or a reward element. If no slot fits, **Add Group is hidden/disabled** with a short "No space for another bar" note. No overlapping bar is ever created.
-
-## 5. Dragging
-
-On the teacher Adventure Dashboard only, cloned bars get a drag handle that writes `position_x/position_y` back to `adventure_groups` (clamped to stage, collision-checked on drop). The original Group A bar is not draggable. Dragging touches position only. Students see the saved positions read-only (they already re-render from the same group rows via `useAdventureGroups` realtime).
-
-## 6. Student list and Move To
-
-`GroupCard` swaps today's "remove student" X and "add from Whole Class" select for a **Move To** dropdown on every student listing all groups. Selecting one calls the existing `assignStudentToGroup`, which already enforces one group per student. The "Whole Class" card disappears once grouping starts (every student belongs to a group); it remains the only view when no groups exist.
-
-## 7. Winning and Gallery
-
-Unchanged pipeline: first bar to reach its target fires `useRewardTransfer`, which reads `barOwner` and writes `class_gallery_awards` with that `group_id`. One Class Gallery per class stays. Teacher Gallery is switched to show **all** awards (master view); student Gallery keeps its existing group filter, which now resolves correctly since every student has a group.
-
-## Technical notes
-
-- Migration (additive only): four columns on `adventure_groups`; no existing table or column altered.
-- Files touched: `src/lib/adventures/groups.ts`, `src/hooks/useAdventureGroups.ts`, `src/components/adventures/GroupsPanel.tsx`, `src/lib/games/gameQuestions.ts`, `src/pages/class/AdventureDashboardPage.tsx`, `src/pages/student/GamePlayPage.tsx`, plus a new `src/lib/adventures/groupBars.ts` (clone + placement math) and a small unit test for the collision/placement helper.
-- No changes to the Adventure Editor, Smartboard, assignment pipeline, or Gallery editor.
+- Lesson Note A → KG1 → Adventure and Lesson Note A → KG1 → Assignment can both exist at once.
+- Assigning the same note to the same class twice within one workspace still warns and reuses the existing instance.
+- Archived instances remain untouched; re-assigning after archiving still creates a fresh instance.
