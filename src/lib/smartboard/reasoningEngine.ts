@@ -157,13 +157,17 @@ export class ReasoningEngine {
 
 
   /** The row bound to a line — the only honest answer to "where is this line
-   *  written?". `null` when the line was never visited. */
+   *  written?". `null` when the line was never visited. A navigation-only
+   *  visit still reports its row so the live panel can follow the student. */
   rowFor(lineIdx: number): number | null {
     const live = this.attempts
       .filter((a) => a.lineIdx === lineIdx && !a.invalid)
       .slice(-1)[0];
-    return live?.rowNum ?? null;
+    if (live) return live.rowNum ?? null;
+    if (this.pending && this.pending.lineIdx === lineIdx) return this.pending.rowNum ?? null;
+    return null;
   }
+
 
   attemptFor(lineIdx: number): number {
     return this.attempts.filter((a) => a.lineIdx === lineIdx && !a.invalid).slice(-1)[0]?.attempt ?? 1;
