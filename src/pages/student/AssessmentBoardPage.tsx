@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PresentationView from "@/components/smartboard/PresentationView";
+import { buildBoardScope } from "@/lib/smartboard/boardScope";
+
 import {
   buildAssessmentBoardSource,
   type AssessmentLike,
