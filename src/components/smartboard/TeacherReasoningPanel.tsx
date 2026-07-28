@@ -285,6 +285,8 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
     lastCheck && lastCheck.questionId === currentQid && lastCheck.lineId === currentLid ? lastCheck : null;
   const shownCorrect = checkForThisLine ? checkForThisLine.correct : verdict?.correct ?? null;
   const shownVerdict = checkForThisLine?.verdict ?? verdict?.verdict ?? null;
+  const shownDiagnosis: DiagnosisShape | null =
+    (checkForThisLine?.diagnosis ?? verdict?.diagnosis) ?? null;
   const sourceBadge = checkForThisLine
     ? checkForThisLine.mode === "manual" ? "student Check" : "auto check"
     : verdict ? "live dry run" : null;
