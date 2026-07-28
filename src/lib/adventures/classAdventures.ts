@@ -5,6 +5,7 @@
 // re-assigning the same note simply clears the flag.
 
 import { supabase } from "@/integrations/supabase/client";
+import { ensureAssignment, archiveAssignment } from "@/lib/assignments/instances";
 
 export interface ClassAdventureNoteRow {
   id: string;
