@@ -3184,13 +3184,16 @@ const PresentationView = ({
       }
     }
 
-    // START POINT — a fresh session for the line just entered.
+    // START POINT — a fresh session for the line just entered. Re-entering a
+    // line opens a NEW session, so its earlier freeze is released.
     if (!sessionRef.current || sessionRef.current.lineIdx !== activeLineIdx) {
+      delete frozenByLineRef.current[activeLineIdx];
       sessionRef.current = startSession(
         activeLineIdx,
         guidedLines[activeLineIdx]?.lineId ?? null,
       );
     }
+
   }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines]);
 
 
