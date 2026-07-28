@@ -213,7 +213,8 @@ async function archiveIfEmpty(
 }
 
 
-/** Assign (or revive) a question to a class as an Assignment. Idempotent. */
+/** Assign (or revive) a question to a class as an Assignment. Idempotent
+ *  within one active learning-assignment instance. */
 export async function assignAssessmentQuestion(params: {
   classId: string;
   notebookId: string;
@@ -221,6 +222,7 @@ export async function assignAssessmentQuestion(params: {
   kind: AssessmentKind;
   title: string;
   scoreLabel: string;
+  gameId?: string | null;
 }): Promise<string> {
   const { classId, notebookId, ref } = params;
   const { data: userData } = await supabase.auth.getUser();
@@ -231,14 +233,26 @@ export async function assignAssessmentQuestion(params: {
   const { questions, answerKey, total } = await compileSectionQuestions(ref.sectionId);
   if (questions.length === 0) throw new Error("no_floating_lines");
 
-  const { data } = await supabase
-    .from("assessments")
-    .select("id, section_id, question_key, created_at")
-    .eq("class_id", classId)
-    .eq("notebook_id", notebookId)
-    .neq("kind", "adventure")
-    .order("created_at", { ascending: false });
-  const rows = (data ?? []) as any[];
+  const { assignment } = await ensureAssignment({
+    classId,
+    notebookId,
+    gameId: params.gameId ?? null,
+    mode: "assignment",
+    questionKeys: [ref.questionKey],
+    title: params.title,
+  });
+
+  const [{ data }, archived] = await Promise.all([
+    supabase
+      .from("assessments")
+      .select("id, section_id, question_key, created_at, assignment_id")
+      .eq("class_id", classId)
+      .eq("notebook_id", notebookId)
+      .neq("kind", "adventure")
+      .order("created_at", { ascending: false }),
+    archivedIds(classId),
+  ]);
+  const rows = ((data ?? []) as any[]).filter((r) => !archived.has(r.assignment_id));
   const hit =
     (ref.questionKey && rows.find((r) => r.question_key === ref.questionKey)) ||
     (ref.sectionId && rows.find((r) => !r.question_key && r.section_id === ref.sectionId));
@@ -255,6 +269,7 @@ export async function assignAssessmentQuestion(params: {
         score_label: params.scoreLabel,
         total_marks: total,
         questions: questions as never,
+        assignment_id: assignment.id,
       } as never)
       .eq("id", hit.id);
     await supabase.from("assessment_answer_keys").delete().eq("assessment_id", hit.id);
@@ -277,6 +292,7 @@ export async function assignAssessmentQuestion(params: {
       score_label: params.scoreLabel,
       total_marks: total,
       questions: questions as never,
+      assignment_id: assignment.id,
     } as never)
     .select("id")
     .single();
@@ -292,13 +308,21 @@ export async function assignAssessmentQuestion(params: {
   return (created as any).id as string;
 }
 
-/** Soft-remove an Assignment. Progress rows are kept. */
+/** Soft-remove an Assignment. Progress rows are kept; the parent instance is
+ *  archived once its last active question is removed. */
 export async function unassignAssessmentQuestion(id: string): Promise<void> {
+  const { data: row } = await supabase
+    .from("assessments")
+    .select("id, assignment_id")
+    .eq("id", id)
+    .maybeSingle();
   await supabase
     .from("assessments")
     .update({ unassigned_at: new Date().toISOString() } as never)
     .eq("id", id);
+  await archiveIfEmpty((row as any)?.assignment_id ?? null, "assessments");
 }
+
 
 /** Recompile every progress-bar board of a class/notebook IN PLACE from the
  *  questions that are currently assigned. Never creates a second assessment,
