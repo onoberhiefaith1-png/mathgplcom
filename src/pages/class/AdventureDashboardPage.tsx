@@ -14,6 +14,8 @@ import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { GroupsPanel } from "@/components/adventures/GroupsPanel";
+import { withGroupBars, isGroupBarElementId } from "@/lib/adventures/groupBars";
+import { moveGroupBar } from "@/lib/adventures/groups";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 
@@ -46,6 +48,10 @@ const AdventureDashboardPage = () => {
 
   const groups = useAdventureGroups(classId, gameId);
 
+  // Duplicated group bars are rebuilt from the original bar at render time, so
+  // they inherit every setting of the original and never touch the Adventure.
+  const gameWithGroups = useMemo(() => withGroupBars(game, groups.groups), [game, groups.groups]);
+
   // Bar scope: group-owned bars count only their group's students; whole-class
   // bars count only students not in any group.
   const barScope = useMemo(() => {
@@ -59,7 +65,7 @@ const AdventureDashboardPage = () => {
   const sync = useAdventureSync({
     classId,
     gameId,
-    game,
+    game: gameWithGroups,
     boards,
     onGameUpdated: handleGameUpdated,
     barScope,
@@ -411,7 +417,13 @@ const AdventureDashboardPage = () => {
                     const el = canvasElements.find((e) => e.id === id);
                     setSelectedRewardId(el?.kind === "reward" ? id : null);
                   }}
-                  onMove={() => { /* dashboard is read-only for positions */ }}
+                  onMove={(id, x, y) => {
+                    // Only duplicated group bars are movable; position only.
+                    if (!isGroupBarElementId(id)) return;
+                    const g = groups.groups.find((gr) => gr.progress_element_id === id);
+                    if (!g) return;
+                    void moveGroupBar(g.id, x, y).then(() => groups.refresh());
+                  }}
                   heightUnits={sync.heightUnits}
                 />
                 {timeUp && (
@@ -503,6 +515,7 @@ const AdventureDashboardPage = () => {
                     <GroupsPanel
                       classId={classId}
                       gameId={gameId}
+                      game={game}
                       members={sync.members}
                       bars={patchedBarSummaries}
                       ctx={groups}

@@ -1,6 +1,10 @@
 // Group Bars — a Progress Bar that has been assigned to one named group of
-// students within a class+game. Every student belongs to at most one group;
-// students not in any group are treated as "Whole Class".
+// students within a class+game.
+//
+// Grouping starts by ADOPTING the lesson's existing Progress Bar as Group A
+// (every student joins it). Later groups DUPLICATE that bar: the clone lives
+// only as a row here (source element + position) and inherits every setting of
+// the original at render time. Every student belongs to exactly one group.
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -9,8 +13,17 @@ export type AdventureGroup = {
   class_id: string;
   game_id: string;
   name: string;
+  /** For the primary group this is the original bar; for clones it is `grpbar-<id>`. */
   progress_element_id: string;
+  /** Original bar this group's bar was copied from (null for the primary group). */
+  source_element_id: string | null;
+  is_primary: boolean;
+  position_x: number | null;
+  position_y: number | null;
 };
+
+const GROUP_COLS =
+  "id, class_id, game_id, name, progress_element_id, source_element_id, is_primary, position_x, position_y";
 
 export type AdventureGroupMember = {
   id: string;
@@ -23,7 +36,7 @@ export type AdventureGroupMember = {
 export async function listGroups(classId: string, gameId: string): Promise<AdventureGroup[]> {
   const { data } = await supabase
     .from("adventure_groups" as never)
-    .select("id, class_id, game_id, name, progress_element_id")
+    .select(GROUP_COLS)
     .eq("class_id", classId)
     .eq("game_id", gameId)
     .order("created_at", { ascending: true });
@@ -44,11 +57,21 @@ export async function createGroup(
   gameId: string,
   name: string,
   progressElementId: string,
+  extra?: { sourceElementId?: string | null; isPrimary?: boolean; x?: number | null; y?: number | null },
 ): Promise<AdventureGroup> {
   const { data, error } = await supabase
     .from("adventure_groups" as never)
-    .insert({ class_id: classId, game_id: gameId, name, progress_element_id: progressElementId } as never)
-    .select("id, class_id, game_id, name, progress_element_id")
+    .insert({
+      class_id: classId,
+      game_id: gameId,
+      name,
+      progress_element_id: progressElementId,
+      source_element_id: extra?.sourceElementId ?? null,
+      is_primary: extra?.isPrimary ?? false,
+      position_x: extra?.x ?? null,
+      position_y: extra?.y ?? null,
+    } as never)
+    .select(GROUP_COLS)
     .single();
   if (error) throw error;
   return data as unknown as AdventureGroup;
@@ -61,6 +84,24 @@ export async function renameGroup(id: string, name: string): Promise<void> {
 
 export async function deleteGroup(id: string): Promise<void> {
   const { error } = await supabase.from("adventure_groups" as never).delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Move a duplicated bar. Position only — never any other setting. */
+export async function moveGroupBar(id: string, x: number, y: number): Promise<void> {
+  const { error } = await supabase
+    .from("adventure_groups" as never)
+    .update({ position_x: x, position_y: y } as never)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Point a clone group's bar at its own element id once the row id is known. */
+export async function setGroupBarElement(id: string, elementId: string): Promise<void> {
+  const { error } = await supabase
+    .from("adventure_groups" as never)
+    .update({ progress_element_id: elementId } as never)
+    .eq("id", id);
   if (error) throw error;
 }
 
@@ -89,11 +130,37 @@ export async function assignStudentToGroup(
   }
 }
 
+/** Put a list of students into one group in a single round of writes. */
+export async function assignManyToGroup(
+  classId: string,
+  gameId: string,
+  studentIds: string[],
+  groupId: string,
+): Promise<void> {
+  if (studentIds.length === 0) return;
+  const { error: delErr } = await supabase
+    .from("adventure_group_members" as never)
+    .delete()
+    .eq("class_id", classId)
+    .eq("game_id", gameId)
+    .in("student_id", studentIds);
+  if (delErr) throw delErr;
+  const { error } = await supabase.from("adventure_group_members" as never).insert(
+    studentIds.map((sid) => ({
+      class_id: classId,
+      game_id: gameId,
+      student_id: sid,
+      group_id: groupId,
+    })) as never,
+  );
+  if (error) throw error;
+}
+
 /** All groups in a class across every game — used by the Gallery group tabs. */
 export async function listClassGroups(classId: string): Promise<AdventureGroup[]> {
   const { data } = await supabase
     .from("adventure_groups" as never)
-    .select("id, class_id, game_id, name, progress_element_id")
+    .select(GROUP_COLS)
     .eq("class_id", classId)
     .order("created_at", { ascending: true });
   return (data ?? []) as unknown as AdventureGroup[];

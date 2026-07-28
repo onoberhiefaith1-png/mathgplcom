@@ -14,6 +14,7 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
+import { withGroupBars } from "@/lib/adventures/groupBars";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 
 
@@ -64,6 +65,10 @@ const GamePlayPage = () => {
 
   const groups = useAdventureGroups(classId, gameId);
 
+  // Every group's duplicated bar is rebuilt from the original bar, so students
+  // watch all the competing bars race on the same stage.
+  const gameWithGroups = useMemo(() => withGroupBars(game, groups.groups), [game, groups.groups]);
+
   // Part 4 — a student's marks only raise their own group's bar.
   const barScope = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -76,7 +81,7 @@ const GamePlayPage = () => {
   const sync = useAdventureSync({
     classId,
     gameId,
-    game,
+    game: gameWithGroups,
     boards,
     currentUserId: me,
     onGameUpdated: handleGameUpdated,

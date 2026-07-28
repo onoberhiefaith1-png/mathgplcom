@@ -98,8 +98,12 @@ export type Database = {
           created_at: string
           game_id: string
           id: string
+          is_primary: boolean
           name: string
+          position_x: number | null
+          position_y: number | null
           progress_element_id: string
+          source_element_id: string | null
           updated_at: string
         }
         Insert: {
@@ -107,8 +111,12 @@ export type Database = {
           created_at?: string
           game_id: string
           id?: string
+          is_primary?: boolean
           name: string
+          position_x?: number | null
+          position_y?: number | null
           progress_element_id: string
+          source_element_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -116,8 +124,12 @@ export type Database = {
           created_at?: string
           game_id?: string
           id?: string
+          is_primary?: boolean
           name?: string
+          position_x?: number | null
+          position_y?: number | null
           progress_element_id?: string
+          source_element_id?: string | null
           updated_at?: string
         }
         Relationships: [
