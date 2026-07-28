@@ -181,8 +181,12 @@ export const FloatingNumberPanel = ({
   const [usedOrder, setUsedOrder] = useState<number[]>([]);
   const [reentryOffset, setReentryOffset] = useState<number>(0);
   const reservoir = reservoirs[viewIdx];
-  const fragments = reservoir?.fragments ?? [];
+  const fragments = useMemo(
+    () => (reservoir?.fragments ?? []).map(stripStructureShells),
+    [reservoir],
+  );
   const lines: ReservoirLine[] = reservoir?.lines ?? [];
+
   const viewingActive = viewIdx === activeIdx;
   const useLineMode =
     viewingActive && lines.length > 0 && activeLineIdx != null && activeLineIdx < lines.length;
