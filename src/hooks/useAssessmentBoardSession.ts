@@ -67,34 +67,55 @@ export function useAssessmentBoardSession(opts: {
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
-    const query = perQuestion
-      ? supabase
+
+    const applyRow = (data: { state_json?: unknown } | null) => {
+      if (cancelled || !data?.state_json) return false;
+      const sj = data.state_json as unknown;
+      if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
+        setIncoming(sj as AssessBoardSnapshot);
+        return true;
+      }
+      return false;
+    };
+
+    (async () => {
+      if (perQuestion) {
+        const { data, error } = await supabase
           .from("assessment_question_board_state")
           .select("state_json, author, updated_at")
           .eq("assessment_id", assessmentId!)
           .eq("student_id", studentId!)
           .eq("question_id", questionId!)
-          .maybeSingle()
-      : supabase
+          .maybeSingle();
+        if (error) console.warn("[board-session] load failed", error.message);
+        if (applyRow(data)) return;
+        // One-time migration read: work saved before per-question boards
+        // existed lives in the legacy shared row. Only adopt it when it
+        // belongs to THIS question, so nothing bleeds across questions.
+        const { data: legacy } = await supabase
           .from("assessment_board_state")
-          .select("state_json, author, updated_at")
+          .select("state_json, question_id")
           .eq("assessment_id", assessmentId!)
           .eq("student_id", studentId!)
           .maybeSingle();
-    query.then(({ data, error }) => {
-      if (cancelled) return;
-      if (error) {
-        console.warn("[board-session] load failed", error.message);
+        const legacyQid = (legacy as { question_id?: string | null } | null)?.question_id ?? null;
+        if (legacyQid && legacyQid === questionId) applyRow(legacy as never);
         return;
       }
-      if (!data?.state_json) return;
-      const sj = data.state_json as unknown;
-      if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
-        setIncoming(sj as AssessBoardSnapshot);
-      }
-    });
+
+      const { data, error } = await supabase
+        .from("assessment_board_state")
+        .select("state_json, author, updated_at")
+        .eq("assessment_id", assessmentId!)
+        .eq("student_id", studentId!)
+        .maybeSingle();
+      if (error) console.warn("[board-session] load failed", error.message);
+      applyRow(data);
+    })();
+
     return () => { cancelled = true; };
   }, [active, assessmentId, studentId, questionId, perQuestion]);
+
 
   // Live channel. Self-healing: a join can fail if the socket token was not
   // ready yet, which would otherwise kill mirroring for the whole session.
