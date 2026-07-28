@@ -82,20 +82,27 @@ function renderBody(nodes: Node[]): string {
 
 /** Split a question section's body into one subsection per H3 "Solution"
  *  boundary. Any H3 whose text matches another section kind starts a NEW
- *  subsection (e.g. "Example 2"). */
+ *  subsection (e.g. "Example 2").
+ *
+ *  EVERY QUESTION SECTION OWNS AT LEAST ONE SUBSECTION. A freshly inserted
+ *  Example has an empty question and an empty Solution; it must still get a
+ *  row so the Floating Numbers workspace can be opened (blank) right away
+ *  instead of reporting "not ready". */
 function splitQuestionBody(nodes: Node[]): { problem: string; solution: string }[] {
   const out: { problem: string; solution: string }[] = [];
   let problemBuf: Node[] = [];
   let solutionBuf: Node[] = [];
   let mode: "problem" | "solution" = "problem";
+  let sawSolutionHeading = false;
 
   const flush = () => {
     const problem = renderBody(problemBuf);
     const solution = renderBody(solutionBuf);
-    if (problem || solution) out.push({ problem, solution });
+    if (problem || solution || sawSolutionHeading) out.push({ problem, solution });
     problemBuf = [];
     solutionBuf = [];
     mode = "problem";
+    sawSolutionHeading = false;
   };
 
   for (const n of nodes) {
@@ -103,6 +110,7 @@ function splitQuestionBody(nodes: Node[]): { problem: string; solution: string }
       const t = headingText(n).toLowerCase();
       if (t.startsWith("solution") || t.includes("worked solution")) {
         mode = "solution";
+        sawSolutionHeading = true;
         continue;
       }
       // Numbered subsection marker like "Example 2" → start a new subsection.
@@ -116,8 +124,11 @@ function splitQuestionBody(nodes: Node[]): { problem: string; solution: string }
     else solutionBuf.push(n);
   }
   flush();
+  // Section with nothing in it at all still gets one empty slot.
+  if (out.length === 0) out.push({ problem: "", solution: "" });
   return out;
 }
+
 
 /** Parse a TipTap document into the Smartboard structure. */
 export function parseDocumentToSections(doc: any): ParsedSection[] {
