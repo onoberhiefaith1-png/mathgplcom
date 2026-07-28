@@ -2559,12 +2559,27 @@ const PresentationView = ({
   // Keep Used in sync with actual board ink. Used means "currently present on
   // the whiteboard", so deleting a chip immediately returns it to the white
   // conveyor ring in its original reservoir position.
+  //
+  // IMPORTANT — this pass may only ever run in the SHRINKING direction.
+  // Structured ink (stacked fractions, roots, brackets) does not flatten back
+  // into the exact ASCII of its chip label, so a text search right after a
+  // write can fail to "see" what was just written and would instantly un-mark
+  // the fragment — the chip would snap back instead of moving to the Used
+  // zone. We therefore only reconcile when the board's ink actually got
+  // smaller (erase / undo / clear); growth never un-marks anything.
+  const boardInkSizeRef = useRef(0);
   useEffect(() => {
-    if (!activeReservoir || consumedAbsIdx.size === 0) return;
-    const boardText = [
+    const parts = [
       ...Object.values(freeLines).map((row) => rowToAscii(row)),
       ...boxes.map((b) => b.text ?? ""),
-    ].map(normalizeFloatingPresence).join("\n");
+    ].map(normalizeFloatingPresence);
+    const boardText = parts.join("\n");
+    const inkSize = parts.reduce((n, s) => n + s.length, 0);
+    const shrank = inkSize < boardInkSizeRef.current;
+    boardInkSizeRef.current = inkSize;
+    if (!shrank) return;
+    if (!activeReservoir || consumedAbsIdx.size === 0) return;
+
 
     setConsumedAbsIdx((prev) => {
       const next = new Set(prev);
@@ -2588,6 +2603,7 @@ const PresentationView = ({
       return changed ? next : prev;
     });
   }, [activeReservoir, freeLines, boxes, consumedAbsIdx.size]);
+
 
   // ── PASSIVE LINE-MATCH DETECTION (no auto-advance) ───────────────────
   // When the board ink matches the current guided line, its floating-number
