@@ -64,6 +64,10 @@ const GamePlayPage = () => {
 
   const groups = useAdventureGroups(classId, gameId);
 
+  // Every group's duplicated bar is rebuilt from the original bar, so students
+  // watch all the competing bars race on the same stage.
+  const gameWithGroups = useMemo(() => withGroupBars(game, groups.groups), [game, groups.groups]);
+
   // Part 4 — a student's marks only raise their own group's bar.
   const barScope = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -76,7 +80,7 @@ const GamePlayPage = () => {
   const sync = useAdventureSync({
     classId,
     gameId,
-    game,
+    game: gameWithGroups,
     boards,
     currentUserId: me,
     onGameUpdated: handleGameUpdated,
