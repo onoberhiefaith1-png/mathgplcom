@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PresentationView from "@/components/smartboard/PresentationView";
+import { buildBoardScope } from "@/lib/smartboard/boardScope";
+
 import {
   buildAssessmentBoardSource,
   type AssessmentLike,
@@ -191,19 +193,36 @@ const AssessmentBoardPage = () => {
   const showSubmit = !isPastDue && !isAdventure && !timeExpired;
   const readOnly = isPastDue || timeExpired;
 
+  // The board is identified by student × class × workspace × game ×
+  // assessment × question. Using that identity as the React key forces a
+  // clean remount whenever ANY of them changes, so no state survives a
+  // switch between questions, classes or workspaces.
+  const workspace = isAdventure ? "adventure" : "assignment";
+  const scopeKey = buildBoardScope({
+    studentId: uid,
+    classId,
+    workspace,
+    gameId,
+    assessmentId,
+    questionId,
+  });
+
   return (
     <>
       <PresentationView
-        key={questionId ?? assessmentId ?? "assessment"}
+        key={scopeKey}
         role="student"
         source={boardSource}
         notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
         assessmentId={assessmentId ?? null}
         classId={classId ?? null}
+        workspace={workspace}
+        gameId={gameId}
         boardStudentId={uid}
         boardQuestionId={questionId}
         viewOnly={readOnly}
       />
+
 
       {!isAdventure && status === "completed" && !isPastDue && (
         <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1.5 text-xs font-medium text-green-700 shadow">

@@ -19,6 +19,8 @@ import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
 import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
 import { startSession, freezeSession, type EditingSession } from "@/lib/smartboard/editingSession";
+import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
+
 
 import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
@@ -265,6 +267,8 @@ const PresentationView = ({
   assessmentId = null,
   boardStudentId = null,
   boardQuestionId = null,
+  workspace = "assignment",
+  gameId = null,
   viewOnly = false,
 }: {
   notebookId?: string | null;
@@ -280,6 +284,11 @@ const PresentationView = ({
    *  sides render ONE shared board (live mirror). */
   boardStudentId?: string | null;
   boardQuestionId?: string | null;
+  /** Which workspace opened this board — an Adventure board and an Assignment
+   *  board for the same question are independent surfaces. */
+  workspace?: BoardWorkspace;
+  /** Adventure game the board was opened from (part of the board identity). */
+  gameId?: string | null;
   /** Force a read-only mirror (teacher "View Only" mode). */
   viewOnly?: boolean;
 } = {}) => {
@@ -288,7 +297,26 @@ const PresentationView = ({
   const navigate = useNavigate();
   // Assessment mode renders from an injected source and grades via the server.
   const assessmentMode = !!source && !!assessmentId;
+
+  // Board identity — student × class × workspace × game × assessment ×
+  // question. EVERY per-board cache key hangs off this, so work can never
+  // bleed from one question, class or workspace into another.
+  const boardScope = useMemo(
+    () =>
+      buildBoardScope({
+        studentId: boardStudentId,
+        classId: classIdProp,
+        workspace,
+        gameId,
+        assessmentId,
+        questionId: boardQuestionId,
+        notebookId,
+      }),
+    [boardStudentId, classIdProp, workspace, gameId, assessmentId, boardQuestionId, notebookId],
+  );
+
   const { notebook, sections, loading } = useNotebook(assessmentMode ? undefined : (notebookId ?? undefined));
+
 
   // Live classroom mirroring (disabled in assessment mode).
   const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent } =
@@ -396,7 +424,7 @@ const PresentationView = ({
 
 
 
-  const LESSON_CURSOR_KEY = `smartboard:lessonCursor:${notebookId ?? "_"}`;
+  const LESSON_CURSOR_KEY = boardKey("lessonCursor", boardScope);
   const [beatCursor, setBeatCursor] = useState<number>(() => {
     try {
       const raw = typeof window !== "undefined" ? localStorage.getItem(LESSON_CURSOR_KEY) : null;
@@ -484,8 +512,8 @@ const PresentationView = ({
   const [verifyOn, setVerifyOn] = useState(false);
 
   // Invisible-grid free-writing state.
-  const FREEWRITE_KEY = `smartboard:freewrite:${notebookId ?? "_"}`;
-  const SENSOR_KEY = `smartboard:sensor:${notebookId ?? "_"}`;
+  const FREEWRITE_KEY = boardKey("freewrite", boardScope);
+  const SENSOR_KEY = boardKey("sensor", boardScope);
   const ZOOM_KEY = `smartboard:zoom:${notebookId ?? "_"}`;
   const ROW_SPACING_KEY = `smartboard:rowSpacingV1:${notebookId ?? "_"}`;
   const LEGACY_LINE_SPACING_KEY = `smartboard:lineSpacingV2:${notebookId ?? "_"}`;
@@ -583,7 +611,7 @@ const PresentationView = ({
   // Live snapshot for the Board Writer channels (read at write time).
   const notebookRowLinesRef = useRef<Set<number>>(new Set());
   notebookRowLinesRef.current = notebookRowLines;
-  const OFFSETS_KEY = `smartboard:offsets:${notebookId ?? "_"}`;
+  const OFFSETS_KEY = boardKey("offsets", boardScope);
   const [lineOffsets, setLineOffsets] = useState<Record<number, number>>(() => {
     try {
       const raw = localStorage.getItem(OFFSETS_KEY);
@@ -635,7 +663,7 @@ const PresentationView = ({
   // Smart Line overlay objects — free-floating draggable/extendable/rotatable
   // strokes that live above the writing surface (not in the math tree).
   // Used as wide fraction bars, division strokes, or cancel/strike-through.
-  const SMARTLINES_KEY = `smartboard:smartlines:${notebookId ?? "_"}`;
+  const SMARTLINES_KEY = boardKey("smartlines", boardScope);
   const [smartLines, setSmartLines] = useState<SmartLine[]>(() => {
     try {
       const raw = localStorage.getItem(SMARTLINES_KEY);
@@ -656,7 +684,7 @@ const PresentationView = ({
 
   // Magnet boxes — drop-in labelled cells that snap to a SmartLine when
   // released near it (numerator above, denominator below).
-  const BOXES_KEY = `smartboard:boxes:${notebookId ?? "_"}`;
+  const BOXES_KEY = boardKey("boxes", boardScope);
   const [boxes, setBoxes] = useState<MagnetBox[]>(() => {
     try {
       const raw = localStorage.getItem(BOXES_KEY);
@@ -2275,7 +2303,7 @@ const PresentationView = ({
     // Line-memory restore: read the persisted Floating Number line for
     // this notebook+reservoir so leaving the page and coming back keeps
     // the teacher on the same lesson line.
-    const FLOAT_LINE_KEY = `smartboard:floatLineIdx:${notebookId ?? "_"}:${activeReservoirIdx}`;
+    const FLOAT_LINE_KEY = `${boardKey("floatLineIdx", boardScope)}:${activeReservoirIdx}`;
     let restoredIdx = 0;
     try {
       const raw = typeof window !== "undefined" ? window.localStorage.getItem(FLOAT_LINE_KEY) : null;
@@ -2317,7 +2345,7 @@ const PresentationView = ({
   useEffect(() => {
     if (activeReservoirIdx < 0) return;
     try {
-      const FLOAT_LINE_KEY = `smartboard:floatLineIdx:${notebookId ?? "_"}:${activeReservoirIdx}`;
+      const FLOAT_LINE_KEY = `${boardKey("floatLineIdx", boardScope)}:${activeReservoirIdx}`;
       window.localStorage.setItem(FLOAT_LINE_KEY, JSON.stringify(activeLineIdx));
     } catch { /* noop */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -56,11 +56,15 @@ const atomize = (s: string): string[] =>
 interface Props {
   assessmentId: string;
   studentId: string;
+  /** The question board being reviewed. Durable fallback state is read per
+   *  question so one question's work can never be shown under another. */
+  questionId?: string | null;
   studentName: string;
   onClose: () => void;
 }
 
-const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }: Props) => {
+const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuestionId = null, studentName, onClose }: Props) => {
+
   const [questions, setQuestions] = useState<QuestionShape[]>([]);
   const [keyLines, setKeyLines] = useState<KeyLine[]>([]);
   const [progress, setProgress] = useState<{ solved_lines: Record<string, number>; score: number } | null>(null);
@@ -119,21 +123,46 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
   // ── Durable fallback: the persisted board state row. Used whenever no
   // broadcast has arrived recently (idle / offline student). ───────────────
   const loadFallback = useCallback(async () => {
-    const { data } = await supabase
-      .from("assessment_board_state")
-      .select("state_json, question_id, active_line_idx, updated_at")
-      .eq("assessment_id", assessmentId)
-      .eq("student_id", studentId)
-      .maybeSingle();
-    if (!data) return;
-    const sj = (data.state_json ?? {}) as {
+    // Per-question board first — that is where students actually write. The
+    // legacy shared row is only read when it belongs to THIS question.
+    let row:
+      | { state_json: unknown; question_id: string | null; active_line_idx: number | null; updated_at: string }
+      | null = null;
+
+    if (scopeQuestionId) {
+      const { data } = await supabase
+        .from("assessment_question_board_state")
+        .select("state_json, question_id, active_line_idx, updated_at")
+        .eq("assessment_id", assessmentId)
+        .eq("student_id", studentId)
+        .eq("question_id", scopeQuestionId)
+        .maybeSingle();
+      row = (data as typeof row) ?? null;
+    }
+
+    if (!row) {
+      const { data } = await supabase
+        .from("assessment_board_state")
+        .select("state_json, question_id, active_line_idx, updated_at")
+        .eq("assessment_id", assessmentId)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      const legacy = (data as typeof row) ?? null;
+      const legacyQid = legacy?.question_id ?? null;
+      // Never show another question's work under this one.
+      row = legacy && (!scopeQuestionId || legacyQid === scopeQuestionId) ? legacy : null;
+    }
+
+    if (!row) { setFallback(null); setFallbackAt(null); return; }
+
+    const sj = (row.state_json ?? {}) as {
       freeLines?: Record<string, unknown[]>;
       sensor?: { line?: number };
       activeLineIdx?: number;
       questionId?: string | null;
     };
-    const activeLineIdx = Math.max(0, Math.floor(data.active_line_idx ?? sj.activeLineIdx ?? 0));
-    const questionId = (data.question_id as string | null) ?? sj.questionId ?? null;
+    const activeLineIdx = Math.max(0, Math.floor(row.active_line_idx ?? sj.activeLineIdx ?? 0));
+    const questionId = row.question_id ?? sj.questionId ?? scopeQuestionId ?? null;
     const rowsAscii: Record<number, string> = {};
     for (const [k, v] of Object.entries(sj.freeLines ?? {})) {
       const n = Number(k);
@@ -145,15 +174,16 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }
     const cursorRow = Math.floor(sj.sensor?.line ?? -1);
     const cursorAscii = rowsAscii[cursorRow] ?? "";
     setFallback({
-      ts: new Date(data.updated_at as string).getTime(),
+      ts: new Date(row.updated_at).getTime(),
       questionId,
       activeLineIdx,
       lineIds: [],
       rowsAscii,
       linesAscii: cursorAscii ? { __cursor: cursorAscii } : {},
     });
-    setFallbackAt(new Date(data.updated_at as string).getTime());
-  }, [assessmentId, studentId]);
+    setFallbackAt(new Date(row.updated_at).getTime());
+  }, [assessmentId, studentId, scopeQuestionId]);
+
 
   useEffect(() => {
     void loadFallback();

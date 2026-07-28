@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import PresentationView from "@/components/smartboard/PresentationView";
 import TeacherReasoningPanel from "@/components/smartboard/TeacherReasoningPanel";
+import { buildBoardScope } from "@/lib/smartboard/boardScope";
+
 import {
   buildAssessmentBoardSource,
   type AssessmentLike,
@@ -103,7 +105,16 @@ const TeacherAssessmentViewerPage = () => {
             notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
             assessmentId={assessmentId ?? null}
             classId={classId ?? null}
-            key={questionId ?? assessmentId ?? "assessment"}
+            workspace={searchParams.get("game") ? "adventure" : "assignment"}
+            gameId={searchParams.get("game")}
+            key={buildBoardScope({
+              studentId,
+              classId,
+              workspace: searchParams.get("game") ? "adventure" : "assignment",
+              gameId: searchParams.get("game"),
+              assessmentId,
+              questionId,
+            })}
             boardStudentId={studentId ?? null}
             boardQuestionId={questionId}
             viewOnly={!editMode}
@@ -114,11 +125,13 @@ const TeacherAssessmentViewerPage = () => {
             <TeacherReasoningPanel
               assessmentId={assessmentId}
               studentId={studentId}
+              questionId={questionId}
               studentName={studentName}
               onClose={() => setReasoningOpen(false)}
             />
           </div>
         )}
+
       </div>
 
 
