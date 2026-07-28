@@ -4,7 +4,7 @@
 // (all grading here is a dry run).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X as XIcon, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { X as XIcon, CheckCircle2, XCircle, Loader2, Maximize2, Minimize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
