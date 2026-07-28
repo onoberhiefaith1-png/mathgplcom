@@ -56,11 +56,15 @@ const atomize = (s: string): string[] =>
 interface Props {
   assessmentId: string;
   studentId: string;
+  /** The question board being reviewed. Durable fallback state is read per
+   *  question so one question's work can never be shown under another. */
+  questionId?: string | null;
   studentName: string;
   onClose: () => void;
 }
 
-const TeacherReasoningPanel = ({ assessmentId, studentId, studentName, onClose }: Props) => {
+const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuestionId = null, studentName, onClose }: Props) => {
+
   const [questions, setQuestions] = useState<QuestionShape[]>([]);
   const [keyLines, setKeyLines] = useState<KeyLine[]>([]);
   const [progress, setProgress] = useState<{ solved_lines: Record<string, number>; score: number } | null>(null);
