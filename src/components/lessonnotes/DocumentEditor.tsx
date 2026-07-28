@@ -561,14 +561,21 @@ function DocumentEditorInner({
         };
       case "generate":
       default: {
-        // In-place EDIT: section already has content AND teacher typed an
-        // instruction → revise this section only, never touch other sections.
+        // In-place EDIT: section already has content → revise this section
+        // only (never append a second copy underneath). Works with a typed
+        // instruction OR with the teacher's saved AI preferences alone.
         const hasExisting = opts.sectionText.trim().length > 0;
-        if (hasExisting && prompt) {
+        const prefsNow = loadAiPreferences(nbIdRef.current);
+        const instruction = prompt || (
+          hasCustomPreferences(prefsNow)
+            ? "Rewrite this content so it follows the teacher preferences below."
+            : ""
+        );
+        if (hasExisting && instruction) {
           return {
             prompt:
               `Apply this teacher instruction to the ${label} below:\n` +
-              `"""${prompt}"""\n\n` +
+              `"""${instruction}"""\n\n` +
               `Output ONLY the full revised ${label}. Keep everything not mentioned in the instruction exactly as-is. ` +
               `Do NOT add section headings (no "Introduction", "Explanation", "Example", "Summary" titles). ` +
               `Do NOT generate any other section. Return just the body text of this ${label}.\n\n` +
@@ -578,6 +585,7 @@ function DocumentEditorInner({
             currentContent: opts.sectionText,
           };
         }
+
 
         if (isQuestionSectionKind(opts.kind)) {
           return { prompt: prompt || `Generate one ${label} question only. Do not write the solution.`, currentContent: "" };
