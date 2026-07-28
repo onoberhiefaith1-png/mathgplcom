@@ -1,39 +1,22 @@
-## What's wrong
+## Problem
 
-The floating-number chip `x = □/□` renders **four** placeholder boxes: a stacked fraction with two empty cells, plus two loose boxes floating beside it. The generating page is correct — the damage happens while the chip text is normalised.
+On the teacher's student-viewer the top strip shows `0 / 45` and no line chips marked, while the student's own board shows `21 / 45` with lines 1–7 marked.
 
-## Confirmed cause
+Confirmed cause (verified in the database and the code):
+- The student's row in `assessment_progress` for this assessment holds `score = 21` and 7 solved line slots — the data is correct and the teacher's account is allowed to read it (an owner read policy exists).
+- `PresentationView.tsx` seeds its grading state (`solvedSlots`, `assessScore`) by querying `assessment_progress` for **the currently logged-in user's id** (`auth.getUser()`), not for the student whose board is being viewed. On the teacher's screen that lookup finds no row, so the score renders as `0 / 45` and every line chip stays unmarked.
+- The realtime subscription filters only on `assessment_id`, with no student check, so it can also apply the wrong person's row when several students are graded during a class.
 
-The chip text starts life as `x=\frac{□}{□}` (the fraction shell markup in `src/lib/smartboard/floatingExtractor.ts`, `STRUCTURE_MARKUP.fraction`).
+## Fix
 
-It then passes through `toUnicodeMath` (`src/lib/notebook/unicodeMath.ts`, duplicated at `supabase/functions/notebook-ai/unicodeMath.ts`), which near the end runs a blanket "strip stray braces" pass:
+In `src/components/smartboard/PresentationView.tsx`:
 
-```text
-s = s.replace(/[{}]/g, "");     →   "x=\frac□□"
-```
+1. Resolve the progress owner once: use `boardStudentId` when present (teacher viewing a student), otherwise the signed-in user's id (student on their own board).
+2. Seed `solvedSlots` / `assessScore` from `assessment_progress` for that resolved id, and re-run when it changes.
+3. In the realtime handler, ignore any payload whose `student_id` differs from the resolved id, so the teacher only ever mirrors the student they opened.
 
-The braces that belonged to the fraction are deleted, so `\frac` loses its two arguments and the two `□` become orphan characters.
+No schema changes, no policy changes, no writes from the teacher side — the teacher view stays read-only and simply mirrors the student's stored marks. The existing top strip and line-chip rendering already derive from `solvedSlots`, so both the `x / 45` score and the marked lines 1–7 will appear once the correct row is loaded.
 
-The renderer then does the honest thing with broken input: in `src/lib/notebook/mathRender.ts` the "unbalanced `\frac`" fallback emits an empty fraction with **two** placeholder slots and skips past `\frac`; the two leftover `□` characters are then each rendered as their own placeholder slot. Total: 4 boxes — exactly what the screenshot shows.
+## Verification
 
-## The fix
-
-1. **Protect structural macros before the brace strip** (`src/lib/notebook/unicodeMath.ts`)
-   - Before any brace removal, replace complete `\frac{...}{...}`, `\dfrac`, `\tfrac`, `\sqrt{...}` (and `\sqrt[n]{...}`) groups with pure private-use sentinels, using the same sentinel technique already in the file for power slots.
-   - Run the existing cleanup passes.
-   - Restore the sentinels verbatim afterwards, so `\frac{□}{□}` survives intact and reaches the renderer whole.
-   - Keep the existing `\frac` (no braces) → `□/□` rule for genuinely argument-less macros.
-
-2. **Mirror the same change in the server copy** `supabase/functions/notebook-ai/unicodeMath.ts` so chips generated backend-side are identical to client-side ones.
-
-3. **Defensive renderer guard** (`src/lib/notebook/mathRender.ts`)
-   - In the unbalanced-`\frac` fallback, if the characters immediately after `\frac` are `□` `□` (optionally spaced), consume them as the numerator and denominator instead of leaving them as extra loose slots. This guarantees exactly two cells even if some other path damages a fraction in the future.
-
-4. **Regression test** (`src/test/floatingChipPlaceholders.test.tsx`)
-   - `toUnicodeMath("x=\\frac{□}{□}")` still contains a well-formed `\frac{□}{□}`.
-   - Rendering that chip via the presenter renderer produces exactly **2** `[data-sb-placeholder]` nodes, never 4.
-   - Same assertion for `\sqrt{□}` (1 slot) so the brace protection doesn't regress radicals.
-
-## Scope
-
-Rendering/normalisation only. No change to how chips are generated, to the floating-number pipeline, the grader, or the SmartBoard math tree.
+Open the same teacher viewer route for this student and confirm the header shows `21 / 45` with lines 1–7 marked, and that a fresh mark on the student's board updates the teacher's strip live.
