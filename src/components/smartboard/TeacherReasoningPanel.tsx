@@ -36,14 +36,6 @@ type CheckPayload = {
   studentAscii?: string;
 };
 type DiagnosisShape = { code: string; label: string; detail: string };
-type Verdict = {
-  correct: boolean;
-  verdict: string;
-  diagnosis?: DiagnosisShape;
-  marks: number;
-  teacherAscii?: string;
-};
-
 const verdictLabel = (v: string): string => {
   switch (v) {
     case "equal": return "Mathematically equivalent to the expected step.";
@@ -76,8 +68,6 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
   const [fallback, setFallback] = useState<LivePayload | null>(null);
   const [fallbackAt, setFallbackAt] = useState<number | null>(null);
   const [lastCheck, setLastCheck] = useState<CheckPayload | null>(null);
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
-  const [checking, setChecking] = useState(false);
   const [, forceTick] = useState(0);
 
   const liveAtRef = useRef<number>(0);
@@ -287,9 +277,7 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
   // Reasoning is a live monitoring tool only — everything is discarded the
   // moment the student moves to another line or another question.
   useEffect(() => {
-    setVerdict(null);
     setLastCheck(null);
-    setChecking(false);
   }, [currentLid, currentQid]);
 
   // The panel NEVER grades. The student's reasoning engine is the single
