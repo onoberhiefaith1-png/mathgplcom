@@ -265,6 +265,8 @@ const PresentationView = ({
   assessmentId = null,
   boardStudentId = null,
   boardQuestionId = null,
+  workspace = "assignment",
+  gameId = null,
   viewOnly = false,
 }: {
   notebookId?: string | null;
@@ -280,6 +282,11 @@ const PresentationView = ({
    *  sides render ONE shared board (live mirror). */
   boardStudentId?: string | null;
   boardQuestionId?: string | null;
+  /** Which workspace opened this board — an Adventure board and an Assignment
+   *  board for the same question are independent surfaces. */
+  workspace?: BoardWorkspace;
+  /** Adventure game the board was opened from (part of the board identity). */
+  gameId?: string | null;
   /** Force a read-only mirror (teacher "View Only" mode). */
   viewOnly?: boolean;
 } = {}) => {
@@ -288,7 +295,26 @@ const PresentationView = ({
   const navigate = useNavigate();
   // Assessment mode renders from an injected source and grades via the server.
   const assessmentMode = !!source && !!assessmentId;
+
+  // Board identity — student × class × workspace × game × assessment ×
+  // question. EVERY per-board cache key hangs off this, so work can never
+  // bleed from one question, class or workspace into another.
+  const boardScope = useMemo(
+    () =>
+      buildBoardScope({
+        studentId: boardStudentId,
+        classId: classIdProp,
+        workspace,
+        gameId,
+        assessmentId,
+        questionId: boardQuestionId,
+        notebookId,
+      }),
+    [boardStudentId, classIdProp, workspace, gameId, assessmentId, boardQuestionId, notebookId],
+  );
+
   const { notebook, sections, loading } = useNotebook(assessmentMode ? undefined : (notebookId ?? undefined));
+
 
   // Live classroom mirroring (disabled in assessment mode).
   const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent } =
