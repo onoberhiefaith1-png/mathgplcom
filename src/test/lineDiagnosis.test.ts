@@ -5,13 +5,13 @@
 import { describe, it, expect, beforeAll } from "vitest";
 
 type Diagnosis = { code: string; label: string; detail: string };
-let diagnoseLine: (t: string, s: string, v: string) => Diagnosis;
+let diagnoseLine: (t: string, s: string, v: string, allowed?: string[]) => Diagnosis;
 
 beforeAll(async () => {
   (globalThis as unknown as { Deno?: unknown }).Deno ??= { env: { get: () => undefined } };
   const modPath = "../../supabase/functions/_shared/lineDiagnosis.ts";
   const mod = (await import(/* @vite-ignore */ modPath)) as {
-    diagnoseLine: (t: string, s: string, v: string) => Diagnosis;
+    diagnoseLine: (t: string, s: string, v: string, allowed?: string[]) => Diagnosis;
   };
   diagnoseLine = mod.diagnoseLine;
 });
