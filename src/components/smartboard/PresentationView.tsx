@@ -505,11 +505,13 @@ const PresentationView = ({
         ?? localStorage.getItem(LEGACY_LINE_SPACING_KEY);
       if (raw) {
         const v = parseFloat(raw);
-        if (Number.isFinite(v) && v >= 0) return clampRowSpacing(v);
+        // Legacy values were a 0..1 slider — they all collapse to 1 row unit.
+        if (Number.isFinite(v)) return normalizeRowSpacing(v);
       }
     } catch { /* noop */ }
-    return 0;
+    return 1;
   });
+
   const [textScale, setTextScale] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(TEXT_SCALE_KEY);
