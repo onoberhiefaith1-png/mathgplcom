@@ -25,6 +25,9 @@ export type AnimateTarget = { gameId: string; elementId: string } | null;
 
 const keyOf = (gameId: string, elementId: string) => `${gameId}:${elementId}`;
 
+/** How long the reward takes to adopt its Gallery transform after landing. */
+const SETTLE_MS = 350;
+
 /** Parse the `?animateReward=gameId:elementId` query value. */
 export const parseAnimateReward = (raw: string | null): AnimateTarget => {
   if (!raw) return null;
