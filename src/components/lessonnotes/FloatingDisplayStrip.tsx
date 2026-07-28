@@ -101,7 +101,7 @@ export const FloatingDisplayStrip = ({ tokens, selected }: Props) => {
                     border: "1.5px solid hsl(40 85% 42%)",
                   } : { background: "transparent" }}
                 >
-                  {renderMathInline(gated.cleaned, `fds-${absIdx}-${i}`)}
+                  {renderMathInline(gated.cleaned, `fds-${absIdx}-${i}`, { placeholderColor: STRIP_SLOT_COLOR })}
                 </span>
               );
             })
