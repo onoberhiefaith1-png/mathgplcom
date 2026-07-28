@@ -379,22 +379,31 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
                 )}
               </div>
               <div className="flex items-center gap-1.5 text-sm font-semibold">
-                {checking && !checkForThisLine ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> Waiting…</>
-                ) : shownCorrect === true ? (
+                {shownCorrect === true ? (
                   <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {shownDiagnosis?.label ?? "Equivalent"}</>
                 ) : shownCorrect === false ? (
                   <><XCircle className="h-4 w-4 text-red-500" /> {shownDiagnosis?.label ?? "Not equivalent"}</>
+                ) : studentAscii.trim() ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> <span className="text-muted-foreground">Evaluating…</span></>
                 ) : (
-                  <span className="text-muted-foreground">Waiting…</span>
+                  <span className="text-muted-foreground">Nothing written</span>
                 )}
               </div>
               <div className="text-xs text-muted-foreground">
-                {shownDiagnosis?.detail ?? (shownVerdict ? verdictLabel(shownVerdict) : "No line content to evaluate yet.")}
+                {shownDiagnosis?.detail ??
+                  (shownVerdict
+                    ? verdictLabel(shownVerdict)
+                    : studentAscii.trim()
+                      ? "The reasoning engine is evaluating this line."
+                      : "No line content to evaluate yet.")}
               </div>
+              {shownDiagnosis?.code && (
+                <div className="font-mono text-[10px] text-muted-foreground">{shownDiagnosis.code}</div>
+              )}
               <div className="text-xs tabular-nums">
                 Awarded <span className="font-semibold">{awardedMarks}</span>
                 <span className="text-muted-foreground">/{lineMarks}</span>
+                {awardedMarks > 0 && <span className="ml-1 text-emerald-500">permanent</span>}
               </div>
             </div>
 
@@ -410,17 +419,28 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
                     </span>
                   ))}
                 </div>
-                {invalidTokens.length > 0 ? (
-                  <div className="mt-2 text-[11px] text-red-500">
-                    Not in the floating set: <span className="font-mono">{invalidTokens.join(", ")}</span>
-                  </div>
-                ) : (
-                  studentAscii.trim() && (
-                    <div className="mt-2 text-[11px] text-emerald-500">Only available floating numbers used.</div>
-                  )
-                )}
               </div>
             )}
+
+            <div className="rounded-lg border border-border bg-card/40 p-3">
+              <div className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                Student-introduced terms
+              </div>
+              {studentAddedTerms.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {studentAddedTerms.map((t, i) => (
+                    <span key={`${t}-${i}`} className="rounded border border-amber-500/50 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground">
+                  {studentAscii.trim() ? "Only the items supplied for this line were used." : "—"}
+                </div>
+              )}
+            </div>
+
           </>
         )}
       </div>
