@@ -3026,10 +3026,21 @@ const PresentationView = ({
 
   /** Grade one line through the shared equivalence engine.
    *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent. */
-  const gradeLineThroughEngine = useCallback(async (k: number, mode: "manual" | "auto") => {
+  /** Grade one line through the shared equivalence engine.
+   *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent.
+   *  `frozenAscii` (End Point) wins over whatever is on the board now. */
+  const gradeLineThroughEngine = useCallback(async (
+    k: number,
+    mode: "manual" | "auto",
+    frozenAscii?: string,
+  ) => {
     const resolved = resolveGradableLine(k);
     if (!resolved || !current || !assessmentId) return;
-    const { target, expectedFrags, rowNum, ascii } = resolved;
+    const { target, expectedFrags, rowNum } = resolved;
+    // Everything created between Start Point and End Point belongs to this
+    // line; anything typed after the End Point does not.
+    const ascii = typeof frozenAscii === "string" ? frozenAscii : resolved.ascii;
+
 
     // Nothing written at all — nothing to evaluate. (Not a validation rule:
     // there is simply no expression to send to the engine.)
