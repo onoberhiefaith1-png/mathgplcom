@@ -628,6 +628,7 @@ function DocumentEditorInner({
         blockKind: generationBlockKind,
         activeQuestion: isSolutionBlock ? solutionSource?.problemText : undefined,
         inheritedContext: isSolutionBlock ? true : undefined,
+        lessonContext: collectLessonContext(info.headingPos, generationKind),
       })).trim();
     } catch (err: any) {
       const msg = String(err?.message ?? err);
