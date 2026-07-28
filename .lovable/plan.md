@@ -1,68 +1,45 @@
-**Issue restated**
-The current note still shows exponents wrongly: `x²` is displayed as a two-row script with an empty placeholder under it, and there are extra blank vertical gaps around the generated Example/Solution flow. This started showing after the Example/Solution insertion workflow changed, but the live test shows the visible math error is in the current inline math render path, not in the backend generation itself.
+## Goal
 
-**Live test findings**
-- The live DOM for the shown lesson note renders `x^{2}` as a `mathInline` node whose internal tree is `subsup`: base `x`, superscript `2`, empty subscript.
-- `MathInlineCanvas` always renders both the superscript row and the subscript row for `subsup`, so an empty dashed slot appears underneath the exponent.
-- The AI Edit preview looks correct because it uses the non-editable `renderMathInline` preview path, not the editable `MathInlineCanvas` path used inside the lesson note body.
-- Web/code reference confirmed the CSS part: superscript alignment inside flex contexts is fragile unless the renderer explicitly separates read-mode script layout from editable-slot layout.
+Put an **AI Settings gear at the top-right of the existing AI popover** (the rectangle that appears when you click AI on a section/Solution). Inside it, the teacher specifies exactly what they want from that solution — once — instead of retyping instructions every time.
 
-**Do I know what the issue is?**
-Yes. The persistent exponent bug is caused by the lesson note’s editable inline math canvas rendering an empty subscript branch for simple exponents. A simple exponent should render as base + superscript only while not focused. The empty branch should only appear when the teacher is actively editing that math object and needs the slot.
+Two layers:
+- **Layer 1 (always on, invisible):** subject, topic, learning objectives, notation consistency, teaching-method continuity, prior-example continuity. Sent automatically on every call.
+- **Layer 2 (teacher preferences):** the switches behind the gear.
 
-**Files to fix**
-- `src/components/lessonnotes/extensions/MathInlineCanvas.tsx`
-- `src/components/lessonnotes/extensions/MathInline.tsx`
-- `src/components/lessonnotes/DocumentEditor.tsx`
-- `src/lib/lessonnotes/aiToNodes.ts` if blank paragraph cleanup needs to happen at AI-node conversion boundary
-- Add/update focused regression tests for `x^{2}`, `x^{3}`, nested exponents, and Example → Solution insertion ordering
+---
 
-**Implementation plan**
-1. **Restore clean exponent rendering in lesson notes**
-   - In `MathInlineCanvas`, render `subsup` in two modes:
-     - Read mode / unfocused: hide empty subscript or superscript rows completely.
-     - Edit mode / focused: show subtle placeholders only for branches the teacher is actively editing or can enter.
-   - For a simple stored value like `x^{2}`, the DOM should visually become `x` + raised `2`, with no empty box underneath.
+## 1. Gear in the AI popover
 
-2. **Keep infinite nesting/editing intact**
-   - Do not remove `subsup` support or the recursive math tree engine.
-   - Keep nested structures like `x^{2^{5^n}}` editable.
-   - Only change the display rules for empty script branches, not the stored math structure.
+`AiPopover.tsx` header row becomes: title on the left, small gear button on the right. Clicking the gear flips the popover body to a **Settings view** (same rectangle, no second popover), with a back arrow to return to the prompt view.
 
-3. **Make AI-generated lesson body use the same clean appearance as AI Edit**
-   - Ensure generated inline math inside paragraphs is displayed through the clean read-mode math canvas when not selected/focused.
-   - Keep AI Edit and lesson note rendering visually consistent for exponents, fractions, roots, and mixed prose/math lines.
+Settings view contents:
+- **Style switches** (toggles): Step-by-step working, Simplify English, Real-life example, Scaffolded (hints before answer), Show formula first, Include common mistakes.
+- **Depth**: Brief / Standard / Detailed.
+- **Level**: free text (e.g. "SS2 / WAEC").
+- **Standing instruction**: a persistent free-text box — "exactly what I want from every solution in this note".
+- Reset to defaults.
 
-4. **Tighten the Example/Solution spacing regression**
-   - Compare the current `DocumentEditor` insertion path against the pre-auto-solution behavior around `solutionPlaceholderNodes`.
-   - Remove extra blank paragraphs inserted between `Example`, generated question, and `Solution` while preserving the required structure:
-     ```text
-     Example
-     generated question
-     Solution
-     blank solution area
-     ```
-   - Clicking/generating Solution must reuse the existing Solution heading, not create another one.
+Enabled switches also show as small chips in the prompt view so the teacher can see what's active without opening the gear.
 
-5. **Regression coverage and live verification**
-   - Add focused tests for:
-     - `x^{2}` renders without an empty lower placeholder.
-     - `x_{2}` renders without an empty upper placeholder.
-     - `x_{2}^{3}` still renders both rows correctly.
-     - nested exponent storage stays lossless.
-     - Example AI insertion lands before the existing Solution heading.
-   - Run a live browser check on the same lesson note route and verify the screenshot/DOM no longer shows the empty slot under `x²`/`x³`, and spacing is compact.
+## 2. Where preferences live
 
-**What I will not do**
-- I will not rebuild the math engine.
-- I will not roll back unrelated smartboard/editor work.
-- I will not change the database schema.
-- I will preserve the current Example → auto-empty-Solution requirement, but remove the visual/math regression it introduced.
+Per lesson note, saved in the browser (`localStorage`, keyed by notebook id) — no database migration, instant. A later cloud sync can be added without changing this UI.
 
-<presentation-actions>
-  <presentation-open-history>View History</presentation-open-history>
-</presentation-actions>
+## 3. Edit-in-place instead of appending
 
-<presentation-actions>
-<presentation-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</presentation-link>
-</presentation-actions>
+When AI runs in a section that already has content:
+- Default action becomes **Edit / rewrite that content** using the active preferences (e.g. "make step-by-step + simplify"), replacing the section body rather than adding a second copy underneath.
+- If the section is empty → generate new content.
+- Existing Regenerate / Paraphrase / Extend / Clear footer actions stay and route to the same edit path.
+
+## 4. Backend
+
+`notebook-ai` accepts a new `preferences` object and a `mode: "generate" | "edit"`. Preferences are compiled into an appended prompt directive block; Layer‑1 context (`collectLessonContext`) continues to be injected first, so pedagogy, QUESTION_LOCK and continuity rules keep priority over teacher switches. Existing hygiene/integrity guards are untouched.
+
+## Technical notes
+
+- `src/components/lessonnotes/AiPopover.tsx`: add `settingsSlot` / internal view state, gear button, chips row.
+- New `src/components/lessonnotes/ai/aiPreferences.ts`: type, defaults, load/save per notebook, and `buildPreferenceDirective()`.
+- New `src/components/lessonnotes/ai/AiSettingsPanel.tsx`: the switch UI.
+- `SectionHeading.tsx` / `DocumentEditor.tsx`: pass notebook id + preferences into `onGenerateSection`, and choose generate vs edit based on whether the section body is empty.
+- `supabase/functions/notebook-ai/index.ts`: read `preferences` + `mode`, append directive after the pedagogy/continuity standards.

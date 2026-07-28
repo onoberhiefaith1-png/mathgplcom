@@ -61,6 +61,12 @@ import { snap, pickObject } from "@/lib/geometry/editor/snap";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
+import {
+  buildPreferenceDirective,
+  hasCustomPreferences,
+  loadAiPreferences,
+} from "./ai/aiPreferences";
+
 import { MathSymbolPanel } from "./MathSymbolPanel";
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
@@ -561,14 +567,21 @@ function DocumentEditorInner({
         };
       case "generate":
       default: {
-        // In-place EDIT: section already has content AND teacher typed an
-        // instruction → revise this section only, never touch other sections.
+        // In-place EDIT: section already has content → revise this section
+        // only (never append a second copy underneath). Works with a typed
+        // instruction OR with the teacher's saved AI preferences alone.
         const hasExisting = opts.sectionText.trim().length > 0;
-        if (hasExisting && prompt) {
+        const prefsNow = loadAiPreferences(nbIdRef.current);
+        const instruction = prompt || (
+          hasCustomPreferences(prefsNow)
+            ? "Rewrite this content so it follows the teacher preferences below."
+            : ""
+        );
+        if (hasExisting && instruction) {
           return {
             prompt:
               `Apply this teacher instruction to the ${label} below:\n` +
-              `"""${prompt}"""\n\n` +
+              `"""${instruction}"""\n\n` +
               `Output ONLY the full revised ${label}. Keep everything not mentioned in the instruction exactly as-is. ` +
               `Do NOT add section headings (no "Introduction", "Explanation", "Example", "Summary" titles). ` +
               `Do NOT generate any other section. Return just the body text of this ${label}.\n\n` +
@@ -579,6 +592,7 @@ function DocumentEditorInner({
           };
         }
 
+
         if (isQuestionSectionKind(opts.kind)) {
           return { prompt: prompt || `Generate one ${label} question only. Do not write the solution.`, currentContent: "" };
         }
@@ -587,11 +601,13 @@ function DocumentEditorInner({
     }
   };
 
-  /** True when a custom-prompt "generate" should behave as an in-place edit. */
+  /** True when a "generate" press should behave as an in-place edit: the
+   *  section already has content and the teacher either typed an instruction
+   *  or has saved AI preferences to apply. */
   const isInPlaceEdit = (info: SectionAiCallContext, basePrompt: string) =>
     info.action === "generate" &&
     info.sectionText.trim().length > 0 &&
-    basePrompt.trim().length > 0;
+    (basePrompt.trim().length > 0 || hasCustomPreferences(loadAiPreferences(nbIdRef.current)));
 
   /** Handle per-section AI button (passed into SectionHeading extension). */
   const handleSectionAi = async (prompt: string, info: SectionAiCallContext) => {
@@ -611,10 +627,16 @@ function DocumentEditorInner({
       return;
     }
 
-    const { prompt: finalPrompt, currentContent } = await buildPrompt({
+    const built = await buildPrompt({
       base: prompt, action: info.action, sectionText: info.sectionText,
       images: info.images, kind: info.kind,
     });
+    const { currentContent } = built;
+    // Layer 2 — teacher preferences appended AFTER the task prompt so the
+    // pedagogy / QUESTION_LOCK / continuity standards keep priority.
+    const prefDirective = buildPreferenceDirective(loadAiPreferences(nbIdRef.current));
+    const finalPrompt = prefDirective ? `${built.prompt}\n\n${prefDirective}` : built.prompt;
+
 
     const isSolutionBlock = info.kind === "solution";
     const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos) : null;

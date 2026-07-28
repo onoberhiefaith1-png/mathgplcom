@@ -8,11 +8,21 @@
 //    forwarded as base64 dataUrls (opts.images) so the caller can route them
 //    through the existing notebook-ai `scan` mode.
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Sparkles, Loader2, Mic, Paperclip, Camera, X } from "lucide-react";
+import { Sparkles, Loader2, Mic, Paperclip, Camera, X, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { AiSettingsPanel } from "./ai/AiSettingsPanel";
+import {
+  AiPreferences,
+  AI_PREFS_EVENT,
+  activePreferenceChips,
+  loadAiPreferences,
+  saveAiPreferences,
+} from "./ai/aiPreferences";
+
 
 export interface AiGenerateOptions {
   images: string[]; // base64 dataUrls, may be empty
@@ -62,6 +72,19 @@ export function AiPopover({
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
 
+  // Teacher AI preferences (Layer 2) — per lesson note, edited behind the gear.
+  const { id: notebookId } = useParams();
+  const [view, setView] = useState<"prompt" | "settings">("prompt");
+  const [prefs, setPrefs] = useState<AiPreferences>(() => loadAiPreferences(notebookId));
+  useEffect(() => { setPrefs(loadAiPreferences(notebookId)); }, [notebookId]);
+  useEffect(() => {
+    const onChanged = () => setPrefs(loadAiPreferences(notebookId));
+    window.addEventListener(AI_PREFS_EVENT, onChanged as EventListener);
+    return () => window.removeEventListener(AI_PREFS_EVENT, onChanged as EventListener);
+  }, [notebookId]);
+  const chips = useMemo(() => activePreferenceChips(prefs), [prefs]);
+
+
   const startVoice = () => {
     const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { toast({ title: "Voice not supported in this browser" }); return; }
@@ -110,13 +133,44 @@ export function AiPopover({
   };
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) stopVoice(); }}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { stopVoice(); setView("prompt"); } }}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-80 p-2 space-y-2">
-        {title && (
-          <p className="text-[10px] uppercase tracking-wider text-foreground/55 px-0.5">{title}</p>
+        {view === "settings" ? (
+          <AiSettingsPanel
+            value={prefs}
+            onChange={(next) => { setPrefs(next); saveAiPreferences(notebookId, next); }}
+            onBack={() => setView("prompt")}
+          />
+        ) : (
+        <>
+        <div className="flex items-center gap-1">
+          {title && (
+            <p className="text-[10px] uppercase tracking-wider text-popover-foreground/75 px-0.5">{title}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => setView("settings")}
+            title="AI settings — tell AI exactly what you want"
+            className="ml-auto p-1 rounded text-popover-foreground/75 hover:text-foreground hover:bg-foreground/10 transition"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {chips.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {chips.map((c) => (
+              <span
+                key={c}
+                className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-foreground/70 border border-primary/25"
+              >
+                {c}
+              </span>
+            ))}
+          </div>
         )}
         {topControls}
+
         <input
           autoFocus
           value={text}
@@ -169,7 +223,7 @@ export function AiPopover({
               </button>
             </>
           )}
-          <span className="text-[10px] uppercase tracking-wider text-foreground/55">
+          <span className="text-[10px] uppercase tracking-wider text-popover-foreground/75">
             {listening ? "listening…" : "type · speak · attach"}
           </span>
           <button
@@ -200,7 +254,7 @@ export function AiPopover({
                 disabled={busy}
                 className={cn(
                   "inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-1 rounded hover:bg-foreground/10 transition",
-                  a.danger ? "text-red-500/70 hover:text-red-500" : "text-foreground/55 hover:text-foreground",
+                  a.danger ? "text-red-500/70 hover:text-red-500" : "text-popover-foreground/75 hover:text-foreground",
                 )}
                 title={a.label}
               >
@@ -210,7 +264,10 @@ export function AiPopover({
             ))}
           </div>
         )}
+        </>
+        )}
       </PopoverContent>
+
     </Popover>
   );
 }
