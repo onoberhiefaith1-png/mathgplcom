@@ -247,17 +247,38 @@ export function diagnoseLine(
   teacherAscii: string,
   studentAscii: string,
   verdict: Verdict | "not_in_floating_set",
+  /** The floating chips supplied for this line — lets us say whether the
+   *  offending atom was a NUMBER or a SYMBOL the student introduced. */
+  allowedTokens?: string[],
 ): Diagnosis {
   const teacher = clean(teacherAscii);
   const student = clean(studentAscii);
 
+  // 0 — nothing to judge yet.
+  if (!student) {
+    return D("cannot_evaluate_yet", "Nothing written", "This line is still empty, so there is no expression to evaluate.");
+  }
+
   if (verdict === "not_in_floating_set") {
+    const atoms = (s: string): string[] =>
+      (clean(s).match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
+    const allowed = new Set((allowedTokens ?? []).flatMap(atoms));
+    const offending = allowed.size > 0 ? atoms(student).filter((a) => !allowed.has(a)) : [];
+    const symbolIntroduced = offending.some((a) => /[A-Za-z]/.test(a));
+    if (symbolIntroduced) {
+      return D(
+        "symbol_not_supplied",
+        "Symbol not supplied",
+        "The line introduces a letter or symbol that was not among the items supplied for this step.",
+      );
+    }
     return D(
-      "not_in_floating_set",
+      "number_not_given",
       "Number not given",
       "The line uses a value that was not among the floating numbers supplied for this step.",
     );
   }
+
 
   // 1 — invalid notation
   if (looksInvalid(student) || !parses(student)) {
