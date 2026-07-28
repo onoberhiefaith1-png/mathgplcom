@@ -802,7 +802,7 @@ function DocumentEditorInner({
       } else if (existingSolution) {
         // The old solution belongs to the old question — reset its body to a
         // single empty paragraph, leaving the heading itself in place.
-        clearSolutionBody(questionBodyEnd);
+        clearSolutionBody();
       }
     } else {
       // Append path: the question ALWAYS goes above an existing Solution
