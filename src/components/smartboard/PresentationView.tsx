@@ -3443,12 +3443,17 @@ const PresentationView = ({
   // verbatim — never normalised or reordered.
   const buildLiveSnapshot = useCallback(() => {
     const rowsAscii: Record<number, string> = {};
+    // The math OBJECT itself, sent verbatim. The Reasoning panel renders this
+    // — it must never rebuild an expression from the ASCII text.
+    const rowsTree: Record<number, Row> = {};
     for (const [k, v] of Object.entries(freeLines)) {
       const n = Number(k);
       if (!Number.isFinite(n)) continue;
-      if (v && v.length > 0) rowsAscii[n] = rowToAscii(v);
+      if (v && v.length > 0) { rowsAscii[n] = rowToAscii(v); rowsTree[n] = v; }
     }
     const linesAscii: Record<string, string> = {};
+    const linesTree: Record<string, Row> = {};
+
     const floatingTokens: Record<string, string[]> = {};
     const writtenRows = Object.keys(freeLines)
       .map(Number)
