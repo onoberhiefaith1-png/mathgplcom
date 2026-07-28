@@ -388,14 +388,27 @@ const TeacherReasoningPanel = ({
           </div>
           <div className="truncate text-[11px] text-muted-foreground">{studentName}</div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          aria-label="Close reasoning panel"
-        >
-          <XIcon className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={fullscreen ? "Exit reasoning full screen" : "Reasoning full screen"}
+              title={fullscreen ? "Exit full screen" : "Full screen"}
+            >
+              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Close reasoning panel"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 space-y-3 overflow-y-auto p-3">
