@@ -44,6 +44,13 @@ export const toUnicodeMath = (input: string): string => {
   };
   s = s.replace(/\^\{\s*□\s*\}/g, POWER_SLOT);
 
+  // Protect COMPLETE fractions before any brace stripping. The blanket
+  // "strip stray braces" pass below used to turn `\frac{□}{□}` into
+  // `\frac□□`, which the renderer then drew as an empty fraction (2 slots)
+  // PLUS two orphan placeholder boxes — four cells for a two-cell object.
+  const fracHolds: string[] = [];
+  s = holdFractions(s, fracHolds);
+
   // Strip KaTeX-style $...$ / $$...$$ delimiters — they are valid in lesson-note
   // source but must NEVER reach the rendered DOM as visible "$" characters.
   s = s.replace(/\$+/g, "");
