@@ -113,21 +113,37 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     const flLines = ((s as any).floating_lines ?? []) as FloatingLine[];
     const lines: QuestionPayload["lines"] = [];
     for (const line of flLines) {
-      let tokens = cleanFillers(line.fillers);
-      if (tokens.length < 1) {
-        tokens = cleanFillers(tokensFromEquation(line.equation));
-      }
-      if (tokens.length < 1) continue;
+      // Two DIFFERENT objects, never interchangeable:
+      //  • chips   — the draggable floating numbers handed to the student.
+      //  • tokens/equationAscii — the teacher's correct line (the answer key).
+      const chips = cleanFillers(line.fillers);
+      const equationAscii = (() => {
+        const eq = String(line.equation ?? "").trim();
+        if (!eq) return "";
+        const uni = toUnicodeMath(eq);
+        return (uni && !isStillDirty(uni) ? uni : eq).trim();
+      })();
+      const keyTokens = equationAscii
+        ? cleanFillers(tokensFromEquation(equationAscii))
+        : chips;
+      const studentChips = chips.length > 0 ? chips : keyTokens;
+      if (studentChips.length < 1 && !equationAscii) continue;
       const marks = marksFor(line);
       total += marks;
       lines.push({
         lineId: line.lineId,
-        chips: rearrangeStream(tokens),
+        chips: rearrangeStream(studentChips),
         marks,
         containers: (line.containers ?? []) as ContainerKind[],
       });
-      answerKey.push({ questionId: sid, lineId: line.lineId, tokens });
+      answerKey.push({
+        questionId: sid,
+        lineId: line.lineId,
+        tokens: keyTokens.length > 0 ? keyTokens : studentChips,
+        equationAscii: equationAscii || undefined,
+      });
     }
+
     if (lines.length === 0) continue;
     questions.push({ id: sid, questionText: problemBySub.get(sid) ?? "", lines });
   }
