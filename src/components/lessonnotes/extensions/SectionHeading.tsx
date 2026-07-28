@@ -391,7 +391,7 @@ function buildAddAnotherPlugin() {
               if (liveHeadings[j].level <= h.level) { liveEnd = liveHeadings[j].pos; break; }
             }
           }
-          const tr = state.tr.insert(liveEnd, [newHeading, newPara]);
+          const tr = state.tr.insert(liveEnd, [newHeading, newPara, ...solutionNodes]);
           // Caret inside the new empty paragraph.
           const caret = liveEnd + newHeading.nodeSize + 1;
           tr.setSelection(TextSelection.near(tr.doc.resolve(caret)));
