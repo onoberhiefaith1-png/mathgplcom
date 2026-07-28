@@ -29,13 +29,25 @@ export interface CreateAssessmentInput {
 export interface QuestionPayload {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number; containers: ContainerKind[] }[];
+  lines: {
+    lineId: string;
+    chips: string[];
+    marks: number;
+    containers: ContainerKind[];
+    /** Teacher's correct equation for this line (the orange line). Student-safe
+     *  only in the sense that it is NOT sent to the board — it stays in the
+     *  answer key. Kept here so board sources can carry it for the teacher. */
+  }[];
 }
 
 export interface AnswerKeyLine {
   questionId: string;
   lineId: string;
+  /** Legacy/parallel token list. Kept for older rows and for display. */
   tokens: string[];
+  /** THE expected line — the teacher's highlighted equation, verbatim.
+   *  This — never the floating-number set — is what grading compares against. */
+  equationAscii?: string;
 }
 
 export interface CompiledSection {
@@ -44,12 +56,23 @@ export interface CompiledSection {
   total: number;
 }
 
+/** Normalise fillers for display WITHOUT ever dropping one.
+ *  Teacher floating objects must reach the student one-for-one: if a filler
+ *  cannot be fully converted to Unicode math we keep the original text rather
+ *  than deleting the object, otherwise the student is handed an incomplete
+ *  set and can never rebuild the expected line. */
 const cleanFillers = (fillers: string[] | undefined): string[] =>
   (fillers ?? [])
-    .map((f) => toUnicodeMath(String(f ?? "")))
-    .filter((f) => f && !isStillDirty(f));
+    .map((f) => {
+      const raw = String(f ?? "");
+      const uni = toUnicodeMath(raw);
+      if (uni && !isStillDirty(uni)) return uni;
+      return (uni || raw).trim();
+    })
+    .filter((f) => f.length > 0);
 
 const marksFor = (line: FloatingLine): number => markForLine(line);
+
 
 export async function getNotebookScoreLabel(notebookId: string): Promise<string> {
   const { data } = await supabase
