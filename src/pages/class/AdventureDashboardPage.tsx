@@ -515,6 +515,7 @@ const AdventureDashboardPage = () => {
                     <GroupsPanel
                       classId={classId}
                       gameId={gameId}
+                      game={game}
                       members={sync.members}
                       bars={patchedBarSummaries}
                       ctx={groups}
