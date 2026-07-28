@@ -120,6 +120,8 @@ export interface UpsertClassGalleryRewardInput {
   rotation: number;
   opacity: number;
   duration_ms: number;
+  /** The configured Adventure instance carried through the transfer. */
+  element_style?: RewardElementStyle | null;
 }
 
 export const upsertClassGalleryReward = async (
