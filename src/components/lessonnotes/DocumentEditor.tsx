@@ -601,11 +601,13 @@ function DocumentEditorInner({
     }
   };
 
-  /** True when a custom-prompt "generate" should behave as an in-place edit. */
+  /** True when a "generate" press should behave as an in-place edit: the
+   *  section already has content and the teacher either typed an instruction
+   *  or has saved AI preferences to apply. */
   const isInPlaceEdit = (info: SectionAiCallContext, basePrompt: string) =>
     info.action === "generate" &&
     info.sectionText.trim().length > 0 &&
-    basePrompt.trim().length > 0;
+    (basePrompt.trim().length > 0 || hasCustomPreferences(loadAiPreferences(nbIdRef.current)));
 
   /** Handle per-section AI button (passed into SectionHeading extension). */
   const handleSectionAi = async (prompt: string, info: SectionAiCallContext) => {
@@ -625,10 +627,16 @@ function DocumentEditorInner({
       return;
     }
 
-    const { prompt: finalPrompt, currentContent } = await buildPrompt({
+    const built = await buildPrompt({
       base: prompt, action: info.action, sectionText: info.sectionText,
       images: info.images, kind: info.kind,
     });
+    const { currentContent } = built;
+    // Layer 2 — teacher preferences appended AFTER the task prompt so the
+    // pedagogy / QUESTION_LOCK / continuity standards keep priority.
+    const prefDirective = buildPreferenceDirective(loadAiPreferences(nbIdRef.current));
+    const finalPrompt = prefDirective ? `${built.prompt}\n\n${prefDirective}` : built.prompt;
+
 
     const isSolutionBlock = info.kind === "solution";
     const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos) : null;
