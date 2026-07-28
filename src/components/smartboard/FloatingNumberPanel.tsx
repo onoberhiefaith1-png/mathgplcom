@@ -245,9 +245,11 @@ export const FloatingNumberPanel = ({
       for (let i = line.fragmentStart; i < line.fragmentEnd; i++) {
         out.push({ token: fragments[i], absIdx: i });
       }
-      return out;
+      return out.filter((s) => s.token.trim().length > 0);
     }
-    return fragments.map((token, idx) => ({ token, absIdx: idx }));
+    return fragments
+      .map((token, idx) => ({ token, absIdx: idx }))
+      .filter((s) => s.token.trim().length > 0);
   }, [fragments, useLineMode, activeLineIdx, lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** USED zone (left) — the active line's fragments already tapped/used. */
@@ -255,13 +257,16 @@ export const FloatingNumberPanel = ({
     if (fragments.length === 0) return [];
     if (useLineMode) {
       const k = activeLineIdx as number;
-      return consumedOfLine(k).map((idx) => ({ token: fragments[idx], absIdx: idx }));
+      return consumedOfLine(k)
+        .map((idx) => ({ token: fragments[idx], absIdx: idx }))
+        .filter((s) => s.token.trim().length > 0);
     }
     const consumed = consumedAbsIdx ?? new Set<number>();
     return fragments
       .map((token, idx) => ({ token, absIdx: idx }))
-      .filter((s) => consumed.has(s.absIdx));
+      .filter((s) => consumed.has(s.absIdx) && s.token.trim().length > 0);
   }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   /** REMAINING (unused) flow — allSlots in teacher's saved order with
    *  consumed chips removed. It is not repeated while used chips exist: the
