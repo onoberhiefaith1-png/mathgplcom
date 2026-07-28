@@ -145,6 +145,9 @@ export const toUnicodeMath = (input: string): string => {
     s = s.replace(`\uE001SCRIPT_${i}\uE001`, markup);
   });
   s = s.replace(new RegExp(POWER_SLOT, "g"), "^{□}");
+  fracHolds.forEach((markup, i) => {
+    s = s.split(FRAC_TOKEN(i)).join(markup);
+  });
 
   return s.trim();
 };
