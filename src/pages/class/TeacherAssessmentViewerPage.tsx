@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import PresentationView from "@/components/smartboard/PresentationView";
 import TeacherReasoningPanel from "@/components/smartboard/TeacherReasoningPanel";
+import { buildBoardScope } from "@/lib/smartboard/boardScope";
+
 import {
   buildAssessmentBoardSource,
   type AssessmentLike,
