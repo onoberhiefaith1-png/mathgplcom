@@ -69,6 +69,17 @@ const nodeToAscii = (n: Node): string => {
       return `binom(${rowToAscii(n.rows[0] || [])},${rowToAscii(n.rows[1] || [])})`;
     case "matrix":
       return `[matrix]`;
+    // A box is a transparent container (an outlined writing cell). It carries
+    // no mathematical meaning of its own — flatten its body verbatim so the
+    // Smartboard, the Reasoning panel and the grader all read the SAME maths.
+    // Dropping it here used to delete whole numerators (x=()/2a).
+    case "box":
+      return rowToAscii(n.rows[0] || []);
+    default: {
+      // Exhaustiveness guard: a new node kind must never silently vanish.
+      const _never: never = n;
+      return String((_never as { ch?: string })?.ch ?? "");
+    }
   }
 };
 
