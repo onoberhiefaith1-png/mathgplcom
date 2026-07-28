@@ -18,7 +18,7 @@ import { BackButton } from "@/components/common/BackButton";
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
 import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
-import { startSession, freezeSession, type EditingSession } from "@/lib/smartboard/editingSession";
+import { startSession, freezeSession, cancelSession, type EditingSession } from "@/lib/smartboard/editingSession";
 import { ReasoningEngine, introducedTerms as introducedTermsOf } from "@/lib/smartboard/reasoningEngine";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
