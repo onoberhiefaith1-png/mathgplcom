@@ -51,6 +51,8 @@ export function useGalleryAwards({
   const [awards, setAwards] = useState<ClassGalleryAwardRow[]>([]);
   const [flightPos, setFlightPos] = useState<{ x: number; y: number } | null>(null);
   const [flying, setFlying] = useState(false);
+  /** 0 = still the Adventure look, 1 = fully adopted the Gallery transform. */
+  const [settleT, setSettleT] = useState(1);
   const frameRef = useRef<number | null>(null);
   const playedRef = useRef<string | null>(null);
 
