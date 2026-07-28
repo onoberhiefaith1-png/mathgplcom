@@ -39,6 +39,7 @@ import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/typ
 import { editTargetKey } from "@/lib/smartboard/manualEdit/types";
 import { noteForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
+import { PresenterMath, asDisplayString } from "./PresenterMath";
 
 const INK = "#1a2230";
 const ACCENT = "#8a6a1f";
@@ -52,13 +53,7 @@ const HIGHLIGHT_BORDER = "rgba(22,163,74,0.95)"; // green-600
 const HIGHLIGHT_SHADOW =
   "0 0 0 4px rgba(22,163,74,0.18), 0 6px 22px rgba(22,163,74,0.22)";
 
-const asDisplayString = (v: unknown): string => {
-  if (v == null) return "";
-  const t = typeof v;
-  if (t === "string") return v as string;
-  if (t === "number" || t === "boolean") return String(v);
-  return "";
-};
+
 
 const today = () => {
   const d = new Date();
@@ -67,9 +62,7 @@ const today = () => {
 };
 
 const InlineMath = ({ ascii, placeholderColor = PLACEHOLDER_COLOR }: { ascii: string; placeholderColor?: string }) => (
-  <span className="font-serif" style={{ color: INK }}>
-    {renderMathInline(asDisplayString(ascii), "preview-inline", { placeholderColor })}
-  </span>
+  <PresenterMath ascii={ascii} keyBase="preview-inline" placeholderColor={placeholderColor} color={INK} />
 );
 
 const HighlightBox = ({ children }: { children: React.ReactNode }) => (

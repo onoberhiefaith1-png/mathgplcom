@@ -1,46 +1,29 @@
-## What I verified in the code
+## What I verified
 
-- **The Expected Line really does come from the floating set.** `src/lib/assessments/createAssessment.ts` builds the answer key as `tokens = cleanFillers(line.fillers)` — the floating chips — and only falls back to `tokensFromEquation(line.equation)` when there are no fillers. `grade-line` then joins those tokens with spaces and treats the result as `teacherAscii`. So the grader is comparing the student against the chip list, not the teacher's orange equation.
-- **The teacher equation exists but is thrown away.** `FloatingLine` carries `equation`, but it never reaches the assessment payload; `assessmentBoardSource.ts` even hard-codes `equation: ""` when rebuilding board reservoirs.
-- **Floating objects can silently disappear.** `cleanFillers` drops any filler that `isStillDirty()` rejects (anything still holding `\word`, `sqrt(`, `**`, leftover `^{}`/`_{}`). A filler such as a `\frac` template or `x =` written with raw syntax is removed with no warning, so the student's chip set is a strict subset of the teacher's.
-- **"Symbol not supplied" comes from provenance checking.** `grade-line` computes `inFloatingSet` by requiring every student atom to be in `allowedFloatingTokens`; when it fails it short-circuits equivalence entirely and `lineDiagnosis.ts` returns `symbol_not_supplied` / `number_not_given`.
-- **Check:** `checkActiveLine` freezes `resolveGradableLine(k).ascii`; when that resolves empty it only fires a "Nothing to check" toast and the result surface shows nothing — the student's written expression is never echoed back in the result view. (I have not yet reproduced the exact empty render in the browser; step 5 starts by reproducing it.)
+- `TeacherReasoningPanel.tsx:342` renders the Expected line inside a `<pre className="font-mono">` printing raw text — that is why `x₁ = \frac−42` appears. The Student line (line 354), the floating chips (line 404) and the student-introduced terms (line 419) all do the same.
+- The Presenter Preview "normal mode" orange equation does it correctly: `PresenterPreviewPanel.tsx:695-751` takes `line.equation`, wraps it in `InlineMath`, which calls `renderMathInline(...)` from `src/lib/notebook/mathRender.ts` — real stacked fractions, superscripts, radicals.
+- Expected line data currently comes from `keyLines.tokens.join(" ")` (`TeacherReasoningPanel.tsx:233-236`), even though the answer key now carries `equationAscii` (`createAssessment.ts:143`, already consumed by `grade-line/index.ts:110`). The panel is showing the token list, not the teacher's orange equation.
 
 ## Plan
 
-### 1. Expected Line = teacher's equation
-- Add `equation` to the compiled question line payload and to `AnswerKeyLine` (`equationAscii`), sourced from `FloatingLine.equation`.
-- In `compileSectionQuestions`, set answer-key tokens from the teacher equation first; fall back to fillers only when the equation is empty. Keep `chips` (student-facing) sourced from fillers as today — the two become genuinely separate objects.
-- Preserve `equation` through `assessmentBoardSource.buildAssessmentBoardSource` instead of `equation: ""`.
-- In `grade-line`, prefer `equationAscii` for `teacherAscii`, falling back to joined tokens for existing/legacy keys.
-- Re-sync path: `pipeline.ts` and `LinkAdventureDialog.tsx` already rewrite answer keys on change, so edited equations propagate.
+### 1. Share the presenter's math renderer
+- Extract the `InlineMath` renderer used by Presenter Preview into a small shared component (`src/components/smartboard/PresenterMath.tsx`) wrapping `renderMathInline`, and have `PresenterPreviewPanel` import it so there is exactly one renderer.
+- The Reasoning panel uses that same component everywhere it currently prints text: Expected line, Student line, floating-number chips, student-introduced terms, and the Check verdict's echoed expression.
+- Result: whatever structure the orange line shows in normal mode is mirrored character-for-character in the panel; no `\frac`, `^{}`, `_{}` can reach the screen.
 
-### 2. Lossless floating-number sync
-- Stop silently dropping fillers: `cleanFillers` keeps every teacher filler, converting to Unicode where possible and passing the original through unchanged when conversion is incomplete, so nothing vanishes between teacher and student.
-- Keep `containers` (fraction/radical/etc. templates) attached per line end-to-end so structure templates reach the student board.
-- Add a compile-time integrity assertion: student chip count per line must equal the teacher filler count; log/flag a mismatch rather than shipping a lossy set.
+### 2. Expected line = the teacher's orange equation
+- Add `equationAscii` to the panel's `KeyLine` type and prefer it over `tokens.join(" ")`, falling back to tokens only for legacy answer keys.
+- Pass the value through the existing display gate (`assertDisplaySafe` / `stripLatexScaffolding`) before rendering, so even a legacy token string cannot leak scaffolding.
 
-### 3. Remove "symbol not supplied" / provenance rejection
-- `grade-line`: delete the `inFloatingSet` gate; always run `equivalent(teacherAscii, studentAscii)`. Stop passing the verdict `not_in_floating_set`.
-- `lineDiagnosis.ts`: remove the `not_in_floating_set` branch and the `symbol_not_supplied` / `number_not_given` codes from the union; keep `cannot_evaluate_yet` and the mathematical categories (incomplete line, missing bracket, sign error, not equivalent, equivalent, correct).
-- `PresentationView.tsx`: keep sending `allowedFloatingTokens` only as informational context for the Reasoning panel, not as a validation input.
-- Reasoning panel keeps showing "student-introduced terms" as *information*, never as an error.
-- Update `src/test/lineDiagnosis.test.ts` accordingly.
+### 3. Line viewer: always visible, side scrollbar, never clipped
+- Expected line becomes a pinned block: it sticks to the top of the panel's scroll area so it stays on screen while the teacher scrolls the rest of the panel.
+- Expected line and Student line each get their own bounded viewer with a scrollbar **on the side of the block** (a dedicated vertical scroll track outside the math area, not overlaying the expression), so tall content (stacked fractions, nested powers) can be scrolled through in full without shrinking the math.
+- Content wraps rather than truncating: long expressions wrap onto further lines inside the viewer, and the viewer grows to a comfortable max height before scrolling starts.
+- Student line keeps its `row N` badge; the scroll position resets whenever the active line or question changes.
 
-### 4. Reasoning panel data sources
-- Expected line: teacher equation (from the answer-key broadcast path already used).
-- Available symbols: the line's floating set, displayed as a separate section.
-- Student line: the live/frozen active-line ascii.
-- Verdict: whatever the engine last broadcast — unchanged.
-
-### 5. Check must show the student's work
-- Reproduce the empty Check result in a headless browser first to confirm the render path.
-- Make Check an evaluation *view*: on Check, render the frozen student expression, the verdict/diagnosis, and the marks awarded, with a "Back to board" action that leaves the board content untouched.
-- When the resolved line is empty, still show the view with an explicit "nothing written on this line yet" state instead of a blank surface.
-
-### 6. End-to-end verification
-- Add a pipeline test walking teacher equation + fillers → compiled question → answer key → board source → grading, asserting: expected line equals the teacher equation, chip count is preserved, and a student expression containing manually typed symbols but mathematically equivalent grades as correct.
-- Run the existing suites (`reasoningEngine`, `lineDiagnosis`, `boardScope`, `activeLineSession`, floating tests) plus a typecheck.
+### 4. Verification
+- Add a rendering test asserting the Reasoning panel's Expected line, Student line and chips contain no `\frac` / `\sqrt` / `^{` / `_{` text nodes for a LaTeX-bearing answer key.
+- Run typecheck plus the existing smartboard/reasoning suites.
 
 ## Technical notes
-Files touched: `src/lib/assessments/createAssessment.ts`, `src/lib/assessments/assessmentBoardSource.ts`, `src/lib/lessonnotes/floatingCompile.ts`, `src/lib/notebook/unicodeMath.ts` (filler retention only), `supabase/functions/grade-line/index.ts`, `supabase/functions/_shared/lineDiagnosis.ts`, `src/components/smartboard/PresentationView.tsx`, `src/components/smartboard/TeacherReasoningPanel.tsx`, plus tests. No database schema change is required — `assessment_answer_keys.lines` is JSON, so the added `equationAscii` field is additive and legacy rows keep working through the fallback.
+Files touched: new `src/components/smartboard/PresenterMath.tsx`; `src/components/smartboard/TeacherReasoningPanel.tsx`; `src/components/smartboard/PresenterPreviewPanel.tsx` (import the shared renderer); one new test. No database or edge-function change — `equationAscii` is already stored and already read by `grade-line`.

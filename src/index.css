@@ -606,3 +606,22 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
   @apply h-8 px-2 text-xs rounded border border-border bg-background text-foreground
          hover:bg-muted/60 inline-flex items-center justify-center gap-1;
 }
+
+/* Reasoning panel line viewers: the scroll bar sits at the side of the
+   block (gutter reserved) so it never overlays the rendered mathematics. */
+.reasoning-line-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.45) transparent;
+}
+.reasoning-line-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.reasoning-line-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.5);
+  border-radius: 9999px;
+}
+.reasoning-line-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.5);
+  border-radius: 9999px;
+}

@@ -8,8 +8,10 @@ import { X as XIcon, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
+import { PresenterMath, toDisplaySafe } from "./PresenterMath";
 
-type KeyLine = { questionId: string; lineId: string; tokens: string[] };
+type KeyLine = { questionId: string; lineId: string; tokens: string[]; equationAscii?: string };
+
 type QuestionShape = { id: string; lines: Array<{ lineId: string; marks?: number }> };
 type LivePayload = {
   ts: number;
@@ -47,6 +49,55 @@ const verdictLabel = (v: string): string => {
 
 const atomize = (s: string): string[] =>
   (s.match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
+
+/** A bounded viewer for ONE mathematical line.
+ *
+ *  The expression is rendered (never printed as source) and wraps freely.
+ *  When it is taller than the viewer, a scroll track appears on the SIDE of
+ *  the block — outside the math area — so the teacher can scroll through the
+ *  whole line without any part of it being hidden behind the bar. The
+ *  Expected line is `sticky`, so it stays visible while the rest of the
+ *  panel scrolls. */
+const LineViewer = ({
+  label,
+  right,
+  children,
+  resetKey,
+  sticky = false,
+}: {
+  label: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  resetKey: string;
+  sticky?: boolean;
+}) => {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [resetKey]);
+  return (
+    <div
+      className={`rounded-lg border border-border bg-card/95 p-3 backdrop-blur ${
+        sticky ? "sticky top-0 z-10 shadow-sm" : ""
+      }`}
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+        {right}
+      </div>
+      <div className="flex items-stretch gap-2">
+        <div
+          ref={scrollRef}
+          className="reasoning-line-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden text-[15px] leading-relaxed"
+          style={{ maxHeight: "9.5rem", overflowWrap: "anywhere" }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 interface Props {
   assessmentId: string;
@@ -230,10 +281,16 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
     return currentQ?.lines?.[activeIdx]?.lineId ?? null;
   }, [feed, activeIdx, currentQ]);
 
+  // Expected line = the TEACHER'S orange equation (normal-mode presenter
+  // line). Legacy answer keys without `equationAscii` fall back to the
+  // stored tokens. Either way it is rendered, never printed as source.
   const expectedAscii = useMemo(() => {
     const k = keyLines.find((x) => x.questionId === currentQid && x.lineId === currentLid);
-    return (k?.tokens ?? []).join(" ").trim();
+    const eq = toDisplaySafe(k?.equationAscii);
+    if (eq) return eq;
+    return toDisplaySafe((k?.tokens ?? []).join(" "));
   }, [keyLines, currentQid, currentLid]);
+
 
   const studentAscii = useMemo(() => {
     if (!feed) return "";
@@ -337,24 +394,34 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
               </span>
             </div>
 
-            <div className="rounded-lg border border-border bg-card/40 p-3">
-              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Expected line</div>
-              <pre className="whitespace-pre-wrap break-words font-mono text-sm">
-                {expectedAscii || <span className="italic text-muted-foreground">no answer key</span>}
-              </pre>
-            </div>
+            <LineViewer
+              label="Expected line"
+              resetKey={`${currentQid ?? ""}:${currentLid ?? ""}`}
+              sticky
+            >
+              {expectedAscii ? (
+                <PresenterMath ascii={expectedAscii} keyBase="reason-expected" color="currentColor" />
+              ) : (
+                <span className="italic text-muted-foreground">no answer key</span>
+              )}
+            </LineViewer>
 
-            <div className="rounded-lg border border-border bg-card/40 p-3">
-              <div className="mb-1 flex items-center justify-between">
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Student line (live)</div>
-                {activeRow !== null && (
+            <LineViewer
+              label="Student line (live)"
+              resetKey={`${currentQid ?? ""}:${currentLid ?? ""}`}
+              right={
+                activeRow !== null ? (
                   <span className="text-[10px] tabular-nums text-muted-foreground">row {activeRow}</span>
-                )}
-              </div>
-              <pre className="whitespace-pre-wrap break-words font-mono text-sm">
-                {studentAscii || <span className="italic text-muted-foreground">nothing written yet</span>}
-              </pre>
-            </div>
+                ) : null
+              }
+            >
+              {studentAscii.trim() ? (
+                <PresenterMath ascii={toDisplaySafe(studentAscii)} keyBase="reason-student" color="currentColor" />
+              ) : (
+                <span className="italic text-muted-foreground">nothing written yet</span>
+              )}
+            </LineViewer>
+
 
             <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
               <div className="flex items-center justify-between">
@@ -399,10 +466,10 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
                 <div className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
                   Floating numbers for this line
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {allowedTokens.map((t, i) => (
-                    <span key={`${t}-${i}`} className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px]">
-                      {t}
+                    <span key={`${t}-${i}`} className="rounded border border-border px-2 py-0.5 text-[13px]">
+                      <PresenterMath ascii={toDisplaySafe(t)} keyBase={`reason-chip-${i}`} color="currentColor" />
                     </span>
                   ))}
                 </div>
@@ -414,13 +481,14 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
                 Student-introduced terms
               </div>
               {studentAddedTerms.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {studentAddedTerms.map((t, i) => (
-                    <span key={`${t}-${i}`} className="rounded border border-amber-500/50 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-600 dark:text-amber-400">
-                      {t}
+                    <span key={`${t}-${i}`} className="rounded border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[13px] text-amber-600 dark:text-amber-400">
+                      <PresenterMath ascii={toDisplaySafe(t)} keyBase={`reason-add-${i}`} color="currentColor" />
                     </span>
                   ))}
                 </div>
+
               ) : (
                 <div className="text-[11px] text-muted-foreground">
                   {studentAscii.trim() ? "Only the items supplied for this line were used." : "—"}
