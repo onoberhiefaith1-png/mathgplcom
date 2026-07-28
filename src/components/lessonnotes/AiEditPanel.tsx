@@ -18,6 +18,7 @@ import {
   EDIT_SUGGESTIONS, SELECTION_KIND_LABELS,
 } from "@/lib/lessonnotes/editSuggestions";
 import type { SelectionKind } from "@/lib/lessonnotes/detectSelectionKind";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 
 export interface AiEditTarget {
   text: string;
