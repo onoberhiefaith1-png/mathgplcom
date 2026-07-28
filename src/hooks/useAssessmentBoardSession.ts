@@ -119,6 +119,8 @@ export function useAssessmentBoardSession(opts: {
 
   // Live channel. Self-healing: a join can fail if the socket token was not
   // ready yet, which would otherwise kill mirroring for the whole session.
+  // It also re-subscribes when the browser comes back online / the tab is
+  // refocused, so neither side ever needs a manual page refresh.
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -136,11 +138,18 @@ export function useAssessmentBoardSession(opts: {
           })
           .subscribe((status) => {
             if (cancelled) return;
-            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && retries < 3) {
+            if (status === "SUBSCRIBED") {
+              retries = 0;
+              // Catch the other side up in one frame after a (re)join.
+              const last = lastSnapshotRef.current;
+              if (last) void ch.send({ type: "broadcast", event: "state", payload: last });
+              return;
+            }
+            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && retries < 6) {
               retries += 1;
               supabase.removeChannel(ch);
               if (chanRef.current === ch) chanRef.current = null;
-              window.setTimeout(() => { if (!cancelled) connect(); }, 600 * retries);
+              window.setTimeout(() => { if (!cancelled) connect(); }, Math.min(3000, 400 * retries));
             }
           });
         chanRef.current = ch;
@@ -148,8 +157,25 @@ export function useAssessmentBoardSession(opts: {
     };
     connect();
 
+    const revive = () => {
+      if (cancelled) return;
+      if (document.visibilityState === "hidden") return;
+      const ch = chanRef.current;
+      if (ch && ch.state === "joined") return;
+      if (ch) {
+        supabase.removeChannel(ch);
+        chanRef.current = null;
+      }
+      retries = 0;
+      connect();
+    };
+    window.addEventListener("online", revive);
+    document.addEventListener("visibilitychange", revive);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("online", revive);
+      document.removeEventListener("visibilitychange", revive);
       if (chanRef.current) {
         supabase.removeChannel(chanRef.current);
         chanRef.current = null;
@@ -165,14 +191,17 @@ export function useAssessmentBoardSession(opts: {
     lastFingerprint.current = fingerprint;
 
     const snapshot: AssessBoardSnapshot = { v: 1, author: selfId, ts: Date.now(), ...state };
+    lastSnapshotRef.current = snapshot;
 
-    // Fast path — broadcast (≈live TV latency).
+    // Fast path — broadcast (≈live TV latency). Kept at one frame so strokes,
+    // drags, deletes and floating-number drops all stream without lag.
     if (bcTimer.current) window.clearTimeout(bcTimer.current);
     bcTimer.current = window.setTimeout(() => {
       const ch = chanRef.current;
       if (!ch) return;
       void ch.send({ type: "broadcast", event: "state", payload: snapshot });
-    }, 90);
+    }, 30);
+
 
     // Durable path — debounced upsert. Errors are surfaced (they used to be
     // swallowed, which hid a missing-grant failure for the whole feature) and
