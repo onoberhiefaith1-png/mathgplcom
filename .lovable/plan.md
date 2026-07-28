@@ -1,62 +1,44 @@
-## Goal
+## How the Floating Number Display is meant to work
 
-Check Line stops saying "not equivalent" and instead names the *type* of mistake in 1–3 words. Marking/scoring behaviour is unchanged: only a line that is truly equivalent earns marks.
+The strip is a **conveyor belt**, not a static list:
 
-## Current state (verified)
+1. The lesson note supplies a fixed, ordered reservoir of fragments (the "Floating Collection"). The Smartboard only displays it — it never regenerates or reorders it.
+2. A fixed-size window shows a few fragments at a time.
+3. When the teacher **taps a fragment**, three things happen together:
+   - the fragment is written onto the whiteboard at the sensor,
+   - the fragment is marked **Used**,
+   - the window **shifts**: earlier visible chips hold their place, the used chip leaves the active ring, and the next hidden fragment flows in **from the right**.
+4. Tapping a **Used** chip returns it to the ring in its original reservoir position.
+5. Deleting the ink from the board also returns the fragment to the ring automatically (Used means "currently on the board").
 
-- The Check Line button calls `gradeLineThroughEngine` in `src/components/smartboard/PresentationView.tsx`, which invokes the `grade-line` edge function.
-- `grade-line` compares the student's ASCII line against the teacher's stored answer-key line using `supabase/functions/_shared/mathEquivalence.ts`, which returns only `equal` / `not_equal` / `unknown` (plus the `not_in_floating_set` and `parse_error` special cases).
-- The toast currently shows one long sentence ("That line isn't mathematically equivalent to the expected step."). `TeacherReasoningPanel.tsx` maps the same verdict to a longer explanation sentence.
+So "moving to the right" is the visible result of rule 3 — the used chip is consumed and the belt advances.
 
-So there is exactly one grading pipeline to extend — no duplicate logic to reconcile.
+## What is actually happening now
 
-## What gets built
+The tap logic itself is intact. `handleActiveTap` in `FloatingNumberPanel.tsx` still marks the fragment used, records the click order, and recalculates the window anchor so a new chip enters from the right. The click handler still dispatches to it, and the parent still passes `consumedAbsIdx` / `onUse` / `onUnuse`.
 
-### 1. New diagnosis engine (server, shared)
+The break is **downstream**, in `PresentationView.tsx`. There is a reconciliation effect (around lines 2559-2590) that implements rule 5: after every board change it re-derives the Used set by searching the whiteboard's plain text for each used fragment's normalised label. If it cannot find the text, it assumes the ink was deleted and **un-marks the fragment**.
 
-New file `supabase/functions/_shared/lineDiagnosis.ts` that takes `(teacherAscii, studentAscii, equivalenceVerdict)` and returns:
+That text search cannot match ink that was not written as a plain matching string — most importantly fragments inserted as **stacked fractions** (`onInsertFrac` → `insertFractionAtSensor`), which build a structured fraction node rather than a `num/den` string. Any other structured write path (roots, powers rendered as structures) has the same problem.
 
-```
-{ code: "incorrect_sign", label: "Incorrect sign", detail: "…one sentence for the Reasoning panel…" }
-```
+Result: tap → chip is marked used and the belt starts to advance → the effect runs on the very next render, fails to find the text, deletes the index from `consumedAbsIdx` → the chip snaps back into the ring. Visually: **the floating number does not move.**
 
-Detection order (first match wins — this encodes the Priority Rules):
+## The fix
 
-1. **Invalid expression** — fails to parse, or malformed patterns (`==`, `++x`, trailing/leading operator pileups).
-2. **Incomplete line / equation / simplification** — student has no `=` while the expected line has one and the student text is a strict prefix-shaped fragment of it → "Incomplete line"; student ends with `=` and nothing after → "Incomplete equation"; expected line is a simplification (`x + x = 2x`) and the student wrote only the un-simplified LHS → "Incomplete simplification".
-3. **Missing equals sign** — expected has `=`, student has none, and the student's characters otherwise account for both sides.
-4. **Missing bracket** — unbalanced parentheses, or bracket count lower than expected with the same atoms.
-5. **Equivalent** — equivalence engine says `equal` → "Equivalent" (green, awards marks).
-6. **Incorrect sign** — flipping the sign of one side/term (or of the differing numeric atom) makes the line equivalent.
-7. **Incorrect calculation** — structure matches but a single numeric result differs (both sides are pure arithmetic, or the differing atom is a lone number in an otherwise identical skeleton).
-8. **Incorrect expansion** — expected line contains a product of brackets / a squared bracket and the student wrote a partially-distributed form.
-9. **Incorrect factorisation** — student wrote a bracket product whose expansion ≠ expected expression.
-10. **Incorrect substitution** — same skeleton, a substituted numeral differs from the value supplied by the question/floating tokens.
-11. **Incorrect rearrangement** — same multiset of terms as expected but a term moved across `=` without sign change.
-12. **Missing term / Extra term** — term multiset differs by exactly one absent / one added term.
-13. **Incorrect expression** — meaning-changing difference not covered above.
-14. **Not equivalent** — final fallback.
+**1. Stop deriving Used from board text. Derive it from board identity.**
+Tag every board write that comes from a floating fragment with the fragment's absolute reservoir index (an id carried on the free-line row / fraction node / box that produced it). The reconciliation effect then asks "does a board element tagged with index N still exist?" instead of "does this string appear somewhere in the ink?". This is exact for every write path — plain text, fractions, roots, structures — and keeps rule 5 (delete the ink → chip returns) working correctly.
 
-Each rule is a small pure function over a normalised token/term model built on the existing `normalize()` + mathjs parse already in `mathEquivalence.ts`; sign/calculation/expansion checks re-use the existing `equivalent()` comparison on mutated candidates (e.g. sign-flipped student line).
+**2. Make the reconciliation effect conservative during the transition.**
+Never un-mark an index that was marked in the same interaction tick; only un-mark on a genuine board mutation. This removes the snap-back race even if a write path is missed.
 
-### 2. `grade-line` returns the diagnosis
+**3. Verify against the live board, not just unit tests.**
+Drive the Smartboard with Playwright: tap a plain fragment, tap a fraction fragment, confirm in both cases that the chip becomes Used, the window advances by one and a new chip appears on the right, and that deleting the ink returns the chip to its original slot.
 
-`supabase/functions/grade-line/index.ts` adds `diagnosis: { code, label, detail }` to every response (dry-run and persisted). Existing `correct` / `verdict` / `marks` fields are unchanged, so the teacher mirror and progress logic keep working. `not_in_floating_set` and parse failures map to their own labels ("Number not given", "Invalid expression").
-
-### 3. Short popup feedback
-
-`PresentationView.tsx`: the failure toast becomes title = the short label ("Incorrect sign"), with no long description. Success stays "✓ Line verified +N marks" and additionally shows "Equivalent" when the student's route differed from the expected line. The check-result broadcast carries `diagnosis` so the teacher sees the same label live.
-
-### 4. Detailed explanation in the Reasoning panel
-
-`TeacherReasoningPanel.tsx` shows the short label as a heading plus the longer `detail` sentence and the two compared lines — that's where the explanation lives, never in the popup.
-
-### 5. Tests
-
-New `src/test/lineDiagnosis.test.ts` (importing a mirrored client copy or the shared module via path alias, matching how existing shared-engine tests are wired) covering every example pair from the specification: 2x=8 vs x=4 → Equivalent; 2x+5 vs 2x+5=9 → Incomplete line; 6×4=26 → Incorrect calculation; 2x=-4 → Incorrect sign; 3(x+2) vs 3x+2 → Incorrect expansion; x+510 → Missing equals sign; 3x=10 → Missing term; 2x+5+1=9 → Extra term; 2x==6 → Invalid expression; 3x=15 → Not equivalent, and the rest.
+**4. Regression tests.**
+Add tests covering: tap advances the window right; tap of a fraction fragment stays Used after the reconciliation effect runs; deleting the ink un-marks it; tapping a Used chip restores its original position.
 
 ## Technical notes
 
-- No database or schema changes.
-- No LLM call is added to the fast path: diagnosis is deterministic and runs after the existing equivalence verdict, so Check Line stays as fast as today. The existing LLM fallback inside `equivalent()` is untouched.
-- Answer key still never leaves the server for students; only the short label and the category detail are returned.
+- Files involved: `src/components/smartboard/FloatingNumberPanel.tsx` (tap + window model — expected to need little change), `src/components/smartboard/PresentationView.tsx` (the reconciliation effect, `normalizeFloatingPresence`, `countTokenOccurrences`, `onInsert` / `onInsertFrac` wiring), plus the sensor-write helpers that create fraction nodes.
+- No change to the lesson-note reservoir, its order, or the extraction pipeline — the Smartboard remains display-only.
+- One open item to confirm during implementation: whether any non-fraction write path also loses text fidelity; the identity-tag approach makes that moot, but I will confirm it in the live test.
