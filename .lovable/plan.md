@@ -1,79 +1,55 @@
-## Goal
 
-Make the five workspaces (Lesson Notes, SmartBoard, Classes, Adventures, Class Gallery) independent, and connect them through an explicit **assignment instance** identified by (Lesson Note + Class + Adventure). No UI redesign — data model and wiring only.
+# Group Competition on the Existing Progress Bar
 
-## What the current code actually does (verified)
+The current system already has groups (`adventure_groups`), per-group bar scoping, one Class Gallery, and group-tagged awards (`class_gallery_awards.group_id`). What is missing is the parts below. Nothing about the Adventure Editor, Smartboard, Gallery architecture or reward pipeline is redesigned.
 
-- There is **no assignment-instance record**. An "assignment" today is either a row in `assessments` or a row in `class_adventure_notes`, each keyed only on (class, notebook, question_key). Neither table has a game/adventure column, so the same Lesson Note cannot be assigned to one class with two different Adventures.
-- The Adventure link is a separate table, `class_game_boards` (class_id, game_id, progress_element_id, assessment_id, question_keys), created by `ensureClassGameBoards` in `src/lib/games/gameQuestions.ts`. It ties a progress bar to an assessment but is not tied to a lesson-note assignment.
-- There is **no archive state**. The only lifecycle flag is `unassigned_at` (a soft un-tick). `assignAdventureQuestion` and `assignAssessmentQuestion` in `src/lib/assignments/pipeline.ts` explicitly *revive and overwrite* the previous row when re-assigning, so reusing a lesson next term destroys the earlier record — the opposite of the required behaviour.
-- Class Gallery already matches the spec: `class_galleries` is one row per class and `class_gallery_awards` accumulates awards; nothing there needs restructuring.
-- Current data volume is small (10 assessments, 13 adventure notes, 1 game board), so a one-time migration is low-risk.
+## What is wrong today (verified in code)
 
-## Plan
+- **Add Group requires an unused bar.** `GroupsPanel` only lets a teacher pick a Progress Bar the Adventure author already drew (`availableBars`). No adoption, no duplication.
+- **Every bar has its own assessment.** `ensureClassGameBoards` creates a *separate* `assessments` row per bar element. If two groups sat on two authored bars they would be answering two different assessments, so moving a student between groups would leave their score behind.
+- **Students not in a group form a hidden "Whole Class" bucket** (`wholeClassSet` in the dashboard, `groupId = myGroups[0] ?? null` in the student Gallery). Once grouping starts nobody should be left in that bucket.
 
-### 1. New table: `learning_assignments` (additive migration)
+## 1. Group A adoption (first Add Group)
 
-One row = one learning session instance.
+`GroupsPanel` gets a single primary action: **Add Group**.
 
-```text
-learning_assignments
-  id
-  class_id        -> classes
-  notebook_id     -> notebooks        (Lesson Note)
-  game_id         -> games (nullable) (Adventure; null = plain assignment)
-  question_keys   uuid[]              (questions pulled from the note)
-  mode            'assignment' | 'adventure'
-  status          'active' | 'archived'
-  due_at, started_at, archived_at, archived_reason
-  created_by, created_at, updated_at
-```
+- First click: take the lesson's existing Progress Bar (the bar already linked to the assignment), create group "Group A" pointing at that same `progress_element_id`, and insert an `adventure_group_members` row for **every** current class member. The bar keeps its element, settings, and Adventure Editor position untouched.
+- Rename stays as it is today.
 
-- Partial unique index on `(class_id, notebook_id, coalesce(game_id, zero-uuid))` **where status = 'active'** — this is the duplicate protection, enforced in the database, and it still allows a new active instance once the old one is archived.
-- GRANTs for `authenticated` / `service_role`, RLS: class owner full access; class members read-only.
-- Existing `assessments`, `class_adventure_notes` and `class_game_boards` rows gain a nullable `assignment_id` pointing at the parent instance. Nothing is dropped.
-- Backfill: create one `learning_assignments` row per existing active (class, notebook) pair and point existing child rows at it, so current dashboards keep working.
+## 2. Additional groups = exact clones
 
-### 2. Single write path
+Later clicks clone the Group A bar. Because the Adventure (`games` row) is a reusable template shared by every class, the clone is **not** written into the game canvas — it is a class-scoped overlay stored on the group row, rendered by cloning the source `CanvasElement` and overriding only `id`, `x`, `y`.
 
-Extend `src/lib/assignments/pipeline.ts` with `createAssignment({classId, notebookId, gameId, questionRefs})`:
+New additive columns on `adventure_groups`: `source_element_id text`, `is_primary boolean default false`, `position_x double precision`, `position_y double precision`.
 
-- Looks for an **active** instance with the same triple. If found, returns a `duplicate` result carrying the existing id — callers show "This Lesson Note is already assigned to this Class using this Adventure" with *Open existing* / *choose another Adventure* / *choose another class*.
-- Otherwise inserts a new instance and creates its child rows (assessment + answer key, adventure note, game boards) with `assignment_id` set. Never revives an archived row.
-- `unassign` = archive (below), not row reuse. Remove the "revive and overwrite" branches from `assignAdventureQuestion` / `assignAssessmentQuestion`.
+Everything else — goal %, `progress.totalMarks`, segments, preset, slot effects, fill style, colours, animation, scale, rotation, opacity, tint, slant — is inherited verbatim from the source element at render time, so a later edit to the original bar in the Adventure Editor keeps every group identical.
 
-### 3. Archiving lifecycle
+## 3. Shared questions, shared assessment (the key fix)
 
-`archiveAssignment(id, reason)` runs one ordered transaction-style sequence, matching the requested card lifecycle:
+`ensureClassGameBoards` is extended so a cloned bar's `class_game_boards` row reuses the **source bar's `assessment_id`** instead of compiling a second assessment. Consequences:
 
-1. freeze final progress (`assessment_progress` snapshot stays as-is, no further writes accepted),
-2. keep reward history (`class_gallery_awards` untouched — awards are already class-scoped and permanent),
-3. set `status='archived'`, `archived_at`, `archived_reason`.
+- All groups answer the same Lesson Note questions from the same Adventure — required by the spec.
+- A student's marks live once in `assessment_progress`. Moving them between groups instantly re-attributes their score, progress, assessment/assignment state, Smartboard work and live activity, because `barScope` aggregation in `useAdventureSync` is computed from group membership, not from stored per-bar totals. No data migration on move.
+- The clone still counts only its own members via the existing `barScope` map.
 
-Triggers: teacher un-ticks in the Assign dialog; due date passes (checked on dashboard load); all class members complete the required marks.
+## 4. Non-overlapping auto-placement
 
-Enforcement after archive:
-- Student pages filter to `status='active'`; archived cards move to an Archive list on the teacher dashboard and open read-only.
-- Server-side: RLS/`WITH CHECK` on `assessment_progress` and `assessment_board_state` rejects writes when the parent instance is archived, so read-only is real and not just a hidden button.
+A placement helper computes the clone's `x/y` on the normalised stage: it takes the source bar's footprint (scale × natural aspect), walks candidate slots on a grid with a fixed gap, and rejects any candidate whose rect intersects an existing bar, the Time Bar, or a reward element. If no slot fits, **Add Group is hidden/disabled** with a short "No space for another bar" note. No overlapping bar is ever created.
 
-### 4. Adventure reusability
+## 5. Dragging
 
-- Adventures (`games`) stay lesson-free: the question/notebook binding moves from the progress-bar element onto the assignment instance's `class_game_boards` rows (already class+game scoped). A progress bar keeps its `progress_element_id` role only.
-- `ensureClassGameBoards` becomes `ensureAssignmentBoards(assignmentId)` — same behaviour, scoped to the instance instead of (class, game), so the same Adventure can serve many notes and classes with separate boards and separate progress.
+On the teacher Adventure Dashboard only, cloned bars get a drag handle that writes `position_x/position_y` back to `adventure_groups` (clamped to stage, collision-checked on drop). The original Group A bar is not draggable. Dragging touches position only. Students see the saved positions read-only (they already re-render from the same group rows via `useAdventureGroups` realtime).
 
-### 5. Read paths
+## 6. Student list and Move To
 
-Teacher and student dashboards, progress bars, the reward transfer hook and reports all query `learning_assignments` (filtered by status) and join down to the child rows, instead of guessing relationships from `assessments` + `class_adventure_notes`. Card rendering and layout stay exactly as they are.
+`GroupCard` swaps today's "remove student" X and "add from Whole Class" select for a **Move To** dropdown on every student listing all groups. Selecting one calls the existing `assignStudentToGroup`, which already enforces one group per student. The "Whole Class" card disappears once grouping starts (every student belongs to a group); it remains the only view when no groups exist.
+
+## 7. Winning and Gallery
+
+Unchanged pipeline: first bar to reach its target fires `useRewardTransfer`, which reads `barOwner` and writes `class_gallery_awards` with that `group_id`. One Class Gallery per class stays. Teacher Gallery is switched to show **all** awards (master view); student Gallery keeps its existing group filter, which now resolves correctly since every student has a group.
 
 ## Technical notes
 
-Files: new migration; `src/lib/assignments/pipeline.ts`, `src/lib/adventures/classAdventures.ts`, `src/lib/games/gameQuestions.ts`, `src/lib/games/classGames.ts`, `src/components/lessonnotes/AssignDialog.tsx`, `src/pages/class/AdventureDashboardPage.tsx`, `src/pages/class/AssignmentDashboardPage.tsx`, `src/pages/class/ClassAdventuresPage.tsx`, `src/pages/class/ClassAssignmentsPage.tsx`, `src/pages/student/*`, `src/hooks/useRewardTransfer.ts`.
-
-Marks remain owned by the Floating Number Evaluation page; the assignment instance stores no marks of its own, only references.
-
-## Verification
-
-- Assign Note A → Class D → Adventure G, then repeat: blocked with the duplicate message and an Open-existing action.
-- Assign Note A → Class D → Adventure H: allowed, independent progress.
-- Archive the first, re-assign the same triple: new instance starts at zero, old one still readable, gallery rewards from the old one still present.
-- Student attempts to write to an archived assignment: rejected by the database, not just the UI.
+- Migration (additive only): four columns on `adventure_groups`; no existing table or column altered.
+- Files touched: `src/lib/adventures/groups.ts`, `src/hooks/useAdventureGroups.ts`, `src/components/adventures/GroupsPanel.tsx`, `src/lib/games/gameQuestions.ts`, `src/pages/class/AdventureDashboardPage.tsx`, `src/pages/student/GamePlayPage.tsx`, plus a new `src/lib/adventures/groupBars.ts` (clone + placement math) and a small unit test for the collision/placement helper.
+- No changes to the Adventure Editor, Smartboard, assignment pipeline, or Gallery editor.
