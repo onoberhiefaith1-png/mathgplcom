@@ -83,6 +83,12 @@ export function AiEditPanel({
   const voice = useVoiceInput(setInstruction as any);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
+  /** Never show raw syntax in a preview: clean first, then render. */
+  const safePreview = (text: string) => {
+    const clean = sanitizePresentation(text ?? "");
+    return renderPreview ? renderPreview(clean) : clean;
+  };
+
   // Reset when the panel opens for a fresh selection.
   useEffect(() => {
     if (!open) return;
