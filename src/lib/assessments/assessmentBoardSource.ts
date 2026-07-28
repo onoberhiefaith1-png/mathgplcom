@@ -7,7 +7,7 @@ import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 export interface AssessmentQuestion {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number; containers?: string[] }[];
+  lines: { lineId: string; chips: string[]; marks: number; containers?: string[]; equation?: string }[];
 }
 
 export interface AssessmentLike {
