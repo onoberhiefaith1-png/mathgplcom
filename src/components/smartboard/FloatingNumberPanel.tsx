@@ -219,8 +219,10 @@ export const FloatingNumberPanel = ({
   const [usedOrder, setUsedOrder] = useState<number[]>([]);
   const [reentryOffset, setReentryOffset] = useState<number>(0);
   const reservoir = reservoirs[viewIdx];
-  const fragments = useMemo(
-    () => (reservoir?.fragments ?? []).map(stripStructureShells),
+  const fragments = useMemo<string[]>(
+    // Extraction only — the master token from Present Preview passes through
+    // the internal validation stage and reaches the display unchanged.
+    () => (reservoir?.fragments ?? []).map((t) => validateFloatingToken(t, t)),
     [reservoir],
   );
   const lines: ReservoirLine[] = reservoir?.lines ?? [];
