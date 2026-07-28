@@ -417,7 +417,13 @@ const AdventureDashboardPage = () => {
                     const el = canvasElements.find((e) => e.id === id);
                     setSelectedRewardId(el?.kind === "reward" ? id : null);
                   }}
-                  onMove={() => { /* dashboard is read-only for positions */ }}
+                  onMove={(id, x, y) => {
+                    // Only duplicated group bars are movable; position only.
+                    if (!isGroupBarElementId(id)) return;
+                    const g = groups.groups.find((gr) => gr.progress_element_id === id);
+                    if (!g) return;
+                    void moveGroupBar(g.id, x, y).then(() => groups.refresh());
+                  }}
                   heightUnits={sync.heightUnits}
                 />
                 {timeUp && (
