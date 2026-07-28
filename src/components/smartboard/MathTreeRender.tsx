@@ -644,20 +644,32 @@ const BracketGlyph = ({
 
 interface Props extends Common {
   root: Row;
+  /** Mirror mode: renders the SAME object with no caret and no interaction.
+   *  Used by the Reasoning panel so the Student Line is a mini Smartboard
+   *  rather than a second, re-parsed mathematical object. */
+  readOnly?: boolean;
 }
+
+const INERT_CURSOR = { path: [-1], index: -1 };
+const noop = () => {};
 
 export const MathTreeRender = ({
   root, cursor, onCursorChange, caretColor, placeholderColor = PLACEHOLDER_COLOR,
-}: Props) => (
-  <RowView
-    row={root}
-    path={[]}
-    isRoot
-    cursor={cursor}
-    onCursorChange={onCursorChange}
-    caretColor={caretColor}
-    placeholderColor={placeholderColor}
-  />
-);
+  readOnly = false,
+}: Props) => {
+  const view = (
+    <RowView
+      row={root}
+      path={[]}
+      isRoot
+      cursor={readOnly ? INERT_CURSOR : cursor}
+      onCursorChange={readOnly ? noop : onCursorChange}
+      caretColor={caretColor}
+      placeholderColor={placeholderColor}
+    />
+  );
+  return readOnly ? <span style={{ pointerEvents: "none" }}>{view}</span> : view;
+};
 
 export default MathTreeRender;
+
