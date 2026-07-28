@@ -61,6 +61,12 @@ import { snap, pickObject } from "@/lib/geometry/editor/snap";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
+import {
+  buildPreferenceDirective,
+  hasCustomPreferences,
+  loadAiPreferences,
+} from "./ai/aiPreferences";
+
 import { MathSymbolPanel } from "./MathSymbolPanel";
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
