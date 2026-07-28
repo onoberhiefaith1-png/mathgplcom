@@ -335,7 +335,10 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
         ) : (
           <>
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
-              <span>Question {questionNo > 0 ? questionNo : "—"} · Line {lineNo}</span>
+              <span>
+                Question {questionNo > 0 ? questionNo : "—"} · Line {lineNo}
+                {attemptNo > 1 && <span className="ml-1 text-amber-500">attempt {attemptNo}</span>}
+              </span>
               <span className="tabular-nums">
                 {isLive ? (
                   <span className="text-emerald-500">live</span>
@@ -355,7 +358,12 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
             </div>
 
             <div className="rounded-lg border border-border bg-card/40 p-3">
-              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Student line (live)</div>
+              <div className="mb-1 flex items-center justify-between">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Student line (live)</div>
+                {activeRow !== null && (
+                  <span className="text-[10px] tabular-nums text-muted-foreground">row {activeRow}</span>
+                )}
+              </div>
               <pre className="whitespace-pre-wrap break-words font-mono text-sm">
                 {studentAscii || <span className="italic text-muted-foreground">nothing written yet</span>}
               </pre>
