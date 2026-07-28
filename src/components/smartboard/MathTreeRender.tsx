@@ -12,6 +12,8 @@ import {
   useEffect, useRef, useState,
 } from "react";
 import type { Cursor, Node, Row } from "@/lib/smartboard/mathTree";
+import { SLOT_GLYPH } from "@/lib/smartboard/mathTree";
+
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
 import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
