@@ -73,7 +73,7 @@ export const MoreMenu = ({
             <Row icon={<Eye className="h-4 w-4" />}         label="Accessibility"     onClick={() => setView("accessibility")} />
             <Row icon={<Type className="h-4 w-4" />}        label="Equation Display"  onClick={() => setView("equation")} />
             <Row icon={<Sigma className="h-4 w-4" />}       label="Symbol Controls"   onClick={() => setView("symbols")} />
-            <Row icon={<Maximize2 className="h-4 w-4" />}   label="Zoom Controls"     onClick={() => setView("zoom")} />
+            <Row icon={<Maximize2 className="h-4 w-4" />}   label="Zoom"              onClick={() => setView("zoom")} />
           </div>
         )}
 
@@ -86,7 +86,7 @@ export const MoreMenu = ({
                 Text color adapts automatically to the background.
               </div>
               <Row icon={<Type className="h-4 w-4" />}      label="Equation Size"    onClick={() => setView("equation")} />
-              <Row icon={<Maximize2 className="h-4 w-4" />} label="Workspace Zoom"   onClick={() => setView("zoom")} />
+              <Row icon={<Maximize2 className="h-4 w-4" />} label="Zoom"              onClick={() => setView("zoom")} />
               <Row icon={<Palette className="h-4 w-4" />}   label="Theme Presets"    onClick={() => setView("theme")} />
               <Row icon={<Eye className="h-4 w-4" />}       label="Contrast Mode"    onClick={() => setView("accessibility")} />
             </div>
@@ -164,10 +164,10 @@ export const MoreMenu = ({
 
         {view === "zoom" && (
           <>
-            <Header title="Zoom Controls" onBack={back} />
+            <Header title="Zoom" onBack={back} />
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                Workspace zoom — {Math.round(workspaceZoom * 100)}%
+                Zoom — {Math.round(workspaceZoom * 100)}%
               </div>
               <div className="flex items-center gap-1">
                 <button
