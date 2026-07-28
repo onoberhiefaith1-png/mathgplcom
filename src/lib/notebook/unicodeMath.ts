@@ -57,7 +57,10 @@ const holdFractions = (src: string, holds: string[]): string => {
     const num = src.slice(aStart + 1, aEnd - 1);
     const den = src.slice(aEnd + 1, bEnd - 1);
     out += FRAC_TOKEN(holds.length);
-    holds.push(`\\frac{${holdFractions(num, holds) ? num : num}}{${den}}`);
+    // Placeholder so the index is reserved before the parts are normalised.
+    holds.push("");
+    const at = holds.length - 1;
+    holds[at] = `\\frac{${toUnicodeMath(num)}}{${toUnicodeMath(den)}}`;
     i = bEnd;
   }
   return out;
