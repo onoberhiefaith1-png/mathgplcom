@@ -8,11 +8,21 @@
 //    forwarded as base64 dataUrls (opts.images) so the caller can route them
 //    through the existing notebook-ai `scan` mode.
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Sparkles, Loader2, Mic, Paperclip, Camera, X } from "lucide-react";
+import { Sparkles, Loader2, Mic, Paperclip, Camera, X, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { AiSettingsPanel } from "./ai/AiSettingsPanel";
+import {
+  AiPreferences,
+  AI_PREFS_EVENT,
+  activePreferenceChips,
+  loadAiPreferences,
+  saveAiPreferences,
+} from "./ai/aiPreferences";
+
 
 export interface AiGenerateOptions {
   images: string[]; // base64 dataUrls, may be empty
