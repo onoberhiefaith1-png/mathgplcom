@@ -1,33 +1,42 @@
 ## Goal
 
-Placeholders must be visible again on every floating chip (√□, □^{□}, (□), □/□ …). The only thing that was ever wrong was the **fraction chip showing four cells instead of two** — the correction should be "one slot per real cell", not "no slots at all".
+Attempts must track *writing*, not *navigation*. Today `ReasoningEngine.start()` is called from a `useEffect` that fires whenever `activeLineIdx` changes, so simply moving the Floating Number Display bumps the attempt count and opens/freezes sessions for lines the student never touched.
 
-## What I verified so far
+## Current behaviour (verified)
 
-- The destructive `stripStructureShells` pass is already gone from `FloatingNumberPanel.tsx`; chip tokens now pass through a validation guard unchanged.
-- The renderer itself is still placeholder-capable: rendering `x=\frac{□}{□}` produces exactly 2 slots and `\sqrt{□}` produces 1 slot (existing tests `floatingChipPlaceholders`, `boardShellPlaceholders` pass).
-- So the missing squares are **not** coming from the panel's chip renderer — the tokens reaching it, or the slot styling used in that surface, must already be placeholder-free. I have not yet confirmed which of those two it is, so step 1 is a live trace, not an assumed cause.
+- `src/components/smartboard/PresentationView.tsx` (~line 3294): on every `activeLineIdx` change it freezes the previous line and immediately calls `reasoningRef.current.start(...)` + `startSession(...)` for the newly displayed line — navigation alone creates an attempt.
+- `src/lib/smartboard/reasoningEngine.ts`: `start()` invalidates prior attempts and increments `attempt` whenever the row binding differs. There is no concept of "attempt not yet begun" and no way to cancel an emptied attempt.
+- `src/lib/smartboard/editingSession.ts`: sessions are created eagerly and can only be frozen, never discarded.
+- Locking already works via row ownership (`rowOwners` / `displayedLineRows`, ~line 2426): rows owned by the displayed line stay editable, all others lock. Returning the display to line N re-opens its rows. This part is kept as-is.
 
-## Plan
+## Changes
 
-1. **Trace one real chip end-to-end (first step, no code change until this is answered).**
-   Instrument/inspect the actual reservoir data on the assessment board: log the raw `reservoir.fragments` token strings and compare them against what Present Preview holds. This tells us whether the `□` is missing from the token (upstream extraction/mirror) or present but rendered invisibly (styling/slot path).
+### 1. `src/lib/smartboard/reasoningEngine.ts` — pending vs. real attempts
 
-2. **If tokens lost their `□`** — repair at the point of loss, not in the panel:
-   - `src/lib/smartboard/rowAscii.ts`: an empty `box` node currently flattens to an empty string, so a shell round-tripping through ASCII silently loses its slot. Emit `□` for an empty box.
-   - `src/lib/smartboard/mathTree.ts`: the "drop redundant empty box inside a structural slot" rule must stay limited to *nested duplicates* (box inside a slot that already draws its own caret). It must never remove the slot itself, and must not apply to radicals, powers, brackets or standalone shells.
+- Add `enter(lineIdx, lineId, rowNum)`: records a *pending* (navigation-only) visit. Does not create an attempt, does not invalidate anything, does not change `attemptFor`.
+- Add `write(lineIdx)`: promotes the pending visit into a real attempt (increments count, invalidates prior attempts on the same line). Idempotent while the attempt stays alive.
+- Add `cancel(lineIdx)`: removes the current attempt for that line entirely — no history, no freeze, no snapshot — and restores `attemptFor` to the previous value.
+- Add `lastUnfinishedLine()`: the most recent attempt that was started, not cancelled, and has no awarded marks — used to auto-return the student.
+- `end()` becomes a no-op when there is no real attempt (nothing was written).
+- Keep `start()` as a thin wrapper over `enter` + `write` so existing tests/callers stay valid.
 
-3. **If tokens are fine but slots are invisible** — restore visible placeholder styling for the floating surfaces (`FloatingNumberPanel`, `FloatingDisplayStrip`) by passing the placeholder colour through and making sure a non-focused slot still paints its outlined square.
+### 2. `src/lib/smartboard/editingSession.ts` — cancellable sessions
 
-4. **Enforce the real rule (fraction = 2 cells).**
-   Keep the "adopt orphan `□` as numerator/denominator" repair in `mathRender.ts` so a brace-stripped `\frac□□` still draws one fraction with two cells — never a shell plus two loose boxes.
+- Add `hasContent(session)` and `cancelSession(session)`; a session with zero entries and empty ascii is discarded rather than frozen.
 
-5. **Regression tests** (extend the existing files rather than adding new ones):
-   - `x=\frac{□}{□}` → exactly 2 placeholder slots (already covered).
-   - `±\sqrt{□}` → exactly 1 slot (must be visible, not stripped).
-   - `□^{□}`, `(□)`, bare `□` chips → their slots survive.
-   - A chip that is pure scaffolding is still displayed (no chip is dropped for "being empty scaffolding").
+### 3. `src/components/smartboard/PresentationView.tsx` — wire the state machine
 
-## Technical notes
+- Split the current `activeLineIdx` effect:
+  - **Navigate:** freeze/auto-check the line being left *only if it has a real attempt with content*; then call `engine.enter(...)` for the new line. No `startSession` yet.
+  - **First write:** in the single place where board ink for the active line changes (the existing `freeLines` / `resolveGradableLine` observation used by auto-check), when the active line's ascii goes from empty → non-empty, call `engine.write(...)` and `startSession(...)`.
+  - **Empty again:** when the active line's ascii goes non-empty → empty, call `engine.cancel(...)`, discard the session, drop `frozenByLineRef[k]`, and if `engine.lastUnfinishedLine()` exists, `setActiveLineIdx` back to it (Rule 7/8 — this also restores its editable rows through the existing ownership logic).
+- Awarded lines (Rule 9): cancellation and re-entry never touch `solvedSlots` / `assessScore`; the grader already skips already-solved slots, so awarded marks stay permanent while the maths may still be edited.
 
-Files in scope: `src/components/smartboard/FloatingNumberPanel.tsx`, `src/components/lessonnotes/FloatingDisplayStrip.tsx`, `src/lib/notebook/mathRender.ts`, `src/lib/smartboard/rowAscii.ts`, `src/lib/smartboard/mathTree.ts`, plus tests under `src/test/`. No backend or schema changes.
+### 4. Tests
+
+- Extend `src/test/reasoningEngine.test.ts`: navigation across 2→4→6→3 keeps attempt count; write increments; delete-all cancels and restores the prior count; cancelled attempt leaves no frozen value.
+- New `src/test/attemptLifecycle.test.ts` covering Rule 7 (write on line 8, clear it, ownership returns to unfinished line 6) and Rule 9 (awarded marks survive a later edit).
+
+## Not changed
+
+Row locking/unlocking, the Floating Number Display, grading pipeline, persistence (reasoning stays in-memory; only marks are saved).

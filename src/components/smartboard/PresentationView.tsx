@@ -18,7 +18,7 @@ import { BackButton } from "@/components/common/BackButton";
 import { useNotebook } from "@/hooks/useNotebook";
 import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
 import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
-import { startSession, freezeSession, type EditingSession } from "@/lib/smartboard/editingSession";
+import { startSession, freezeSession, cancelSession, type EditingSession } from "@/lib/smartboard/editingSession";
 import { ReasoningEngine, introducedTerms as introducedTermsOf } from "@/lib/smartboard/reasoningEngine";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
@@ -3290,44 +3290,93 @@ const PresentationView = ({
     reasoningRef.current.bindRow(activeLineIdx, sensor.line);
   }, [sensor.line, activeLineIdx]);
 
-  // Fire silent auto-check when the active line changes (line-leave event).
+  // ── ATTEMPT LIFECYCLE ────────────────────────────────────────────────
+  // Navigation is NOT an attempt. Moving the Floating Number Display from
+  // line 2 → 4 → 6 → 3 without writing changes nothing. An attempt is born
+  // the instant real content appears on the active line (chip tap, keyboard,
+  // inserted object, Add tool) and dies completely if the student clears
+  // that content again before leaving — no history, no evaluation.
   const prevAssessActiveLineRef = useRef<number>(activeLineIdx);
   useEffect(() => {
     const prev = prevAssessActiveLineRef.current;
     prevAssessActiveLineRef.current = activeLineIdx;
 
     if (prev !== activeLineIdx && prev >= 0) {
-      // END POINT — freeze what exists right now for the line being left.
+      // END POINT — only a line that was actually WRITTEN on has something
+      // to freeze. A line that was merely visited leaves no trace.
       const leaving = resolveGradableLineRef.current(prev);
       const ascii = leaving?.ascii ?? "";
-      reasoningRef.current.end(prev, ascii);
-      freezeSession(sessionRef.current, ascii);
-      if (ascii.trim()) frozenByLineRef.current[prev] = ascii;
-      if (assessmentMode && role === "student") {
-        void silentAutoCheckLine(prev, frozenByLineRef.current[prev]);
+      if (reasoningRef.current.hasAttempt(prev) && ascii.trim()) {
+        reasoningRef.current.end(prev, ascii);
+        freezeSession(sessionRef.current, ascii);
+        frozenByLineRef.current[prev] = ascii;
+        if (assessmentMode && role === "student") {
+          void silentAutoCheckLine(prev, frozenByLineRef.current[prev]);
+        }
+      } else if (reasoningRef.current.hasAttempt(prev)) {
+        // Left with nothing on it — the attempt never existed.
+        reasoningRef.current.cancel(prev);
+        delete frozenByLineRef.current[prev];
+      }
+      if (sessionRef.current && sessionRef.current.lineIdx === prev && !ascii.trim()) {
+        sessionRef.current = cancelSession(sessionRef.current);
       }
     }
 
-    // START POINT — a fresh session for the line just entered. Re-entering a
-    // line opens a NEW session, so its earlier freeze is released. Starting
-    // the same line on a different row creates a new attempt and invalidates
-    // the previous one (only the latest attempt may ever be evaluated).
-    if (!sessionRef.current || sessionRef.current.lineIdx !== activeLineIdx) {
-      delete frozenByLineRef.current[activeLineIdx];
-      reasoningRef.current.start(
+    // NAVIGATION — record the visit only. Returning to a line releases its
+    // freeze so the student continues exactly where they left off; the row
+    // ownership map keeps that line's rows editable again.
+    if (prev !== activeLineIdx) {
+      reasoningRef.current.enter(
         activeLineIdx,
         guidedLines[activeLineIdx]?.lineId ?? null,
         sensorLineRef.current,
       );
       reasoningRef.current.clearFreeze(activeLineIdx);
+      delete frozenByLineRef.current[activeLineIdx];
+      if (sessionRef.current && sessionRef.current.lineIdx !== activeLineIdx) {
+        sessionRef.current = null;
+      }
+    }
+  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines]);
+
+  // FIRST WRITE / EMPTY-AGAIN — the only place an attempt is created or
+  // cancelled. Watches the live content of the active line.
+  const activeHadInkRef = useRef<boolean>(false);
+  useEffect(() => {
+    const ascii = resolveGradableLineRef.current(activeLineIdx)?.ascii ?? "";
+    const hasInk = ascii.trim().length > 0;
+    const had = activeHadInkRef.current;
+    activeHadInkRef.current = hasInk;
+
+    if (hasInk && !reasoningRef.current.hasAttempt(activeLineIdx)) {
+      // ATTEMPT CREATED — the student wrote something on this line.
+      reasoningRef.current.write(
+        activeLineIdx,
+        guidedLines[activeLineIdx]?.lineId ?? null,
+        sensorLineRef.current,
+      );
       sessionRef.current = startSession(
         activeLineIdx,
         guidedLines[activeLineIdx]?.lineId ?? null,
       );
+    } else if (!hasInk && had && reasoningRef.current.hasAttempt(activeLineIdx)) {
+      // ATTEMPT CANCELLED — everything was deleted. Remove it entirely and
+      // hand the editing session back to the previous unfinished line so the
+      // student is never trapped by the locking system.
+      reasoningRef.current.cancel(activeLineIdx);
+      sessionRef.current = cancelSession(sessionRef.current);
+      delete frozenByLineRef.current[activeLineIdx];
+      const back = reasoningRef.current.lastUnfinishedLine(activeLineIdx);
+      if (back !== null && back !== activeLineIdx) {
+        reasoningRef.current.clearFreeze(back);
+        delete frozenByLineRef.current[back];
+        setActiveLineIdx(back);
+        setFloatingLineIdx(back);
+      }
     }
-
-  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines]);
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeLines, activeLineIdx, guidedLines]);
 
   // Idle silent auto-check — a line that is finished but never left would
   // otherwise never be graded. Debounced; the grader itself skips dangling
@@ -3337,6 +3386,7 @@ const PresentationView = ({
     const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 1500);
     return () => window.clearTimeout(id);
   }, [assessmentMode, role, activeLineIdx, freeLines, silentAutoCheckLine]);
+
 
 
 

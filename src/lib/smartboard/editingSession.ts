@@ -64,3 +64,16 @@ export const freezeSession = (
 
 export const isFrozen = (session: EditingSession | null): boolean =>
   !!session && session.frozenAscii !== undefined;
+
+/** Did anything actually get written during this session? */
+export const hasContent = (session: EditingSession | null, ascii?: string): boolean => {
+  if (!session) return false;
+  if (typeof ascii === "string") return ascii.trim().length > 0;
+  return session.entries.length > 0;
+};
+
+/** CANCELLED SESSION — the student removed everything before leaving the
+ *  line. The session never existed: nothing is frozen, nothing is graded,
+ *  nothing is kept. Always returns `null` so the caller drops the ref. */
+export const cancelSession = (_session: EditingSession | null): null => null;
+
