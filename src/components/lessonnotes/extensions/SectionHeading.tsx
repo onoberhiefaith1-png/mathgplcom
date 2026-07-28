@@ -284,24 +284,28 @@ function SectionHeadingView(props: NodeViewProps) {
             <button
               type="button"
               onClick={async () => {
-                let target = await resolveSubsectionId();
-                if (!target && subsectionId) {
+                // Cached id first (cheapest), then live resolution, then
+                // create-on-demand. An empty solution still opens — blank.
+                let target: string | null = null;
+                if (subsectionId) {
                   const { data: liveCached } = await supabase
                     .from("notebook_subsections")
                     .select("id")
                     .eq("id", subsectionId)
                     .maybeSingle();
-                  target = liveCached?.id ?? null;
+                  target = (liveCached as any)?.id ?? null;
                 }
+                if (!target) target = await ensureSubsectionId();
                 if (target) {
                   navigate(`/lesson-notes/${notebookId}/floating-prep/${target}`);
                   return;
                 }
                 toast({
-                  title: "Floating numbers not ready",
-                  description: "Save the document first, then try again.",
+                  title: "Couldn't open floating numbers",
+                  description: "Try again in a moment.",
                 });
               }}
+
               className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider transition"
               title="Open floating numbers for this section"
             >
