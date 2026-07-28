@@ -98,7 +98,9 @@ const TeacherAssessmentViewerPage = () => {
   return (
     <>
       <div className="fixed inset-0 flex bg-background">
-        <div className="relative flex-1 min-w-0">
+        {/* Kept mounted (never unmounted) in Reasoning full screen so the live
+            board subscription and evaluation keep running uninterrupted. */}
+        <div className={reasoningFull ? "pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0" : "relative flex-1 min-w-0"}>
           <PresentationView
             role="teacher"
             source={source}
@@ -121,13 +123,15 @@ const TeacherAssessmentViewerPage = () => {
           />
         </div>
         {reasoningOpen && assessmentId && studentId && (
-          <div className="w-[20%] min-w-[260px] flex-none overflow-hidden">
+          <div className={reasoningFull ? "flex-1 min-w-0 overflow-hidden" : "w-[20%] min-w-[260px] flex-none overflow-hidden"}>
             <TeacherReasoningPanel
               assessmentId={assessmentId}
               studentId={studentId}
               questionId={questionId}
               studentName={studentName}
-              onClose={() => setReasoningOpen(false)}
+              fullscreen={reasoningFull}
+              onToggleFullscreen={() => setReasoningFull((v) => !v)}
+              onClose={() => { setReasoningFull(false); setReasoningOpen(false); }}
             />
           </div>
         )}
