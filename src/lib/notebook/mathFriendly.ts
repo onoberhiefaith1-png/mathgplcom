@@ -26,10 +26,11 @@ const matchBrace = (s: string, i: number): number => {
     else if (s[j] === "}") depth--;
     if (depth) j++;
   }
-  return depth === 0 ? j : -1;
+  return depth === 0 ? j + 1 : -1;
 };
 
-/** Match a balanced `(...)` group starting at index `i` (`s[i]` must be `(`). */
+/** Match a balanced `(...)` group starting at index `i` (`s[i]` must be `(`).
+ *  Returns the index AFTER the closing paren, or -1 on failure. */
 const matchParen = (s: string, i: number): number => {
   if (s[i] !== "(") return -1;
   let depth = 1;
