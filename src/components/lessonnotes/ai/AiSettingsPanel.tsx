@@ -39,11 +39,11 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-foreground/60 hover:text-foreground rounded px-1 py-0.5 hover:bg-foreground/5"
+          className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-popover-foreground/80 hover:text-foreground rounded px-1 py-0.5 hover:bg-foreground/5"
         >
           <ChevronLeft className="h-3 w-3" /> Back
         </button>
-        <span className="ml-auto text-[10px] uppercase tracking-wider text-foreground/55">
+        <span className="ml-auto text-[10px] uppercase tracking-wider text-popover-foreground/75">
           AI settings
         </span>
       </div>
@@ -72,8 +72,8 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
                 />
               </span>
               <span className="min-w-0">
-                <span className="block text-xs text-foreground leading-tight">{s.label}</span>
-                <span className="block text-[10px] text-foreground/50 leading-tight">{s.hint}</span>
+                <span className="block text-xs font-medium text-popover-foreground leading-tight">{s.label}</span>
+                <span className="block text-[10px] text-popover-foreground/70 leading-tight">{s.hint}</span>
               </span>
             </button>
           );
@@ -81,7 +81,7 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
       </div>
 
       <div className="space-y-1">
-        <p className="text-[10px] uppercase tracking-wider text-foreground/55 px-0.5">Depth</p>
+        <p className="text-[10px] uppercase tracking-wider text-popover-foreground/75 px-0.5">Depth</p>
         <div className="flex gap-1">
           {DEPTHS.map((d) => (
             <button
@@ -92,7 +92,7 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
                 "flex-1 text-[11px] py-1 rounded border transition",
                 value.depth === d.id
                   ? "border-primary bg-primary/10 text-foreground"
-                  : "border-foreground/15 text-foreground/60 hover:bg-foreground/5",
+                  : "border-foreground/15 text-popover-foreground/80 hover:bg-foreground/5",
               )}
             >
               {d.label}
@@ -102,17 +102,17 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
       </div>
 
       <div className="space-y-1">
-        <p className="text-[10px] uppercase tracking-wider text-foreground/55 px-0.5">Class level</p>
+        <p className="text-[10px] uppercase tracking-wider text-popover-foreground/75 px-0.5">Class level</p>
         <input
           value={value.level}
           onChange={(e) => set({ level: e.target.value })}
           placeholder="e.g. SS2 · WAEC"
-          className="w-full text-xs bg-transparent border border-foreground/20 rounded px-2 py-1 outline-none focus:border-primary placeholder:text-foreground/40"
+          className="w-full text-xs bg-transparent border border-foreground/20 rounded px-2 py-1 outline-none focus:border-primary placeholder:text-popover-foreground/50"
         />
       </div>
 
       <div className="space-y-1">
-        <p className="text-[10px] uppercase tracking-wider text-foreground/55 px-0.5">
+        <p className="text-[10px] uppercase tracking-wider text-popover-foreground/75 px-0.5">
           Standing instruction
         </p>
         <textarea
@@ -120,14 +120,14 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
           onChange={(e) => set({ standing: e.target.value })}
           rows={3}
           placeholder="Exactly what you want from every solution in this note…"
-          className="w-full text-xs bg-transparent border border-foreground/20 rounded px-2 py-1 outline-none focus:border-primary placeholder:text-foreground/40 resize-none"
+          className="w-full text-xs bg-transparent border border-foreground/20 rounded px-2 py-1 outline-none focus:border-primary placeholder:text-popover-foreground/50 resize-none"
         />
       </div>
 
       <button
         type="button"
         onClick={() => onChange({ ...DEFAULT_AI_PREFERENCES })}
-        className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-foreground/55 hover:text-foreground rounded px-1 py-0.5 hover:bg-foreground/5"
+        className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-popover-foreground/75 hover:text-foreground rounded px-1 py-0.5 hover:bg-foreground/5"
       >
         <RotateCcw className="h-3 w-3" /> Reset
       </button>

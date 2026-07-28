@@ -146,13 +146,13 @@ export function AiPopover({
         <>
         <div className="flex items-center gap-1">
           {title && (
-            <p className="text-[10px] uppercase tracking-wider text-foreground/55 px-0.5">{title}</p>
+            <p className="text-[10px] uppercase tracking-wider text-popover-foreground/75 px-0.5">{title}</p>
           )}
           <button
             type="button"
             onClick={() => setView("settings")}
             title="AI settings — tell AI exactly what you want"
-            className="ml-auto p-1 rounded text-foreground/55 hover:text-foreground hover:bg-foreground/10 transition"
+            className="ml-auto p-1 rounded text-popover-foreground/75 hover:text-foreground hover:bg-foreground/10 transition"
           >
             <Settings2 className="h-3.5 w-3.5" />
           </button>
@@ -223,7 +223,7 @@ export function AiPopover({
               </button>
             </>
           )}
-          <span className="text-[10px] uppercase tracking-wider text-foreground/55">
+          <span className="text-[10px] uppercase tracking-wider text-popover-foreground/75">
             {listening ? "listening…" : "type · speak · attach"}
           </span>
           <button
@@ -254,7 +254,7 @@ export function AiPopover({
                 disabled={busy}
                 className={cn(
                   "inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-1 rounded hover:bg-foreground/10 transition",
-                  a.danger ? "text-red-500/70 hover:text-red-500" : "text-foreground/55 hover:text-foreground",
+                  a.danger ? "text-red-500/70 hover:text-red-500" : "text-popover-foreground/75 hover:text-foreground",
                 )}
                 title={a.label}
               >
