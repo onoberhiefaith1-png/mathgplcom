@@ -145,7 +145,15 @@ export async function ensureAssignment(params: {
     })
     .select(SELECT)
     .single();
-  if (error || !data) throw new Error(error?.message ?? "assignment_create_failed");
+  if (error || !data) {
+    // Lost a race against another tab/teacher creating the SAME
+    // (note + class + workspace + adventure) instance — adopt theirs.
+    if (error && /duplicate key|active_triple/i.test(error.message ?? "")) {
+      const raced = await findActiveAssignment(params.classId, params.notebookId, gameId, params.mode);
+      if (raced) return { assignment: raced, created: false };
+    }
+    throw new Error(error?.message ?? "assignment_create_failed");
+  }
   return { assignment: asRow(data), created: true };
 }
 
