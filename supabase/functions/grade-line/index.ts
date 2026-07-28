@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
     // Never contains the answer key.
     let diagnosis;
     try {
-      diagnosis = diagnoseLine(teacherAscii, studentAscii, verdict);
+      diagnosis = diagnoseLine(teacherAscii, studentAscii, verdict, allowedFloatingTokens);
     } catch {
       diagnosis = isCorrect
         ? { code: "equivalent", label: "Equivalent", detail: "The line is mathematically equivalent to the expected step." }
