@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
       return json({
         correct: isCorrect,
         verdict,
+        diagnosis,
         marks: isCorrect ? lineMarks : 0,
         score: Number(existing?.score ?? 0),
         totalMarks,
