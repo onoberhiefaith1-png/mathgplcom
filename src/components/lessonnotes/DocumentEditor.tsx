@@ -1331,6 +1331,7 @@ function DocumentEditorInner({
             ? `${base}\n\nFocus this block on the ${SECTION_LABELS[kind]} section.`
             : `Generate the ${SECTION_LABELS[kind]} for this lesson.`,
           ctx: ctxRef.current,
+          lessonContext: collectLessonContext(cursor, kind),
         })).trim();
         if (!content) continue;
         const headingNode = {
