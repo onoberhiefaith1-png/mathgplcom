@@ -14,6 +14,7 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
+import { withGroupBars } from "@/lib/adventures/groupBars";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 
 
