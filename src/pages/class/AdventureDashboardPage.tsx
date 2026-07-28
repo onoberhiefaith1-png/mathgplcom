@@ -46,6 +46,10 @@ const AdventureDashboardPage = () => {
 
   const groups = useAdventureGroups(classId, gameId);
 
+  // Duplicated group bars are rebuilt from the original bar at render time, so
+  // they inherit every setting of the original and never touch the Adventure.
+  const gameWithGroups = useMemo(() => withGroupBars(game, groups.groups), [game, groups.groups]);
+
   // Bar scope: group-owned bars count only their group's students; whole-class
   // bars count only students not in any group.
   const barScope = useMemo(() => {
@@ -59,7 +63,7 @@ const AdventureDashboardPage = () => {
   const sync = useAdventureSync({
     classId,
     gameId,
-    game,
+    game: gameWithGroups,
     boards,
     onGameUpdated: handleGameUpdated,
     barScope,
