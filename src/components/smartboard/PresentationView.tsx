@@ -2871,6 +2871,7 @@ const PresentationView = ({
         mode: "manual" | "auto";
         correct: boolean;
         verdict?: string;
+        diagnosis?: { code: string; label: string; detail: string };
         marks?: number;
         studentAscii?: string;
       }) => void)
@@ -2959,6 +2960,7 @@ const PresentationView = ({
       }
       const res = data as {
         correct: boolean; verdict?: string; marks?: number;
+        diagnosis?: { code: string; label: string; detail: string };
         score: number; solvedLines: Record<string, number>;
       } | null;
 
@@ -2968,6 +2970,7 @@ const PresentationView = ({
         mode,
         correct: !!res?.correct,
         verdict: res?.verdict,
+        diagnosis: res?.diagnosis,
         marks: Number(res?.marks ?? 0),
         studentAscii: ascii,
       });
@@ -2996,16 +2999,19 @@ const PresentationView = ({
           activeSensorPhysicalLineRef.current = clampToActiveBand(nextWritable);
           manualPushedRef.current = null;
         }
-        toast({ title: "✓ Line verified", description: `+${res.marks ?? target.marks ?? 0} marks` });
+        toast({ title: "Equivalent", description: `+${res.marks ?? target.marks ?? 0} marks` });
       } else {
         setWrongLine(rowNum);
-        const feedback =
-          res?.verdict === "not_in_floating_set"
-            ? "You used a number that wasn't given for this line. Use only the floating numbers shown."
+        // Short, specific, teacher-style feedback only — the explanation lives
+        // in the Reasoning panel, and the answer is never revealed.
+        const label =
+          res?.diagnosis?.label ??
+          (res?.verdict === "not_in_floating_set"
+            ? "Number not given"
             : res?.verdict === "parse_error"
-              ? "I couldn't read this line. Check for a missing bracket or a stray symbol."
-              : "That line isn't mathematically equivalent to the expected step.";
-        toast({ title: "Error in your solution", description: feedback, variant: "destructive" });
+              ? "Invalid expression"
+              : "Not equivalent");
+        toast({ title: label, variant: "destructive" });
       }
     } catch (e: any) {
       if (mode === "manual") {
@@ -3244,7 +3250,7 @@ const PresentationView = ({
   // Broadcast the outcome of a real (persisting) check so the reasoning panel
   // can show what the student actually scored, and from which path.
   const broadcastCheckResult = useCallback(
-    (info: { questionId: string; lineId: string; mode: "manual" | "auto"; correct: boolean; verdict?: string; marks?: number; studentAscii?: string }) => {
+    (info: { questionId: string; lineId: string; mode: "manual" | "auto"; correct: boolean; verdict?: string; diagnosis?: { code: string; label: string; detail: string }; marks?: number; studentAscii?: string }) => {
       const ch = liveBroadcastChanRef.current;
       if (!ch || !liveChanReady) return;
       void ch.send({ type: "broadcast", event: "check", payload: { ...info, ts: Date.now() } });

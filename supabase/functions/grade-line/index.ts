@@ -10,6 +10,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 import { equivalent } from "../_shared/mathEquivalence.ts";
+import { diagnoseLine } from "../_shared/lineDiagnosis.ts";
 
 const BodySchema = z.object({
   assessmentId: z.string().uuid(),
@@ -118,6 +119,20 @@ Deno.serve(async (req) => {
     const verdict = inFloatingSet ? await equivalent(teacherAscii, studentAscii) : "not_in_floating_set";
     const isCorrect = inFloatingSet && verdict === "equal";
 
+    // Specific, teacher-style diagnosis (1–3 words) for the Check Line popup.
+    // Never contains the answer key.
+    let diagnosis;
+    try {
+      diagnosis = diagnoseLine(teacherAscii, studentAscii, verdict);
+    } catch {
+      diagnosis = isCorrect
+        ? { code: "equivalent", label: "Equivalent", detail: "The line is mathematically equivalent to the expected step." }
+        : { code: "not_equivalent", label: "Not equivalent", detail: "The line could not be shown to be equivalent to the expected step." };
+    }
+    if (isCorrect && diagnosis.code !== "equivalent") {
+      diagnosis = { code: "equivalent", label: "Equivalent", detail: "The line is mathematically equivalent to the expected step, even if the route differs." };
+    }
+
     const { data: existing } = await admin
       .from("assessment_progress")
       .select("id, solved_lines, score")
@@ -140,6 +155,7 @@ Deno.serve(async (req) => {
       return json({
         correct: isCorrect,
         verdict,
+        diagnosis,
         marks: isCorrect ? lineMarks : 0,
         score: Number(existing?.score ?? 0),
         totalMarks,
@@ -179,6 +195,7 @@ Deno.serve(async (req) => {
     return json({
       correct: isCorrect,
       verdict,
+      diagnosis,
       marks: isCorrect ? lineMarks : 0,
       score: savedProgress.score,
       totalMarks,
