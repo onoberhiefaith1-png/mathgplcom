@@ -1,61 +1,52 @@
 ## Goal
 
-Every question opened by a student gets its own independent SmartBoard. Work is restored only when the student returns to the exact same student + class + question + workspace (Assignment or Adventure). Anything else starts blank.
+Make the Reasoning engine the one brain: it owns the active line, collects everything written between Start Point and End Point, evaluates it, and Check / silent marking only display what it decided. The Reasoning panel becomes an accurate live debugger with no persistence of its own.
 
-## What I verified (current behaviour)
+## Confirmed root cause of the wrong "Student Line (Live)"
 
-1. **Browser-cached board content is keyed only by notebook.** In `PresentationView.tsx`, the persisted ink/structure keys — `smartboard:smartlines:${notebookId}`, `smartboard:boxes:${notebookId}`, `smartboard:freewrite:${notebookId}`, plus sensor/zoom/offsets/float-line keys (lines ~487-492, 586, 638, 659, 2278) — contain no class, assessment, or question id. Two questions in the same lesson note share one cache, and the same lesson note assigned to Class A and Class B shares one cache. **This is the direct cause of both the question-to-question and Class A → Class B leaks the user saw.**
-2. **Nothing clears the board when the question changes.** The effect that applies loaded state returns early when there is no saved row (`PresentationView.tsx:3219`), so leftover React state from the previous question stays on screen. A `resetBoard` helper exists (~3947) but is never called anywhere.
-3. **The page does not remount between questions.** The route `/student/class/:classId/assessment/:assessmentId` (`App.tsx:139`) is unchanged when only `?q=` changes, and there is no `key` forcing a remount, so all in-memory board state survives the switch.
-4. **Server-side board rows are already per-question and per-class**: `assessment_question_board_state` is unique on `(assessment_id, student_id, question_id)`, and each `assessments` row is fixed to one `class_id`. There is one narrow fallback: when an assessment has no questions, the session drops to the legacy `assessment_board_state` row keyed only by `(assessment_id, student_id)` (`useAssessmentBoardSession.ts:107-114, 229-242`).
-5. **Re-assigning a question revives the old assessment row.** `src/lib/assignments/pipeline.ts:260-280` reuses the existing `assessments.id` and attaches it to a brand-new `learning_assignments` instance, while no board-state or progress rows are ever deleted. A reassigned question therefore reopens with the previous cycle's board and score, contradicting the "brand new instance starting from zero progress" contract documented in `src/lib/assignments/instances.ts:14-16`.
+Both the grader's row resolver (`PresentationView.tsx:3029-3050`) and the live broadcast builder (`PresentationView.tsx:3369-3389`) pick which board row belongs to a line by **best token overlap with that line's expected floating numbers** — not by the row the student is actually writing on. So while you write Line 3, the panel can show whichever row happens to overlap best (often Line 2's ink). The Reasoning panel additionally runs its **own** dry-run call to `grade-line` (`TeacherReasoningPanel.tsx:280-311`), independent of the student's session, which is the second source of desynchronisation.
 
-## The fix
-
-### 1. One board scope key (frontend)
-
-Add `src/lib/smartboard/boardScope.ts` exporting a single identity string:
+## Architecture
 
 ```text
-board:<studentId>:<classId>:<workspace>:<assessmentId>:<questionId>
+student action ─┐
+floating display│
+presenter preview├─► Reasoning Engine (single active line + session)
+keyboard/symbols │         │
+AI insertions   ─┘         ├─► live snapshot ──► Reasoning panel (debugger, no storage)
+                           └─► evaluation at End Point ──► marks/progress
+                                     ▲
+                          Check button reads this result only
 ```
 
-`workspace` is `assignment` or `adventure` (Adventure already routes through the same page with `?source=adventure&game=...`; the game id joins the key so different adventures stay separate).
+### 1. Reasoning engine module (new)
+A single client-side engine holding: active line index + lineId, the session's board row, the live expression, the teacher's floating tokens for that line, student-introduced terms, and the last evaluation. Purely in memory — cleared on line change, question change and board scope change. Nothing written to the database from it.
 
-### 2. Namespace every cached key by that scope
+### 2. Line → row binding (fixes Student Line (Live))
+Replace overlap-guessing with an explicit binding: when a line becomes active (Start Point), the engine records the row the sensor is on and keeps that binding for the session. Student Line (Live) is always that row's ASCII, refreshed on every typing, floating drag, symbol insert, delete, preview click and floating-display move. Overlap matching is kept only as a fallback for lines never visited.
 
-In `PresentationView.tsx`, replace the `notebookId`-only suffix with the scope key for all board-content keys: smartlines, boxes, freewrite, offsets, sensor, float-line index, lesson cursor. Purely cosmetic preferences (surface, ink colour, profile, zoom, panel open/closed) stay global — they are teacher/student display settings, not work.
+### 3. Start / End Point unification
+- **Start Point:** floating display moves to a line, or a preview item on another line is clicked → new session, new row binding, reasoning cleared.
+- **End Point:** leaving the line, **or pressing Check** → freeze expression, evaluate once, expose result, open next session.
+- Floating display ↔ presenter preview stay bidirectionally synced through the single `activeLineIdx` (already unified) so all four surfaces always point at one line.
 
-When not in assessment mode, the scope falls back to the current `notebook:<id>` suffix so the teacher SmartBoard behaves exactly as today.
+### 4. Attempt model (from your answers)
+- Awarded marks are permanent: once a slot is solved, the engine never re-evaluates or reduces it, even if the line is edited later.
+- Unawarded lines stay correctable: continuing on the same row = same attempt; starting the same line on a new row lower down creates a **new attempt** that becomes the active one, and the older attempt is marked invalid and can never be graded again.
+- Only the active attempt is ever sent for evaluation.
 
-### 3. Reset the board on scope change
+### 5. Evaluation categories
+Extend the server diagnosis so the panel and the Check toast show the agreed categories rather than generic text: add `number_not_given`, `symbol_not_supplied` (split from the existing floating-set verdict) and `cannot_evaluate_yet` (empty/dangling line), alongside the existing Correct/Equivalent/Incomplete line/Incorrect expression/Incorrect value/Missing term/Extra term/Wrong operation/Wrong sign rules. Every category keeps its 1–3 word label plus a one-sentence teacher-only detail, and never reveals the answer.
 
-Force a clean slate whenever the scope key changes:
+### 6. Check button and silent marking become viewers
+`checkActiveLine` no longer resolves rows or grades on its own — it asks the engine to close the session and shows the returned result. Silent auto-marking records the same result. The Reasoning panel drops its independent dry-run call and renders the engine's broadcast instead, so student, teacher, Check and silent marking can never disagree.
 
-- Give `PresentationView` (or the `AssessmentBoardPage` wrapper) `key={boardScopeKey}` so React fully remounts on question/class/workspace change — the cheapest and most reliable reset.
-- As a belt-and-braces guard inside the board, an effect on `boardScopeKey` clears `smartLines`, `boxes`, `freeLines`, line offsets, active line index and beat cursor before the loader runs, and only paints content once the load for the *current* scope resolves. Stale in-flight loads from a previous question are discarded by comparing the scope captured at request time.
+### 7. Reasoning panel (debugger view)
+Displays, all keyed off the same broadcast: Current question · Active line · Expected line · Student line (live) · Floating numbers for this line (dynamic, active line only) · Student-introduced terms (student atoms not in the teacher's floating set, e.g. a typed `2` or `+c`) · Evaluation category + detail · Awarded / line marks · attempt badge when a line has been restarted. All of it is discarded when the line, question or board session changes.
 
-### 4. Close the server-side gaps
+## Technical notes
 
-- **Legacy fallback**: when `questionId` is missing, do not read or write the shared `assessment_board_state` row — start empty instead. The per-question table becomes the only write path.
-- **Teacher Reasoning panel** (`TeacherReasoningPanel.tsx:121-127`) currently reads the legacy row without a `question_id` filter; scope that read to the active question so teachers never see another question's work.
-- **Assignment revival**: when `pipeline.ts` revives an existing `assessments` row for a new `learning_assignments` instance, delete that assessment's `assessment_question_board_state`, `assessment_board_state` and `assessment_progress` rows in the same operation, so a re-assigned question genuinely starts from zero.
-
-### 5. Tests
-
-Add `src/test/boardScopeIsolation.test.ts`:
-- Scope key changes when any one of student / class / question / workspace / game changes, and is stable when none do.
-- Storage keys built from the scope never collide across two questions of one notebook, or across two classes using the same notebook.
-- The load path ignores a response whose scope no longer matches the active scope.
-
-## Expected result
-
-- Open Question 1 → blank board. Leave, reopen Question 1 → previous work restored.
-- Open Question 2 → blank board, no trace of Question 1.
-- Same question in another class → blank board.
-- Same question via Adventure instead of Assignment → its own independent board.
-- Teacher SmartBoard and presentation behaviour unchanged.
-
-## Note on point 5
-
-Deleting board/progress rows on re-assignment means a teacher who unassigns and re-assigns a question wipes students' earlier attempts for it. That matches the "every assignment session is independent" rule you stated, but tell me if you'd rather keep the old work archived instead of deleted.
+- New: `src/lib/smartboard/reasoningEngine.ts` (session, row binding, attempts, introduced-term diffing) plus tests.
+- Edited: `PresentationView.tsx` (row binding, Start/End Point, Check → engine, snapshot from engine), `TeacherReasoningPanel.tsx` (render-only + new sections), `PresenterPreviewPanel.tsx` (already emits `onActivateLine`; ensure it also syncs the floating display), `supabase/functions/_shared/lineDiagnosis.ts` and `grade-line/index.ts` (new categories).
+- `grade-line` stays the mathematical equivalence service the engine calls; it is no longer called by anyone else.
+- No database schema changes; no reasoning data persisted.
