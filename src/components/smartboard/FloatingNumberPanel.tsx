@@ -9,7 +9,11 @@ import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
-import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
+import { visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
+
+/** Background of the floating chip bar — placeholders must stay visible on it. */
+const CHIP_SURFACE = "#ffffff";
+
 import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
 const WINDOW_SIZE = 5;
@@ -108,14 +112,19 @@ export const parseFractionChip = (label: string): FractionParts | null => {
 const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: string; placeholderColor?: string }) => {
   const safe = assertDisplaySafe(label).cleaned;
   const frac = parseFractionChip(label);
-  const slotColor = placeholderColor ?? PLACEHOLDER_COLOR;
+  // The chip bar is WHITE. The board's placeholder colour is near-white
+  // cream, so slots painted with it disappear here — which is why every
+  // placeholder (√□, □^□, the two fraction cells) looked "removed". Always
+  // resolve a colour that stays visible on this surface.
+  const slotColor = visiblePlaceholderColor(placeholderColor, CHIP_SURFACE);
   const partNode = (value: string, key: string) =>
     value.trim() === "□"
       ? <SmartboardPlaceholderSlot key={key} color={slotColor} size="panel" source="floating-number" />
       : <span key={key} style={{ padding: "0 4px", whiteSpace: "nowrap" }}>{value}</span>;
   if (!frac) {
-    return <span>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor })}</span>;
+    return <span>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor: slotColor })}</span>;
   }
+
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
       {frac.sign && <span style={{ marginRight: 2 }}>{frac.sign}</span>}

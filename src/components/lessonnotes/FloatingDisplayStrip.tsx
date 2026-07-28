@@ -6,8 +6,15 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
+import { visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
 
 const WINDOW_SIZE = 5;
+
+// The strip sits on a cream surface; the board's near-white placeholder
+// colour would be invisible here, so resolve a contrasting slot colour.
+const STRIP_SURFACE = "#f7f2e8";
+const STRIP_SLOT_COLOR = visiblePlaceholderColor(undefined, STRIP_SURFACE);
+
 
 interface Props {
   tokens: string[];
@@ -94,7 +101,7 @@ export const FloatingDisplayStrip = ({ tokens, selected }: Props) => {
                     border: "1.5px solid hsl(40 85% 42%)",
                   } : { background: "transparent" }}
                 >
-                  {renderMathInline(gated.cleaned, `fds-${absIdx}-${i}`)}
+                  {renderMathInline(gated.cleaned, `fds-${absIdx}-${i}`, { placeholderColor: STRIP_SLOT_COLOR })}
                 </span>
               );
             })
