@@ -365,6 +365,15 @@ function buildAddAnotherPlugin() {
           const paragraphType = state.schema.nodes.paragraph;
           const newHeading = headingType.create({ level: h.level }, state.schema.text(label));
           const newPara = paragraphType.create();
+          // Question-style sections always ship with an empty Solution space,
+          // so a teacher can type the problem AND the solution without AI.
+          const wantsSolution = h.kind !== "game_questions";
+          const solutionNodes = wantsSolution
+            ? [
+                headingType.create({ level: Math.min(6, h.level + 1) }, state.schema.text("Solution")),
+                paragraphType.create(),
+              ]
+            : [];
           // Re-derive the end position from the live state in case the doc changed.
           let liveEnd = state.doc.content.size;
           const liveHeadings: { pos: number; level: number; kind: SectionKind | null }[] = [];
