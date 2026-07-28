@@ -1,38 +1,62 @@
-## What you are seeing
+## Goal
 
-In your screenshot the two squares under `x =` have **sharp, solid, ink-dark outlines**. The smartboard's real placeholder slot (`SmartboardPlaceholderSlot`) is drawn *dashed* and painted in the placeholder colour (cream `#efece5`, i.e. board colour) — it cannot look like that. So the squares on screen are almost certainly **not** the placeholder component: they are drawn by some other path (a literal `□` character rendered as ordinary ink text, or a bordered `box` node), which is exactly why:
+Check Line stops saying "not equivalent" and instead names the *type* of mistake in 1–3 words. Marking/scoring behaviour is unchanged: only a line that is truly equivalent earns marks.
 
-- the Placeholder Colour setting has no effect on them (that setting only feeds `SmartboardPlaceholderSlot`), and
-- they do not vanish when you type (a real character/box is not a slot — typing lands beside or inside it).
+## Current state (verified)
 
-I could not reproduce it in the headless browser this turn (the board loaded, but the Structures palette did not open under automation), so this diagnosis is **strongly indicated but not yet confirmed**. Step 1 confirms it before anything is changed.
+- The Check Line button calls `gradeLineThroughEngine` in `src/components/smartboard/PresentationView.tsx`, which invokes the `grade-line` edge function.
+- `grade-line` compares the student's ASCII line against the teacher's stored answer-key line using `supabase/functions/_shared/mathEquivalence.ts`, which returns only `equal` / `not_equal` / `unknown` (plus the `not_in_floating_set` and `parse_error` special cases).
+- The toast currently shows one long sentence ("That line isn't mathematically equivalent to the expected step."). `TeacherReasoningPanel.tsx` maps the same verdict to a longer explanation sentence.
 
-## Plan
+So there is exactly one grading pipeline to extend — no duplicate logic to reconcile.
 
-### 1. Confirm the exact culprit (no code changes)
-Reproduce on the live board: place the caret, insert a fraction / drop a chip, then read the DOM for those two squares — check whether they carry `data-sb-placeholder`, and read their computed `border-style`, `border-color` and text content. Three possible outcomes:
-- text content is `□` → a char node is being rendered as ink text;
-- a `box` node is drawing its own outline;
-- it *is* the placeholder slot but the resolved colour/style is being overridden.
+## What gets built
 
-The rest of the plan handles all three, so no rework either way.
+### 1. New diagnosis engine (server, shared)
 
-### 2. One placeholder authority
-Make `SmartboardPlaceholderSlot` (fed by `placeholderColor`) the **only** thing that can ever draw an empty slot on the board:
-- In `MathTreeRender.tsx`, a `char` node whose character is `□` renders as a placeholder slot, never as ink text.
-- No `box`/structure node draws its own outline; the empty child row owns the single slot.
-- Same rule in `mathRender.ts` (`emptySlotBox`) so mirrored lesson-note math matches.
+New file `supabase/functions/_shared/lineDiagnosis.ts` that takes `(teacherAscii, studentAscii, equivalenceVerdict)` and returns:
 
-### 3. Real placeholder behaviour
-- A `□` char node behaves as an empty slot: clicking it puts the caret **in** it, and the first typed character **replaces** it (the slot disappears), matching normal placeholder behaviour.
-- Ingestion (`mirrorFromLessonNote.latexToRow`, floating chip payloads such as `□/□`, `√□`, `□^{□}`) converts every `□` into an empty structure row up front, so `□` never survives as content on the board.
+```
+{ code: "incorrect_sign", label: "Incorrect sign", detail: "…one sentence for the Reasoning panel…" }
+```
 
-### 4. Make the colour setting actually apply
-- Verify `placeholderColor` is threaded to every renderer on the writing surface (free-write layer, beat blocks, box layer, floating panel, presenter preview) — any renderer left on the hard-coded constant ignores the setting.
-- Default "Board" resolves to the board surface colour so the slot blends invisibly, with only the dashed hairline visible on close inspection; the active slot still shows the caret glow so the teacher knows where they are.
+Detection order (first match wins — this encodes the Priority Rules):
 
-### 5. Lock it with tests
-Regression tests asserting: (a) a row containing `□` renders zero ink `□` glyphs and exactly one placeholder element; (b) typing into an empty slot removes the placeholder element; (c) an inserted fraction produces exactly two placeholders (never a placeholder nested inside another). This is the guard that stops the issue coming back.
+1. **Invalid expression** — fails to parse, or malformed patterns (`==`, `++x`, trailing/leading operator pileups).
+2. **Incomplete line / equation / simplification** — student has no `=` while the expected line has one and the student text is a strict prefix-shaped fragment of it → "Incomplete line"; student ends with `=` and nothing after → "Incomplete equation"; expected line is a simplification (`x + x = 2x`) and the student wrote only the un-simplified LHS → "Incomplete simplification".
+3. **Missing equals sign** — expected has `=`, student has none, and the student's characters otherwise account for both sides.
+4. **Missing bracket** — unbalanced parentheses, or bracket count lower than expected with the same atoms.
+5. **Equivalent** — equivalence engine says `equal` → "Equivalent" (green, awards marks).
+6. **Incorrect sign** — flipping the sign of one side/term (or of the differing numeric atom) makes the line equivalent.
+7. **Incorrect calculation** — structure matches but a single numeric result differs (both sides are pure arithmetic, or the differing atom is a lone number in an otherwise identical skeleton).
+8. **Incorrect expansion** — expected line contains a product of brackets / a squared bracket and the student wrote a partially-distributed form.
+9. **Incorrect factorisation** — student wrote a bracket product whose expansion ≠ expected expression.
+10. **Incorrect substitution** — same skeleton, a substituted numeral differs from the value supplied by the question/floating tokens.
+11. **Incorrect rearrangement** — same multiset of terms as expected but a term moved across `=` without sign change.
+12. **Missing term / Extra term** — term multiset differs by exactly one absent / one added term.
+13. **Incorrect expression** — meaning-changing difference not covered above.
+14. **Not equivalent** — final fallback.
+
+Each rule is a small pure function over a normalised token/term model built on the existing `normalize()` + mathjs parse already in `mathEquivalence.ts`; sign/calculation/expansion checks re-use the existing `equivalent()` comparison on mutated candidates (e.g. sign-flipped student line).
+
+### 2. `grade-line` returns the diagnosis
+
+`supabase/functions/grade-line/index.ts` adds `diagnosis: { code, label, detail }` to every response (dry-run and persisted). Existing `correct` / `verdict` / `marks` fields are unchanged, so the teacher mirror and progress logic keep working. `not_in_floating_set` and parse failures map to their own labels ("Number not given", "Invalid expression").
+
+### 3. Short popup feedback
+
+`PresentationView.tsx`: the failure toast becomes title = the short label ("Incorrect sign"), with no long description. Success stays "✓ Line verified +N marks" and additionally shows "Equivalent" when the student's route differed from the expected line. The check-result broadcast carries `diagnosis` so the teacher sees the same label live.
+
+### 4. Detailed explanation in the Reasoning panel
+
+`TeacherReasoningPanel.tsx` shows the short label as a heading plus the longer `detail` sentence and the two compared lines — that's where the explanation lives, never in the popup.
+
+### 5. Tests
+
+New `src/test/lineDiagnosis.test.ts` (importing a mirrored client copy or the shared module via path alias, matching how existing shared-engine tests are wired) covering every example pair from the specification: 2x=8 vs x=4 → Equivalent; 2x+5 vs 2x+5=9 → Incomplete line; 6×4=26 → Incorrect calculation; 2x=-4 → Incorrect sign; 3(x+2) vs 3x+2 → Incorrect expansion; x+510 → Missing equals sign; 3x=10 → Missing term; 2x+5+1=9 → Extra term; 2x==6 → Invalid expression; 3x=15 → Not equivalent, and the rest.
 
 ## Technical notes
-Files in scope: `src/components/smartboard/MathTreeRender.tsx`, `src/components/smartboard/SmartboardPlaceholderSlot.tsx`, `src/lib/smartboard/placeholderColor.ts`, `src/lib/smartboard/mirrorFromLessonNote.ts`, `src/lib/smartboard/mathTree.ts` (insert/backspace over a `□` slot), `src/lib/notebook/mathRender.ts`, plus a new test file. No backend or schema changes.
+
+- No database or schema changes.
+- No LLM call is added to the fast path: diagnosis is deterministic and runs after the existing equivalence verdict, so Check Line stays as fast as today. The existing LLM fallback inside `equivalent()` is untouched.
+- Answer key still never leaves the server for students; only the short label and the category detail are returned.
