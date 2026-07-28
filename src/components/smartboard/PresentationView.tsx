@@ -3123,7 +3123,7 @@ const PresentationView = ({
       if (snap) pushBoardState(snap);
     };
     tick();
-    const id = window.setInterval(tick, 250);
+    const id = window.setInterval(tick, 120);
     return () => window.clearInterval(id);
   }, [boardSessionActive, canEdit, pushBoardState]);
 
