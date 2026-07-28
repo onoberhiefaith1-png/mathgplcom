@@ -345,24 +345,34 @@ const TeacherReasoningPanel = ({ assessmentId, studentId, questionId: scopeQuest
               </span>
             </div>
 
-            <div className="rounded-lg border border-border bg-card/40 p-3">
-              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Expected line</div>
-              <pre className="whitespace-pre-wrap break-words font-mono text-sm">
-                {expectedAscii || <span className="italic text-muted-foreground">no answer key</span>}
-              </pre>
-            </div>
+            <LineViewer
+              label="Expected line"
+              resetKey={`${currentQid ?? ""}:${currentLid ?? ""}`}
+              sticky
+            >
+              {expectedAscii ? (
+                <PresenterMath ascii={expectedAscii} keyBase="reason-expected" color="currentColor" />
+              ) : (
+                <span className="italic text-muted-foreground">no answer key</span>
+              )}
+            </LineViewer>
 
-            <div className="rounded-lg border border-border bg-card/40 p-3">
-              <div className="mb-1 flex items-center justify-between">
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Student line (live)</div>
-                {activeRow !== null && (
+            <LineViewer
+              label="Student line (live)"
+              resetKey={`${currentQid ?? ""}:${currentLid ?? ""}`}
+              right={
+                activeRow !== null ? (
                   <span className="text-[10px] tabular-nums text-muted-foreground">row {activeRow}</span>
-                )}
-              </div>
-              <pre className="whitespace-pre-wrap break-words font-mono text-sm">
-                {studentAscii || <span className="italic text-muted-foreground">nothing written yet</span>}
-              </pre>
-            </div>
+                ) : null
+              }
+            >
+              {studentAscii.trim() ? (
+                <PresenterMath ascii={toDisplaySafe(studentAscii)} keyBase="reason-student" color="currentColor" />
+              ) : (
+                <span className="italic text-muted-foreground">nothing written yet</span>
+              )}
+            </LineViewer>
+
 
             <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
               <div className="flex items-center justify-between">
