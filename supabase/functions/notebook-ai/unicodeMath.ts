@@ -79,6 +79,9 @@ export const toUnicodeMath = (input: string): string => {
   };
   s = s.replace(/\^\{\s*□\s*\}/g, POWER_SLOT);
 
+  const fracHolds: string[] = [];
+  s = holdFractions(s, fracHolds);
+
   // Strip KaTeX-style $...$ / $$...$$ delimiters.
   s = s.replace(/\$+/g, "");
 
