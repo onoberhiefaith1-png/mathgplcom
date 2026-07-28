@@ -61,12 +61,12 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
               <span
                 className={cn(
                   "h-4 w-7 rounded-full shrink-0 transition relative",
-                  on ? "bg-primary" : "bg-foreground/20",
+                  on ? "bg-primary" : "bg-popover-foreground/25",
                 )}
               >
                 <span
                   className={cn(
-                    "absolute top-0.5 h-3 w-3 rounded-full bg-background transition-all",
+                    "absolute top-0.5 h-3 w-3 rounded-full bg-popover shadow-sm transition-all",
                     on ? "left-3.5" : "left-0.5",
                   )}
                 />
@@ -91,7 +91,7 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
               className={cn(
                 "flex-1 text-[11px] py-1 rounded border transition",
                 value.depth === d.id
-                  ? "border-primary bg-primary/10 text-foreground"
+                  ? "border-primary bg-primary/15 text-popover-foreground font-medium"
                   : "border-foreground/15 text-popover-foreground/80 hover:bg-foreground/5",
               )}
             >
