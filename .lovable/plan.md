@@ -1,55 +1,79 @@
 ## Goal
 
-Three refinements to the existing student Smartboard flow. No architecture or UI redesign.
+Make the five workspaces (Lesson Notes, SmartBoard, Classes, Adventures, Class Gallery) independent, and connect them through an explicit **assignment instance** identified by (Lesson Note + Class + Adventure). No UI redesign — data model and wiring only.
 
----
+## What the current code actually does (verified)
 
-## 1. One Smartboard per question
+- There is **no assignment-instance record**. An "assignment" today is either a row in `assessments` or a row in `class_adventure_notes`, each keyed only on (class, notebook, question_key). Neither table has a game/adventure column, so the same Lesson Note cannot be assigned to one class with two different Adventures.
+- The Adventure link is a separate table, `class_game_boards` (class_id, game_id, progress_element_id, assessment_id, question_keys), created by `ensureClassGameBoards` in `src/lib/games/gameQuestions.ts`. It ties a progress bar to an assessment but is not tied to a lesson-note assignment.
+- There is **no archive state**. The only lifecycle flag is `unassigned_at` (a soft un-tick). `assignAdventureQuestion` and `assignAssessmentQuestion` in `src/lib/assignments/pipeline.ts` explicitly *revive and overwrite* the previous row when re-assigning, so reusing a lesson next term destroys the earlier record — the opposite of the required behaviour.
+- Class Gallery already matches the spec: `class_galleries` is one row per class and `class_gallery_awards` accumulates awards; nothing there needs restructuring.
+- Current data volume is small (10 assessments, 13 adventure notes, 1 game board), so a one-time migration is low-risk.
 
-**What I verified**
+## Plan
 
-- `useAssessmentBoardSession` already supports a per-question mode: when a `questionId` is passed it reads/writes `assessment_question_board_state` (unique on assessment+student+question); otherwise it falls back to the single shared row in `assessment_board_state`.
-- Only the Adventure path passes a question: `GamePlayPage` navigates to `.../assessment/:id?q=<questionId>`.
-- The Assignment path (`StudentAssignmentPage`) links to `.../assessment/:id?source=assignment` with **no `q`**, so `AssessmentBoardPage` runs the board in shared mode and every question in that assessment writes into the same board row — this is the reported bleed.
+### 1. New table: `learning_assignments` (additive migration)
 
-**Fix**
+One row = one learning session instance.
 
-- In `AssessmentBoardPage`, never run the board in shared mode: when the `q` param is absent, resolve an active question id from the assessment's question list (first question, or the last one the student worked on) and drive the board with it. Keep `q` in the URL so refresh/back restores the same question.
-- Scope the board source to the active question only (the existing filter already does this) and keep the remount `key` tied to the question id so switching questions loads a clean board and then hydrates that question's saved state.
-- Add question navigation on the assignment path consistent with the current UI: `StudentAssignmentPage` links each question with `?q=<questionId>`, so each question opens its own board.
-- Teacher viewer (`TeacherAssessmentViewerPage`) already follows the student's question id — verify it always joins the same per-question channel/row as the student, including when the student switches questions mid-session.
-- Legacy work already saved in `assessment_board_state` stays readable: on first open of a question with no per-question row, fall back to the legacy row once, then save it under the question.
+```text
+learning_assignments
+  id
+  class_id        -> classes
+  notebook_id     -> notebooks        (Lesson Note)
+  game_id         -> games (nullable) (Adventure; null = plain assignment)
+  question_keys   uuid[]              (questions pulled from the note)
+  mode            'assignment' | 'adventure'
+  status          'active' | 'archived'
+  due_at, started_at, archived_at, archived_reason
+  created_by, created_at, updated_at
+```
 
-## 2. Smoother teacher–student live collaboration
+- Partial unique index on `(class_id, notebook_id, coalesce(game_id, zero-uuid))` **where status = 'active'** — this is the duplicate protection, enforced in the database, and it still allows a new active instance once the old one is archived.
+- GRANTs for `authenticated` / `service_role`, RLS: class owner full access; class members read-only.
+- Existing `assessments`, `class_adventure_notes` and `class_game_boards` rows gain a nullable `assignment_id` pointing at the parent instance. Nothing is dropped.
+- Backfill: create one `learning_assignments` row per existing active (class, notebook) pair and point existing child rows at it, so current dashboards keep working.
 
-Current path: 90 ms debounced broadcast + 700 ms debounced DB write, plus a 250 ms safety re-publish loop.
+### 2. Single write path
 
-- Cut the broadcast debounce to a single animation-frame-style flush (~30–50 ms) and send in-place mutations (drag, delete, rearrange, floating numbers) on the same fast path; leave the DB write debounced for durability only.
-- Make the teacher side a full co-author in Assist mode on the identical channel name (assessment + student + question) so both directions stream; View Mode stays read-only receive.
-- Harden the channel: keep the existing retry, and add a re-subscribe on browser reconnect/visibility so neither side needs a refresh after a network blip; on reconnect, immediately re-publish the full board so the late side catches up in one frame.
-- Keep the author-echo guard so a side never re-applies its own snapshot (prevents cursor jumps).
+Extend `src/lib/assignments/pipeline.ts` with `createAssignment({classId, notebookId, gameId, questionRefs})`:
 
-## 3. Timer synchronization (teacher = master)
+- Looks for an **active** instance with the same triple. If found, returns a `duplicate` result carrying the existing id — callers show "This Lesson Note is already assigned to this Class using this Adventure" with *Open existing* / *choose another Adventure* / *choose another class*.
+- Otherwise inserts a new instance and creates its child rows (assessment + answer key, adventure note, game boards) with `assignment_id` set. Never revives an archived row.
+- `unassign` = archive (below), not row reuse. Remove the "revive and overwrite" branches from `assignAdventureQuestion` / `assignAssessmentQuestion`.
 
-**What I verified**
+### 3. Archiving lifecycle
 
-- `game_time_bars` is in the realtime publication and has a `SELECT` policy for class owners **and** class members, so students are allowed to read teacher timer changes.
-- Students already consume `useGameTimeBar`, which subscribes to `postgres_changes` on that table. The subscription is created with no status handler and no retry, unlike the other realtime hooks in the app, so a failed/dropped join leaves the student silently stuck on the row fetched at load. This is the most likely cause but is unconfirmed — step one is to confirm it live before changing behaviour.
+`archiveAssignment(id, reason)` runs one ordered transaction-style sequence, matching the requested card lifecycle:
 
-**Fix**
+1. freeze final progress (`assessment_progress` snapshot stays as-is, no further writes accepted),
+2. keep reward history (`class_gallery_awards` untouched — awards are already class-scoped and permanent),
+3. set `status='archived'`, `archived_at`, `archived_reason`.
 
-- Confirm the failure with a live check (student page open, teacher presses ±1 min / pause) and read the channel status.
-- Then in `useGameTimeBar`: add subscribe-status handling with bounded retry and re-subscribe on reconnect/tab-focus, plus a low-frequency refetch fallback (a few seconds) so the student converges even if realtime is down.
-- Keep all timer math derived from the shared row (`started_at`, `paused_at`, `accumulated_paused_ms`, `duration_seconds`) so remaining/elapsed/state are identical on both sides. Students remain read-only; only teacher controls write.
+Triggers: teacher un-ticks in the Assign dialog; due date passes (checked on dashboard load); all class members complete the required marks.
+
+Enforcement after archive:
+- Student pages filter to `status='active'`; archived cards move to an Archive list on the teacher dashboard and open read-only.
+- Server-side: RLS/`WITH CHECK` on `assessment_progress` and `assessment_board_state` rejects writes when the parent instance is archived, so read-only is real and not just a hidden button.
+
+### 4. Adventure reusability
+
+- Adventures (`games`) stay lesson-free: the question/notebook binding moves from the progress-bar element onto the assignment instance's `class_game_boards` rows (already class+game scoped). A progress bar keeps its `progress_element_id` role only.
+- `ensureClassGameBoards` becomes `ensureAssignmentBoards(assignmentId)` — same behaviour, scoped to the instance instead of (class, game), so the same Adventure can serve many notes and classes with separate boards and separate progress.
+
+### 5. Read paths
+
+Teacher and student dashboards, progress bars, the reward transfer hook and reports all query `learning_assignments` (filtered by status) and join down to the child rows, instead of guessing relationships from `assessments` + `class_adventure_notes`. Card rendering and layout stay exactly as they are.
 
 ## Technical notes
 
-- Files: `src/pages/student/AssessmentBoardPage.tsx`, `src/pages/student/StudentAssignmentPage.tsx`, `src/hooks/useAssessmentBoardSession.ts`, `src/components/smartboard/PresentationView.tsx`, `src/pages/class/TeacherAssessmentViewerPage.tsx`, `src/hooks/useGameTimeBar.ts`.
-- No schema changes required — `assessment_question_board_state` already exists with the right unique key.
-- No UI/layout changes beyond passing the question id on assignment question links.
+Files: new migration; `src/lib/assignments/pipeline.ts`, `src/lib/adventures/classAdventures.ts`, `src/lib/games/gameQuestions.ts`, `src/lib/games/classGames.ts`, `src/components/lessonnotes/AssignDialog.tsx`, `src/pages/class/AdventureDashboardPage.tsx`, `src/pages/class/AssignmentDashboardPage.tsx`, `src/pages/class/ClassAdventuresPage.tsx`, `src/pages/class/ClassAssignmentsPage.tsx`, `src/pages/student/*`, `src/hooks/useRewardTransfer.ts`.
+
+Marks remain owned by the Floating Number Evaluation page; the assignment instance stores no marks of its own, only references.
 
 ## Verification
 
-- Assignment with 2+ questions: solve Q1, open Q2 → clean board; return to Q1 → Q1's work restored.
-- Teacher Assist mode: strokes, drags and deletes appear both ways with no refresh.
-- Teacher timer start/pause/resume/reset/±1 min → student's timer mirrors immediately.
+- Assign Note A → Class D → Adventure G, then repeat: blocked with the duplicate message and an Open-existing action.
+- Assign Note A → Class D → Adventure H: allowed, independent progress.
+- Archive the first, re-assign the same triple: new instance starts at zero, old one still readable, gallery rewards from the old one still present.
+- Student attempts to write to an archived assignment: rejected by the database, not just the UI.
