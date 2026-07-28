@@ -579,7 +579,44 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
         context?: string; currentContent?: string; teacherPrompt?: string;
         activeQuestion?: string;
         inheritedContext?: boolean;
+        /** Full teaching context of the lesson generated so far. */
+        lessonContext?: {
+          level?: string;
+          objectives?: string;
+          introduction?: string;
+          explanations?: string[];
+          examples?: { label: string; problem: string; method?: string }[];
+          definitions?: string[];
+          notation?: string[];
+          sequencePosition?: string;
+        };
       };
+
+      /** Render the lesson-so-far into a compact, prompt-friendly block. */
+      const buildLessonSoFar = (): string => {
+        const lc = b.lessonContext;
+        if (!lc) return "";
+        const seg: string[] = [];
+        if (lc.level) seg.push(`Curriculum level: ${lc.level}`);
+        if (lc.objectives) seg.push(`Learning objectives:\n${lc.objectives}`);
+        if (lc.introduction) seg.push(`Introduction already written:\n${lc.introduction}`);
+        if (lc.definitions?.length) seg.push(`Definitions already introduced:\n${lc.definitions.join("\n")}`);
+        if (lc.notation?.length) seg.push(`Notation already in use: ${lc.notation.join(", ")}`);
+        if (lc.explanations?.length) {
+          seg.push(`Explanations already taught:\n${lc.explanations.join("\n---\n")}`);
+        }
+        if (lc.examples?.length) {
+          seg.push(
+            `Worked examples already given (in order):\n` +
+              lc.examples
+                .map((e, i) => `${i + 1}. ${e.label}: ${e.problem}${e.method ? `\n   Method: ${e.method}` : ""}`)
+                .join("\n"),
+          );
+        }
+        if (lc.sequencePosition) seg.push(`Position in the lesson: ${lc.sequencePosition}`);
+        return seg.filter(Boolean).join("\n\n").trim();
+      };
+      const lessonSoFar = buildLessonSoFar();
 
       // QUESTION INHERITANCE GATE — Solution blocks must inherit ACTIVE_QUESTION
       // from the parent question block above. No inheritance → refuse to call the
