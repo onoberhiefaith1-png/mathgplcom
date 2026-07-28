@@ -8,7 +8,9 @@ import { X as XIcon, CheckCircle2, XCircle, Loader2, Maximize2, Minimize2 } from
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
-import { PresenterMath, toDisplaySafe } from "./PresenterMath";
+import { collapseNestedBoxes, structureHash, type Row } from "@/lib/smartboard/mathTree";
+import MathTreeRender from "./MathTreeRender";
+import { PresenterMath, PRESENTER_INK, toDisplaySafe } from "./PresenterMath";
 
 type KeyLine = { questionId: string; lineId: string; tokens: string[]; equationAscii?: string };
 
@@ -20,6 +22,9 @@ type LivePayload = {
   lineIds: Array<string | null>;
   rowsAscii: Record<number, string>;
   linesAscii: Record<string, string>;
+  /** The math OBJECT itself — the Student Line mirrors this verbatim. */
+  rowsTree?: Record<number, Row>;
+  linesTree?: Record<string, Row>;
   floatingTokens?: Record<string, string[]>;
   /** Reasoning-engine view of the ONE active line. */
   activeRow?: number | null;
@@ -237,15 +242,19 @@ const TeacherReasoningPanel = ({
     const activeLineIdx = Math.max(0, Math.floor(row.active_line_idx ?? sj.activeLineIdx ?? 0));
     const questionId = row.question_id ?? sj.questionId ?? scopeQuestionId ?? null;
     const rowsAscii: Record<number, string> = {};
+    const rowsTree: Record<number, Row> = {};
     for (const [k, v] of Object.entries(sj.freeLines ?? {})) {
       const n = Number(k);
       if (!Number.isFinite(n)) continue;
       if (Array.isArray(v) && v.length > 0) {
+        // The persisted row IS the math object — keep it as-is for display.
+        rowsTree[n] = v as unknown as Row;
         try { rowsAscii[n] = rowToAscii(v as never); } catch { /* ignore */ }
       }
     }
     const cursorRow = Math.floor(sj.sensor?.line ?? -1);
     const cursorAscii = rowsAscii[cursorRow] ?? "";
+    const cursorTree = rowsTree[cursorRow];
     setFallback({
       ts: new Date(row.updated_at).getTime(),
       questionId,
@@ -253,6 +262,8 @@ const TeacherReasoningPanel = ({
       lineIds: [],
       rowsAscii,
       linesAscii: cursorAscii ? { __cursor: cursorAscii } : {},
+      rowsTree,
+      linesTree: cursorTree ? { __cursor: cursorTree } : {},
     });
     setFallbackAt(new Date(row.updated_at).getTime());
   }, [assessmentId, studentId, scopeQuestionId]);
@@ -324,6 +335,24 @@ const TeacherReasoningPanel = ({
     if (currentLid && feed.linesAscii?.[currentLid] != null) return feed.linesAscii[currentLid];
     return feed.linesAscii?.__cursor ?? "";
   }, [feed, currentLid]);
+
+  /** The student's live math OBJECT for this line. Rendered directly by the
+   *  Smartboard's own renderer — never rebuilt from text. */
+  const studentTree = useMemo<Row | null>(() => {
+    if (!feed) return null;
+    const t =
+      (currentLid ? feed.linesTree?.[currentLid] : undefined) ??
+      feed.linesTree?.__cursor ??
+      (feed.activeRow != null ? feed.rowsTree?.[feed.activeRow] : undefined);
+    if (!Array.isArray(t) || t.length === 0) return null;
+    // Defensive: a legacy board may still carry box-inside-box cells.
+    return collapseNestedBoxes(t);
+  }, [feed, currentLid]);
+
+  const studentObjectId = useMemo(
+    () => (studentTree ? structureHash(studentTree) : null),
+    [studentTree],
+  );
 
   const allowedTokens = useMemo(() => {
     if (!currentLid || !feed?.floatingTokens) return undefined;
@@ -450,12 +479,25 @@ const TeacherReasoningPanel = ({
               label="Student line (live)"
               resetKey={`${currentQid ?? ""}:${currentLid ?? ""}`}
               right={
-                activeRow !== null ? (
-                  <span className="text-[10px] tabular-nums text-muted-foreground">row {activeRow}</span>
-                ) : null
+                <span className="flex items-center gap-2 text-[10px] tabular-nums text-muted-foreground">
+                  {studentObjectId && <span title="Math object id">#{studentObjectId}</span>}
+                  {activeRow !== null && <span>row {activeRow}</span>}
+                </span>
               }
             >
-              {studentAscii.trim() ? (
+              {studentTree ? (
+                // MIRROR: the exact object on the student's Smartboard.
+                <span style={{ color: "currentColor" }}>
+                  <MathTreeRender
+                    root={studentTree}
+                    readOnly
+                    cursor={{ path: [-1], index: -1 }}
+                    onCursorChange={() => {}}
+                    caretColor={PRESENTER_INK}
+                  />
+                </span>
+              ) : studentAscii.trim() ? (
+                // Legacy client with no object in the payload.
                 <PresenterMath ascii={toDisplaySafe(studentAscii)} keyBase="reason-student" color="currentColor" />
               ) : (
                 <span className="italic text-muted-foreground">nothing written yet</span>
