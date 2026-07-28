@@ -14,6 +14,7 @@ import { Fragment, type ReactNode } from "react";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { renderMathInline, HAS_MATH } from "@/lib/notebook/mathRender";
 import { Inked } from "./Inked";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 
 /** Tokens that must NEVER reach the DOM as visible text.
  *  These are programming-syntax shapes the display gate could not sanitise.
@@ -77,7 +78,12 @@ export const SmartboardLessonText = ({
   if (cleaned == null) return null;
   if (!cleaned.trim()) return null;
 
-  const lines = cleaned.split(/\r?\n/);
+  // Deterministic hygiene pass: no markdown / JSON / escape residue ever
+  // reaches the board, even if the source text bypassed the AI cleaner.
+  const presentable = sanitizePresentation(cleaned);
+  if (!presentable.trim()) return null;
+
+  const lines = presentable.split(/\r?\n/);
   return (
     <span className={className} style={{ whiteSpace: "pre-wrap", ...style }}>
       {lines.map((line, li) => (

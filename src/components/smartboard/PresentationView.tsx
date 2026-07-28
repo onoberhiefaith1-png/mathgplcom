@@ -93,6 +93,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
