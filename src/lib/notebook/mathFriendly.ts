@@ -15,7 +15,8 @@ const SUP_TO_DIGIT: Record<string, string> = Object.fromEntries(
   Object.entries(SUP_DIGITS_MAP).map(([d, s]) => [s, d]),
 );
 
-/** Match a balanced `{...}` group starting at index `i` (`s[i]` must be `{`). */
+/** Match a balanced `{...}` group starting at index `i` (`s[i]` must be `{`).
+ *  Returns the index AFTER the closing brace, or -1 on failure. */
 const matchBrace = (s: string, i: number): number => {
   if (s[i] !== "{") return -1;
   let depth = 1;
@@ -25,10 +26,11 @@ const matchBrace = (s: string, i: number): number => {
     else if (s[j] === "}") depth--;
     if (depth) j++;
   }
-  return depth === 0 ? j : -1;
+  return depth === 0 ? j + 1 : -1;
 };
 
-/** Match a balanced `(...)` group starting at index `i` (`s[i]` must be `(`). */
+/** Match a balanced `(...)` group starting at index `i` (`s[i]` must be `(`).
+ *  Returns the index AFTER the closing paren, or -1 on failure. */
 const matchParen = (s: string, i: number): number => {
   if (s[i] !== "(") return -1;
   let depth = 1;
@@ -38,7 +40,7 @@ const matchParen = (s: string, i: number): number => {
     else if (s[j] === ")") depth--;
     if (depth) j++;
   }
-  return depth === 0 ? j : -1;
+  return depth === 0 ? j + 1 : -1;
 };
 
 /** Pre-clean: remove non-visual LaTeX scaffolding. Safe on both forms. */
