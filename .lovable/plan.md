@@ -1,38 +1,33 @@
-## What I verified
+## Diagnosis (verified)
 
-- `class_gallery_rewards` is empty project-wide, but the class in question (`fd91cf45…`) **does** have a Class Gallery row in `class_galleries`. So the real state is "Gallery exists, reward not yet linked to it" — not "no reward in the Adventure".
-- `useRewardTransfer` only ever loads `class_gallery_rewards` + `class_gallery_awards`; it never checks whether the class has a Gallery, and its `no_reward` message wrongly phrases the miss as an Adventure-level link.
-- Reward assets are already self-identifying: every canvas element carries `kind: "reward"` (`AssetKind = background | reward | progress_bar | effect`), so nothing needs to ask the teacher what a reward is.
-- The Gallery reward placement editor already exists and is reached at `/teaching-hub/classes/:classId/gallery?configureReward=<gameId>:<elementId>`, saving Start/End/scale/rotation/opacity/duration into `class_gallery_rewards`.
+The reward is rebuilt from scratch when it reaches the Gallery.
 
-## Plan
+- `class_gallery_rewards` stores only `storage_path`, `media_type`, `source`, plus position/scale/rotation/opacity/duration. It does **not** store any of the Adventure element's visual settings.
+- `useGalleryAwards.ts` builds the Gallery canvas element with hardcoded `bgRemoval: "none"`, `blend: "normal"`, no `keyColor`, no `tint`, no `slant` — so a chroma/black-screen-keyed reward loses its transparency and the raw uploaded frame (white/checkerboard) shows.
+- The Gallery `scale` / `rotation` / `opacity` are applied from frame 0 of the Start → End flight, so the reward also visibly resizes/rotates the instant it enters the Gallery.
 
-**1. Make the Gallery the subject of the lookup**
-In `useRewardTransfer`, load three things for the class: the Gallery row, the reward placements for this game, and the awards. Replace `blockedReason` values with:
-- `no_gallery` — the class has no Gallery row.
-- `not_linked` — Gallery exists, but this reward has no placement row.
-- `already_awarded`, `time_expired` — unchanged.
-The hook stops treating "no placement" as "no reward in the Adventure".
+The Adventure-side exit animation already uses the live configured element, so the appearance break happens only at the Gallery boundary.
 
-**2. Detect rewards automatically from the Adventure canvas**
-Pass the Adventure's reward elements (`kind === "reward"`) into the hook. They are the candidate rewards; the hook matches each against the Gallery placements by element id. No teacher input, no re-identification.
+## Fix
 
-**3. Correct the on-screen messages**
-Teacher dashboard and student page show exactly:
-- no Gallery: "This class does not have a Gallery yet. Please create a Class Gallery before rewards can be transferred." with a button to open the class Gallery.
-- not linked: "This reward has not yet been linked to this Class Gallery. Please link the reward to the Class Gallery and configure its Start Position and End Position." with one "Link <reward> to Class Gallery" button per unlinked reward element, opening the existing `?configureReward=` editor.
-The string "no reward is linked to this Adventure" is removed everywhere.
+**1. Persist the configured instance (additive migration)**
 
-**4. Keep the transfer itself unchanged, and make removal permanent**
-When a bar reaches its goal: freeze + pause timer (already in place), lift the reward out at the saved `duration_ms`, write the `class_gallery_awards` row, then navigate to *this class's* Gallery with `?animateReward=` so the saved Start → End path plays. Reward elements whose id appears in this class+game's awards are filtered out of the Adventure scene on every load — for both teacher and student — so a completed Adventure never shows the reward again.
+Add a nullable `element_style jsonb` column to `class_gallery_rewards`. It holds a snapshot of the Adventure `CanvasElement`'s visual state: `storagePath`, `mediaType`, `source`, `bgRemoval`, `keyColor`, `keyTolerance`, `blend`, `tint`, `slant`, and the Adventure `scale` / `rotation` / `opacity`. No existing columns or tables change.
 
-**5. Re-arm correctly**
-Fire the transfer as soon as the goal is met *and* a linked placement exists, including when the link is added after the goal was already reached.
+**2. Write the snapshot when the placement is saved**
+
+`GameEditorPage.saveReward` already holds `rewardSource`, the full Adventure canvas element. Persist the snapshot from it alongside the existing fields.
+
+**3. Render the instance, not the asset**
+
+`useGalleryAwards.ts` builds each award element from `element_style` when present (falling back to today's behaviour for legacy rows), so transparency keying, blend, tint and slant are preserved end to end.
+
+**4. Apply Gallery settings only at the End Position**
+
+During the Start → End flight the element keeps the Adventure `scale` / `rotation` / `opacity`. On arrival it transitions (short ~350 ms ease) to the Gallery-configured `scale` / `rotation` / `opacity`, which then become its permanent appearance. Legacy rows with no snapshot behave exactly as now.
 
 ## Technical notes
 
-- Files: `src/hooks/useRewardTransfer.ts` (Gallery lookup, new `blockedReason` values, reward-element input), `src/pages/class/AdventureDashboardPage.tsx`, `src/pages/student/GamePlayPage.tsx` (messages + link buttons + unconditional award filtering).
-- New read helper for `class_galleries` by class id (read-only; does not create a Gallery as a side effect).
-- No database migration: `class_galleries`, `class_gallery_rewards` and `class_gallery_awards` already model Class → Gallery → Placement → Award.
-- The Gallery animation code, the reward placement editor, the Progress Bar maths and the Time Bar controls are untouched.
-- Existing Part 7 behaviour stays: if the timer expired before the goal, no transfer — now stated plainly rather than looking broken.
+- Files: new migration; `src/lib/games/classGalleryRewards.ts` (row type + upsert input); `src/pages/GameEditorPage.tsx` (`saveReward`); `src/hooks/useGalleryAwards.ts` (element construction + arrival tween).
+- No change to the Adventure-side exit in `useRewardTransfer.ts` — it already animates the live element.
+- No change to `class_gallery_awards`, the win logic, timer freeze, or navigation.
