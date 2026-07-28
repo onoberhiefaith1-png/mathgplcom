@@ -29,13 +29,25 @@ export interface CreateAssessmentInput {
 export interface QuestionPayload {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number; containers: ContainerKind[] }[];
+  lines: {
+    lineId: string;
+    chips: string[];
+    marks: number;
+    containers: ContainerKind[];
+    /** Teacher's correct equation for this line (the orange line). Student-safe
+     *  only in the sense that it is NOT sent to the board — it stays in the
+     *  answer key. Kept here so board sources can carry it for the teacher. */
+  }[];
 }
 
 export interface AnswerKeyLine {
   questionId: string;
   lineId: string;
+  /** Legacy/parallel token list. Kept for older rows and for display. */
   tokens: string[];
+  /** THE expected line — the teacher's highlighted equation, verbatim.
+   *  This — never the floating-number set — is what grading compares against. */
+  equationAscii?: string;
 }
 
 export interface CompiledSection {
@@ -44,12 +56,23 @@ export interface CompiledSection {
   total: number;
 }
 
+/** Normalise fillers for display WITHOUT ever dropping one.
+ *  Teacher floating objects must reach the student one-for-one: if a filler
+ *  cannot be fully converted to Unicode math we keep the original text rather
+ *  than deleting the object, otherwise the student is handed an incomplete
+ *  set and can never rebuild the expected line. */
 const cleanFillers = (fillers: string[] | undefined): string[] =>
   (fillers ?? [])
-    .map((f) => toUnicodeMath(String(f ?? "")))
-    .filter((f) => f && !isStillDirty(f));
+    .map((f) => {
+      const raw = String(f ?? "");
+      const uni = toUnicodeMath(raw);
+      if (uni && !isStillDirty(uni)) return uni;
+      return (uni || raw).trim();
+    })
+    .filter((f) => f.length > 0);
 
 const marksFor = (line: FloatingLine): number => markForLine(line);
+
 
 export async function getNotebookScoreLabel(notebookId: string): Promise<string> {
   const { data } = await supabase
@@ -90,21 +113,37 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     const flLines = ((s as any).floating_lines ?? []) as FloatingLine[];
     const lines: QuestionPayload["lines"] = [];
     for (const line of flLines) {
-      let tokens = cleanFillers(line.fillers);
-      if (tokens.length < 1) {
-        tokens = cleanFillers(tokensFromEquation(line.equation));
-      }
-      if (tokens.length < 1) continue;
+      // Two DIFFERENT objects, never interchangeable:
+      //  • chips   — the draggable floating numbers handed to the student.
+      //  • tokens/equationAscii — the teacher's correct line (the answer key).
+      const chips = cleanFillers(line.fillers);
+      const equationAscii = (() => {
+        const eq = String(line.equation ?? "").trim();
+        if (!eq) return "";
+        const uni = toUnicodeMath(eq);
+        return (uni && !isStillDirty(uni) ? uni : eq).trim();
+      })();
+      const keyTokens = equationAscii
+        ? cleanFillers(tokensFromEquation(equationAscii))
+        : chips;
+      const studentChips = chips.length > 0 ? chips : keyTokens;
+      if (studentChips.length < 1 && !equationAscii) continue;
       const marks = marksFor(line);
       total += marks;
       lines.push({
         lineId: line.lineId,
-        chips: rearrangeStream(tokens),
+        chips: rearrangeStream(studentChips),
         marks,
         containers: (line.containers ?? []) as ContainerKind[],
       });
-      answerKey.push({ questionId: sid, lineId: line.lineId, tokens });
+      answerKey.push({
+        questionId: sid,
+        lineId: line.lineId,
+        tokens: keyTokens.length > 0 ? keyTokens : studentChips,
+        equationAscii: equationAscii || undefined,
+      });
     }
+
     if (lines.length === 0) continue;
     questions.push({ id: sid, questionText: problemBySub.get(sid) ?? "", lines });
   }

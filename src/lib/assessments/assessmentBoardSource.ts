@@ -7,7 +7,7 @@ import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 export interface AssessmentQuestion {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number; containers?: string[] }[];
+  lines: { lineId: string; chips: string[]; marks: number; containers?: string[]; equation?: string }[];
 }
 
 export interface AssessmentLike {
@@ -45,7 +45,7 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
       const fills = (ln.chips ?? []).filter(Boolean);
       fragments.push(...fills);
       lines.push({
-        equation: "",
+        equation: String(ln.equation ?? ""),
         fillers: fills,
         containers: (ln.containers ?? []) as ContainerKind[],
         fragmentStart: start,

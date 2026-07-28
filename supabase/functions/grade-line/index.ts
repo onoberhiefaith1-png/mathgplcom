@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     if (!parsed.success) {
       return json({ error: parsed.error.flatten().fieldErrors }, 400);
     }
-    const { assessmentId, questionId, lineId, studentAscii, mode, allowedFloatingTokens, persist } = parsed.data;
+    const { assessmentId, questionId, lineId, studentAscii, mode, persist } = parsed.data;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -96,34 +96,31 @@ Deno.serve(async (req) => {
       questionId: string;
       lineId: string;
       tokens: string[];
+      equationAscii?: string;
     }>;
     const correct = keyLines.find(
       (k) => k.questionId === questionId && k.lineId === lineId,
     );
     if (!correct) return json({ error: "key_not_found" }, 404);
-    const teacherAscii = (correct.tokens ?? []).join(" ").trim();
 
-    // Floating-set enforcement. Student atoms (numbers + variable identifiers)
-    // must be a subset of the line's available chips. Applied in BOTH modes:
-    // a student can never invent a token that wasn't floated to them.
-    let inFloatingSet = true;
-    if (Array.isArray(allowedFloatingTokens) && allowedFloatingTokens.length > 0) {
-      const atomize = (s: string): string[] =>
-        (s.match(/[A-Za-z]+|\d+(?:\.\d+)?/g) ?? []).map((t) => t.toLowerCase());
-      const allowed = new Set(allowedFloatingTokens.flatMap(atomize));
-      const used = atomize(studentAscii);
-      inFloatingSet = used.every((a) => allowed.has(a));
-    }
+    // EXPECTED LINE = the teacher's correct equation (the orange line).
+    // The floating-number set is NEVER the expected line; older keys without
+    // an equation fall back to the stored tokens.
+    const teacherAscii =
+      String(correct.equationAscii ?? "").trim() ||
+      (correct.tokens ?? []).join(" ").trim();
 
-
-    const verdict = inFloatingSet ? await equivalent(teacherAscii, studentAscii) : "not_in_floating_set";
-    const isCorrect = inFloatingSet && verdict === "equal";
+    // Provenance is informational only. Symbols the student types manually
+    // belong to the active line just like tapped chips, so they are graded as
+    // part of the expression — never rejected for "not being supplied".
+    const verdict = await equivalent(teacherAscii, studentAscii);
+    const isCorrect = verdict === "equal";
 
     // Specific, teacher-style diagnosis (1–3 words) for the Check Line popup.
     // Never contains the answer key.
     let diagnosis;
     try {
-      diagnosis = diagnoseLine(teacherAscii, studentAscii, verdict, allowedFloatingTokens);
+      diagnosis = diagnoseLine(teacherAscii, studentAscii, verdict);
     } catch {
       diagnosis = isCorrect
         ? { code: "equivalent", label: "Equivalent", detail: "The line is mathematically equivalent to the expected step." }

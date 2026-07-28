@@ -23,13 +23,14 @@ describe("line diagnosis", () => {
     expect(code("2x = 10", "x*2 = 10", "equal")).toBe("equivalent");
   });
 
-  it("flags a number that was not supplied for this line", () => {
-    expect(code("2x = 10", "3x = 10", "not_in_floating_set")).toBe("number_not_given");
+  it("never rejects a manually typed symbol on provenance grounds", () => {
+    const d = diagnoseLine("2x = 10", "2x + c = 10", "not_equal", ["2", "x", "10"]);
+    expect(d.code).not.toBe("symbol_not_supplied");
+    expect(d.code).not.toBe("number_not_given");
   });
 
-  it("flags a symbol the student introduced", () => {
-    expect(diagnoseLine("2x = 10", "2x + c = 10", "not_in_floating_set", ["2", "x", "10"]).code)
-      .toBe("symbol_not_supplied");
+  it("grades a manually typed but equivalent line as equivalent", () => {
+    expect(code("2x = 10", "x*2 = 10", "equal")).toBe("equivalent");
   });
 
   it("cannot evaluate an empty line", () => {

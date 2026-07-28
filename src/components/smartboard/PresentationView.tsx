@@ -366,6 +366,16 @@ const PresentationView = ({
   const [assessChecking, setAssessChecking] = useState(false);
   // Per-line "wrong" flash keyed by absolute board line number.
   const [wrongLine, setWrongLine] = useState<number | null>(null);
+  // Check is an EVALUATION VIEW, never a new workspace: it echoes the frozen
+  // student expression back with the verdict. The board is untouched.
+  const [checkView, setCheckView] = useState<{
+    lineNo: number;
+    studentAscii: string;
+    correct: boolean;
+    label: string;
+    detail: string;
+    marks: number;
+  } | null>(null);
   const assessTotal = useMemo(
     () =>
       assessmentMode && source
@@ -3097,7 +3107,14 @@ const PresentationView = ({
     // there is simply no expression to send to the engine.)
     if (!ascii.trim()) {
       if (mode === "manual") {
-        toast({ title: "Nothing to check", description: "Write your working first, then press Check." });
+        setCheckView({
+          lineNo: k + 1,
+          studentAscii: "",
+          correct: false,
+          label: "Nothing written",
+          detail: "Nothing has been written on this line yet, so there is no expression to evaluate.",
+          marks: 0,
+        });
       }
       return;
     }
@@ -3176,19 +3193,29 @@ const PresentationView = ({
           activeSensorPhysicalLineRef.current = clampToActiveBand(nextWritable);
           manualPushedRef.current = null;
         }
-        toast({ title: "Equivalent", description: `+${res.marks ?? target.marks ?? 0} marks` });
+        setCheckView({
+          lineNo: k + 1,
+          studentAscii: ascii,
+          correct: true,
+          label: res?.diagnosis?.label ?? "Equivalent",
+          detail: res?.diagnosis?.detail ?? "This line matches the expected step.",
+          marks: Number(res?.marks ?? target.marks ?? 0),
+        });
       } else {
         setWrongLine(rowNum);
         // Short, specific, teacher-style feedback only — the explanation lives
         // in the Reasoning panel, and the answer is never revealed.
         const label =
           res?.diagnosis?.label ??
-          (res?.verdict === "not_in_floating_set"
-            ? "Number not given"
-            : res?.verdict === "parse_error"
-              ? "Invalid expression"
-              : "Not equivalent");
-        toast({ title: label, variant: "destructive" });
+          (res?.verdict === "parse_error" ? "Invalid expression" : "Not equivalent");
+        setCheckView({
+          lineNo: k + 1,
+          studentAscii: ascii,
+          correct: false,
+          label,
+          detail: res?.diagnosis?.detail ?? "This line could not be shown to be equivalent to the expected step.",
+          marks: 0,
+        });
       }
     } catch (e: any) {
       if (mode === "manual") {
@@ -5973,6 +6000,47 @@ const PresentationView = ({
               >+</button>
             </div>
           </div>
+
+          {/* CHECK EVALUATION VIEW — shows the student's own expression with the
+              verdict. It never replaces or clears the board. */}
+          {checkView && (
+            <div
+              className="absolute inset-0 z-[80] flex items-end justify-end p-6"
+              onClick={() => setCheckView(null)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-2xl border p-5 shadow-2xl backdrop-blur"
+                style={{ background: palette.chromeBg, borderColor: palette.accent, color: palette.ink }}
+                role="dialog"
+                aria-label="Check result"
+              >
+                <div className="text-xs uppercase tracking-wide opacity-70">
+                  Line {checkView.lineNo} · Check result
+                </div>
+                <div className="mt-3 text-xs uppercase tracking-wide opacity-70">Your line</div>
+                <div className="mt-1 rounded-lg border px-3 py-2 text-lg" style={{ borderColor: palette.accent }}>
+                  {checkView.studentAscii
+                    ? <span dangerouslySetInnerHTML={{ __html: renderMathInline(checkView.studentAscii) }} />
+                    : <span className="opacity-60 text-sm">Nothing written on this line yet.</span>}
+                </div>
+                <div className="mt-4 text-base font-semibold" style={{ color: checkView.correct ? palette.accent : "#e11d48" }}>
+                  {checkView.label}
+                </div>
+                <div className="mt-1 text-sm opacity-80">{checkView.detail}</div>
+                {checkView.correct && (
+                  <div className="mt-2 text-sm font-semibold tabular-nums">+{checkView.marks} marks</div>
+                )}
+                <button
+                  onClick={() => setCheckView(null)}
+                  className="mt-5 w-full rounded-full px-4 py-2 text-sm font-semibold"
+                  style={{ background: palette.accent, color: palette.chromeBg }}
+                >
+                  Back to board
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Per-line Check menu — grades any line server-side (grade-line).
               Hidden entirely in View Only mode; returns in Edit mode. */}
