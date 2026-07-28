@@ -310,14 +310,12 @@ const TeacherReasoningPanel = ({
     return currentQ?.lines?.[activeIdx]?.lineId ?? null;
   }, [feed, activeIdx, currentQ]);
 
-  // Expected line = the TEACHER'S orange equation (normal-mode presenter
-  // line). Legacy answer keys without `equationAscii` fall back to the
-  // stored tokens. Either way it is rendered, never printed as source.
+  // Expected line = the TEACHER'S authored equation (the orange normal-mode
+  // presenter line) and nothing else. It is NEVER reconstructed from the
+  // floating-number list — those are only an input source for the student.
   const expectedAscii = useMemo(() => {
     const k = keyLines.find((x) => x.questionId === currentQid && x.lineId === currentLid);
-    const eq = toDisplaySafe(k?.equationAscii);
-    if (eq) return eq;
-    return toDisplaySafe((k?.tokens ?? []).join(" "));
+    return toDisplaySafe(k?.equationAscii);
   }, [keyLines, currentQid, currentLid]);
 
 
