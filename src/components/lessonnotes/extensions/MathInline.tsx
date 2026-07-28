@@ -24,7 +24,27 @@ function parseTree(attrs: Record<string, unknown>): Row {
     try { return JSON.parse(t) as Row; } catch { /* fall through */ }
   }
   const value = String(attrs.value ?? "");
-  return latexToTree(latexToFriendlyForTree(value));
+  const tree = latexToTree(latexToFriendlyForTree(value));
+  assertParseRoundTrip(value, tree);
+  return tree;
+}
+
+/** Structure check: the parser must be lossless. If re-serialising the tree
+ *  does not reproduce the stored value, the parse dropped or mangled math
+ *  (this is how raw `\frac{...}` once leaked into lesson notes). Surface it
+ *  loudly in dev instead of silently rendering broken math. */
+function assertParseRoundTrip(value: string, tree: Row): void {
+  if (!value.trim()) return;
+  try {
+    const back = treeToLatex(tree);
+    const norm = (s: string) => s.replace(/\s+/g, "");
+    if (norm(back) !== norm(latexToFriendlyForTree(value))) {
+      // eslint-disable-next-line no-console
+      console.warn("[mathInline] lossy LaTeX parse", { value, reparsed: back });
+    }
+  } catch {
+    /* never break rendering over a diagnostic */
+  }
 }
 
 /** Strip trailing open braces before parsing (legacy autoEdit drafts stored
