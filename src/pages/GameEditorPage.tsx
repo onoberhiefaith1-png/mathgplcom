@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import RewardConfigPanel, { type RewardDraft } from "@/components/gamebuilder/RewardConfigPanel";
 import { useGalleryScrollMemory } from "@/lib/games/galleryScroll";
 import {
+  captureRewardElementStyle,
   loadClassGalleryReward,
   loadClassGalleryRewards,
   upsertClassGalleryReward,
@@ -977,6 +978,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         storage_path: rewardSource.storagePath,
         media_type: rewardSource.mediaType,
         source: rewardSource.source ?? "storage",
+        // Move the configured object, not the uploaded file: the reward keeps
+        // its Adventure look (transparency, blend, tint, lean) in transit.
+        element_style: captureRewardElementStyle(rewardSource),
         start_x: rewardDraft.startX, start_y: rewardDraft.startY,
         end_x: rewardDraft.endX, end_y: rewardDraft.endY,
         scale: rewardDraft.scale,

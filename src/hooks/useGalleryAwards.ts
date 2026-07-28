@@ -11,7 +11,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
-import { loadClassGalleryRewards, type ClassGalleryRewardRow } from "@/lib/games/classGalleryRewards";
+import {
+  loadClassGalleryRewards,
+  type ClassGalleryRewardRow,
+  type RewardElementStyle,
+} from "@/lib/games/classGalleryRewards";
 import { loadClassGalleryAwards, type ClassGalleryAwardRow } from "@/lib/games/classGalleryAwards";
 import type { CanvasElement } from "@/lib/games/types";
 
@@ -20,6 +24,9 @@ export const AWARD_PREFIX = "award-";
 export type AnimateTarget = { gameId: string; elementId: string } | null;
 
 const keyOf = (gameId: string, elementId: string) => `${gameId}:${elementId}`;
+
+/** How long the reward takes to adopt its Gallery transform after landing. */
+const SETTLE_MS = 350;
 
 /** Parse the `?animateReward=gameId:elementId` query value. */
 export const parseAnimateReward = (raw: string | null): AnimateTarget => {
@@ -44,6 +51,8 @@ export function useGalleryAwards({
   const [awards, setAwards] = useState<ClassGalleryAwardRow[]>([]);
   const [flightPos, setFlightPos] = useState<{ x: number; y: number } | null>(null);
   const [flying, setFlying] = useState(false);
+  /** 0 = still the Adventure look, 1 = fully adopted the Gallery transform. */
+  const [settleT, setSettleT] = useState(1);
   const frameRef = useRef<number | null>(null);
   const playedRef = useRef<string | null>(null);
 
@@ -105,6 +114,7 @@ export function useGalleryAwards({
     const p = animatedPlacement;
     const dur = Math.max(500, Number(p.duration_ms) || 2000);
     setFlying(true);
+    setSettleT(0);
     setFlightPos({ x: Number(p.start_x), y: Number(p.start_y) });
     const t0 = performance.now();
     const step = (now: number) => {
@@ -120,7 +130,20 @@ export function useGalleryAwards({
         frameRef.current = null;
         setFlightPos({ x: Number(p.end_x), y: Number(p.end_y) });
         setFlying(false);
-        onAnimationEnd?.();
+        // Only now, at the End Position, does the reward adopt the Gallery's
+        // saved transform — a short settle, never a jump mid-flight.
+        const s0 = performance.now();
+        const settle = (n: number) => {
+          const s = Math.min(1, (n - s0) / SETTLE_MS);
+          setSettleT(s < 1 ? 1 - Math.pow(1 - s, 3) : 1);
+          if (s < 1) {
+            frameRef.current = requestAnimationFrame(settle);
+          } else {
+            frameRef.current = null;
+            onAnimationEnd?.();
+          }
+        };
+        frameRef.current = requestAnimationFrame(settle);
       }
     };
     frameRef.current = requestAnimationFrame(step);
@@ -133,27 +156,44 @@ export function useGalleryAwards({
       const p = placementByKey.get(keyOf(a.game_id, a.reward_element_id));
       if (!p) return;
       const isFlight = animateKey === keyOf(a.game_id, a.reward_element_id) && flightPos;
+      // The configured Adventure instance, when one was captured. Legacy rows
+      // fall back to the raw placement fields exactly as before.
+      const style = (p.element_style ?? null) as RewardElementStyle | null;
+      // Adventure look holds for the whole journey; Gallery values take over
+      // as the reward settles at its End Position (t = 1 = fully Gallery).
+      const t = isFlight ? (style ? settleT : 1) : 1;
+      const mix = (from: number, to: number) => from + (to - from) * t;
+      const fromScale = style ? Number(style.scale) : Number(p.scale);
+      const fromRot = style ? Number(style.rotation) : Number(p.rotation);
+      const fromOpacity = style ? Number(style.opacity) : Number(p.opacity);
+
       out.push({
         id: `${AWARD_PREFIX}${a.id}`,
         kind: "reward",
         assetId: p.asset_id ?? "",
-        mediaType: p.media_type,
-        storagePath: p.storage_path,
-        source: p.source,
+        mediaType: style?.mediaType ?? p.media_type,
+        storagePath: style?.storagePath ?? p.storage_path,
+        source: style?.source ?? p.source,
         x: isFlight ? flightPos!.x : Number(p.end_x),
         y: isFlight ? flightPos!.y : Number(p.end_y),
-        scale: Number(p.scale),
+        scale: mix(fromScale, Number(p.scale)),
         z: 800 + i,
-        rotation: Number(p.rotation),
-        opacity: Number(p.opacity),
+        rotation: mix(fromRot, Number(p.rotation)),
+        opacity: mix(fromOpacity, Number(p.opacity)),
         animation: { type: "none", amplitude: 0, speed: 1, loop: false },
-        blend: "normal",
-        bgRemoval: "none",
-        label: "Reward",
+        // Transparency and compositing never reset to the raw upload.
+        blend: style?.blend ?? "normal",
+        bgRemoval: style?.bgRemoval ?? "none",
+        keyColor: style?.keyColor,
+        keyTolerance: style?.keyTolerance,
+        tint: style?.tint,
+        slant: style?.slant,
+        label: style?.label || "Reward",
       });
     });
     return out;
-  }, [visibleAwards, placementByKey, animateKey, flightPos]);
+  }, [visibleAwards, placementByKey, animateKey, flightPos, settleT]);
+
 
   /** Vertical position (0..1) of the flying reward, for camera follow. */
   const flightY = flightPos?.y ?? null;

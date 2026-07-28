@@ -632,6 +632,7 @@ export type Database = {
           class_id: string
           created_at: string
           duration_ms: number
+          element_style: Json | null
           end_x: number
           end_y: number
           game_id: string
@@ -652,6 +653,7 @@ export type Database = {
           class_id: string
           created_at?: string
           duration_ms?: number
+          element_style?: Json | null
           end_x?: number
           end_y?: number
           game_id: string
@@ -672,6 +674,7 @@ export type Database = {
           class_id?: string
           created_at?: string
           duration_ms?: number
+          element_style?: Json | null
           end_x?: number
           end_y?: number
           game_id?: string
