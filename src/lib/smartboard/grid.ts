@@ -28,17 +28,24 @@ const BASE = {
 /** One em of writing equals this many CSS pixels at zoom = 1. */
 export const BASE_FONT_PX = 34;
 
-/** Smallest natural distance between row baselines at 0% Row Spacing.
- *  This is the editor's default writing rhythm, not an added blank row. */
+/** One cursor height = this multiple of the base font, at zoom 1.
+ *  This is the Row unit: Row Spacing counts cursor heights. */
 const MIN_ROW_PER_FONT = 1.16;
 
-/** Maximum extra gap added when the Row Spacing slider reaches 100%. */
-const MAX_EXTRA_GAP = 44;
-
-export const clampRowSpacing = (v: number) => Math.max(0, Math.min(1, v));
+/** Row Spacing is a whole number of cursor heights (1, 2, 3, 4 …). */
+export const clampRowSpacing = (v: number) =>
+  Math.max(1, Math.min(6, Math.round(Number.isFinite(v) ? v : 1)));
 /** @deprecated Use `clampRowSpacing`. Kept for legacy import paths. */
 export const clampLineSpacing = clampRowSpacing;
 export const clampTextScale = (v: number) => Math.max(0.7, Math.min(1.8, v));
+
+/** Migrates legacy fractional Row Spacing (0..1 slider) to the new
+ *  whole-number cursor-height model. */
+export const normalizeRowSpacing = (v: number): number => {
+  if (!Number.isFinite(v)) return 1;
+  if (v <= 1) return 1;
+  return clampRowSpacing(v);
+};
 
 export interface Grid {
   MARGIN_LEFT: number;
@@ -47,33 +54,37 @@ export interface Grid {
   BASELINE_OFFSET: number;
   CARET_HEIGHT: number;
   FONT_PX: number;
+  /** One cursor height — depends on zoom only. The Row unit. */
+  CURSOR_HEIGHT: number;
 }
 
 /**
- * @param zoom         page-zoom multiplier (existing control)
- * @param rowSpacing   extra vertical gap between consecutive rows, 0..1.
- *                     0% means no extra gap above the natural row pitch.
- * @param textScale    content-only font multiplier — grows lesson text
- *                     and math; row height follows so nothing clips.
+ * Three fully independent controls:
+ *   zoom       — scales the whole board (cursor height AND font).
+ *   rowSpacing — whole number of cursor heights between writable Rows.
+ *                Never touches font size.
+ *   textScale  — font size of text/math only. Never touches row pitch;
+ *                taller ink claims extra rows downward instead.
  */
 export const getGrid = (
   zoom = 1,
-  rowSpacing = 0,
+  rowSpacing = 1,
   textScale = 1,
 ): Grid => {
-  const fontPx = BASE_FONT_PX * zoom * textScale;
-  const naturalRow = fontPx * MIN_ROW_PER_FONT;
-  const extraGap = clampRowSpacing(rowSpacing) * MAX_EXTRA_GAP * zoom;
-  const lineHeight = naturalRow + extraGap;
+  const cursorHeight = BASE_FONT_PX * MIN_ROW_PER_FONT * zoom;
+  const fontPx = BASE_FONT_PX * zoom * clampTextScale(textScale);
+  const lineHeight = cursorHeight * clampRowSpacing(rowSpacing);
   return {
     MARGIN_LEFT: BASE.MARGIN_LEFT,
     MARGIN_TOP: BASE.MARGIN_TOP,
     LINE_HEIGHT: lineHeight,
     BASELINE_OFFSET: BASE.BASELINE_OFFSET,
-    CARET_HEIGHT: BASE.CARET_HEIGHT * zoom * textScale,
+    CARET_HEIGHT: BASE.CARET_HEIGHT * zoom,
     FONT_PX: fontPx,
+    CURSOR_HEIGHT: cursorHeight,
   };
 };
+
 
 /** Legacy export — equivalent to getGrid(1). */
 export const GRID = getGrid(1);
