@@ -679,11 +679,18 @@ ${RENDERING_STANDARD}
 ${STRUCTURAL_STANDARD}
 
 ${GEOMETRY_STANDARD}
+
+${CONTINUITY_STANDARD}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
 Task style for this block: ${styleLine}
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
 
       const parts: string[] = [];
+      if (lessonSoFar) {
+        parts.push(
+          `LESSON SO FAR (everything already taught in THIS lesson — read it fully, then continue the sequence. Do not repeat it, do not contradict it, do not switch topic or method):\n${lessonSoFar}`,
+        );
+      }
       if (isSolutionBlock) {
         parts.push(
           `ACTIVE_QUESTION (QUESTION_LOCK — immutable; solve THIS exact problem, do not substitute):\n${activeQuestion}`,
