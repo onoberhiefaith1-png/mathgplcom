@@ -8,8 +8,10 @@ import { X as XIcon, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
+import { PresenterMath, toDisplaySafe } from "./PresenterMath";
 
-type KeyLine = { questionId: string; lineId: string; tokens: string[] };
+type KeyLine = { questionId: string; lineId: string; tokens: string[]; equationAscii?: string };
+
 type QuestionShape = { id: string; lines: Array<{ lineId: string; marks?: number }> };
 type LivePayload = {
   ts: number;
