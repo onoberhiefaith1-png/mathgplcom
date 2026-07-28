@@ -387,41 +387,52 @@ const PresentationView = ({
     [assessmentMode, source],
   );
 
+  // Whose progress row this board mirrors: the viewed student when a teacher
+  // opens a student's board, otherwise the signed-in user.
+  const [progressOwnerId, setProgressOwnerId] = useState<string | null>(null);
+  useEffect(() => {
+    if (boardStudentId) { setProgressOwnerId(boardStudentId); return; }
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!cancelled) setProgressOwnerId(data.user?.id ?? null);
+    });
+    return () => { cancelled = true; };
+  }, [boardStudentId]);
+
   // Seed progress from the server on open + follow live updates.
   useEffect(() => {
-    if (!assessmentMode || !assessmentId) return;
+    if (!assessmentMode || !assessmentId || !progressOwnerId) return;
     let cancelled = false;
     (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id;
-      if (!uid) return;
       const { data: prog } = await supabase
         .from("assessment_progress")
         .select("solved_lines, score")
         .eq("assessment_id", assessmentId)
-        .eq("student_id", uid)
+        .eq("student_id", progressOwnerId)
         .maybeSingle();
       if (cancelled) return;
       setSolvedSlots(((prog?.solved_lines as Record<string, number>) ?? {}));
       setAssessScore(Number(prog?.score ?? 0));
     })();
     return () => { cancelled = true; };
-  }, [assessmentMode, assessmentId]);
+  }, [assessmentMode, assessmentId, progressOwnerId]);
 
   useEffect(() => {
-    if (!assessmentMode || !assessmentId) return;
+    if (!assessmentMode || !assessmentId || !progressOwnerId) return;
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
     void ensureRealtimeAuth().then(() => {
       if (cancelled) return;
       ch = supabase
-        .channel(`assessment-progress-${assessmentId}`, { config: { private: true } })
+        .channel(`assessment-progress-${assessmentId}-${progressOwnerId}`, { config: { private: true } })
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "assessment_progress", filter: `assessment_id=eq.${assessmentId}` },
           (payload) => {
-            const row = payload.new as { solved_lines?: Record<string, number>; score?: number } | null;
+            const row = payload.new as { solved_lines?: Record<string, number>; score?: number; student_id?: string } | null;
             if (!row) return;
+            // Only mirror the row belonging to the board's owner.
+            if (row.student_id && row.student_id !== progressOwnerId) return;
             setSolvedSlots(row.solved_lines ?? {});
             setAssessScore(Number(row.score ?? 0));
           },
@@ -429,7 +440,8 @@ const PresentationView = ({
         .subscribe();
     });
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [assessmentMode, assessmentId]);
+  }, [assessmentMode, assessmentId, progressOwnerId]);
+
 
 
 
