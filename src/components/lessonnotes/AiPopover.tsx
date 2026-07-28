@@ -72,6 +72,19 @@ export function AiPopover({
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
 
+  // Teacher AI preferences (Layer 2) — per lesson note, edited behind the gear.
+  const { id: notebookId } = useParams();
+  const [view, setView] = useState<"prompt" | "settings">("prompt");
+  const [prefs, setPrefs] = useState<AiPreferences>(() => loadAiPreferences(notebookId));
+  useEffect(() => { setPrefs(loadAiPreferences(notebookId)); }, [notebookId]);
+  useEffect(() => {
+    const onChanged = () => setPrefs(loadAiPreferences(notebookId));
+    window.addEventListener(AI_PREFS_EVENT, onChanged as EventListener);
+    return () => window.removeEventListener(AI_PREFS_EVENT, onChanged as EventListener);
+  }, [notebookId]);
+  const chips = useMemo(() => activePreferenceChips(prefs), [prefs]);
+
+
   const startVoice = () => {
     const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { toast({ title: "Voice not supported in this browser" }); return; }
