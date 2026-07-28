@@ -45,7 +45,7 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
       const fills = (ln.chips ?? []).filter(Boolean);
       fragments.push(...fills);
       lines.push({
-        equation: "",
+        equation: String(ln.equation ?? ""),
         fillers: fills,
         containers: (ln.containers ?? []) as ContainerKind[],
         fragmentStart: start,
