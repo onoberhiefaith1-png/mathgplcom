@@ -2230,6 +2230,14 @@ const PresentationView = ({
     if (typeof v === "number") setActiveLineIdx(v);
   }, []);
 
+  // ── REASONING ENGINE ────────────────────────────────────────────────────
+  // The one brain: it owns the active line, binds it to the board row the
+  // student is actually writing on, tracks attempts, and produces the live
+  // snapshot the teacher Reasoning panel renders. In-memory only.
+  const reasoningRef = useRef<ReasoningEngine>(new ReasoningEngine());
+
+
+
 
   // ─── Placeholder sweep on advance ────────────────────────────────────
   // When the teacher moves forward (activeLineIdx increases), any row on
