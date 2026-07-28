@@ -9,6 +9,8 @@ import { BENCHMARK_STANDARD } from "./benchmarkStandard.ts";
 import { STRUCTURAL_STANDARD } from "./structuralStandard.ts";
 import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { INHERITANCE_STANDARD } from "./inheritanceStandard.ts";
+import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
+import { sanitizePresentation, residueReport } from "./outputHygiene.ts";
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
   runValidationPipeline,
