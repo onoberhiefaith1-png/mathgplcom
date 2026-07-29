@@ -15,12 +15,9 @@ import { normalizeCanvas, type CanvasElement } from "@/lib/games/types";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { fetchPublicGameBundle, fetchPublicGameProgress, type PublicGameBundle } from "@/lib/smartcards/publicGame";
-import {
-  loadRememberedIdentity, newParticipantKey, pingPresence, rememberIdentity,
-  type CardIdentity,
-} from "@/lib/smartcards/smartCards";
+import { pingPresence, type CardIdentity } from "@/lib/smartcards/smartCards";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 const SmartCardGamePage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -30,13 +27,31 @@ const SmartCardGamePage = () => {
 
   const [bundle, setBundle] = useState<PublicGameBundle | null>(null);
   const [loading, setLoading] = useState(true);
-  const [identity, setIdentity] = useState<CardIdentity | null>(() => loadRememberedIdentity());
-  const [guestName, setGuestName] = useState("");
+  // Game Challenges are sign-in only: rewards land in the player's own gallery.
+  const [identity, setIdentity] = useState<CardIdentity | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [solved, setSolved] = useState<Record<string, Record<string, number>>>({});
   const [openBarId, setOpenBarId] = useState<string | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const startedAt = useRef<number>(Date.now());
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        setIdentity({
+          participantKey: data.user.id,
+          displayName:
+            (data.user.user_metadata?.display_name as string) ||
+            (data.user.email ?? "Player").split("@")[0],
+          remembered: true,
+        });
+      }
+      setAuthChecked(true);
+    })();
+  }, []);
+
 
   useEffect(() => {
     (async () => {
