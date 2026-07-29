@@ -18,6 +18,9 @@ import {
 
 
 const VISITOR_KEY = "smartcard:visitor";
+// Share Card promo message — teacher-local, per card. Never published.
+const PROMO_KEY = "smartcard:promo";
+const DEFAULT_PROMO = "👇 Use the link below to solve today's challenge.";
 
 const visitorKey = (): string => {
   try {
