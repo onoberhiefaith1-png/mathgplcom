@@ -57,7 +57,12 @@ const read = (): ReportSettings => {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return DEFAULT_REPORT_SETTINGS;
-    return { ...DEFAULT_REPORT_SETTINGS, ...(JSON.parse(raw) as Partial<ReportSettings>) };
+    const parsed = JSON.parse(raw) as Partial<ReportSettings>;
+    return {
+      ...DEFAULT_REPORT_SETTINGS,
+      ...parsed,
+      trend: { ...DEFAULT_TREND_COLORS, ...(parsed.trend ?? {}) },
+    };
   } catch {
     return DEFAULT_REPORT_SETTINGS;
   }
@@ -78,8 +83,13 @@ export function useReportSettings() {
     setSettings((s) => ({ ...s, [key]: value }));
   }, []);
 
-  return { settings, update };
+  const updateTrendColor = useCallback((key: keyof TrendColors, value: string) => {
+    setSettings((s) => ({ ...s, trend: { ...s.trend, [key]: value } }));
+  }, []);
+
+  return { settings, update, updateTrendColor };
 }
+
 
 /** Wrapper class for the report surface — scopes the report palette. */
 export const reportSurfaceClass = (s: ReportSettings) =>
