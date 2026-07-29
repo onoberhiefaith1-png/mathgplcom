@@ -15,7 +15,10 @@ import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuthAdminRouteImport } from './routes/auth/admin'
+import { Route as AuthParentRouteImport } from './routes/auth/parent'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthSchoolRouteImport } from './routes/auth/school'
+import { Route as AuthStudentRouteImport } from './routes/auth/student'
 import { Route as AuthTeacherRouteImport } from './routes/auth/teacher'
 import { Route as BackgroundsIndexRouteImport } from './routes/backgrounds/index'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
@@ -24,9 +27,11 @@ import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
 import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
+import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
 import { Route as SchoolIndexRouteImport } from './routes/school/index'
 import { Route as SmartboardIndexRouteImport } from './routes/smartboard/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
+import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
@@ -193,9 +198,24 @@ const AuthAdminRoute = AuthAdminRouteImport.update({
   path: '/auth/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthParentRoute = AuthParentRouteImport.update({
+  id: '/auth/parent',
+  path: '/auth/parent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/auth/reset-password',
+  path: '/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthSchoolRoute = AuthSchoolRouteImport.update({
   id: '/auth/school',
   path: '/auth/school',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthStudentRoute = AuthStudentRouteImport.update({
+  id: '/auth/student',
+  path: '/auth/student',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthTeacherRoute = AuthTeacherRouteImport.update({
@@ -238,6 +258,11 @@ const MathboardIndexRoute = MathboardIndexRouteImport.update({
   path: '/mathboard/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
+  id: '/privacy/',
+  path: '/privacy/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SchoolIndexRoute = SchoolIndexRouteImport.update({
   id: '/school/',
   path: '/school/',
@@ -251,6 +276,11 @@ const SmartboardIndexRoute = SmartboardIndexRouteImport.update({
 const TeachingHubIndexRoute = TeachingHubIndexRouteImport.update({
   id: '/teaching-hub/',
   path: '/teaching-hub/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsIndexRoute = TermsIndexRouteImport.update({
+  id: '/terms/',
+  path: '/terms/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
@@ -1026,7 +1056,10 @@ const TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth/admin': typeof AuthAdminRoute
+  '/auth/parent': typeof AuthParentRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/school': typeof AuthSchoolRoute
+  '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -1039,9 +1072,11 @@ export interface FileRoutesByFullPath {
   '/lesson-notes/': typeof LessonNotesIndexRoute
   '/live/': typeof LiveIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/privacy/': typeof PrivacyIndexRoute
   '/school/': typeof SchoolIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
   '/teaching-hub/': typeof TeachingHubIndexRoute
+  '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
   '/age/$range/': typeof AgeRangeIndexRoute
@@ -1181,7 +1216,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth/admin': typeof AuthAdminRoute
+  '/auth/parent': typeof AuthParentRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/school': typeof AuthSchoolRoute
+  '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
@@ -1194,9 +1232,11 @@ export interface FileRoutesByTo {
   '/lesson-notes': typeof LessonNotesIndexRoute
   '/live': typeof LiveIndexRoute
   '/mathboard': typeof MathboardIndexRoute
+  '/privacy': typeof PrivacyIndexRoute
   '/school': typeof SchoolIndexRoute
   '/smartboard': typeof SmartboardIndexRoute
   '/teaching-hub': typeof TeachingHubIndexRoute
+  '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/adventure/games': typeof AdventureGamesIndexRoute
   '/age/$range': typeof AgeRangeIndexRoute
@@ -1337,7 +1377,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth/admin': typeof AuthAdminRoute
+  '/auth/parent': typeof AuthParentRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/school': typeof AuthSchoolRoute
+  '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -1350,9 +1393,11 @@ export interface FileRoutesById {
   '/lesson-notes/': typeof LessonNotesIndexRoute
   '/live/': typeof LiveIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/privacy/': typeof PrivacyIndexRoute
   '/school/': typeof SchoolIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
   '/teaching-hub/': typeof TeachingHubIndexRoute
+  '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
   '/age/$range/': typeof AgeRangeIndexRoute
@@ -1494,7 +1539,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth/admin'
+    | '/auth/parent'
+    | '/auth/reset-password'
     | '/auth/school'
+    | '/auth/student'
     | '/auth/teacher'
     | '/admin/'
     | '/adventure/'
@@ -1507,9 +1555,11 @@ export interface FileRouteTypes {
     | '/lesson-notes/'
     | '/live/'
     | '/mathboard/'
+    | '/privacy/'
     | '/school/'
     | '/smartboard/'
     | '/teaching-hub/'
+    | '/terms/'
     | '/.lovable/oauth/consent'
     | '/adventure/games/'
     | '/age/$range/'
@@ -1649,7 +1699,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth/admin'
+    | '/auth/parent'
+    | '/auth/reset-password'
     | '/auth/school'
+    | '/auth/student'
     | '/auth/teacher'
     | '/admin'
     | '/adventure'
@@ -1662,9 +1715,11 @@ export interface FileRouteTypes {
     | '/lesson-notes'
     | '/live'
     | '/mathboard'
+    | '/privacy'
     | '/school'
     | '/smartboard'
     | '/teaching-hub'
+    | '/terms'
     | '/.lovable/oauth/consent'
     | '/adventure/games'
     | '/age/$range'
@@ -1804,7 +1859,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth/admin'
+    | '/auth/parent'
+    | '/auth/reset-password'
     | '/auth/school'
+    | '/auth/student'
     | '/auth/teacher'
     | '/admin/'
     | '/adventure/'
@@ -1817,9 +1875,11 @@ export interface FileRouteTypes {
     | '/lesson-notes/'
     | '/live/'
     | '/mathboard/'
+    | '/privacy/'
     | '/school/'
     | '/smartboard/'
     | '/teaching-hub/'
+    | '/terms/'
     | '/.lovable/oauth/consent'
     | '/adventure/games/'
     | '/age/$range/'
@@ -1960,7 +2020,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthAdminRoute: typeof AuthAdminRoute
+  AuthParentRoute: typeof AuthParentRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSchoolRoute: typeof AuthSchoolRoute
+  AuthStudentRoute: typeof AuthStudentRoute
   AuthTeacherRoute: typeof AuthTeacherRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdventureIndexRoute: typeof AdventureIndexRoute
@@ -1973,9 +2036,11 @@ export interface RootRouteChildren {
   LessonNotesIndexRoute: typeof LessonNotesIndexRoute
   LiveIndexRoute: typeof LiveIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
+  PrivacyIndexRoute: typeof PrivacyIndexRoute
   SchoolIndexRoute: typeof SchoolIndexRoute
   SmartboardIndexRoute: typeof SmartboardIndexRoute
   TeachingHubIndexRoute: typeof TeachingHubIndexRoute
+  TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   AdventureGamesIndexRoute: typeof AdventureGamesIndexRoute
   AgeRangeIndexRoute: typeof AgeRangeIndexRoute
@@ -2157,11 +2222,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/parent': {
+      id: '/auth/parent'
+      path: '/auth/parent'
+      fullPath: '/auth/parent'
+      preLoaderRoute: typeof AuthParentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/auth/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/school': {
       id: '/auth/school'
       path: '/auth/school'
       fullPath: '/auth/school'
       preLoaderRoute: typeof AuthSchoolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/student': {
+      id: '/auth/student'
+      path: '/auth/student'
+      fullPath: '/auth/student'
+      preLoaderRoute: typeof AuthStudentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/teacher': {
@@ -2220,6 +2306,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MathboardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy/': {
+      id: '/privacy/'
+      path: '/privacy'
+      fullPath: '/privacy/'
+      preLoaderRoute: typeof PrivacyIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/school/': {
       id: '/school/'
       path: '/school'
@@ -2239,6 +2332,13 @@ declare module '@tanstack/react-router' {
       path: '/teaching-hub'
       fullPath: '/teaching-hub/'
       preLoaderRoute: typeof TeachingHubIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms/': {
+      id: '/terms/'
+      path: '/terms'
+      fullPath: '/terms/'
+      preLoaderRoute: typeof TermsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.lovable/oauth/consent': {
@@ -3192,7 +3292,10 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthAdminRoute: AuthAdminRoute,
+  AuthParentRoute: AuthParentRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSchoolRoute: AuthSchoolRoute,
+  AuthStudentRoute: AuthStudentRoute,
   AuthTeacherRoute: AuthTeacherRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdventureIndexRoute: AdventureIndexRoute,
@@ -3205,9 +3308,11 @@ const rootRouteChildren: RootRouteChildren = {
   LessonNotesIndexRoute: LessonNotesIndexRoute,
   LiveIndexRoute: LiveIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
+  PrivacyIndexRoute: PrivacyIndexRoute,
   SchoolIndexRoute: SchoolIndexRoute,
   SmartboardIndexRoute: SmartboardIndexRoute,
   TeachingHubIndexRoute: TeachingHubIndexRoute,
+  TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   AdventureGamesIndexRoute: AdventureGamesIndexRoute,
   AgeRangeIndexRoute: AgeRangeIndexRoute,
