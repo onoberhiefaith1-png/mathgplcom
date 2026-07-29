@@ -8,6 +8,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { compileSectionQuestions, type AssessmentKind } from "@/lib/assessments/createAssessment";
 import type { GeometryScene } from "@/lib/geometry/scene";
+import { normalizeCanvas } from "@/lib/games/types";
 
 export interface CardPresentation {
   questionText: string;
