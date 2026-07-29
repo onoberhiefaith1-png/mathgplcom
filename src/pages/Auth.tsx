@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { SIGNUP_ROLES, type SignupRole } from "@/lib/accounts/roles";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ const Auth = () => {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountRole, setAccountRole] = useState<SignupRole>("teacher");
   const [busy, setBusy] = useState(false);
 
   // Preserve a same-origin redirect target (OAuth consent, or a public Smart
