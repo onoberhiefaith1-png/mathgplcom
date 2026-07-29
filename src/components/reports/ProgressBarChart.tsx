@@ -94,7 +94,7 @@ const ProgressBarChart = ({ bars, title, subtitle, settings, filter }: ProgressB
           </div>
 
           {/* Scrolling plot — only this region moves */}
-          <div className="report-scroll min-w-0 flex-1 overflow-x-auto pb-1">
+          <div ref={scrollRef} className="report-scroll min-w-0 flex-1 overflow-x-auto pb-1">
             <div className="relative" style={{ height: PLOT_HEIGHT, minWidth: plotWidth }}>
               {settings.gridLines &&
                 STEPS.map((s) => (
