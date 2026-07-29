@@ -79,8 +79,14 @@ const SmartCardPage = () => {
       setPayload(p);
       setStats(p?.stats ?? null);
       setLoading(false);
+      // Creator tools unlock only for the signed-in owner of this card.
+      const owner = p?.card?.ownerId ?? null;
+      if (!owner) { setIsOwner(false); return; }
+      const { data } = await supabase.auth.getUser();
+      setIsOwner(Boolean(data.user?.id) && data.user!.id === owner);
     })();
   }, [slug]);
+
 
 
   const beat = useCallback(async () => {
