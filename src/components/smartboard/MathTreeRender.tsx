@@ -8,10 +8,10 @@
 // the caret *after* the container, so the user can always type "outside".
 
 import {
-import { EMOJI_STYLE, isEmoji } from "@/lib/text/graphemes";
   CSSProperties, PointerEvent as RPointerEvent,
   useEffect, useRef, useState,
 } from "react";
+import { EMOJI_STYLE, isEmoji } from "@/lib/text/graphemes";
 import type { Cursor, Node, Row } from "@/lib/smartboard/mathTree";
 import { SLOT_GLYPH } from "@/lib/smartboard/mathTree";
 
