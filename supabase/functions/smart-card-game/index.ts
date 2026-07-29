@@ -11,10 +11,12 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 
 const BodySchema = z.object({
-  action: z.enum(["bundle", "progress"]),
+  action: z.enum(["bundle", "progress", "finalize"]),
   slug: z.string().min(3).max(64),
   participantKey: z.string().min(8).max(64).optional(),
+  displayName: z.string().min(1).max(80).optional(),
 });
+
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
