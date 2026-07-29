@@ -9,13 +9,17 @@
 
 const REPLACEMENT = "\uFFFD";
 
-let segmenter: Intl.Segmenter | null = null;
+interface GraphemeSegmenter {
+  segment: (input: string) => Iterable<{ segment: string }>;
+}
+
+let segmenter: GraphemeSegmenter | null = null;
 try {
   // Not available on very old runtimes; the fallback below covers them.
-  segmenter = new (Intl as unknown as { Segmenter: typeof Intl.Segmenter }).Segmenter(
-    undefined,
-    { granularity: "grapheme" },
-  );
+  const Ctor = (Intl as unknown as {
+    Segmenter?: new (l?: string, o?: { granularity: string }) => GraphemeSegmenter;
+  }).Segmenter;
+  segmenter = Ctor ? new Ctor(undefined, { granularity: "grapheme" }) : null;
 } catch {
   segmenter = null;
 }
