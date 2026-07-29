@@ -104,13 +104,42 @@ const SmartCardGamePage = () => {
     return map;
   }, [bundle]);
 
+  // Live clock for the event countdown bar.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const timeLeftMs = useMemo(() => {
+    const tb = bundle?.timeBar;
+    if (!tb?.startedAt) return tb ? tb.durationSeconds * 1000 : 0;
+    const start = new Date(tb.startedAt).getTime();
+    const end = tb.pausedAt ? new Date(tb.pausedAt).getTime() : now;
+    const elapsed = end - start - (tb.accumulatedPausedMs || 0);
+    return Math.max(0, tb.durationSeconds * 1000 - elapsed);
+  }, [bundle?.timeBar, now]);
+
   // Bars fill from this visitor's own marks — there is no class to share with.
   const elements: CanvasElement[] = useMemo(() => {
     const canvas = normalizeCanvas(bundle?.game?.canvas);
     const flat: CanvasElement[] = [];
     for (const scene of canvas.scenes) flat.push(...scene.elements);
+    const required = Math.max(1, bundle?.card?.requiredMarks ?? 1);
     return flat.map((el) => {
       if (el.kind !== "progress_bar" || !el.progress) return el;
+      if (bundle?.timeBar && el.id === bundle.timeBar.progressElementId) {
+        const segments = Math.max(1, el.progress.segments ?? 10);
+        const totalMs = Math.max(1, bundle.timeBar.durationSeconds * 1000);
+        return {
+          ...el,
+          progress: {
+            ...el.progress,
+            currentMarks: Math.round((timeLeftMs / totalMs) * segments),
+            totalMarks: segments,
+          },
+        };
+      }
       const board = boardByElement.get(el.id);
       if (!board) return el;
       return {
@@ -118,10 +147,11 @@ const SmartCardGamePage = () => {
         progress: {
           ...el.progress,
           currentMarks: scores[board.assessmentId] ?? 0,
-          totalMarks: Math.max(1, board.totalMarks),
+          totalMarks: required,
         },
       };
     });
+
   }, [bundle, boardByElement, scores]);
 
   const playableBars = useMemo(
