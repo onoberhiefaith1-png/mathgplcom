@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { classRoot } from "@/lib/product/workspaceRoutes";
+import { classRoot, productTerms, spaceListPath } from "@/lib/product/workspaceRoutes";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,7 +37,7 @@ const ClassDashboardPage = () => {
         .single();
       if (error || !data) {
         toast({ title: "Class not found", variant: "destructive" });
-        navigate("/teaching-hub/classes");
+        navigate(spaceListPath());
         return;
       }
       const { data: code } = await supabase.rpc("get_class_join_code", { _class_id: classId! });
@@ -71,10 +71,10 @@ const ClassDashboardPage = () => {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link to="/teaching-hub/classes" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Classes
+        <Link to={spaceListPath()} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> {productTerms().spacePlural}
         </Link>
-        <h1 className="text-lg font-semibold tracking-wide">Class Dashboard</h1>
+        <h1 className="text-lg font-semibold tracking-wide">{productTerms().space} Dashboard</h1>
         <div className="w-32" />
       </header>
 

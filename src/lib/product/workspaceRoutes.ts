@@ -59,3 +59,7 @@ const LIVE: ProductTerms = {
 
 export const productTerms = (pathname?: string): ProductTerms =>
   currentProduct(pathname) === "live" ? LIVE : TEACHING;
+
+/** Where "back to the list" goes in the active product. */
+export const spaceListPath = (pathname?: string): string =>
+  currentProduct(pathname) === "live" ? "/live/sessions" : "/teaching-hub/classes";
