@@ -1910,6 +1910,7 @@ function DocumentEditorInner({
       />
       <AtCommandMenu editor={editor} state={atState} onClose={() => setAtState({ active: false, query: "", from: 0, to: 0, coords: null })} />
       <AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />
+      <ConversionPanel open={conversionOpen} onOpenChange={setConversionOpen} onInsert={insertSymbolText} />
       <MatrixToolbar editor={editor} />
       <GeometryAiPanel />
       <GeometryToolbox />
