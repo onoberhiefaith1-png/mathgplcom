@@ -83,8 +83,8 @@ Deno.serve(async (req) => {
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${escapeHtml(title)}" />
 ${image ? `<meta property="og:image" content="${escapeHtml(image)}" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
+<meta property="og:image:width" content="1080" />
+<meta property="og:image:height" content="1080" />
 <meta name="twitter:image" content="${escapeHtml(image)}" />` : ""}
 
 <script type="application/ld+json">${JSON.stringify({
