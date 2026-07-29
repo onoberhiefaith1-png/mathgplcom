@@ -251,7 +251,13 @@ function toBar(task: RawTask, m: Measure): TaskBar {
 }
 
 
-const emptyMeasure = (task: RawTask): Measure => ({ percent: 0, frozen: false, score: 0, target: task.target });
+const emptyMeasure = (task: RawTask): Measure => ({
+  percent: 0,
+  frozen: false,
+  score: 0,
+  target: task.target,
+  completedAt: task.dueAt ?? task.startedAt,
+});
 
 /** Average every student's measure into one class-level measure. */
 function classMeasure(task: RawTask, dataset: TaskDataset): Measure {
@@ -261,15 +267,25 @@ function classMeasure(task: RawTask, dataset: TaskDataset): Measure {
   let score = 0;
   let target = 0;
   let frozen = false;
+  let completedAt: string | null = null;
   for (const m of dataset.members) {
     const r = percentFor(task, dataset, m.user_id);
     percent += r.percent;
     score += r.score;
     target += r.target;
     frozen = frozen || r.frozen;
+    // The class task lands on the timeline when the last student finished it.
+    if (r.completedAt && (!completedAt || r.completedAt > completedAt)) completedAt = r.completedAt;
   }
-  return { percent: percent / n, frozen, score: score / n, target: target / n };
+  return {
+    percent: percent / n,
+    frozen,
+    score: score / n,
+    target: target / n,
+    completedAt: completedAt ?? task.dueAt ?? task.startedAt,
+  };
 }
+
 
 export async function loadClassMembers(classId: string): Promise<ClassMember[]> {
   const { data } = (await supabase.rpc("get_class_member_names", { _class_id: classId })) as any;
