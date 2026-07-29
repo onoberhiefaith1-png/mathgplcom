@@ -35,7 +35,7 @@ const ProgressBarChart = ({ bars, title, subtitle }: ProgressBarChartProps) => {
             <span className="h-2.5 w-2.5 rounded-sm bg-primary" /> Assignment
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-accent-foreground/70" /> Adventure
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "hsl(var(--accent))" }} /> Adventure
           </span>
         </div>
       </header>
@@ -85,7 +85,7 @@ const ProgressBarChart = ({ bars, title, subtitle }: ProgressBarChartProps) => {
                     style={{
                       width: BAR_WIDTH,
                       height: Math.max(2, (b.percent / 100) * PLOT_HEIGHT),
-                      background: b.mode === "adventure" ? "hsl(var(--accent-foreground) / 0.7)" : "hsl(var(--primary))",
+                      background: b.mode === "adventure" ? "hsl(var(--accent))" : "hsl(var(--primary))",
                     }}
                     aria-label={`${b.fullTitle}: ${b.percent}%`}
                   >
