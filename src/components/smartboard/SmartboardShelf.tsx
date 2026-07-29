@@ -2,7 +2,7 @@
 // "Open / Present" picker instead of jumping straight into the editor.
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";

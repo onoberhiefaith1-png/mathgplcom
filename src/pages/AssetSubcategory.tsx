@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Inbox, Search } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { getSubcategory } from "@/data/assets";

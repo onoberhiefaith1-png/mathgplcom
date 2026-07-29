@@ -16,7 +16,7 @@
 // copied verbatim from the Lesson Note.
 
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Eye, EyeOff, Pencil, PlayCircle, RotateCcw, StickyNote } from "lucide-react";
 
 import { useNotebook, type SectionRow } from "@/hooks/useNotebook";

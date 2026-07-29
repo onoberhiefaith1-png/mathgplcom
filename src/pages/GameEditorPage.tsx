@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import RewardConfigPanel, { type RewardDraft } from "@/components/gamebuilder/RewardConfigPanel";
 import { useGalleryScrollMemory } from "@/lib/games/galleryScroll";
 import {

@@ -1,5 +1,5 @@
 import { Settings, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { useMathBoard } from "@/hooks/useMathBoard";
 
 const COIN_SRC = "/assets/rewards/coin/gold_coin.png";

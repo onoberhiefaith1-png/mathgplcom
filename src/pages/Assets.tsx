@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { ArrowLeft, FolderOpen, Sparkles } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { assetCategories } from "@/data/assets";

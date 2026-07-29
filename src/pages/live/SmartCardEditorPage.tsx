@@ -4,7 +4,7 @@
 // here ever touches the lesson note; the card carries its own snapshot.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   Undo2, Redo2, Copy, ClipboardPaste, Loader2, Rocket, Minus, Plus, Gamepad2,

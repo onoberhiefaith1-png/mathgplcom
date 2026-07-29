@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { Camera, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 

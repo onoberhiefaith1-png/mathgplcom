@@ -3,7 +3,7 @@
 // equation line. Read-only; the Approve button is on the Verification page.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, ArrowRight, Loader2, RefreshCw, Wand2 } from "lucide-react";
 import { BackButton } from "@/components/common/BackButton";
 import { supabase } from "@/integrations/supabase/client";

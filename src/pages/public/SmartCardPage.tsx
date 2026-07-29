@@ -7,7 +7,7 @@
 // play-through in Creator Test Mode (never counted publicly).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import { supabase } from "@/integrations/supabase/client";

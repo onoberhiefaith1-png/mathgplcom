@@ -1,4 +1,4 @@
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "@/lib/router-compat";
 import { findLevel, resolveLevelId, levelLabel } from "@/data/levels";
 
 type Mode = "level" | "age" | "grade" | "year" | "class";

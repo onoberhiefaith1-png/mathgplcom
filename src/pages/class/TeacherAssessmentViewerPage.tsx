@@ -2,7 +2,7 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — read-only viewer of a specific student's Assessment SmartBoard.
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Loader2, Eye, Pencil, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";

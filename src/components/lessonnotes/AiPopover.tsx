@@ -9,7 +9,7 @@
 //    through the existing notebook-ai `scan` mode.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/router-compat";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Sparkles, Loader2, Mic, Paperclip, Camera, X, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";

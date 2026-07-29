@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Heart, Timer, Target, Delete, CornerDownLeft } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { cn } from "@/lib/utils";

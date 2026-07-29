@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { ArrowLeft, Sparkles, Zap, Flame, Star, Crown } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { cn } from "@/lib/utils";

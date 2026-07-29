@@ -1,7 +1,7 @@
 // Student — play an assigned game.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Loader2, Maximize2, Minimize2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";

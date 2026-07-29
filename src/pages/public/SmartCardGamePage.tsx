@@ -6,7 +6,7 @@
 // key, not a class member.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Loader2, X } from "lucide-react";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import PresentationView from "@/components/smartboard/PresentationView";

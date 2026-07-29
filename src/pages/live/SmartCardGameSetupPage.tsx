@@ -5,7 +5,7 @@
 // game needs at least two bars before a Game Challenge can exist.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Gamepad2, Loader2, Lock, Timer, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -1,7 +1,7 @@
 // Student — per-lesson-note question list.
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Loader2, Check, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 

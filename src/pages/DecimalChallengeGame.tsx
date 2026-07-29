@@ -3,7 +3,7 @@
 // `difficulty` from URL params.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/router-compat";
 import { MathBoardProvider, useMathBoard, CustomValidator } from "@/hooks/useMathBoard";
 import TopHud from "@/components/mathboard/TopHud";
 import SessionStack from "@/components/mathboard/SessionStack";

@@ -1,5 +1,5 @@
 // Difficulty-picker hub for an individual decimal challenge module.
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Sparkles, Zap, Flame, Star } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { cn } from "@/lib/utils";

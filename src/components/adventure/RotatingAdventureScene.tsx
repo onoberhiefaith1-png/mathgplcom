@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import algebraIsland from "@/assets/adventure/algebra-island.png.asset.json";
 import calculusIsland from "@/assets/adventure/calculus-island.png.asset.json";

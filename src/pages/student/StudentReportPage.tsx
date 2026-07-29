@@ -1,7 +1,7 @@
 // Student Report — a student only ever sees their own progress chart.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, BarChart3, Loader2, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ProgressBarChart from "@/components/reports/ProgressBarChart";

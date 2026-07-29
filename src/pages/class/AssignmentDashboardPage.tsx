@@ -2,7 +2,7 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Assignment Dashboard for a single lesson note.
 
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Loader2, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";

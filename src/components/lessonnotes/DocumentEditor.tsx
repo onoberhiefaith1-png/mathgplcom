@@ -9,7 +9,7 @@
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft, Camera, Check, ChevronDown, ChevronUp, Crosshair, HelpCircle,
   Image, Layers, Loader2, Maximize, Minus, Play, Plus, Radio, Sliders,
