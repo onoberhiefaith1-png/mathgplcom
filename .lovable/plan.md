@@ -1,55 +1,48 @@
-# Trend Report — line chart alongside the bar chart
+# MathGPL Live — Phase 1
 
-The bar chart stays exactly as it is ("how did the student do on each task?"). A new Trend chart is added below it on both the teacher Class Report and the Student Report, answering "is performance improving over time?".
+A duplicated teaching hub at `/live`, tailored for teaching mathematics online. The Teaching Hub stays exactly as it is. Every teaching feature (Lesson Notes, Smartboard, Assignments, Adventure, Assessment, Gallery, Reports) is reused unchanged — only classroom management is replaced by session management.
 
-## 1. Data layer (`src/lib/reports/progressChart.ts` + new `src/lib/reports/trendChart.ts`)
+## Core idea
 
-Reuse the existing task data — no new database work, no schema change. The trend is derived from the same `TaskBar` values the bar chart already trusts.
+A **Session** is created with a backing class record behind the scenes. That means every existing class-scoped feature keeps working with zero rewrites, while the teacher only ever sees "Session".
 
-- Add a `completedAt` field to `TaskBar` so a task can be placed on a timeline. Source order: the frozen result's timestamp (from `report_task_results`) → `dueAt` → `startedAt`. Only tasks with a date and with activity (percent recorded / frozen, or score > 0) count as "completed" for a period.
-- New `buildTrendSeries(bars, { grouping, filter })` in `trendChart.ts`:
-  - Buckets: `week` (Sunday 00:00 → Saturday 23:59, local time), `month`, `year`.
-  - Range: from the first task period to the current period — every period in between is emitted, including empty ones.
-  - For each period: filter by mode (Both / Assignment / Adventure), average the task percentages, round.
-  - Empty period → `{ activity: false }` and its value **carries forward** the previous period's average (first-ever empty periods before any activity are dropped, so the chart never opens on a flat phantom line).
-  - Each point also carries: `assignments`, `adventures`, `tasksCompleted`, `highest`, `lowest`, and the period label (`W1…`, `Jan…`, `2026…`).
-- Class-level trend uses the existing class-average bars; student trend uses that student's bars. Both come from `loadReportData` already in memory, so switching student/filter/grouping is instant with no refetch.
+```text
+Lesson Note  ->  Session (schedule + code + visibility)  ->  Publish  ->  Go Live
+                        |
+                        +-- backing class row -> Smartboard, Assignments,
+                            Adventure, Assessment, Gallery, Reports (reused as-is)
+```
 
-## 2. Trend chart component (`src/components/reports/TrendLineChart.tsx`)
+## What gets built in Phase 1
 
-Hand-rolled SVG (same approach and tokens as the bar chart, no chart library):
+**1. Live hub shell**
+- New route family under `/live` with its own navigation: Dashboard, Lesson Notes, Sessions, Smartboard, Assignments, Adventure, Assessment, Gallery, Reports, Settings.
+- Live-branded landing page listing upcoming, live and past sessions.
+- Entry tile added so you can move between Teaching Hub and MathGPL Live.
 
-- Fixed Y axis 0–100% in 10% steps, frozen while the plot scrolls horizontally; X axis chronological and scrollable for long histories.
-- **Straight** segments between points (no smoothing), rounded point markers.
-- Segment colouring: a segment is "activity" only if the period it ends on has activity; otherwise it is drawn in the No-Activity colour as a horizontal carry-forward line. Markers follow the same rule (blue dot vs red dot).
-- Gradient area fill under the line, split per segment so activity stretches fade blue and inactive stretches fade red; soft vertical gradient fading to transparent at the axis, never a solid block.
-- Grid lines respect the existing `gridLines` setting; animations respect `animations` (line draw-in via stroke-dash).
-- Hover/tap on a marker shows a tooltip:
-  - Activity: `Week 5 · Average 78% · Tasks Completed 6 · Assignments 4 · Adventures 2 · Highest / Lowest`.
-  - No activity: `Week 8 — No Activity`, plus "Performance carried forward from the previous reporting period."
-- Responsive: same ResizeObserver narrow-mode treatment as the bar chart.
+**2. Sessions**
+- Create / edit / delete a session: title, description, attached lesson note.
+- Scheduling: date, start time, duration, time zone.
+- Live countdown ("Starts in 2 Hours 35 Minutes 18 Seconds") ticking every second on session cards and the session dashboard.
+- Status derived from the schedule: Scheduled, Starting Soon, Live, Ended.
+- Auto-generated 6-character Session Code plus a shareable join link.
+- Visibility toggle: Private (code only) or Public (listed) — stored now, public profile page comes in Phase 2.
 
-## 3. Grouping control (`src/components/reports/TrendRangeBar.tsx`)
+**3. Session dashboard**
+- Same tile layout as the class dashboard, wording changed to Session, pointing at the existing feature pages for the backing class: Lesson Notes, Smartboard, Assignments, Adventure, Assessment, Gallery, Reports, Participants.
 
-Small segmented control — Weekly / Monthly / Yearly — sitting on the trend card header. One chart, only the X-axis grouping changes. The existing Both/Assignment/Adventure `ReportFilterBar` is shared by both charts on the page.
+**4. Participant join flow**
+- `/live/join` and `/live/join/:code` — enter the Session Code to join a session.
+- Participant session page mirroring the current student class page (lesson notes, assignments, adventure, gallery, reports).
+- Pre-start gate: before the scheduled time, participants see "Waiting for teacher — Class starts in 01:12:34" instead of the Smartboard.
 
-## 4. Colour settings (`reportTheme.ts` + `ReportSettingsSheet.tsx`)
+## Deferred to Phase 2
 
-Extend `ReportSettings` (already persisted per browser) with a `trend` block, defaults:
-
-- Activity line: Blue
-- No Activity line: Red
-- Area fill: Light blue (derived from the activity colour)
-- Grid lines: Light grey
-
-New "Trend Colours" section in the settings sheet with a small swatch picker per role (a fixed palette of ~6 professional hues each, plus the default). Also a Weekly/Monthly/Yearly default and a show/hide toggle for the trend card. These settings affect the Trend Report only; bar-chart colours are untouched.
-
-## 5. Pages
-
-`ClassReportPage.tsx` and `StudentReportPage.tsx`: render `TrendLineChart` under the existing `ProgressBarChart`, sharing the same filter state, the same student selection (teacher), and the same settings object. Titles: "Class Trend" / "Student Trend", subtitle naming the grouping.
+Broadcast platform fields (Zoom, Meet, Teams, WhatsApp, YouTube, TikTok, Instagram, Facebook), public teacher profile page, public lesson-note preview, audience statistics (watching / joined / completed / left), and automatic schedule-driven Smartboard unlocking for all connected participants.
 
 ## Technical notes
 
-- No migration required; `report_task_results` already stores the freeze timestamps used for period placement.
-- All colours flow through the existing `--rp-*` token system plus new `--rp-trend-*` variables set inline from settings, so white and dark report backgrounds both stay legible.
-- Unit test for `buildTrendSeries`: Sunday→Saturday boundaries, carry-forward on empty periods, filter maths, and month/year grouping.
+- **Database (additive only):** new `sessions` table — `id`, `owner_id`, `class_id` (backing class, cascade delete), `notebook_id`, `title`, `description`, `starts_at`, `duration_minutes`, `time_zone`, `visibility` (`private` | `public`), `status` (`draft` | `published` | `live` | `ended`), `session_code` (unique), timestamps. Full GRANTs plus RLS: owners manage their own sessions; participants (members of the backing class) can read; anyone signed in can read `public` published sessions. Existing tables are untouched.
+- Session creation runs in one step: insert the class row, then the session row referencing it. The existing join-code trigger on `classes` continues to work; the session code is generated separately for the Live branding.
+- Live pages live under `src/pages/live/` and reuse existing components; class feature pages are wrapped with a Live layout that maps `sessionId -> classId`, so no existing page logic is duplicated or forked.
+- Countdown handled by a small `useCountdown` hook; status recomputed from `starts_at` + `duration_minutes` on each tick.
