@@ -348,6 +348,19 @@ function SectionHeadingView(props: NodeViewProps) {
               Assign
             </button>
           )}
+          {/* Smart Card publishing is exclusive to MathGPL Live. */}
+          {notebookId && kind === "solution" && isLive && (
+            <button
+              type="button"
+              onClick={openSmartCard}
+              className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider transition"
+              title="Publish this question as a public Smart Card"
+            >
+              {carding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
+              Smart Card
+            </button>
+          )}
+
         </span>
       )}
       {notebookId && (
