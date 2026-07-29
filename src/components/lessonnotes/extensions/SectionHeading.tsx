@@ -11,14 +11,17 @@
 
 import Heading from "@tiptap/extension-heading";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
-import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users } from "lucide-react";
+import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users, Share2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import { AssignDialog } from "../AssignDialog";
 import { detectSectionKind, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
+import type { GeometryScene } from "@/lib/geometry/scene";
+
 
 export type SectionAction =
   | "generate"     // append fresh content (default)
