@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "@/lib/router-compat";
 import subjectChannelImage from "@/assets/academy_subject_channel.png";
 import { findSubject } from "@/data/curriculum";
 

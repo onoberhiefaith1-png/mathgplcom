@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Coins, Diamond, Heart, RotateCcw, Send, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

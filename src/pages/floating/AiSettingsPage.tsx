@@ -6,7 +6,7 @@
 // Floating Number Generation page.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft, Loader2, Upload, Trash2, BookOpen, FileText, FlaskConical,
   RefreshCw, Send, Sparkles, Check, X, Edit3, Plus, Search, ScanLine, Cpu, Activity,
@@ -554,7 +554,7 @@ const AiSettingsPage = () => {
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     placeholder="Search laws, drafts, documents…"
-                    className="bg-transparent outline-none text-xs flex-1 min-w-0"
+                    className="bg-transparent outline-hidden text-xs flex-1 min-w-0"
                     style={{ color: C.text }}
                   />
                 </div>
@@ -1023,7 +1023,7 @@ function DocumentViewer({
       <div className="flex-1" style={{ background: C.pageBg }}>
         <div className="max-w-3xl mx-auto px-8 py-8">
           <article
-            className="rounded-lg border p-8 shadow-sm"
+            className="rounded-lg border p-8 shadow-xs"
             style={{ background: C.panelBg, borderColor: C.border, color: C.text }}
           >
             {loading && (
@@ -1530,7 +1530,7 @@ function KnowledgeChat({
               value={mode}
               onChange={(e) => setMode(e.target.value as ChatMode)}
               title={MODE_LABELS[mode].hint}
-              className="text-[11px] px-2 py-1 rounded-md border bg-transparent outline-none"
+              className="text-[11px] px-2 py-1 rounded-md border bg-transparent outline-hidden"
               style={{ borderColor: C.border, color: C.textSubtle }}
             >
               <option value="conversation">💬 Conversation</option>
@@ -1548,7 +1548,7 @@ function KnowledgeChat({
               }}
               rows={1}
               placeholder={voice.listening ? "Listening…" : "Message Floating Number AI…  (Shift+Enter for newline)"}
-              className="flex-1 resize-none bg-transparent outline-none text-sm py-1.5 max-h-40"
+              className="flex-1 resize-none bg-transparent outline-hidden text-sm py-1.5 max-h-40"
               style={{ color: C.text }}
             />
             <button

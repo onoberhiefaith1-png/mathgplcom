@@ -101,7 +101,7 @@ const LineViewer = ({
   return (
     <div
       className={`rounded-lg border border-border bg-card/95 p-3 backdrop-blur ${
-        sticky ? "sticky top-0 z-10 shadow-sm" : ""
+        sticky ? "sticky top-0 z-10 shadow-xs" : ""
       }`}
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -203,9 +203,13 @@ const TeacherReasoningPanel = ({
   const loadFallback = useCallback(async () => {
     // Per-question board first — that is where students actually write. The
     // legacy shared row is only read when it belongs to THIS question.
-    let row:
-      | { state_json: unknown; question_id: string | null; active_line_idx: number | null; updated_at: string }
-      | null = null;
+    type FallbackRow = {
+      state_json: unknown;
+      question_id: string | null;
+      active_line_idx: number | null;
+      updated_at: string;
+    };
+    let row: FallbackRow | null = null;
 
     if (scopeQuestionId) {
       const { data } = await supabase
@@ -215,7 +219,7 @@ const TeacherReasoningPanel = ({
         .eq("student_id", studentId)
         .eq("question_id", scopeQuestionId)
         .maybeSingle();
-      row = (data as typeof row) ?? null;
+      row = (data as FallbackRow | null) ?? null;
     }
 
     if (!row) {
@@ -225,7 +229,7 @@ const TeacherReasoningPanel = ({
         .eq("assessment_id", assessmentId)
         .eq("student_id", studentId)
         .maybeSingle();
-      const legacy = (data as typeof row) ?? null;
+      const legacy = (data as FallbackRow | null) ?? null;
       const legacyQid = legacy?.question_id ?? null;
       // Never show another question's work under this one.
       row = legacy && (!scopeQuestionId || legacyQid === scopeQuestionId) ? legacy : null;

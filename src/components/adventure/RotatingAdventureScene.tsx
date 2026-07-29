@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import algebraIsland from "@/assets/adventure/algebra-island.png.asset.json";
 import calculusIsland from "@/assets/adventure/calculus-island.png.asset.json";
@@ -157,7 +157,7 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={vertices.length / 3} array={vertices} itemSize={3} />
+        <bufferAttribute attach="attributes-position" args={[vertices, 3]} />
       </bufferGeometry>
       <pointsMaterial size={size} color={color} transparent opacity={0.75} depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>

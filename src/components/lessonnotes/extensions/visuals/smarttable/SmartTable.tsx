@@ -321,7 +321,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="inline-flex overflow-hidden rounded-md border border-foreground/25 bg-background shadow-sm">
+          <div className="inline-flex overflow-hidden rounded-md border border-foreground/25 bg-background shadow-xs">
             <button
               type="button"
               aria-label="Edit rows"
@@ -350,7 +350,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             aria-label={dimensionMode === "rows" ? "Remove row" : "Remove column"}
             onClick={adjustDown}
             disabled={dimensionMode === "rows" ? rows <= 1 : cols <= 1}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 bg-background text-foreground shadow-sm hover:bg-foreground/10 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 bg-background text-foreground shadow-xs hover:bg-foreground/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Minus className="h-3.5 w-3.5" />
           </button>
@@ -361,7 +361,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             type="button"
             aria-label={dimensionMode === "rows" ? "Add row" : "Add column"}
             onClick={adjustUp}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 bg-background text-foreground shadow-sm hover:bg-foreground/10"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 bg-background text-foreground shadow-xs hover:bg-foreground/10"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -369,7 +369,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             type="button"
             aria-label="Open Smart table edit panel"
             onClick={() => setPanelOpen(true)}
-            className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-foreground px-2.5 text-[11px] font-semibold text-background shadow-sm hover:bg-foreground/90"
+            className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-foreground px-2.5 text-[11px] font-semibold text-background shadow-xs hover:bg-foreground/90"
           >
             <Settings2 className="h-3.5 w-3.5" />
             Edit
@@ -395,7 +395,7 @@ function InlineEditor({ value, onChange, onCommit, onCancel }: {
         else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
       }}
       onClick={(e) => e.stopPropagation()}
-      className="w-full min-w-[3rem] px-1 py-0.5 text-center bg-transparent outline-none border-b border-primary"
+      className="w-full min-w-[3rem] px-1 py-0.5 text-center bg-transparent outline-hidden border-b border-primary"
       style={{ color: "#0f172a" }}
     />
   );

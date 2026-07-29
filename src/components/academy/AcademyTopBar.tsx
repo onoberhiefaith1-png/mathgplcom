@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "@/lib/router-compat";
 import { Search } from "lucide-react";
 import { searchCurriculum } from "@/data/curriculum";
 
@@ -36,7 +36,7 @@ const AcademyTopBar = () => {
             }}
             onFocus={() => setOpen(true)}
             placeholder="Search any maths topic…"
-            className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-base"
+            className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden sm:text-base"
             aria-label="Search any maths topic"
           />
         </div>

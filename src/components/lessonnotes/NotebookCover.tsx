@@ -27,7 +27,7 @@ export const NotebookCover = ({ notebook, onClick }: Props) => {
     <button
       type="button"
       onClick={onClick}
-      className="group relative aspect-[3/4] w-full rounded-r-md rounded-l-sm overflow-hidden text-left shadow-[0_10px_25px_-10px_rgba(0,0,0,0.6),0_4px_8px_-4px_rgba(0,0,0,0.4)] transition-transform hover:-translate-y-1 hover:shadow-[0_18px_35px_-12px_rgba(0,0,0,0.7)] focus:outline-none focus:ring-2 focus:ring-primary"
+      className="group relative aspect-[3/4] w-full rounded-r-md rounded-l-sm overflow-hidden text-left shadow-[0_10px_25px_-10px_rgba(0,0,0,0.6),0_4px_8px_-4px_rgba(0,0,0,0.4)] transition-transform hover:-translate-y-1 hover:shadow-[0_18px_35px_-12px_rgba(0,0,0,0.7)] focus:outline-hidden focus:ring-2 focus:ring-primary"
       style={{ background: t.gradient, color: t.ink, border: `1px solid ${t.edge}` }}
       aria-label={`Open notebook ${notebook.title ?? notebook.subject}`}
     >

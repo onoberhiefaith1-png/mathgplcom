@@ -6,7 +6,7 @@
 // key, not a class member.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Loader2, X } from "lucide-react";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import PresentationView from "@/components/smartboard/PresentationView";
@@ -301,7 +301,7 @@ const SmartCardGamePage = () => {
                     type="button"
                     onClick={() => setOpenBarId(bar.id)}
                     aria-label="Open questions"
-                    className="pointer-events-auto absolute rounded-lg outline-none ring-1 ring-primary/40 transition hover:ring-2 hover:ring-primary/80"
+                    className="pointer-events-auto absolute rounded-lg outline-hidden ring-1 ring-primary/40 transition hover:ring-2 hover:ring-primary/80"
                     style={{
                       left: `${bar.x * 100}%`,
                       top: `${bar.y * 100}%`,

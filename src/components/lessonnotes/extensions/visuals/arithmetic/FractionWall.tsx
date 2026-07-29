@@ -112,7 +112,7 @@ export function FractionWall({ attrs, onChange, selected }: Props) {
               value={row.label}
               onChange={(e) => setRow(ri, { label: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className="w-14 text-xs bg-transparent border-b border-foreground/30 focus:border-primary outline-none px-1 py-0.5"
+              className="w-14 text-xs bg-transparent border-b border-foreground/30 focus:border-primary outline-hidden px-1 py-0.5"
               style={{ color: "#0f172a" }}
             />
             <div className="flex-1 flex rounded overflow-hidden" style={{ height: 30, border: "2px solid #0f172a" }}>

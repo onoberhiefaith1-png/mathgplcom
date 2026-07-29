@@ -7,7 +7,7 @@
 // play-through in Creator Test Mode (never counted publicly).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import { supabase } from "@/integrations/supabase/client";
@@ -200,14 +200,14 @@ const SmartCardPage = () => {
           <button
             type="button"
             onClick={copyCard}
-            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} Copy Smart Card
           </button>
           <button
             type="button"
             onClick={shareCard}
-            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
           >
             <Share2 className="h-3.5 w-3.5" /> Share Smart Card
           </button>
@@ -259,7 +259,7 @@ const SmartCardPage = () => {
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {counters.map((c) => (
-            <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm">
+            <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-xs">
               <c.icon className="mx-auto mb-1 h-4 w-4 text-slate-400" />
               <p className="text-xl font-bold tabular-nums text-slate-900">{c.value}</p>
               <p className="text-[11px] text-slate-500">{c.label}</p>
@@ -267,7 +267,7 @@ const SmartCardPage = () => {
           ))}
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
           <h2 className="mb-2 flex items-center gap-1 text-sm font-semibold text-slate-800">
             <Trophy className="h-4 w-4" /> Leaderboard — 100% only, fastest first
           </h2>

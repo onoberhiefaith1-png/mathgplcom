@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Copy, Check, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -161,7 +161,7 @@ const CreateSessionPage = () => {
                 id="notebook"
                 value={notebookId}
                 onChange={(e) => setNotebookId(e.target.value)}
-                className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
+                className={`h-10 w-full rounded-md border px-3 text-sm outline-hidden focus:border-primary ${FIELD}`}
               >
                 <option value="">No lesson note attached</option>
                 {notebooks.map((n) => (
@@ -209,7 +209,7 @@ const CreateSessionPage = () => {
                     aria-label="Hour"
                     value={hour}
                     onChange={(e) => setHour(e.target.value)}
-                    className={`h-10 w-full rounded-md border px-2 text-sm outline-none focus:border-primary ${FIELD}`}
+                    className={`h-10 w-full rounded-md border px-2 text-sm outline-hidden focus:border-primary ${FIELD}`}
                   >
                     <option value="">HH</option>
                     {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
@@ -219,7 +219,7 @@ const CreateSessionPage = () => {
                     aria-label="Minute"
                     value={minute}
                     onChange={(e) => setMinute(e.target.value)}
-                    className={`h-10 w-full rounded-md border px-2 text-sm outline-none focus:border-primary ${FIELD}`}
+                    className={`h-10 w-full rounded-md border px-2 text-sm outline-hidden focus:border-primary ${FIELD}`}
                   >
                     <option value="">MM</option>
                     {MINUTES.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -233,7 +233,7 @@ const CreateSessionPage = () => {
                   id="duration"
                   value={durationHours}
                   onChange={(e) => setDurationHours(Number(e.target.value))}
-                  className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
+                  className={`h-10 w-full rounded-md border px-3 text-sm outline-hidden focus:border-primary ${FIELD}`}
                 >
                   {DURATION_OPTIONS.map((h) => (
                     <option key={h} value={h}>{h.toFixed(2)} hours</option>
@@ -247,7 +247,7 @@ const CreateSessionPage = () => {
                   id="tz"
                   value={timeZone}
                   onChange={(e) => setTimeZone(e.target.value)}
-                  className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
+                  className={`h-10 w-full rounded-md border px-3 text-sm outline-hidden focus:border-primary ${FIELD}`}
                 >
                   {TIME_ZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
                 </select>

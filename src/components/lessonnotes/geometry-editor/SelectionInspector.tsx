@@ -429,7 +429,7 @@ function DistanceRow({
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}
         placeholder={computed ? `${computed} (measured)` : "5 cm, 2x + 3"}
-        className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
       />
       <button
         type="button"
@@ -507,7 +507,7 @@ function AngleRow({
             commit({ value: rendered });
           }}
           placeholder="30, 180, x + 40 …"
-          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
         <div className="flex flex-col">
           <button type="button" onClick={() => commit({ reflex: true })}
@@ -629,7 +629,7 @@ function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: s
             onChange={(e) => setAreaText(e.target.value)}
             onBlur={() => onPatch({ area: areaText.trim() || undefined as any })}
             placeholder={computedArea ? `${computedArea} (πr²)` : "e.g. 78.5 cm²"}
-            className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+            className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
           />
         </div>
       )}
@@ -660,7 +660,7 @@ function LabelPanel({ label, onPatch, onDelete }: { label: GeoLabel; onPatch: (p
           value={label.text}
           onChange={(e) => onPatch({ text: e.target.value })}
           placeholder="Landmark"
-          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
       </Row>
       <Row label="Size">
@@ -934,7 +934,7 @@ function AngleFromSegmentsPanel({
             commit({ value: rendered });
           }}
           placeholder="30, 180, x + 40 …"
-          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
         <div className="flex flex-col">
           <button
@@ -1044,7 +1044,7 @@ function AngleFromPointsPanel({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="30, 180, x + 40 …"
-        className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+        className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
       />
       <button
         type="button"
@@ -1075,7 +1075,7 @@ function AngleEditPanel({ scene, angle, onApply, onAddText }: { scene: GeometryS
             patch({ value: rendered });
           }}
           placeholder="30, 180, x + 40 …"
-          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="flex-1 bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
         <div className="flex flex-col">
           <button type="button" onClick={() => patch({ reflex: true })}
@@ -1152,7 +1152,7 @@ function RegionCreatePanel({
           onChange={(e) => setAreaText(e.target.value)}
           onBlur={() => upsert({ area: areaText.trim() || undefined })}
           placeholder={computedArea ? `${computedArea.toFixed(1)}` : "e.g. 24 cm²"}
-          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
       </label>
       {existing && (
@@ -1252,7 +1252,7 @@ function PointLabelPanel({ point, onPatch }: { point: GeoPoint; onPatch: (p: Par
           value={point.label ?? ""}
           onChange={(e) => onPatch({ label: e.target.value })}
           placeholder="A"
-          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
       </Row>
       <Row label="Size">
@@ -1281,7 +1281,7 @@ function SegmentLabelPanel({ segment, onPatch }: { segment: GeoSegment; onPatch:
           value={segment.label ?? ""}
           onChange={(e) => onPatch({ label: e.target.value })}
           placeholder="AB"
-          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
       </Row>
       <p className="text-[10px] text-foreground/55">Drag the label on the canvas to move it around the line.</p>
@@ -1300,7 +1300,7 @@ function SegmentDistancePanel({ segment, onPatch }: { segment: GeoSegment; onPat
           value={value}
           onChange={(e) => onPatch({ distance: e.target.value, length: undefined } as any)}
           placeholder="5 cm, 2x + 3"
-          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
       </Row>
       <Row label="Size">
@@ -1344,7 +1344,7 @@ function AngleValueTextPanel({ angle, onPatch }: { angle: GeoAngle; onPatch: (p:
           value={angle.value ?? ""}
           onChange={(e) => onPatch({ value: e.target.value })}
           placeholder="30°, 180°, x + 40"
-          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
         />
       </Row>
       <Row label="Size">
@@ -1405,7 +1405,7 @@ function SegmentBodyPanel({
             value={distValue}
             onChange={(e) => onPatchAll({ distance: e.target.value, length: undefined } as any)}
             placeholder={computed ? `${computed} (measured)` : "5 cm, 2x + 3"}
-            className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-none focus:border-primary"
+            className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
           />
           {distValue !== "" && (
             <button

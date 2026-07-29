@@ -9,7 +9,7 @@
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -1055,7 +1055,7 @@ function DocumentEditorInner({
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
       attributes: {
-        class: "lesson-doc max-w-none focus:outline-none min-h-[60vh]",
+        class: "lesson-doc max-w-none focus:outline-hidden min-h-[60vh]",
         spellcheck: "true",
       },
     },
@@ -1911,7 +1911,7 @@ function NotebookGeometryOverlay({
   tiptapEditor,
 }: {
   notebookId?: string;
-  paperLayerRef: RefObject<HTMLDivElement>;
+  paperLayerRef: RefObject<HTMLDivElement | null>;
   tiptapEditor: Editor | null;
 }) {
   const { mode, tool } = useGeometryMode();

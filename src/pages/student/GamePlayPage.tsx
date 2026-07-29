@@ -1,7 +1,7 @@
 // Student — play an assigned game.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Loader2, Maximize2, Minimize2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
@@ -102,7 +102,7 @@ const GamePlayPage = () => {
       if (!membership) { navigate("/join"); return; }
 
       let bundle = getPrefetched(classId, gameId);
-      if (!bundle) bundle = await prefetchGame(classId, gameId);
+      if (!bundle) bundle = (await prefetchGame(classId, gameId)) ?? undefined;
       if (cancelled) return;
       if (!bundle) { navigate(`/student/class/${classId}`); return; }
 
@@ -294,7 +294,7 @@ const GamePlayPage = () => {
                     type="button"
                     onClick={() => setOpenBarId(bar.id)}
                     aria-label="Open questions"
-                    className="pointer-events-auto absolute rounded-lg outline-none ring-1 ring-primary/40 transition hover:ring-2 hover:ring-primary/80 focus-visible:ring-2 focus-visible:ring-primary"
+                    className="pointer-events-auto absolute rounded-lg outline-hidden ring-1 ring-primary/40 transition hover:ring-2 hover:ring-primary/80 focus-visible:ring-2 focus-visible:ring-primary"
                     style={{
                       left: `${bar.x * 100}%`,
                       top: `${bar.y * 100}%`,

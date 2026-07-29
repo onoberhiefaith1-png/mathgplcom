@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 // Recursive renderer for the Smartboard math tree.
 //
 // Each container measures its *own* body height (ResizeObserver → CSS var

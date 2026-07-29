@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { ArrowLeft, Sigma, ChevronRight } from "lucide-react";
 
 const TeachingHubArchive = () => (

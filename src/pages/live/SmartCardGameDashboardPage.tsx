@@ -5,7 +5,7 @@
 // participant owns their own run; the Time Bar decides the winner.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Loader2, Trophy, Eye, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";

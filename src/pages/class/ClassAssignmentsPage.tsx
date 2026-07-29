@@ -2,7 +2,7 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Assignments list.
 
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, ClipboardList, Loader2, LayoutDashboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";

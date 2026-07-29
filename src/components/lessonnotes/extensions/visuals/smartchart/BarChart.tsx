@@ -648,7 +648,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
         >
           {/* Scale chip — always-visible inline input */}
           <div
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border-2 border-foreground/40 bg-background px-2 shadow-sm"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border-2 border-foreground/40 bg-background px-2 shadow-xs"
             title="Scale: the number of data units represented by 1 centimetre of graph paper"
           >
             <span className="text-[13px] font-semibold text-foreground">1 cm =</span>
@@ -668,7 +668,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
                 if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                 if (e.key === "Escape") { setScaleDraft(String(unitsPerCm)); (e.target as HTMLInputElement).blur(); }
               }}
-              className="w-14 rounded border border-foreground/30 bg-background px-1.5 py-0.5 text-center text-[14px] font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-14 rounded border border-foreground/30 bg-background px-1.5 py-0.5 text-center text-[14px] font-semibold text-foreground focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/40"
             />
             <span className="text-[13px] font-semibold text-foreground">units</span>
           </div>
@@ -678,7 +678,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
             type="button"
             onClick={(e) => extendY(e.shiftKey ? 5 : 1)}
             title="Add 1 cm of graph paper at the top (Shift-click for 5 cm)"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border-2 border-primary/60 bg-primary/10 px-2.5 text-[13px] font-semibold text-primary shadow-sm hover:bg-primary/15"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border-2 border-primary/60 bg-primary/10 px-2.5 text-[13px] font-semibold text-primary shadow-xs hover:bg-primary/15"
           >
             <ChevronUp className="h-4 w-4" />
             <span>Extend</span>
@@ -702,7 +702,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
           type="button"
           onClick={addRow}
           title="Add bar"
-          className="absolute inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/40 bg-background text-primary shadow-sm hover:bg-primary/5"
+          className="absolute inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/40 bg-background text-primary shadow-xs hover:bg-primary/5"
           style={{
             left: `${((PAD.left + plotW + 6) / svgW) * 100}%`,
             top: `${(yBaseline / svgH) * 100}%`,
@@ -737,7 +737,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
                 type="button"
                 onClick={() => growBar(i)}
                 title="Fast increase: +1 cm (major grid line)"
-                className="absolute left-1/2 h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border border-primary/40 bg-background text-primary opacity-0 shadow-sm transition-opacity hover:bg-primary/5 group-hover:opacity-100 flex"
+                className="absolute left-1/2 h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border border-primary/40 bg-background text-primary opacity-0 shadow-xs transition-opacity hover:bg-primary/5 group-hover:opacity-100 flex"
                 style={{
                   top: `${((yTop - PAD.top) / plotH) * 100}%`,
                   transform: "translate(-50%, -120%)",
@@ -752,7 +752,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
                   type="button"
                   onClick={() => shrinkBar(i)}
                   title="Fine decrease: −0.2 cm (minor grid line)"
-                  className="absolute left-1/2 h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border border-foreground/30 bg-background text-foreground/70 opacity-0 shadow-sm transition-opacity hover:bg-foreground/5 group-hover:opacity-100 flex"
+                  className="absolute left-1/2 h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border border-foreground/30 bg-background text-foreground/70 opacity-0 shadow-xs transition-opacity hover:bg-foreground/5 group-hover:opacity-100 flex"
                   style={{
                     top: "100%",
                     transform: "translate(-50%, -120%)",
@@ -932,7 +932,7 @@ function BarLabel({
                       else if (e.key === "Escape") setRenaming(false);
                     }}
                     placeholder="Category name"
-                    className="flex-1 rounded border border-foreground/30 bg-background px-2 py-1 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="flex-1 rounded border border-foreground/30 bg-background px-2 py-1 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/40"
                   />
                   <button
                     type="button"

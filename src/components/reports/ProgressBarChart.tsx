@@ -49,7 +49,7 @@ const ProgressBarChart = ({ bars, title, subtitle, settings, filter }: ProgressB
   const { ref: scrollRef } = useLatestScroll(shown.length);
 
   return (
-    <section ref={wrapRef} className="rounded-2xl border border-[hsl(var(--rp-border))] bg-[hsl(var(--rp-panel))] p-5 shadow-sm">
+    <section ref={wrapRef} className="rounded-2xl border border-[hsl(var(--rp-border))] bg-[hsl(var(--rp-panel))] p-5 shadow-xs">
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-[hsl(var(--rp-fg))]">{title}</h2>
@@ -122,7 +122,7 @@ const ProgressBarChart = ({ bars, title, subtitle, settings, filter }: ProgressB
                       onClick={() => setOpenId((v) => (v === b.taskId ? null : b.taskId))}
                       onMouseEnter={() => setOpenId(b.taskId)}
                       onMouseLeave={() => setOpenId((v) => (v === b.taskId ? null : v))}
-                      className={`group relative shrink-0 rounded-t-md outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--rp-axis))] ${
+                      className={`group relative shrink-0 rounded-t-md outline-hidden focus-visible:ring-2 focus-visible:ring-[hsl(var(--rp-axis))] ${
                         settings.animations ? "report-bar-grow transition-[filter,transform] duration-200" : ""
                       } ${open ? "brightness-110" : ""}`}
                       style={{

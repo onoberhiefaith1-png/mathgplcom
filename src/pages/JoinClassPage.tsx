@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "@/lib/router-compat";
 import { ArrowLeft } from "lucide-react";
 import JoinClassPanel from "@/components/class/JoinClassPanel";
 

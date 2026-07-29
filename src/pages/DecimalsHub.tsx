@@ -1,5 +1,5 @@
 // Decimals subtopic landing page — lists the 7 decimal game modules.
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { ArrowLeft, Calculator, Divide, Minus, Plus, Repeat, Shuffle, X } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { cn } from "@/lib/utils";

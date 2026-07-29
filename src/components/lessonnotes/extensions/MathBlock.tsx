@@ -75,7 +75,7 @@ function MathBlockView({ node, updateAttributes, selected, editor }: NodeViewPro
     const previewLatex = friendlyToLatex(draft);
     return (
       <NodeViewWrapper className="my-1.5" contentEditable={false}>
-        <div className="rounded-md border border-foreground/20 bg-white text-black p-2 shadow-sm">
+        <div className="rounded-md border border-foreground/20 bg-white text-black p-2 shadow-xs">
           <div className="min-h-[1.6em] text-[16px] leading-[1.6] mb-1.5 text-black">
             {previewLatex
               ? <span className="inline-block align-baseline">{renderMathInline(previewLatex)}</span>
@@ -142,7 +142,7 @@ function MathBlockView({ node, updateAttributes, selected, editor }: NodeViewPro
     return (
       <NodeViewWrapper
         className={`my-0.5 px-1 py-0 rounded leading-[1.15] ${selected ? "bg-primary/10" : "hover:bg-foreground/5"}`}
-      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); open(); }}
+      onDoubleClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); open(); }}
       onTouchEnd={handleTap}
       title="Double-click to edit"
     >

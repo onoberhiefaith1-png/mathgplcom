@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { classRoot } from "@/lib/product/workspaceRoutes";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Plus, EyeOff, Eye, Trash2, Check, Compass } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";

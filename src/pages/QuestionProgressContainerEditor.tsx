@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { ArrowLeft } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import QuestionProgressContainer, { CrystalTheme } from "@/components/assets/QuestionProgressContainer";
@@ -76,7 +76,7 @@ const QuestionProgressContainerEditor = () => {
                 type="text"
                 value={questionNumber}
                 onChange={(e) => setQuestionNumber(e.target.value)}
-                className="w-full rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                className="w-full rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm focus:border-primary focus:outline-hidden"
                 placeholder="e.g. 14"
               />
             </label>
@@ -90,7 +90,7 @@ const QuestionProgressContainerEditor = () => {
                 value={current}
                 min={0}
                 onChange={(e) => setCurrent(Number(e.target.value) || 0)}
-                className="w-full rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                className="w-full rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm focus:border-primary focus:outline-hidden"
               />
             </label>
 
@@ -103,7 +103,7 @@ const QuestionProgressContainerEditor = () => {
                 value={max}
                 min={1}
                 onChange={(e) => setMax(Number(e.target.value) || 1)}
-                className="w-full rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                className="w-full rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm focus:border-primary focus:outline-hidden"
               />
             </label>
 

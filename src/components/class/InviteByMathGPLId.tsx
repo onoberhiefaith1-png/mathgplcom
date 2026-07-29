@@ -76,7 +76,7 @@ const InviteByMathGPLId = ({ classId }: { classId: string }) => {
           value={value}
           onChange={(e) => setValue(e.target.value.toUpperCase())}
           placeholder="MGP-123456"
-          className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono tracking-widest outline-none focus:border-primary"
+          className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono tracking-widest outline-hidden focus:border-primary"
         />
         <button
           type="button"

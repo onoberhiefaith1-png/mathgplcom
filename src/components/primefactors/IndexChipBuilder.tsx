@@ -83,7 +83,7 @@ export const IndexChipBuilder = ({ factors, active, chips, onChipsChange, onCorr
           {chips.map((c, i) => (
             <div key={c.prime} className="flex items-center gap-2">
               <div
-                ref={(el) => (chipRefs.current[c.prime] = el)}
+                ref={(el) => { chipRefs.current[c.prime] = el; }}
                 onClick={() => active && setSelected(c.prime)}
                 className={cn(
                   "relative cursor-pointer rounded-lg border-2 px-3 py-1.5 transition-all select-none",

@@ -94,7 +94,7 @@ export const ParallelWorkspace = () => {
                       value={s.text}
                       onChange={(e) => updateStep(which, s.id, e.target.value)}
                       placeholder="Type a step…"
-                      className="flex-1 bg-transparent border-b border-amber-200/10 focus:border-cyan-400/50 outline-none py-1 text-foreground tracking-wide"
+                      className="flex-1 bg-transparent border-b border-amber-200/10 focus:border-cyan-400/50 outline-hidden py-1 text-foreground tracking-wide"
                     />
                   </div>
                 ))}
@@ -137,7 +137,7 @@ export const ParallelWorkspace = () => {
                       value={s.text}
                       onChange={(e) => updateDerived(eq.id, s.id, e.target.value)}
                       placeholder="Type a step…"
-                      className="flex-1 bg-transparent border-b border-violet-200/15 focus:border-violet-400/60 outline-none py-1 text-foreground"
+                      className="flex-1 bg-transparent border-b border-violet-200/15 focus:border-violet-400/60 outline-hidden py-1 text-foreground"
                     />
                   </div>
                 ))}

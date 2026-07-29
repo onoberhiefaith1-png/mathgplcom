@@ -326,7 +326,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
       as="div"
       className={cn(
         "my-4 rounded-md border bg-white text-neutral-900",
-        selected ? "border-yellow-400 shadow-sm" : "border-neutral-200",
+        selected ? "border-yellow-400 shadow-xs" : "border-neutral-200",
       )}
       data-drag-handle
     >
@@ -657,7 +657,7 @@ function OverlayNode({
           onBlur={(e) => onChange({ payload: { ...(o.payload ?? {}), text: e.currentTarget.textContent ?? "" } })}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onSelect(); }}
-          className="text-[13px] text-neutral-900 outline-none px-1 bg-white/70 rounded"
+          className="text-[13px] text-neutral-900 outline-hidden px-1 bg-white/70 rounded"
           style={{ minHeight: 20 }}
         >
           {String((o.payload as { text?: string })?.text ?? "")}
@@ -672,7 +672,7 @@ function OverlayNode({
           onChange={(e) => onChange({ payload: { ...(o.payload ?? {}), latex: e.target.value } })}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onSelect(); }}
-          className="text-[13px] font-serif italic text-neutral-900 outline-none px-1 bg-white/70 rounded w-full"
+          className="text-[13px] font-serif italic text-neutral-900 outline-hidden px-1 bg-white/70 rounded w-full"
         />
       </foreignObject>
     );

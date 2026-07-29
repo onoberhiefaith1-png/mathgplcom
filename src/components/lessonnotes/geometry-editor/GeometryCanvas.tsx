@@ -694,7 +694,7 @@ export function GeometryCanvas({ editor }: Props) {
         <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} />
       </div>
       {annotationHint && (
-        <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow pointer-events-none">
+        <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow-sm pointer-events-none">
           {annotationHint} <span className="opacity-70">· Esc to cancel</span>
         </div>
       )}
@@ -787,7 +787,7 @@ export function GeometryCanvas({ editor }: Props) {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             else if (e.key === "Escape") setInlineEdit(null);
           }}
-          className="absolute text-xs px-1.5 py-1 rounded border border-primary bg-white shadow"
+          className="absolute text-xs px-1.5 py-1 rounded border border-primary bg-white shadow-sm"
           style={{ left: inlineEdit.x + PAD - minX, top: inlineEdit.y + PAD - minY, minWidth: 80 }}
         />
       )}

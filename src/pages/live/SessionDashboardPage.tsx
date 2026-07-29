@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft, Users, BookOpen, Presentation, ClipboardList, Compass, Gamepad2,
   Image as ImageIcon, BarChart3, Copy, Check, Radio,

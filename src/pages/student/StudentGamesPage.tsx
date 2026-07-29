@@ -1,7 +1,7 @@
 // Phase 12 — Student Games list. Read-only list of games assigned to the
 // student's class; links into the live game view.
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "@/lib/router-compat";
 import { Gamepad2 } from "lucide-react";
 import { listClassGames, type ClassGameRow } from "@/lib/games/classGames";
 

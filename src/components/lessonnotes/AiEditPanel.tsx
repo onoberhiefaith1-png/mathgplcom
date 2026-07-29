@@ -216,7 +216,7 @@ export function AiEditPanel({
                   : "Tell AI what you want to do…"
               }
               rows={simpleMode ? 3 : 4}
-              className="w-full text-sm bg-transparent border border-foreground/15 rounded-md p-2 outline-none focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
+              className="w-full text-sm bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
             />
 
             <div className="flex items-center gap-2">
@@ -356,7 +356,7 @@ export function AiEditPanel({
                     onChange={(e) => setInstruction(e.target.value)}
                     placeholder="Tell AI exactly what to change…"
                     rows={2}
-                    className="w-full text-xs bg-transparent border border-foreground/15 rounded-md p-2 outline-none focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
+                    className="w-full text-xs bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
                   />
                   <div className="flex items-center gap-2">
                     <button

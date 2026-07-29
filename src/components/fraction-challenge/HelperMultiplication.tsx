@@ -113,7 +113,7 @@ export const HelperMultiplication = ({ a, b }: Props) => {
           onKeyDown={(e) => e.key === "Enter" && onCheck()}
           placeholder="?"
           className={cn(
-            "w-20 rounded-md border-2 bg-background/60 px-2 py-1 text-center text-lg font-black tabular-nums outline-none",
+            "w-20 rounded-md border-2 bg-background/60 px-2 py-1 text-center text-lg font-black tabular-nums outline-hidden",
             checked === "ok" && "border-emerald-400 text-emerald-200",
             checked === "bad" && "border-rose-400 text-rose-200",
             checked === null && "border-amber-400/60 text-amber-200",

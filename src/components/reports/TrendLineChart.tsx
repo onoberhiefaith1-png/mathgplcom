@@ -70,7 +70,7 @@ const TrendLineChart = ({ points, title, subtitle, settings }: TrendLineChartPro
   return (
     <section
       ref={wrapRef}
-      className="rounded-2xl border border-[hsl(var(--rp-border))] bg-[hsl(var(--rp-panel))] p-5 shadow-sm"
+      className="rounded-2xl border border-[hsl(var(--rp-border))] bg-[hsl(var(--rp-panel))] p-5 shadow-xs"
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -213,7 +213,7 @@ const TrendLineChart = ({ points, title, subtitle, settings }: TrendLineChartPro
                         cy={pt.y}
                         r={18}
                         fill="transparent"
-                        className="cursor-pointer outline-none"
+                        className="cursor-pointer outline-hidden"
                         onMouseEnter={() => setOpenIdx(pt.i)}
                         onMouseLeave={() => setOpenIdx((v) => (v === pt.i ? null : v))}
                         onClick={() => setOpenIdx((v) => (v === pt.i ? null : pt.i))}

@@ -76,7 +76,7 @@ export function RelationshipPanel({ scene, topic }: Props) {
       <aside
         data-smart-relationship-panel="true"
         contentEditable={false}
-        className="w-72 shrink-0 border border-black/10 bg-white text-black px-3 py-3 text-sm rounded-md shadow-sm"
+        className="w-72 shrink-0 border border-black/10 bg-white text-black px-3 py-3 text-sm rounded-md shadow-xs"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-2 gap-2">

@@ -2,7 +2,7 @@
 // the internet. No class, no assignment, no teacher presence required.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "@/lib/router-compat";
 import { Loader2, Trophy, UserRound, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

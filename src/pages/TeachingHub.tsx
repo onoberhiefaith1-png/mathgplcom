@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { ArrowLeft, BookOpen, Sparkles, Users, Settings as SettingsIcon, Compass, Radio } from "lucide-react";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 

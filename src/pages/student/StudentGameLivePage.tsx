@@ -2,7 +2,7 @@
 // the teacher and, when a question board is selected, emits the 10s heartbeat
 // so the teacher's "In progress" bucket updates. Phase 3.
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { getGame } from "@/lib/games/games";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";

@@ -2,7 +2,7 @@ import { Suspense, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Text, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import birdModel from "@/assets/models/bird.glb?url";
 import algebraImage from "@/assets/academy/algebra.png";
 import geometryImage from "@/assets/academy/geometry.png";
@@ -110,7 +110,7 @@ const Particles = () => {
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={vertices.length / 3} array={vertices} itemSize={3} />
+        <bufferAttribute attach="attributes-position" args={[vertices, 3]} />
       </bufferGeometry>
       <pointsMaterial size={0.035} color="#ffd06a" transparent opacity={0.78} depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>

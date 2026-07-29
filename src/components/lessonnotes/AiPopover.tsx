@@ -9,7 +9,7 @@
 //    through the existing notebook-ai `scan` mode.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/router-compat";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Sparkles, Loader2, Mic, Paperclip, Camera, X, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -177,7 +177,7 @@ export function AiPopover({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); fire(); } }}
           placeholder={placeholder ?? "What should AI write?"}
-          className="w-full text-sm bg-transparent border-b border-foreground/20 outline-none py-1 placeholder:text-foreground/40"
+          className="w-full text-sm bg-transparent border-b border-foreground/20 outline-hidden py-1 placeholder:text-foreground/40"
         />
         {allowAttachments && images.length > 0 && (
           <div className="flex flex-wrap gap-1.5">

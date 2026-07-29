@@ -167,7 +167,7 @@ const CanvasElementView = ({
       onPointerUp={handlePointerUp}
     >
       {pinned && editable && (
-        <div className="pointer-events-none absolute -top-6 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow">
+        <div className="pointer-events-none absolute -top-6 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
           Pinned to scroll · click again to release
         </div>
       )}

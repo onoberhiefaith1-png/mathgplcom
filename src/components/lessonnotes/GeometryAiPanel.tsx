@@ -262,7 +262,7 @@ export function GeometryAiPanel() {
             }}
             placeholder='e.g. "Change the angle to 45°", "Make triangle ABC isosceles", "Add a tangent at point B"'
             rows={2}
-            className="flex-1 resize-none text-sm bg-transparent border border-foreground/20 rounded px-2 py-1.5 outline-none focus:border-primary"
+            className="flex-1 resize-none text-sm bg-transparent border border-foreground/20 rounded px-2 py-1.5 outline-hidden focus:border-primary"
           />
           <div className="flex flex-col gap-1">
             <button

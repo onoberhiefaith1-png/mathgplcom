@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useRef, useState } from "react";
 import type { FlowModel, FlowNode } from "./types";
 import { edgePath, edgeLabelPoint } from "./routing";

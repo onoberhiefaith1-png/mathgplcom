@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, ReactNode } from "react";
-import { useLocation, useNavigate, useNavigationType } from "react-router-dom";
+import { useLocation, useNavigate, useNavigationType } from "@/lib/router-compat";
 
 type NavHistoryCtx = {
   canGoBack: () => boolean;

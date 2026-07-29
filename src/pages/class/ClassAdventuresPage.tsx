@@ -2,7 +2,7 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Adventures for a class.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Loader2, Sparkles, Gamepad2, Link2, X, LayoutDashboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";

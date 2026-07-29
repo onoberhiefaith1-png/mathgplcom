@@ -1,7 +1,7 @@
 // Student Assessment Board.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -225,17 +225,17 @@ const AssessmentBoardPage = () => {
 
 
       {!isAdventure && status === "completed" && !isPastDue && (
-        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1.5 text-xs font-medium text-green-700 shadow">
+        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1.5 text-xs font-medium text-green-700 shadow-sm">
           Submitted — press "Undo Submit" to reopen before the due date.
         </div>
       )}
       {isPastDue && (
-        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-border bg-background/90 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow">
+        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-border bg-background/90 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
           Assignment closed — viewing only.
         </div>
       )}
       {timeExpired && !isPastDue && (
-        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-destructive/50 bg-destructive/10 px-4 py-1.5 text-xs font-medium text-destructive shadow">
+        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-destructive/50 bg-destructive/10 px-4 py-1.5 text-xs font-medium text-destructive shadow-sm">
           Time expired — waiting for your teacher to add time or reset the timer.
         </div>
       )}

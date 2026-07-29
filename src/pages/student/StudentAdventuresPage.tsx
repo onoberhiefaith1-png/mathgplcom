@@ -1,7 +1,7 @@
 // Phase 9 — Student Adventures page. Lists lesson notes currently assigned to
 // this class as Adventures with a link to open each. Additive only.
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "@/lib/router-compat";
 import { listAdventureNotes, type ClassAdventureNoteRow } from "@/lib/adventures/classAdventures";
 
 const StudentAdventuresPage = () => {

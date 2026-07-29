@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "@/lib/router-compat";
 import SmartboardShelf from "@/components/smartboard/SmartboardShelf";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { supabase } from "@/integrations/supabase/client";

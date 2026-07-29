@@ -42,7 +42,7 @@ export function SmartCalcView({ node, updateAttributes, deleteNode, selected }: 
   return (
     <NodeViewWrapper
       as="div"
-      className={cn("my-4 rounded-md border bg-white text-black", selected ? "border-yellow-400 shadow" : "border-neutral-200")}
+      className={cn("my-4 rounded-md border bg-white text-black", selected ? "border-yellow-400 shadow-sm" : "border-neutral-200")}
       data-drag-handle
     >
       <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-neutral-50 text-[12px]">
@@ -75,7 +75,7 @@ export function SmartCalcView({ node, updateAttributes, deleteNode, selected }: 
           <input
             value={a.answer}
             onChange={(e) => update({ answer: e.target.value })}
-            className="flex-1 font-mono text-[14px] font-semibold border-b border-black/20 focus:border-yellow-400 outline-none bg-transparent"
+            className="flex-1 font-mono text-[14px] font-semibold border-b border-black/20 focus:border-yellow-400 outline-hidden bg-transparent"
           />
         </div>
       </div>
@@ -89,7 +89,7 @@ function Row({ label, value, onChange }: { label: string; value: string; onChang
       <span className="text-[11px] uppercase tracking-wide text-neutral-500 w-20">{label}</span>
       <input
         value={value} onChange={(e) => onChange(e.target.value)}
-        className="flex-1 font-mono text-[12px] border-b border-neutral-200 focus:border-yellow-400 outline-none bg-transparent"
+        className="flex-1 font-mono text-[12px] border-b border-neutral-200 focus:border-yellow-400 outline-hidden bg-transparent"
       />
     </div>
   );

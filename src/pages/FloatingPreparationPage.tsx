@@ -12,7 +12,7 @@
 // Undo / Redo (buttons + ⌘Z / ⇧⌘Z) revert highlight actions.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Eraser, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";

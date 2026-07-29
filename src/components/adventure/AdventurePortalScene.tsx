@@ -72,7 +72,7 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={vertices.length / 3} array={vertices} itemSize={3} />
+        <bufferAttribute attach="attributes-position" args={[vertices, 3]} />
       </bufferGeometry>
       <pointsMaterial size={size} color={color} transparent opacity={0.75} depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>
@@ -362,7 +362,7 @@ const WorldSegment = ({
         </mesh>
         <points>
           <bufferGeometry>
-            <bufferAttribute attach="attributes-position" count={portalPoints.length / 3} array={portalPoints} itemSize={3} />
+            <bufferAttribute attach="attributes-position" args={[portalPoints, 3]} />
           </bufferGeometry>
           <pointsMaterial size={0.045} color="#ffd36f" transparent opacity={0.9} depthWrite={false} blending={THREE.AdditiveBlending} />
         </points>

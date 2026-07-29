@@ -365,7 +365,7 @@ export const EquationAtoms = ({
       onFocus={() => { focused.current = true; }}
       onBlur={() => { focused.current = false; }}
       onKeyDown={onKeyDown}
-      className="inline-flex items-center flex-wrap gap-[1px] outline-none"
+      className="inline-flex items-center flex-wrap gap-[1px] outline-hidden"
       style={{ color: "hsl(220 35% 18%)" }}
     >
       {renderNodes(tree)}

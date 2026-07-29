@@ -4,7 +4,7 @@
 // after a moment of inactivity so only mathematics remains present.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
   Eraser, Undo2, Redo2, ScanEye, PanelLeftOpen, X as XIcon,
@@ -3181,7 +3181,7 @@ const PresentationView = ({
 
       broadcastCheckResultRef.current?.({
         questionId: current.id,
-        lineId: target.lineId,
+        lineId: target.lineId ?? "",
         mode,
         correct: !!res?.correct,
         verdict: res?.verdict,

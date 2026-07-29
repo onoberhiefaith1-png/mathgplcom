@@ -1,7 +1,7 @@
 // Teacher-facing live view of a class game. Renders the game canvas with
 // progress bars fed by live scores/heartbeats via useAdventureSync (Phase 3).
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { getGame } from "@/lib/games/games";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";

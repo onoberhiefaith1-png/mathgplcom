@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -181,7 +181,7 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
           onChange={(e) => setCode(e.target.value.toUpperCase())}
           placeholder="AB72KD"
           autoComplete="off"
-          className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-lg font-semibold tracking-[0.3em] outline-none focus:border-primary"
+          className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-lg font-semibold tracking-[0.3em] outline-hidden focus:border-primary"
         />
         <button
           type="submit"

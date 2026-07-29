@@ -269,7 +269,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
                   onChange({ ...line, marks: n });
                 }}
                 title={scoringMode === "equal" ? "Set in the toolbar (equal mode)" : `${scoreLabel} for this line`}
-                className="w-14 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-none"
+                className="w-14 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-hidden"
                 style={{
                   background: scoringMode === "equal" ? "hsl(220 35% 18% / 0.05)" : "hsl(48 95% 68% / 0.25)",
                   border: "1px solid hsl(40 85% 42% / 0.5)",
@@ -431,7 +431,7 @@ const EditableChip = ({
             if (e.key === "Enter") { e.preventDefault(); commit(); }
             if (e.key === "Escape") { e.preventDefault(); cancel(); }
           }}
-          className="bg-transparent outline-none text-[14px] w-24"
+          className="bg-transparent outline-hidden text-[14px] w-24"
         />
         <TagBadge n={lineNo} />
       </span>
@@ -507,7 +507,7 @@ const EmptyEntryBox = ({
           if (e.key === "Escape") { e.preventDefault(); setDraft(""); (e.target as HTMLInputElement).blur(); }
         }}
         placeholder={placeholder}
-        className={`bg-transparent outline-none text-[14px] placeholder:text-foreground/30 ${widthClass}`}
+        className={`bg-transparent outline-hidden text-[14px] placeholder:text-foreground/30 ${widthClass}`}
       />
       <TagBadge n={lineNo} />
     </span>

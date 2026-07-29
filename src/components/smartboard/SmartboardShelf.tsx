@@ -2,7 +2,7 @@
 // "Open / Present" picker instead of jumping straight into the editor.
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
@@ -86,7 +86,7 @@ export const SmartboardShelf = () => {
                       onClick={() => navigate(`/smartboard/${nb.id}/preview`)}
                     />
                     {approvedAt && (
-                      <span className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
+                      <span className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
                         <Check className="h-3 w-3" /> Approved
                       </span>
                     )}

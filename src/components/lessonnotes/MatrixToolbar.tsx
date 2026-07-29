@@ -196,7 +196,7 @@ function Popover({ children, onClose }: { children: React.ReactNode; onClose: ()
     return () => document.removeEventListener("mousedown", onDoc);
   }, [onClose]);
   return (
-    <div className="absolute left-0 top-full mt-1 bg-background border rounded shadow px-2 py-1 flex items-center gap-1">
+    <div className="absolute left-0 top-full mt-1 bg-background border rounded shadow-sm px-2 py-1 flex items-center gap-1">
       {children}
     </div>
   );

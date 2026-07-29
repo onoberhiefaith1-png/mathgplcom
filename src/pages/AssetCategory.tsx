@@ -1,4 +1,4 @@
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Folder } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { getCategory } from "@/data/assets";

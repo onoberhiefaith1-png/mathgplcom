@@ -6,7 +6,7 @@
 // Nothing here recreates a reward: it transfers the reward the teacher already
 // configured (placement rows in `class_gallery_rewards`).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { loadClassGalleryRewards, type ClassGalleryRewardRow } from "@/lib/games/classGalleryRewards";
 import { awardClassGalleryReward, loadClassGalleryAwards } from "@/lib/games/classGalleryAwards";
 import { classGalleryExists } from "@/lib/games/classGallery";

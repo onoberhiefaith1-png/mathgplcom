@@ -3,7 +3,7 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 // class with links into the live game view, Adventure Dashboard, and a
 // Link-Adventure dialog for quickly jumping between adventures and games.
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "@/lib/router-compat";
 import { Gamepad2 } from "lucide-react";
 import { listClassGames, unassignGameFromClass, type ClassGameRow } from "@/lib/games/classGames";
 import LinkAdventureDialog from "@/components/adventures/LinkAdventureDialog";

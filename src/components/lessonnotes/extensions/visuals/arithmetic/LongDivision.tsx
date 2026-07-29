@@ -112,7 +112,7 @@ interface DigitCellProps {
   row: RowKey;
   col: number;
   nCols: number;
-  rootRef: React.RefObject<HTMLDivElement>;
+  rootRef: React.RefObject<HTMLDivElement | null>;
   onWrite: (col: number, digit: string) => void;
   onClear: (col: number) => void;
   onAppendCol?: () => void; // dividend only, when typing past last col

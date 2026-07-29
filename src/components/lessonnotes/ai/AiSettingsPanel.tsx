@@ -66,7 +66,7 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
               >
                 <span
                   className={cn(
-                    "absolute top-0.5 h-3 w-3 rounded-full bg-popover shadow-sm transition-all",
+                    "absolute top-0.5 h-3 w-3 rounded-full bg-popover shadow-xs transition-all",
                     on ? "left-3.5" : "left-0.5",
                   )}
                 />
@@ -107,7 +107,7 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
           value={value.level}
           onChange={(e) => set({ level: e.target.value })}
           placeholder="e.g. SS2 · WAEC"
-          className="w-full text-xs bg-transparent border border-foreground/20 rounded px-2 py-1 outline-none focus:border-primary placeholder:text-popover-foreground/50"
+          className="w-full text-xs bg-transparent border border-foreground/20 rounded px-2 py-1 outline-hidden focus:border-primary placeholder:text-popover-foreground/50"
         />
       </div>
 
@@ -120,7 +120,7 @@ export function AiSettingsPanel({ value, onChange, onBack }: Props) {
           onChange={(e) => set({ standing: e.target.value })}
           rows={3}
           placeholder="Exactly what you want from every solution in this note…"
-          className="w-full text-xs bg-transparent border border-foreground/20 rounded px-2 py-1 outline-none focus:border-primary placeholder:text-popover-foreground/50 resize-none"
+          className="w-full text-xs bg-transparent border border-foreground/20 rounded px-2 py-1 outline-hidden focus:border-primary placeholder:text-popover-foreground/50 resize-none"
         />
       </div>
 

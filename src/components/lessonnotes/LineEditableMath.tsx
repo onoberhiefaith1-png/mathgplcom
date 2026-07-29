@@ -218,7 +218,7 @@ export function LineEditableMath({
                 }}
                 placeholder={i === 0 ? placeholder : undefined}
                 className={cn(
-                  "w-full bg-transparent border-0 outline-none focus:ring-0 focus-visible:ring-0",
+                  "w-full bg-transparent border-0 outline-hidden focus:ring-0 focus-visible:ring-0",
                   "text-[16px] placeholder:opacity-40",
                   italic && "italic",
                 )}

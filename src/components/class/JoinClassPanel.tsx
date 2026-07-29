@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
@@ -270,7 +270,7 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
             placeholder="e.g. A1B2C3D4"
-            className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono tracking-widest outline-none focus:border-primary"
+            className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono tracking-widest outline-hidden focus:border-primary"
           />
           <button
             disabled={submitting || !joinCode.trim()}
@@ -289,7 +289,7 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
             value={inviteLink}
             onChange={(e) => setInviteLink(e.target.value)}
             placeholder="https://…/join/XXXXXXXX"
-            className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-hidden focus:border-primary"
           />
           <button
             disabled={submitting || !inviteLink.trim()}

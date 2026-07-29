@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, BookOpen, Presentation, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3, Lock, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
