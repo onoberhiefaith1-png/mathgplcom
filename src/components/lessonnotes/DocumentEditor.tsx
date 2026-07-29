@@ -1296,6 +1296,10 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: "" } }).run();
   };
 
+  // Emoji Library dock panel (teacher-managed content).
+  const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
+
+
   const insertSymbolText = (s: string) => {
     editor?.chain().focus().insertContent(s).run();
   };
