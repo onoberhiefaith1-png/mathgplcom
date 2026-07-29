@@ -10,14 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as BackgroundsIndexRouteImport } from './routes/backgrounds/index'
+import { Route as FamilyIndexRouteImport } from './routes/family/index'
+import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
 import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
+import { Route as SchoolIndexRouteImport } from './routes/school/index'
 import { Route as SmartboardIndexRouteImport } from './routes/smartboard/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -52,6 +56,7 @@ import { Route as LiveLessonNotesIndexRouteImport } from './routes/live/lesson-n
 import { Route as LiveSessionsIndexRouteImport } from './routes/live/sessions/index'
 import { Route as NotebookScanCodeIndexRouteImport } from './routes/notebook-scan/$code/index'
 import { Route as SmartboardNotebookIdIndexRouteImport } from './routes/smartboard/$notebookId/index'
+import { Route as StudentClassesIndexRouteImport } from './routes/student/classes/index'
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
 import { Route as TeachingHubClassesIndexRouteImport } from './routes/teaching-hub/classes/index'
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
@@ -160,6 +165,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdventureIndexRoute = AdventureIndexRouteImport.update({
   id: '/adventure/',
   path: '/adventure/',
@@ -180,6 +190,16 @@ const BackgroundsIndexRoute = BackgroundsIndexRouteImport.update({
   path: '/backgrounds/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FamilyIndexRoute = FamilyIndexRouteImport.update({
+  id: '/family/',
+  path: '/family/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeIndexRoute = HomeIndexRouteImport.update({
+  id: '/home/',
+  path: '/home/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JoinIndexRoute = JoinIndexRouteImport.update({
   id: '/join/',
   path: '/join/',
@@ -198,6 +218,11 @@ const LiveIndexRoute = LiveIndexRouteImport.update({
 const MathboardIndexRoute = MathboardIndexRouteImport.update({
   id: '/mathboard/',
   path: '/mathboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SchoolIndexRoute = SchoolIndexRouteImport.update({
+  id: '/school/',
+  path: '/school/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SmartboardIndexRoute = SmartboardIndexRouteImport.update({
@@ -372,6 +397,11 @@ const SmartboardNotebookIdIndexRoute =
     path: '/smartboard/$notebookId/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const StudentClassesIndexRoute = StudentClassesIndexRouteImport.update({
+  id: '/student/classes/',
+  path: '/student/classes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubjectsSubjectIndexRoute = SubjectsSubjectIndexRouteImport.update({
   id: '/subjects/$subject/',
   path: '/subjects/$subject/',
@@ -977,14 +1007,18 @@ const TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
   '/assets/': typeof AssetsIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/backgrounds/': typeof BackgroundsIndexRoute
+  '/family/': typeof FamilyIndexRoute
+  '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
   '/lesson-notes/': typeof LessonNotesIndexRoute
   '/live/': typeof LiveIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/school/': typeof SchoolIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -1019,6 +1053,7 @@ export interface FileRoutesByFullPath {
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
+  '/student/classes/': typeof StudentClassesIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
@@ -1124,14 +1159,18 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
   '/assets': typeof AssetsIndexRoute
   '/auth': typeof AuthIndexRoute
   '/backgrounds': typeof BackgroundsIndexRoute
+  '/family': typeof FamilyIndexRoute
+  '/home': typeof HomeIndexRoute
   '/join': typeof JoinIndexRoute
   '/lesson-notes': typeof LessonNotesIndexRoute
   '/live': typeof LiveIndexRoute
   '/mathboard': typeof MathboardIndexRoute
+  '/school': typeof SchoolIndexRoute
   '/smartboard': typeof SmartboardIndexRoute
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -1166,6 +1205,7 @@ export interface FileRoutesByTo {
   '/live/sessions': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code': typeof NotebookScanCodeIndexRoute
   '/smartboard/$notebookId': typeof SmartboardNotebookIdIndexRoute
+  '/student/classes': typeof StudentClassesIndexRoute
   '/subjects/$subject': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
@@ -1272,14 +1312,18 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
   '/assets/': typeof AssetsIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/backgrounds/': typeof BackgroundsIndexRoute
+  '/family/': typeof FamilyIndexRoute
+  '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
   '/lesson-notes/': typeof LessonNotesIndexRoute
   '/live/': typeof LiveIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/school/': typeof SchoolIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -1314,6 +1358,7 @@ export interface FileRoutesById {
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
+  '/student/classes/': typeof StudentClassesIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
@@ -1421,14 +1466,18 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin/'
     | '/adventure/'
     | '/assets/'
     | '/auth/'
     | '/backgrounds/'
+    | '/family/'
+    | '/home/'
     | '/join/'
     | '/lesson-notes/'
     | '/live/'
     | '/mathboard/'
+    | '/school/'
     | '/smartboard/'
     | '/teaching-hub/'
     | '/.lovable/oauth/consent'
@@ -1463,6 +1512,7 @@ export interface FileRouteTypes {
     | '/live/sessions/'
     | '/notebook-scan/$code/'
     | '/smartboard/$notebookId/'
+    | '/student/classes/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
@@ -1568,14 +1618,18 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/adventure'
     | '/assets'
     | '/auth'
     | '/backgrounds'
+    | '/family'
+    | '/home'
     | '/join'
     | '/lesson-notes'
     | '/live'
     | '/mathboard'
+    | '/school'
     | '/smartboard'
     | '/teaching-hub'
     | '/.lovable/oauth/consent'
@@ -1610,6 +1664,7 @@ export interface FileRouteTypes {
     | '/live/sessions'
     | '/notebook-scan/$code'
     | '/smartboard/$notebookId'
+    | '/student/classes'
     | '/subjects/$subject'
     | '/teaching-hub/classes'
     | '/teaching-hub/settings'
@@ -1715,14 +1770,18 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin/'
     | '/adventure/'
     | '/assets/'
     | '/auth/'
     | '/backgrounds/'
+    | '/family/'
+    | '/home/'
     | '/join/'
     | '/lesson-notes/'
     | '/live/'
     | '/mathboard/'
+    | '/school/'
     | '/smartboard/'
     | '/teaching-hub/'
     | '/.lovable/oauth/consent'
@@ -1757,6 +1816,7 @@ export interface FileRouteTypes {
     | '/live/sessions/'
     | '/notebook-scan/$code/'
     | '/smartboard/$notebookId/'
+    | '/student/classes/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
@@ -1863,14 +1923,18 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   AdventureIndexRoute: typeof AdventureIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   BackgroundsIndexRoute: typeof BackgroundsIndexRoute
+  FamilyIndexRoute: typeof FamilyIndexRoute
+  HomeIndexRoute: typeof HomeIndexRoute
   JoinIndexRoute: typeof JoinIndexRoute
   LessonNotesIndexRoute: typeof LessonNotesIndexRoute
   LiveIndexRoute: typeof LiveIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
+  SchoolIndexRoute: typeof SchoolIndexRoute
   SmartboardIndexRoute: typeof SmartboardIndexRoute
   TeachingHubIndexRoute: typeof TeachingHubIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
@@ -1905,6 +1969,7 @@ export interface RootRouteChildren {
   LiveSessionsIndexRoute: typeof LiveSessionsIndexRoute
   NotebookScanCodeIndexRoute: typeof NotebookScanCodeIndexRoute
   SmartboardNotebookIdIndexRoute: typeof SmartboardNotebookIdIndexRoute
+  StudentClassesIndexRoute: typeof StudentClassesIndexRoute
   SubjectsSubjectIndexRoute: typeof SubjectsSubjectIndexRoute
   TeachingHubClassesIndexRoute: typeof TeachingHubClassesIndexRoute
   TeachingHubSettingsIndexRoute: typeof TeachingHubSettingsIndexRoute
@@ -2018,6 +2083,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/adventure/': {
       id: '/adventure/'
       path: '/adventure'
@@ -2046,6 +2118,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BackgroundsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/family/': {
+      id: '/family/'
+      path: '/family'
+      fullPath: '/family/'
+      preLoaderRoute: typeof FamilyIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home/': {
+      id: '/home/'
+      path: '/home'
+      fullPath: '/home/'
+      preLoaderRoute: typeof HomeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/join/': {
       id: '/join/'
       path: '/join'
@@ -2072,6 +2158,13 @@ declare module '@tanstack/react-router' {
       path: '/mathboard'
       fullPath: '/mathboard/'
       preLoaderRoute: typeof MathboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/school/': {
+      id: '/school/'
+      path: '/school'
+      fullPath: '/school/'
+      preLoaderRoute: typeof SchoolIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/smartboard/': {
@@ -2310,6 +2403,13 @@ declare module '@tanstack/react-router' {
       path: '/smartboard/$notebookId'
       fullPath: '/smartboard/$notebookId/'
       preLoaderRoute: typeof SmartboardNotebookIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student/classes/': {
+      id: '/student/classes/'
+      path: '/student/classes'
+      fullPath: '/student/classes/'
+      preLoaderRoute: typeof StudentClassesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/subjects/$subject/': {
@@ -3031,14 +3131,18 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminIndexRoute: AdminIndexRoute,
   AdventureIndexRoute: AdventureIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   BackgroundsIndexRoute: BackgroundsIndexRoute,
+  FamilyIndexRoute: FamilyIndexRoute,
+  HomeIndexRoute: HomeIndexRoute,
   JoinIndexRoute: JoinIndexRoute,
   LessonNotesIndexRoute: LessonNotesIndexRoute,
   LiveIndexRoute: LiveIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
+  SchoolIndexRoute: SchoolIndexRoute,
   SmartboardIndexRoute: SmartboardIndexRoute,
   TeachingHubIndexRoute: TeachingHubIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
@@ -3073,6 +3177,7 @@ const rootRouteChildren: RootRouteChildren = {
   LiveSessionsIndexRoute: LiveSessionsIndexRoute,
   NotebookScanCodeIndexRoute: NotebookScanCodeIndexRoute,
   SmartboardNotebookIdIndexRoute: SmartboardNotebookIdIndexRoute,
+  StudentClassesIndexRoute: StudentClassesIndexRoute,
   SubjectsSubjectIndexRoute: SubjectsSubjectIndexRoute,
   TeachingHubClassesIndexRoute: TeachingHubClassesIndexRoute,
   TeachingHubSettingsIndexRoute: TeachingHubSettingsIndexRoute,
