@@ -50,8 +50,9 @@ export function EmojiPanel({ open, onClose, onInsert }: Props) {
 
   return (
     <aside
-      className="shrink-0 border-l border-border bg-background flex flex-col min-h-0"
+      className="shrink-0 border-l border-border bg-background flex flex-col min-h-0 h-full self-stretch overscroll-contain"
       style={{ width: "clamp(280px, 30%, 420px)" }}
+      onWheel={(e) => e.stopPropagation()}
       aria-label="Emoji library"
     >
       <div className="h-11 px-3 flex items-center justify-between border-b border-border">
@@ -69,7 +70,7 @@ export function EmojiPanel({ open, onClose, onInsert }: Props) {
       </div>
 
       {/* Sessions (categories) */}
-      <div className="border-b border-border p-2 space-y-1 max-h-52 overflow-auto">
+      <div className="border-b border-border p-2 space-y-1 max-h-52 overflow-y-auto overscroll-contain">
         {loading && <p className="text-xs text-muted-foreground px-1">Loading…</p>}
         {!loading && categories.length === 0 && (
           <p className="text-xs text-muted-foreground px-1 py-2">
@@ -176,7 +177,7 @@ export function EmojiPanel({ open, onClose, onInsert }: Props) {
       </div>
 
       {/* Emoji grid / content editor */}
-      <div className="flex-1 min-h-0 overflow-auto p-2">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2">
         {!active && (
           <p className="text-xs text-muted-foreground">Select or create a session.</p>
         )}
