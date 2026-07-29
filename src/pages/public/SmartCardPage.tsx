@@ -1,16 +1,18 @@
-// Challenge Dashboard — the public face of a Smart Card.
+// Challenge Dashboard — the public face of a Smart Card (Layer 2).
 //
 // This is the Assignment Dashboard workflow with the classroom removed: the
 // same "here is the task, here is who is doing it, press start" shape, but the
-// audience is the whole internet instead of a class list.
+// audience is the whole internet instead of a class list. The creator arrives
+// here from the editor with ?creator=1, which unlocks Copy/Share and runs any
+// play-through in Creator Test Mode (never counted publicly).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Loader2, Play, Trophy, Users, Zap, Target } from "lucide-react";
+import { Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
   fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
-  pingPresence, type CardStatsPublic, type PublicCardPayload,
+  pingPresence, shareUrl, type CardStatsPublic, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
 
 const VISITOR_KEY = "smartcard:visitor";
@@ -30,11 +32,15 @@ const visitorKey = (): string => {
 const SmartCardPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const [params] = useSearchParams();
-  const preview = params.get("preview") === "1";
+  // The creator testing their own card is a preview run: fully functional
+  // (marking, scoring, timing, reasoning) but excluded from all analytics.
+  const creator = params.get("creator") === "1";
+  const preview = creator || params.get("preview") === "1";
   const navigate = useNavigate();
   const [payload, setPayload] = useState<(PublicCardPayload & { stats: CardStatsPublic }) | null>(null);
   const [stats, setStats] = useState<CardStatsPublic | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
   const me = useRef<string>(visitorKey());
 
   useEffect(() => {
@@ -46,6 +52,7 @@ const SmartCardPage = () => {
       setLoading(false);
     })();
   }, [slug]);
+
 
   const beat = useCallback(async () => {
     if (!slug) return;
