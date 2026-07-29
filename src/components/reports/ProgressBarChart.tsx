@@ -46,6 +46,7 @@ const ProgressBarChart = ({ bars, title, subtitle, settings, filter }: ProgressB
   );
 
   const plotWidth = shown.length * (barWidth + barGap) + barGap;
+  const { ref: scrollRef } = useLatestScroll(shown.length);
 
   return (
     <section ref={wrapRef} className="rounded-2xl border border-[hsl(var(--rp-border))] bg-[hsl(var(--rp-panel))] p-5 shadow-sm">
