@@ -55,7 +55,7 @@ const SmartCardEditorPage = () => {
   const [publishMode, setPublishMode] = useState<"challenge" | "game">("challenge");
   const [gameId, setGameId] = useState<string | null>(null);
   const [games, setGames] = useState<{ id: string; title: string }[]>([]);
-  const [copied, setCopied] = useState(false);
+  
 
   const [title, setTitle] = useState("");
   const [pres, setPres] = useState<CardPresentation | null>(null);
