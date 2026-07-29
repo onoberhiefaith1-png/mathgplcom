@@ -78,22 +78,31 @@ export interface SmartCardRow {
 
 
 const SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
-/** Short, human-typeable public code, e.g. mathgpl.live/c/3vge7 */
+/** Short, human-typeable public code, e.g. mathgpl.live/c/8gj2 */
 export const generateSlug = () =>
-  Array.from({ length: 5 }, () => SLUG_ALPHABET[Math.floor(Math.random() * SLUG_ALPHABET.length)]).join("");
+  Array.from({ length: 4 }, () => SLUG_ALPHABET[Math.floor(Math.random() * SLUG_ALPHABET.length)]).join("");
 
 /** The public site — never a development/preview host. */
 export const PUBLIC_SITE = "https://golden-hour-academy.lovable.app";
 
+/**
+ * Hosts that are private by design. A link copied from any of these would show
+ * "Access denied" to a member of the public, so we never hand one out.
+ */
+const isPrivateHost = (host: string) =>
+  host === "localhost" ||
+  host.endsWith(".localhost") ||
+  host === "127.0.0.1" ||
+  host.endsWith(".lovableproject.com") ||
+  host.endsWith(".lovable.dev") ||
+  host.endsWith(".sandbox.lovable.dev") ||
+  host.includes("preview--") ||
+  host.includes("id-preview");
+
 export const publicOrigin = () => {
   if (typeof window === "undefined") return PUBLIC_SITE;
-  const origin = window.location.origin;
-  const dev =
-    origin.includes("localhost") ||
-    origin.includes("127.0.0.1") ||
-    origin.includes("preview--") ||
-    origin.includes("id-preview");
-  return dev ? PUBLIC_SITE : origin;
+  const { origin, hostname } = window.location;
+  return isPrivateHost(hostname) ? PUBLIC_SITE : origin;
 };
 
 /** Clean, one-line public link for the card. */
