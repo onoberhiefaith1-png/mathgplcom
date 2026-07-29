@@ -1,0 +1,1 @@
+ALTER TABLE public.smart_cards ADD COLUMN IF NOT EXISTS preview_image_path text;

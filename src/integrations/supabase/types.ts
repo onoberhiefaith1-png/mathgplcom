@@ -2348,6 +2348,7 @@ export type Database = {
           owner_id: string
           pass_mark_pct: number
           presentation: Json
+          preview_image_path: string | null
           publish_mode: string
           published: boolean
           published_at: string | null
@@ -2373,6 +2374,7 @@ export type Database = {
           owner_id: string
           pass_mark_pct?: number
           presentation?: Json
+          preview_image_path?: string | null
           publish_mode?: string
           published?: boolean
           published_at?: string | null
@@ -2398,6 +2400,7 @@ export type Database = {
           owner_id?: string
           pass_mark_pct?: number
           presentation?: Json
+          preview_image_path?: string | null
           publish_mode?: string
           published?: boolean
           published_at?: string | null
