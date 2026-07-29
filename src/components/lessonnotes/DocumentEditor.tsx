@@ -1299,6 +1299,10 @@ function DocumentEditorInner({
   // Emoji Library dock panel (teacher-managed content).
   const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
 
+  // Conversion tool + archived "Advanced tools" group.
+  const [conversionOpen, setConversionOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
 
   const insertSymbolText = (s: string) => {
     editor?.chain().focus().insertContent(s).run();
