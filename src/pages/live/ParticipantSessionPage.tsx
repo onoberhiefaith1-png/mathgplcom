@@ -84,6 +84,10 @@ const ParticipantSessionPage = () => {
           </div>
         </section>
 
+        <BroadcastPanel entries={session.broadcasts} unlocked={!boardLocked} />
+
+
+
         {boardLocked ? (
           <section className="rounded-2xl border border-amber-300/40 bg-amber-400/10 p-8 text-center">
             <Lock className="mx-auto h-7 w-7 text-amber-200" />
