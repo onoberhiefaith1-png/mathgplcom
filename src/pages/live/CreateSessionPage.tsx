@@ -251,8 +251,11 @@ const CreateSessionPage = () => {
                 >
                   {TIME_ZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
                 </select>
-              </div>
             </div>
+
+            <BroadcastEditor value={broadcasts} onChange={setBroadcasts} />
+
+
 
 
             <div className="space-y-2">
