@@ -345,19 +345,15 @@ const SmartCardEditorPage = () => {
             </div>
           )}
 
-          {/* Game Challenge needs a game; stats live on the dashboards. */}
+          {/* Game Challenge setup (game + progress bar) lives on its own step. */}
           <div className="space-y-2 rounded-xl border bg-card p-4 text-xs">
             <span className="text-xs font-medium text-muted-foreground">Game Challenge</span>
-            <Select value={gameId ?? ""} onValueChange={(v) => setGameId(v)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Choose game" />
-              </SelectTrigger>
-              <SelectContent>
-                {games.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Click <strong>Game Challenge</strong> above to choose the game and link this question
+              to a progress bar. Progress Bar 1 is always the event countdown.
+            </p>
+          </div>
+
             <p className="text-[11px] text-muted-foreground">
               Used when you open this card as a Game Challenge.
             </p>
