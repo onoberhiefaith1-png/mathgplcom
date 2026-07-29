@@ -43,6 +43,7 @@ const SmartCardGameDashboardPage = () => {
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState<ResultRow | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const timeBar = useGameTimeBar(game?.id ?? null);
 
