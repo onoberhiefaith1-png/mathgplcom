@@ -181,14 +181,17 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
 
   // Frozen historical results win over live maths (pass-mark changes must never
   // rewrite a finished task).
-  const frozen = new Map<string, Map<string, number>>();
+  const frozen = new Map<string, Map<string, FrozenSnap>>();
   const { data: frozenRows } = (await supabase
     .from("report_task_results" as never)
-    .select("assignment_id, student_id, percent")
+    .select("assignment_id, student_id, percent, frozen_at")
     .eq("class_id" as never, classId as never)) as any;
   for (const r of ((frozenRows ?? []) as any[])) {
-    const inner = frozen.get(r.assignment_id as string) ?? new Map<string, number>();
-    inner.set(r.student_id as string, Number(r.percent ?? 0));
+    const inner = frozen.get(r.assignment_id as string) ?? new Map<string, FrozenSnap>();
+    inner.set(r.student_id as string, {
+      percent: Number(r.percent ?? 0),
+      at: (r.frozen_at as string | null) ?? null,
+    });
     frozen.set(r.assignment_id as string, inner);
   }
 
@@ -207,16 +210,22 @@ function adventureQuota(task: RawTask, memberCount: number): number {
   return task.target / memberCount;
 }
 
-interface Measure { percent: number; frozen: boolean; score: number; target: number }
+interface Measure { percent: number; frozen: boolean; score: number; target: number; completedAt: string | null }
 
 function percentFor(task: RawTask, dataset: TaskDataset, studentId: string): Measure {
   const score = studentScore(task, dataset, studentId);
   const target = task.mode === "adventure" ? adventureQuota(task, dataset.members.length) : task.target;
   const snap = dataset.frozen.get(task.id)?.get(studentId);
-  if (typeof snap === "number") {
-    return { percent: Math.max(0, Math.min(100, snap)), frozen: true, score, target };
+  if (snap) {
+    return {
+      percent: Math.max(0, Math.min(100, snap.percent)),
+      frozen: true,
+      score,
+      target,
+      completedAt: snap.at ?? task.dueAt ?? task.startedAt,
+    };
   }
-  return { percent: pct(score, target), frozen: false, score, target };
+  return { percent: pct(score, target), frozen: false, score, target, completedAt: task.dueAt ?? task.startedAt };
 }
 
 function toBar(task: RawTask, m: Measure): TaskBar {
@@ -228,11 +237,13 @@ function toBar(task: RawTask, m: Measure): TaskBar {
     percent: Math.round(m.percent),
     startedAt: task.startedAt,
     dueAt: task.dueAt,
+    completedAt: m.completedAt,
     frozen: m.frozen,
     score: Math.round(m.score * 10) / 10,
     target: Math.round(m.target * 10) / 10,
   };
 }
+
 
 const emptyMeasure = (task: RawTask): Measure => ({ percent: 0, frozen: false, score: 0, target: task.target });
 
