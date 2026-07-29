@@ -166,6 +166,20 @@ const SessionDashboardPage = () => {
           </div>
         </section>
 
+        <section className="space-y-4 rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
+          <BroadcastEditor value={broadcasts} onChange={setBroadcasts} />
+          <button
+            type="button"
+            onClick={saveBroadcasts}
+            disabled={savingBroadcasts}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+          >
+            {savingBroadcasts ? "Saving…" : "Save broadcast details"}
+          </button>
+        </section>
+
+
+
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {tiles.map(({ label, icon: Icon, to }) => (
             <Link
