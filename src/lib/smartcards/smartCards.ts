@@ -337,3 +337,49 @@ export const formatDuration = (ms: number): string => {
   const s = total % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 };
+
+/* ───────────── Teacher-side per-card stats (Phase 2) ───────────── */
+
+export interface CardStats {
+  attempts: number;
+  players: number;
+  bestMs: number | null;
+  medianMs: number | null;
+  lastAt: string | null;
+  leaderboard: LeaderboardEntry[];
+}
+
+export async function fetchCardStats(cardId: string): Promise<CardStats> {
+  const { data } = await supabase
+    .from("smart_card_attempts")
+    .select("display_name, participant_key, duration_ms, completed_at")
+    .eq("card_id", cardId)
+    .order("duration_ms", { ascending: true })
+    .limit(200);
+
+  const rows = data ?? [];
+  const durations = rows.map((r) => Number(r.duration_ms ?? 0)).filter((n) => n > 0).sort((a, b) => a - b);
+  const players = new Set(rows.map((r) => r.participant_key)).size;
+  const lastAt = rows
+    .map((r) => r.completed_at as string)
+    .filter(Boolean)
+    .sort()
+    .slice(-1)[0] ?? null;
+
+  return {
+    attempts: rows.length,
+    players,
+    bestMs: durations[0] ?? null,
+    medianMs: durations.length ? durations[Math.floor(durations.length / 2)] : null,
+    lastAt,
+    leaderboard: rows.slice(0, 10).map((r) => ({
+      displayName: r.display_name as string,
+      durationMs: Number(r.duration_ms ?? 0),
+      completedAt: r.completed_at as string,
+    })),
+  };
+}
+
+export const forgetIdentity = () => {
+  try { localStorage.removeItem(IDENTITY_KEY); } catch { /* noop */ }
+};
