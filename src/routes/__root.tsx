@@ -14,6 +14,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FullscreenToggle } from "@/components/common/FullscreenToggle";
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
+
 import { registerRealtimeAuthSync } from "@/lib/realtime/auth";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
 import NotFound from "@/pages/NotFound";
