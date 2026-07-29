@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
@@ -28,6 +28,9 @@ const PAGE_SIZE = 20;
 
 const LessonNotesPage = () => {
   const navigate = useNavigate();
+  // Keep the MathGPL Live context when opening a note so Live-only tools
+  // (Smart Card publishing) stay available.
+  const livePrefix = useLocation().pathname.startsWith("/live") ? "/live" : "";
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [notebooks, setNotebooks] = useState<NotebookRow[]>([]);
   const [loading, setLoading] = useState(true);
