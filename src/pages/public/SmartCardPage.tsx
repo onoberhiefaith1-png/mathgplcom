@@ -12,8 +12,9 @@ import { Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
   fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
-  pingPresence, shareUrl, type CardStatsPublic, type PublicCardPayload,
+  pingPresence, previewImageUrl, shareUrl, type CardStatsPublic, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
+
 
 const VISITOR_KEY = "smartcard:visitor";
 
@@ -74,15 +75,43 @@ const SmartCardPage = () => {
 
   useEffect(() => {
     if (!payload) return;
-    document.title = `${payload.card.title} — MathGPL Life Smart Card`;
-    const desc = document.querySelector('meta[name="description"]');
-    if (desc) {
-      desc.setAttribute(
-        "content",
-        "Solve this maths challenge on the MathGPL Smartboard — instant AI marking and a fastest-time leaderboard.",
-      );
+    const title = `${payload.card.title} — MathGPL Life Smart Card`;
+    const description =
+      "Solve this interactive mathematics challenge using the MathGPL Smartboard.";
+    const url = shareUrl(payload.card.slug);
+    const image = previewImageUrl(payload.card.slug);
+    document.title = title;
+
+    const meta = (selector: string, attr: "name" | "property", key: string, value: string) => {
+      if (!value) return;
+      let el = document.head.querySelector<HTMLMetaElement>(selector);
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", value);
+    };
+
+    meta('meta[name="description"]', "name", "description", description);
+    meta('meta[property="og:title"]', "property", "og:title", title);
+    meta('meta[property="og:description"]', "property", "og:description", description);
+    meta('meta[property="og:url"]', "property", "og:url", url);
+    meta('meta[property="og:image"]', "property", "og:image", image);
+    meta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
+    meta('meta[name="twitter:title"]', "name", "twitter:title", title);
+    meta('meta[name="twitter:description"]', "name", "twitter:description", description);
+    meta('meta[name="twitter:image"]', "name", "twitter:image", image);
+
+    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
     }
+    canonical.href = url;
   }, [payload]);
+
 
   const best = useMemo(() => payload?.leaderboard?.[0] ?? null, [payload]);
 
@@ -110,17 +139,20 @@ const SmartCardPage = () => {
   const open = () =>
     navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
 
+  // Copy / Share put ONLY the short public URL on the clipboard — no HTML, no
+  // image data. Platforms fetch the card snapshot from the page metadata.
   const copyCard = async () => {
-    await navigator.clipboard?.writeText(`${card.title}\n${link}`);
+    await navigator.clipboard?.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
 
   const shareCard = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: card.title, text: card.title, url: link }); return; } catch { /* cancelled */ }
+      try { await navigator.share({ title: card.title, url: link }); return; } catch { /* cancelled */ }
     }
     await copyCard();
+
   };
 
   const counters = [
@@ -157,7 +189,11 @@ const SmartCardPage = () => {
           >
             <Share2 className="h-3.5 w-3.5" /> Share Smart Card
           </button>
+          <span className="flex items-center rounded-full bg-white/70 px-3 py-1.5 text-xs tabular-nums text-slate-500">
+            {link.replace(/^https?:\/\//, "")}
+          </span>
         </div>
+
 
         <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">

@@ -23,6 +23,8 @@ import {
   loadSmartCard, publishSmartCard, saveSmartCard,
   type CardPresentation, type SmartCardRow,
 } from "@/lib/smartcards/smartCards";
+import { captureCardPreview } from "@/lib/smartcards/preview";
+
 
 
 
@@ -61,6 +63,9 @@ const SmartCardEditorPage = () => {
   const [pres, setPres] = useState<CardPresentation | null>(null);
   const past = useRef<CardPresentation[]>([]);
   const future = useRef<CardPresentation[]>([]);
+  // The exact node that becomes the shared social preview image.
+  const previewNode = useRef<HTMLDivElement | null>(null);
+
 
   useEffect(() => {
     (async () => {
@@ -132,10 +137,13 @@ const SmartCardEditorPage = () => {
     setPublishing(true);
     try {
       await saveSmartCard(card.id, { title, presentation: pres, publish_mode: mode });
+      // Refresh the shared social snapshot from what the teacher sees now.
+      await captureCardPreview(previewNode.current, card.id);
       if (mode === "game") {
         navigate(`/live/smart-cards/${card.id}/game-setup`);
         return;
       }
+
       const updated = await publishSmartCard({
         ...card, title, presentation: pres,
         publish_mode: mode,
@@ -234,9 +242,11 @@ const SmartCardEditorPage = () => {
             </div>
             <div className="flex justify-center overflow-auto rounded-lg bg-muted/40 p-6">
               <div
+                ref={previewNode}
                 className="w-full max-w-xl rounded-2xl border bg-white p-8 shadow-lg"
                 style={{ transform: `scale(${pres.zoom || 1})`, transformOrigin: "top center" }}
               >
+
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
                   MathGPL Life · Smart Card
                 </p>
