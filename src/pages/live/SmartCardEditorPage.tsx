@@ -7,8 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  Undo2, Redo2, Copy, ClipboardPaste, Loader2, Rocket, Check, Share2, Minus, Plus,
-  Eye,
+  Undo2, Redo2, Copy, ClipboardPaste, Loader2, Rocket, Minus, Plus, Gamepad2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +18,12 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
-  cardUrl, shareUrl, fetchCardStats, formatDuration,
+  cardUrl,
   listPublishableGames,
   loadSmartCard, publishSmartCard, saveSmartCard,
-  type CardPresentation, type CardStats, type SmartCardRow,
+  type CardPresentation, type SmartCardRow,
 } from "@/lib/smartcards/smartCards";
+
 
 
 const STEP = 0.1;
@@ -55,7 +55,7 @@ const SmartCardEditorPage = () => {
   const [publishMode, setPublishMode] = useState<"challenge" | "game">("challenge");
   const [gameId, setGameId] = useState<string | null>(null);
   const [games, setGames] = useState<{ id: string; title: string }[]>([]);
-  const [copied, setCopied] = useState(false);
+  
 
   const [title, setTitle] = useState("");
   const [pres, setPres] = useState<CardPresentation | null>(null);
@@ -121,35 +121,33 @@ const SmartCardEditorPage = () => {
 
   const scenes = useMemo(() => card?.geometry?.scenes ?? [], [card]);
   const url = card?.slug ? cardUrl(card.slug) : "";
-  // Shared links go through the preview endpoint so social platforms show a
-  // per-card rich preview; it lands on the same public card.
-  const link = card?.slug ? shareUrl(card.slug) : "";
 
-  // Per-card stats for the teacher (published cards only).
-  const [stats, setStats] = useState<CardStats | null>(null);
-  useEffect(() => {
-    if (!card?.id || !card.published) { setStats(null); return; }
-    let alive = true;
-    void fetchCardStats(card.id).then((s) => { if (alive) setStats(s); });
-    return () => { alive = false; };
-  }, [card?.id, card?.published]);
-
-
-  const onPublish = async () => {
+  // Publish in the chosen mode, then hand over to the matching dashboard
+  // (Layer 2). The editor itself never shows stats, links or play controls.
+  const openDashboard = async (mode: "challenge" | "game") => {
     if (!card || !pres) return;
+    setPublishMode(mode);
+    if (mode === "game" && !gameId) {
+      toast({
+        title: "Choose a game first",
+        description: "Pick the game this challenge should be played inside, in the Game Challenge panel.",
+        variant: "destructive",
+      });
+      return;
+    }
     setPublishing(true);
     try {
       await saveSmartCard(card.id, {
-        title, presentation: pres, publish_mode: publishMode, game_id: publishMode === "game" ? gameId : null,
+        title, presentation: pres, publish_mode: mode, game_id: mode === "game" ? gameId : null,
       });
       const updated = await publishSmartCard({
         ...card, title, presentation: pres,
-        publish_mode: publishMode,
-        game_id: publishMode === "game" ? gameId : null,
+        publish_mode: mode,
+        game_id: mode === "game" ? gameId : null,
       });
       if (updated) {
         setCard(updated);
-        toast({ title: "Smart Card published", description: "Copy or share it anywhere." });
+        navigate(`/c/${updated.slug}?creator=1`);
       }
     } catch (e) {
       toast({
@@ -168,20 +166,7 @@ const SmartCardEditorPage = () => {
     }
   };
 
-  const copyCard = async () => {
-    if (!link) return;
-    await navigator.clipboard?.writeText(`${title}\n${link}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
 
-  const shareCard = async () => {
-    if (!link) return;
-    if (navigator.share) {
-      try { await navigator.share({ title, text: title, url: link }); return; } catch { /* cancelled */ }
-    }
-    await copyCard();
-  };
 
 
   if (loading || !pres || !card) {
@@ -194,60 +179,33 @@ const SmartCardEditorPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Layer 1 — editing only. Sharing, stats and play live on the dashboards. */}
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b bg-card/95 px-4 py-2 backdrop-blur">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
         <h1 className="text-sm font-semibold">Smart Card Editor</h1>
         <div className="ml-auto flex items-center gap-2">
-          {card.published && (
-            <>
-              <Button variant="outline" size="sm" onClick={copyCard}>
-                {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
-                Copy Smart Card
-              </Button>
-              <Button variant="outline" size="sm" onClick={shareCard}>
-                <Share2 className="mr-1 h-4 w-4" /> Share Smart Card
-              </Button>
-              {/* Walk the exact visitor flow without polluting public counts. */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`/c/${card.slug}?preview=1`, "_blank", "noopener")}
-              >
-                <Eye className="mr-1 h-4 w-4" /> Preview as visitor
-              </Button>
-            </>
-          )}
-
-          <Select value={publishMode} onValueChange={(v) => setPublishMode(v as "challenge" | "game")}>
-            <SelectTrigger className="h-8 w-[150px] text-xs">
-              <SelectValue placeholder="Publish as" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="challenge">Challenge</SelectItem>
-              <SelectItem value="game">Game Challenge</SelectItem>
-            </SelectContent>
-          </Select>
-          {publishMode === "game" && (
-            <Select value={gameId ?? ""} onValueChange={(v) => setGameId(v)}>
-              <SelectTrigger className="h-8 w-[180px] text-xs">
-                <SelectValue placeholder="Choose game" />
-              </SelectTrigger>
-              <SelectContent>
-                {games.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Button size="sm" onClick={onPublish} disabled={publishing}>
+          <Button
+            variant={publishMode === "challenge" ? "default" : "outline"}
+            size="sm"
+            disabled={publishing}
+            onClick={() => void openDashboard("challenge")}
+          >
             {publishing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Rocket className="mr-1 h-4 w-4" />}
-            {card.published ? "Republish Smart Card" : "Publish Smart Card"}
+            Challenge
+          </Button>
+          <Button
+            variant={publishMode === "game" ? "default" : "outline"}
+            size="sm"
+            disabled={publishing}
+            onClick={() => void openDashboard("game")}
+          >
+            <Gamepad2 className="mr-1 h-4 w-4" /> Game Challenge
           </Button>
         </div>
       </header>
+
 
       <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Editing + live preview */}
@@ -394,49 +352,24 @@ const SmartCardEditorPage = () => {
             </div>
           )}
 
-          {card.published && (
-            <div className="space-y-3 rounded-xl border bg-card p-4 text-xs">
-              <span className="text-xs font-medium text-muted-foreground">Card stats</span>
-              {!stats ? (
-                <p className="text-muted-foreground">Loading…</p>
-              ) : stats.attempts === 0 ? (
-                <p className="text-muted-foreground">No one has completed this card yet.</p>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">Players</p>
-                      <p className="text-sm font-semibold tabular-nums">{stats.players}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">Full marks</p>
-                      <p className="text-sm font-semibold tabular-nums">{stats.attempts}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">Fastest</p>
-                      <p className="text-sm font-semibold tabular-nums">
-                        {stats.bestMs != null ? formatDuration(stats.bestMs) : "—"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">Median</p>
-                      <p className="text-sm font-semibold tabular-nums">
-                        {stats.medianMs != null ? formatDuration(stats.medianMs) : "—"}
-                      </p>
-                    </div>
-                  </div>
-                  <ol className="divide-y rounded-lg border">
-                    {stats.leaderboard.map((e, i) => (
-                      <li key={`${e.displayName}-${e.completedAt}-${i}`} className="flex items-center justify-between px-2 py-1.5">
-                        <span className="truncate">{i + 1}. {e.displayName}</span>
-                        <span className="tabular-nums text-muted-foreground">{formatDuration(e.durationMs)}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              )}
-            </div>
-          )}
+          {/* Game Challenge needs a game; stats live on the dashboards. */}
+          <div className="space-y-2 rounded-xl border bg-card p-4 text-xs">
+            <span className="text-xs font-medium text-muted-foreground">Game Challenge</span>
+            <Select value={gameId ?? ""} onValueChange={(v) => setGameId(v)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Choose game" />
+              </SelectTrigger>
+              <SelectContent>
+                {games.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Used when you open this card as a Game Challenge.
+            </p>
+          </div>
+
 
         </aside>
       </div>

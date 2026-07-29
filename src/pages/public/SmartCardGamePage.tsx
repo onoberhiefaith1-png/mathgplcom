@@ -15,12 +15,9 @@ import { normalizeCanvas, type CanvasElement } from "@/lib/games/types";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { fetchPublicGameBundle, fetchPublicGameProgress, type PublicGameBundle } from "@/lib/smartcards/publicGame";
-import {
-  loadRememberedIdentity, newParticipantKey, pingPresence, rememberIdentity,
-  type CardIdentity,
-} from "@/lib/smartcards/smartCards";
+import { pingPresence, type CardIdentity } from "@/lib/smartcards/smartCards";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 const SmartCardGamePage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -30,13 +27,31 @@ const SmartCardGamePage = () => {
 
   const [bundle, setBundle] = useState<PublicGameBundle | null>(null);
   const [loading, setLoading] = useState(true);
-  const [identity, setIdentity] = useState<CardIdentity | null>(() => loadRememberedIdentity());
-  const [guestName, setGuestName] = useState("");
+  // Game Challenges are sign-in only: rewards land in the player's own gallery.
+  const [identity, setIdentity] = useState<CardIdentity | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [solved, setSolved] = useState<Record<string, Record<string, number>>>({});
   const [openBarId, setOpenBarId] = useState<string | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const startedAt = useRef<number>(Date.now());
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        setIdentity({
+          participantKey: data.user.id,
+          displayName:
+            (data.user.user_metadata?.display_name as string) ||
+            (data.user.email ?? "Player").split("@")[0],
+          remembered: true,
+        });
+      }
+      setAuthChecked(true);
+    })();
+  }, []);
+
 
   useEffect(() => {
     (async () => {
@@ -139,50 +154,31 @@ const SmartCardGamePage = () => {
   if (!identity) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-6">
-        <div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-xl">
-          <h1 className="text-lg font-bold text-slate-900">Welcome</h1>
-          <p className="mt-1 text-sm text-slate-500">Choose a username to enter the game.</p>
-          <Input
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            placeholder="Your username"
-            maxLength={40}
-            className="mt-4 bg-slate-100"
-          />
+        <div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-xl text-center">
+          <h1 className="text-lg font-bold text-slate-900">Sign in to play</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Game Challenges are for signed-in players only — your rewards are saved to your personal
+            gallery. Guests can still take the plain Challenge.
+          </p>
           <Button
-            className="mt-3 w-full"
-            disabled={!guestName.trim()}
-            onClick={() => {
-              const next = {
-                participantKey: newParticipantKey(),
-                displayName: guestName.trim(),
-                remembered: false,
-              };
-              setIdentity(next);
-            }}
+            className="mt-4 w-full"
+            disabled={!authChecked}
+            onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname)}`)}
           >
-            Continue as Guest
+            Sign in to Smartboard
           </Button>
           <Button
             variant="outline"
             className="mt-2 w-full"
-            disabled={!guestName.trim()}
-            onClick={() => {
-              const next = {
-                participantKey: newParticipantKey(),
-                displayName: guestName.trim(),
-                remembered: true,
-              };
-              rememberIdentity(next);
-              setIdentity(next);
-            }}
+            onClick={() => navigate(`/c/${slug}${preview ? "?preview=1" : ""}`)}
           >
-            Sign in to Smartboard
+            Back to dashboard
           </Button>
         </div>
       </div>
     );
   }
+
 
   // Solving a question replaces the stage with the existing Student Smartboard.
   if (openBoard && boardSource && activeQuestion) {

@@ -1,16 +1,18 @@
-// Challenge Dashboard — the public face of a Smart Card.
+// Challenge Dashboard — the public face of a Smart Card (Layer 2).
 //
 // This is the Assignment Dashboard workflow with the classroom removed: the
 // same "here is the task, here is who is doing it, press start" shape, but the
-// audience is the whole internet instead of a class list.
+// audience is the whole internet instead of a class list. The creator arrives
+// here from the editor with ?creator=1, which unlocks Copy/Share and runs any
+// play-through in Creator Test Mode (never counted publicly).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Loader2, Play, Trophy, Users, Zap, Target } from "lucide-react";
+import { Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
   fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
-  pingPresence, type CardStatsPublic, type PublicCardPayload,
+  pingPresence, shareUrl, type CardStatsPublic, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
 
 const VISITOR_KEY = "smartcard:visitor";
@@ -30,11 +32,15 @@ const visitorKey = (): string => {
 const SmartCardPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const [params] = useSearchParams();
-  const preview = params.get("preview") === "1";
+  // The creator testing their own card is a preview run: fully functional
+  // (marking, scoring, timing, reasoning) but excluded from all analytics.
+  const creator = params.get("creator") === "1";
+  const preview = creator || params.get("preview") === "1";
   const navigate = useNavigate();
   const [payload, setPayload] = useState<(PublicCardPayload & { stats: CardStatsPublic }) | null>(null);
   const [stats, setStats] = useState<CardStatsPublic | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
   const me = useRef<string>(visitorKey());
 
   useEffect(() => {
@@ -46,6 +52,7 @@ const SmartCardPage = () => {
       setLoading(false);
     })();
   }, [slug]);
+
 
   const beat = useCallback(async () => {
     if (!slug) return;
@@ -97,11 +104,24 @@ const SmartCardPage = () => {
   }
 
   const card = payload.card;
+  const isGame = card.publishMode === "game";
+  const link = shareUrl(card.slug);
   // A Game Challenge opens the Adventure stage; a normal card opens the board.
   const open = () =>
-    navigate(
-      `/c/${card.slug}/${card.publishMode === "game" ? "game" : "solve"}${preview ? "?preview=1" : ""}`,
-    );
+    navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
+
+  const copyCard = async () => {
+    await navigator.clipboard?.writeText(`${card.title}\n${link}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  const shareCard = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: card.title, text: card.title, url: link }); return; } catch { /* cancelled */ }
+    }
+    await copyCard();
+  };
 
   const counters = [
     { label: "Total players", value: stats?.totalPlayers ?? 0, icon: Users },
@@ -115,13 +135,33 @@ const SmartCardPage = () => {
       <div className="mx-auto w-full max-w-2xl space-y-4">
         {preview && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">
-            Teacher preview — nothing you do here is counted or shown publicly.
+            {creator
+              ? "Creator Test Mode — marking, scoring and timing all work, but nothing you do counts towards the public statistics."
+              : "Teacher preview — nothing you do here is counted or shown publicly."}
           </div>
         )}
 
+        {/* Sharing lives on the dashboard, not in the editor. */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={copyCard}
+            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} Copy Smart Card
+          </button>
+          <button
+            type="button"
+            onClick={shareCard}
+            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <Share2 className="h-3.5 w-3.5" /> Share Smart Card
+          </button>
+        </div>
+
         <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-            MathGPL Life · Smart Card
+            MathGPL Life · {isGame ? "Game Challenge" : "Smart Card"}
           </p>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{card.title}</h1>
           <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
@@ -132,18 +172,32 @@ const SmartCardPage = () => {
             {card.publishedBy && <span className="rounded-full bg-slate-100 px-2 py-0.5">by {card.publishedBy}</span>}
           </div>
 
-          <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+          {/* The card itself is clickable — it is the entry point. */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={open}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") open(); }}
+            className="mt-5 cursor-pointer rounded-2xl border border-slate-100 bg-slate-50/60 p-4 transition hover:border-slate-300 hover:bg-slate-50"
+          >
             <SmartCardQuestion presentation={card.presentation} scenes={card.geometry?.scenes ?? []} />
           </div>
+
+          {isGame && (
+            <p className="mt-3 text-center text-[11px] text-slate-500">
+              Game Challenges require a Smartboard sign-in — rewards go to your personal gallery.
+            </p>
+          )}
 
           <button
             type="button"
             onClick={open}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            <Play className="h-4 w-4" /> Start Challenge
+            <Play className="h-4 w-4" /> {isGame ? "Enter Game Challenge" : "Start Challenge"}
           </button>
         </header>
+
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {counters.map((c) => (
