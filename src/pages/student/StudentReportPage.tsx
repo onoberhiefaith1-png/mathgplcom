@@ -1,13 +1,27 @@
 // Student Report — a student only ever sees their own progress chart.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BarChart3, Loader2, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ProgressBarChart from "@/components/reports/ProgressBarChart";
 import ReportFilterBar from "@/components/reports/ReportFilterBar";
 import ReportSettingsSheet from "@/components/reports/ReportSettingsSheet";
-import { reportSurfaceClass, useReportSettings, type ReportFilter } from "@/components/reports/reportTheme";
+import TrendLineChart from "@/components/reports/TrendLineChart";
+import TrendRangeBar from "@/components/reports/TrendRangeBar";
+import { buildTrendSeries } from "@/lib/reports/trendChart";
+import {
+  reportSurfaceClass,
+  useReportSettings,
+  type ReportFilter,
+  type TrendGrouping,
+} from "@/components/reports/reportTheme";
+
+const TREND_SUBTITLE: Record<TrendGrouping, string> = {
+  week: "Your average performance per week (Sunday → Saturday).",
+  month: "Your average performance per month.",
+  year: "Your average performance per year.",
+};
 import { loadStudentTaskBars, type TaskBar } from "@/lib/reports/progressChart";
 
 const StudentReportPage = () => {
@@ -19,7 +33,12 @@ const StudentReportPage = () => {
   const [studentId, setStudentId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ReportFilter>("both");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { settings, update } = useReportSettings();
+  const { settings, update, updateTrendColor } = useReportSettings();
+
+  const trendPoints = useMemo(
+    () => buildTrendSeries(bars, { grouping: settings.trendGrouping, filter }),
+    [bars, settings.trendGrouping, filter],
+  );
 
   const refresh = useCallback(async (uid: string) => {
     if (!classId) return;
@@ -109,9 +128,29 @@ const StudentReportPage = () => {
           title="Student Report"
           subtitle="Completion per assigned task."
         />
+
+        {settings.showTrend && (
+          <div className="mt-6 space-y-3">
+            <div className="flex justify-end">
+              <TrendRangeBar value={settings.trendGrouping} onChange={(v) => update("trendGrouping", v)} />
+            </div>
+            <TrendLineChart
+              points={trendPoints}
+              settings={settings}
+              title="My Trend"
+              subtitle={TREND_SUBTITLE[settings.trendGrouping]}
+            />
+          </div>
+        )}
       </main>
 
-      <ReportSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} settings={settings} update={update} />
+      <ReportSettingsSheet
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        settings={settings}
+        update={update}
+        updateTrendColor={updateTrendColor}
+      />
     </div>
   );
 };

@@ -8,7 +8,22 @@ import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import ProgressBarChart from "@/components/reports/ProgressBarChart";
 import ReportFilterBar from "@/components/reports/ReportFilterBar";
 import ReportSettingsSheet from "@/components/reports/ReportSettingsSheet";
-import { reportSurfaceClass, useReportSettings, type ReportFilter } from "@/components/reports/reportTheme";
+import TrendLineChart from "@/components/reports/TrendLineChart";
+import TrendRangeBar from "@/components/reports/TrendRangeBar";
+import { buildTrendSeries } from "@/lib/reports/trendChart";
+import {
+  reportSurfaceClass,
+  useReportSettings,
+  type ReportFilter,
+  type TrendGrouping,
+} from "@/components/reports/reportTheme";
+
+const TREND_SUBTITLE: Record<TrendGrouping, string> = {
+  week: "Average performance per week (Sunday → Saturday).",
+  month: "Average performance per month.",
+  year: "Average performance per year.",
+};
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +43,7 @@ const ClassReportPage = () => {
   const [selected, setSelected] = useState<string | "class">("class");
   const [filter, setFilter] = useState<ReportFilter>("both");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { settings, update } = useReportSettings();
+  const { settings, update, updateTrendColor } = useReportSettings();
 
   const refresh = useCallback(async () => {
     if (!classId) return;
@@ -73,8 +88,13 @@ const ClassReportPage = () => {
     () => (selected === "class" ? classBars : barsByStudent.get(selected) ?? []),
     [selected, classBars, barsByStudent],
   );
+  const trendPoints = useMemo(
+    () => buildTrendSeries(bars, { grouping: settings.trendGrouping, filter }),
+    [bars, settings.trendGrouping, filter],
+  );
   const selectedStudent = selected === "class" ? null : members.find((m) => m.user_id === selected);
   const selectedName = selectedStudent ? `${selectedStudent.display_name} — Student Report` : "Class Report";
+
 
   if (loading) {
     return (
@@ -163,9 +183,30 @@ const ClassReportPage = () => {
               : "Completion per assigned task."
           }
         />
+
+        {settings.showTrend && (
+          <div className="mt-6 space-y-3">
+            <div className="flex justify-end">
+              <TrendRangeBar value={settings.trendGrouping} onChange={(v) => update("trendGrouping", v)} />
+            </div>
+            <TrendLineChart
+              points={trendPoints}
+              settings={settings}
+              title={selected === "class" ? "Class Trend" : `${selectedName} — Trend`}
+              subtitle={TREND_SUBTITLE[settings.trendGrouping]}
+            />
+          </div>
+        )}
       </main>
 
-      <ReportSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} settings={settings} update={update} />
+      <ReportSettingsSheet
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        settings={settings}
+        update={update}
+        updateTrendColor={updateTrendColor}
+      />
+
     </div>
   );
 };

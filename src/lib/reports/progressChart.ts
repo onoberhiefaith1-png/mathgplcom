@@ -20,7 +20,10 @@ export interface TaskBar {
   percent: number;
   startedAt: string | null;
   dueAt: string | null;
+  /** When the task result was locked in — drives the Trend Report timeline. */
+  completedAt: string | null;
   frozen: boolean;
+
   /** Display-only: marks earned (class view = class average). */
   score: number;
   /** Display-only: marks needed (adventure = individual quota). */
@@ -65,14 +68,17 @@ interface RawTask {
   target: number;
 }
 
+interface FrozenSnap { percent: number; at: string | null }
+
 interface TaskDataset {
   tasks: RawTask[];
   members: ClassMember[];
   /** assessmentId -> studentId -> score */
   scores: Map<string, Map<string, number>>;
-  /** taskId -> studentId -> frozen percent */
-  frozen: Map<string, Map<string, number>>;
+  /** taskId -> studentId -> frozen snapshot */
+  frozen: Map<string, Map<string, FrozenSnap>>;
 }
+
 
 async function loadDataset(classId: string): Promise<TaskDataset> {
   const [{ data: rawTasks }, { data: memberRows }] = await Promise.all([
@@ -181,14 +187,17 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
 
   // Frozen historical results win over live maths (pass-mark changes must never
   // rewrite a finished task).
-  const frozen = new Map<string, Map<string, number>>();
+  const frozen = new Map<string, Map<string, FrozenSnap>>();
   const { data: frozenRows } = (await supabase
     .from("report_task_results" as never)
-    .select("assignment_id, student_id, percent")
+    .select("assignment_id, student_id, percent, frozen_at")
     .eq("class_id" as never, classId as never)) as any;
   for (const r of ((frozenRows ?? []) as any[])) {
-    const inner = frozen.get(r.assignment_id as string) ?? new Map<string, number>();
-    inner.set(r.student_id as string, Number(r.percent ?? 0));
+    const inner = frozen.get(r.assignment_id as string) ?? new Map<string, FrozenSnap>();
+    inner.set(r.student_id as string, {
+      percent: Number(r.percent ?? 0),
+      at: (r.frozen_at as string | null) ?? null,
+    });
     frozen.set(r.assignment_id as string, inner);
   }
 
@@ -207,16 +216,22 @@ function adventureQuota(task: RawTask, memberCount: number): number {
   return task.target / memberCount;
 }
 
-interface Measure { percent: number; frozen: boolean; score: number; target: number }
+interface Measure { percent: number; frozen: boolean; score: number; target: number; completedAt: string | null }
 
 function percentFor(task: RawTask, dataset: TaskDataset, studentId: string): Measure {
   const score = studentScore(task, dataset, studentId);
   const target = task.mode === "adventure" ? adventureQuota(task, dataset.members.length) : task.target;
   const snap = dataset.frozen.get(task.id)?.get(studentId);
-  if (typeof snap === "number") {
-    return { percent: Math.max(0, Math.min(100, snap)), frozen: true, score, target };
+  if (snap) {
+    return {
+      percent: Math.max(0, Math.min(100, snap.percent)),
+      frozen: true,
+      score,
+      target,
+      completedAt: snap.at ?? task.dueAt ?? task.startedAt,
+    };
   }
-  return { percent: pct(score, target), frozen: false, score, target };
+  return { percent: pct(score, target), frozen: false, score, target, completedAt: task.dueAt ?? task.startedAt };
 }
 
 function toBar(task: RawTask, m: Measure): TaskBar {
@@ -228,13 +243,21 @@ function toBar(task: RawTask, m: Measure): TaskBar {
     percent: Math.round(m.percent),
     startedAt: task.startedAt,
     dueAt: task.dueAt,
+    completedAt: m.completedAt,
     frozen: m.frozen,
     score: Math.round(m.score * 10) / 10,
     target: Math.round(m.target * 10) / 10,
   };
 }
 
-const emptyMeasure = (task: RawTask): Measure => ({ percent: 0, frozen: false, score: 0, target: task.target });
+
+const emptyMeasure = (task: RawTask): Measure => ({
+  percent: 0,
+  frozen: false,
+  score: 0,
+  target: task.target,
+  completedAt: task.dueAt ?? task.startedAt,
+});
 
 /** Average every student's measure into one class-level measure. */
 function classMeasure(task: RawTask, dataset: TaskDataset): Measure {
@@ -244,15 +267,25 @@ function classMeasure(task: RawTask, dataset: TaskDataset): Measure {
   let score = 0;
   let target = 0;
   let frozen = false;
+  let completedAt: string | null = null;
   for (const m of dataset.members) {
     const r = percentFor(task, dataset, m.user_id);
     percent += r.percent;
     score += r.score;
     target += r.target;
     frozen = frozen || r.frozen;
+    // The class task lands on the timeline when the last student finished it.
+    if (r.completedAt && (!completedAt || r.completedAt > completedAt)) completedAt = r.completedAt;
   }
-  return { percent: percent / n, frozen, score: score / n, target: target / n };
+  return {
+    percent: percent / n,
+    frozen,
+    score: score / n,
+    target: target / n,
+    completedAt: completedAt ?? task.dueAt ?? task.startedAt,
+  };
 }
+
 
 export async function loadClassMembers(classId: string): Promise<ClassMember[]> {
   const { data } = (await supabase.rpc("get_class_member_names", { _class_id: classId })) as any;
