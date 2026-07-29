@@ -125,9 +125,24 @@ const SmartCardPage = () => {
 
   if (!payload) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-slate-100 text-slate-600">
-        <h1 className="text-lg font-semibold">Smart Card not available</h1>
-        <a className="text-sm underline" href="/live">Explore more with MathGPL Life</a>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-white to-slate-200 px-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+            MathGPL Life
+          </p>
+          <h1 className="mt-2 text-xl font-bold text-slate-900">
+            This Smart Card does not exist
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            The link may be mistyped, or the card is no longer published by its author.
+          </p>
+          <a
+            href="/live"
+            className="mt-5 inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Explore MathGPL Life
+          </a>
+        </div>
       </div>
     );
   }
