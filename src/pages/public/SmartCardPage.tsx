@@ -189,7 +189,11 @@ const SmartCardPage = () => {
           >
             <Share2 className="h-3.5 w-3.5" /> Share Smart Card
           </button>
+          <span className="flex items-center rounded-full bg-white/70 px-3 py-1.5 text-xs tabular-nums text-slate-500">
+            {link.replace(/^https?:\/\//, "")}
+          </span>
         </div>
+
 
         <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
