@@ -66,10 +66,13 @@ const SmartCardGamePage = () => {
 
   const refreshProgress = useCallback(async () => {
     if (!slug || !identity) return;
-    const p = await fetchPublicGameProgress(slug, identity.participantKey);
+    const p = await fetchPublicGameProgress(slug, identity.participantKey, identity.displayName);
     setScores(p.scores);
     setSolved(p.solved as Record<string, Record<string, number>>);
+    setQualified(p.qualified);
+    setTimerExpired(p.timerExpired);
   }, [slug, identity]);
+
 
   useEffect(() => {
     if (!identity) return;
