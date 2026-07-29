@@ -124,26 +124,22 @@ const SmartCardEditorPage = () => {
 
   // Publish in the chosen mode, then hand over to the matching dashboard
   // (Layer 2). The editor itself never shows stats, links or play controls.
+  // A Game Challenge is NOT published here: it first goes through the
+  // "Link Question to Progress Bar" setup step.
   const openDashboard = async (mode: "challenge" | "game") => {
     if (!card || !pres) return;
     setPublishMode(mode);
-    if (mode === "game" && !gameId) {
-      toast({
-        title: "Choose a game first",
-        description: "Pick the game this challenge should be played inside, in the Game Challenge panel.",
-        variant: "destructive",
-      });
-      return;
-    }
     setPublishing(true);
     try {
-      await saveSmartCard(card.id, {
-        title, presentation: pres, publish_mode: mode, game_id: mode === "game" ? gameId : null,
-      });
+      await saveSmartCard(card.id, { title, presentation: pres, publish_mode: mode });
+      if (mode === "game") {
+        navigate(`/live/smart-cards/${card.id}/game-setup`);
+        return;
+      }
       const updated = await publishSmartCard({
         ...card, title, presentation: pres,
         publish_mode: mode,
-        game_id: mode === "game" ? gameId : null,
+        game_id: null,
       });
       if (updated) {
         setCard(updated);
@@ -154,17 +150,14 @@ const SmartCardEditorPage = () => {
         title: "Could not publish",
         description: (e as Error).message === "no_floating_lines"
           ? "Add floating numbers to the solution first — the challenge needs markable lines."
-          : (e as Error).message === "no_game_selected"
-            ? "Pick the game this challenge should be played inside."
-            : (e as Error).message === "game_has_no_progress_bar"
-              ? "That game has no progress bar yet — add one in the Game Editor."
-              : (e as Error).message,
+          : (e as Error).message,
         variant: "destructive",
       });
     } finally {
       setPublishing(false);
     }
   };
+
 
 
 
