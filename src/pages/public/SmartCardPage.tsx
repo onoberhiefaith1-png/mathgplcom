@@ -39,8 +39,13 @@ const SmartCardPage = () => {
   const [params] = useSearchParams();
   // The creator testing their own card is a preview run: fully functional
   // (marking, scoring, timing, reasoning) but excluded from all analytics.
-  const creator = params.get("creator") === "1";
+  // Creator view is detected from the signed-in user vs the card owner, so
+  // the teacher never has to add ?creator=1 by hand. Visitors always get the
+  // plain public dashboard.
+  const [isOwner, setIsOwner] = useState(false);
+  const creator = isOwner;
   const preview = creator || params.get("preview") === "1";
+
   const navigate = useNavigate();
   const [payload, setPayload] = useState<(PublicCardPayload & { stats: CardStatsPublic }) | null>(null);
   const [stats, setStats] = useState<CardStatsPublic | null>(null);
