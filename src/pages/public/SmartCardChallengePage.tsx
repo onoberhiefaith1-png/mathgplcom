@@ -2,7 +2,7 @@
 // the internet. No class, no assignment, no teacher presence required.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Loader2, Trophy, UserRound, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,15 @@ import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSou
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPublicCard, forgetIdentity, formatDuration, loadRememberedIdentity, newParticipantKey,
-  rememberIdentity, reportProgress,
+  pingPresence, rememberIdentity, reportProgress,
   type CardIdentity, type LeaderboardEntry, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
 
 const SmartCardChallengePage = () => {
   const { slug } = useParams<{ slug: string }>();
+  const [params] = useSearchParams();
+  // Teacher preview runs the real flow but is never counted publicly.
+  const preview = params.get("preview") === "1";
   const [payload, setPayload] = useState<PublicCardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [identity, setIdentity] = useState<CardIdentity | null>(null);
@@ -63,12 +66,30 @@ const SmartCardChallengePage = () => {
       participantKey: identity.participantKey,
       displayName: identity.displayName,
       durationMs: Date.now() - startedAt.current,
+      preview,
     });
     if (!res) return;
     setPercent(res.percent);
     setQualified(res.qualified);
     setLeaderboard(res.leaderboard ?? []);
-  }, [slug, identity]);
+  }, [slug, identity, preview]);
+
+  // Presence heartbeat so the Challenge Dashboard can show who is solving now.
+  useEffect(() => {
+    if (!slug || !identity) return;
+    const beat = () => {
+      void pingPresence({
+        slug,
+        participantKey: identity.participantKey,
+        displayName: identity.displayName,
+        state: "solving",
+        preview,
+      });
+    };
+    beat();
+    const t = setInterval(beat, 30_000);
+    return () => clearInterval(t);
+  }, [slug, identity, preview]);
 
   useEffect(() => {
     if (!identity) return;
@@ -165,6 +186,9 @@ const SmartCardChallengePage = () => {
           {identity.remembered && <span className="ml-1 text-[10px] uppercase tracking-wide">· profile</span>}
         </span>
         <span className="rounded-full bg-muted px-2 py-0.5 tabular-nums">{percent}%</span>
+        {preview && (
+          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700">Preview — not counted</span>
+        )}
         {qualified && (
           <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-green-700">
             <Trophy className="h-3 w-3" /> Leaderboard qualified

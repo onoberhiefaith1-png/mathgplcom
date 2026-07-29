@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { classRoot } from "@/lib/product/workspaceRoutes";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,7 +44,7 @@ const ClassSmartBoardLauncher = () => {
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        navigate(`/auth?redirect=/teaching-hub/classes/${classId}/smartboard`);
+        navigate(`/auth?redirect=${classRoot()}/${classId}/smartboard`);
         return;
       }
       const redirect = await ensureClassOwner(classId!, userData.user.id);
@@ -76,7 +77,7 @@ const ClassSmartBoardLauncher = () => {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link to={`/teaching-hub/classes/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${classRoot()}/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Class
         </Link>
         <h1 className="text-lg font-semibold tracking-wide">SmartBoard · {className}</h1>

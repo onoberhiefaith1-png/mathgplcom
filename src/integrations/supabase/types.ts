@@ -1054,6 +1054,7 @@ export type Database = {
           school: string | null
           smartboard_visibility: string
           updated_at: string
+          workspace: string
         }
         Insert: {
           class_code: string
@@ -1065,6 +1066,7 @@ export type Database = {
           school?: string | null
           smartboard_visibility?: string
           updated_at?: string
+          workspace?: string
         }
         Update: {
           class_code?: string
@@ -1076,6 +1078,7 @@ export type Database = {
           school?: string | null
           smartboard_visibility?: string
           updated_at?: string
+          workspace?: string
         }
         Relationships: []
       }
@@ -2195,6 +2198,7 @@ export type Database = {
           display_name: string
           duration_ms: number
           id: string
+          is_preview: boolean
           participant_key: string
           percent: number
           user_id: string | null
@@ -2206,6 +2210,7 @@ export type Database = {
           display_name: string
           duration_ms?: number
           id?: string
+          is_preview?: boolean
           participant_key: string
           percent?: number
           user_id?: string | null
@@ -2217,6 +2222,7 @@ export type Database = {
           display_name?: string
           duration_ms?: number
           id?: string
+          is_preview?: boolean
           participant_key?: string
           percent?: number
           user_id?: string | null
@@ -2231,22 +2237,67 @@ export type Database = {
           },
         ]
       }
+      smart_card_presence: {
+        Row: {
+          card_id: string
+          display_name: string | null
+          first_seen_at: string
+          id: string
+          is_preview: boolean
+          last_seen_at: string
+          participant_key: string
+          state: string
+        }
+        Insert: {
+          card_id: string
+          display_name?: string | null
+          first_seen_at?: string
+          id?: string
+          is_preview?: boolean
+          last_seen_at?: string
+          participant_key: string
+          state?: string
+        }
+        Update: {
+          card_id?: string
+          display_name?: string | null
+          first_seen_at?: string
+          id?: string
+          is_preview?: boolean
+          last_seen_at?: string
+          participant_key?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smart_card_presence_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "smart_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smart_cards: {
         Row: {
           assessment_id: string | null
           class_id: string | null
           created_at: string
+          difficulty: string | null
           geometry: Json | null
           id: string
           notebook_id: string | null
           owner_id: string
           presentation: Json
+          publish_mode: string
           published: boolean
           published_at: string | null
           section_id: string | null
           slug: string
           subsection_id: string | null
+          subtopic: string | null
           title: string
+          topic: string | null
           total_marks: number
           updated_at: string
         }
@@ -2254,17 +2305,21 @@ export type Database = {
           assessment_id?: string | null
           class_id?: string | null
           created_at?: string
+          difficulty?: string | null
           geometry?: Json | null
           id?: string
           notebook_id?: string | null
           owner_id: string
           presentation?: Json
+          publish_mode?: string
           published?: boolean
           published_at?: string | null
           section_id?: string | null
           slug: string
           subsection_id?: string | null
+          subtopic?: string | null
           title?: string
+          topic?: string | null
           total_marks?: number
           updated_at?: string
         }
@@ -2272,17 +2327,21 @@ export type Database = {
           assessment_id?: string | null
           class_id?: string | null
           created_at?: string
+          difficulty?: string | null
           geometry?: Json | null
           id?: string
           notebook_id?: string | null
           owner_id?: string
           presentation?: Json
+          publish_mode?: string
           published?: boolean
           published_at?: string | null
           section_id?: string | null
           slug?: string
           subsection_id?: string | null
+          subtopic?: string | null
           title?: string
+          topic?: string | null
           total_marks?: number
           updated_at?: string
         }

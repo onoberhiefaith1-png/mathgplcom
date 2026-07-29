@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Assignments list.
 
 import { useEffect, useState } from "react";
@@ -21,7 +22,7 @@ const ClassAssignmentsPage = () => {
       if (!classId) return;
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        navigate(`/auth?redirect=/teaching-hub/classes/${classId}/assignments`);
+        navigate(`/auth?redirect=${classRoot()}/${classId}/assignments`);
         return;
       }
       const redirect = await ensureClassOwner(classId, userData.user.id);
@@ -74,7 +75,7 @@ const ClassAssignmentsPage = () => {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link to={`/teaching-hub/classes/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${classRoot()}/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Dashboard
         </Link>
         <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-wide">
@@ -133,7 +134,7 @@ const ClassAssignmentsPage = () => {
                 <div className="flex justify-end">
                   {g.notebookId ? (
                     <Link
-                      to={`/teaching-hub/classes/${classId}/assignments/${g.notebookId}/dashboard`}
+                      to={`${classRoot()}/${classId}/assignments/${g.notebookId}/dashboard`}
                       className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
                     >
                       <LayoutDashboard className="h-3.5 w-3.5" /> Assignment Dashboard

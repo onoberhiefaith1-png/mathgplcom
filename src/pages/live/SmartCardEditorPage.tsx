@@ -8,6 +8,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   Undo2, Redo2, Copy, ClipboardPaste, Loader2, Rocket, Check, Share2, Minus, Plus,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,8 +182,17 @@ const SmartCardEditorPage = () => {
               <Button variant="outline" size="sm" onClick={shareCard}>
                 <Share2 className="mr-1 h-4 w-4" /> Share Smart Card
               </Button>
+              {/* Walk the exact visitor flow without polluting public counts. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/c/${card.slug}?preview=1`, "_blank", "noopener")}
+              >
+                <Eye className="mr-1 h-4 w-4" /> Preview as visitor
+              </Button>
             </>
           )}
+
           <Button size="sm" onClick={onPublish} disabled={publishing}>
             {publishing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Rocket className="mr-1 h-4 w-4" />}
             {card.published ? "Republish Smart Card" : "Publish Smart Card"}

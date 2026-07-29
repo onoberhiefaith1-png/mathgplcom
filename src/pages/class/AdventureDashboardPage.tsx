@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Adventure Dashboard for a single class+game.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -118,7 +119,7 @@ const AdventureDashboardPage = () => {
     barSummaries: patchedBarSummaries,
     barOwner: groups.barOwner,
     timeExpired: timeBar.expired,
-    galleryPath: `/teaching-hub/classes/${classId}/gallery`,
+    galleryPath: `${classRoot()}/${classId}/gallery`,
     rewardElements: rewardRefs,
   });
   const timeUp = timeBar.expired && !transfer.won;
@@ -166,12 +167,12 @@ const AdventureDashboardPage = () => {
     (async () => {
       if (!classId || !gameId) return;
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) { navigate(`/auth?redirect=/teaching-hub/classes/${classId}/adventures/${gameId}/dashboard`); return; }
+      if (!userData.user) { navigate(`/auth?redirect=${classRoot()}/${classId}/adventures/${gameId}/dashboard`); return; }
       const redirect = await ensureClassOwner(classId, userData.user.id);
       if (redirect) { navigate(redirect, { replace: true }); return; }
 
       const bundle = getPrefetched(classId, gameId) ?? await prefetchGame(classId, gameId);
-      if (!bundle) { navigate(`/teaching-hub/classes/${classId}/adventures`, { replace: true }); return; }
+      if (!bundle) { navigate(`${classRoot()}/${classId}/adventures`, { replace: true }); return; }
       const { data: cls } = await supabase.from("classes").select("name").eq("id", classId).maybeSingle();
 
       await waitForSceneReady(bundle.game, bundle.urls);
@@ -266,13 +267,13 @@ const AdventureDashboardPage = () => {
   const onViewStudent = (studentId: string) => {
     const first = boards[0]?.assessmentId;
     if (!first) return;
-    navigate(`/teaching-hub/classes/${classId}/assessments/${first}/student/${studentId}?returnTo=${encodeURIComponent(`/teaching-hub/classes/${classId}/adventures/${gameId}/dashboard`)}`);
+    navigate(`${classRoot()}/${classId}/assessments/${first}/student/${studentId}?returnTo=${encodeURIComponent(`${classRoot()}/${classId}/adventures/${gameId}/dashboard`)}`);
   };
 
   return (
     <div className="min-h-screen w-full bg-[#0b0a16] text-foreground">
       <header className="flex items-center justify-between px-5 py-3">
-        <Link to={`/teaching-hub/classes/${classId}/adventures`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${classRoot()}/${classId}/adventures`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Adventures
         </Link>
         <h1 className="inline-flex items-center gap-2 text-base font-semibold">
@@ -354,7 +355,7 @@ const AdventureDashboardPage = () => {
                   </span>
                   <button
                     type="button"
-                    onClick={() => navigate(`/teaching-hub/classes/${classId}/gallery`)}
+                    onClick={() => navigate(`${classRoot()}/${classId}/gallery`)}
                     className="rounded border border-input bg-background px-2 py-1 font-medium hover:bg-accent"
                   >
                     Open Class Gallery
@@ -378,7 +379,7 @@ const AdventureDashboardPage = () => {
                         type="button"
                         onClick={() =>
                           navigate(
-                            `/teaching-hub/classes/${classId}/gallery?configureReward=${gameId}:${el.id}`,
+                            `${classRoot()}/${classId}/gallery?configureReward=${gameId}:${el.id}`,
                           )
                         }
                         className="rounded border border-input bg-background px-2 py-1 font-medium hover:bg-accent"
@@ -447,7 +448,7 @@ const AdventureDashboardPage = () => {
                       <button
                         type="button"
                         onClick={() => classId && gameId && navigate(
-                          `/teaching-hub/classes/${classId}/gallery?configureReward=${gameId}:${selectedRewardId}`,
+                          `${classRoot()}/${classId}/gallery?configureReward=${gameId}:${selectedRewardId}`,
                         )}
                         className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
                       >

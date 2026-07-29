@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { classRoot, productTerms, spaceListPath } from "@/lib/product/workspaceRoutes";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +22,7 @@ const ClassDashboardPage = () => {
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        navigate(`/auth?redirect=/teaching-hub/classes/${classId}`);
+        navigate(`/auth?redirect=${classRoot()}/${classId}`);
         return;
       }
       const redirect = await ensureClassOwner(classId!, userData.user.id);
@@ -36,7 +37,7 @@ const ClassDashboardPage = () => {
         .single();
       if (error || !data) {
         toast({ title: "Class not found", variant: "destructive" });
-        navigate("/teaching-hub/classes");
+        navigate(spaceListPath());
         return;
       }
       const { data: code } = await supabase.rpc("get_class_join_code", { _class_id: classId! });
@@ -56,24 +57,25 @@ const ClassDashboardPage = () => {
     }
   };
   const tiles: { label: string; icon: typeof Users; to: string }[] = [
-    { label: "Students", icon: Users, to: `/teaching-hub/classes/${classId}/students` },
-    { label: "Lesson Notes", icon: BookOpen, to: `/teaching-hub/classes/${classId}/lesson-notes` },
-    { label: "SmartBoard", icon: Presentation, to: `/teaching-hub/classes/${classId}/smartboard` },
-    { label: "Assignments", icon: ClipboardList, to: `/teaching-hub/classes/${classId}/assignments` },
-    { label: "Adventures", icon: Compass, to: `/teaching-hub/classes/${classId}/adventures` },
-    { label: "Games", icon: Gamepad2, to: `/teaching-hub/classes/${classId}/games` },
-    { label: "Gallery", icon: ImageIcon, to: `/teaching-hub/classes/${classId}/gallery` },
-    { label: "Report", icon: BarChart3, to: `/teaching-hub/classes/${classId}/report` },
-    { label: "Settings", icon: Settings, to: `/teaching-hub/classes/${classId}` },
+    { label: productTerms().people, icon: Users, to: `${classRoot()}/${classId}/students` },
+    { label: "Lesson Notes", icon: BookOpen, to: `${classRoot()}/${classId}/lesson-notes` },
+    { label: "SmartBoard", icon: Presentation, to: `${classRoot()}/${classId}/smartboard` },
+    { label: productTerms().assignments, icon: ClipboardList, to: `${classRoot()}/${classId}/assignments` },
+    { label: productTerms().adventures, icon: Compass, to: `${classRoot()}/${classId}/adventures` },
+    { label: "Games", icon: Gamepad2, to: `${classRoot()}/${classId}/games` },
+
+    { label: "Gallery", icon: ImageIcon, to: `${classRoot()}/${classId}/gallery` },
+    { label: "Report", icon: BarChart3, to: `${classRoot()}/${classId}/report` },
+    { label: "Settings", icon: Settings, to: `${classRoot()}/${classId}` },
   ];
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link to="/teaching-hub/classes" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Classes
+        <Link to={spaceListPath()} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> {productTerms().spacePlural}
         </Link>
-        <h1 className="text-lg font-semibold tracking-wide">Class Dashboard</h1>
+        <h1 className="text-lg font-semibold tracking-wide">{productTerms().space} Dashboard</h1>
         <div className="w-32" />
       </header>
 

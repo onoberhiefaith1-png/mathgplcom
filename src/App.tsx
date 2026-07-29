@@ -131,6 +131,23 @@ const App = () => (
           <Route path="/c/:slug/solve" element={<SmartCardChallengePage />} />
           <Route path="/live/join" element={<JoinSessionPage />} />
           <Route path="/live/join/:code" element={<JoinSessionPage />} />
+          {/* MathGPL Life workspace — same engines, Life terminology, never
+              routed through Teaching Hub. */}
+          <Route path="/live/workspace/:classId" element={<ClassDashboardPage />} />
+          <Route path="/live/workspace/:classId/students" element={<StudentsPage />} />
+          <Route path="/live/workspace/:classId/lesson-notes" element={<ClassLessonNotesPage />} />
+          <Route path="/live/workspace/:classId/assignments" element={<ClassAssignmentsPage />} />
+          <Route path="/live/workspace/:classId/smartboard" element={<ClassSmartBoardLauncher />} />
+          <Route path="/live/workspace/:classId/adventures" element={<ClassAdventuresPage />} />
+          <Route path="/live/workspace/:classId/games" element={<ClassGamesPage />} />
+          <Route path="/live/workspace/:classId/gallery" element={<ClassGalleryEditorPage />} />
+          <Route path="/live/workspace/:classId/report" element={<ClassReportPage />} />
+          <Route path="/live/workspace/:classId/games/:gameId/live" element={<ClassGameLivePage />} />
+          <Route path="/live/workspace/:classId/games/:gameId/dashboard" element={<AdventureDashboardPage />} />
+          <Route path="/live/workspace/:classId/adventures/:gameId/dashboard" element={<AdventureDashboardPage />} />
+          <Route path="/live/workspace/:classId/assignments/:notebookId/dashboard" element={<AssignmentDashboardPage />} />
+          <Route path="/live/workspace/:classId/assessments/:assessmentId/student/:studentId" element={<TeacherAssessmentViewerPage />} />
+
           <Route path="/adventure" element={<Adventure />} />
           <Route path="/adventure/games" element={<AdventureGamesDashboard />} />
           <Route path="/adventure/games/:gameId" element={<AdventureGameEditor />} />

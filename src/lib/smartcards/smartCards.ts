@@ -61,6 +61,10 @@ export interface SmartCardRow {
   total_marks: number;
   published: boolean;
   published_at: string | null;
+  publish_mode: "challenge" | "game";
+  topic: string | null;
+  subtopic: string | null;
+  difficulty: string | null;
 }
 
 const SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
@@ -155,6 +159,7 @@ async function ensureSmartCardClass(ownerId: string): Promise<string | null> {
     .from("classes")
     .select("id")
     .eq("owner_id", ownerId)
+    .eq("workspace", "live")
     .eq("name", "Smart Cards")
     .limit(1);
   const found = (existing ?? [])[0] as { id: string } | undefined;
@@ -166,6 +171,7 @@ async function ensureSmartCardClass(ownerId: string): Promise<string | null> {
       owner_id: ownerId,
       name: "Smart Cards",
       class_code: `SC-${Math.floor(1000 + Math.random() * 9000)}`,
+      workspace: "live",
       description: "Internal holder for published Smart Cards.",
     })
     .select("id")
@@ -250,6 +256,11 @@ export async function publishSmartCard(card: SmartCardRow): Promise<SmartCardRow
 
 export interface PublicCard {
   id: string;
+  publishMode?: "challenge" | "game";
+  topic?: string | null;
+  subtopic?: string | null;
+  difficulty?: string | null;
+  publishedBy?: string;
   slug: string;
   title: string;
   presentation: CardPresentation;
@@ -261,6 +272,13 @@ export interface LeaderboardEntry {
   displayName: string;
   durationMs: number;
   completedAt: string;
+}
+
+export interface CardStatsPublic {
+  visitors: number;
+  totalPlayers: number;
+  perfectScores: number;
+  currentlySolving: number;
 }
 
 export interface PublicCardPayload {
@@ -281,11 +299,44 @@ export async function fetchPublicCard(slug: string): Promise<PublicCardPayload |
   } as PublicCardPayload;
 }
 
+/** Challenge Dashboard payload — the public replacement for the classroom
+ *  Assignment Dashboard. */
+export async function fetchChallengeDashboard(
+  slug: string,
+): Promise<(PublicCardPayload & { stats: CardStatsPublic }) | null> {
+  const { data, error } = await supabase.functions.invoke("smart-card", {
+    body: { action: "dashboard", slug },
+  });
+  if (error || !data || (data as any).error) return null;
+  const payload = data as any;
+  return {
+    ...payload,
+    card: { ...payload.card, presentation: hydratePresentation(payload.card?.presentation) },
+  };
+}
+
+/** Heartbeat so the dashboard can show visitors / people solving right now.
+ *  Teacher previews are flagged and never counted. */
+export async function pingPresence(input: {
+  slug: string;
+  participantKey: string;
+  displayName?: string;
+  state: "visitor" | "solving";
+  preview?: boolean;
+}): Promise<CardStatsPublic | null> {
+  const { data, error } = await supabase.functions.invoke("smart-card", {
+    body: { action: "presence", ...input },
+  });
+  if (error || !data || (data as any).error) return null;
+  return data as CardStatsPublic;
+}
+
 export async function reportProgress(input: {
   slug: string;
   participantKey: string;
   displayName: string;
   durationMs: number;
+  preview?: boolean;
 }): Promise<{ percent: number; qualified: boolean; leaderboard: LeaderboardEntry[] } | null> {
   const { data, error } = await supabase.functions.invoke("smart-card", {
     body: { action: "progress", ...input },

@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Adventures for a class.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -125,7 +126,7 @@ const ClassAdventuresPage = () => {
       if (!classId) return;
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        navigate(`/auth?redirect=/teaching-hub/classes/${classId}/adventures`);
+        navigate(`/auth?redirect=${classRoot()}/${classId}/adventures`);
         return;
       }
       const redirect = await ensureClassOwner(classId, userData.user.id);
@@ -240,14 +241,14 @@ const ClassAdventuresPage = () => {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link to={`/teaching-hub/classes/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${classRoot()}/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Dashboard
         </Link>
         <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-wide">
           <Sparkles className="h-5 w-5" /> Adventures
         </h1>
         <Link
-          to={`/teaching-hub/classes/${classId}/games`}
+          to={`${classRoot()}/${classId}/games`}
           className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
         >
           <Gamepad2 className="h-3.5 w-3.5" /> Games
@@ -348,7 +349,7 @@ const ClassAdventuresPage = () => {
                   </button>
                   {primaryGameId && (
                     <Link
-                      to={`/teaching-hub/classes/${classId}/adventures/${primaryGameId}/dashboard`}
+                      to={`${classRoot()}/${classId}/adventures/${primaryGameId}/dashboard`}
                       className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
                     >
                       <LayoutDashboard className="h-3.5 w-3.5" /> Adventure Dashboard
