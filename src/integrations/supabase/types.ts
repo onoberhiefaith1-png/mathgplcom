@@ -2090,6 +2090,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          broadcasts: Json
           class_id: string
           created_at: string
           description: string | null
@@ -2106,6 +2107,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          broadcasts?: Json
           class_id: string
           created_at?: string
           description?: string | null
@@ -2122,6 +2124,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          broadcasts?: Json
           class_id?: string
           created_at?: string
           description?: string | null
