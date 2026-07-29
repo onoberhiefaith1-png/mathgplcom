@@ -6,6 +6,8 @@ import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { joinClassPresence } from "@/lib/realtime/classPresence";
 import { listClassGames, type ClassGameRow } from "@/lib/games/classGames";
 import { prefetchGame } from "@/lib/games/prefetch";
+import { getClassLevels } from "@/lib/classes/contentHierarchy";
+
 
 type ClassRow = { id: string; name: string };
 type LessonNote = { notebook_id: string; notebooks: { title: string | null } | null };
@@ -63,6 +65,13 @@ const StudentClassPage = () => {
   const [notes, setNotes] = useState<{ id: string; title: string }[]>([]);
   const [assignments, setAssignments] = useState<AssignmentGroup[]>([]);
   const [games, setGames] = useState<ClassGameRow[]>([]);
+  const [noteLevels, setNoteLevels] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!classId) return;
+    void getClassLevels(classId).then(setNoteLevels);
+  }, [classId]);
+
 
 
   const loadNotes = useCallback(async () => {
@@ -290,7 +299,17 @@ const StudentClassPage = () => {
             count={notes.length}
             accent="border-border bg-card/40"
           >
-            {notes.length === 0 ? (
+            {noteLevels.length > 0 ? (
+              <Link
+                to={`/student/class/${classId}/lesson-notes`}
+                className="flex h-full flex-col justify-center rounded-xl border border-border bg-background/30 p-4 transition hover:border-primary/40"
+              >
+                <div className="text-base font-semibold">Browse lesson notes</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Organised by your teacher — tap to explore.
+                </p>
+              </Link>
+            ) : notes.length === 0 ? (
               <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
                 No lesson note selected.
               </div>
@@ -309,6 +328,7 @@ const StudentClassPage = () => {
                 ))}
               </ul>
             )}
+
           </Tile>
 
           <Tile

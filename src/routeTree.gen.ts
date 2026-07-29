@@ -125,6 +125,7 @@ import { Route as LiveWorkspaceClassIdStudentsIndexRouteImport } from './routes/
 import { Route as StudentClassClassIdAdventuresIndexRouteImport } from './routes/student/class/$classId/adventures/index'
 import { Route as StudentClassClassIdGalleryIndexRouteImport } from './routes/student/class/$classId/gallery/index'
 import { Route as StudentClassClassIdGamesIndexRouteImport } from './routes/student/class/$classId/games/index'
+import { Route as StudentClassClassIdLessonNotesIndexRouteImport } from './routes/student/class/$classId/lesson-notes/index'
 import { Route as StudentClassClassIdReportIndexRouteImport } from './routes/student/class/$classId/report/index'
 import { Route as StudentClassClassIdSmartboardIndexRouteImport } from './routes/student/class/$classId/smartboard/index'
 import { Route as SubjectsSubjectTopicSubtopicIndexRouteImport } from './routes/subjects/$subject/$topic/$subtopic/index'
@@ -793,6 +794,12 @@ const StudentClassClassIdGamesIndexRoute =
     path: '/student/class/$classId/games/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const StudentClassClassIdLessonNotesIndexRoute =
+  StudentClassClassIdLessonNotesIndexRouteImport.update({
+    id: '/student/class/$classId/lesson-notes/',
+    path: '/student/class/$classId/lesson-notes/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const StudentClassClassIdReportIndexRoute =
   StudentClassClassIdReportIndexRouteImport.update({
     id: '/student/class/$classId/report/',
@@ -1085,6 +1092,7 @@ export interface FileRoutesByFullPath {
   '/student/class/$classId/adventures/': typeof StudentClassClassIdAdventuresIndexRoute
   '/student/class/$classId/gallery/': typeof StudentClassClassIdGalleryIndexRoute
   '/student/class/$classId/games/': typeof StudentClassClassIdGamesIndexRoute
+  '/student/class/$classId/lesson-notes/': typeof StudentClassClassIdLessonNotesIndexRoute
   '/student/class/$classId/report/': typeof StudentClassClassIdReportIndexRoute
   '/student/class/$classId/smartboard/': typeof StudentClassClassIdSmartboardIndexRoute
   '/subjects/$subject/$topic/$subtopic/': typeof SubjectsSubjectTopicSubtopicIndexRoute
@@ -1231,6 +1239,7 @@ export interface FileRoutesByTo {
   '/student/class/$classId/adventures': typeof StudentClassClassIdAdventuresIndexRoute
   '/student/class/$classId/gallery': typeof StudentClassClassIdGalleryIndexRoute
   '/student/class/$classId/games': typeof StudentClassClassIdGamesIndexRoute
+  '/student/class/$classId/lesson-notes': typeof StudentClassClassIdLessonNotesIndexRoute
   '/student/class/$classId/report': typeof StudentClassClassIdReportIndexRoute
   '/student/class/$classId/smartboard': typeof StudentClassClassIdSmartboardIndexRoute
   '/subjects/$subject/$topic/$subtopic': typeof SubjectsSubjectTopicSubtopicIndexRoute
@@ -1378,6 +1387,7 @@ export interface FileRoutesById {
   '/student/class/$classId/adventures/': typeof StudentClassClassIdAdventuresIndexRoute
   '/student/class/$classId/gallery/': typeof StudentClassClassIdGalleryIndexRoute
   '/student/class/$classId/games/': typeof StudentClassClassIdGamesIndexRoute
+  '/student/class/$classId/lesson-notes/': typeof StudentClassClassIdLessonNotesIndexRoute
   '/student/class/$classId/report/': typeof StudentClassClassIdReportIndexRoute
   '/student/class/$classId/smartboard/': typeof StudentClassClassIdSmartboardIndexRoute
   '/subjects/$subject/$topic/$subtopic/': typeof SubjectsSubjectTopicSubtopicIndexRoute
@@ -1526,6 +1536,7 @@ export interface FileRouteTypes {
     | '/student/class/$classId/adventures/'
     | '/student/class/$classId/gallery/'
     | '/student/class/$classId/games/'
+    | '/student/class/$classId/lesson-notes/'
     | '/student/class/$classId/report/'
     | '/student/class/$classId/smartboard/'
     | '/subjects/$subject/$topic/$subtopic/'
@@ -1672,6 +1683,7 @@ export interface FileRouteTypes {
     | '/student/class/$classId/adventures'
     | '/student/class/$classId/gallery'
     | '/student/class/$classId/games'
+    | '/student/class/$classId/lesson-notes'
     | '/student/class/$classId/report'
     | '/student/class/$classId/smartboard'
     | '/subjects/$subject/$topic/$subtopic'
@@ -1818,6 +1830,7 @@ export interface FileRouteTypes {
     | '/student/class/$classId/adventures/'
     | '/student/class/$classId/gallery/'
     | '/student/class/$classId/games/'
+    | '/student/class/$classId/lesson-notes/'
     | '/student/class/$classId/report/'
     | '/student/class/$classId/smartboard/'
     | '/subjects/$subject/$topic/$subtopic/'
@@ -1965,6 +1978,7 @@ export interface RootRouteChildren {
   StudentClassClassIdAdventuresIndexRoute: typeof StudentClassClassIdAdventuresIndexRoute
   StudentClassClassIdGalleryIndexRoute: typeof StudentClassClassIdGalleryIndexRoute
   StudentClassClassIdGamesIndexRoute: typeof StudentClassClassIdGamesIndexRoute
+  StudentClassClassIdLessonNotesIndexRoute: typeof StudentClassClassIdLessonNotesIndexRoute
   StudentClassClassIdReportIndexRoute: typeof StudentClassClassIdReportIndexRoute
   StudentClassClassIdSmartboardIndexRoute: typeof StudentClassClassIdSmartboardIndexRoute
   SubjectsSubjectTopicSubtopicIndexRoute: typeof SubjectsSubjectTopicSubtopicIndexRoute
@@ -2809,6 +2823,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentClassClassIdGamesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/student/class/$classId/lesson-notes/': {
+      id: '/student/class/$classId/lesson-notes/'
+      path: '/student/class/$classId/lesson-notes'
+      fullPath: '/student/class/$classId/lesson-notes/'
+      preLoaderRoute: typeof StudentClassClassIdLessonNotesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/student/class/$classId/report/': {
       id: '/student/class/$classId/report/'
       path: '/student/class/$classId/report'
@@ -3154,6 +3175,8 @@ const rootRouteChildren: RootRouteChildren = {
     StudentClassClassIdAdventuresIndexRoute,
   StudentClassClassIdGalleryIndexRoute: StudentClassClassIdGalleryIndexRoute,
   StudentClassClassIdGamesIndexRoute: StudentClassClassIdGamesIndexRoute,
+  StudentClassClassIdLessonNotesIndexRoute:
+    StudentClassClassIdLessonNotesIndexRoute,
   StudentClassClassIdReportIndexRoute: StudentClassClassIdReportIndexRoute,
   StudentClassClassIdSmartboardIndexRoute:
     StudentClassClassIdSmartboardIndexRoute,
