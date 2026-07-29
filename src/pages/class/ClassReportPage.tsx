@@ -59,7 +59,7 @@ const ClassReportPage = () => {
       if (!classId) return;
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        navigate(`/auth?redirect=/teaching-hub/classes/${classId}/report`);
+        navigate(`/auth?redirect=${classRoot()}/${classId}/report`);
         return;
       }
       const redirect = await ensureClassOwner(classId, userData.user.id);
@@ -108,7 +108,7 @@ const ClassReportPage = () => {
     <div className={`${reportSurfaceClass(settings)} min-h-screen w-full bg-[hsl(var(--rp-bg))] text-[hsl(var(--rp-fg))]`}>
       <header className="flex items-center justify-between gap-3 px-6 py-5">
         <Link
-          to={`/teaching-hub/classes/${classId}`}
+          to={`${classRoot()}/${classId}`}
           className="inline-flex items-center gap-2 text-sm text-[hsl(var(--rp-muted))] transition hover:text-[hsl(var(--rp-fg))]"
         >
           <ArrowLeft className="h-4 w-4" /> {className || "Class"}

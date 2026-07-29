@@ -49,13 +49,13 @@ const ClassGamesPage = () => {
               <div className="min-w-0 truncate font-medium">{g.title}</div>
               <div className="flex items-center gap-2">
                 <Link
-                  to={`/teaching-hub/classes/${classId}/games/${g.id}/live`}
+                  to={`${classRoot()}/${classId}/games/${g.id}/live`}
                   className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
                 >
                   Live
                 </Link>
                 <Link
-                  to={`/teaching-hub/classes/${classId}/games/${g.id}/dashboard`}
+                  to={`${classRoot()}/${classId}/games/${g.id}/dashboard`}
                   className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
                 >
                   Dashboard

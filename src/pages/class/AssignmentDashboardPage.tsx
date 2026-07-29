@@ -40,7 +40,7 @@ const AssignmentDashboardPage = () => {
       if (!classId || !notebookId) return;
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        navigate(`/auth?redirect=/teaching-hub/classes/${classId}/assignments/${notebookId}/dashboard`);
+        navigate(`/auth?redirect=${classRoot()}/${classId}/assignments/${notebookId}/dashboard`);
         return;
       }
       const redirect = await ensureClassOwner(classId, userData.user.id);
@@ -156,13 +156,13 @@ const AssignmentDashboardPage = () => {
   const onView = (studentId: string) => {
     const aid = firstAssessmentId;
     if (!aid) return;
-    navigate(`/teaching-hub/classes/${classId}/assessments/${aid}/student/${studentId}?returnTo=${encodeURIComponent(`/teaching-hub/classes/${classId}/assignments/${notebookId}/dashboard`)}`);
+    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
   };
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link to={`/teaching-hub/classes/${classId}/assignments`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={`${classRoot()}/${classId}/assignments`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Assignments
         </Link>
         <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-wide">

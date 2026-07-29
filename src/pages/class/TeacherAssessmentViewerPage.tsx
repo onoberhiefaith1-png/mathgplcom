@@ -18,7 +18,7 @@ const TeacherAssessmentViewerPage = () => {
   const { classId, assessmentId, studentId } = useParams<{ classId: string; assessmentId: string; studentId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get("returnTo") || `/teaching-hub/classes/${classId}`;
+  const returnTo = searchParams.get("returnTo") || `${classRoot()}/${classId}`;
   // Students write one board per question — mirror the same scope here.
   // When the teacher arrives without an explicit ?q=, follow whichever question
   // the student is actually working on; otherwise both sides would join
