@@ -24,7 +24,12 @@ const BodySchema = z.object({
   // Dry-run: run equivalence + set checks but do not write progress.
   // Used by the teacher Reasoning Panel.
   persist: z.boolean().optional().default(true),
+  // Smart Card challenge (public, no account). When both are present the
+  // caller is graded as an anonymous participant of a PUBLISHED Smart Card.
+  smartCardSlug: z.string().min(3).max(64).optional(),
+  participantKey: z.string().uuid().optional(),
 });
+
 
 
 function json(body: unknown, status = 200): Response {
