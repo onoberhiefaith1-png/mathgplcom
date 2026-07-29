@@ -167,7 +167,7 @@ export function useNavigationType(): NavigationType {
   const router = useRouter();
   const [navType, setNavType] = rcUseState<NavigationType>("PUSH");
   rcUseEffect(() => {
-    return router.history.subscribe((event) => {
+    return router.history.subscribe((event: unknown) => {
       const t = (event as { action?: { type?: string } }).action?.type;
       if (t === "PUSH") setNavType("PUSH");
       else if (t === "REPLACE") setNavType("REPLACE");
