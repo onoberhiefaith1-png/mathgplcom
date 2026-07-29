@@ -1390,7 +1390,7 @@ const PresentationView = ({
       // click must always produce visible ink, so fall back to writing the
       // raw text as plain character rows.
       mirrored = paragraphs.map((p) => ({
-        row: [...p].map((ch) => mkChar(ch)),
+        row: graphemes(p).map((ch) => mkChar(ch)),
         signature: p,
         ok: true,
       }));
