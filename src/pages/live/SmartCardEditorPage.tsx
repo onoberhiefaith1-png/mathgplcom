@@ -17,9 +17,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
-  cardUrl, loadSmartCard, publishSmartCard, saveSmartCard,
-  type CardPresentation, type SmartCardRow,
+  cardUrl, shareUrl, fetchCardStats, formatDuration,
+  loadSmartCard, publishSmartCard, saveSmartCard,
+  type CardPresentation, type CardStats, type SmartCardRow,
 } from "@/lib/smartcards/smartCards";
+
 
 const STEP = 0.1;
 const clamp = (v: number) => Math.max(0.3, Math.min(4, Number(v.toFixed(2))));
