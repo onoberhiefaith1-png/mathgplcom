@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 // Smart Coordinate Plane — interactive SVG board. Handles world↔screen
 // transform, grid/axes rendering for every mode, component rendering,
 // pointer drag with grid snap, and a lightweight pick tool for creating
