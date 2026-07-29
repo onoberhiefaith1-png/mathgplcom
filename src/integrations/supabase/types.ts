@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_memberships: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_memberships_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adventure_games: {
         Row: {
           created_at: string
@@ -2087,6 +2125,68 @@ export type Database = {
         }
         Relationships: []
       }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          owner_user_id: string | null
+          parent_org_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          name: string
+          owner_user_id?: string | null
+          parent_org_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          owner_user_id?: string | null
+          parent_org_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_parent_org_id_fkey"
+            columns: ["parent_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parent_children: {
+        Row: {
+          child_user_id: string
+          created_at: string
+          id: string
+          parent_user_id: string
+        }
+        Insert: {
+          child_user_id: string
+          created_at?: string
+          id?: string
+          parent_user_id: string
+        }
+        Update: {
+          child_user_id?: string
+          created_at?: string
+          id?: string
+          parent_user_id?: string
+        }
+        Relationships: []
+      }
       player_stats: {
         Row: {
           best_score: number
@@ -2184,6 +2284,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      role_capabilities: {
+        Row: {
+          capability: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          scope: string
+        }
+        Insert: {
+          capability: string
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          scope?: string
+        }
+        Update: {
+          capability?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          scope?: string
+        }
+        Relationships: []
       }
       sessions: {
         Row: {
@@ -2487,6 +2611,27 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -2497,6 +2642,18 @@ export type Database = {
         Returns: string
       }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
+      current_org_id: { Args: never; Returns: string }
+      current_role_name: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      ensure_account: {
+        Args: { _org_name?: string; _requested_role?: string }
+        Returns: {
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       ensure_class_game_boards: {
         Args: { _class_id: string; _game_id: string }
         Returns: undefined
@@ -2525,6 +2682,14 @@ export type Database = {
           id: string
           join_code: string
         }[]
+      }
+      has_capability: { Args: { _capability: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       is_class_member: { Args: { _class_id: string }; Returns: boolean }
       is_class_owner: { Args: { _class_id: string }; Returns: boolean }
@@ -2557,9 +2722,17 @@ export type Database = {
         Args: { _notebook_id: string }
         Returns: boolean
       }
+      owns_org: { Args: { _org_id: string }; Returns: boolean }
       shares_class_with: { Args: { _other: string }; Returns: boolean }
     }
     Enums: {
+      app_role:
+        | "platform_owner"
+        | "co_admin"
+        | "school"
+        | "teacher"
+        | "parent"
+        | "student"
       block_kind: "problem" | "solution" | "reasoning" | "text"
       section_kind:
         | "introduction"
@@ -2696,6 +2869,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: [
+        "platform_owner",
+        "co_admin",
+        "school",
+        "teacher",
+        "parent",
+        "student",
+      ],
       block_kind: ["problem", "solution", "reasoning", "text"],
       section_kind: [
         "introduction",
