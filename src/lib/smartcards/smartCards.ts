@@ -405,6 +405,9 @@ export async function publishSmartCard(card: SmartCardRow): Promise<SmartCardRow
       notebookId: card.notebook_id,
       sectionId: card.section_id,
       totalMarks: total,
+      passMarkPct: card.pass_mark_pct ?? 100,
+      progressElementId: card.game_progress_element_id ?? null,
+
     });
   }
 
