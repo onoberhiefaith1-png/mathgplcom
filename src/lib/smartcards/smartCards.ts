@@ -167,32 +167,64 @@ async function ensureSmartCardClass(ownerId: string): Promise<string | null> {
 export async function publishSmartCard(card: SmartCardRow): Promise<SmartCardRow | null> {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
-  if (!uid || !card.subsection_id || !card.notebook_id) throw new Error("missing_question");
+  if (!uid || !card.subsection_id || !card.notebook_id || !card.section_id) {
+    throw new Error("missing_question");
+  }
 
   const classId = card.class_id ?? (await ensureSmartCardClass(uid));
   if (!classId) throw new Error("class_failed");
 
-  const assessmentId = await createAssessmentFromSubsection({
-    subsectionId: card.subsection_id,
-    classId,
-    notebookId: card.notebook_id,
-    kind: "practice",
-    title: card.title || "Smart Card",
-    scoreLabel: "Marks",
-  });
+  // Compile the whole section with the normal engine, then keep ONLY the
+  // published question — a Smart Card is one challenge, never a worksheet.
+  const compiled = await compileSectionQuestions(card.section_id);
+  const questions = compiled.questions.filter((q) => q.id === card.subsection_id);
+  if (questions.length === 0) throw new Error("no_floating_lines");
+  const answerKey = compiled.answerKey.filter((k) => k.questionId === card.subsection_id);
+  const total = questions[0].lines.reduce((sum, l) => sum + Math.max(0, Number(l.marks ?? 0)), 0);
 
-  const { data: a } = await supabase
-    .from("assessments")
-    .select("total_marks")
-    .eq("id", assessmentId)
-    .maybeSingle();
+  let assessmentId = card.assessment_id;
+  if (assessmentId) {
+    await supabase
+      .from("assessments")
+      .update({
+        title: card.title || "Smart Card",
+        total_marks: total,
+        questions: questions as any,
+      } as never)
+      .eq("id", assessmentId);
+    await supabase.from("assessment_answer_keys").delete().eq("assessment_id", assessmentId);
+    await supabase
+      .from("assessment_answer_keys")
+      .insert({ assessment_id: assessmentId, lines: answerKey as any });
+  } else {
+    const { data: created, error } = await supabase
+      .from("assessments")
+      .insert({
+        class_id: classId,
+        owner_id: uid,
+        notebook_id: card.notebook_id,
+        section_id: card.section_id,
+        kind: "practice" as AssessmentKind,
+        title: card.title || "Smart Card",
+        score_label: "Marks",
+        total_marks: total,
+        questions: questions as any,
+      })
+      .select("id")
+      .single();
+    if (error || !created) throw new Error(error?.message ?? "create_failed");
+    assessmentId = created.id as string;
+    await supabase
+      .from("assessment_answer_keys")
+      .insert({ assessment_id: assessmentId, lines: answerKey as any });
+  }
 
   const { data: updated } = await supabase
     .from("smart_cards")
     .update({
       class_id: classId,
       assessment_id: assessmentId,
-      total_marks: Number((a as any)?.total_marks ?? 0),
+      total_marks: total,
       published: true,
       published_at: new Date().toISOString(),
     } as any)
@@ -202,6 +234,7 @@ export async function publishSmartCard(card: SmartCardRow): Promise<SmartCardRow
 
   return updated ? hydrateCard(updated as Record<string, unknown>) : null;
 }
+
 
 /* ───────────── Public (no-account) side ───────────── */
 
