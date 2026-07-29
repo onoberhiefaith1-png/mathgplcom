@@ -75,19 +75,37 @@ export interface SmartCardRow {
 
 
 const SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
+/** Short, human-typeable public code, e.g. mathgpl.live/c/3vge7 */
 export const generateSlug = () =>
-  Array.from({ length: 8 }, () => SLUG_ALPHABET[Math.floor(Math.random() * SLUG_ALPHABET.length)]).join("");
+  Array.from({ length: 5 }, () => SLUG_ALPHABET[Math.floor(Math.random() * SLUG_ALPHABET.length)]).join("");
 
-export const cardUrl = (slug: string) => `${window.location.origin}/c/${slug}`;
+/** The public site — never a development/preview host. */
+export const PUBLIC_SITE = "https://golden-hour-academy.lovable.app";
 
-/** Share link that server-renders per-card social previews before landing on
- *  the same card. Static SPA heads can't do this, so shares go through the
- *  public preview endpoint. */
-export const shareUrl = (slug: string) => {
-  const base = import.meta.env.VITE_SUPABASE_URL;
-  if (!base) return cardUrl(slug);
-  return `${base}/functions/v1/smart-card-preview?slug=${encodeURIComponent(slug)}&origin=${encodeURIComponent(window.location.origin)}`;
+export const publicOrigin = () => {
+  if (typeof window === "undefined") return PUBLIC_SITE;
+  const origin = window.location.origin;
+  const dev =
+    origin.includes("localhost") ||
+    origin.includes("127.0.0.1") ||
+    origin.includes("preview--") ||
+    origin.includes("id-preview");
+  return dev ? PUBLIC_SITE : origin;
 };
+
+/** Clean, one-line public link for the card. */
+export const cardUrl = (slug: string) => `${publicOrigin()}/c/${slug}`;
+
+/** What Copy / Share put on the clipboard — the short public URL only. */
+export const shareUrl = (slug: string) => cardUrl(slug);
+
+/** Social preview image for a card, served by the public preview endpoint. */
+export const previewImageUrl = (slug: string) => {
+  const base = import.meta.env.VITE_SUPABASE_URL;
+  if (!base) return "";
+  return `${base}/functions/v1/smart-card-preview?slug=${encodeURIComponent(slug)}&image=1`;
+};
+
 
 
 export const hydrateCard = (row: Record<string, unknown>): SmartCardRow => ({
