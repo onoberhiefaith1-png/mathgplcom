@@ -156,3 +156,23 @@ export const Outlet = TSOutlet;
 // ---------- NavLink (minimal) ----------
 
 export const NavLink = Link;
+
+// ---------- useNavigationType (react-router-dom compat) ----------
+
+import { useEffect as rcUseEffect, useState as rcUseState } from "react";
+
+type NavigationType = "PUSH" | "POP" | "REPLACE";
+
+export function useNavigationType(): NavigationType {
+  const router = useRouter();
+  const [navType, setNavType] = rcUseState<NavigationType>("PUSH");
+  rcUseEffect(() => {
+    return router.history.subscribe((event) => {
+      const t = (event as { action?: { type?: string } }).action?.type;
+      if (t === "PUSH") setNavType("PUSH");
+      else if (t === "REPLACE") setNavType("REPLACE");
+      else if (t === "BACK" || t === "FORWARD" || t === "GO") setNavType("POP");
+    });
+  }, [router]);
+  return navType;
+}
