@@ -52,13 +52,19 @@ const StudentSmartBoardPage = () => {
         navigate(`/auth?redirect=/student/class/${classId}/smartboard`);
         return;
       }
+      const { data: cls } = await supabase
+        .from("classes")
+        .select("owner_id")
+        .eq("id", classId)
+        .maybeSingle();
+      const isOwner = (cls as { owner_id?: string } | null)?.owner_id === userData.user.id;
       const { data: membership } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("class_id", classId)
         .eq("user_id", userData.user.id)
         .maybeSingle();
-      if (!membership) { navigate("/join"); return; }
+      if (!isOwner && !membership) { navigate("/join"); return; }
 
       await loadBoardState();
       if (cancelled) return;
