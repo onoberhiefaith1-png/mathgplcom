@@ -1,14 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Copy, Check } from "lucide-react";
+import { ArrowLeft, Copy, Check, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LiveSession, SessionVisibility, createSession } from "@/lib/live/sessions";
 
 type NotebookOption = { id: string; label: string };
+
+/** Readable, high-contrast field surface (dark inputs were unreadable). */
+const FIELD =
+  "bg-muted text-foreground border-border placeholder:text-muted-foreground focus-visible:ring-primary";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
+const MINUTES = Array.from({ length: 60 }, (_, i) => pad(i));
+const toISODate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** 0.25 → 2 hours in quarter-hour steps, shown as decimal hours. */
+const DURATION_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 0.25);
 
 const TIME_ZONES: string[] = (() => {
   const local = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
