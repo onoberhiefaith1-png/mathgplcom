@@ -6,7 +6,7 @@
 // is already in the wild.
 
 import { supabase } from "@/integrations/supabase/client";
-import { createAssessmentFromSubsection } from "@/lib/assessments/createAssessment";
+import { compileSectionQuestions, type AssessmentKind } from "@/lib/assessments/createAssessment";
 import type { GeometryScene } from "@/lib/geometry/scene";
 
 export interface CardPresentation {
