@@ -182,8 +182,15 @@ const SmartCardEditorPage = () => {
     <div className="min-h-screen bg-background">
       {/* Layer 1 — editing only. Sharing, stats and play live on the dashboards. */}
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b bg-card/95 px-4 py-2 backdrop-blur">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Back
+        {/* Back always returns to the lesson note this card was published from. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            card?.notebook_id ? navigate(`/live/lesson-notes/${card.notebook_id}`) : navigate("/live")
+          }
+        >
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back to lesson note
         </Button>
         <h1 className="text-sm font-semibold">Smart Card Editor</h1>
         <div className="ml-auto flex items-center gap-2">

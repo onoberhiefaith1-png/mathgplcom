@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { Camera, Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
+import { ArrowLeft, Camera, Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -226,6 +226,17 @@ const SmartCardPage = () => {
               ? "Creator Test Mode — marking, scoring and timing all work, but nothing you do counts towards the public statistics."
               : "Teacher preview — nothing you do here is counted or shown publicly."}
           </div>
+        )}
+
+        {/* Creator-only: return to the Smart Card Editor this card came from. */}
+        {creator && (
+          <button
+            type="button"
+            onClick={() => navigate(`/live/smart-cards/${card.id}`)}
+            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Smart Card Editor
+          </button>
         )}
 
         {/* Sharing lives on the dashboard, not in the editor. */}
