@@ -236,6 +236,20 @@ const SmartCardPage = () => {
           <span className="flex items-center rounded-full bg-white/70 px-3 py-1.5 text-xs tabular-nums text-slate-500">
             {link.replace(/^https?:\/\//, "")}
           </span>
+          {creator && (
+            <button
+              type="button"
+              onClick={() => { setShareMode((v) => !v); setEditingPromo(false); }}
+              className={`ml-auto flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-semibold shadow-xs transition ${
+                shareMode
+                  ? "bg-slate-900 text-white hover:bg-slate-800"
+                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Camera className="h-3.5 w-3.5" />
+              {shareMode ? "Back to Dashboard" : "Create Share Card"}
+            </button>
+          )}
         </div>
 
 
@@ -252,42 +266,83 @@ const SmartCardPage = () => {
             {card.publishedBy && <span className="rounded-full bg-slate-100 px-2 py-0.5">by {card.publishedBy}</span>}
           </div>
 
+          {/* Share Card view: the SAME live counters, moved inside the card. */}
+          {shareMode && (
+            <section className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-3 sm:grid-cols-4">
+              {counters.map((c) => (
+                <div key={c.label} className="text-center">
+                  <c.icon className="mx-auto mb-1 h-4 w-4 text-slate-400" />
+                  <p className="text-xl font-bold tabular-nums text-slate-900">{c.value}</p>
+                  <p className="text-[11px] text-slate-500">{c.label}</p>
+                </div>
+              ))}
+            </section>
+          )}
+
           {/* The card itself is clickable — it is the entry point. */}
           <div
-            role="button"
-            tabIndex={0}
-            onClick={open}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") open(); }}
-            className="mt-5 cursor-pointer rounded-2xl border border-slate-100 bg-slate-50/60 p-4 transition hover:border-slate-300 hover:bg-slate-50"
+            role={shareMode ? undefined : "button"}
+            tabIndex={shareMode ? undefined : 0}
+            onClick={shareMode ? undefined : open}
+            onKeyDown={shareMode ? undefined : (e) => { if (e.key === "Enter" || e.key === " ") open(); }}
+            className={`mt-5 rounded-2xl border border-slate-100 bg-slate-50/60 p-4 transition ${
+              shareMode ? "" : "cursor-pointer hover:border-slate-300 hover:bg-slate-50"
+            }`}
           >
             <SmartCardQuestion presentation={card.presentation} scenes={card.geometry?.scenes ?? []} />
           </div>
 
-          {isGame && (
+          {isGame && !shareMode && (
             <p className="mt-3 text-center text-[11px] text-slate-500">
               Game Challenges require a Smartboard sign-in — rewards go to your personal gallery.
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={open}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            <Play className="h-4 w-4" /> {isGame ? "Enter Game Challenge" : "Start Challenge"}
-          </button>
+          {shareMode ? (
+            editingPromo ? (
+              <textarea
+                autoFocus
+                value={promo}
+                onChange={(e) => setPromo(e.target.value)}
+                onBlur={() => setEditingPromo(false)}
+                rows={2}
+                className="mt-4 w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-base font-semibold text-slate-900 outline-hidden focus:border-slate-500"
+              />
+            ) : (
+              <p
+                role="button"
+                tabIndex={0}
+                title="Click to edit this promotional message"
+                onClick={() => setEditingPromo(true)}
+                onKeyDown={(e) => { if (e.key === "Enter") setEditingPromo(true); }}
+                className="mt-4 cursor-text whitespace-pre-wrap rounded-2xl px-4 py-3 text-center text-base font-semibold text-slate-900 transition hover:bg-slate-50"
+              >
+                {promo || "Click to add a promotional message"}
+              </p>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={open}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              <Play className="h-4 w-4" /> {isGame ? "Enter Game Challenge" : "Start Challenge"}
+            </button>
+          )}
         </header>
 
 
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {counters.map((c) => (
-            <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-xs">
-              <c.icon className="mx-auto mb-1 h-4 w-4 text-slate-400" />
-              <p className="text-xl font-bold tabular-nums text-slate-900">{c.value}</p>
-              <p className="text-[11px] text-slate-500">{c.label}</p>
-            </div>
-          ))}
-        </section>
+        {!shareMode && (
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {counters.map((c) => (
+              <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-xs">
+                <c.icon className="mx-auto mb-1 h-4 w-4 text-slate-400" />
+                <p className="text-xl font-bold tabular-nums text-slate-900">{c.value}</p>
+                <p className="text-[11px] text-slate-500">{c.label}</p>
+              </div>
+            ))}
+          </section>
+        )}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
           <h2 className="mb-2 flex items-center gap-1 text-sm font-semibold text-slate-800">
