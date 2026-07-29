@@ -116,6 +116,13 @@ const App = () => (
           <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/teaching-hub" element={<TeachingHub />} />
+          <Route path="/live" element={<LiveHub />} />
+          <Route path="/live/sessions" element={<SessionsPage />} />
+          <Route path="/live/sessions/create" element={<CreateSessionPage />} />
+          <Route path="/live/sessions/:sessionId" element={<SessionDashboardPage />} />
+          <Route path="/live/s/:sessionId" element={<ParticipantSessionPage />} />
+          <Route path="/live/join" element={<JoinSessionPage />} />
+          <Route path="/live/join/:code" element={<JoinSessionPage />} />
           <Route path="/adventure" element={<Adventure />} />
           <Route path="/adventure/games" element={<AdventureGamesDashboard />} />
           <Route path="/adventure/games/:gameId" element={<AdventureGameEditor />} />
