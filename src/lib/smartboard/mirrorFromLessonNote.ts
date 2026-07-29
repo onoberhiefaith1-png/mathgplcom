@@ -85,7 +85,7 @@ const SUP_TO_DIGIT: Record<string, string> = {
   "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
 };
 
-const charsOf = (s: string): Row => graphemes(s).map(mkChar);
+const charsOf = (s: string): Row => graphemes(stripBrokenGlyphs(s)).map(mkChar);
 
 const isScriptBase = (n: Node | undefined): boolean =>
   !!n && (n.kind !== "char" || /[A-Za-z0-9)\]}]/.test(n.ch));

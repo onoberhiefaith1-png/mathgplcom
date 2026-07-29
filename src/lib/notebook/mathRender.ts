@@ -14,7 +14,7 @@
 // non-empty slots render their contents transparently (no border).
 
 import { createElement, type CSSProperties, type ReactNode } from "react";
-import { EMOJI_STYLE, graphemes, isEmoji } from "@/lib/text/graphemes";
+import { EMOJI_STYLE, graphemes, isEmoji, stripBrokenGlyphs } from "@/lib/text/graphemes";
 import { PLACEHOLDER_COLOR, smartboardPlaceholderStyle } from "@/lib/smartboard/placeholderColor";
 
 /* ─── Connected radical helper ─────────────────────────────────────────────
@@ -506,7 +506,7 @@ export function renderMathInline(
   opts: RenderOptions = {},
 ): ReactNode[] {
   const ctx: RenderCtx = { opts, slotCounter: { n: 0 } };
-  return renderInner(normalizeMath(srcRaw), keyBase, ctx);
+  return renderInner(stripBrokenGlyphs(normalizeMath(srcRaw)), keyBase, ctx);
 }
 
 function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] {

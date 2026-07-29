@@ -69,6 +69,12 @@ export function isEmoji(g: string): boolean {
 /** True when the string contains at least one emoji. */
 export const hasEmoji = (s: string): boolean => graphemes(s).some(isEmoji);
 
+/** Removes lone surrogates + replacement characters left behind by any code
+ *  that sliced a string by UTF-16 unit. Prevents the "?" diamond from ever
+ *  reaching the screen. */
+export const stripBrokenGlyphs = (s: string): string =>
+  s ? s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|\uFFFD/g, "") : s;
+
 /** True when the string carries a broken-glyph replacement character. */
 export const hasBrokenGlyph = (s: string): boolean => s.includes(REPLACEMENT);
 
