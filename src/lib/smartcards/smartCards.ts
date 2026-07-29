@@ -71,7 +71,10 @@ export interface SmartCardRow {
   topic: string | null;
   subtopic: string | null;
   difficulty: string | null;
+  /** Storage path of the shared social snapshot (regenerated on republish). */
+  preview_image_path?: string | null;
 }
+
 
 
 const SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
