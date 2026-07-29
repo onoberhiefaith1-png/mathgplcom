@@ -124,26 +124,22 @@ const SmartCardEditorPage = () => {
 
   // Publish in the chosen mode, then hand over to the matching dashboard
   // (Layer 2). The editor itself never shows stats, links or play controls.
+  // A Game Challenge is NOT published here: it first goes through the
+  // "Link Question to Progress Bar" setup step.
   const openDashboard = async (mode: "challenge" | "game") => {
     if (!card || !pres) return;
     setPublishMode(mode);
-    if (mode === "game" && !gameId) {
-      toast({
-        title: "Choose a game first",
-        description: "Pick the game this challenge should be played inside, in the Game Challenge panel.",
-        variant: "destructive",
-      });
-      return;
-    }
     setPublishing(true);
     try {
-      await saveSmartCard(card.id, {
-        title, presentation: pres, publish_mode: mode, game_id: mode === "game" ? gameId : null,
-      });
+      await saveSmartCard(card.id, { title, presentation: pres, publish_mode: mode });
+      if (mode === "game") {
+        navigate(`/live/smart-cards/${card.id}/game-setup`);
+        return;
+      }
       const updated = await publishSmartCard({
         ...card, title, presentation: pres,
         publish_mode: mode,
-        game_id: mode === "game" ? gameId : null,
+        game_id: null,
       });
       if (updated) {
         setCard(updated);
@@ -154,17 +150,14 @@ const SmartCardEditorPage = () => {
         title: "Could not publish",
         description: (e as Error).message === "no_floating_lines"
           ? "Add floating numbers to the solution first — the challenge needs markable lines."
-          : (e as Error).message === "no_game_selected"
-            ? "Pick the game this challenge should be played inside."
-            : (e as Error).message === "game_has_no_progress_bar"
-              ? "That game has no progress bar yet — add one in the Game Editor."
-              : (e as Error).message,
+          : (e as Error).message,
         variant: "destructive",
       });
     } finally {
       setPublishing(false);
     }
   };
+
 
 
 
@@ -352,23 +345,16 @@ const SmartCardEditorPage = () => {
             </div>
           )}
 
-          {/* Game Challenge needs a game; stats live on the dashboards. */}
+          {/* Game Challenge setup (game + progress bar) lives on its own step. */}
           <div className="space-y-2 rounded-xl border bg-card p-4 text-xs">
             <span className="text-xs font-medium text-muted-foreground">Game Challenge</span>
-            <Select value={gameId ?? ""} onValueChange={(v) => setGameId(v)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Choose game" />
-              </SelectTrigger>
-              <SelectContent>
-                {games.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <p className="text-[11px] text-muted-foreground">
-              Used when you open this card as a Game Challenge.
+              Click <strong>Game Challenge</strong> above to choose the game and link this question
+              to a progress bar. Progress Bar 1 is always the event countdown.
             </p>
           </div>
+
+
 
 
         </aside>

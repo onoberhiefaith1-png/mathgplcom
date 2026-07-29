@@ -66,6 +66,8 @@ import SessionDashboardPage from "./pages/live/SessionDashboardPage.tsx";
 import ParticipantSessionPage from "./pages/live/ParticipantSessionPage.tsx";
 import JoinSessionPage from "./pages/live/JoinSessionPage.tsx";
 import SmartCardEditorPage from "./pages/live/SmartCardEditorPage.tsx";
+import SmartCardGameSetupPage from "./pages/live/SmartCardGameSetupPage.tsx";
+import SmartCardGameDashboardPage from "./pages/live/SmartCardGameDashboardPage.tsx";
 import SmartCardPage from "./pages/public/SmartCardPage.tsx";
 import SmartCardChallengePage from "./pages/public/SmartCardChallengePage.tsx";
 import SmartCardGamePage from "./pages/public/SmartCardGamePage.tsx";
@@ -128,6 +130,8 @@ const App = () => (
           <Route path="/live/lesson-notes" element={<LessonNotesPage />} />
           <Route path="/live/lesson-notes/:id" element={<NotebookEditorPage />} />
           <Route path="/live/smart-cards/:cardId" element={<SmartCardEditorPage />} />
+          <Route path="/live/smart-cards/:cardId/game-setup" element={<SmartCardGameSetupPage />} />
+          <Route path="/live/smart-cards/:cardId/game-dashboard" element={<SmartCardGameDashboardPage />} />
           <Route path="/c/:slug" element={<SmartCardPage />} />
           <Route path="/c/:slug/solve" element={<SmartCardChallengePage />} />
           <Route path="/c/:slug/game" element={<SmartCardGamePage />} />

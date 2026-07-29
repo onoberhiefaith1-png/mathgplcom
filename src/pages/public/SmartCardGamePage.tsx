@@ -32,9 +32,12 @@ const SmartCardGamePage = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [solved, setSolved] = useState<Record<string, Record<string, number>>>({});
+  const [qualified, setQualified] = useState(false);
+  const [timerExpired, setTimerExpired] = useState(false);
   const [openBarId, setOpenBarId] = useState<string | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const startedAt = useRef<number>(Date.now());
+
 
   useEffect(() => {
     (async () => {
@@ -63,10 +66,13 @@ const SmartCardGamePage = () => {
 
   const refreshProgress = useCallback(async () => {
     if (!slug || !identity) return;
-    const p = await fetchPublicGameProgress(slug, identity.participantKey);
+    const p = await fetchPublicGameProgress(slug, identity.participantKey, identity.displayName);
     setScores(p.scores);
     setSolved(p.solved as Record<string, Record<string, number>>);
+    setQualified(p.qualified);
+    setTimerExpired(p.timerExpired);
   }, [slug, identity]);
+
 
   useEffect(() => {
     if (!identity) return;
@@ -98,13 +104,42 @@ const SmartCardGamePage = () => {
     return map;
   }, [bundle]);
 
+  // Live clock for the event countdown bar.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const timeLeftMs = useMemo(() => {
+    const tb = bundle?.timeBar;
+    if (!tb?.startedAt) return tb ? tb.durationSeconds * 1000 : 0;
+    const start = new Date(tb.startedAt).getTime();
+    const end = tb.pausedAt ? new Date(tb.pausedAt).getTime() : now;
+    const elapsed = end - start - (tb.accumulatedPausedMs || 0);
+    return Math.max(0, tb.durationSeconds * 1000 - elapsed);
+  }, [bundle?.timeBar, now]);
+
   // Bars fill from this visitor's own marks — there is no class to share with.
   const elements: CanvasElement[] = useMemo(() => {
     const canvas = normalizeCanvas(bundle?.game?.canvas);
     const flat: CanvasElement[] = [];
     for (const scene of canvas.scenes) flat.push(...scene.elements);
+    const required = Math.max(1, bundle?.card?.requiredMarks ?? 1);
     return flat.map((el) => {
       if (el.kind !== "progress_bar" || !el.progress) return el;
+      if (bundle?.timeBar && el.id === bundle.timeBar.progressElementId) {
+        const segments = Math.max(1, el.progress.segments ?? 10);
+        const totalMs = Math.max(1, bundle.timeBar.durationSeconds * 1000);
+        return {
+          ...el,
+          progress: {
+            ...el.progress,
+            currentMarks: Math.round((timeLeftMs / totalMs) * segments),
+            totalMarks: segments,
+          },
+        };
+      }
       const board = boardByElement.get(el.id);
       if (!board) return el;
       return {
@@ -112,11 +147,12 @@ const SmartCardGamePage = () => {
         progress: {
           ...el.progress,
           currentMarks: scores[board.assessmentId] ?? 0,
-          totalMarks: Math.max(1, board.totalMarks),
+          totalMarks: required,
         },
       };
     });
-  }, [bundle, boardByElement, scores]);
+
+  }, [bundle, boardByElement, scores, timeLeftMs]);
 
   const playableBars = useMemo(
     () => elements.filter((e) => e.kind === "progress_bar" && boardByElement.has(e.id)),
@@ -221,11 +257,29 @@ const SmartCardGamePage = () => {
           <ArrowLeft className="h-4 w-4" /> Card
         </button>
         <h1 className="truncate text-base font-semibold">{bundle.game.title}</h1>
-        <div className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold tabular-nums text-primary">
-          {Object.values(scores).reduce((a, b) => a + b, 0)} /{" "}
-          {bundle.boards.reduce((a, b) => a + b.totalMarks, 0)}
+        <div className="flex items-center gap-2">
+          <div className="rounded-full border border-border bg-muted/20 px-3 py-1 text-xs font-semibold tabular-nums">
+            {Math.floor(timeLeftMs / 60000)}:
+            {Math.floor((timeLeftMs % 60000) / 1000).toString().padStart(2, "0")}
+          </div>
+          <div className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold tabular-nums text-primary">
+            {Object.values(scores).reduce((a, b) => a + b, 0)} / {bundle.card.requiredMarks}
+          </div>
         </div>
       </header>
+
+      {qualified && !timerExpired && (
+        <div className="mx-4 mb-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-center text-sm text-emerald-300">
+          ✅ Challenge completed. Waiting for the event timer to finish. Final rankings will be
+          calculated when the countdown ends.
+        </div>
+      )}
+      {timerExpired && (
+        <div className="mx-4 mb-2 rounded-lg border border-primary/40 bg-primary/10 p-3 text-center text-sm text-primary">
+          Countdown finished — the competition is closed. Final rankings are on the challenge page.
+        </div>
+      )}
+
 
       <main className="w-full px-4 pb-8">
         <div className="mx-auto flex w-full max-w-[1400px] gap-4">
