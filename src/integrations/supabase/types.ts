@@ -2088,6 +2088,72 @@ export type Database = {
           },
         ]
       }
+      sessions: {
+        Row: {
+          class_id: string
+          created_at: string
+          description: string | null
+          duration_minutes: number
+          id: string
+          notebook_id: string | null
+          owner_id: string
+          session_code: string
+          starts_at: string | null
+          status: string
+          time_zone: string
+          title: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          notebook_id?: string | null
+          owner_id: string
+          session_code: string
+          starts_at?: string | null
+          status?: string
+          time_zone?: string
+          title: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          notebook_id?: string | null
+          owner_id?: string
+          session_code?: string
+          starts_at?: string | null
+          status?: string
+          time_zone?: string
+          title?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2103,6 +2169,7 @@ export type Database = {
         Returns: undefined
       }
       generate_mathgpl_id: { Args: never; Returns: string }
+      generate_session_code: { Args: never; Returns: string }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {
         Args: { _class_id: string }
@@ -2140,6 +2207,17 @@ export type Database = {
         Returns: {
           display_name: string
           user_id: string
+        }[]
+      }
+      lookup_session_by_code: {
+        Args: { code: string }
+        Returns: {
+          class_id: string
+          duration_minutes: number
+          id: string
+          owner_id: string
+          starts_at: string
+          title: string
         }[]
       }
       notebook_shared_to_member: {
