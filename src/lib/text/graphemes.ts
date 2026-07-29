@@ -7,6 +7,8 @@
 // authority for splitting text into user-perceived characters so an emoji is
 // always exactly ONE character node / ONE token.
 
+import type { CSSProperties } from "react";
+
 const REPLACEMENT = "\uFFFD";
 
 interface GraphemeSegmenter {
@@ -72,7 +74,7 @@ export const hasBrokenGlyph = (s: string): boolean => s.includes(REPLACEMENT);
 
 /** Inline style that pins an emoji to its own identity: the system colour
  *  emoji font, never the ink colour / ink filter. Only SIZE inherits. */
-export const EMOJI_STYLE: React.CSSProperties = {
+export const EMOJI_STYLE: CSSProperties = {
   fontFamily:
     '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Android Emoji","EmojiSymbols",sans-serif',
   color: "initial",
@@ -84,4 +86,4 @@ export const EMOJI_STYLE: React.CSSProperties = {
   fontWeight: 400,
   textShadow: "none",
   WebkitTextStroke: "0",
-} as React.CSSProperties;
+} as CSSProperties;
