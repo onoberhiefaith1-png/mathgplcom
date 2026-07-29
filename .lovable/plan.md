@@ -1,58 +1,55 @@
-## Report Dashboard UI Refinement
+# Trend Report — line chart alongside the bar chart
 
-Presentation-layer work only. No score maths changes — filters and settings only affect what is displayed.
+The bar chart stays exactly as it is ("how did the student do on each task?"). A new Trend chart is added below it on both the teacher Class Report and the Student Report, answering "is performance improving over time?".
 
-### 1. Report theme (white by default)
-- The report page gets its own scoped theme wrapper (`report-light` / `report-dark`) rather than following the app theme. White paper surface is the default.
-- Chart colours, gridlines, axis, tooltip and text all read from report-scoped CSS variables so both themes stay legible.
-- Choice is stored per user in local storage and applies only to the report route.
+## 1. Data layer (`src/lib/reports/progressChart.ts` + new `src/lib/reports/trendChart.ts`)
 
-### 2. Report Settings panel
-Gear icon in the report header opens a settings sheet:
-- Background: White (default) / Dark
-- Grid lines: Show / Hide
-- Animations: On / Off
-- Bar labels: Show percentages / Hide percentages
+Reuse the existing task data — no new database work, no schema change. The trend is derived from the same `TaskBar` values the bar chart already trusts.
 
-Settings persist locally and drive the chart props. A small shared hook holds them so both the teacher and student report pages get identical settings.
+- Add a `completedAt` field to `TaskBar` so a task can be placed on a timeline. Source order: the frozen result's timestamp (from `report_task_results`) → `dueAt` → `startedAt`. Only tasks with a date and with activity (percent recorded / frozen, or score > 0) count as "completed" for a period.
+- New `buildTrendSeries(bars, { grouping, filter })` in `trendChart.ts`:
+  - Buckets: `week` (Sunday 00:00 → Saturday 23:59, local time), `month`, `year`.
+  - Range: from the first task period to the current period — every period in between is emitted, including empty ones.
+  - For each period: filter by mode (Both / Assignment / Adventure), average the task percentages, round.
+  - Empty period → `{ activity: false }` and its value **carries forward** the previous period's average (first-ever empty periods before any activity are dropped, so the chart never opens on a flat phantom line).
+  - Each point also carries: `assignments`, `adventures`, `tasksCompleted`, `highest`, `lowest`, and the period label (`W1…`, `Jan…`, `2026…`).
+- Class-level trend uses the existing class-average bars; student trend uses that student's bars. Both come from `loadReportData` already in memory, so switching student/filter/grouping is instant with no refetch.
 
-### 3. Student selector (teacher only)
-- Replace the raw `<select>` with a proper dropdown menu: a "Student ▾" button listing every enrolled student (searchable if the list is long).
-- Clicking a name loads that student's bars immediately; a "Class" pill returns to the class report, which stays the default on open.
-- Header shows which report is active (Class Report / Alice — Student Report).
+## 2. Trend chart component (`src/components/reports/TrendLineChart.tsx`)
 
-### 4. Assignment / Adventure filter
-- Segmented control: Both (default) / Assignment / Adventure.
-- Pure display filter over the already-computed bars — no recalculation.
-- Colours locked: Assignment = orange, Adventure = blue (added as report tokens, used by bars, legend and tooltips).
+Hand-rolled SVG (same approach and tokens as the bar chart, no chart library):
 
-### 5. Chart rebuild (`ProgressBarChart`)
-Rework the existing component into an Excel/Power-BI-grade chart:
-- Frozen left column: Y axis 0–100% in 10% steps, plus a rotated "Completion (%)" axis title. It never scrolls.
-- Only the plot + X labels scroll horizontally, in one synced scroll container, so bars and their labels always line up.
-- Consistent bar width and even gaps; bars never compress — new tasks extend rightward forever.
-- Rounded bar tops, soft gridlines, solid axis lines, tabular-nums percentage labels, tighter typography and margins.
-- Optional grow-in animation and hover lift/highlight (both respect the Animations setting and `prefers-reduced-motion`).
-- 0% tasks still render as a visible baseline stub so newly assigned work appears immediately.
-- Responsive: bar width and gap step down slightly on tablet/mobile but never below a readable minimum; horizontal scroll is always available.
+- Fixed Y axis 0–100% in 10% steps, frozen while the plot scrolls horizontally; X axis chronological and scrollable for long histories.
+- **Straight** segments between points (no smoothing), rounded point markers.
+- Segment colouring: a segment is "activity" only if the period it ends on has activity; otherwise it is drawn in the No-Activity colour as a horizontal carry-forward line. Markers follow the same rule (blue dot vs red dot).
+- Gradient area fill under the line, split per segment so activity stretches fade blue and inactive stretches fade red; soft vertical gradient fading to transparent at the axis, never a solid block.
+- Grid lines respect the existing `gridLines` setting; animations respect `animations` (line draw-in via stroke-dash).
+- Hover/tap on a marker shows a tooltip:
+  - Activity: `Week 5 · Average 78% · Tasks Completed 6 · Assignments 4 · Adventures 2 · Highest / Lowest`.
+  - No activity: `Week 8 — No Activity`, plus "Performance carried forward from the previous reporting period."
+- Responsive: same ResizeObserver narrow-mode treatment as the bar chart.
 
-### 6. Rich tooltip
-Hover (desktop) / tap (mobile) shows a card:
+## 3. Grouping control (`src/components/reports/TrendRangeBar.tsx`)
 
-```text
-Quadratic Formula
-Assignment
-Score        18 / 25
-Completion   72%
-Assigned     12 Mar 2026
-Due          19 Mar 2026
-```
+Small segmented control — Weekly / Monthly / Yearly — sitting on the trend card header. One chart, only the X-axis grouping changes. The existing Both/Assignment/Adventure `ReportFilterBar` is shared by both charts on the page.
 
-For adventures: Contribution, Required contribution, Completion %, Assigned/Completion date.
+## 4. Colour settings (`reportTheme.ts` + `ReportSettingsSheet.tsx`)
 
-To supply score/target/date fields, `TaskBar` gains display-only fields — `score`, `target`, `completedAt` — populated in `progressChart.ts` from values it already computes (student score sum, task target or adventure quota, frozen timestamp). For the class view these are class averages/totals. No new queries or schema changes.
+Extend `ReportSettings` (already persisted per browser) with a `trend` block, defaults:
 
-### Technical notes
-- Files touched: `src/components/reports/ProgressBarChart.tsx` (rebuild), new `src/components/reports/ReportSettingsSheet.tsx`, new `src/components/reports/reportTheme.ts` (settings hook + tokens), `src/pages/class/ClassReportPage.tsx`, `src/pages/student/StudentReportPage.tsx`, and a small additive change in `src/lib/reports/progressChart.ts` for the tooltip fields.
-- Report colour tokens are added to `src/index.css` as scoped variables under the report theme classes — no hardcoded hex in components.
-- Student page reuses the same chart, settings and filter, minus the student selector.
+- Activity line: Blue
+- No Activity line: Red
+- Area fill: Light blue (derived from the activity colour)
+- Grid lines: Light grey
+
+New "Trend Colours" section in the settings sheet with a small swatch picker per role (a fixed palette of ~6 professional hues each, plus the default). Also a Weekly/Monthly/Yearly default and a show/hide toggle for the trend card. These settings affect the Trend Report only; bar-chart colours are untouched.
+
+## 5. Pages
+
+`ClassReportPage.tsx` and `StudentReportPage.tsx`: render `TrendLineChart` under the existing `ProgressBarChart`, sharing the same filter state, the same student selection (teacher), and the same settings object. Titles: "Class Trend" / "Student Trend", subtitle naming the grouping.
+
+## Technical notes
+
+- No migration required; `report_task_results` already stores the freeze timestamps used for period placement.
+- All colours flow through the existing `--rp-*` token system plus new `--rp-trend-*` variables set inline from settings, so white and dark report backgrounds both stay legible.
+- Unit test for `buildTrendSeries`: Sunday→Saturday boundaries, carry-forward on empty periods, filter maths, and month/year grouping.
