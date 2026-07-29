@@ -183,6 +183,15 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
   throw new Error(String((lastError as { message?: string })?.message ?? "Could not create session"));
 };
 
+/** Teacher edits the broadcast platforms after the session exists. */
+export const updateSessionBroadcasts = async (sessionId: string, broadcasts: BroadcastEntry[]) =>
+  supabase
+    .from("sessions")
+    .update({ broadcasts: normalizeBroadcasts(broadcasts) as unknown as never })
+    .eq("id", sessionId);
+
+
+
 export const deleteSession = async (session: Pick<LiveSession, "class_id">) => {
   // Deleting the backing class cascades to the session row and all its data.
   return supabase.from("classes").delete().eq("id", session.class_id);
