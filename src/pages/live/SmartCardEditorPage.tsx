@@ -121,35 +121,33 @@ const SmartCardEditorPage = () => {
 
   const scenes = useMemo(() => card?.geometry?.scenes ?? [], [card]);
   const url = card?.slug ? cardUrl(card.slug) : "";
-  // Shared links go through the preview endpoint so social platforms show a
-  // per-card rich preview; it lands on the same public card.
-  const link = card?.slug ? shareUrl(card.slug) : "";
 
-  // Per-card stats for the teacher (published cards only).
-  const [stats, setStats] = useState<CardStats | null>(null);
-  useEffect(() => {
-    if (!card?.id || !card.published) { setStats(null); return; }
-    let alive = true;
-    void fetchCardStats(card.id).then((s) => { if (alive) setStats(s); });
-    return () => { alive = false; };
-  }, [card?.id, card?.published]);
-
-
-  const onPublish = async () => {
+  // Publish in the chosen mode, then hand over to the matching dashboard
+  // (Layer 2). The editor itself never shows stats, links or play controls.
+  const openDashboard = async (mode: "challenge" | "game") => {
     if (!card || !pres) return;
+    setPublishMode(mode);
+    if (mode === "game" && !gameId) {
+      toast({
+        title: "Choose a game first",
+        description: "Pick the game this challenge should be played inside, in the Game Challenge panel.",
+        variant: "destructive",
+      });
+      return;
+    }
     setPublishing(true);
     try {
       await saveSmartCard(card.id, {
-        title, presentation: pres, publish_mode: publishMode, game_id: publishMode === "game" ? gameId : null,
+        title, presentation: pres, publish_mode: mode, game_id: mode === "game" ? gameId : null,
       });
       const updated = await publishSmartCard({
         ...card, title, presentation: pres,
-        publish_mode: publishMode,
-        game_id: publishMode === "game" ? gameId : null,
+        publish_mode: mode,
+        game_id: mode === "game" ? gameId : null,
       });
       if (updated) {
         setCard(updated);
-        toast({ title: "Smart Card published", description: "Copy or share it anywhere." });
+        navigate(`/c/${updated.slug}?creator=1`);
       }
     } catch (e) {
       toast({
@@ -168,20 +166,7 @@ const SmartCardEditorPage = () => {
     }
   };
 
-  const copyCard = async () => {
-    if (!link) return;
-    await navigator.clipboard?.writeText(`${title}\n${link}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
 
-  const shareCard = async () => {
-    if (!link) return;
-    if (navigator.share) {
-      try { await navigator.share({ title, text: title, url: link }); return; } catch { /* cancelled */ }
-    }
-    await copyCard();
-  };
 
 
   if (loading || !pres || !card) {
