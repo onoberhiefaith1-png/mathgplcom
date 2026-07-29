@@ -68,14 +68,17 @@ interface RawTask {
   target: number;
 }
 
+interface FrozenSnap { percent: number; at: string | null }
+
 interface TaskDataset {
   tasks: RawTask[];
   members: ClassMember[];
   /** assessmentId -> studentId -> score */
   scores: Map<string, Map<string, number>>;
-  /** taskId -> studentId -> frozen percent */
-  frozen: Map<string, Map<string, number>>;
+  /** taskId -> studentId -> frozen snapshot */
+  frozen: Map<string, Map<string, FrozenSnap>>;
 }
+
 
 async function loadDataset(classId: string): Promise<TaskDataset> {
   const [{ data: rawTasks }, { data: memberRows }] = await Promise.all([
