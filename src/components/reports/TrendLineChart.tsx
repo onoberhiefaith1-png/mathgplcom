@@ -42,6 +42,8 @@ const TrendLineChart = ({ points, title, subtitle, settings }: TrendLineChartPro
 
   const step = narrow ? 64 : 92;
   const plotWidth = Math.max(320, PAD_X * 2 + Math.max(0, points.length - 1) * step);
+  const { ref: scrollRef } = useLatestScroll(points.length);
+
 
   const xy = useMemo(
     () =>
