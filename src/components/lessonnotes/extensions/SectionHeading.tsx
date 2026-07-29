@@ -193,6 +193,64 @@ function SectionHeadingView(props: NodeViewProps) {
     return sub?.id ?? null;
   }, [locateIndices, notebookId]);
 
+  /** Snapshot the question that this Solution belongs to: the text between the
+   *  parent question heading and this Solution heading, plus any geometry
+   *  diagrams living in that range. */
+  const snapshotQuestion = useCallback((): { text: string; scenes: GeometryScene[]; title: string } => {
+    const pos = typeof getPos === "function" ? getPos() : null;
+    const doc = editor.state.doc;
+    if (pos == null) return { text: "", scenes: [], title: "Smart Card" };
+    let startPos = 0;
+    let title = "Smart Card";
+    doc.descendants((n, p) => {
+      if (p >= pos) return false;
+      if (n.type.name === "heading" && detectSectionKind(n.textContent) !== "solution") {
+        startPos = p + n.nodeSize;
+        title = n.textContent || title;
+      }
+      return true;
+    });
+    const text = startPos < pos ? doc.textBetween(startPos, pos, "\n", "\n").trim() : "";
+    const scenes: GeometryScene[] = [];
+    if (startPos < pos) {
+      doc.nodesBetween(startPos, pos, (n) => {
+        if (n.type.name === "geometryDiagram" && (n.attrs as any)?.scene) {
+          scenes.push((n.attrs as any).scene as GeometryScene);
+        }
+      });
+    }
+    return { text, scenes, title };
+  }, [getPos, editor]);
+
+  const openSmartCard = useCallback(async () => {
+    if (!notebookId) return;
+    setCarding(true);
+    try {
+      let target = await resolveSubsectionId();
+      if (!target) target = await ensureSubsectionId();
+      if (!target) {
+        toast({ title: "Not ready", description: "Save the document first, then try again." });
+        return;
+      }
+      const snap = snapshotQuestion();
+      const cardId = await openSmartCardDraft({
+        notebookId,
+        subsectionId: target,
+        questionText: snap.text,
+        scenes: snap.scenes,
+        title: snap.title,
+      });
+      if (!cardId) {
+        toast({ title: "Couldn't open Smart Card", variant: "destructive" });
+        return;
+      }
+      navigate(`/live/smart-cards/${cardId}`);
+    } finally {
+      setCarding(false);
+    }
+  }, [notebookId, resolveSubsectionId, snapshotQuestion, navigate]);
+
+
   /** Floating Numbers must ALWAYS be reachable from a Solution heading, even
    *  when the solution is still empty — the workspace simply opens blank.
    *  Resolve first; if the backing rows don't exist yet (brand-new section
