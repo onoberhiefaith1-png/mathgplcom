@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
+import { supabase } from "@/integrations/supabase/client";
 import {
   fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
   pingPresence, previewImageUrl, shareUrl, type CardStatsPublic, type PublicCardPayload,
