@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, Trophy, Eye, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, Loader2, Trophy, Eye, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import PresentationView from "@/components/smartboard/PresentationView";
@@ -43,6 +43,7 @@ const SmartCardGameDashboardPage = () => {
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState<ResultRow | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const timeBar = useGameTimeBar(game?.id ?? null);
 
@@ -163,14 +164,32 @@ const SmartCardGameDashboardPage = () => {
         </Button>
         <h1 className="text-sm font-semibold">{card.title || "Game Challenge"}</h1>
         <span className="text-xs text-muted-foreground">{game?.title}</span>
+        {/* Players always enter through the Smart Card, never straight into
+            the game stage: card → Enter Game Challenge → Adventure → board. */}
+        <span className="ml-auto flex items-center rounded-full bg-muted/40 px-3 py-1 text-[11px] tabular-nums text-muted-foreground">
+          {cardUrl(card.slug).replace(/^https?:\/\//, "")}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            void navigator.clipboard?.writeText(cardUrl(card.slug));
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1600);
+          }}
+        >
+          {copied ? <Check className="mr-1 h-3.5 w-3.5" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
+          Copy Smart Card
+        </Button>
         <a
-          className="ml-auto text-xs underline underline-offset-2"
-          href={`${cardUrl(card.slug)}/game`}
+          className="text-xs underline underline-offset-2"
+          href={cardUrl(card.slug)}
           target="_blank"
           rel="noreferrer"
         >
-          Open player view
+          Open Smart Card
         </a>
+
       </header>
 
       <div className="space-y-4 p-4">
