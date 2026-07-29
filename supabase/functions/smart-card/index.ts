@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
 
     const publicCard = {
       id: card.id,
+      ownerId: card.owner_id,
       slug: card.slug,
       title: card.title,
       presentation: card.presentation,

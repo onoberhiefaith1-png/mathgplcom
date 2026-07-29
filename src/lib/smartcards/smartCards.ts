@@ -474,6 +474,8 @@ export async function publishSmartCard(card: SmartCardRow): Promise<SmartCardRow
 
 export interface PublicCard {
   id: string;
+  /** Card owner — used to auto-detect the creator on the public page. */
+  ownerId?: string | null;
   publishMode?: "challenge" | "game";
   topic?: string | null;
   subtopic?: string | null;
