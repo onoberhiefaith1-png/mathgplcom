@@ -181,8 +181,17 @@ const SmartCardEditorPage = () => {
               <Button variant="outline" size="sm" onClick={shareCard}>
                 <Share2 className="mr-1 h-4 w-4" /> Share Smart Card
               </Button>
+              {/* Walk the exact visitor flow without polluting public counts. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/c/${card.slug}?preview=1`, "_blank", "noopener")}
+              >
+                <Eye className="mr-1 h-4 w-4" /> Preview as visitor
+              </Button>
             </>
           )}
+
           <Button size="sm" onClick={onPublish} disabled={publishing}>
             {publishing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Rocket className="mr-1 h-4 w-4" />}
             {card.published ? "Republish Smart Card" : "Publish Smart Card"}
