@@ -352,49 +352,24 @@ const SmartCardEditorPage = () => {
             </div>
           )}
 
-          {card.published && (
-            <div className="space-y-3 rounded-xl border bg-card p-4 text-xs">
-              <span className="text-xs font-medium text-muted-foreground">Card stats</span>
-              {!stats ? (
-                <p className="text-muted-foreground">Loading…</p>
-              ) : stats.attempts === 0 ? (
-                <p className="text-muted-foreground">No one has completed this card yet.</p>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">Players</p>
-                      <p className="text-sm font-semibold tabular-nums">{stats.players}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">Full marks</p>
-                      <p className="text-sm font-semibold tabular-nums">{stats.attempts}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">Fastest</p>
-                      <p className="text-sm font-semibold tabular-nums">
-                        {stats.bestMs != null ? formatDuration(stats.bestMs) : "—"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-muted p-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">Median</p>
-                      <p className="text-sm font-semibold tabular-nums">
-                        {stats.medianMs != null ? formatDuration(stats.medianMs) : "—"}
-                      </p>
-                    </div>
-                  </div>
-                  <ol className="divide-y rounded-lg border">
-                    {stats.leaderboard.map((e, i) => (
-                      <li key={`${e.displayName}-${e.completedAt}-${i}`} className="flex items-center justify-between px-2 py-1.5">
-                        <span className="truncate">{i + 1}. {e.displayName}</span>
-                        <span className="tabular-nums text-muted-foreground">{formatDuration(e.durationMs)}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              )}
-            </div>
-          )}
+          {/* Game Challenge needs a game; stats live on the dashboards. */}
+          <div className="space-y-2 rounded-xl border bg-card p-4 text-xs">
+            <span className="text-xs font-medium text-muted-foreground">Game Challenge</span>
+            <Select value={gameId ?? ""} onValueChange={(v) => setGameId(v)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Choose game" />
+              </SelectTrigger>
+              <SelectContent>
+                {games.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Used when you open this card as a Game Challenge.
+            </p>
+          </div>
+
 
         </aside>
       </div>
