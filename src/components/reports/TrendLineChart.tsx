@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TrendPoint } from "@/lib/reports/trendChart";
+import { useLatestScroll } from "@/lib/reports/useLatestScroll";
 import type { ReportSettings } from "./reportTheme";
 
 const STEPS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
@@ -41,6 +42,8 @@ const TrendLineChart = ({ points, title, subtitle, settings }: TrendLineChartPro
 
   const step = narrow ? 64 : 92;
   const plotWidth = Math.max(320, PAD_X * 2 + Math.max(0, points.length - 1) * step);
+  const { ref: scrollRef } = useLatestScroll(points.length);
+
 
   const xy = useMemo(
     () =>
@@ -116,7 +119,7 @@ const TrendLineChart = ({ points, title, subtitle, settings }: TrendLineChartPro
           </div>
 
           {/* Scrolling plot */}
-          <div className="report-scroll min-w-0 flex-1 overflow-x-auto pb-1">
+          <div ref={scrollRef} className="report-scroll min-w-0 flex-1 overflow-x-auto pb-1">
             <div className="relative" style={{ height: PLOT_HEIGHT, minWidth: plotWidth }}>
               <svg
                 width={plotWidth}

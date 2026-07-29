@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskBar } from "@/lib/reports/progressChart";
+import { useLatestScroll } from "@/lib/reports/useLatestScroll";
 import type { ReportFilter, ReportSettings } from "./reportTheme";
 
 const STEPS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
@@ -45,6 +46,7 @@ const ProgressBarChart = ({ bars, title, subtitle, settings, filter }: ProgressB
   );
 
   const plotWidth = shown.length * (barWidth + barGap) + barGap;
+  const { ref: scrollRef } = useLatestScroll(shown.length);
 
   return (
     <section ref={wrapRef} className="rounded-2xl border border-[hsl(var(--rp-border))] bg-[hsl(var(--rp-panel))] p-5 shadow-sm">
@@ -92,7 +94,7 @@ const ProgressBarChart = ({ bars, title, subtitle, settings, filter }: ProgressB
           </div>
 
           {/* Scrolling plot — only this region moves */}
-          <div className="report-scroll min-w-0 flex-1 overflow-x-auto pb-1">
+          <div ref={scrollRef} className="report-scroll min-w-0 flex-1 overflow-x-auto pb-1">
             <div className="relative" style={{ height: PLOT_HEIGHT, minWidth: plotWidth }}>
               {settings.gridLines &&
                 STEPS.map((s) => (
