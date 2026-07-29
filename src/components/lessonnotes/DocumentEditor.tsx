@@ -74,6 +74,7 @@ import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions"
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { EmojiPanel } from "./EmojiPanel";
+import { ConversionPanel } from "./ConversionPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   PAPER_LABELS, PAPER_SIZES,
