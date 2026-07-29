@@ -242,9 +242,11 @@ const SmartCardEditorPage = () => {
             </div>
             <div className="flex justify-center overflow-auto rounded-lg bg-muted/40 p-6">
               <div
+                ref={previewNode}
                 className="w-full max-w-xl rounded-2xl border bg-white p-8 shadow-lg"
                 style={{ transform: `scale(${pres.zoom || 1})`, transformOrigin: "top center" }}
               >
+
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
                   MathGPL Life · Smart Card
                 </p>
