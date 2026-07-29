@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskBar } from "@/lib/reports/progressChart";
+import { useLatestScroll } from "@/lib/reports/useLatestScroll";
 import type { ReportFilter, ReportSettings } from "./reportTheme";
 
 const STEPS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
