@@ -58,13 +58,15 @@ export const SmartCardQuestion = ({ presentation: p, scenes = [], className = ""
                   {seg.text}
                 </span>
               ) : (
-                <PresenterMath
-                  key={`m-${i}-${j}`}
-                  ascii={toDisplaySafe(seg.text)}
-                  keyBase={`card-${i}-${j}`}
-                  color={p.color}
-                  className="font-serif"
-                />
+                <span key={`m-${i}-${j}`} style={{ fontSize: fontSize * (p.mathScale || 1) }}>
+                  <PresenterMath
+                    ascii={toDisplaySafe(seg.text)}
+                    keyBase={`card-${i}-${j}`}
+                    color={p.color}
+                    className="font-serif"
+                  />
+                </span>
+
               ),
             )}
           </div>
