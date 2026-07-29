@@ -159,6 +159,18 @@ export async function openSmartCardDraft(input: {
     .eq("id", input.subsectionId)
     .maybeSingle();
 
+  // Short slugs are only safe with a collision check — try a few candidates.
+  let slug = generateSlug();
+  for (let i = 0; i < 8; i += 1) {
+    const { data: clash } = await supabase
+      .from("smart_cards")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!clash) break;
+    slug = generateSlug();
+  }
+
   const { data: created, error } = await supabase
     .from("smart_cards")
     .insert({
@@ -166,7 +178,7 @@ export async function openSmartCardDraft(input: {
       notebook_id: input.notebookId,
       subsection_id: input.subsectionId,
       section_id: (sub as any)?.section_id ?? null,
-      slug: generateSlug(),
+      slug,
       title: input.title || "Smart Card",
       presentation: { ...DEFAULT_PRESENTATION, questionText: input.questionText } as any,
       geometry: input.scenes.length ? ({ scenes: input.scenes } as any) : null,
