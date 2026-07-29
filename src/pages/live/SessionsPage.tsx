@@ -11,7 +11,9 @@ import {
   scheduleLabel,
   scheduleStateOf,
   scheduleTone,
+  hydrateSession,
 } from "@/lib/live/sessions";
+
 import { useNowTick } from "@/lib/live/useCountdown";
 import JoinSessionPanel from "@/components/live/JoinSessionPanel";
 
