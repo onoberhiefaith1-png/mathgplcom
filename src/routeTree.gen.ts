@@ -10,6 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
+import { Route as AdventureRouteRouteImport } from './routes/adventure/route'
+import { Route as ClassRouteRouteImport } from './routes/class/route'
+import { Route as FamilyRouteRouteImport } from './routes/family/route'
+import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/route'
+import { Route as LiveRouteRouteImport } from './routes/live/route'
+import { Route as SchoolRouteRouteImport } from './routes/school/route'
+import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
+import { Route as StudentRouteRouteImport } from './routes/student/route'
+import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
@@ -173,15 +183,65 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdventureIndexRoute = AdventureIndexRouteImport.update({
-  id: '/adventure/',
-  path: '/adventure/',
+const AdventureRouteRoute = AdventureRouteRouteImport.update({
+  id: '/adventure',
+  path: '/adventure',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ClassRouteRoute = ClassRouteRouteImport.update({
+  id: '/class',
+  path: '/class',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FamilyRouteRoute = FamilyRouteRouteImport.update({
+  id: '/family',
+  path: '/family',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LessonNotesRouteRoute = LessonNotesRouteRouteImport.update({
+  id: '/lesson-notes',
+  path: '/lesson-notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRouteRoute = LiveRouteRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SchoolRouteRoute = SchoolRouteRouteImport.update({
+  id: '/school',
+  path: '/school',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SmartboardRouteRoute = SmartboardRouteRouteImport.update({
+  id: '/smartboard',
+  path: '/smartboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentRouteRoute = StudentRouteRouteImport.update({
+  id: '/student',
+  path: '/student',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeachingHubRouteRoute = TeachingHubRouteRouteImport.update({
+  id: '/teaching-hub',
+  path: '/teaching-hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdventureIndexRoute = AdventureIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdventureRouteRoute,
 } as any)
 const AssetsIndexRoute = AssetsIndexRouteImport.update({
   id: '/assets/',
@@ -229,9 +289,9 @@ const BackgroundsIndexRoute = BackgroundsIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const FamilyIndexRoute = FamilyIndexRouteImport.update({
-  id: '/family/',
-  path: '/family/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => FamilyRouteRoute,
 } as any)
 const HomeIndexRoute = HomeIndexRouteImport.update({
   id: '/home/',
@@ -244,14 +304,14 @@ const JoinIndexRoute = JoinIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const LessonNotesIndexRoute = LessonNotesIndexRouteImport.update({
-  id: '/lesson-notes/',
-  path: '/lesson-notes/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => LessonNotesRouteRoute,
 } as any)
 const LiveIndexRoute = LiveIndexRouteImport.update({
-  id: '/live/',
-  path: '/live/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => LiveRouteRoute,
 } as any)
 const MathboardIndexRoute = MathboardIndexRouteImport.update({
   id: '/mathboard/',
@@ -264,19 +324,19 @@ const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const SchoolIndexRoute = SchoolIndexRouteImport.update({
-  id: '/school/',
-  path: '/school/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => SchoolRouteRoute,
 } as any)
 const SmartboardIndexRoute = SmartboardIndexRouteImport.update({
-  id: '/smartboard/',
-  path: '/smartboard/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => SmartboardRouteRoute,
 } as any)
 const TeachingHubIndexRoute = TeachingHubIndexRouteImport.update({
-  id: '/teaching-hub/',
-  path: '/teaching-hub/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => TeachingHubRouteRoute,
 } as any)
 const TermsIndexRoute = TermsIndexRouteImport.update({
   id: '/terms/',
@@ -289,9 +349,9 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
-  id: '/adventure/games/',
-  path: '/adventure/games/',
-  getParentRoute: () => rootRouteImport,
+  id: '/games/',
+  path: '/games/',
+  getParentRoute: () => AdventureRouteRoute,
 } as any)
 const AgeRangeIndexRoute = AgeRangeIndexRouteImport.update({
   id: '/age/$range/',
@@ -319,9 +379,9 @@ const ChallengeSlugIndexRoute = ChallengeSlugIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClassCodeIndexRoute = ClassCodeIndexRouteImport.update({
-  id: '/class/$code/',
-  path: '/class/$code/',
-  getParentRoute: () => rootRouteImport,
+  id: '/$code/',
+  path: '/$code/',
+  getParentRoute: () => ClassRouteRoute,
 } as any)
 const GameSlugIndexRoute = GameSlugIndexRouteImport.update({
   id: '/game/$slug/',
@@ -410,9 +470,9 @@ const JoinCodeIndexRoute = JoinCodeIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const LessonNotesIdIndexRoute = LessonNotesIdIndexRouteImport.update({
-  id: '/lesson-notes/$id/',
-  path: '/lesson-notes/$id/',
-  getParentRoute: () => rootRouteImport,
+  id: '/$id/',
+  path: '/$id/',
+  getParentRoute: () => LessonNotesRouteRoute,
 } as any)
 const LevelsIdIndexRoute = LevelsIdIndexRouteImport.update({
   id: '/levels/$id/',
@@ -420,19 +480,19 @@ const LevelsIdIndexRoute = LevelsIdIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const LiveJoinIndexRoute = LiveJoinIndexRouteImport.update({
-  id: '/live/join/',
-  path: '/live/join/',
-  getParentRoute: () => rootRouteImport,
+  id: '/join/',
+  path: '/join/',
+  getParentRoute: () => LiveRouteRoute,
 } as any)
 const LiveLessonNotesIndexRoute = LiveLessonNotesIndexRouteImport.update({
-  id: '/live/lesson-notes/',
-  path: '/live/lesson-notes/',
-  getParentRoute: () => rootRouteImport,
+  id: '/lesson-notes/',
+  path: '/lesson-notes/',
+  getParentRoute: () => LiveRouteRoute,
 } as any)
 const LiveSessionsIndexRoute = LiveSessionsIndexRouteImport.update({
-  id: '/live/sessions/',
-  path: '/live/sessions/',
-  getParentRoute: () => rootRouteImport,
+  id: '/sessions/',
+  path: '/sessions/',
+  getParentRoute: () => LiveRouteRoute,
 } as any)
 const NotebookScanCodeIndexRoute = NotebookScanCodeIndexRouteImport.update({
   id: '/notebook-scan/$code/',
@@ -441,14 +501,14 @@ const NotebookScanCodeIndexRoute = NotebookScanCodeIndexRouteImport.update({
 } as any)
 const SmartboardNotebookIdIndexRoute =
   SmartboardNotebookIdIndexRouteImport.update({
-    id: '/smartboard/$notebookId/',
-    path: '/smartboard/$notebookId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/$notebookId/',
+    path: '/$notebookId/',
+    getParentRoute: () => SmartboardRouteRoute,
   } as any)
 const StudentClassesIndexRoute = StudentClassesIndexRouteImport.update({
-  id: '/student/classes/',
-  path: '/student/classes/',
-  getParentRoute: () => rootRouteImport,
+  id: '/classes/',
+  path: '/classes/',
+  getParentRoute: () => StudentRouteRoute,
 } as any)
 const SubjectsSubjectIndexRoute = SubjectsSubjectIndexRouteImport.update({
   id: '/subjects/$subject/',
@@ -456,15 +516,15 @@ const SubjectsSubjectIndexRoute = SubjectsSubjectIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const TeachingHubClassesIndexRoute = TeachingHubClassesIndexRouteImport.update({
-  id: '/teaching-hub/classes/',
-  path: '/teaching-hub/classes/',
-  getParentRoute: () => rootRouteImport,
+  id: '/classes/',
+  path: '/classes/',
+  getParentRoute: () => TeachingHubRouteRoute,
 } as any)
 const TeachingHubSettingsIndexRoute =
   TeachingHubSettingsIndexRouteImport.update({
-    id: '/teaching-hub/settings/',
-    path: '/teaching-hub/settings/',
-    getParentRoute: () => rootRouteImport,
+    id: '/settings/',
+    path: '/settings/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const YearNIndexRoute = YearNIndexRouteImport.update({
   id: '/year/$n/',
@@ -473,9 +533,9 @@ const YearNIndexRoute = YearNIndexRouteImport.update({
 } as any)
 const AdventureGamesGameIdIndexRoute =
   AdventureGamesGameIdIndexRouteImport.update({
-    id: '/adventure/games/$gameId/',
-    path: '/adventure/games/$gameId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/games/$gameId/',
+    path: '/games/$gameId/',
+    getParentRoute: () => AdventureRouteRoute,
   } as any)
 const AssetsCategorySubcategoryIndexRoute =
   AssetsCategorySubcategoryIndexRouteImport.update({
@@ -649,54 +709,54 @@ const GamesSubtractionDifficultyIndexRoute =
     getParentRoute: () => rootRouteImport,
   } as any)
 const LiveJoinCodeIndexRoute = LiveJoinCodeIndexRouteImport.update({
-  id: '/live/join/$code/',
-  path: '/live/join/$code/',
-  getParentRoute: () => rootRouteImport,
+  id: '/join/$code/',
+  path: '/join/$code/',
+  getParentRoute: () => LiveRouteRoute,
 } as any)
 const LiveLessonNotesIdIndexRoute = LiveLessonNotesIdIndexRouteImport.update({
-  id: '/live/lesson-notes/$id/',
-  path: '/live/lesson-notes/$id/',
-  getParentRoute: () => rootRouteImport,
+  id: '/lesson-notes/$id/',
+  path: '/lesson-notes/$id/',
+  getParentRoute: () => LiveRouteRoute,
 } as any)
 const LiveSSessionIdIndexRoute = LiveSSessionIdIndexRouteImport.update({
-  id: '/live/s/$sessionId/',
-  path: '/live/s/$sessionId/',
-  getParentRoute: () => rootRouteImport,
+  id: '/s/$sessionId/',
+  path: '/s/$sessionId/',
+  getParentRoute: () => LiveRouteRoute,
 } as any)
 const LiveSessionsSessionIdIndexRoute =
   LiveSessionsSessionIdIndexRouteImport.update({
-    id: '/live/sessions/$sessionId/',
-    path: '/live/sessions/$sessionId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/sessions/$sessionId/',
+    path: '/sessions/$sessionId/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveSessionsCreateIndexRoute = LiveSessionsCreateIndexRouteImport.update({
-  id: '/live/sessions/create/',
-  path: '/live/sessions/create/',
-  getParentRoute: () => rootRouteImport,
+  id: '/sessions/create/',
+  path: '/sessions/create/',
+  getParentRoute: () => LiveRouteRoute,
 } as any)
 const LiveSmartCardsCardIdIndexRoute =
   LiveSmartCardsCardIdIndexRouteImport.update({
-    id: '/live/smart-cards/$cardId/',
-    path: '/live/smart-cards/$cardId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/smart-cards/$cardId/',
+    path: '/smart-cards/$cardId/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdIndexRoute =
   LiveWorkspaceClassIdIndexRouteImport.update({
-    id: '/live/workspace/$classId/',
-    path: '/live/workspace/$classId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/',
+    path: '/workspace/$classId/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const SmartboardNotebookIdPreviewIndexRoute =
   SmartboardNotebookIdPreviewIndexRouteImport.update({
-    id: '/smartboard/$notebookId/preview/',
-    path: '/smartboard/$notebookId/preview/',
-    getParentRoute: () => rootRouteImport,
+    id: '/$notebookId/preview/',
+    path: '/$notebookId/preview/',
+    getParentRoute: () => SmartboardRouteRoute,
   } as any)
 const StudentClassClassIdIndexRoute =
   StudentClassClassIdIndexRouteImport.update({
-    id: '/student/class/$classId/',
-    path: '/student/class/$classId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/',
+    path: '/class/$classId/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const SubjectsSubjectTopicIndexRoute =
   SubjectsSubjectTopicIndexRouteImport.update({
@@ -706,21 +766,21 @@ const SubjectsSubjectTopicIndexRoute =
   } as any)
 const TeachingHubClassesClassIdIndexRoute =
   TeachingHubClassesClassIdIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/',
-    path: '/teaching-hub/classes/$classId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/',
+    path: '/classes/$classId/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesCreateIndexRoute =
   TeachingHubClassesCreateIndexRouteImport.update({
-    id: '/teaching-hub/classes/create/',
-    path: '/teaching-hub/classes/create/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/create/',
+    path: '/classes/create/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubSettingsArchiveIndexRoute =
   TeachingHubSettingsArchiveIndexRouteImport.update({
-    id: '/teaching-hub/settings/archive/',
-    path: '/teaching-hub/settings/archive/',
-    getParentRoute: () => rootRouteImport,
+    id: '/settings/archive/',
+    path: '/settings/archive/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const GamesAbacusRepresentDifficultyIndexRoute =
   GamesAbacusRepresentDifficultyIndexRouteImport.update({
@@ -784,111 +844,111 @@ const GamesFractionsMixedToImproperDifficultyIndexRoute =
   } as any)
 const LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute =
   LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRouteImport.update({
-    id: '/lesson-notes/$notebookId/floating-prep/$subsectionId/',
-    path: '/lesson-notes/$notebookId/floating-prep/$subsectionId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/$notebookId/floating-prep/$subsectionId/',
+    path: '/$notebookId/floating-prep/$subsectionId/',
+    getParentRoute: () => LessonNotesRouteRoute,
   } as any)
 const LessonNotesNotebookIdFloatingSubsectionIdIndexRoute =
   LessonNotesNotebookIdFloatingSubsectionIdIndexRouteImport.update({
-    id: '/lesson-notes/$notebookId/floating/$subsectionId/',
-    path: '/lesson-notes/$notebookId/floating/$subsectionId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/$notebookId/floating/$subsectionId/',
+    path: '/$notebookId/floating/$subsectionId/',
+    getParentRoute: () => LessonNotesRouteRoute,
   } as any)
 const LiveSmartCardsCardIdGameDashboardIndexRoute =
   LiveSmartCardsCardIdGameDashboardIndexRouteImport.update({
-    id: '/live/smart-cards/$cardId/game-dashboard/',
-    path: '/live/smart-cards/$cardId/game-dashboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/smart-cards/$cardId/game-dashboard/',
+    path: '/smart-cards/$cardId/game-dashboard/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveSmartCardsCardIdGameSetupIndexRoute =
   LiveSmartCardsCardIdGameSetupIndexRouteImport.update({
-    id: '/live/smart-cards/$cardId/game-setup/',
-    path: '/live/smart-cards/$cardId/game-setup/',
-    getParentRoute: () => rootRouteImport,
+    id: '/smart-cards/$cardId/game-setup/',
+    path: '/smart-cards/$cardId/game-setup/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdAdventuresIndexRoute =
   LiveWorkspaceClassIdAdventuresIndexRouteImport.update({
-    id: '/live/workspace/$classId/adventures/',
-    path: '/live/workspace/$classId/adventures/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/adventures/',
+    path: '/workspace/$classId/adventures/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdAssignmentsIndexRoute =
   LiveWorkspaceClassIdAssignmentsIndexRouteImport.update({
-    id: '/live/workspace/$classId/assignments/',
-    path: '/live/workspace/$classId/assignments/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/assignments/',
+    path: '/workspace/$classId/assignments/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdGalleryIndexRoute =
   LiveWorkspaceClassIdGalleryIndexRouteImport.update({
-    id: '/live/workspace/$classId/gallery/',
-    path: '/live/workspace/$classId/gallery/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/gallery/',
+    path: '/workspace/$classId/gallery/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdGamesIndexRoute =
   LiveWorkspaceClassIdGamesIndexRouteImport.update({
-    id: '/live/workspace/$classId/games/',
-    path: '/live/workspace/$classId/games/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/games/',
+    path: '/workspace/$classId/games/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdLessonNotesIndexRoute =
   LiveWorkspaceClassIdLessonNotesIndexRouteImport.update({
-    id: '/live/workspace/$classId/lesson-notes/',
-    path: '/live/workspace/$classId/lesson-notes/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/lesson-notes/',
+    path: '/workspace/$classId/lesson-notes/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdReportIndexRoute =
   LiveWorkspaceClassIdReportIndexRouteImport.update({
-    id: '/live/workspace/$classId/report/',
-    path: '/live/workspace/$classId/report/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/report/',
+    path: '/workspace/$classId/report/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdSmartboardIndexRoute =
   LiveWorkspaceClassIdSmartboardIndexRouteImport.update({
-    id: '/live/workspace/$classId/smartboard/',
-    path: '/live/workspace/$classId/smartboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/smartboard/',
+    path: '/workspace/$classId/smartboard/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdStudentsIndexRoute =
   LiveWorkspaceClassIdStudentsIndexRouteImport.update({
-    id: '/live/workspace/$classId/students/',
-    path: '/live/workspace/$classId/students/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/students/',
+    path: '/workspace/$classId/students/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const StudentClassClassIdAdventuresIndexRoute =
   StudentClassClassIdAdventuresIndexRouteImport.update({
-    id: '/student/class/$classId/adventures/',
-    path: '/student/class/$classId/adventures/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/adventures/',
+    path: '/class/$classId/adventures/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const StudentClassClassIdGalleryIndexRoute =
   StudentClassClassIdGalleryIndexRouteImport.update({
-    id: '/student/class/$classId/gallery/',
-    path: '/student/class/$classId/gallery/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/gallery/',
+    path: '/class/$classId/gallery/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const StudentClassClassIdGamesIndexRoute =
   StudentClassClassIdGamesIndexRouteImport.update({
-    id: '/student/class/$classId/games/',
-    path: '/student/class/$classId/games/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/games/',
+    path: '/class/$classId/games/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const StudentClassClassIdLessonNotesIndexRoute =
   StudentClassClassIdLessonNotesIndexRouteImport.update({
-    id: '/student/class/$classId/lesson-notes/',
-    path: '/student/class/$classId/lesson-notes/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/lesson-notes/',
+    path: '/class/$classId/lesson-notes/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const StudentClassClassIdReportIndexRoute =
   StudentClassClassIdReportIndexRouteImport.update({
-    id: '/student/class/$classId/report/',
-    path: '/student/class/$classId/report/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/report/',
+    path: '/class/$classId/report/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const StudentClassClassIdSmartboardIndexRoute =
   StudentClassClassIdSmartboardIndexRouteImport.update({
-    id: '/student/class/$classId/smartboard/',
-    path: '/student/class/$classId/smartboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/smartboard/',
+    path: '/class/$classId/smartboard/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const SubjectsSubjectTopicSubtopicIndexRoute =
   SubjectsSubjectTopicSubtopicIndexRouteImport.update({
@@ -904,157 +964,167 @@ const SubjectsAlgebraNumbersAndNumeralsAbacusIndexRoute =
   } as any)
 const TeachingHubClassesClassIdAdventuresIndexRoute =
   TeachingHubClassesClassIdAdventuresIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/adventures/',
-    path: '/teaching-hub/classes/$classId/adventures/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/adventures/',
+    path: '/classes/$classId/adventures/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdAssignmentsIndexRoute =
   TeachingHubClassesClassIdAssignmentsIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/assignments/',
-    path: '/teaching-hub/classes/$classId/assignments/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/assignments/',
+    path: '/classes/$classId/assignments/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdGalleryIndexRoute =
   TeachingHubClassesClassIdGalleryIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/gallery/',
-    path: '/teaching-hub/classes/$classId/gallery/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/gallery/',
+    path: '/classes/$classId/gallery/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdGamesIndexRoute =
   TeachingHubClassesClassIdGamesIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/games/',
-    path: '/teaching-hub/classes/$classId/games/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/games/',
+    path: '/classes/$classId/games/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdLessonNotesIndexRoute =
   TeachingHubClassesClassIdLessonNotesIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/lesson-notes/',
-    path: '/teaching-hub/classes/$classId/lesson-notes/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/lesson-notes/',
+    path: '/classes/$classId/lesson-notes/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdReportIndexRoute =
   TeachingHubClassesClassIdReportIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/report/',
-    path: '/teaching-hub/classes/$classId/report/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/report/',
+    path: '/classes/$classId/report/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdSmartboardIndexRoute =
   TeachingHubClassesClassIdSmartboardIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/smartboard/',
-    path: '/teaching-hub/classes/$classId/smartboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/smartboard/',
+    path: '/classes/$classId/smartboard/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdStudentsIndexRoute =
   TeachingHubClassesClassIdStudentsIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/students/',
-    path: '/teaching-hub/classes/$classId/students/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/students/',
+    path: '/classes/$classId/students/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute =
   LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRouteImport.update({
-    id: '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/',
-    path: '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/',
-    getParentRoute: () => rootRouteImport,
+    id: '/$notebookId/floating/$subsectionId/ai-settings/',
+    path: '/$notebookId/floating/$subsectionId/ai-settings/',
+    getParentRoute: () => LessonNotesRouteRoute,
   } as any)
 const StudentClassClassIdAssessmentAssessmentIdIndexRoute =
   StudentClassClassIdAssessmentAssessmentIdIndexRouteImport.update({
-    id: '/student/class/$classId/assessment/$assessmentId/',
-    path: '/student/class/$classId/assessment/$assessmentId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/assessment/$assessmentId/',
+    path: '/class/$classId/assessment/$assessmentId/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const StudentClassClassIdAssignmentNotebookIdIndexRoute =
   StudentClassClassIdAssignmentNotebookIdIndexRouteImport.update({
-    id: '/student/class/$classId/assignment/$notebookId/',
-    path: '/student/class/$classId/assignment/$notebookId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/assignment/$notebookId/',
+    path: '/class/$classId/assignment/$notebookId/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const StudentClassClassIdGameGameIdIndexRoute =
   StudentClassClassIdGameGameIdIndexRouteImport.update({
-    id: '/student/class/$classId/game/$gameId/',
-    path: '/student/class/$classId/game/$gameId/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/game/$gameId/',
+    path: '/class/$classId/game/$gameId/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute =
   LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRouteImport.update({
-    id: '/live/workspace/$classId/adventures/$gameId/dashboard/',
-    path: '/live/workspace/$classId/adventures/$gameId/dashboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/adventures/$gameId/dashboard/',
+    path: '/workspace/$classId/adventures/$gameId/dashboard/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute =
   LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRouteImport.update({
-    id: '/live/workspace/$classId/assignments/$notebookId/dashboard/',
-    path: '/live/workspace/$classId/assignments/$notebookId/dashboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/assignments/$notebookId/dashboard/',
+    path: '/workspace/$classId/assignments/$notebookId/dashboard/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute =
   LiveWorkspaceClassIdGamesGameIdDashboardIndexRouteImport.update({
-    id: '/live/workspace/$classId/games/$gameId/dashboard/',
-    path: '/live/workspace/$classId/games/$gameId/dashboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/games/$gameId/dashboard/',
+    path: '/workspace/$classId/games/$gameId/dashboard/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveWorkspaceClassIdGamesGameIdLiveIndexRoute =
   LiveWorkspaceClassIdGamesGameIdLiveIndexRouteImport.update({
-    id: '/live/workspace/$classId/games/$gameId/live/',
-    path: '/live/workspace/$classId/games/$gameId/live/',
-    getParentRoute: () => rootRouteImport,
+    id: '/workspace/$classId/games/$gameId/live/',
+    path: '/workspace/$classId/games/$gameId/live/',
+    getParentRoute: () => LiveRouteRoute,
   } as any)
 const StudentClassClassIdGamesGameIdPlayIndexRoute =
   StudentClassClassIdGamesGameIdPlayIndexRouteImport.update({
-    id: '/student/class/$classId/games/$gameId/play/',
-    path: '/student/class/$classId/games/$gameId/play/',
-    getParentRoute: () => rootRouteImport,
+    id: '/class/$classId/games/$gameId/play/',
+    path: '/class/$classId/games/$gameId/play/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const StudentClassesClassIdGamesGameIdLiveIndexRoute =
   StudentClassesClassIdGamesGameIdLiveIndexRouteImport.update({
-    id: '/student/classes/$classId/games/$gameId/live/',
-    path: '/student/classes/$classId/games/$gameId/live/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/games/$gameId/live/',
+    path: '/classes/$classId/games/$gameId/live/',
+    getParentRoute: () => StudentRouteRoute,
   } as any)
 const TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute =
   TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/',
-    path: '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/adventures/$gameId/dashboard/',
+    path: '/classes/$classId/adventures/$gameId/dashboard/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute =
   TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRouteImport.update(
     {
-      id: '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/',
-      path: '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/',
-      getParentRoute: () => rootRouteImport,
+      id: '/classes/$classId/assignments/$notebookId/dashboard/',
+      path: '/classes/$classId/assignments/$notebookId/dashboard/',
+      getParentRoute: () => TeachingHubRouteRoute,
     } as any,
   )
 const TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute =
   TeachingHubClassesClassIdGamesGameIdDashboardIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/games/$gameId/dashboard/',
-    path: '/teaching-hub/classes/$classId/games/$gameId/dashboard/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/games/$gameId/dashboard/',
+    path: '/classes/$classId/games/$gameId/dashboard/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubClassesClassIdGamesGameIdLiveIndexRoute =
   TeachingHubClassesClassIdGamesGameIdLiveIndexRouteImport.update({
-    id: '/teaching-hub/classes/$classId/games/$gameId/live/',
-    path: '/teaching-hub/classes/$classId/games/$gameId/live/',
-    getParentRoute: () => rootRouteImport,
+    id: '/classes/$classId/games/$gameId/live/',
+    path: '/classes/$classId/games/$gameId/live/',
+    getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute =
   LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport.update(
     {
-      id: '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/',
-      path: '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/',
-      getParentRoute: () => rootRouteImport,
+      id: '/workspace/$classId/assessments/$assessmentId/student/$studentId/',
+      path: '/workspace/$classId/assessments/$assessmentId/student/$studentId/',
+      getParentRoute: () => LiveRouteRoute,
     } as any,
   )
 const TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute =
   TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport.update(
     {
-      id: '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/',
-      path: '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/',
-      getParentRoute: () => rootRouteImport,
+      id: '/classes/$classId/assessments/$assessmentId/student/$studentId/',
+      path: '/classes/$classId/assessments/$assessmentId/student/$studentId/',
+      getParentRoute: () => TeachingHubRouteRoute,
     } as any,
   )
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
+  '/adventure': typeof AdventureRouteRouteWithChildren
+  '/class': typeof ClassRouteRouteWithChildren
+  '/family': typeof FamilyRouteRouteWithChildren
+  '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
+  '/live': typeof LiveRouteRouteWithChildren
+  '/school': typeof SchoolRouteRouteWithChildren
+  '/smartboard': typeof SmartboardRouteRouteWithChildren
+  '/student': typeof StudentRouteRouteWithChildren
+  '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1215,6 +1285,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/class': typeof ClassRouteRouteWithChildren
+  '/student': typeof StudentRouteRouteWithChildren
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1376,6 +1448,16 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
+  '/adventure': typeof AdventureRouteRouteWithChildren
+  '/class': typeof ClassRouteRouteWithChildren
+  '/family': typeof FamilyRouteRouteWithChildren
+  '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
+  '/live': typeof LiveRouteRouteWithChildren
+  '/school': typeof SchoolRouteRouteWithChildren
+  '/smartboard': typeof SmartboardRouteRouteWithChildren
+  '/student': typeof StudentRouteRouteWithChildren
+  '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1538,6 +1620,16 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
+    | '/adventure'
+    | '/class'
+    | '/family'
+    | '/lesson-notes'
+    | '/live'
+    | '/school'
+    | '/smartboard'
+    | '/student'
+    | '/teaching-hub'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -1698,6 +1790,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/class'
+    | '/student'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -1858,6 +1952,16 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
+    | '/adventure'
+    | '/class'
+    | '/family'
+    | '/lesson-notes'
+    | '/live'
+    | '/school'
+    | '/smartboard'
+    | '/student'
+    | '/teaching-hub'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -2019,36 +2123,36 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
+  AdventureRouteRoute: typeof AdventureRouteRouteWithChildren
+  ClassRouteRoute: typeof ClassRouteRouteWithChildren
+  FamilyRouteRoute: typeof FamilyRouteRouteWithChildren
+  LessonNotesRouteRoute: typeof LessonNotesRouteRouteWithChildren
+  LiveRouteRoute: typeof LiveRouteRouteWithChildren
+  SchoolRouteRoute: typeof SchoolRouteRouteWithChildren
+  SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
+  StudentRouteRoute: typeof StudentRouteRouteWithChildren
+  TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
   AuthAdminRoute: typeof AuthAdminRoute
   AuthParentRoute: typeof AuthParentRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSchoolRoute: typeof AuthSchoolRoute
   AuthStudentRoute: typeof AuthStudentRoute
   AuthTeacherRoute: typeof AuthTeacherRoute
-  AdminIndexRoute: typeof AdminIndexRoute
-  AdventureIndexRoute: typeof AdventureIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   BackgroundsIndexRoute: typeof BackgroundsIndexRoute
-  FamilyIndexRoute: typeof FamilyIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   JoinIndexRoute: typeof JoinIndexRoute
-  LessonNotesIndexRoute: typeof LessonNotesIndexRoute
-  LiveIndexRoute: typeof LiveIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
   PrivacyIndexRoute: typeof PrivacyIndexRoute
-  SchoolIndexRoute: typeof SchoolIndexRoute
-  SmartboardIndexRoute: typeof SmartboardIndexRoute
-  TeachingHubIndexRoute: typeof TeachingHubIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
-  AdventureGamesIndexRoute: typeof AdventureGamesIndexRoute
   AgeRangeIndexRoute: typeof AgeRangeIndexRoute
   AssetsCategoryIndexRoute: typeof AssetsCategoryIndexRoute
   CSlugIndexRoute: typeof CSlugIndexRoute
   CardSlugIndexRoute: typeof CardSlugIndexRoute
   ChallengeSlugIndexRoute: typeof ChallengeSlugIndexRoute
-  ClassCodeIndexRoute: typeof ClassCodeIndexRoute
   GameSlugIndexRoute: typeof GameSlugIndexRoute
   GamesAdditionIndexRoute: typeof GamesAdditionIndexRoute
   GamesBidmasIndexRoute: typeof GamesBidmasIndexRoute
@@ -2066,19 +2170,10 @@ export interface RootRouteChildren {
   GamesTallyIndexRoute: typeof GamesTallyIndexRoute
   GradeNIndexRoute: typeof GradeNIndexRoute
   JoinCodeIndexRoute: typeof JoinCodeIndexRoute
-  LessonNotesIdIndexRoute: typeof LessonNotesIdIndexRoute
   LevelsIdIndexRoute: typeof LevelsIdIndexRoute
-  LiveJoinIndexRoute: typeof LiveJoinIndexRoute
-  LiveLessonNotesIndexRoute: typeof LiveLessonNotesIndexRoute
-  LiveSessionsIndexRoute: typeof LiveSessionsIndexRoute
   NotebookScanCodeIndexRoute: typeof NotebookScanCodeIndexRoute
-  SmartboardNotebookIdIndexRoute: typeof SmartboardNotebookIdIndexRoute
-  StudentClassesIndexRoute: typeof StudentClassesIndexRoute
   SubjectsSubjectIndexRoute: typeof SubjectsSubjectIndexRoute
-  TeachingHubClassesIndexRoute: typeof TeachingHubClassesIndexRoute
-  TeachingHubSettingsIndexRoute: typeof TeachingHubSettingsIndexRoute
   YearNIndexRoute: typeof YearNIndexRoute
-  AdventureGamesGameIdIndexRoute: typeof AdventureGamesGameIdIndexRoute
   AssetsCategorySubcategoryIndexRoute: typeof AssetsCategorySubcategoryIndexRoute
   AssetsInteractiveQuestionProgressIndexRoute: typeof AssetsInteractiveQuestionProgressIndexRoute
   CSlugGameIndexRoute: typeof CSlugGameIndexRoute
@@ -2109,19 +2204,7 @@ export interface RootRouteChildren {
   GamesPrimeFactorsDifficultyIndexRoute: typeof GamesPrimeFactorsDifficultyIndexRoute
   GamesPrimeDifficultyIndexRoute: typeof GamesPrimeDifficultyIndexRoute
   GamesSubtractionDifficultyIndexRoute: typeof GamesSubtractionDifficultyIndexRoute
-  LiveJoinCodeIndexRoute: typeof LiveJoinCodeIndexRoute
-  LiveLessonNotesIdIndexRoute: typeof LiveLessonNotesIdIndexRoute
-  LiveSSessionIdIndexRoute: typeof LiveSSessionIdIndexRoute
-  LiveSessionsSessionIdIndexRoute: typeof LiveSessionsSessionIdIndexRoute
-  LiveSessionsCreateIndexRoute: typeof LiveSessionsCreateIndexRoute
-  LiveSmartCardsCardIdIndexRoute: typeof LiveSmartCardsCardIdIndexRoute
-  LiveWorkspaceClassIdIndexRoute: typeof LiveWorkspaceClassIdIndexRoute
-  SmartboardNotebookIdPreviewIndexRoute: typeof SmartboardNotebookIdPreviewIndexRoute
-  StudentClassClassIdIndexRoute: typeof StudentClassClassIdIndexRoute
   SubjectsSubjectTopicIndexRoute: typeof SubjectsSubjectTopicIndexRoute
-  TeachingHubClassesClassIdIndexRoute: typeof TeachingHubClassesClassIdIndexRoute
-  TeachingHubClassesCreateIndexRoute: typeof TeachingHubClassesCreateIndexRoute
-  TeachingHubSettingsArchiveIndexRoute: typeof TeachingHubSettingsArchiveIndexRoute
   GamesAbacusRepresentDifficultyIndexRoute: typeof GamesAbacusRepresentDifficultyIndexRoute
   GamesDecimalsKindDifficultyIndexRoute: typeof GamesDecimalsKindDifficultyIndexRoute
   GamesFractionChallengeAdditionDifficultyIndexRoute: typeof GamesFractionChallengeAdditionDifficultyIndexRoute
@@ -2132,50 +2215,8 @@ export interface RootRouteChildren {
   GamesFractionChallengeSubtractionDifficultyIndexRoute: typeof GamesFractionChallengeSubtractionDifficultyIndexRoute
   GamesFractionsImproperToMixedDifficultyIndexRoute: typeof GamesFractionsImproperToMixedDifficultyIndexRoute
   GamesFractionsMixedToImproperDifficultyIndexRoute: typeof GamesFractionsMixedToImproperDifficultyIndexRoute
-  LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute: typeof LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute
-  LessonNotesNotebookIdFloatingSubsectionIdIndexRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdIndexRoute
-  LiveSmartCardsCardIdGameDashboardIndexRoute: typeof LiveSmartCardsCardIdGameDashboardIndexRoute
-  LiveSmartCardsCardIdGameSetupIndexRoute: typeof LiveSmartCardsCardIdGameSetupIndexRoute
-  LiveWorkspaceClassIdAdventuresIndexRoute: typeof LiveWorkspaceClassIdAdventuresIndexRoute
-  LiveWorkspaceClassIdAssignmentsIndexRoute: typeof LiveWorkspaceClassIdAssignmentsIndexRoute
-  LiveWorkspaceClassIdGalleryIndexRoute: typeof LiveWorkspaceClassIdGalleryIndexRoute
-  LiveWorkspaceClassIdGamesIndexRoute: typeof LiveWorkspaceClassIdGamesIndexRoute
-  LiveWorkspaceClassIdLessonNotesIndexRoute: typeof LiveWorkspaceClassIdLessonNotesIndexRoute
-  LiveWorkspaceClassIdReportIndexRoute: typeof LiveWorkspaceClassIdReportIndexRoute
-  LiveWorkspaceClassIdSmartboardIndexRoute: typeof LiveWorkspaceClassIdSmartboardIndexRoute
-  LiveWorkspaceClassIdStudentsIndexRoute: typeof LiveWorkspaceClassIdStudentsIndexRoute
-  StudentClassClassIdAdventuresIndexRoute: typeof StudentClassClassIdAdventuresIndexRoute
-  StudentClassClassIdGalleryIndexRoute: typeof StudentClassClassIdGalleryIndexRoute
-  StudentClassClassIdGamesIndexRoute: typeof StudentClassClassIdGamesIndexRoute
-  StudentClassClassIdLessonNotesIndexRoute: typeof StudentClassClassIdLessonNotesIndexRoute
-  StudentClassClassIdReportIndexRoute: typeof StudentClassClassIdReportIndexRoute
-  StudentClassClassIdSmartboardIndexRoute: typeof StudentClassClassIdSmartboardIndexRoute
   SubjectsSubjectTopicSubtopicIndexRoute: typeof SubjectsSubjectTopicSubtopicIndexRoute
   SubjectsAlgebraNumbersAndNumeralsAbacusIndexRoute: typeof SubjectsAlgebraNumbersAndNumeralsAbacusIndexRoute
-  TeachingHubClassesClassIdAdventuresIndexRoute: typeof TeachingHubClassesClassIdAdventuresIndexRoute
-  TeachingHubClassesClassIdAssignmentsIndexRoute: typeof TeachingHubClassesClassIdAssignmentsIndexRoute
-  TeachingHubClassesClassIdGalleryIndexRoute: typeof TeachingHubClassesClassIdGalleryIndexRoute
-  TeachingHubClassesClassIdGamesIndexRoute: typeof TeachingHubClassesClassIdGamesIndexRoute
-  TeachingHubClassesClassIdLessonNotesIndexRoute: typeof TeachingHubClassesClassIdLessonNotesIndexRoute
-  TeachingHubClassesClassIdReportIndexRoute: typeof TeachingHubClassesClassIdReportIndexRoute
-  TeachingHubClassesClassIdSmartboardIndexRoute: typeof TeachingHubClassesClassIdSmartboardIndexRoute
-  TeachingHubClassesClassIdStudentsIndexRoute: typeof TeachingHubClassesClassIdStudentsIndexRoute
-  LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute
-  StudentClassClassIdAssessmentAssessmentIdIndexRoute: typeof StudentClassClassIdAssessmentAssessmentIdIndexRoute
-  StudentClassClassIdAssignmentNotebookIdIndexRoute: typeof StudentClassClassIdAssignmentNotebookIdIndexRoute
-  StudentClassClassIdGameGameIdIndexRoute: typeof StudentClassClassIdGameGameIdIndexRoute
-  LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute: typeof LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute
-  LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute: typeof LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute
-  LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute: typeof LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute
-  LiveWorkspaceClassIdGamesGameIdLiveIndexRoute: typeof LiveWorkspaceClassIdGamesGameIdLiveIndexRoute
-  StudentClassClassIdGamesGameIdPlayIndexRoute: typeof StudentClassClassIdGamesGameIdPlayIndexRoute
-  StudentClassesClassIdGamesGameIdLiveIndexRoute: typeof StudentClassesClassIdGamesGameIdLiveIndexRoute
-  TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute: typeof TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute
-  TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute: typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute
-  TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute: typeof TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute
-  TeachingHubClassesClassIdGamesGameIdLiveIndexRoute: typeof TeachingHubClassesClassIdGamesGameIdLiveIndexRoute
-  LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute: typeof LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
-  TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute: typeof TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2187,19 +2228,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adventure': {
+      id: '/adventure'
+      path: '/adventure'
+      fullPath: '/adventure'
+      preLoaderRoute: typeof AdventureRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/class': {
+      id: '/class'
+      path: '/class'
+      fullPath: '/class'
+      preLoaderRoute: typeof ClassRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/family': {
+      id: '/family'
+      path: '/family'
+      fullPath: '/family'
+      preLoaderRoute: typeof FamilyRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lesson-notes': {
+      id: '/lesson-notes'
+      path: '/lesson-notes'
+      fullPath: '/lesson-notes'
+      preLoaderRoute: typeof LessonNotesRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/school': {
+      id: '/school'
+      path: '/school'
+      fullPath: '/school'
+      preLoaderRoute: typeof SchoolRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/smartboard': {
+      id: '/smartboard'
+      path: '/smartboard'
+      fullPath: '/smartboard'
+      preLoaderRoute: typeof SmartboardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student': {
+      id: '/student'
+      path: '/student'
+      fullPath: '/student'
+      preLoaderRoute: typeof StudentRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teaching-hub': {
+      id: '/teaching-hub'
+      path: '/teaching-hub'
+      fullPath: '/teaching-hub'
+      preLoaderRoute: typeof TeachingHubRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
-      path: '/admin'
+      path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/adventure/': {
       id: '/adventure/'
-      path: '/adventure'
+      path: '/'
       fullPath: '/adventure/'
       preLoaderRoute: typeof AdventureIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdventureRouteRoute
     }
     '/assets/': {
       id: '/assets/'
@@ -2266,10 +2377,10 @@ declare module '@tanstack/react-router' {
     }
     '/family/': {
       id: '/family/'
-      path: '/family'
+      path: '/'
       fullPath: '/family/'
       preLoaderRoute: typeof FamilyIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof FamilyRouteRoute
     }
     '/home/': {
       id: '/home/'
@@ -2287,17 +2398,17 @@ declare module '@tanstack/react-router' {
     }
     '/lesson-notes/': {
       id: '/lesson-notes/'
-      path: '/lesson-notes'
+      path: '/'
       fullPath: '/lesson-notes/'
       preLoaderRoute: typeof LessonNotesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LessonNotesRouteRoute
     }
     '/live/': {
       id: '/live/'
-      path: '/live'
+      path: '/'
       fullPath: '/live/'
       preLoaderRoute: typeof LiveIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/mathboard/': {
       id: '/mathboard/'
@@ -2315,24 +2426,24 @@ declare module '@tanstack/react-router' {
     }
     '/school/': {
       id: '/school/'
-      path: '/school'
+      path: '/'
       fullPath: '/school/'
       preLoaderRoute: typeof SchoolIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof SchoolRouteRoute
     }
     '/smartboard/': {
       id: '/smartboard/'
-      path: '/smartboard'
+      path: '/'
       fullPath: '/smartboard/'
       preLoaderRoute: typeof SmartboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof SmartboardRouteRoute
     }
     '/teaching-hub/': {
       id: '/teaching-hub/'
-      path: '/teaching-hub'
+      path: '/'
       fullPath: '/teaching-hub/'
       preLoaderRoute: typeof TeachingHubIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/terms/': {
       id: '/terms/'
@@ -2350,10 +2461,10 @@ declare module '@tanstack/react-router' {
     }
     '/adventure/games/': {
       id: '/adventure/games/'
-      path: '/adventure/games'
+      path: '/games'
       fullPath: '/adventure/games/'
       preLoaderRoute: typeof AdventureGamesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdventureRouteRoute
     }
     '/age/$range/': {
       id: '/age/$range/'
@@ -2392,10 +2503,10 @@ declare module '@tanstack/react-router' {
     }
     '/class/$code/': {
       id: '/class/$code/'
-      path: '/class/$code'
+      path: '/$code'
       fullPath: '/class/$code/'
       preLoaderRoute: typeof ClassCodeIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ClassRouteRoute
     }
     '/game/$slug/': {
       id: '/game/$slug/'
@@ -2518,10 +2629,10 @@ declare module '@tanstack/react-router' {
     }
     '/lesson-notes/$id/': {
       id: '/lesson-notes/$id/'
-      path: '/lesson-notes/$id'
+      path: '/$id'
       fullPath: '/lesson-notes/$id/'
       preLoaderRoute: typeof LessonNotesIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LessonNotesRouteRoute
     }
     '/levels/$id/': {
       id: '/levels/$id/'
@@ -2532,24 +2643,24 @@ declare module '@tanstack/react-router' {
     }
     '/live/join/': {
       id: '/live/join/'
-      path: '/live/join'
+      path: '/join'
       fullPath: '/live/join/'
       preLoaderRoute: typeof LiveJoinIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/lesson-notes/': {
       id: '/live/lesson-notes/'
-      path: '/live/lesson-notes'
+      path: '/lesson-notes'
       fullPath: '/live/lesson-notes/'
       preLoaderRoute: typeof LiveLessonNotesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/sessions/': {
       id: '/live/sessions/'
-      path: '/live/sessions'
+      path: '/sessions'
       fullPath: '/live/sessions/'
       preLoaderRoute: typeof LiveSessionsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/notebook-scan/$code/': {
       id: '/notebook-scan/$code/'
@@ -2560,17 +2671,17 @@ declare module '@tanstack/react-router' {
     }
     '/smartboard/$notebookId/': {
       id: '/smartboard/$notebookId/'
-      path: '/smartboard/$notebookId'
+      path: '/$notebookId'
       fullPath: '/smartboard/$notebookId/'
       preLoaderRoute: typeof SmartboardNotebookIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof SmartboardRouteRoute
     }
     '/student/classes/': {
       id: '/student/classes/'
-      path: '/student/classes'
+      path: '/classes'
       fullPath: '/student/classes/'
       preLoaderRoute: typeof StudentClassesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/subjects/$subject/': {
       id: '/subjects/$subject/'
@@ -2581,17 +2692,17 @@ declare module '@tanstack/react-router' {
     }
     '/teaching-hub/classes/': {
       id: '/teaching-hub/classes/'
-      path: '/teaching-hub/classes'
+      path: '/classes'
       fullPath: '/teaching-hub/classes/'
       preLoaderRoute: typeof TeachingHubClassesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/settings/': {
       id: '/teaching-hub/settings/'
-      path: '/teaching-hub/settings'
+      path: '/settings'
       fullPath: '/teaching-hub/settings/'
       preLoaderRoute: typeof TeachingHubSettingsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/year/$n/': {
       id: '/year/$n/'
@@ -2602,10 +2713,10 @@ declare module '@tanstack/react-router' {
     }
     '/adventure/games/$gameId/': {
       id: '/adventure/games/$gameId/'
-      path: '/adventure/games/$gameId'
+      path: '/games/$gameId'
       fullPath: '/adventure/games/$gameId/'
       preLoaderRoute: typeof AdventureGamesGameIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdventureRouteRoute
     }
     '/assets/$category/$subcategory/': {
       id: '/assets/$category/$subcategory/'
@@ -2819,66 +2930,66 @@ declare module '@tanstack/react-router' {
     }
     '/live/join/$code/': {
       id: '/live/join/$code/'
-      path: '/live/join/$code'
+      path: '/join/$code'
       fullPath: '/live/join/$code/'
       preLoaderRoute: typeof LiveJoinCodeIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/lesson-notes/$id/': {
       id: '/live/lesson-notes/$id/'
-      path: '/live/lesson-notes/$id'
+      path: '/lesson-notes/$id'
       fullPath: '/live/lesson-notes/$id/'
       preLoaderRoute: typeof LiveLessonNotesIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/s/$sessionId/': {
       id: '/live/s/$sessionId/'
-      path: '/live/s/$sessionId'
+      path: '/s/$sessionId'
       fullPath: '/live/s/$sessionId/'
       preLoaderRoute: typeof LiveSSessionIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/sessions/$sessionId/': {
       id: '/live/sessions/$sessionId/'
-      path: '/live/sessions/$sessionId'
+      path: '/sessions/$sessionId'
       fullPath: '/live/sessions/$sessionId/'
       preLoaderRoute: typeof LiveSessionsSessionIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/sessions/create/': {
       id: '/live/sessions/create/'
-      path: '/live/sessions/create'
+      path: '/sessions/create'
       fullPath: '/live/sessions/create/'
       preLoaderRoute: typeof LiveSessionsCreateIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/smart-cards/$cardId/': {
       id: '/live/smart-cards/$cardId/'
-      path: '/live/smart-cards/$cardId'
+      path: '/smart-cards/$cardId'
       fullPath: '/live/smart-cards/$cardId/'
       preLoaderRoute: typeof LiveSmartCardsCardIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/': {
       id: '/live/workspace/$classId/'
-      path: '/live/workspace/$classId'
+      path: '/workspace/$classId'
       fullPath: '/live/workspace/$classId/'
       preLoaderRoute: typeof LiveWorkspaceClassIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/smartboard/$notebookId/preview/': {
       id: '/smartboard/$notebookId/preview/'
-      path: '/smartboard/$notebookId/preview'
+      path: '/$notebookId/preview'
       fullPath: '/smartboard/$notebookId/preview/'
       preLoaderRoute: typeof SmartboardNotebookIdPreviewIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof SmartboardRouteRoute
     }
     '/student/class/$classId/': {
       id: '/student/class/$classId/'
-      path: '/student/class/$classId'
+      path: '/class/$classId'
       fullPath: '/student/class/$classId/'
       preLoaderRoute: typeof StudentClassClassIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/subjects/$subject/$topic/': {
       id: '/subjects/$subject/$topic/'
@@ -2889,24 +3000,24 @@ declare module '@tanstack/react-router' {
     }
     '/teaching-hub/classes/$classId/': {
       id: '/teaching-hub/classes/$classId/'
-      path: '/teaching-hub/classes/$classId'
+      path: '/classes/$classId'
       fullPath: '/teaching-hub/classes/$classId/'
       preLoaderRoute: typeof TeachingHubClassesClassIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/create/': {
       id: '/teaching-hub/classes/create/'
-      path: '/teaching-hub/classes/create'
+      path: '/classes/create'
       fullPath: '/teaching-hub/classes/create/'
       preLoaderRoute: typeof TeachingHubClassesCreateIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/settings/archive/': {
       id: '/teaching-hub/settings/archive/'
-      path: '/teaching-hub/settings/archive'
+      path: '/settings/archive'
       fullPath: '/teaching-hub/settings/archive/'
       preLoaderRoute: typeof TeachingHubSettingsArchiveIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/games/abacus/represent/$difficulty/': {
       id: '/games/abacus/represent/$difficulty/'
@@ -2980,129 +3091,129 @@ declare module '@tanstack/react-router' {
     }
     '/lesson-notes/$notebookId/floating-prep/$subsectionId/': {
       id: '/lesson-notes/$notebookId/floating-prep/$subsectionId/'
-      path: '/lesson-notes/$notebookId/floating-prep/$subsectionId'
+      path: '/$notebookId/floating-prep/$subsectionId'
       fullPath: '/lesson-notes/$notebookId/floating-prep/$subsectionId/'
       preLoaderRoute: typeof LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LessonNotesRouteRoute
     }
     '/lesson-notes/$notebookId/floating/$subsectionId/': {
       id: '/lesson-notes/$notebookId/floating/$subsectionId/'
-      path: '/lesson-notes/$notebookId/floating/$subsectionId'
+      path: '/$notebookId/floating/$subsectionId'
       fullPath: '/lesson-notes/$notebookId/floating/$subsectionId/'
       preLoaderRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LessonNotesRouteRoute
     }
     '/live/smart-cards/$cardId/game-dashboard/': {
       id: '/live/smart-cards/$cardId/game-dashboard/'
-      path: '/live/smart-cards/$cardId/game-dashboard'
+      path: '/smart-cards/$cardId/game-dashboard'
       fullPath: '/live/smart-cards/$cardId/game-dashboard/'
       preLoaderRoute: typeof LiveSmartCardsCardIdGameDashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/smart-cards/$cardId/game-setup/': {
       id: '/live/smart-cards/$cardId/game-setup/'
-      path: '/live/smart-cards/$cardId/game-setup'
+      path: '/smart-cards/$cardId/game-setup'
       fullPath: '/live/smart-cards/$cardId/game-setup/'
       preLoaderRoute: typeof LiveSmartCardsCardIdGameSetupIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/adventures/': {
       id: '/live/workspace/$classId/adventures/'
-      path: '/live/workspace/$classId/adventures'
+      path: '/workspace/$classId/adventures'
       fullPath: '/live/workspace/$classId/adventures/'
       preLoaderRoute: typeof LiveWorkspaceClassIdAdventuresIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/assignments/': {
       id: '/live/workspace/$classId/assignments/'
-      path: '/live/workspace/$classId/assignments'
+      path: '/workspace/$classId/assignments'
       fullPath: '/live/workspace/$classId/assignments/'
       preLoaderRoute: typeof LiveWorkspaceClassIdAssignmentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/gallery/': {
       id: '/live/workspace/$classId/gallery/'
-      path: '/live/workspace/$classId/gallery'
+      path: '/workspace/$classId/gallery'
       fullPath: '/live/workspace/$classId/gallery/'
       preLoaderRoute: typeof LiveWorkspaceClassIdGalleryIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/games/': {
       id: '/live/workspace/$classId/games/'
-      path: '/live/workspace/$classId/games'
+      path: '/workspace/$classId/games'
       fullPath: '/live/workspace/$classId/games/'
       preLoaderRoute: typeof LiveWorkspaceClassIdGamesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/lesson-notes/': {
       id: '/live/workspace/$classId/lesson-notes/'
-      path: '/live/workspace/$classId/lesson-notes'
+      path: '/workspace/$classId/lesson-notes'
       fullPath: '/live/workspace/$classId/lesson-notes/'
       preLoaderRoute: typeof LiveWorkspaceClassIdLessonNotesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/report/': {
       id: '/live/workspace/$classId/report/'
-      path: '/live/workspace/$classId/report'
+      path: '/workspace/$classId/report'
       fullPath: '/live/workspace/$classId/report/'
       preLoaderRoute: typeof LiveWorkspaceClassIdReportIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/smartboard/': {
       id: '/live/workspace/$classId/smartboard/'
-      path: '/live/workspace/$classId/smartboard'
+      path: '/workspace/$classId/smartboard'
       fullPath: '/live/workspace/$classId/smartboard/'
       preLoaderRoute: typeof LiveWorkspaceClassIdSmartboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/students/': {
       id: '/live/workspace/$classId/students/'
-      path: '/live/workspace/$classId/students'
+      path: '/workspace/$classId/students'
       fullPath: '/live/workspace/$classId/students/'
       preLoaderRoute: typeof LiveWorkspaceClassIdStudentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/student/class/$classId/adventures/': {
       id: '/student/class/$classId/adventures/'
-      path: '/student/class/$classId/adventures'
+      path: '/class/$classId/adventures'
       fullPath: '/student/class/$classId/adventures/'
       preLoaderRoute: typeof StudentClassClassIdAdventuresIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/student/class/$classId/gallery/': {
       id: '/student/class/$classId/gallery/'
-      path: '/student/class/$classId/gallery'
+      path: '/class/$classId/gallery'
       fullPath: '/student/class/$classId/gallery/'
       preLoaderRoute: typeof StudentClassClassIdGalleryIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/student/class/$classId/games/': {
       id: '/student/class/$classId/games/'
-      path: '/student/class/$classId/games'
+      path: '/class/$classId/games'
       fullPath: '/student/class/$classId/games/'
       preLoaderRoute: typeof StudentClassClassIdGamesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/student/class/$classId/lesson-notes/': {
       id: '/student/class/$classId/lesson-notes/'
-      path: '/student/class/$classId/lesson-notes'
+      path: '/class/$classId/lesson-notes'
       fullPath: '/student/class/$classId/lesson-notes/'
       preLoaderRoute: typeof StudentClassClassIdLessonNotesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/student/class/$classId/report/': {
       id: '/student/class/$classId/report/'
-      path: '/student/class/$classId/report'
+      path: '/class/$classId/report'
       fullPath: '/student/class/$classId/report/'
       preLoaderRoute: typeof StudentClassClassIdReportIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/student/class/$classId/smartboard/': {
       id: '/student/class/$classId/smartboard/'
-      path: '/student/class/$classId/smartboard'
+      path: '/class/$classId/smartboard'
       fullPath: '/student/class/$classId/smartboard/'
       preLoaderRoute: typeof StudentClassClassIdSmartboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/subjects/$subject/$topic/$subtopic/': {
       id: '/subjects/$subject/$topic/$subtopic/'
@@ -3120,207 +3231,487 @@ declare module '@tanstack/react-router' {
     }
     '/teaching-hub/classes/$classId/adventures/': {
       id: '/teaching-hub/classes/$classId/adventures/'
-      path: '/teaching-hub/classes/$classId/adventures'
+      path: '/classes/$classId/adventures'
       fullPath: '/teaching-hub/classes/$classId/adventures/'
       preLoaderRoute: typeof TeachingHubClassesClassIdAdventuresIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/assignments/': {
       id: '/teaching-hub/classes/$classId/assignments/'
-      path: '/teaching-hub/classes/$classId/assignments'
+      path: '/classes/$classId/assignments'
       fullPath: '/teaching-hub/classes/$classId/assignments/'
       preLoaderRoute: typeof TeachingHubClassesClassIdAssignmentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/gallery/': {
       id: '/teaching-hub/classes/$classId/gallery/'
-      path: '/teaching-hub/classes/$classId/gallery'
+      path: '/classes/$classId/gallery'
       fullPath: '/teaching-hub/classes/$classId/gallery/'
       preLoaderRoute: typeof TeachingHubClassesClassIdGalleryIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/games/': {
       id: '/teaching-hub/classes/$classId/games/'
-      path: '/teaching-hub/classes/$classId/games'
+      path: '/classes/$classId/games'
       fullPath: '/teaching-hub/classes/$classId/games/'
       preLoaderRoute: typeof TeachingHubClassesClassIdGamesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/lesson-notes/': {
       id: '/teaching-hub/classes/$classId/lesson-notes/'
-      path: '/teaching-hub/classes/$classId/lesson-notes'
+      path: '/classes/$classId/lesson-notes'
       fullPath: '/teaching-hub/classes/$classId/lesson-notes/'
       preLoaderRoute: typeof TeachingHubClassesClassIdLessonNotesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/report/': {
       id: '/teaching-hub/classes/$classId/report/'
-      path: '/teaching-hub/classes/$classId/report'
+      path: '/classes/$classId/report'
       fullPath: '/teaching-hub/classes/$classId/report/'
       preLoaderRoute: typeof TeachingHubClassesClassIdReportIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/smartboard/': {
       id: '/teaching-hub/classes/$classId/smartboard/'
-      path: '/teaching-hub/classes/$classId/smartboard'
+      path: '/classes/$classId/smartboard'
       fullPath: '/teaching-hub/classes/$classId/smartboard/'
       preLoaderRoute: typeof TeachingHubClassesClassIdSmartboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/students/': {
       id: '/teaching-hub/classes/$classId/students/'
-      path: '/teaching-hub/classes/$classId/students'
+      path: '/classes/$classId/students'
       fullPath: '/teaching-hub/classes/$classId/students/'
       preLoaderRoute: typeof TeachingHubClassesClassIdStudentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/': {
       id: '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/'
-      path: '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings'
+      path: '/$notebookId/floating/$subsectionId/ai-settings'
       fullPath: '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/'
       preLoaderRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LessonNotesRouteRoute
     }
     '/student/class/$classId/assessment/$assessmentId/': {
       id: '/student/class/$classId/assessment/$assessmentId/'
-      path: '/student/class/$classId/assessment/$assessmentId'
+      path: '/class/$classId/assessment/$assessmentId'
       fullPath: '/student/class/$classId/assessment/$assessmentId/'
       preLoaderRoute: typeof StudentClassClassIdAssessmentAssessmentIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/student/class/$classId/assignment/$notebookId/': {
       id: '/student/class/$classId/assignment/$notebookId/'
-      path: '/student/class/$classId/assignment/$notebookId'
+      path: '/class/$classId/assignment/$notebookId'
       fullPath: '/student/class/$classId/assignment/$notebookId/'
       preLoaderRoute: typeof StudentClassClassIdAssignmentNotebookIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/student/class/$classId/game/$gameId/': {
       id: '/student/class/$classId/game/$gameId/'
-      path: '/student/class/$classId/game/$gameId'
+      path: '/class/$classId/game/$gameId'
       fullPath: '/student/class/$classId/game/$gameId/'
       preLoaderRoute: typeof StudentClassClassIdGameGameIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/live/workspace/$classId/adventures/$gameId/dashboard/': {
       id: '/live/workspace/$classId/adventures/$gameId/dashboard/'
-      path: '/live/workspace/$classId/adventures/$gameId/dashboard'
+      path: '/workspace/$classId/adventures/$gameId/dashboard'
       fullPath: '/live/workspace/$classId/adventures/$gameId/dashboard/'
       preLoaderRoute: typeof LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/assignments/$notebookId/dashboard/': {
       id: '/live/workspace/$classId/assignments/$notebookId/dashboard/'
-      path: '/live/workspace/$classId/assignments/$notebookId/dashboard'
+      path: '/workspace/$classId/assignments/$notebookId/dashboard'
       fullPath: '/live/workspace/$classId/assignments/$notebookId/dashboard/'
       preLoaderRoute: typeof LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/games/$gameId/dashboard/': {
       id: '/live/workspace/$classId/games/$gameId/dashboard/'
-      path: '/live/workspace/$classId/games/$gameId/dashboard'
+      path: '/workspace/$classId/games/$gameId/dashboard'
       fullPath: '/live/workspace/$classId/games/$gameId/dashboard/'
       preLoaderRoute: typeof LiveWorkspaceClassIdGamesGameIdDashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/live/workspace/$classId/games/$gameId/live/': {
       id: '/live/workspace/$classId/games/$gameId/live/'
-      path: '/live/workspace/$classId/games/$gameId/live'
+      path: '/workspace/$classId/games/$gameId/live'
       fullPath: '/live/workspace/$classId/games/$gameId/live/'
       preLoaderRoute: typeof LiveWorkspaceClassIdGamesGameIdLiveIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/student/class/$classId/games/$gameId/play/': {
       id: '/student/class/$classId/games/$gameId/play/'
-      path: '/student/class/$classId/games/$gameId/play'
+      path: '/class/$classId/games/$gameId/play'
       fullPath: '/student/class/$classId/games/$gameId/play/'
       preLoaderRoute: typeof StudentClassClassIdGamesGameIdPlayIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/student/classes/$classId/games/$gameId/live/': {
       id: '/student/classes/$classId/games/$gameId/live/'
-      path: '/student/classes/$classId/games/$gameId/live'
+      path: '/classes/$classId/games/$gameId/live'
       fullPath: '/student/classes/$classId/games/$gameId/live/'
       preLoaderRoute: typeof StudentClassesClassIdGamesGameIdLiveIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/': {
       id: '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/'
-      path: '/teaching-hub/classes/$classId/adventures/$gameId/dashboard'
+      path: '/classes/$classId/adventures/$gameId/dashboard'
       fullPath: '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/'
       preLoaderRoute: typeof TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/': {
       id: '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/'
-      path: '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard'
+      path: '/classes/$classId/assignments/$notebookId/dashboard'
       fullPath: '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/'
       preLoaderRoute: typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/games/$gameId/dashboard/': {
       id: '/teaching-hub/classes/$classId/games/$gameId/dashboard/'
-      path: '/teaching-hub/classes/$classId/games/$gameId/dashboard'
+      path: '/classes/$classId/games/$gameId/dashboard'
       fullPath: '/teaching-hub/classes/$classId/games/$gameId/dashboard/'
       preLoaderRoute: typeof TeachingHubClassesClassIdGamesGameIdDashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/classes/$classId/games/$gameId/live/': {
       id: '/teaching-hub/classes/$classId/games/$gameId/live/'
-      path: '/teaching-hub/classes/$classId/games/$gameId/live'
+      path: '/classes/$classId/games/$gameId/live'
       fullPath: '/teaching-hub/classes/$classId/games/$gameId/live/'
       preLoaderRoute: typeof TeachingHubClassesClassIdGamesGameIdLiveIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
     '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/': {
       id: '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/'
-      path: '/live/workspace/$classId/assessments/$assessmentId/student/$studentId'
+      path: '/workspace/$classId/assessments/$assessmentId/student/$studentId'
       fullPath: '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/'
       preLoaderRoute: typeof LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LiveRouteRoute
     }
     '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/': {
       id: '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/'
-      path: '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId'
+      path: '/classes/$classId/assessments/$assessmentId/student/$studentId'
       fullPath: '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/'
       preLoaderRoute: typeof TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
     }
   }
 }
 
+interface AdminRouteRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
+interface AdventureRouteRouteChildren {
+  AdventureIndexRoute: typeof AdventureIndexRoute
+  AdventureGamesIndexRoute: typeof AdventureGamesIndexRoute
+  AdventureGamesGameIdIndexRoute: typeof AdventureGamesGameIdIndexRoute
+}
+
+const AdventureRouteRouteChildren: AdventureRouteRouteChildren = {
+  AdventureIndexRoute: AdventureIndexRoute,
+  AdventureGamesIndexRoute: AdventureGamesIndexRoute,
+  AdventureGamesGameIdIndexRoute: AdventureGamesGameIdIndexRoute,
+}
+
+const AdventureRouteRouteWithChildren = AdventureRouteRoute._addFileChildren(
+  AdventureRouteRouteChildren,
+)
+
+interface ClassRouteRouteChildren {
+  ClassCodeIndexRoute: typeof ClassCodeIndexRoute
+}
+
+const ClassRouteRouteChildren: ClassRouteRouteChildren = {
+  ClassCodeIndexRoute: ClassCodeIndexRoute,
+}
+
+const ClassRouteRouteWithChildren = ClassRouteRoute._addFileChildren(
+  ClassRouteRouteChildren,
+)
+
+interface FamilyRouteRouteChildren {
+  FamilyIndexRoute: typeof FamilyIndexRoute
+}
+
+const FamilyRouteRouteChildren: FamilyRouteRouteChildren = {
+  FamilyIndexRoute: FamilyIndexRoute,
+}
+
+const FamilyRouteRouteWithChildren = FamilyRouteRoute._addFileChildren(
+  FamilyRouteRouteChildren,
+)
+
+interface LessonNotesRouteRouteChildren {
+  LessonNotesIndexRoute: typeof LessonNotesIndexRoute
+  LessonNotesIdIndexRoute: typeof LessonNotesIdIndexRoute
+  LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute: typeof LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute
+  LessonNotesNotebookIdFloatingSubsectionIdIndexRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdIndexRoute
+  LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute
+}
+
+const LessonNotesRouteRouteChildren: LessonNotesRouteRouteChildren = {
+  LessonNotesIndexRoute: LessonNotesIndexRoute,
+  LessonNotesIdIndexRoute: LessonNotesIdIndexRoute,
+  LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute:
+    LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute,
+  LessonNotesNotebookIdFloatingSubsectionIdIndexRoute:
+    LessonNotesNotebookIdFloatingSubsectionIdIndexRoute,
+  LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute:
+    LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute,
+}
+
+const LessonNotesRouteRouteWithChildren =
+  LessonNotesRouteRoute._addFileChildren(LessonNotesRouteRouteChildren)
+
+interface LiveRouteRouteChildren {
+  LiveIndexRoute: typeof LiveIndexRoute
+  LiveJoinIndexRoute: typeof LiveJoinIndexRoute
+  LiveLessonNotesIndexRoute: typeof LiveLessonNotesIndexRoute
+  LiveSessionsIndexRoute: typeof LiveSessionsIndexRoute
+  LiveJoinCodeIndexRoute: typeof LiveJoinCodeIndexRoute
+  LiveLessonNotesIdIndexRoute: typeof LiveLessonNotesIdIndexRoute
+  LiveSSessionIdIndexRoute: typeof LiveSSessionIdIndexRoute
+  LiveSessionsSessionIdIndexRoute: typeof LiveSessionsSessionIdIndexRoute
+  LiveSessionsCreateIndexRoute: typeof LiveSessionsCreateIndexRoute
+  LiveSmartCardsCardIdIndexRoute: typeof LiveSmartCardsCardIdIndexRoute
+  LiveWorkspaceClassIdIndexRoute: typeof LiveWorkspaceClassIdIndexRoute
+  LiveSmartCardsCardIdGameDashboardIndexRoute: typeof LiveSmartCardsCardIdGameDashboardIndexRoute
+  LiveSmartCardsCardIdGameSetupIndexRoute: typeof LiveSmartCardsCardIdGameSetupIndexRoute
+  LiveWorkspaceClassIdAdventuresIndexRoute: typeof LiveWorkspaceClassIdAdventuresIndexRoute
+  LiveWorkspaceClassIdAssignmentsIndexRoute: typeof LiveWorkspaceClassIdAssignmentsIndexRoute
+  LiveWorkspaceClassIdGalleryIndexRoute: typeof LiveWorkspaceClassIdGalleryIndexRoute
+  LiveWorkspaceClassIdGamesIndexRoute: typeof LiveWorkspaceClassIdGamesIndexRoute
+  LiveWorkspaceClassIdLessonNotesIndexRoute: typeof LiveWorkspaceClassIdLessonNotesIndexRoute
+  LiveWorkspaceClassIdReportIndexRoute: typeof LiveWorkspaceClassIdReportIndexRoute
+  LiveWorkspaceClassIdSmartboardIndexRoute: typeof LiveWorkspaceClassIdSmartboardIndexRoute
+  LiveWorkspaceClassIdStudentsIndexRoute: typeof LiveWorkspaceClassIdStudentsIndexRoute
+  LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute: typeof LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute
+  LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute: typeof LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute
+  LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute: typeof LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute
+  LiveWorkspaceClassIdGamesGameIdLiveIndexRoute: typeof LiveWorkspaceClassIdGamesGameIdLiveIndexRoute
+  LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute: typeof LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+}
+
+const LiveRouteRouteChildren: LiveRouteRouteChildren = {
+  LiveIndexRoute: LiveIndexRoute,
+  LiveJoinIndexRoute: LiveJoinIndexRoute,
+  LiveLessonNotesIndexRoute: LiveLessonNotesIndexRoute,
+  LiveSessionsIndexRoute: LiveSessionsIndexRoute,
+  LiveJoinCodeIndexRoute: LiveJoinCodeIndexRoute,
+  LiveLessonNotesIdIndexRoute: LiveLessonNotesIdIndexRoute,
+  LiveSSessionIdIndexRoute: LiveSSessionIdIndexRoute,
+  LiveSessionsSessionIdIndexRoute: LiveSessionsSessionIdIndexRoute,
+  LiveSessionsCreateIndexRoute: LiveSessionsCreateIndexRoute,
+  LiveSmartCardsCardIdIndexRoute: LiveSmartCardsCardIdIndexRoute,
+  LiveWorkspaceClassIdIndexRoute: LiveWorkspaceClassIdIndexRoute,
+  LiveSmartCardsCardIdGameDashboardIndexRoute:
+    LiveSmartCardsCardIdGameDashboardIndexRoute,
+  LiveSmartCardsCardIdGameSetupIndexRoute:
+    LiveSmartCardsCardIdGameSetupIndexRoute,
+  LiveWorkspaceClassIdAdventuresIndexRoute:
+    LiveWorkspaceClassIdAdventuresIndexRoute,
+  LiveWorkspaceClassIdAssignmentsIndexRoute:
+    LiveWorkspaceClassIdAssignmentsIndexRoute,
+  LiveWorkspaceClassIdGalleryIndexRoute: LiveWorkspaceClassIdGalleryIndexRoute,
+  LiveWorkspaceClassIdGamesIndexRoute: LiveWorkspaceClassIdGamesIndexRoute,
+  LiveWorkspaceClassIdLessonNotesIndexRoute:
+    LiveWorkspaceClassIdLessonNotesIndexRoute,
+  LiveWorkspaceClassIdReportIndexRoute: LiveWorkspaceClassIdReportIndexRoute,
+  LiveWorkspaceClassIdSmartboardIndexRoute:
+    LiveWorkspaceClassIdSmartboardIndexRoute,
+  LiveWorkspaceClassIdStudentsIndexRoute:
+    LiveWorkspaceClassIdStudentsIndexRoute,
+  LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute:
+    LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute,
+  LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute:
+    LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute,
+  LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute:
+    LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute,
+  LiveWorkspaceClassIdGamesGameIdLiveIndexRoute:
+    LiveWorkspaceClassIdGamesGameIdLiveIndexRoute,
+  LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute:
+    LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute,
+}
+
+const LiveRouteRouteWithChildren = LiveRouteRoute._addFileChildren(
+  LiveRouteRouteChildren,
+)
+
+interface SchoolRouteRouteChildren {
+  SchoolIndexRoute: typeof SchoolIndexRoute
+}
+
+const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
+  SchoolIndexRoute: SchoolIndexRoute,
+}
+
+const SchoolRouteRouteWithChildren = SchoolRouteRoute._addFileChildren(
+  SchoolRouteRouteChildren,
+)
+
+interface SmartboardRouteRouteChildren {
+  SmartboardIndexRoute: typeof SmartboardIndexRoute
+  SmartboardNotebookIdIndexRoute: typeof SmartboardNotebookIdIndexRoute
+  SmartboardNotebookIdPreviewIndexRoute: typeof SmartboardNotebookIdPreviewIndexRoute
+}
+
+const SmartboardRouteRouteChildren: SmartboardRouteRouteChildren = {
+  SmartboardIndexRoute: SmartboardIndexRoute,
+  SmartboardNotebookIdIndexRoute: SmartboardNotebookIdIndexRoute,
+  SmartboardNotebookIdPreviewIndexRoute: SmartboardNotebookIdPreviewIndexRoute,
+}
+
+const SmartboardRouteRouteWithChildren = SmartboardRouteRoute._addFileChildren(
+  SmartboardRouteRouteChildren,
+)
+
+interface StudentRouteRouteChildren {
+  StudentClassesIndexRoute: typeof StudentClassesIndexRoute
+  StudentClassClassIdIndexRoute: typeof StudentClassClassIdIndexRoute
+  StudentClassClassIdAdventuresIndexRoute: typeof StudentClassClassIdAdventuresIndexRoute
+  StudentClassClassIdGalleryIndexRoute: typeof StudentClassClassIdGalleryIndexRoute
+  StudentClassClassIdGamesIndexRoute: typeof StudentClassClassIdGamesIndexRoute
+  StudentClassClassIdLessonNotesIndexRoute: typeof StudentClassClassIdLessonNotesIndexRoute
+  StudentClassClassIdReportIndexRoute: typeof StudentClassClassIdReportIndexRoute
+  StudentClassClassIdSmartboardIndexRoute: typeof StudentClassClassIdSmartboardIndexRoute
+  StudentClassClassIdAssessmentAssessmentIdIndexRoute: typeof StudentClassClassIdAssessmentAssessmentIdIndexRoute
+  StudentClassClassIdAssignmentNotebookIdIndexRoute: typeof StudentClassClassIdAssignmentNotebookIdIndexRoute
+  StudentClassClassIdGameGameIdIndexRoute: typeof StudentClassClassIdGameGameIdIndexRoute
+  StudentClassClassIdGamesGameIdPlayIndexRoute: typeof StudentClassClassIdGamesGameIdPlayIndexRoute
+  StudentClassesClassIdGamesGameIdLiveIndexRoute: typeof StudentClassesClassIdGamesGameIdLiveIndexRoute
+}
+
+const StudentRouteRouteChildren: StudentRouteRouteChildren = {
+  StudentClassesIndexRoute: StudentClassesIndexRoute,
+  StudentClassClassIdIndexRoute: StudentClassClassIdIndexRoute,
+  StudentClassClassIdAdventuresIndexRoute:
+    StudentClassClassIdAdventuresIndexRoute,
+  StudentClassClassIdGalleryIndexRoute: StudentClassClassIdGalleryIndexRoute,
+  StudentClassClassIdGamesIndexRoute: StudentClassClassIdGamesIndexRoute,
+  StudentClassClassIdLessonNotesIndexRoute:
+    StudentClassClassIdLessonNotesIndexRoute,
+  StudentClassClassIdReportIndexRoute: StudentClassClassIdReportIndexRoute,
+  StudentClassClassIdSmartboardIndexRoute:
+    StudentClassClassIdSmartboardIndexRoute,
+  StudentClassClassIdAssessmentAssessmentIdIndexRoute:
+    StudentClassClassIdAssessmentAssessmentIdIndexRoute,
+  StudentClassClassIdAssignmentNotebookIdIndexRoute:
+    StudentClassClassIdAssignmentNotebookIdIndexRoute,
+  StudentClassClassIdGameGameIdIndexRoute:
+    StudentClassClassIdGameGameIdIndexRoute,
+  StudentClassClassIdGamesGameIdPlayIndexRoute:
+    StudentClassClassIdGamesGameIdPlayIndexRoute,
+  StudentClassesClassIdGamesGameIdLiveIndexRoute:
+    StudentClassesClassIdGamesGameIdLiveIndexRoute,
+}
+
+const StudentRouteRouteWithChildren = StudentRouteRoute._addFileChildren(
+  StudentRouteRouteChildren,
+)
+
+interface TeachingHubRouteRouteChildren {
+  TeachingHubIndexRoute: typeof TeachingHubIndexRoute
+  TeachingHubClassesIndexRoute: typeof TeachingHubClassesIndexRoute
+  TeachingHubSettingsIndexRoute: typeof TeachingHubSettingsIndexRoute
+  TeachingHubClassesClassIdIndexRoute: typeof TeachingHubClassesClassIdIndexRoute
+  TeachingHubClassesCreateIndexRoute: typeof TeachingHubClassesCreateIndexRoute
+  TeachingHubSettingsArchiveIndexRoute: typeof TeachingHubSettingsArchiveIndexRoute
+  TeachingHubClassesClassIdAdventuresIndexRoute: typeof TeachingHubClassesClassIdAdventuresIndexRoute
+  TeachingHubClassesClassIdAssignmentsIndexRoute: typeof TeachingHubClassesClassIdAssignmentsIndexRoute
+  TeachingHubClassesClassIdGalleryIndexRoute: typeof TeachingHubClassesClassIdGalleryIndexRoute
+  TeachingHubClassesClassIdGamesIndexRoute: typeof TeachingHubClassesClassIdGamesIndexRoute
+  TeachingHubClassesClassIdLessonNotesIndexRoute: typeof TeachingHubClassesClassIdLessonNotesIndexRoute
+  TeachingHubClassesClassIdReportIndexRoute: typeof TeachingHubClassesClassIdReportIndexRoute
+  TeachingHubClassesClassIdSmartboardIndexRoute: typeof TeachingHubClassesClassIdSmartboardIndexRoute
+  TeachingHubClassesClassIdStudentsIndexRoute: typeof TeachingHubClassesClassIdStudentsIndexRoute
+  TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute: typeof TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute
+  TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute: typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute
+  TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute: typeof TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute
+  TeachingHubClassesClassIdGamesGameIdLiveIndexRoute: typeof TeachingHubClassesClassIdGamesGameIdLiveIndexRoute
+  TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute: typeof TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+}
+
+const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
+  TeachingHubIndexRoute: TeachingHubIndexRoute,
+  TeachingHubClassesIndexRoute: TeachingHubClassesIndexRoute,
+  TeachingHubSettingsIndexRoute: TeachingHubSettingsIndexRoute,
+  TeachingHubClassesClassIdIndexRoute: TeachingHubClassesClassIdIndexRoute,
+  TeachingHubClassesCreateIndexRoute: TeachingHubClassesCreateIndexRoute,
+  TeachingHubSettingsArchiveIndexRoute: TeachingHubSettingsArchiveIndexRoute,
+  TeachingHubClassesClassIdAdventuresIndexRoute:
+    TeachingHubClassesClassIdAdventuresIndexRoute,
+  TeachingHubClassesClassIdAssignmentsIndexRoute:
+    TeachingHubClassesClassIdAssignmentsIndexRoute,
+  TeachingHubClassesClassIdGalleryIndexRoute:
+    TeachingHubClassesClassIdGalleryIndexRoute,
+  TeachingHubClassesClassIdGamesIndexRoute:
+    TeachingHubClassesClassIdGamesIndexRoute,
+  TeachingHubClassesClassIdLessonNotesIndexRoute:
+    TeachingHubClassesClassIdLessonNotesIndexRoute,
+  TeachingHubClassesClassIdReportIndexRoute:
+    TeachingHubClassesClassIdReportIndexRoute,
+  TeachingHubClassesClassIdSmartboardIndexRoute:
+    TeachingHubClassesClassIdSmartboardIndexRoute,
+  TeachingHubClassesClassIdStudentsIndexRoute:
+    TeachingHubClassesClassIdStudentsIndexRoute,
+  TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute:
+    TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute,
+  TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute:
+    TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute,
+  TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute:
+    TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute,
+  TeachingHubClassesClassIdGamesGameIdLiveIndexRoute:
+    TeachingHubClassesClassIdGamesGameIdLiveIndexRoute,
+  TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute:
+    TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute,
+}
+
+const TeachingHubRouteRouteWithChildren =
+  TeachingHubRouteRoute._addFileChildren(TeachingHubRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
+  AdventureRouteRoute: AdventureRouteRouteWithChildren,
+  ClassRouteRoute: ClassRouteRouteWithChildren,
+  FamilyRouteRoute: FamilyRouteRouteWithChildren,
+  LessonNotesRouteRoute: LessonNotesRouteRouteWithChildren,
+  LiveRouteRoute: LiveRouteRouteWithChildren,
+  SchoolRouteRoute: SchoolRouteRouteWithChildren,
+  SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
+  StudentRouteRoute: StudentRouteRouteWithChildren,
+  TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
   AuthAdminRoute: AuthAdminRoute,
   AuthParentRoute: AuthParentRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSchoolRoute: AuthSchoolRoute,
   AuthStudentRoute: AuthStudentRoute,
   AuthTeacherRoute: AuthTeacherRoute,
-  AdminIndexRoute: AdminIndexRoute,
-  AdventureIndexRoute: AdventureIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   BackgroundsIndexRoute: BackgroundsIndexRoute,
-  FamilyIndexRoute: FamilyIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   JoinIndexRoute: JoinIndexRoute,
-  LessonNotesIndexRoute: LessonNotesIndexRoute,
-  LiveIndexRoute: LiveIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
   PrivacyIndexRoute: PrivacyIndexRoute,
-  SchoolIndexRoute: SchoolIndexRoute,
-  SmartboardIndexRoute: SmartboardIndexRoute,
-  TeachingHubIndexRoute: TeachingHubIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
-  AdventureGamesIndexRoute: AdventureGamesIndexRoute,
   AgeRangeIndexRoute: AgeRangeIndexRoute,
   AssetsCategoryIndexRoute: AssetsCategoryIndexRoute,
   CSlugIndexRoute: CSlugIndexRoute,
   CardSlugIndexRoute: CardSlugIndexRoute,
   ChallengeSlugIndexRoute: ChallengeSlugIndexRoute,
-  ClassCodeIndexRoute: ClassCodeIndexRoute,
   GameSlugIndexRoute: GameSlugIndexRoute,
   GamesAdditionIndexRoute: GamesAdditionIndexRoute,
   GamesBidmasIndexRoute: GamesBidmasIndexRoute,
@@ -3338,19 +3729,10 @@ const rootRouteChildren: RootRouteChildren = {
   GamesTallyIndexRoute: GamesTallyIndexRoute,
   GradeNIndexRoute: GradeNIndexRoute,
   JoinCodeIndexRoute: JoinCodeIndexRoute,
-  LessonNotesIdIndexRoute: LessonNotesIdIndexRoute,
   LevelsIdIndexRoute: LevelsIdIndexRoute,
-  LiveJoinIndexRoute: LiveJoinIndexRoute,
-  LiveLessonNotesIndexRoute: LiveLessonNotesIndexRoute,
-  LiveSessionsIndexRoute: LiveSessionsIndexRoute,
   NotebookScanCodeIndexRoute: NotebookScanCodeIndexRoute,
-  SmartboardNotebookIdIndexRoute: SmartboardNotebookIdIndexRoute,
-  StudentClassesIndexRoute: StudentClassesIndexRoute,
   SubjectsSubjectIndexRoute: SubjectsSubjectIndexRoute,
-  TeachingHubClassesIndexRoute: TeachingHubClassesIndexRoute,
-  TeachingHubSettingsIndexRoute: TeachingHubSettingsIndexRoute,
   YearNIndexRoute: YearNIndexRoute,
-  AdventureGamesGameIdIndexRoute: AdventureGamesGameIdIndexRoute,
   AssetsCategorySubcategoryIndexRoute: AssetsCategorySubcategoryIndexRoute,
   AssetsInteractiveQuestionProgressIndexRoute:
     AssetsInteractiveQuestionProgressIndexRoute,
@@ -3391,19 +3773,7 @@ const rootRouteChildren: RootRouteChildren = {
   GamesPrimeFactorsDifficultyIndexRoute: GamesPrimeFactorsDifficultyIndexRoute,
   GamesPrimeDifficultyIndexRoute: GamesPrimeDifficultyIndexRoute,
   GamesSubtractionDifficultyIndexRoute: GamesSubtractionDifficultyIndexRoute,
-  LiveJoinCodeIndexRoute: LiveJoinCodeIndexRoute,
-  LiveLessonNotesIdIndexRoute: LiveLessonNotesIdIndexRoute,
-  LiveSSessionIdIndexRoute: LiveSSessionIdIndexRoute,
-  LiveSessionsSessionIdIndexRoute: LiveSessionsSessionIdIndexRoute,
-  LiveSessionsCreateIndexRoute: LiveSessionsCreateIndexRoute,
-  LiveSmartCardsCardIdIndexRoute: LiveSmartCardsCardIdIndexRoute,
-  LiveWorkspaceClassIdIndexRoute: LiveWorkspaceClassIdIndexRoute,
-  SmartboardNotebookIdPreviewIndexRoute: SmartboardNotebookIdPreviewIndexRoute,
-  StudentClassClassIdIndexRoute: StudentClassClassIdIndexRoute,
   SubjectsSubjectTopicIndexRoute: SubjectsSubjectTopicIndexRoute,
-  TeachingHubClassesClassIdIndexRoute: TeachingHubClassesClassIdIndexRoute,
-  TeachingHubClassesCreateIndexRoute: TeachingHubClassesCreateIndexRoute,
-  TeachingHubSettingsArchiveIndexRoute: TeachingHubSettingsArchiveIndexRoute,
   GamesAbacusRepresentDifficultyIndexRoute:
     GamesAbacusRepresentDifficultyIndexRoute,
   GamesDecimalsKindDifficultyIndexRoute: GamesDecimalsKindDifficultyIndexRoute,
@@ -3423,88 +3793,10 @@ const rootRouteChildren: RootRouteChildren = {
     GamesFractionsImproperToMixedDifficultyIndexRoute,
   GamesFractionsMixedToImproperDifficultyIndexRoute:
     GamesFractionsMixedToImproperDifficultyIndexRoute,
-  LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute:
-    LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute,
-  LessonNotesNotebookIdFloatingSubsectionIdIndexRoute:
-    LessonNotesNotebookIdFloatingSubsectionIdIndexRoute,
-  LiveSmartCardsCardIdGameDashboardIndexRoute:
-    LiveSmartCardsCardIdGameDashboardIndexRoute,
-  LiveSmartCardsCardIdGameSetupIndexRoute:
-    LiveSmartCardsCardIdGameSetupIndexRoute,
-  LiveWorkspaceClassIdAdventuresIndexRoute:
-    LiveWorkspaceClassIdAdventuresIndexRoute,
-  LiveWorkspaceClassIdAssignmentsIndexRoute:
-    LiveWorkspaceClassIdAssignmentsIndexRoute,
-  LiveWorkspaceClassIdGalleryIndexRoute: LiveWorkspaceClassIdGalleryIndexRoute,
-  LiveWorkspaceClassIdGamesIndexRoute: LiveWorkspaceClassIdGamesIndexRoute,
-  LiveWorkspaceClassIdLessonNotesIndexRoute:
-    LiveWorkspaceClassIdLessonNotesIndexRoute,
-  LiveWorkspaceClassIdReportIndexRoute: LiveWorkspaceClassIdReportIndexRoute,
-  LiveWorkspaceClassIdSmartboardIndexRoute:
-    LiveWorkspaceClassIdSmartboardIndexRoute,
-  LiveWorkspaceClassIdStudentsIndexRoute:
-    LiveWorkspaceClassIdStudentsIndexRoute,
-  StudentClassClassIdAdventuresIndexRoute:
-    StudentClassClassIdAdventuresIndexRoute,
-  StudentClassClassIdGalleryIndexRoute: StudentClassClassIdGalleryIndexRoute,
-  StudentClassClassIdGamesIndexRoute: StudentClassClassIdGamesIndexRoute,
-  StudentClassClassIdLessonNotesIndexRoute:
-    StudentClassClassIdLessonNotesIndexRoute,
-  StudentClassClassIdReportIndexRoute: StudentClassClassIdReportIndexRoute,
-  StudentClassClassIdSmartboardIndexRoute:
-    StudentClassClassIdSmartboardIndexRoute,
   SubjectsSubjectTopicSubtopicIndexRoute:
     SubjectsSubjectTopicSubtopicIndexRoute,
   SubjectsAlgebraNumbersAndNumeralsAbacusIndexRoute:
     SubjectsAlgebraNumbersAndNumeralsAbacusIndexRoute,
-  TeachingHubClassesClassIdAdventuresIndexRoute:
-    TeachingHubClassesClassIdAdventuresIndexRoute,
-  TeachingHubClassesClassIdAssignmentsIndexRoute:
-    TeachingHubClassesClassIdAssignmentsIndexRoute,
-  TeachingHubClassesClassIdGalleryIndexRoute:
-    TeachingHubClassesClassIdGalleryIndexRoute,
-  TeachingHubClassesClassIdGamesIndexRoute:
-    TeachingHubClassesClassIdGamesIndexRoute,
-  TeachingHubClassesClassIdLessonNotesIndexRoute:
-    TeachingHubClassesClassIdLessonNotesIndexRoute,
-  TeachingHubClassesClassIdReportIndexRoute:
-    TeachingHubClassesClassIdReportIndexRoute,
-  TeachingHubClassesClassIdSmartboardIndexRoute:
-    TeachingHubClassesClassIdSmartboardIndexRoute,
-  TeachingHubClassesClassIdStudentsIndexRoute:
-    TeachingHubClassesClassIdStudentsIndexRoute,
-  LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute:
-    LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute,
-  StudentClassClassIdAssessmentAssessmentIdIndexRoute:
-    StudentClassClassIdAssessmentAssessmentIdIndexRoute,
-  StudentClassClassIdAssignmentNotebookIdIndexRoute:
-    StudentClassClassIdAssignmentNotebookIdIndexRoute,
-  StudentClassClassIdGameGameIdIndexRoute:
-    StudentClassClassIdGameGameIdIndexRoute,
-  LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute:
-    LiveWorkspaceClassIdAdventuresGameIdDashboardIndexRoute,
-  LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute:
-    LiveWorkspaceClassIdAssignmentsNotebookIdDashboardIndexRoute,
-  LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute:
-    LiveWorkspaceClassIdGamesGameIdDashboardIndexRoute,
-  LiveWorkspaceClassIdGamesGameIdLiveIndexRoute:
-    LiveWorkspaceClassIdGamesGameIdLiveIndexRoute,
-  StudentClassClassIdGamesGameIdPlayIndexRoute:
-    StudentClassClassIdGamesGameIdPlayIndexRoute,
-  StudentClassesClassIdGamesGameIdLiveIndexRoute:
-    StudentClassesClassIdGamesGameIdLiveIndexRoute,
-  TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute:
-    TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute,
-  TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute:
-    TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute,
-  TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute:
-    TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute,
-  TeachingHubClassesClassIdGamesGameIdLiveIndexRoute:
-    TeachingHubClassesClassIdGamesGameIdLiveIndexRoute,
-  LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute:
-    LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute,
-  TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute:
-    TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
