@@ -1,45 +1,49 @@
-## Plan: rebuild class SmartBoard teacher-to-student sync
+# Report System – Phase 1: Student Progress Bar Chart
 
-### Goal
-When a teacher opens a SmartBoard from a class, every approved student who opens that class SmartBoard should immediately see the same board and continue receiving live updates. No blank blue screen, no waiting message once the teacher has opened it.
+Add a **Report** section to both the teacher class dashboard and the student class page (after Gallery), built on a single reusable progress bar chart.
 
-### What I will change
-1. **Replace the student SmartBoard loader with a simpler flow**
-   - Authenticate the student.
-   - Confirm they are either the class owner or a class member.
-   - Read one source of truth: the class SmartBoard state row.
-   - If that row has an active notebook, render `PresentationView` directly.
-   - Keep listening for class board changes and update the active notebook live.
+## Task model (one bar = one task)
 
-2. **Make teacher launch always create/open the class board state**
-   - When the teacher opens `/smartboard/:notebookId?classId=...`, upsert the class SmartBoard state row.
-   - Set student access on for that class.
-   - Share the linked lesson note row for student reading.
-   - Add a safe fallback insert/update for the class note link if it does not already exist.
+Bars come from `learning_assignments` (the existing per-class task registry), which already distinguishes `mode = 'assignment' | 'adventure'` and holds title, notebook, game, due date and status. Every active or archived row for the class = one bar, ordered by `started_at`, never merged, duplicates preserved.
 
-3. **Rebuild the sync hook to be resilient**
-   - Use the class board row as the single live channel.
-   - Load current state first, then subscribe.
-   - On realtime reconnect, reload from the database so students do not stay blank after a missed event.
-   - Keep teacher writes debounced, but make the first teacher snapshot push reliably.
+- A bar appears the moment a task is assigned, at 0%.
+- Bars only change height as progress arrives; they never disappear.
 
-4. **Remove the fragile duplicate visibility subscriptions**
-   - Student side should not depend on multiple independent realtime subscriptions fighting each other.
-   - One reload function will refresh class visibility and active notebook together.
+## Percentage rules
 
-5. **Validate manually in browser**
-   - Open the teacher SmartBoard route.
-   - Open the student class SmartBoard route.
-   - Confirm the student route renders the same notebook instead of the blank/waiting screen.
-   - Confirm teacher board changes are applied on the student side after refresh/realtime load.
+**Assignment** — sum the student's `assessment_progress.score` across the assessments belonging to that task, divided by the sum of `total_marks`, ×100, capped 0–100. Past due with no attempt = 0%.
 
-### Files to update
-- `src/pages/SmartBoardPage.tsx`
-- `src/pages/student/StudentSmartBoardPage.tsx`
-- `src/hooks/useSmartboardSync.ts`
-- Possibly `src/pages/class/ClassSmartBoardLauncher.tsx` only if the launch link needs cleanup
+**Adventure** — the student's earned marks across the adventure's linked boards divided by their individual required quota (the existing `requiredContribution` = total required marks ÷ member count), ×100, capped at 100%. Extra contribution beyond quota still shows 100%.
 
-### Technical notes
-- I will not change unrelated SmartBoard UI layout or assessment/game boards.
-- I will not delete database tables or columns.
-- If database permissions are still blocking student reads after the frontend rebuild, I will add only an additive backend migration for the class SmartBoard policies/publication.
+**Class Report** — for each task, the mean of all class members' percentages (rounded), so a task with 28 students averaging 82% renders an 82% bar.
+
+## Historical accuracy
+
+To honour "don't recalculate finished adventures after the pass mark changes", add one additive table `report_task_results` (task id, student id, percent, frozen quota/total, frozen_at) with RLS: students read their own rows, teachers read rows for classes they own. When a task is archived (completed or due date passed), the current percentages are frozen into it. The report reads frozen rows when present and computes live otherwise. No existing tables are modified.
+
+## Chart component
+
+New `src/components/reports/ProgressBarChart.tsx`:
+
+- Fixed Y-axis 0–100% in 10% steps, gridlines, constant scale, ~1 cm per 10%.
+- X-axis unlimited with horizontal scroll; bars keep a fixed width and gap (no compression).
+- Auto-abbreviated 3-letter labels ("Quadratic Formula" → QUA) with the full title in a hover tooltip / tap popover.
+- Colour distinguishes Assignment vs Adventure; a small legend sits above the chart.
+- Empty state when no tasks exist yet.
+
+## Pages and navigation
+
+- `src/pages/class/ClassReportPage.tsx` (teacher, route `/teaching-hub/classes/:classId/report`): top toggle **Class | Student ▾**, defaulting to Class Report; the Student dropdown lists class members and swaps the chart to that student's data.
+- `src/pages/student/StudentReportPage.tsx` (route `/student/class/:classId/report`): the student's own chart only, no student picker.
+- Add a **Report** tile after Gallery on `ClassDashboardPage.tsx` and a Report entry after Gallery on `StudentClassPage.tsx`.
+- Both routes registered in `App.tsx`; access enforced by the existing owner/member checks.
+
+## Data layer
+
+`src/lib/reports/progressChart.ts` exposes `loadStudentTaskBars(classId, studentId)` and `loadClassTaskBars(classId)`, returning `{ taskId, mode, fullTitle, abbreviation, percent }[]`. All later Weekly/Monthly/Term/Yearly reports will read from this module rather than recomputing scores.
+
+## Technical notes
+
+- Reuses `assessment_progress`, `class_game_boards`, `class_members` and the existing quota maths in `useAdventureSync`, factored into a shared helper so adventure percentages stay identical to the live dashboards.
+- Chart is a plain SVG/flex implementation using semantic design tokens — no new charting dependency.
+- Data refreshes on mount plus a lightweight realtime subscription on `assessment_progress` for the class.
