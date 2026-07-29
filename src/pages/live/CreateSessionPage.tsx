@@ -126,6 +126,8 @@ const CreateSessionPage = () => {
         timeZone,
         visibility,
         ownerId: userData.user.id,
+        broadcasts,
+
       });
       setCreated(session);
     } catch (err) {
