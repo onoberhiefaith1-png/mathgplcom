@@ -1835,6 +1835,11 @@ function DocumentEditorInner({
             </div>
           </PageFrame>
         </div>
+        <EmojiPanel
+          open={emojiPanelOpen}
+          onClose={() => setEmojiPanelOpen(false)}
+          onInsert={insertSymbolText}
+        />
         <PropertiesPanel />
       </div>
 
