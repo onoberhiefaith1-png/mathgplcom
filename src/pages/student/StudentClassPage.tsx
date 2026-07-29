@@ -63,6 +63,13 @@ const StudentClassPage = () => {
   const [notes, setNotes] = useState<{ id: string; title: string }[]>([]);
   const [assignments, setAssignments] = useState<AssignmentGroup[]>([]);
   const [games, setGames] = useState<ClassGameRow[]>([]);
+  const [noteLevels, setNoteLevels] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!classId) return;
+    void getClassLevels(classId).then(setNoteLevels);
+  }, [classId]);
+
 
 
   const loadNotes = useCallback(async () => {
