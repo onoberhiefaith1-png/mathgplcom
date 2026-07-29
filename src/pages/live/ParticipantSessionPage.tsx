@@ -33,7 +33,7 @@ const ParticipantSessionPage = () => {
         navigate("/live/join", { replace: true });
         return;
       }
-      const row = data as LiveSession;
+      const row = hydrateSession(data as Record<string, unknown>);
       if (row.owner_id === userData.user.id) {
         navigate(`/live/sessions/${row.id}`, { replace: true });
         return;
