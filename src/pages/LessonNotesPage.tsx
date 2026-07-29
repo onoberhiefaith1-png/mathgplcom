@@ -85,7 +85,7 @@ const LessonNotesPage = () => {
       toast({ title: "Create failed", description: error.message, variant: "destructive" });
       return;
     }
-    navigate(`/lesson-notes/${data.id}`);
+    navigate(`${livePrefix}/lesson-notes/${data.id}`);
   };
 
   const renameNotebook = async (nb: NotebookRow) => {
@@ -186,7 +186,7 @@ const LessonNotesPage = () => {
                 <NotebookCard
                   key={nb.id}
                   nb={nb}
-                  onOpen={() => navigate(`/lesson-notes/${nb.id}`)}
+                  onOpen={() => navigate(`${livePrefix}/lesson-notes/${nb.id}`)}
                   onPresent={() => navigate(`/smartboard/${nb.id}`)}
                   onRename={() => renameNotebook(nb)}
                   onDuplicate={() => duplicateNotebook(nb)}
