@@ -14,6 +14,7 @@
 // non-empty slots render their contents transparently (no border).
 
 import { createElement, type CSSProperties, type ReactNode } from "react";
+import { EMOJI_STYLE, graphemes, isEmoji } from "@/lib/text/graphemes";
 import { PLACEHOLDER_COLOR, smartboardPlaceholderStyle } from "@/lib/smartboard/placeholderColor";
 
 /* ─── Connected radical helper ─────────────────────────────────────────────
@@ -485,6 +486,20 @@ function accentSpan(symbol: string, content: ReactNode, key: string): ReactNode 
 /* ------------------------- main parser ------------------------- */
 
 /** Public entry. Walks the string, producing ReactNodes. */
+
+/** Split text into consecutive emoji / non-emoji runs. */
+function splitEmojiRuns(text: string): { text: string; emoji: boolean }[] {
+  const gs = graphemes(text);
+  const runs: { text: string; emoji: boolean }[] = [];
+  for (const g of gs) {
+    const e = isEmoji(g);
+    const last = runs[runs.length - 1];
+    if (last && last.emoji === e) last.text += g;
+    else runs.push({ text: g, emoji: e });
+  }
+  return runs;
+}
+
 export function renderMathInline(
   srcRaw: string,
   keyBase = "m",
@@ -501,7 +516,21 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
   let buf = "";
   const flush = () => {
     if (buf) {
-      out.push(createElement("span", { key: `${keyBase}-t-${k++}` }, buf));
+      // Emoji keep their own identity: native colour font, never the ink
+      // colour. Split the buffer into emoji / non-emoji runs.
+      const parts = splitEmojiRuns(buf);
+      for (const part of parts) {
+        out.push(
+          createElement(
+            "span",
+            {
+              key: `${keyBase}-t-${k++}`,
+              style: part.emoji ? EMOJI_STYLE : undefined,
+            },
+            part.text,
+          ),
+        );
+      }
       buf = "";
     }
   };
