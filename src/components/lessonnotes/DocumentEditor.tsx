@@ -1747,6 +1747,15 @@ function DocumentEditorInner({
         )}
         <GlobalAiButton onGenerate={handleGlobalAi} />
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
+        <button
+          type="button"
+          onClick={() => setEmojiPanelOpen((v) => !v)}
+          title="Emoji library"
+          aria-pressed={emojiPanelOpen}
+          className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${emojiPanelOpen ? "bg-foreground/10" : ""}`}
+        >
+          <span className="text-base leading-none">😊</span> Emojis
+        </button>
         <Divider />
         <select
           value={paperSize}
