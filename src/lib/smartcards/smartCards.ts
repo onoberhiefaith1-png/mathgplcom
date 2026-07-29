@@ -8,6 +8,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { compileSectionQuestions, type AssessmentKind } from "@/lib/assessments/createAssessment";
 import type { GeometryScene } from "@/lib/geometry/scene";
+import { normalizeCanvas } from "@/lib/games/types";
 
 export interface CardPresentation {
   questionText: string;
@@ -62,6 +63,7 @@ export interface SmartCardRow {
   published: boolean;
   published_at: string | null;
   publish_mode: "challenge" | "game";
+  game_id: string | null;
   topic: string | null;
   subtopic: string | null;
   difficulty: string | null;
@@ -147,7 +149,13 @@ export async function loadSmartCard(id: string): Promise<SmartCardRow | null> {
 
 export async function saveSmartCard(
   id: string,
-  patch: { title?: string; presentation?: CardPresentation; geometry?: { scenes: GeometryScene[] } | null },
+  patch: {
+    title?: string;
+    presentation?: CardPresentation;
+    geometry?: { scenes: GeometryScene[] } | null;
+    publish_mode?: "challenge" | "game";
+    game_id?: string | null;
+  },
 ): Promise<void> {
   await supabase.from("smart_cards").update(patch as any).eq("id", id);
 }
@@ -177,6 +185,65 @@ async function ensureSmartCardClass(ownerId: string): Promise<string | null> {
     .select("id")
     .single();
   return (created as any)?.id ?? null;
+}
+
+/** Games the teacher can publish a Smart Card inside. */
+export async function listPublishableGames(): Promise<{ id: string; title: string }[]> {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return [];
+  const { data } = await supabase
+    .from("games")
+    .select("id, title")
+    .eq("owner_id", uid)
+    .order("updated_at", { ascending: false });
+  return (data ?? []) as { id: string; title: string }[];
+}
+
+/** Game Challenge: attach the card's game to the hidden holder class and point
+ *  every progress bar in that game at this card's assessment, so a public
+ *  visitor fills the bars by solving the card. */
+async function linkGameChallenge(input: {
+  gameId: string;
+  classId: string;
+  assessmentId: string;
+  notebookId: string | null;
+  sectionId: string | null;
+  totalMarks: number;
+}): Promise<void> {
+  const { gameId, classId, assessmentId } = input;
+
+  await supabase.from("class_games").upsert(
+    { class_id: classId, game_id: gameId } as never,
+    { onConflict: "class_id,game_id" },
+  );
+
+  const { data: game } = await supabase
+    .from("games")
+    .select("canvas")
+    .eq("id", gameId)
+    .maybeSingle();
+  const canvas = normalizeCanvas((game as any)?.canvas);
+  const barIds: string[] = [];
+  for (const scene of canvas.scenes) {
+    for (const el of scene.elements) if (el.kind === "progress_bar") barIds.push(el.id);
+  }
+  if (barIds.length === 0) throw new Error("game_has_no_progress_bar");
+
+  // A Smart Card is a single challenge: every bar is fed by the same board.
+  await supabase.from("class_game_boards").delete().eq("class_id", classId).eq("game_id", gameId);
+  await supabase.from("class_game_boards").insert(
+    barIds.map((barId) => ({
+      class_id: classId,
+      game_id: gameId,
+      progress_element_id: barId,
+      assessment_id: assessmentId,
+      notebook_id: input.notebookId,
+      section_id: input.sectionId,
+      required_marks: input.totalMarks,
+      question_keys: [],
+    })) as never,
+  );
 }
 
 /** Publish: build the public challenge and mark the card live. */
@@ -233,6 +300,18 @@ export async function publishSmartCard(card: SmartCardRow): Promise<SmartCardRow
     await supabase
       .from("assessment_answer_keys")
       .insert({ assessment_id: assessmentId, lines: answerKey as any });
+  }
+
+  if (card.publish_mode === "game") {
+    if (!card.game_id) throw new Error("no_game_selected");
+    await linkGameChallenge({
+      gameId: card.game_id,
+      classId,
+      assessmentId: assessmentId!,
+      notebookId: card.notebook_id,
+      sectionId: card.section_id,
+      totalMarks: total,
+    });
   }
 
   const { data: updated } = await supabase

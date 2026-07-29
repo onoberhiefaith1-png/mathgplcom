@@ -45,3 +45,12 @@ export const getSignedUrls = async (
   );
   return out;
 };
+
+/** Seed the cache with URLs signed elsewhere (e.g. a public edge function),
+ *  so anonymous visitors can render private game art without storage auth. */
+export const primeSignedUrls = (map: Record<string, string>, ttlSeconds = SIGN_TTL): void => {
+  const expires = Date.now() + ttlSeconds * 1000;
+  for (const [path, url] of Object.entries(map ?? {})) {
+    if (path && url) cache.set(path, { url, expires });
+  }
+};

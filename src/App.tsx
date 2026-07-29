@@ -68,6 +68,7 @@ import JoinSessionPage from "./pages/live/JoinSessionPage.tsx";
 import SmartCardEditorPage from "./pages/live/SmartCardEditorPage.tsx";
 import SmartCardPage from "./pages/public/SmartCardPage.tsx";
 import SmartCardChallengePage from "./pages/public/SmartCardChallengePage.tsx";
+import SmartCardGamePage from "./pages/public/SmartCardGamePage.tsx";
 import Adventure from "./pages/Adventure.tsx";
 import AdventureGamesDashboard from "./pages/adventure/AdventureGamesDashboard.tsx";
 import AdventureGameEditor from "./pages/adventure/AdventureGameEditor.tsx";
@@ -129,6 +130,7 @@ const App = () => (
           <Route path="/live/smart-cards/:cardId" element={<SmartCardEditorPage />} />
           <Route path="/c/:slug" element={<SmartCardPage />} />
           <Route path="/c/:slug/solve" element={<SmartCardChallengePage />} />
+          <Route path="/c/:slug/game" element={<SmartCardGamePage />} />
           <Route path="/live/join" element={<JoinSessionPage />} />
           <Route path="/live/join/:code" element={<JoinSessionPage />} />
           {/* MathGPL Life workspace — same engines, Life terminology, never
