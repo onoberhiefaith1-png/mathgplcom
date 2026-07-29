@@ -71,7 +71,7 @@ export function MathTableView({ node, updateAttributes, deleteNode, selected }: 
           }
         }}
         className={cn(
-          "px-2 py-1 min-w-[3.5rem] text-center border-r border-b border-neutral-200 outline-none focus:bg-yellow-50 cursor-text",
+          "px-2 py-1 min-w-[3.5rem] text-center border-r border-b border-neutral-200 outline-hidden focus:bg-yellow-50 cursor-text",
           highlight && "bg-yellow-100 font-semibold",
           kind === "label" && "font-semibold bg-neutral-100",
         )}

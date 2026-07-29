@@ -45,7 +45,7 @@ const BroadcastEditor = ({ value, onChange }: Props) => {
               aria-label="Platform"
               value={entry.platform}
               onChange={(e) => update(entry.id, { platform: e.target.value as BroadcastPlatformId })}
-              className={`h-10 flex-1 rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
+              className={`h-10 flex-1 rounded-md border px-3 text-sm outline-hidden focus:border-primary ${FIELD}`}
             >
               {BROADCAST_PLATFORMS.map((p) => (
                 <option key={p.id} value={p.id}>{p.label}</option>

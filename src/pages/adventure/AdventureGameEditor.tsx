@@ -442,7 +442,7 @@ const AdventureGameEditor = () => {
           <button
             type="button"
             onClick={() => setTopBarOpen(true)}
-            className="pointer-events-auto mt-2 flex items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow backdrop-blur transition hover:bg-muted/70 hover:text-foreground"
+            className="pointer-events-auto mt-2 flex items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-muted/70 hover:text-foreground"
             title="Show toolbar"
           >
             <ChevronDown className="h-3.5 w-3.5" />
@@ -531,13 +531,13 @@ const AdventureGameEditor = () => {
           </div>
 
           {/* Floating overlays */}
-          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/80 p-1 text-xs shadow backdrop-blur">
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/80 p-1 text-xs shadow-sm backdrop-blur">
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={focusCamera} title="Focus"><Crosshair className="h-3.5 w-3.5" /></Button>
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={setCameraTarget} disabled={!selected || selected?.kind === "background"} title="Set camera target"><Camera className="h-3.5 w-3.5" /></Button>
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={enterFullscreen} title="Fullscreen"><Maximize className="h-3.5 w-3.5" /></Button>
           </div>
 
-          <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/80 p-1 text-xs shadow backdrop-blur">
+          <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/80 p-1 text-xs shadow-sm backdrop-blur">
             {stageFull && (<button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={enterFullscreen} title="Exit fullscreen">Exit</button>)}
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))} title="Zoom out"><Minus className="h-3.5 w-3.5" /></Button>
             <button className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={resetView} title="Fit">Fit</button>

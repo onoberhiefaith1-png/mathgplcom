@@ -36,7 +36,7 @@ const AcademyTopBar = () => {
             }}
             onFocus={() => setOpen(true)}
             placeholder="Search any maths topic…"
-            className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-base"
+            className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden sm:text-base"
             aria-label="Search any maths topic"
           />
         </div>

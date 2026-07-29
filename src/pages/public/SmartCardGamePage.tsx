@@ -301,7 +301,7 @@ const SmartCardGamePage = () => {
                     type="button"
                     onClick={() => setOpenBarId(bar.id)}
                     aria-label="Open questions"
-                    className="pointer-events-auto absolute rounded-lg outline-none ring-1 ring-primary/40 transition hover:ring-2 hover:ring-primary/80"
+                    className="pointer-events-auto absolute rounded-lg outline-hidden ring-1 ring-primary/40 transition hover:ring-2 hover:ring-primary/80"
                     style={{
                       left: `${bar.x * 100}%`,
                       top: `${bar.y * 100}%`,

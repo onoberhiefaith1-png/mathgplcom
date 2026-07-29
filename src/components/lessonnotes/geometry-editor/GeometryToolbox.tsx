@@ -239,7 +239,7 @@ function AnnotationDraftInput({
             else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
           }}
           placeholder={placeholder}
-          className="flex-1 min-w-0 text-[12px] px-1.5 py-1 rounded border border-foreground/25 bg-white text-black outline-none focus:border-primary"
+          className="flex-1 min-w-0 text-[12px] px-1.5 py-1 rounded border border-foreground/25 bg-white text-black outline-hidden focus:border-primary"
         />
         <button
           type="button"

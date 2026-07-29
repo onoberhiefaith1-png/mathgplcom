@@ -899,7 +899,7 @@ export const AssistantPanel = ({
             onKeyDown={onKeyDown}
             placeholder={placeholder}
             rows={2}
-            className="flex-1 resize-none rounded border px-3 py-2 text-sm focus:outline-none"
+            className="flex-1 resize-none rounded border px-3 py-2 text-sm focus:outline-hidden"
             style={{ borderColor: C.borderStrong, background: C.bg, color: C.text }}
           />
           <div className="flex flex-col gap-1">

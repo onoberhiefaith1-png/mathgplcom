@@ -1392,7 +1392,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           <button
             type="button"
             onClick={enterFullscreen}
-            className="absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/90 px-2.5 py-1.5 text-xs font-medium shadow backdrop-blur hover:bg-muted"
+            className="absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/90 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur hover:bg-muted"
             title={stageFull ? "Exit fullscreen" : "Fullscreen"}
           >
             {stageFull ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
@@ -1648,7 +1648,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           </div>
 
           {/* Zoom controls — pinned to the stage viewport */}
-          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/90 p-1 text-xs shadow backdrop-blur">
+          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-lg border border-border/50 bg-background/90 p-1 text-xs shadow-sm backdrop-blur">
             {stageFull && (
               <button
                 className="rounded px-1.5 py-0.5 hover:bg-muted"
@@ -1672,7 +1672,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           <button
             type="button"
             onClick={enterFullscreen}
-            className="absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/90 px-2.5 py-1.5 text-xs font-medium shadow backdrop-blur hover:bg-muted"
+            className="absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/90 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur hover:bg-muted"
             title={stageFull ? "Exit fullscreen" : "Fullscreen"}
           >
             {stageFull ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}

@@ -75,7 +75,7 @@ function MathBlockView({ node, updateAttributes, selected, editor }: NodeViewPro
     const previewLatex = friendlyToLatex(draft);
     return (
       <NodeViewWrapper className="my-1.5" contentEditable={false}>
-        <div className="rounded-md border border-foreground/20 bg-white text-black p-2 shadow-sm">
+        <div className="rounded-md border border-foreground/20 bg-white text-black p-2 shadow-xs">
           <div className="min-h-[1.6em] text-[16px] leading-[1.6] mb-1.5 text-black">
             {previewLatex
               ? <span className="inline-block align-baseline">{renderMathInline(previewLatex)}</span>

@@ -16,7 +16,7 @@ export const DigitBank = ({ onPick, onSubmit, onBackspace }: Props) => {
           draggable
           onDragStart={(e) => e.dataTransfer.setData("text/plain", String(d))}
           onClick={() => onPick(d)}
-          className="h-11 w-9 sm:h-12 sm:w-11 rounded-lg border-2 border-border bg-card text-xl sm:text-2xl font-black tabular-nums text-foreground shadow hover:scale-105 hover:border-primary active:scale-95 transition-all cursor-grab active:cursor-grabbing"
+          className="h-11 w-9 sm:h-12 sm:w-11 rounded-lg border-2 border-border bg-card text-xl sm:text-2xl font-black tabular-nums text-foreground shadow-sm hover:scale-105 hover:border-primary active:scale-95 transition-all cursor-grab active:cursor-grabbing"
           aria-label={`Digit ${d}`}
         >
           {d}
@@ -25,7 +25,7 @@ export const DigitBank = ({ onPick, onSubmit, onBackspace }: Props) => {
       <button
         type="button"
         onClick={onBackspace}
-        className="h-11 w-11 sm:h-12 sm:w-12 inline-flex items-center justify-center rounded-lg border-2 border-border bg-muted text-foreground shadow hover:scale-105 hover:border-rose-500 hover:text-rose-400 active:scale-95 transition-all"
+        className="h-11 w-11 sm:h-12 sm:w-12 inline-flex items-center justify-center rounded-lg border-2 border-border bg-muted text-foreground shadow-sm hover:scale-105 hover:border-rose-500 hover:text-rose-400 active:scale-95 transition-all"
         aria-label="Backspace"
       >
         <Delete className="h-5 w-5" />

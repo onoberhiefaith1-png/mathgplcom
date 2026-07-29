@@ -85,7 +85,7 @@ export const SubstitutionWorkspace = () => {
                       value={s.text}
                       onChange={(e) => updateStep(panel.id, s.id, e.target.value)}
                       placeholder="Type a step…"
-                      className="flex-1 bg-transparent border-b border-amber-200/10 focus:border-cyan-400/50 outline-none py-1 text-foreground italic font-serif"
+                      className="flex-1 bg-transparent border-b border-amber-200/10 focus:border-cyan-400/50 outline-hidden py-1 text-foreground italic font-serif"
                     />
                     <button
                       onClick={(e) => { e.stopPropagation(); pinStep(panel.title, s.text); }}

@@ -62,7 +62,7 @@ export function AssetBottomToolbar({
             disabled={a.disabled}
             onClick={(e) => { e.stopPropagation(); a.onClick(); }}
             className={
-              "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium shadow-sm transition-colors " +
+              "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium shadow-xs transition-colors " +
               (a.tone === "danger"
                 ? "border-destructive/40 bg-background text-destructive hover:bg-destructive/10"
                 : "border-foreground/25 bg-background text-foreground hover:bg-foreground/5") +

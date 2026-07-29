@@ -1055,7 +1055,7 @@ function DocumentEditorInner({
     content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
     editorProps: {
       attributes: {
-        class: "lesson-doc max-w-none focus:outline-none min-h-[60vh]",
+        class: "lesson-doc max-w-none focus:outline-hidden min-h-[60vh]",
         spellcheck: "true",
       },
     },

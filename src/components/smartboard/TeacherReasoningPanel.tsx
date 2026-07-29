@@ -101,7 +101,7 @@ const LineViewer = ({
   return (
     <div
       className={`rounded-lg border border-border bg-card/95 p-3 backdrop-blur ${
-        sticky ? "sticky top-0 z-10 shadow-sm" : ""
+        sticky ? "sticky top-0 z-10 shadow-xs" : ""
       }`}
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">

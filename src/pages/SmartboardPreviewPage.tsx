@@ -225,7 +225,7 @@ const Block = ({
   children: React.ReactNode;
 }) => (
   <section
-    className="relative rounded-2xl border p-6 shadow-sm transition"
+    className="relative rounded-2xl border p-6 shadow-xs transition"
     style={{
       background: "rgba(255,255,255,0.7)",
       borderColor: "rgba(138,106,31,0.15)",
@@ -413,7 +413,7 @@ const SmartboardPreviewPage = () => {
             return (
               <section
                 key={it.id}
-                className="relative rounded-2xl border p-8 text-center shadow-sm transition"
+                className="relative rounded-2xl border p-8 text-center shadow-xs transition"
                 style={{
                   background: "rgba(255,255,255,0.7)",
                   borderColor: "rgba(138,106,31,0.2)",

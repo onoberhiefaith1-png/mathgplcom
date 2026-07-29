@@ -57,7 +57,7 @@ export function SmartCell({
         onClick={(e) => e.stopPropagation()}
         aria-label={ariaLabel}
         className={
-          "bg-transparent outline-none border-b border-primary px-1 py-0 tabular-nums " +
+          "bg-transparent outline-hidden border-b border-primary px-1 py-0 tabular-nums " +
           className
         }
         style={{ textAlign: align, minWidth, width: `${Math.max(2, buffer.length + 1)}ch` }}
