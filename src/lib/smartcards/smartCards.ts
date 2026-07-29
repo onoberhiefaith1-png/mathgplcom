@@ -64,10 +64,15 @@ export interface SmartCardRow {
   published_at: string | null;
   publish_mode: "challenge" | "game";
   game_id: string | null;
+  /** Game Challenge: the progress bar that carries THIS card's question. */
+  game_progress_element_id: string | null;
+  /** Game Challenge: percentage of the question's marks needed to qualify. */
+  pass_mark_pct: number;
   topic: string | null;
   subtopic: string | null;
   difficulty: string | null;
 }
+
 
 const SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
 export const generateSlug = () =>
