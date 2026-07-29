@@ -109,7 +109,7 @@ lineSegment.schema = (n) => [
   { kind: "side", name: "AB", label: "Length AB", value: dist(n.A, n.B) / 10 },
 ];
 
-lineSegment.setMeasure = (name, value, n) => {
+lineSegment.setMeasure = (name, value, n): Nodes | { error: string } => {
   if (name !== "AB" && name !== "BA") return { error: "Only length AB is editable." };
   if (!(value > 0)) return { error: "Length must be positive." };
   const a = name === "AB" ? n.A : n.B;
@@ -189,7 +189,7 @@ const triangleScalene = polygonAdapter(["A", "B", "C"], [
 // Drag B → horizontal from C. Drag C → translates whole shape.
 const triangleRight: Adapter = {
   initialNodes: { A: { x: 20, y: 20 }, B: { x: 180, y: 120 }, C: { x: 20, y: 120 } },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     if (name === "C") {
       // translate all three, preserving the right angle.
@@ -220,7 +220,7 @@ const triangleRight: Adapter = {
 // Isosceles: apex A, base BC. Drag A moves apex, base stays symmetric under A.
 const triangleIso: Adapter = {
   initialNodes: { A: { x: 100, y: 20 }, B: { x: 20, y: 120 }, C: { x: 180, y: 120 } },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     const baseY = nodes.B.y;
     const mx = (nodes.B.x + nodes.C.x) / 2;
@@ -252,7 +252,7 @@ const triangleIso: Adapter = {
 // Equilateral: single "size" handle at B. C mirrors B, A is apex.
 const triangleEqui: Adapter = {
   initialNodes: { B: { x: 20, y: 120 }, C: { x: 180, y: 120 }, A: { x: 100, y: 120 - (160 * Math.sqrt(3)) / 2 } },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     const cx = (nodes.B.x + nodes.C.x) / 2;
     const baseY = nodes.B.y;
@@ -299,7 +299,7 @@ const triangleAltitude: Adapter = {
 // ── quadrilaterals with invariants ─────────────────────────────────────
 const rectangle: Adapter = {
   initialNodes: { TL: { x: 20, y: 30 }, BR: { x: 180, y: 110 } },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     return { ...nodes, [name]: p };
   },
@@ -320,7 +320,7 @@ const rectangle: Adapter = {
 
 const square: Adapter = {
   initialNodes: { TL: { x: 40, y: 20 }, BR: { x: 160, y: 140 } },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     if (name === "TL") {
       const size = Math.min(nodes.BR.x - p.x, nodes.BR.y - p.y);
@@ -380,7 +380,7 @@ parallelogram.schema = (n) => {
     { kind: "side", name: "BC", label: "Side BC (=DA)", value: BC },
   ];
 };
-parallelogram.setMeasure = (name, value, n) => {
+parallelogram.setMeasure = (name, value, n): Nodes | { error: string } => {
   const px = value * 10;
   if (!(px > 0)) return { error: "Must be positive." };
   if (name === "AB" || name === "CD") {
@@ -412,7 +412,7 @@ rhombus.schema = (n) => {
   const s = dist(n.N, n.E) / 10;
   return [{ kind: "side", name: "side", label: "Side (all equal)", value: s }];
 };
-rhombus.setMeasure = (name, value, n) => {
+rhombus.setMeasure = (name, value, n): Nodes | { error: string } => {
   const px = value * 10;
   if (!(px > 0)) return { error: "Must be positive." };
   const cx = (n.N.x + n.S.x) / 2;
@@ -441,7 +441,7 @@ kite.schema = (n) => {
     { kind: "side", name: "bottom", label: "Bottom sides (SE=SW)", value: bot },
   ];
 };
-kite.setMeasure = (name, value, n) => {
+kite.setMeasure = (name, value, n): Nodes | { error: string } => {
   const px = value * 10;
   if (!(px > 0)) return { error: "Must be positive." };
   const cx = (n.E.x + n.W.x) / 2;
@@ -464,7 +464,7 @@ kite.setMeasure = (name, value, n) => {
 function regularPolyAdapter(sides: number, initR = 55): Adapter {
   const adapter: Adapter = {
     initialNodes: { C: { x: 100, y: 70 }, V: { x: 100, y: 70 - initR } },
-    drag: (name, x, y, nodes) => {
+    drag: (name, x, y, nodes): Nodes => {
       const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
       if (name === "C") {
         const dx = p.x - nodes.C.x, dy = p.y - nodes.C.y;
@@ -495,7 +495,7 @@ function regularPolyAdapter(sides: number, initR = 55): Adapter {
       { kind: "angle", name: "interior", label: "Interior angle", value: ((sides - 2) * 180) / sides, locked: true },
     ];
   };
-  adapter.setMeasure = (name, value, n) => {
+  adapter.setMeasure = (name, value, n): Nodes | { error: string } => {
     if (name !== "side") return { error: "Not editable." };
     const px = value * 10;
     if (!(px > 0)) return { error: "Must be positive." };
@@ -510,7 +510,7 @@ function regularPolyAdapter(sides: number, initR = 55): Adapter {
 function circleBase(): Adapter {
   return {
     initialNodes: { C: { x: 100, y: 70 }, R: { x: 160, y: 70 } },
-    drag: (name, x, y, nodes) => {
+    drag: (name, x, y, nodes): Nodes => {
       const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
       if (name === "C") {
         const dx = p.x - nodes.C.x, dy = p.y - nodes.C.y;
@@ -560,7 +560,7 @@ const circleDiameter: Adapter = {
 // Sector: centre + two rim endpoints A, B (both stay on circle radius = |CA|).
 const circleSector: Adapter = {
   initialNodes: { C: { x: 100, y: 70 }, A: { x: 160, y: 70 }, B: { x: 100, y: 20 } },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     if (name === "C") {
       const dx = p.x - nodes.C.x, dy = p.y - nodes.C.y;
@@ -597,7 +597,7 @@ const circleSector: Adapter = {
 // Chord/segment: centre, radius handle R (on circle), chord midpoint M clamped inside disk.
 const circleSegmentChord: Adapter = {
   initialNodes: { C: { x: 100, y: 70 }, R: { x: 160, y: 70 }, M: { x: 100, y: 40 } },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     if (name === "C") {
       const dx = p.x - nodes.C.x, dy = p.y - nodes.C.y;
@@ -627,7 +627,7 @@ const circleSegmentChord: Adapter = {
 // Tangent: circle + tangent point T on circle, tangent line drawn.
 const circleTangent: Adapter = {
   initialNodes: { C: { x: 100, y: 70 }, R: { x: 160, y: 70 }, T: { x: 100, y: 20 } },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     if (name === "C") {
       const dx = p.x - nodes.C.x, dy = p.y - nodes.C.y;
@@ -662,7 +662,7 @@ const circleInscribed: Adapter = {
     B: polar({ x: 100, y: 70 }, 60, 210),
     D: polar({ x: 100, y: 70 }, 60, 330),
   },
-  drag: (name, x, y, nodes) => {
+  drag: (name, x, y, nodes): Nodes => {
     const p = clampBox({ x, y }, { x: 4, y: 4 }, { x: 196, y: 136 });
     if (name === "C") {
       const dx = p.x - nodes.C.x, dy = p.y - nodes.C.y;
@@ -768,7 +768,7 @@ triangleScalene.schema = (n) => {
   ];
 };
 triangleScalene.componentMenu = triangleGeometryMenu;
-triangleScalene.setMeasure = (name, value, n) => {
+triangleScalene.setMeasure = (name, value, n): Nodes | { error: string } => {
   const px = value * 10;
   if (!(px > 0)) return { error: "Must be positive." };
   const stretch = (aN: keyof typeof n, bN: keyof typeof n) => {
@@ -791,7 +791,7 @@ triangleIso.schema = (n) => {
     { kind: "side", name: "BC", label: "Base BC",      value: dist(B, C) / 10 },
   ];
 };
-triangleIso.setMeasure = (name, value, n) => {
+triangleIso.setMeasure = (name, value, n): Nodes | { error: string } => {
   const px = value * 10;
   if (!(px > 0)) return { error: "Must be positive." };
   const cx = (n.B.x + n.C.x) / 2;
@@ -825,7 +825,7 @@ triangleEqui.schema = (n) => {
     { kind: "angle", name: "all",  label: "All angles",  value: 60, locked: true },
   ];
 };
-triangleEqui.setMeasure = (name, value, n) => {
+triangleEqui.setMeasure = (name, value, n): Nodes | { error: string } => {
   if (name !== "side") return { error: "Only 'side' is editable." };
   if (!(value > 0)) return { error: "Side must be positive." };
   const half = (value * 10) / 2;
@@ -852,7 +852,7 @@ triangleRight.schema = (n) => {
     { kind: "angle", name: "C",  label: "∠C = 90°",     value: 90, locked: true },
   ];
 };
-triangleRight.setMeasure = (name, value, n) => {
+triangleRight.setMeasure = (name, value, n): Nodes | { error: string } => {
   const px = value * 10;
   const { A, B, C } = n;
   if (name === "AC") {
@@ -898,7 +898,7 @@ rectangle.schema = (n) => {
     { kind: "angle", name: "corner", label: "All corners", value: 90, locked: true },
   ];
 };
-rectangle.setMeasure = (name, value, n) => {
+rectangle.setMeasure = (name, value, n): Nodes | { error: string } => {
   const px = value * 10;
   if (!(px > 0)) return { error: "Must be positive." };
   if (name === "width")  return { TL: n.TL, BR: { x: n.TL.x + px, y: n.BR.y } };
@@ -916,7 +916,7 @@ rectangle.componentMenu = () => [
 square.schema = (n) => [
   { kind: "side", name: "side", label: "Side", value: Math.abs(n.BR.x - n.TL.x) / 10 },
 ];
-square.setMeasure = (name, value, n) => {
+square.setMeasure = (name, value, n): Nodes | { error: string } => {
   const px = value * 10;
   if (name !== "side") return { error: "Locked." };
   if (!(px > 0)) return { error: "Must be positive." };
