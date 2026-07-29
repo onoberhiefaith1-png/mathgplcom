@@ -43,7 +43,7 @@ const ClassReportPage = () => {
   const [selected, setSelected] = useState<string | "class">("class");
   const [filter, setFilter] = useState<ReportFilter>("both");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { settings, update } = useReportSettings();
+  const { settings, update, updateTrendColor } = useReportSettings();
 
   const refresh = useCallback(async () => {
     if (!classId) return;
