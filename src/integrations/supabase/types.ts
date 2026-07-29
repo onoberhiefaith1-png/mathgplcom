@@ -1079,6 +1079,36 @@ export type Database = {
         }
         Relationships: []
       }
+      emoji_categories: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       floating_assistant_messages: {
         Row: {
           content: Json
