@@ -97,7 +97,11 @@ const SmartCardPage = () => {
   }
 
   const card = payload.card;
-  const open = () => navigate(`/c/${card.slug}/solve${preview ? "?preview=1" : ""}`);
+  // A Game Challenge opens the Adventure stage; a normal card opens the board.
+  const open = () =>
+    navigate(
+      `/c/${card.slug}/${card.publishMode === "game" ? "game" : "solve"}${preview ? "?preview=1" : ""}`,
+    );
 
   const counters = [
     { label: "Total players", value: stats?.totalPlayers ?? 0, icon: Users },
