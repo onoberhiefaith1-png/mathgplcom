@@ -2038,6 +2038,56 @@ export type Database = {
         }
         Relationships: []
       }
+      report_task_results: {
+        Row: {
+          assignment_id: string
+          class_id: string
+          created_at: string
+          frozen_at: string
+          frozen_score: number
+          frozen_target: number
+          id: string
+          mode: string
+          percent: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          class_id: string
+          created_at?: string
+          frozen_at?: string
+          frozen_score?: number
+          frozen_target?: number
+          id?: string
+          mode?: string
+          percent?: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          class_id?: string
+          created_at?: string
+          frozen_at?: string
+          frozen_score?: number
+          frozen_target?: number
+          id?: string
+          mode?: string
+          percent?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_task_results_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

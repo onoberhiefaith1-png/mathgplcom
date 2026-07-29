@@ -16,6 +16,7 @@
 // one is never revived and never overwritten.
 
 import { supabase } from "@/integrations/supabase/client";
+import { freezeTaskResults } from "@/lib/reports/progressChart";
 
 export type AssignmentMode = "assignment" | "adventure";
 export type AssignmentStatus = "active" | "archived";
@@ -182,6 +183,16 @@ export async function archiveAssignment(
   reason: "completed" | "expired" | "teacher" = "teacher",
 ): Promise<void> {
   const nowIso = new Date().toISOString();
+
+  // Freeze the report percentages BEFORE anything is unassigned, so a later
+  // pass-mark or total-marks change can never rewrite this task's history.
+  try {
+    const { data: row } = await (table() as any).select("class_id").eq("id", assignmentId).maybeSingle();
+    const classId = (row as { class_id?: string } | null)?.class_id;
+    if (classId) await freezeTaskResults(classId, assignmentId);
+  } catch (e) {
+    console.warn("[reports] could not freeze task results", e);
+  }
 
   // Children leave the active dashboards but keep all of their data.
   await supabase

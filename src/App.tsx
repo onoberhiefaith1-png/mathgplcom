@@ -88,6 +88,8 @@ import AdventureDashboardPage from "./pages/class/AdventureDashboardPage.tsx";
 import GamePlayPage from "./pages/student/GamePlayPage.tsx";
 import ClassGalleryEditorPage from "./pages/ClassGalleryEditorPage.tsx";
 import StudentGalleryPage from "./pages/student/StudentGalleryPage.tsx";
+import ClassReportPage from "./pages/class/ClassReportPage.tsx";
+import StudentReportPage from "./pages/student/StudentReportPage.tsx";
 import OAuthConsent from "./pages/OAuthConsent.tsx";
 import { registerRealtimeAuthSync } from "./lib/realtime/auth";
 import { FullscreenToggle } from "./components/common/FullscreenToggle";
@@ -126,6 +128,8 @@ const App = () => (
           <Route path="/student/class/:classId/games" element={<StudentGamesPage />} />
           <Route path="/teaching-hub/classes/:classId/gallery" element={<ClassGalleryEditorPage />} />
           <Route path="/student/class/:classId/gallery" element={<StudentGalleryPage />} />
+          <Route path="/teaching-hub/classes/:classId/report" element={<ClassReportPage />} />
+          <Route path="/student/class/:classId/report" element={<StudentReportPage />} />
           <Route path="/teaching-hub/settings" element={<TeachingHubSettings />} />
           <Route path="/teaching-hub/classes/:classId/games/:gameId/dashboard" element={<AdventureDashboardPage />} />
           <Route path="/teaching-hub/classes/:classId/adventures/:gameId/dashboard" element={<AdventureDashboardPage />} />
