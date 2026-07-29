@@ -118,7 +118,9 @@ export type CreateSessionInput = {
   timeZone: string;
   visibility: SessionVisibility;
   ownerId: string;
+  broadcasts?: BroadcastEntry[];
 };
+
 
 /**
  * A Session is backed by a hidden class row so every existing class-scoped
