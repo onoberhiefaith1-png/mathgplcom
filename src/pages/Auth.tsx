@@ -30,7 +30,8 @@ const Auth = () => {
       return v.startsWith("/") && !v.startsWith("//") ? v : "";
     } catch { return ""; }
   })();
-  const postLoginTarget = safeNext || stored || "/lesson-notes";
+  // /home dispatches to the workspace that matches the account's role.
+  const postLoginTarget = safeNext || stored || "/home";
 
   useEffect(() => {
     if (safeNext) {
