@@ -257,11 +257,29 @@ const SmartCardGamePage = () => {
           <ArrowLeft className="h-4 w-4" /> Card
         </button>
         <h1 className="truncate text-base font-semibold">{bundle.game.title}</h1>
-        <div className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold tabular-nums text-primary">
-          {Object.values(scores).reduce((a, b) => a + b, 0)} /{" "}
-          {bundle.boards.reduce((a, b) => a + b.totalMarks, 0)}
+        <div className="flex items-center gap-2">
+          <div className="rounded-full border border-border bg-muted/20 px-3 py-1 text-xs font-semibold tabular-nums">
+            {Math.floor(timeLeftMs / 60000)}:
+            {Math.floor((timeLeftMs % 60000) / 1000).toString().padStart(2, "0")}
+          </div>
+          <div className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold tabular-nums text-primary">
+            {Object.values(scores).reduce((a, b) => a + b, 0)} / {bundle.card.requiredMarks}
+          </div>
         </div>
       </header>
+
+      {qualified && !timerExpired && (
+        <div className="mx-4 mb-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-center text-sm text-emerald-300">
+          ✅ Challenge completed. Waiting for the event timer to finish. Final rankings will be
+          calculated when the countdown ends.
+        </div>
+      )}
+      {timerExpired && (
+        <div className="mx-4 mb-2 rounded-lg border border-primary/40 bg-primary/10 p-3 text-center text-sm text-primary">
+          Countdown finished — the competition is closed. Final rankings are on the challenge page.
+        </div>
+      )}
+
 
       <main className="w-full px-4 pb-8">
         <div className="mx-auto flex w-full max-w-[1400px] gap-4">
