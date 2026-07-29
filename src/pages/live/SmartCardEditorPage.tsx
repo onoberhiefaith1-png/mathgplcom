@@ -194,60 +194,33 @@ const SmartCardEditorPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Layer 1 — editing only. Sharing, stats and play live on the dashboards. */}
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b bg-card/95 px-4 py-2 backdrop-blur">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
         <h1 className="text-sm font-semibold">Smart Card Editor</h1>
         <div className="ml-auto flex items-center gap-2">
-          {card.published && (
-            <>
-              <Button variant="outline" size="sm" onClick={copyCard}>
-                {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
-                Copy Smart Card
-              </Button>
-              <Button variant="outline" size="sm" onClick={shareCard}>
-                <Share2 className="mr-1 h-4 w-4" /> Share Smart Card
-              </Button>
-              {/* Walk the exact visitor flow without polluting public counts. */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`/c/${card.slug}?preview=1`, "_blank", "noopener")}
-              >
-                <Eye className="mr-1 h-4 w-4" /> Preview as visitor
-              </Button>
-            </>
-          )}
-
-          <Select value={publishMode} onValueChange={(v) => setPublishMode(v as "challenge" | "game")}>
-            <SelectTrigger className="h-8 w-[150px] text-xs">
-              <SelectValue placeholder="Publish as" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="challenge">Challenge</SelectItem>
-              <SelectItem value="game">Game Challenge</SelectItem>
-            </SelectContent>
-          </Select>
-          {publishMode === "game" && (
-            <Select value={gameId ?? ""} onValueChange={(v) => setGameId(v)}>
-              <SelectTrigger className="h-8 w-[180px] text-xs">
-                <SelectValue placeholder="Choose game" />
-              </SelectTrigger>
-              <SelectContent>
-                {games.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Button size="sm" onClick={onPublish} disabled={publishing}>
+          <Button
+            variant={publishMode === "challenge" ? "default" : "outline"}
+            size="sm"
+            disabled={publishing}
+            onClick={() => void openDashboard("challenge")}
+          >
             {publishing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Rocket className="mr-1 h-4 w-4" />}
-            {card.published ? "Republish Smart Card" : "Publish Smart Card"}
+            Challenge
+          </Button>
+          <Button
+            variant={publishMode === "game" ? "default" : "outline"}
+            size="sm"
+            disabled={publishing}
+            onClick={() => void openDashboard("game")}
+          >
+            <Gamepad2 className="mr-1 h-4 w-4" /> Game Challenge
           </Button>
         </div>
       </header>
+
 
       <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Editing + live preview */}
