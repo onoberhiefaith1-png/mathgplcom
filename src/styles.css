@@ -726,7 +726,7 @@
 .input-panel {
   @apply h-8 w-full px-2 text-xs rounded border border-border bg-background text-foreground
          placeholder:text-muted-foreground
-         focus:outline-none focus:ring-1 focus:ring-primary;
+         focus:outline-hidden focus:ring-1 focus:ring-primary;
 }
 select.input-panel { @apply pr-6 appearance-none; }
 .input-panel:disabled { @apply opacity-60; }
