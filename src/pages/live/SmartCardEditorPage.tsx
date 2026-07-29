@@ -354,10 +354,7 @@ const SmartCardEditorPage = () => {
             </p>
           </div>
 
-            <p className="text-[11px] text-muted-foreground">
-              Used when you open this card as a Game Challenge.
-            </p>
-          </div>
+
 
 
         </aside>
