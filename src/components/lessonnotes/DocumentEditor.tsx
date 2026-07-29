@@ -73,6 +73,7 @@ import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { EmojiPanel } from "./EmojiPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   PAPER_LABELS, PAPER_SIZES,
@@ -1295,6 +1296,10 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: "" } }).run();
   };
 
+  // Emoji Library dock panel (teacher-managed content).
+  const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
+
+
   const insertSymbolText = (s: string) => {
     editor?.chain().focus().insertContent(s).run();
   };
@@ -1742,6 +1747,15 @@ function DocumentEditorInner({
         )}
         <GlobalAiButton onGenerate={handleGlobalAi} />
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
+        <button
+          type="button"
+          onClick={() => setEmojiPanelOpen((v) => !v)}
+          title="Emoji library"
+          aria-pressed={emojiPanelOpen}
+          className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${emojiPanelOpen ? "bg-foreground/10" : ""}`}
+        >
+          <span className="text-base leading-none">😊</span> Emojis
+        </button>
         <Divider />
         <select
           value={paperSize}
@@ -1835,6 +1849,11 @@ function DocumentEditorInner({
             </div>
           </PageFrame>
         </div>
+        <EmojiPanel
+          open={emojiPanelOpen}
+          onClose={() => setEmojiPanelOpen(false)}
+          onInsert={insertSymbolText}
+        />
         <PropertiesPanel />
       </div>
 
