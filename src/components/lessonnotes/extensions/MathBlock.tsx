@@ -142,7 +142,7 @@ function MathBlockView({ node, updateAttributes, selected, editor }: NodeViewPro
     return (
       <NodeViewWrapper
         className={`my-0.5 px-1 py-0 rounded leading-[1.15] ${selected ? "bg-primary/10" : "hover:bg-foreground/5"}`}
-      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); open(); }}
+      onDoubleClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); open(); }}
       onTouchEnd={handleTap}
       title="Double-click to edit"
     >
