@@ -73,6 +73,7 @@ import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { EmojiPanel } from "./EmojiPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   PAPER_LABELS, PAPER_SIZES,
