@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { BroadcastEntry, normalizeBroadcasts, parseBroadcasts } from "@/lib/live/broadcast";
 
 export type SessionVisibility = "private" | "public";
 export type SessionStatus = "draft" | "published" | "live" | "ended";
@@ -16,9 +17,17 @@ export type LiveSession = {
   visibility: SessionVisibility;
   status: SessionStatus;
   session_code: string;
+  broadcasts: BroadcastEntry[];
   created_at: string;
   updated_at: string;
 };
+
+/** Rows come back with `broadcasts` as raw jsonb — normalise on read. */
+export const hydrateSession = (row: Record<string, unknown>): LiveSession => ({
+  ...(row as unknown as LiveSession),
+  broadcasts: parseBroadcasts(row.broadcasts),
+});
+
 
 /** Derived, schedule-driven state shown to teacher and participants. */
 export type ScheduleState = "unscheduled" | "scheduled" | "starting-soon" | "live" | "ended";
@@ -109,7 +118,9 @@ export type CreateSessionInput = {
   timeZone: string;
   visibility: SessionVisibility;
   ownerId: string;
+  broadcasts?: BroadcastEntry[];
 };
+
 
 /**
  * A Session is backed by a hidden class row so every existing class-scoped
@@ -157,10 +168,12 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
         visibility: input.visibility,
         status: "published",
         session_code: generateSessionCode(),
+        broadcasts: normalizeBroadcasts(input.broadcasts ?? []) as unknown as never,
       })
       .select("*")
       .single();
-    if (!error && data) return data as LiveSession;
+    if (!error && data) return hydrateSession(data as Record<string, unknown>);
+
     lastError = error;
     if (error && (error as { code?: string }).code !== "23505") break;
   }
@@ -169,6 +182,15 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
   await supabase.from("classes").delete().eq("id", classId);
   throw new Error(String((lastError as { message?: string })?.message ?? "Could not create session"));
 };
+
+/** Teacher edits the broadcast platforms after the session exists. */
+export const updateSessionBroadcasts = async (sessionId: string, broadcasts: BroadcastEntry[]) =>
+  supabase
+    .from("sessions")
+    .update({ broadcasts: normalizeBroadcasts(broadcasts) as unknown as never })
+    .eq("id", sessionId);
+
+
 
 export const deleteSession = async (session: Pick<LiveSession, "class_id">) => {
   // Deleting the backing class cascades to the session row and all its data.

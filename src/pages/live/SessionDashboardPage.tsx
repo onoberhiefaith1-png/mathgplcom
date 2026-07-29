@@ -9,9 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
 import {
-  LiveSession, formatCountdownLong, formatStartsAt, scheduleLabel, scheduleStateOf, scheduleTone,
+  LiveSession, formatCountdownLong, formatStartsAt, hydrateSession, scheduleLabel,
+  scheduleStateOf, scheduleTone, updateSessionBroadcasts,
 } from "@/lib/live/sessions";
 import { useNowTick } from "@/lib/live/useCountdown";
+import BroadcastEditor from "@/components/live/BroadcastEditor";
+import { BroadcastEntry } from "@/lib/live/broadcast";
+
 
 const SessionDashboardPage = () => {
   const { sessionId } = useParams();
@@ -20,7 +24,22 @@ const SessionDashboardPage = () => {
   const [session, setSession] = useState<LiveSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [broadcasts, setBroadcasts] = useState<BroadcastEntry[]>([]);
+  const [savingBroadcasts, setSavingBroadcasts] = useState(false);
   const now = useNowTick();
+
+  const saveBroadcasts = async () => {
+    if (!sessionId) return;
+    setSavingBroadcasts(true);
+    const { error } = await updateSessionBroadcasts(sessionId, broadcasts);
+    setSavingBroadcasts(false);
+    toast(
+      error
+        ? { title: "Could not save broadcast details", description: error.message, variant: "destructive" }
+        : { title: "Broadcast details saved" },
+    );
+  };
+
 
   useEffect(() => {
     (async () => {
@@ -39,7 +58,7 @@ const SessionDashboardPage = () => {
         navigate("/live/sessions");
         return;
       }
-      const row = data as LiveSession;
+      const row = hydrateSession(data as Record<string, unknown>);
       if (row.owner_id !== userData.user.id) {
         navigate(`/live/s/${row.id}`, { replace: true });
         return;
@@ -50,7 +69,9 @@ const SessionDashboardPage = () => {
         return;
       }
       setSession(row);
+      setBroadcasts(row.broadcasts);
       setLoading(false);
+
     })();
   }, [sessionId, navigate, toast]);
 
@@ -144,6 +165,20 @@ const SessionDashboardPage = () => {
             ))}
           </div>
         </section>
+
+        <section className="space-y-4 rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
+          <BroadcastEditor value={broadcasts} onChange={setBroadcasts} />
+          <button
+            type="button"
+            onClick={saveBroadcasts}
+            disabled={savingBroadcasts}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+          >
+            {savingBroadcasts ? "Saving…" : "Save broadcast details"}
+          </button>
+        </section>
+
+
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {tiles.map(({ label, icon: Icon, to }) => (

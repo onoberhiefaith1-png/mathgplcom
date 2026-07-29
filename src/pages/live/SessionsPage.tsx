@@ -11,7 +11,9 @@ import {
   scheduleLabel,
   scheduleStateOf,
   scheduleTone,
+  hydrateSession,
 } from "@/lib/live/sessions";
+
 import { useNowTick } from "@/lib/live/useCountdown";
 import JoinSessionPanel from "@/components/live/JoinSessionPanel";
 
@@ -33,7 +35,7 @@ const SessionsPage = () => {
       .select("*")
       .eq("owner_id", userData.user.id)
       .order("starts_at", { ascending: true, nullsFirst: false });
-    setSessions((data ?? []) as LiveSession[]);
+    setSessions(((data ?? []) as Record<string, unknown>[]).map(hydrateSession));
     setLoading(false);
   }, [navigate]);
 

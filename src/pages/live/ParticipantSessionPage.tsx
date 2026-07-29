@@ -3,10 +3,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, Presentation, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3, Lock, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  LiveSession, formatCountdownClock, formatCountdownLong, formatStartsAt,
+  LiveSession, formatCountdownClock, formatCountdownLong, formatStartsAt, hydrateSession,
   scheduleLabel, scheduleStateOf, scheduleTone,
 } from "@/lib/live/sessions";
 import { useNowTick } from "@/lib/live/useCountdown";
+import BroadcastPanel from "@/components/live/BroadcastPanel";
+
 
 /**
  * Participant view of a Session. Everything the classroom student sees, gated
@@ -31,7 +33,7 @@ const ParticipantSessionPage = () => {
         navigate("/live/join", { replace: true });
         return;
       }
-      const row = data as LiveSession;
+      const row = hydrateSession(data as Record<string, unknown>);
       if (row.owner_id === userData.user.id) {
         navigate(`/live/sessions/${row.id}`, { replace: true });
         return;
@@ -81,6 +83,10 @@ const ParticipantSessionPage = () => {
             {formatStartsAt(session.starts_at, session.time_zone)} · {session.duration_minutes} min
           </div>
         </section>
+
+        <BroadcastPanel entries={session.broadcasts} unlocked={!boardLocked} />
+
+
 
         {boardLocked ? (
           <section className="rounded-2xl border border-amber-300/40 bg-amber-400/10 p-8 text-center">

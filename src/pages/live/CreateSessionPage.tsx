@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LiveSession, SessionVisibility, createSession } from "@/lib/live/sessions";
+import BroadcastEditor from "@/components/live/BroadcastEditor";
+import { BroadcastEntry, newBroadcastEntry } from "@/lib/live/broadcast";
+
 
 type NotebookOption = { id: string; label: string };
 
@@ -55,7 +58,9 @@ const CreateSessionPage = () => {
   const [dateOpen, setDateOpen] = useState(false);
   const [timeZone, setTimeZone] = useState(TIME_ZONES[0]);
   const [visibility, setVisibility] = useState<SessionVisibility>("private");
+  const [broadcasts, setBroadcasts] = useState<BroadcastEntry[]>([newBroadcastEntry()]);
   const [notebooks, setNotebooks] = useState<NotebookOption[]>([]);
+
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<LiveSession | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -121,6 +126,8 @@ const CreateSessionPage = () => {
         timeZone,
         visibility,
         ownerId: userData.user.id,
+        broadcasts,
+
       });
       setCreated(session);
     } catch (err) {
@@ -246,6 +253,12 @@ const CreateSessionPage = () => {
                 </select>
               </div>
             </div>
+
+            <BroadcastEditor value={broadcasts} onChange={setBroadcasts} />
+
+
+
+
 
 
             <div className="space-y-2">
