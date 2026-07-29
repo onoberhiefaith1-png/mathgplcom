@@ -24,7 +24,22 @@ const SessionDashboardPage = () => {
   const [session, setSession] = useState<LiveSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [broadcasts, setBroadcasts] = useState<BroadcastEntry[]>([]);
+  const [savingBroadcasts, setSavingBroadcasts] = useState(false);
   const now = useNowTick();
+
+  const saveBroadcasts = async () => {
+    if (!sessionId) return;
+    setSavingBroadcasts(true);
+    const { error } = await updateSessionBroadcasts(sessionId, broadcasts);
+    setSavingBroadcasts(false);
+    toast(
+      error
+        ? { title: "Could not save broadcast details", description: error.message, variant: "destructive" }
+        : { title: "Broadcast details saved" },
+    );
+  };
+
 
   useEffect(() => {
     (async () => {
