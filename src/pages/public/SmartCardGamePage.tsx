@@ -199,7 +199,11 @@ const SmartCardGamePage = () => {
           <Button
             className="mt-4 w-full"
             disabled={!authChecked}
-            onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname)}`)}
+            onClick={() =>
+              navigate(
+                `/auth?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+              )
+            }
           >
             Sign in to Smartboard
           </Button>

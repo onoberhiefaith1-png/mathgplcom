@@ -60,7 +60,9 @@ Deno.serve(async (req) => {
 
   const target = `${origin.replace(/\/$/, "")}/c/${card.slug}`;
   const title = String((card.title as string) || "MathGPL Smart Card").slice(0, 90);
-  const description = "Solve this interactive mathematics challenge using the MathGPL Smartboard.";
+  // The snapshot carries the whole question, so the preview stays image-first:
+  // big picture, one short title line, short link — no paragraph of text.
+  const description = "";
   const image = card.preview_image_path
     ? `${Deno.env.get("SUPABASE_URL")}/functions/v1/smart-card-preview?slug=${encodeURIComponent(card.slug as string)}&image=1`
     : "";
@@ -71,17 +73,15 @@ Deno.serve(async (req) => {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${escapeHtml(title)} — MathGPL Smart Card</title>
+<title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}" />
 <link rel="canonical" href="${escapeHtml(target)}" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="MathGPL Life" />
 <meta property="og:title" content="${escapeHtml(title)}" />
-<meta property="og:description" content="${escapeHtml(description)}" />
 <meta property="og:url" content="${escapeHtml(target)}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${escapeHtml(title)}" />
-<meta name="twitter:description" content="${escapeHtml(description)}" />
 ${image ? `<meta property="og:image" content="${escapeHtml(image)}" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />

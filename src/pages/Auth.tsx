@@ -15,9 +15,9 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Preserve a same-origin redirect target (e.g. the OAuth consent URL) so
-  // external MCP clients can complete their authorization flow after sign-in.
-  const rawNext = searchParams.get("next") ?? "";
+  // Preserve a same-origin redirect target (OAuth consent, or a public Smart
+  // Card the visitor was sent to) so nobody ever loses their destination page.
+  const rawNext = searchParams.get("next") ?? searchParams.get("redirect") ?? "";
   const safeNext = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "";
   const postLoginTarget = safeNext || "/lesson-notes";
 
