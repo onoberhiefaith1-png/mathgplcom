@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TrendPoint } from "@/lib/reports/trendChart";
+import { useLatestScroll } from "@/lib/reports/useLatestScroll";
 import type { ReportSettings } from "./reportTheme";
 
 const STEPS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
