@@ -24,7 +24,12 @@ const BodySchema = z.object({
   // Dry-run: run equivalence + set checks but do not write progress.
   // Used by the teacher Reasoning Panel.
   persist: z.boolean().optional().default(true),
+  // Smart Card challenge (public, no account). When both are present the
+  // caller is graded as an anonymous participant of a PUBLISHED Smart Card.
+  smartCardSlug: z.string().min(3).max(64).optional(),
+  participantKey: z.string().uuid().optional(),
 });
+
 
 
 function json(body: unknown, status = 200): Response {
@@ -42,24 +47,42 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     const jwt = authHeader.replace(/^Bearer\s+/i, "");
-    if (!jwt) return json({ error: "missing_authorization" }, 401);
 
     const parsed = BodySchema.safeParse(await req.json());
     if (!parsed.success) {
       return json({ error: parsed.error.flatten().fieldErrors }, 400);
     }
-    const { assessmentId, questionId, lineId, studentAscii, mode, persist } = parsed.data;
+    const {
+      assessmentId, questionId, lineId, studentAscii, mode, persist,
+      smartCardSlug, participantKey,
+    } = parsed.data;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const authClient = createClient(supabaseUrl, anonKey);
-    const { data: userData, error: userErr } = await authClient.auth.getUser(jwt);
-    if (userErr || !userData?.user) return json({ error: "invalid_token" }, 401);
-    const uid = userData.user.id;
-
     const admin = createClient(supabaseUrl, serviceKey);
+    const smartCardMode = !!smartCardSlug && !!participantKey;
+
+    let uid: string;
+    if (smartCardMode) {
+      const { data: card } = await admin
+        .from("smart_cards")
+        .select("assessment_id, published")
+        .eq("slug", smartCardSlug)
+        .maybeSingle();
+      if (!card || !card.published || card.assessment_id !== assessmentId) {
+        return json({ error: "card_not_found" }, 404);
+      }
+      // The participant key IS the board identity for a public challenge.
+      uid = participantKey!;
+    } else {
+      if (!jwt) return json({ error: "missing_authorization" }, 401);
+      const authClient = createClient(supabaseUrl, anonKey);
+      const { data: userData, error: userErr } = await authClient.auth.getUser(jwt);
+      if (userErr || !userData?.user) return json({ error: "invalid_token" }, 401);
+      uid = userData.user.id;
+    }
 
     const { data: assessment, error: aErr } = await admin
       .from("assessments")
@@ -68,7 +91,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (aErr || !assessment) return json({ error: "assessment_not_found" }, 404);
 
-    if (assessment.owner_id !== uid) {
+    if (!smartCardMode && assessment.owner_id !== uid) {
       const { data: member } = await admin
         .from("class_members")
         .select("user_id")
@@ -77,6 +100,8 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (!member) return json({ error: "not_a_member" }, 403);
     }
+
+
 
     const questions = (assessment.questions ?? []) as Array<{
       id: string;

@@ -2187,6 +2187,107 @@ export type Database = {
           },
         ]
       }
+      smart_card_attempts: {
+        Row: {
+          card_id: string
+          completed_at: string
+          created_at: string
+          display_name: string
+          duration_ms: number
+          id: string
+          participant_key: string
+          percent: number
+          user_id: string | null
+        }
+        Insert: {
+          card_id: string
+          completed_at?: string
+          created_at?: string
+          display_name: string
+          duration_ms?: number
+          id?: string
+          participant_key: string
+          percent?: number
+          user_id?: string | null
+        }
+        Update: {
+          card_id?: string
+          completed_at?: string
+          created_at?: string
+          display_name?: string
+          duration_ms?: number
+          id?: string
+          participant_key?: string
+          percent?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smart_card_attempts_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "smart_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smart_cards: {
+        Row: {
+          assessment_id: string | null
+          class_id: string | null
+          created_at: string
+          geometry: Json | null
+          id: string
+          notebook_id: string | null
+          owner_id: string
+          presentation: Json
+          published: boolean
+          published_at: string | null
+          section_id: string | null
+          slug: string
+          subsection_id: string | null
+          title: string
+          total_marks: number
+          updated_at: string
+        }
+        Insert: {
+          assessment_id?: string | null
+          class_id?: string | null
+          created_at?: string
+          geometry?: Json | null
+          id?: string
+          notebook_id?: string | null
+          owner_id: string
+          presentation?: Json
+          published?: boolean
+          published_at?: string | null
+          section_id?: string | null
+          slug: string
+          subsection_id?: string | null
+          title?: string
+          total_marks?: number
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string | null
+          class_id?: string | null
+          created_at?: string
+          geometry?: Json | null
+          id?: string
+          notebook_id?: string | null
+          owner_id?: string
+          presentation?: Json
+          published?: boolean
+          published_at?: string | null
+          section_id?: string | null
+          slug?: string
+          subsection_id?: string | null
+          title?: string
+          total_marks?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

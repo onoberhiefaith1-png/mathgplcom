@@ -14,7 +14,7 @@ import {
 
 const tiles = [
   { to: "/live/sessions", label: "Sessions", icon: Radio, accent: "from-rose-400/30 to-rose-600/10 border-rose-300/40 text-rose-200" },
-  { to: "/lesson-notes", label: "Lesson Notes", icon: BookOpen, accent: "from-amber-400/30 to-amber-600/10 border-amber-300/40 text-amber-200" },
+  { to: "/live/lesson-notes", label: "Lesson Notes", icon: BookOpen, accent: "from-amber-400/30 to-amber-600/10 border-amber-300/40 text-amber-200" },
   { to: "/smartboard", label: "SmartBoard", icon: Presentation, accent: "from-violet-400/30 to-violet-600/10 border-violet-300/40 text-violet-200" },
   { to: "/live/sessions", label: "Assignments", icon: ClipboardList, accent: "from-cyan-400/30 to-cyan-600/10 border-cyan-300/40 text-cyan-200" },
   { to: "/live/sessions", label: "Adventure", icon: Compass, accent: "from-orange-400/30 to-orange-600/10 border-orange-300/40 text-orange-200" },

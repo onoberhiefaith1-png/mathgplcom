@@ -65,6 +65,9 @@ import CreateSessionPage from "./pages/live/CreateSessionPage.tsx";
 import SessionDashboardPage from "./pages/live/SessionDashboardPage.tsx";
 import ParticipantSessionPage from "./pages/live/ParticipantSessionPage.tsx";
 import JoinSessionPage from "./pages/live/JoinSessionPage.tsx";
+import SmartCardEditorPage from "./pages/live/SmartCardEditorPage.tsx";
+import SmartCardPage from "./pages/public/SmartCardPage.tsx";
+import SmartCardChallengePage from "./pages/public/SmartCardChallengePage.tsx";
 import Adventure from "./pages/Adventure.tsx";
 import AdventureGamesDashboard from "./pages/adventure/AdventureGamesDashboard.tsx";
 import AdventureGameEditor from "./pages/adventure/AdventureGameEditor.tsx";
@@ -121,6 +124,11 @@ const App = () => (
           <Route path="/live/sessions/create" element={<CreateSessionPage />} />
           <Route path="/live/sessions/:sessionId" element={<SessionDashboardPage />} />
           <Route path="/live/s/:sessionId" element={<ParticipantSessionPage />} />
+          <Route path="/live/lesson-notes" element={<LessonNotesPage />} />
+          <Route path="/live/lesson-notes/:id" element={<NotebookEditorPage />} />
+          <Route path="/live/smart-cards/:cardId" element={<SmartCardEditorPage />} />
+          <Route path="/c/:slug" element={<SmartCardPage />} />
+          <Route path="/c/:slug/solve" element={<SmartCardChallengePage />} />
           <Route path="/live/join" element={<JoinSessionPage />} />
           <Route path="/live/join/:code" element={<JoinSessionPage />} />
           <Route path="/adventure" element={<Adventure />} />

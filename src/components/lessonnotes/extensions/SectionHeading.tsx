@@ -11,14 +11,17 @@
 
 import Heading from "@tiptap/extension-heading";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
-import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users } from "lucide-react";
+import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users, Share2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import { AssignDialog } from "../AssignDialog";
 import { detectSectionKind, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
+import type { GeometryScene } from "@/lib/geometry/scene";
+
 
 export type SectionAction =
   | "generate"     // append fresh content (default)
@@ -52,6 +55,11 @@ function SectionHeadingView(props: NodeViewProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignSub, setAssignSub] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [carding, setCarding] = useState(false);
+  const { pathname } = useLocation();
+  /** Smart Card publishing exists ONLY inside MathGPL Life. */
+  const isLive = pathname.startsWith("/live");
+
   const level: number = node.attrs.level ?? 2;
   const text = node.textContent;
   const kind = (level <= 3) ? detectSectionKind(text) : null;
@@ -184,6 +192,64 @@ function SectionHeadingView(props: NodeViewProps) {
     const sub = (subs ?? [])[at.subsectionIndex] as any;
     return sub?.id ?? null;
   }, [locateIndices, notebookId]);
+
+  /** Snapshot the question that this Solution belongs to: the text between the
+   *  parent question heading and this Solution heading, plus any geometry
+   *  diagrams living in that range. */
+  const snapshotQuestion = useCallback((): { text: string; scenes: GeometryScene[]; title: string } => {
+    const pos = typeof getPos === "function" ? getPos() : null;
+    const doc = editor.state.doc;
+    if (pos == null) return { text: "", scenes: [], title: "Smart Card" };
+    let startPos = 0;
+    let title = "Smart Card";
+    doc.descendants((n, p) => {
+      if (p >= pos) return false;
+      if (n.type.name === "heading" && detectSectionKind(n.textContent) !== "solution") {
+        startPos = p + n.nodeSize;
+        title = n.textContent || title;
+      }
+      return true;
+    });
+    const text = startPos < pos ? doc.textBetween(startPos, pos, "\n", "\n").trim() : "";
+    const scenes: GeometryScene[] = [];
+    if (startPos < pos) {
+      doc.nodesBetween(startPos, pos, (n) => {
+        if (n.type.name === "geometryDiagram" && (n.attrs as any)?.scene) {
+          scenes.push((n.attrs as any).scene as GeometryScene);
+        }
+      });
+    }
+    return { text, scenes, title };
+  }, [getPos, editor]);
+
+  const openSmartCard = useCallback(async () => {
+    if (!notebookId) return;
+    setCarding(true);
+    try {
+      let target = await resolveSubsectionId();
+      if (!target) target = await ensureSubsectionId();
+      if (!target) {
+        toast({ title: "Not ready", description: "Save the document first, then try again." });
+        return;
+      }
+      const snap = snapshotQuestion();
+      const cardId = await openSmartCardDraft({
+        notebookId,
+        subsectionId: target,
+        questionText: snap.text,
+        scenes: snap.scenes,
+        title: snap.title,
+      });
+      if (!cardId) {
+        toast({ title: "Couldn't open Smart Card", variant: "destructive" });
+        return;
+      }
+      navigate(`/live/smart-cards/${cardId}`);
+    } finally {
+      setCarding(false);
+    }
+  }, [notebookId, resolveSubsectionId, snapshotQuestion, navigate]);
+
 
   /** Floating Numbers must ALWAYS be reachable from a Solution heading, even
    *  when the solution is still empty — the workspace simply opens blank.
@@ -348,6 +414,19 @@ function SectionHeadingView(props: NodeViewProps) {
               Assign
             </button>
           )}
+          {/* Smart Card publishing is exclusive to MathGPL Live. */}
+          {notebookId && kind === "solution" && isLive && (
+            <button
+              type="button"
+              onClick={openSmartCard}
+              className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider transition"
+              title="Publish this question as a public Smart Card"
+            >
+              {carding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
+              Smart Card
+            </button>
+          )}
+
         </span>
       )}
       {notebookId && (
