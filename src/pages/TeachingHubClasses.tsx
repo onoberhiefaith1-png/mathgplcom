@@ -25,6 +25,7 @@ const TeachingHubClasses = () => {
       .from("classes")
       .select("id, name")
       .eq("owner_id", uid)
+      .eq("workspace", "classroom")
       .order("created_at", { ascending: false });
     const { data: codeRows } = await supabase.rpc("get_owned_class_codes");
     const codeMap = new Map<string, string>(

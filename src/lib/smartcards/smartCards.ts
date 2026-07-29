@@ -155,6 +155,7 @@ async function ensureSmartCardClass(ownerId: string): Promise<string | null> {
     .from("classes")
     .select("id")
     .eq("owner_id", ownerId)
+    .eq("workspace", "live")
     .eq("name", "Smart Cards")
     .limit(1);
   const found = (existing ?? [])[0] as { id: string } | undefined;
@@ -166,6 +167,7 @@ async function ensureSmartCardClass(ownerId: string): Promise<string | null> {
       owner_id: ownerId,
       name: "Smart Cards",
       class_code: `SC-${Math.floor(1000 + Math.random() * 9000)}`,
+      workspace: "live",
       description: "Internal holder for published Smart Cards.",
     })
     .select("id")
