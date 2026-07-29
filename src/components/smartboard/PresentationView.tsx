@@ -94,6 +94,8 @@ import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 
 import ActiveStudentControl from "./ActiveStudentControl";
+import StudentAccessControl from "./StudentAccessControl";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
@@ -5986,6 +5988,19 @@ const PresentationView = ({
           accent={palette.accent}
         />
       )}
+
+      {/* Teacher-only: show/toggle whether students can see this class board. */}
+      {isTeacher && syncEnabled && classIdProp && (
+        <StudentAccessControl
+          classId={classIdProp}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          accent={palette.accent}
+        />
+      )}
+
+
 
       {/* ── Assessment mode: top progress strip + per-line Check button ── */}
       {assessmentMode && (
