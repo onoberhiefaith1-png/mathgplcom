@@ -15,6 +15,7 @@
 // (`\frac`, `\sqrt`, `^{`, `_{`, `\left`, `\right`, …) survived. If the
 // gate fails, the Smartboard MUST refuse to commit the line.
 
+import { graphemes, isEmoji, stripBrokenGlyphs } from "@/lib/text/graphemes";
 import {
   mkChar, mkSubSup, subRowsOf, collapseNestedBoxes,
   type Node, type Row,
