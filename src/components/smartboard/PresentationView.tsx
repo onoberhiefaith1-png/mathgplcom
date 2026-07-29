@@ -46,6 +46,7 @@ import { WritingSurface, WritingFilterDefs } from "./WritingSurface";
 import { Inked } from "./Inked";
 import { SettingsSheet } from "./SettingsSheet";
 import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
+import { graphemes } from "@/lib/text/graphemes";
 
 import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
