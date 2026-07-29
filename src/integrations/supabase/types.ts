@@ -2237,6 +2237,62 @@ export type Database = {
           },
         ]
       }
+      smart_card_game_results: {
+        Row: {
+          card_id: string
+          completion_ms: number | null
+          created_at: string
+          display_name: string | null
+          id: string
+          is_winner: boolean
+          participant_key: string
+          qualified_at: string | null
+          required_marks: number
+          rewarded_at: string | null
+          score: number
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          card_id: string
+          completion_ms?: number | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_winner?: boolean
+          participant_key: string
+          qualified_at?: string | null
+          required_marks?: number
+          rewarded_at?: string | null
+          score?: number
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          card_id?: string
+          completion_ms?: number | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_winner?: boolean
+          participant_key?: string
+          qualified_at?: string | null
+          required_marks?: number
+          rewarded_at?: string | null
+          score?: number
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smart_card_game_results_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "smart_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smart_card_presence: {
         Row: {
           card_id: string
@@ -2285,10 +2341,12 @@ export type Database = {
           created_at: string
           difficulty: string | null
           game_id: string | null
+          game_progress_element_id: string | null
           geometry: Json | null
           id: string
           notebook_id: string | null
           owner_id: string
+          pass_mark_pct: number
           presentation: Json
           publish_mode: string
           published: boolean
@@ -2308,10 +2366,12 @@ export type Database = {
           created_at?: string
           difficulty?: string | null
           game_id?: string | null
+          game_progress_element_id?: string | null
           geometry?: Json | null
           id?: string
           notebook_id?: string | null
           owner_id: string
+          pass_mark_pct?: number
           presentation?: Json
           publish_mode?: string
           published?: boolean
@@ -2331,10 +2391,12 @@ export type Database = {
           created_at?: string
           difficulty?: string | null
           game_id?: string | null
+          game_progress_element_id?: string | null
           geometry?: Json | null
           id?: string
           notebook_id?: string | null
           owner_id?: string
+          pass_mark_pct?: number
           presentation?: Json
           publish_mode?: string
           published?: boolean
