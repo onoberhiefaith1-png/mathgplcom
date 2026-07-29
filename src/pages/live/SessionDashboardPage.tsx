@@ -9,9 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
 import {
-  LiveSession, formatCountdownLong, formatStartsAt, scheduleLabel, scheduleStateOf, scheduleTone,
+  LiveSession, formatCountdownLong, formatStartsAt, hydrateSession, scheduleLabel,
+  scheduleStateOf, scheduleTone, updateSessionBroadcasts,
 } from "@/lib/live/sessions";
 import { useNowTick } from "@/lib/live/useCountdown";
+import BroadcastEditor from "@/components/live/BroadcastEditor";
+import { BroadcastEntry } from "@/lib/live/broadcast";
+
 
 const SessionDashboardPage = () => {
   const { sessionId } = useParams();
