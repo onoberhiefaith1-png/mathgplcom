@@ -61,7 +61,12 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}${postLoginTarget}` },
+          options: {
+            emailRedirectTo: `${window.location.origin}${postLoginTarget}`,
+            // Picked up by ensure_account on first sign-in to create the role
+            // and (for school/teacher/parent) the account's own workspace.
+            data: { account_role: accountRole },
+          },
         });
         if (error) throw error;
         toast({ title: "Check your email", description: "Confirm your address to finish signing up." });
