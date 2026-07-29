@@ -23,6 +23,8 @@ import {
   loadSmartCard, publishSmartCard, saveSmartCard,
   type CardPresentation, type SmartCardRow,
 } from "@/lib/smartcards/smartCards";
+import { captureCardPreview } from "@/lib/smartcards/preview";
+
 
 
 
