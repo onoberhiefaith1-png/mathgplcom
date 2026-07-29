@@ -9,8 +9,9 @@ import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
 
 export const PREVIEW_BUCKET = "smart-card-previews";
-const W = 1200;
-const H = 630;
+// Square poster (1:1) — the card should almost completely fill it.
+const W = 1080;
+const H = 1080;
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -71,10 +72,10 @@ export async function renderCardSnapshot(node: HTMLElement): Promise<Blob | null
     ctx.fillStyle = "#f8fafc";
     ctx.fillRect(0, 0, W, H);
 
-    // Fit the card inside the social frame, leaving room for the badge.
-    const padX = 60;
-    const padTop = 96;
-    const padBottom = 48;
+    // Fill nearly the whole square — thin margin only, room for the badge.
+    const padX = 24;
+    const padTop = 88;
+    const padBottom = 24;
     const boxW = W - padX * 2;
     const boxH = H - padTop - padBottom;
     const scale = Math.min(boxW / img.width, boxH / img.height);
