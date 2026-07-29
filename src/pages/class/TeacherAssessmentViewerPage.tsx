@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — read-only viewer of a specific student's Assessment SmartBoard.
 
 import { useEffect, useMemo, useState } from "react";

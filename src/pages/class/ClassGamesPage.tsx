@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Phase 12/13 — Class Games page (teacher). Lists games assigned to this
 // class with links into the live game view, Adventure Dashboard, and a
 // Link-Adventure dialog for quickly jumping between adventures and games.

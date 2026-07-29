@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Assignments list.
 
 import { useEffect, useState } from "react";

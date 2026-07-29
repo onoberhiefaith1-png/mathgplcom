@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Assignment Dashboard for a single lesson note.
 
 import { useCallback, useEffect, useState } from "react";

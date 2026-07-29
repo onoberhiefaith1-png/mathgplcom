@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher Report — Class Report first, with a switch to any student's report.
 
 import { useCallback, useEffect, useMemo, useState } from "react";

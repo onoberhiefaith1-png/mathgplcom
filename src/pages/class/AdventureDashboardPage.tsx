@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Adventure Dashboard for a single class+game.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

@@ -1,3 +1,4 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Adventures for a class.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
