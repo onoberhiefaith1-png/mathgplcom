@@ -11,6 +11,7 @@ import {
   CSSProperties, PointerEvent as RPointerEvent,
   useEffect, useRef, useState,
 } from "react";
+import { EMOJI_STYLE, isEmoji } from "@/lib/text/graphemes";
 import type { Cursor, Node, Row } from "@/lib/smartboard/mathTree";
 import { SLOT_GLYPH } from "@/lib/smartboard/mathTree";
 
@@ -370,10 +371,17 @@ const NodeView = ({
           />
         );
       }
+      // Emoji are IDENTITY tokens: they keep their native colour font and are
+      // never repainted with the ink colour. Only the size (inherited) scales
+      // with the teacher's text-size control.
       return (
         <span
           onPointerDown={(e) => stopAnd(e, () => onCursorChange({ path: parentPath, index: idxInRow }))}
-          style={{ whiteSpace: "pre", cursor: "text" }}
+          style={
+            isEmoji(node.ch)
+              ? { whiteSpace: "pre", cursor: "text", ...EMOJI_STYLE }
+              : { whiteSpace: "pre", cursor: "text" }
+          }
         >
           {node.ch}
         </span>

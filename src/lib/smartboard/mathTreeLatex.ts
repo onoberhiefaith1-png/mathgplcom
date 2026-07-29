@@ -12,6 +12,7 @@ import {
   mkSubSup,
   subRowsOf,
 } from "./mathTree";
+import { graphemes, isEmoji } from "@/lib/text/graphemes";
 
 const matchBrace = (s: string, i: number): number => {
   if (s[i] !== "{") return -1;
@@ -132,6 +133,13 @@ export function latexToTree(src: string): Row {
         i = bEnd;
         continue;
       }
+    }
+    // Emoji identity: never split a surrogate pair / ZWJ sequence.
+    const g = graphemes(src.slice(i, i + 16))[0] ?? src[i];
+    if (g.length > 1 && isEmoji(g)) {
+      row.push(mkChar(g));
+      i += g.length;
+      continue;
     }
     // Skip whitespace as space char
     row.push(mkChar(src[i]));

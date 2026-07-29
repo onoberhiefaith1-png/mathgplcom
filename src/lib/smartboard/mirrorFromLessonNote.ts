@@ -15,6 +15,7 @@
 // (`\frac`, `\sqrt`, `^{`, `_{`, `\left`, `\right`, …) survived. If the
 // gate fails, the Smartboard MUST refuse to commit the line.
 
+import { graphemes, isEmoji, stripBrokenGlyphs } from "@/lib/text/graphemes";
 import {
   mkChar, mkSubSup, subRowsOf, collapseNestedBoxes,
   type Node, type Row,
@@ -85,7 +86,7 @@ const SUP_TO_DIGIT: Record<string, string> = {
   "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
 };
 
-const charsOf = (s: string): Row => [...s].map(mkChar);
+const charsOf = (s: string): Row => graphemes(stripBrokenGlyphs(s)).map(mkChar);
 
 const isScriptBase = (n: Node | undefined): boolean =>
   !!n && (n.kind !== "char" || /[A-Za-z0-9)\]}]/.test(n.ch));
@@ -276,6 +277,16 @@ const latexToRow = (src: string): Row => {
     if (ch === "$") { i++; continue; }
     // Stray standalone braces shouldn't render as text.
     if (ch === "{" || ch === "}") { i++; continue; }
+
+    // Emoji are identity tokens: consume the WHOLE grapheme (surrogate pair,
+    // ZWJ sequence, skin tone, variation selector) as one char node so it can
+    // never be sliced into replacement characters.
+    const g = graphemes(src.slice(i, i + 16))[0] ?? ch;
+    if (g.length > 1 && isEmoji(g)) {
+      out.push(mkChar(g));
+      i += g.length;
+      continue;
+    }
 
     out.push(mkChar(ch));
     i++;
