@@ -65,6 +65,10 @@ const ClassSmartBoardLauncher = () => {
       toast({ title: "Could not change visibility", description: error.message, variant: "destructive" });
       return;
     }
+    await supabase
+      .from("class_lesson_notes")
+      .update({ visibility: next })
+      .eq("class_id", classId!);
     setVisibility(next);
     toast({ title: next === "student_access_enabled" ? "Students can now see the board" : "Board is now teacher only" });
   };
