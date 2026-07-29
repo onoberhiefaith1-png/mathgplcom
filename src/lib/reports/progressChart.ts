@@ -20,7 +20,10 @@ export interface TaskBar {
   percent: number;
   startedAt: string | null;
   dueAt: string | null;
+  /** When the task result was locked in — drives the Trend Report timeline. */
+  completedAt: string | null;
   frozen: boolean;
+
   /** Display-only: marks earned (class view = class average). */
   score: number;
   /** Display-only: marks needed (adventure = individual quota). */
