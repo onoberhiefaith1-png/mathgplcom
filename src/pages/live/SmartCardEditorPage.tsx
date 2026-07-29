@@ -63,6 +63,9 @@ const SmartCardEditorPage = () => {
   const [pres, setPres] = useState<CardPresentation | null>(null);
   const past = useRef<CardPresentation[]>([]);
   const future = useRef<CardPresentation[]>([]);
+  // The exact node that becomes the shared social preview image.
+  const previewNode = useRef<HTMLDivElement | null>(null);
+
 
   useEffect(() => {
     (async () => {
