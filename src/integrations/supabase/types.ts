@@ -593,6 +593,57 @@ export type Database = {
           },
         ]
       }
+      class_content_nodes: {
+        Row: {
+          class_id: string
+          created_at: string
+          description: string | null
+          id: string
+          level: string
+          name: string
+          order_index: number
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          level: string
+          name: string
+          order_index?: number
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          level?: string
+          name?: string
+          order_index?: number
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_content_nodes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_content_nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "class_content_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_galleries: {
         Row: {
           canvas: Json
@@ -948,6 +999,7 @@ export type Database = {
           added_at: string
           class_id: string
           id: string
+          node_id: string | null
           notebook_id: string
           visibility: string
         }
@@ -955,6 +1007,7 @@ export type Database = {
           added_at?: string
           class_id: string
           id?: string
+          node_id?: string | null
           notebook_id: string
           visibility?: string
         }
@@ -962,6 +1015,7 @@ export type Database = {
           added_at?: string
           class_id?: string
           id?: string
+          node_id?: string | null
           notebook_id?: string
           visibility?: string
         }
@@ -971,6 +1025,13 @@ export type Database = {
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_lesson_notes_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "class_content_nodes"
             referencedColumns: ["id"]
           },
           {
@@ -1049,6 +1110,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          lesson_note_levels: string[]
           name: string
           owner_id: string
           school: string | null
@@ -1061,6 +1123,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          lesson_note_levels?: string[]
           name: string
           owner_id: string
           school?: string | null
@@ -1073,6 +1136,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          lesson_note_levels?: string[]
           name?: string
           owner_id?: string
           school?: string | null
