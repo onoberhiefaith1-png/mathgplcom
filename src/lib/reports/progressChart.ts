@@ -21,6 +21,10 @@ export interface TaskBar {
   startedAt: string | null;
   dueAt: string | null;
   frozen: boolean;
+  /** Display-only: marks earned (class view = class average). */
+  score: number;
+  /** Display-only: marks needed (adventure = individual quota). */
+  target: number;
 }
 
 export interface ClassMember {
