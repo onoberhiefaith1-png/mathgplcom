@@ -410,6 +410,22 @@ const StudentClassPage = () => {
               Open class gallery
             </Link>
           </Tile>
+
+          <Tile
+            icon={<BarChart3 className="h-3.5 w-3.5" />}
+            label="Report"
+            accent="border-sky-300/40 bg-gradient-to-br from-sky-400/15 to-sky-600/5"
+          >
+            <Link
+              to={`/student/class/${classId}/report`}
+              className="flex h-full flex-col justify-center rounded-xl border border-sky-300/30 bg-background/30 p-4 text-left transition hover:border-sky-400/60"
+            >
+              <div className="text-base font-semibold">My progress report</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                One bar for every assignment and adventure, from 0% to 100%.
+              </p>
+            </Link>
+          </Tile>
         </div>
       </main>
     </div>
