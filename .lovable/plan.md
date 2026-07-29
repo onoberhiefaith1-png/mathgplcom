@@ -1,49 +1,58 @@
-# Report System – Phase 1: Student Progress Bar Chart
+## Report Dashboard UI Refinement
 
-Add a **Report** section to both the teacher class dashboard and the student class page (after Gallery), built on a single reusable progress bar chart.
+Presentation-layer work only. No score maths changes — filters and settings only affect what is displayed.
 
-## Task model (one bar = one task)
+### 1. Report theme (white by default)
+- The report page gets its own scoped theme wrapper (`report-light` / `report-dark`) rather than following the app theme. White paper surface is the default.
+- Chart colours, gridlines, axis, tooltip and text all read from report-scoped CSS variables so both themes stay legible.
+- Choice is stored per user in local storage and applies only to the report route.
 
-Bars come from `learning_assignments` (the existing per-class task registry), which already distinguishes `mode = 'assignment' | 'adventure'` and holds title, notebook, game, due date and status. Every active or archived row for the class = one bar, ordered by `started_at`, never merged, duplicates preserved.
+### 2. Report Settings panel
+Gear icon in the report header opens a settings sheet:
+- Background: White (default) / Dark
+- Grid lines: Show / Hide
+- Animations: On / Off
+- Bar labels: Show percentages / Hide percentages
 
-- A bar appears the moment a task is assigned, at 0%.
-- Bars only change height as progress arrives; they never disappear.
+Settings persist locally and drive the chart props. A small shared hook holds them so both the teacher and student report pages get identical settings.
 
-## Percentage rules
+### 3. Student selector (teacher only)
+- Replace the raw `<select>` with a proper dropdown menu: a "Student ▾" button listing every enrolled student (searchable if the list is long).
+- Clicking a name loads that student's bars immediately; a "Class" pill returns to the class report, which stays the default on open.
+- Header shows which report is active (Class Report / Alice — Student Report).
 
-**Assignment** — sum the student's `assessment_progress.score` across the assessments belonging to that task, divided by the sum of `total_marks`, ×100, capped 0–100. Past due with no attempt = 0%.
+### 4. Assignment / Adventure filter
+- Segmented control: Both (default) / Assignment / Adventure.
+- Pure display filter over the already-computed bars — no recalculation.
+- Colours locked: Assignment = orange, Adventure = blue (added as report tokens, used by bars, legend and tooltips).
 
-**Adventure** — the student's earned marks across the adventure's linked boards divided by their individual required quota (the existing `requiredContribution` = total required marks ÷ member count), ×100, capped at 100%. Extra contribution beyond quota still shows 100%.
+### 5. Chart rebuild (`ProgressBarChart`)
+Rework the existing component into an Excel/Power-BI-grade chart:
+- Frozen left column: Y axis 0–100% in 10% steps, plus a rotated "Completion (%)" axis title. It never scrolls.
+- Only the plot + X labels scroll horizontally, in one synced scroll container, so bars and their labels always line up.
+- Consistent bar width and even gaps; bars never compress — new tasks extend rightward forever.
+- Rounded bar tops, soft gridlines, solid axis lines, tabular-nums percentage labels, tighter typography and margins.
+- Optional grow-in animation and hover lift/highlight (both respect the Animations setting and `prefers-reduced-motion`).
+- 0% tasks still render as a visible baseline stub so newly assigned work appears immediately.
+- Responsive: bar width and gap step down slightly on tablet/mobile but never below a readable minimum; horizontal scroll is always available.
 
-**Class Report** — for each task, the mean of all class members' percentages (rounded), so a task with 28 students averaging 82% renders an 82% bar.
+### 6. Rich tooltip
+Hover (desktop) / tap (mobile) shows a card:
 
-## Historical accuracy
+```text
+Quadratic Formula
+Assignment
+Score        18 / 25
+Completion   72%
+Assigned     12 Mar 2026
+Due          19 Mar 2026
+```
 
-To honour "don't recalculate finished adventures after the pass mark changes", add one additive table `report_task_results` (task id, student id, percent, frozen quota/total, frozen_at) with RLS: students read their own rows, teachers read rows for classes they own. When a task is archived (completed or due date passed), the current percentages are frozen into it. The report reads frozen rows when present and computes live otherwise. No existing tables are modified.
+For adventures: Contribution, Required contribution, Completion %, Assigned/Completion date.
 
-## Chart component
+To supply score/target/date fields, `TaskBar` gains display-only fields — `score`, `target`, `completedAt` — populated in `progressChart.ts` from values it already computes (student score sum, task target or adventure quota, frozen timestamp). For the class view these are class averages/totals. No new queries or schema changes.
 
-New `src/components/reports/ProgressBarChart.tsx`:
-
-- Fixed Y-axis 0–100% in 10% steps, gridlines, constant scale, ~1 cm per 10%.
-- X-axis unlimited with horizontal scroll; bars keep a fixed width and gap (no compression).
-- Auto-abbreviated 3-letter labels ("Quadratic Formula" → QUA) with the full title in a hover tooltip / tap popover.
-- Colour distinguishes Assignment vs Adventure; a small legend sits above the chart.
-- Empty state when no tasks exist yet.
-
-## Pages and navigation
-
-- `src/pages/class/ClassReportPage.tsx` (teacher, route `/teaching-hub/classes/:classId/report`): top toggle **Class | Student ▾**, defaulting to Class Report; the Student dropdown lists class members and swaps the chart to that student's data.
-- `src/pages/student/StudentReportPage.tsx` (route `/student/class/:classId/report`): the student's own chart only, no student picker.
-- Add a **Report** tile after Gallery on `ClassDashboardPage.tsx` and a Report entry after Gallery on `StudentClassPage.tsx`.
-- Both routes registered in `App.tsx`; access enforced by the existing owner/member checks.
-
-## Data layer
-
-`src/lib/reports/progressChart.ts` exposes `loadStudentTaskBars(classId, studentId)` and `loadClassTaskBars(classId)`, returning `{ taskId, mode, fullTitle, abbreviation, percent }[]`. All later Weekly/Monthly/Term/Yearly reports will read from this module rather than recomputing scores.
-
-## Technical notes
-
-- Reuses `assessment_progress`, `class_game_boards`, `class_members` and the existing quota maths in `useAdventureSync`, factored into a shared helper so adventure percentages stay identical to the live dashboards.
-- Chart is a plain SVG/flex implementation using semantic design tokens — no new charting dependency.
-- Data refreshes on mount plus a lightweight realtime subscription on `assessment_progress` for the class.
+### Technical notes
+- Files touched: `src/components/reports/ProgressBarChart.tsx` (rebuild), new `src/components/reports/ReportSettingsSheet.tsx`, new `src/components/reports/reportTheme.ts` (settings hook + tokens), `src/pages/class/ClassReportPage.tsx`, `src/pages/student/StudentReportPage.tsx`, and a small additive change in `src/lib/reports/progressChart.ts` for the tooltip fields.
+- Report colour tokens are added to `src/index.css` as scoped variables under the report theme classes — no hardcoded hex in components.
+- Student page reuses the same chart, settings and filter, minus the student selector.
