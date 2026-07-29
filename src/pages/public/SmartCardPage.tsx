@@ -139,17 +139,20 @@ const SmartCardPage = () => {
   const open = () =>
     navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
 
+  // Copy / Share put ONLY the short public URL on the clipboard — no HTML, no
+  // image data. Platforms fetch the card snapshot from the page metadata.
   const copyCard = async () => {
-    await navigator.clipboard?.writeText(`${card.title}\n${link}`);
+    await navigator.clipboard?.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
 
   const shareCard = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: card.title, text: card.title, url: link }); return; } catch { /* cancelled */ }
+      try { await navigator.share({ title: card.title, url: link }); return; } catch { /* cancelled */ }
     }
     await copyCard();
+
   };
 
   const counters = [
