@@ -160,9 +160,12 @@ export async function saveSmartCard(
     geometry?: { scenes: GeometryScene[] } | null;
     publish_mode?: "challenge" | "game";
     game_id?: string | null;
+    game_progress_element_id?: string | null;
+    pass_mark_pct?: number;
   },
 ): Promise<void> {
   await supabase.from("smart_cards").update(patch as any).eq("id", id);
+
 }
 
 /** Hidden holder class so a Smart Card challenge can reuse the assessment
