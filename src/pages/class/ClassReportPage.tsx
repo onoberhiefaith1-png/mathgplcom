@@ -2,10 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BarChart3, Loader2 } from "lucide-react";
+import { ArrowLeft, BarChart3, ChevronDown, Loader2, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import ProgressBarChart from "@/components/reports/ProgressBarChart";
+import ReportFilterBar from "@/components/reports/ReportFilterBar";
+import ReportSettingsSheet from "@/components/reports/ReportSettingsSheet";
+import { reportSurfaceClass, useReportSettings, type ReportFilter } from "@/components/reports/reportTheme";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { loadReportData, type ClassMember, type TaskBar } from "@/lib/reports/progressChart";
 
 const ClassReportPage = () => {
@@ -17,6 +26,9 @@ const ClassReportPage = () => {
   const [classBars, setClassBars] = useState<TaskBar[]>([]);
   const [barsByStudent, setBarsByStudent] = useState<Map<string, TaskBar[]>>(new Map());
   const [selected, setSelected] = useState<string | "class">("class");
+  const [filter, setFilter] = useState<ReportFilter>("both");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { settings, update } = useReportSettings();
 
   const refresh = useCallback(async () => {
     if (!classId) return;
@@ -61,9 +73,8 @@ const ClassReportPage = () => {
     () => (selected === "class" ? classBars : barsByStudent.get(selected) ?? []),
     [selected, classBars, barsByStudent],
   );
-  const selectedName = selected === "class"
-    ? "Class Report"
-    : `${members.find((m) => m.user_id === selected)?.display_name ?? "Student"} — Student Report`;
+  const selectedStudent = selected === "class" ? null : members.find((m) => m.user_id === selected);
+  const selectedName = selectedStudent ? `${selectedStudent.display_name} — Student Report` : "Class Report";
 
   if (loading) {
     return (
@@ -74,15 +85,25 @@ const ClassReportPage = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
-      <header className="flex items-center justify-between px-6 py-5">
-        <Link to={`/teaching-hub/classes/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+    <div className={`${reportSurfaceClass(settings)} min-h-screen w-full bg-[hsl(var(--rp-bg))] text-[hsl(var(--rp-fg))]`}>
+      <header className="flex items-center justify-between gap-3 px-6 py-5">
+        <Link
+          to={`/teaching-hub/classes/${classId}`}
+          className="inline-flex items-center gap-2 text-sm text-[hsl(var(--rp-muted))] transition hover:text-[hsl(var(--rp-fg))]"
+        >
           <ArrowLeft className="h-4 w-4" /> {className || "Class"}
         </Link>
-        <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-wide">
+        <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
           <BarChart3 className="h-5 w-5" /> Report
         </h1>
-        <div className="w-24" />
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Report settings"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[hsl(var(--rp-border))] text-[hsl(var(--rp-muted))] transition hover:text-[hsl(var(--rp-fg))]"
+        >
+          <Settings2 className="h-4 w-4" />
+        </button>
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-6 pb-16">
@@ -91,26 +112,50 @@ const ClassReportPage = () => {
             type="button"
             onClick={() => setSelected("class")}
             className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
-              selected === "class" ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:text-foreground"
+              selected === "class"
+                ? "border-transparent bg-[hsl(var(--rp-fg))] text-[hsl(var(--rp-panel))]"
+                : "border-[hsl(var(--rp-border))] text-[hsl(var(--rp-muted))] hover:text-[hsl(var(--rp-fg))]"
             }`}
           >
             Class
           </button>
-          <select
-            value={selected === "class" ? "" : selected}
-            onChange={(e) => setSelected(e.target.value ? e.target.value : "class")}
-            className="rounded-full border border-border bg-background px-4 py-1.5 text-xs font-semibold text-foreground"
-            aria-label="Select student"
-          >
-            <option value="">Student ▾</option>
-            {members.map((m) => (
-              <option key={m.user_id} value={m.user_id}>{m.display_name}</option>
-            ))}
-          </select>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
+                  selectedStudent
+                    ? "border-transparent bg-[hsl(var(--rp-fg))] text-[hsl(var(--rp-panel))]"
+                    : "border-[hsl(var(--rp-border))] text-[hsl(var(--rp-muted))] hover:text-[hsl(var(--rp-fg))]"
+                }`}
+              >
+                {selectedStudent ? selectedStudent.display_name : "Student"}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-80 w-56 overflow-y-auto">
+              {members.length === 0 ? (
+                <DropdownMenuItem disabled>No students enrolled</DropdownMenuItem>
+              ) : (
+                members.map((m) => (
+                  <DropdownMenuItem key={m.user_id} onSelect={() => setSelected(m.user_id)}>
+                    {m.display_name}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="ml-auto">
+            <ReportFilterBar value={filter} onChange={setFilter} />
+          </div>
         </div>
 
         <ProgressBarChart
           bars={bars}
+          settings={settings}
+          filter={filter}
           title={selectedName}
           subtitle={
             selected === "class"
@@ -119,6 +164,8 @@ const ClassReportPage = () => {
           }
         />
       </main>
+
+      <ReportSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} settings={settings} update={update} />
     </div>
   );
 };

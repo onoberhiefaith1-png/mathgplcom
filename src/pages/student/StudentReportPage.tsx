@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BarChart3, Loader2 } from "lucide-react";
+import { ArrowLeft, BarChart3, Loader2, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ProgressBarChart from "@/components/reports/ProgressBarChart";
+import ReportFilterBar from "@/components/reports/ReportFilterBar";
+import ReportSettingsSheet from "@/components/reports/ReportSettingsSheet";
+import { reportSurfaceClass, useReportSettings, type ReportFilter } from "@/components/reports/reportTheme";
 import { loadStudentTaskBars, type TaskBar } from "@/lib/reports/progressChart";
 
 const StudentReportPage = () => {
@@ -14,6 +17,9 @@ const StudentReportPage = () => {
   const [className, setClassName] = useState("");
   const [bars, setBars] = useState<TaskBar[]>([]);
   const [studentId, setStudentId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ReportFilter>("both");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { settings, update } = useReportSettings();
 
   const refresh = useCallback(async (uid: string) => {
     if (!classId) return;
@@ -71,20 +77,41 @@ const StudentReportPage = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
-      <header className="flex items-center justify-between px-6 py-5">
-        <Link to={`/student/class/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+    <div className={`${reportSurfaceClass(settings)} min-h-screen w-full bg-[hsl(var(--rp-bg))] text-[hsl(var(--rp-fg))]`}>
+      <header className="flex items-center justify-between gap-3 px-6 py-5">
+        <Link
+          to={`/student/class/${classId}`}
+          className="inline-flex items-center gap-2 text-sm text-[hsl(var(--rp-muted))] transition hover:text-[hsl(var(--rp-fg))]"
+        >
           <ArrowLeft className="h-4 w-4" /> {className || "Class"}
         </Link>
-        <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-wide">
+        <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
           <BarChart3 className="h-5 w-5" /> My Report
         </h1>
-        <div className="w-24" />
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Report settings"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[hsl(var(--rp-border))] text-[hsl(var(--rp-muted))] transition hover:text-[hsl(var(--rp-fg))]"
+        >
+          <Settings2 className="h-4 w-4" />
+        </button>
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-6 pb-16">
-        <ProgressBarChart bars={bars} title="Student Report" subtitle="Completion per assigned task." />
+        <div className="mb-4 flex justify-end">
+          <ReportFilterBar value={filter} onChange={setFilter} />
+        </div>
+        <ProgressBarChart
+          bars={bars}
+          settings={settings}
+          filter={filter}
+          title="Student Report"
+          subtitle="Completion per assigned task."
+        />
       </main>
+
+      <ReportSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} settings={settings} update={update} />
     </div>
   );
 };
