@@ -10,7 +10,7 @@ import PresentationView from "@/components/smartboard/PresentationView";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  fetchPublicCard, formatDuration, loadRememberedIdentity, newParticipantKey,
+  fetchPublicCard, forgetIdentity, formatDuration, loadRememberedIdentity, newParticipantKey,
   rememberIdentity, reportProgress,
   type CardIdentity, type LeaderboardEntry, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
