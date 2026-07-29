@@ -6,6 +6,8 @@ import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { joinClassPresence } from "@/lib/realtime/classPresence";
 import { listClassGames, type ClassGameRow } from "@/lib/games/classGames";
 import { prefetchGame } from "@/lib/games/prefetch";
+import { getClassLevels } from "@/lib/classes/contentHierarchy";
+
 
 type ClassRow = { id: string; name: string };
 type LessonNote = { notebook_id: string; notebooks: { title: string | null } | null };
