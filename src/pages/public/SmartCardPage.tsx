@@ -43,7 +43,26 @@ const SmartCardPage = () => {
   const [stats, setStats] = useState<CardStatsPublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  // Share Card: a creator-only promotional VIEW of this same dashboard.
+  // Never persisted, never visible to visitors — it only exists so the
+  // teacher can take a screenshot to post beside the link.
+  const [shareMode, setShareMode] = useState(false);
+  const [promo, setPromo] = useState(DEFAULT_PROMO);
+  const [editingPromo, setEditingPromo] = useState(false);
   const me = useRef<string>(visitorKey());
+
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      const saved = localStorage.getItem(`${PROMO_KEY}:${slug}`);
+      if (saved) setPromo(saved);
+    } catch { /* private mode */ }
+  }, [slug]);
+
+  useEffect(() => {
+    if (!slug || !creator) return;
+    try { localStorage.setItem(`${PROMO_KEY}:${slug}`, promo); } catch { /* ignore */ }
+  }, [slug, creator, promo]);
 
   useEffect(() => {
     (async () => {
