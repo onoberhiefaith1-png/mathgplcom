@@ -44,11 +44,15 @@ export const Inked = ({ children, jitter = 0.08, seed = 1 }: Props): ReactNode =
 
   return (
     <>
-      {chars.map(({ ch, w, o, y, key }) =>
+      {chars.map(({ ch, w, o, y, key, emoji }) =>
         ch === " " ? (
           <span key={key}> </span>
         ) : ch === "\n" ? (
           <br key={key} />
+        ) : emoji ? (
+          <span key={key} style={{ display: "inline-block", ...EMOJI_STYLE }}>
+            {ch}
+          </span>
         ) : (
           <span
             key={key}
