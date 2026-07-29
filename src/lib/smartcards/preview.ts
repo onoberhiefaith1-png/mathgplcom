@@ -9,8 +9,9 @@ import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
 
 export const PREVIEW_BUCKET = "smart-card-previews";
-const W = 1200;
-const H = 630;
+// Square poster (1:1) — the card should almost completely fill it.
+const W = 1080;
+const H = 1080;
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
