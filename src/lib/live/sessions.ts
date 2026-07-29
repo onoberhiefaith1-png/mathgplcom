@@ -168,10 +168,12 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
         visibility: input.visibility,
         status: "published",
         session_code: generateSessionCode(),
+        broadcasts: normalizeBroadcasts(input.broadcasts ?? []) as unknown as never,
       })
       .select("*")
       .single();
-    if (!error && data) return data as LiveSession;
+    if (!error && data) return hydrateSession(data as Record<string, unknown>);
+
     lastError = error;
     if (error && (error as { code?: string }).code !== "23505") break;
   }
