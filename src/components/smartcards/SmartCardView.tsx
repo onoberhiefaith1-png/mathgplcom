@@ -4,7 +4,7 @@
 
 import { graphemes, isEmoji, EMOJI_STYLE } from "@/lib/text/graphemes";
 import PresenterMath, { toDisplaySafe } from "@/components/smartboard/PresenterMath";
-import GeometryDiagram from "@/components/lessonnotes/GeometryDiagram";
+import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import type { CardPresentation } from "@/lib/smartcards/smartCards";
 import type { GeometryScene } from "@/lib/geometry/scene";
 
