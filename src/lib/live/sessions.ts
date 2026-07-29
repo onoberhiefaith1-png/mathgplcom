@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { BroadcastEntry, normalizeBroadcasts, parseBroadcasts } from "@/lib/live/broadcast";
 
 export type SessionVisibility = "private" | "public";
 export type SessionStatus = "draft" | "published" | "live" | "ended";
@@ -16,9 +17,17 @@ export type LiveSession = {
   visibility: SessionVisibility;
   status: SessionStatus;
   session_code: string;
+  broadcasts: BroadcastEntry[];
   created_at: string;
   updated_at: string;
 };
+
+/** Rows come back with `broadcasts` as raw jsonb — normalise on read. */
+export const hydrateSession = (row: Record<string, unknown>): LiveSession => ({
+  ...(row as unknown as LiveSession),
+  broadcasts: parseBroadcasts(row.broadcasts),
+});
+
 
 /** Derived, schedule-driven state shown to teacher and participants. */
 export type ScheduleState = "unscheduled" | "scheduled" | "starting-soon" | "live" | "ended";
