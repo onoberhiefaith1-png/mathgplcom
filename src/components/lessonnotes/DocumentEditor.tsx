@@ -1911,7 +1911,7 @@ function NotebookGeometryOverlay({
   tiptapEditor,
 }: {
   notebookId?: string;
-  paperLayerRef: RefObject<HTMLDivElement>;
+  paperLayerRef: RefObject<HTMLDivElement | null>;
   tiptapEditor: Editor | null;
 }) {
   const { mode, tool } = useGeometryMode();
