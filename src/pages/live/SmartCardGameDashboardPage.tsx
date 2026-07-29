@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, Trophy, Eye, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, Loader2, Trophy, Eye, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import PresentationView from "@/components/smartboard/PresentationView";
