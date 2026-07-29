@@ -625,3 +625,47 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
   background: hsl(var(--muted-foreground) / 0.5);
   border-radius: 9999px;
 }
+
+/* ── Report module palette ────────────────────────────────────────────────
+   Scoped to the report page only, so the report can stay on clean white
+   paper while the rest of the app keeps its own theme. */
+.report-surface {
+  --rp-bg: 220 20% 97%;
+  --rp-panel: 0 0% 100%;
+  --rp-border: 220 14% 88%;
+  --rp-grid: 220 14% 91%;
+  --rp-axis: 220 14% 66%;
+  --rp-fg: 222 30% 14%;
+  --rp-muted: 220 10% 44%;
+  --rp-assignment: 24 92% 52%;
+  --rp-adventure: 212 90% 50%;
+  --rp-on-accent: 0 0% 100%;
+  --rp-tooltip-bg: 0 0% 100%;
+  --rp-tooltip-fg: 222 30% 14%;
+}
+.report-surface.report-dark {
+  --rp-bg: 224 30% 8%;
+  --rp-panel: 224 26% 12%;
+  --rp-border: 224 18% 24%;
+  --rp-grid: 224 16% 22%;
+  --rp-axis: 224 12% 46%;
+  --rp-fg: 210 20% 96%;
+  --rp-muted: 220 12% 66%;
+  --rp-assignment: 28 92% 58%;
+  --rp-adventure: 205 92% 60%;
+  --rp-on-accent: 224 30% 10%;
+  --rp-tooltip-bg: 224 26% 16%;
+  --rp-tooltip-fg: 210 20% 96%;
+}
+
+.report-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--rp-axis) / 0.6) transparent; }
+.report-scroll::-webkit-scrollbar { height: 10px; }
+.report-scroll::-webkit-scrollbar-thumb { background: hsl(var(--rp-axis) / 0.5); border-radius: 9999px; }
+
+@keyframes rp-bar-grow { from { height: 0; } to { height: var(--rp-bar-h); } }
+.report-bar-grow { animation: rp-bar-grow 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.report-bar-grow:hover { transform: translateY(-2px); filter: brightness(1.08); }
+@media (prefers-reduced-motion: reduce) {
+  .report-bar-grow { animation: none; }
+  .report-bar-grow:hover { transform: none; }
+}
