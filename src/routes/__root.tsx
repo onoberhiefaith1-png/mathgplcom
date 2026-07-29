@@ -100,14 +100,17 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <FullscreenToggle />
-        <NavHistoryProvider>
-          <Outlet />
-        </NavHistoryProvider>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <FullscreenToggle />
+          <NavHistoryProvider>
+            <Outlet />
+          </NavHistoryProvider>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
+
   );
 }
 
