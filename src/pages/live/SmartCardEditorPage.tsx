@@ -101,6 +101,19 @@ const SmartCardEditorPage = () => {
 
   const scenes = useMemo(() => card?.geometry?.scenes ?? [], [card]);
   const url = card?.slug ? cardUrl(card.slug) : "";
+  // Shared links go through the preview endpoint so social platforms show a
+  // per-card rich preview; it lands on the same public card.
+  const link = card?.slug ? shareUrl(card.slug) : "";
+
+  // Per-card stats for the teacher (published cards only).
+  const [stats, setStats] = useState<CardStats | null>(null);
+  useEffect(() => {
+    if (!card?.id || !card.published) { setStats(null); return; }
+    let alive = true;
+    void fetchCardStats(card.id).then((s) => { if (alive) setStats(s); });
+    return () => { alive = false; };
+  }, [card?.id, card?.published]);
+
 
   const onPublish = async () => {
     if (!card || !pres) return;
