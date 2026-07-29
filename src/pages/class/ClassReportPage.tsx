@@ -88,8 +88,13 @@ const ClassReportPage = () => {
     () => (selected === "class" ? classBars : barsByStudent.get(selected) ?? []),
     [selected, classBars, barsByStudent],
   );
+  const trendPoints = useMemo(
+    () => buildTrendSeries(bars, { grouping: settings.trendGrouping, filter }),
+    [bars, settings.trendGrouping, filter],
+  );
   const selectedStudent = selected === "class" ? null : members.find((m) => m.user_id === selected);
   const selectedName = selectedStudent ? `${selectedStudent.display_name} — Student Report` : "Class Report";
+
 
   if (loading) {
     return (
