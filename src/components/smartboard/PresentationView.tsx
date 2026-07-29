@@ -273,6 +273,8 @@ const PresentationView = ({
   workspace = "assignment",
   gameId = null,
   viewOnly = false,
+  smartCardSlug = null,
+  participantKey = null,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -294,6 +296,9 @@ const PresentationView = ({
   gameId?: string | null;
   /** Force a read-only mirror (teacher "View Only" mode). */
   viewOnly?: boolean;
+  /** Public Smart Card challenge — grading runs without an account. */
+  smartCardSlug?: string | null;
+  participantKey?: string | null;
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
@@ -3160,6 +3165,7 @@ const PresentationView = ({
           mode,
           allowedFloatingTokens: expectedFrags,
           persist: true,
+          ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
         },
       });
       if (error) {
@@ -3644,6 +3650,7 @@ const PresentationView = ({
               mode: "manual",
               allowedFloatingTokens: resolved?.expectedFrags ?? [],
               persist: false,
+              ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
             },
           });
           if (error) return;
