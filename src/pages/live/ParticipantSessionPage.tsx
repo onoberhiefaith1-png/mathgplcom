@@ -3,10 +3,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, Presentation, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3, Lock, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  LiveSession, formatCountdownClock, formatCountdownLong, formatStartsAt,
+  LiveSession, formatCountdownClock, formatCountdownLong, formatStartsAt, hydrateSession,
   scheduleLabel, scheduleStateOf, scheduleTone,
 } from "@/lib/live/sessions";
 import { useNowTick } from "@/lib/live/useCountdown";
+import BroadcastPanel from "@/components/live/BroadcastPanel";
+
 
 /**
  * Participant view of a Session. Everything the classroom student sees, gated
