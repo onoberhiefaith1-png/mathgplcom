@@ -7,8 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  Undo2, Redo2, Copy, ClipboardPaste, Loader2, Rocket, Check, Share2, Minus, Plus,
-  Eye,
+  Undo2, Redo2, Copy, ClipboardPaste, Loader2, Rocket, Minus, Plus, Gamepad2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +18,12 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
-  cardUrl, shareUrl, fetchCardStats, formatDuration,
+  cardUrl,
   listPublishableGames,
   loadSmartCard, publishSmartCard, saveSmartCard,
-  type CardPresentation, type CardStats, type SmartCardRow,
+  type CardPresentation, type SmartCardRow,
 } from "@/lib/smartcards/smartCards";
+
 
 
 const STEP = 0.1;
