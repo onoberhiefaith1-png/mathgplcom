@@ -59,6 +59,12 @@ import FloatingNumbersPage from "./pages/FloatingNumbersPage.tsx";
 import FloatingPreparationPage from "./pages/FloatingPreparationPage.tsx";
 import AiSettingsPage from "./pages/floating/AiSettingsPage.tsx";
 import TeachingHub from "./pages/TeachingHub.tsx";
+import LiveHub from "./pages/live/LiveHub.tsx";
+import SessionsPage from "./pages/live/SessionsPage.tsx";
+import CreateSessionPage from "./pages/live/CreateSessionPage.tsx";
+import SessionDashboardPage from "./pages/live/SessionDashboardPage.tsx";
+import ParticipantSessionPage from "./pages/live/ParticipantSessionPage.tsx";
+import JoinSessionPage from "./pages/live/JoinSessionPage.tsx";
 import Adventure from "./pages/Adventure.tsx";
 import AdventureGamesDashboard from "./pages/adventure/AdventureGamesDashboard.tsx";
 import AdventureGameEditor from "./pages/adventure/AdventureGameEditor.tsx";
@@ -110,6 +116,13 @@ const App = () => (
           <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/teaching-hub" element={<TeachingHub />} />
+          <Route path="/live" element={<LiveHub />} />
+          <Route path="/live/sessions" element={<SessionsPage />} />
+          <Route path="/live/sessions/create" element={<CreateSessionPage />} />
+          <Route path="/live/sessions/:sessionId" element={<SessionDashboardPage />} />
+          <Route path="/live/s/:sessionId" element={<ParticipantSessionPage />} />
+          <Route path="/live/join" element={<JoinSessionPage />} />
+          <Route path="/live/join/:code" element={<JoinSessionPage />} />
           <Route path="/adventure" element={<Adventure />} />
           <Route path="/adventure/games" element={<AdventureGamesDashboard />} />
           <Route path="/adventure/games/:gameId" element={<AdventureGameEditor />} />

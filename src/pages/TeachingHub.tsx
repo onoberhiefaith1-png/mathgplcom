@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, BookOpen, Sparkles, Users, Settings as SettingsIcon, Compass } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Users, Settings as SettingsIcon, Compass, Radio } from "lucide-react";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 
 const tiles = [
   { to: "/lesson-notes", label: "Lesson Notes", icon: BookOpen, accent: "from-amber-400/30 to-amber-600/10 border-amber-300/40 text-amber-200" },
   { to: "/smartboard", label: "SmartBoard", icon: Sparkles, accent: "from-violet-400/30 to-violet-600/10 border-violet-300/40 text-violet-200" },
   { to: "/teaching-hub/classes", label: "Classes", icon: Users, accent: "from-cyan-400/30 to-cyan-600/10 border-cyan-300/40 text-cyan-200" },
+  { to: "/live", label: "MathGPL Live", icon: Radio, accent: "from-rose-400/30 to-rose-600/10 border-rose-300/40 text-rose-200" },
   { to: "/teaching-hub/settings", label: "Settings", icon: SettingsIcon, accent: "from-slate-400/30 to-slate-600/10 border-slate-300/40 text-slate-200" },
 ];
 
