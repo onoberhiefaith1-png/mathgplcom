@@ -228,6 +228,17 @@ const SmartCardPage = () => {
           </div>
         )}
 
+        {/* Creator-only: return to the Smart Card Editor this card came from. */}
+        {creator && (
+          <button
+            type="button"
+            onClick={() => navigate(`/live/smart-cards/${card.id}`)}
+            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Smart Card Editor
+          </button>
+        )}
+
         {/* Sharing lives on the dashboard, not in the editor. */}
         <div className="flex flex-wrap gap-2">
           <button
