@@ -8,7 +8,22 @@ import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import ProgressBarChart from "@/components/reports/ProgressBarChart";
 import ReportFilterBar from "@/components/reports/ReportFilterBar";
 import ReportSettingsSheet from "@/components/reports/ReportSettingsSheet";
-import { reportSurfaceClass, useReportSettings, type ReportFilter } from "@/components/reports/reportTheme";
+import TrendLineChart from "@/components/reports/TrendLineChart";
+import TrendRangeBar from "@/components/reports/TrendRangeBar";
+import { buildTrendSeries } from "@/lib/reports/trendChart";
+import {
+  reportSurfaceClass,
+  useReportSettings,
+  type ReportFilter,
+  type TrendGrouping,
+} from "@/components/reports/reportTheme";
+
+const TREND_SUBTITLE: Record<TrendGrouping, string> = {
+  week: "Average performance per week (Sunday → Saturday).",
+  month: "Average performance per month.",
+  year: "Average performance per year.",
+};
+
 import {
   DropdownMenu,
   DropdownMenuContent,
