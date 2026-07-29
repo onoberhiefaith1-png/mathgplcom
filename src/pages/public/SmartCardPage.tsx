@@ -12,8 +12,9 @@ import { Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
   fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
-  pingPresence, shareUrl, type CardStatsPublic, type PublicCardPayload,
+  pingPresence, previewImageUrl, shareUrl, type CardStatsPublic, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
+
 
 const VISITOR_KEY = "smartcard:visitor";
 
