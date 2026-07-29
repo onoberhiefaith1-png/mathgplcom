@@ -132,9 +132,19 @@ const App = () => (
           <Route path="/live/smart-cards/:cardId" element={<SmartCardEditorPage />} />
           <Route path="/live/smart-cards/:cardId/game-setup" element={<SmartCardGameSetupPage />} />
           <Route path="/live/smart-cards/:cardId/game-dashboard" element={<SmartCardGameDashboardPage />} />
+          {/* Public Smart Card pages. `/c/:slug` is the canonical short link;
+              the longer spellings are permanent aliases so no shared URL
+              shape can ever fall through to the generic 404 page. */}
           <Route path="/c/:slug" element={<SmartCardPage />} />
           <Route path="/c/:slug/solve" element={<SmartCardChallengePage />} />
           <Route path="/c/:slug/game" element={<SmartCardGamePage />} />
+          <Route path="/card/:slug" element={<SmartCardPage />} />
+          <Route path="/card/:slug/solve" element={<SmartCardChallengePage />} />
+          <Route path="/card/:slug/game" element={<SmartCardGamePage />} />
+          <Route path="/challenge/:slug" element={<SmartCardPage />} />
+          <Route path="/challenge/:slug/solve" element={<SmartCardChallengePage />} />
+          <Route path="/challenge/:slug/game" element={<SmartCardGamePage />} />
+          <Route path="/game/:slug" element={<SmartCardGamePage />} />
           <Route path="/live/join" element={<JoinSessionPage />} />
           <Route path="/live/join/:code" element={<JoinSessionPage />} />
           {/* MathGPL Life workspace — same engines, Life terminology, never

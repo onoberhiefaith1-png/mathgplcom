@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
+import { supabase } from "@/integrations/supabase/client";
 import {
   fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
   pingPresence, previewImageUrl, shareUrl, type CardStatsPublic, type PublicCardPayload,
@@ -125,9 +126,24 @@ const SmartCardPage = () => {
 
   if (!payload) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-slate-100 text-slate-600">
-        <h1 className="text-lg font-semibold">Smart Card not available</h1>
-        <a className="text-sm underline" href="/live">Explore more with MathGPL Life</a>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-white to-slate-200 px-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+            MathGPL Life
+          </p>
+          <h1 className="mt-2 text-xl font-bold text-slate-900">
+            This Smart Card does not exist
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            The link may be mistyped, or the card is no longer published by its author.
+          </p>
+          <a
+            href="/live"
+            className="mt-5 inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Explore MathGPL Life
+          </a>
+        </div>
       </div>
     );
   }
@@ -135,9 +151,15 @@ const SmartCardPage = () => {
   const card = payload.card;
   const isGame = card.publishMode === "game";
   const link = shareUrl(card.slug);
-  // A Game Challenge opens the Adventure stage; a normal card opens the board.
-  const open = () =>
-    navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
+  // Viewing is public; playing needs an account. A Game Challenge opens the
+  // Adventure stage, a normal card opens the board — and if the visitor is not
+  // signed in they go to sign-in first and are returned to this exact page.
+  const open = async () => {
+    const target = `/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`;
+    const { data } = await supabase.auth.getUser();
+    if (data.user) { navigate(target); return; }
+    navigate(`/auth?next=${encodeURIComponent(target)}`);
+  };
 
   // Copy / Share put ONLY the short public URL on the clipboard — no HTML, no
   // image data. Platforms fetch the card snapshot from the page metadata.

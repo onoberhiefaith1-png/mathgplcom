@@ -17,16 +17,35 @@ const Auth = () => {
 
   // Preserve a same-origin redirect target (OAuth consent, or a public Smart
   // Card the visitor was sent to) so nobody ever loses their destination page.
-  const rawNext = searchParams.get("next") ?? searchParams.get("redirect") ?? "";
+  const RETURN_KEY = "mathgpl:returnTo";
+  const rawNext = searchParams.get("next") ?? searchParams.get("redirect") ?? searchParams.get("returnTo") ?? "";
   const safeNext = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "";
-  const postLoginTarget = safeNext || "/lesson-notes";
+  // A provider round-trip can drop the query string, so the destination is
+  // also parked in sessionStorage and read back on return.
+  const stored = (() => {
+    try {
+      const v = sessionStorage.getItem(RETURN_KEY) ?? "";
+      return v.startsWith("/") && !v.startsWith("//") ? v : "";
+    } catch { return ""; }
+  })();
+  const postLoginTarget = safeNext || stored || "/lesson-notes";
 
   useEffect(() => {
+    if (safeNext) {
+      try { sessionStorage.setItem(RETURN_KEY, safeNext); } catch { /* ignore */ }
+    }
+  }, [safeNext]);
+
+  useEffect(() => {
+    const go = () => {
+      try { sessionStorage.removeItem(RETURN_KEY); } catch { /* ignore */ }
+      window.location.href = postLoginTarget;
+    };
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      if (session) window.location.href = postLoginTarget;
+      if (session) go();
     });
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) window.location.href = postLoginTarget;
+      if (data.session) go();
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate, postLoginTarget]);
