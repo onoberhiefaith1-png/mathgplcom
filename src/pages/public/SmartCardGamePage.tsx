@@ -32,9 +32,12 @@ const SmartCardGamePage = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [solved, setSolved] = useState<Record<string, Record<string, number>>>({});
+  const [qualified, setQualified] = useState(false);
+  const [timerExpired, setTimerExpired] = useState(false);
   const [openBarId, setOpenBarId] = useState<string | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const startedAt = useRef<number>(Date.now());
+
 
   useEffect(() => {
     (async () => {
