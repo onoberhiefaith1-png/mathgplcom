@@ -95,9 +95,32 @@ const Auth = () => {
       <div className="w-full max-w-sm rounded-2xl border border-amber-200/15 bg-card/60 backdrop-blur p-6 shadow-2xl">
         <p className="text-xs uppercase tracking-[0.4em] text-primary text-center">MathGPL</p>
         <h1 className="mt-2 text-2xl font-semibold text-center">
-          {mode === "login" ? "Welcome back" : "Create your notebook"}
+          {mode === "login" ? "Welcome back" : "Create your account"}
         </h1>
         <form className="mt-6 space-y-3" onSubmit={submit}>
+          {mode === "signup" && (
+            <div className="space-y-1.5">
+              <Label>Account type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {SIGNUP_ROLES.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setAccountRole(r.value)}
+                    aria-pressed={accountRole === r.value}
+                    className={`rounded-xl border p-2.5 text-left transition ${
+                      accountRole === r.value
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-background/40 hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="text-sm font-semibold">{r.label}</div>
+                    <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{r.blurb}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
