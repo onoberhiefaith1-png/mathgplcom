@@ -1,28 +1,45 @@
-## First thing: it isn't the sync — it's the access gate
+## Plan: rebuild class SmartBoard teacher-to-student sync
 
-Verified against the live database for class SS2:
+### Goal
+When a teacher opens a SmartBoard from a class, every approved student who opens that class SmartBoard should immediately see the same board and continue receiving live updates. No blank blue screen, no waiting message once the teacher has opened it.
 
-- `class_smartboard_state` **does** have the row: `notebook_id = 08698b90…` (the note you have open), updated `00:07`, and an active student is set. So the teacher board is broadcasting correctly.
-- `classes.smartboard_visibility = 'teacher_only'`.
+### What I will change
+1. **Replace the student SmartBoard loader with a simpler flow**
+   - Authenticate the student.
+   - Confirm they are either the class owner or a class member.
+   - Read one source of truth: the class SmartBoard state row.
+   - If that row has an active notebook, render `PresentationView` directly.
+   - Keep listening for class board changes and update the active notebook live.
 
-The student page shows the board only when **both** are true: visibility is `student_access_enabled` **and** a notebook is set (`StudentSmartBoardPage.tsx` line 117). Visibility is off, so students get "Your teacher hasn't opened the SmartBoard yet."
+2. **Make teacher launch always create/open the class board state**
+   - When the teacher opens `/smartboard/:notebookId?classId=...`, upsert the class SmartBoard state row.
+   - Set student access on for that class.
+   - Share the linked lesson note row for student reading.
+   - Add a safe fallback insert/update for the class note link if it does not already exist.
 
-Why it silently regressed: the only place that flips that toggle is the class SmartBoard launcher page (`ClassSmartBoardLauncher.tsx`). If a teacher opens the board directly at `/smartboard/:id?classId=…` (or the toggle was ever switched back), students stay locked out with no indication on the teacher's board.
+3. **Rebuild the sync hook to be resilient**
+   - Use the class board row as the single live channel.
+   - Load current state first, then subscribe.
+   - On realtime reconnect, reload from the database so students do not stay blank after a missed event.
+   - Keep teacher writes debounced, but make the first teacher snapshot push reliably.
 
-## What to change
+4. **Remove the fragile duplicate visibility subscriptions**
+   - Student side should not depend on multiple independent realtime subscriptions fighting each other.
+   - One reload function will refresh class visibility and active notebook together.
 
-1. **Show the state where the teacher actually is.** Add a live "Student Access" pill to the class SmartBoard header in `PresentationView` (only when `classId` is present, role teacher): reads `classes.smartboard_visibility`, shows `Students can see this board` / `Teacher only`, and toggles on click — same update the launcher already performs.
+5. **Validate manually in browser**
+   - Open the teacher SmartBoard route.
+   - Open the student class SmartBoard route.
+   - Confirm the student route renders the same notebook instead of the blank/waiting screen.
+   - Confirm teacher board changes are applied on the student side after refresh/realtime load.
 
-2. **Open = share, by default.** In `SmartBoardPage.tsx`, when a teacher opens a board with `?classId=…`, set `smartboard_visibility` to `student_access_enabled` alongside the existing `class_smartboard_state` upsert, so launching a class board always reaches students. The teacher can still switch it back with the pill from step 1.
+### Files to update
+- `src/pages/SmartBoardPage.tsx`
+- `src/pages/student/StudentSmartBoardPage.tsx`
+- `src/hooks/useSmartboardSync.ts`
+- Possibly `src/pages/class/ClassSmartBoardLauncher.tsx` only if the launch link needs cleanup
 
-3. **Close = stop sharing (optional but recommended).** When the teacher leaves the class board, leave the state row intact but keep visibility as-is — no auto-revert, so a reload never kicks students out mid-lesson.
-
-## Technical notes
-
-- Files: `src/pages/SmartBoardPage.tsx`, `src/components/smartboard/PresentationView.tsx` (header area), reusing the existing update in `src/pages/class/ClassSmartBoardLauncher.tsx`.
-- No database migration needed — realtime on `classes` and `class_smartboard_state` is already in the publication with full replica identity, and `StudentSmartBoardPage` already listens to `classes` UPDATE, so the student page unlocks instantly when the pill is toggled.
-- No changes to sync payloads, board state, or student editing rights.
-
-## Verification
-
-Toggle the pill on the teacher board and confirm the student tab flips from the placeholder to the live mirror without a refresh; toggle back and confirm it returns to the placeholder.
+### Technical notes
+- I will not change unrelated SmartBoard UI layout or assessment/game boards.
+- I will not delete database tables or columns.
+- If database permissions are still blocking student reads after the frontend rebuild, I will add only an additive backend migration for the class SmartBoard policies/publication.
