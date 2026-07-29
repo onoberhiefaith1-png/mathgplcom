@@ -16,6 +16,7 @@
 // one is never revived and never overwritten.
 
 import { supabase } from "@/integrations/supabase/client";
+import { freezeTaskResults } from "@/lib/reports/progressChart";
 
 export type AssignmentMode = "assignment" | "adventure";
 export type AssignmentStatus = "active" | "archived";
