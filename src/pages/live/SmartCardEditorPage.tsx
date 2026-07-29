@@ -126,19 +126,20 @@ const SmartCardEditorPage = () => {
   };
 
   const copyCard = async () => {
-    if (!url) return;
-    await navigator.clipboard?.writeText(`${title}\n${url}`);
+    if (!link) return;
+    await navigator.clipboard?.writeText(`${title}\n${link}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
 
   const shareCard = async () => {
-    if (!url) return;
+    if (!link) return;
     if (navigator.share) {
-      try { await navigator.share({ title, text: title, url }); return; } catch { /* cancelled */ }
+      try { await navigator.share({ title, text: title, url: link }); return; } catch { /* cancelled */ }
     }
     await copyCard();
   };
+
 
   if (loading || !pres || !card) {
     return (
