@@ -1732,27 +1732,53 @@ function DocumentEditorInner({
         </button>
         <button
           type="button"
-          onClick={() => setAnimateMode((v) => !v)}
-          title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
+          onClick={() => setConversionOpen(true)}
+          title="Conversion — convert between units"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <ArrowLeftRight className="h-4 w-4" /> Conversion
+        </button>
+        {/* Archived / advanced tools — kept available, off the main toolbar. */}
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((v) => !v)}
+          title="Advanced tools — summation, animate, AI, symbols"
+          aria-pressed={advancedOpen}
           className={cn(
             "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-            animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+            advancedOpen ? "bg-foreground/10" : "hover:bg-foreground/10",
           )}
         >
-          <Film className="h-4 w-4" /> Animate
+          <Archive className="h-4 w-4" /> Advanced
         </button>
-        {animateMode && (
-          <button
-            type="button"
-            onClick={captureStep}
-            title="Capture the current selection (or current block) as a new animation frame"
-            className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
-          >
-            <Camera className="h-4 w-4" /> Capture Step
-          </button>
+        {advancedOpen && (
+          <>
+            <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
+            <button
+              type="button"
+              onClick={() => setAnimateMode((v) => !v)}
+              title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
+              className={cn(
+                "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+                animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+              )}
+            >
+              <Film className="h-4 w-4" /> Animate
+            </button>
+            {animateMode && (
+              <button
+                type="button"
+                onClick={captureStep}
+                title="Capture the current selection (or current block) as a new animation frame"
+                className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
+              >
+                <Camera className="h-4 w-4" /> Capture Step
+              </button>
+            )}
+            <GlobalAiButton onGenerate={handleGlobalAi} />
+            <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
+          </>
         )}
-        <GlobalAiButton onGenerate={handleGlobalAi} />
-        <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
         <button
           type="button"
           onClick={() => setEmojiPanelOpen((v) => !v)}
