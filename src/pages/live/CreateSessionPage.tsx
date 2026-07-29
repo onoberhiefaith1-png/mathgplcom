@@ -105,8 +105,8 @@ const CreateSessionPage = () => {
     }
 
     let startsAt: string | null = null;
-    if (date && time) {
-      const local = new Date(`${date}T${time}`);
+    if (dateObj && hour !== "" && minute !== "") {
+      const local = new Date(`${toISODate(dateObj)}T${hour}:${minute}`);
       if (!Number.isNaN(local.getTime())) startsAt = local.toISOString();
     }
 
@@ -117,7 +117,7 @@ const CreateSessionPage = () => {
         description,
         notebookId: notebookId || null,
         startsAt,
-        durationMinutes: Math.max(5, Number(duration) || 60),
+        durationMinutes: Math.max(5, Math.round((Number(durationHours) || 1) * 60)),
         timeZone,
         visibility,
         ownerId: userData.user.id,
