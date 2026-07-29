@@ -48,9 +48,11 @@ const CreateSessionPage = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [notebookId, setNotebookId] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [duration, setDuration] = useState(60);
+  const [dateObj, setDateObj] = useState<Date | undefined>(undefined);
+  const [hour, setHour] = useState("");
+  const [minute, setMinute] = useState("");
+  const [durationHours, setDurationHours] = useState(1);
+  const [dateOpen, setDateOpen] = useState(false);
   const [timeZone, setTimeZone] = useState(TIME_ZONES[0]);
   const [visibility, setVisibility] = useState<SessionVisibility>("private");
   const [notebooks, setNotebooks] = useState<NotebookOption[]>([]);
