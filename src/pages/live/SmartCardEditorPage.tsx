@@ -17,9 +17,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
-  cardUrl, loadSmartCard, publishSmartCard, saveSmartCard,
-  type CardPresentation, type SmartCardRow,
+  cardUrl, shareUrl, fetchCardStats, formatDuration,
+  loadSmartCard, publishSmartCard, saveSmartCard,
+  type CardPresentation, type CardStats, type SmartCardRow,
 } from "@/lib/smartcards/smartCards";
+
 
 const STEP = 0.1;
 const clamp = (v: number) => Math.max(0.3, Math.min(4, Number(v.toFixed(2))));
@@ -101,6 +103,19 @@ const SmartCardEditorPage = () => {
 
   const scenes = useMemo(() => card?.geometry?.scenes ?? [], [card]);
   const url = card?.slug ? cardUrl(card.slug) : "";
+  // Shared links go through the preview endpoint so social platforms show a
+  // per-card rich preview; it lands on the same public card.
+  const link = card?.slug ? shareUrl(card.slug) : "";
+
+  // Per-card stats for the teacher (published cards only).
+  const [stats, setStats] = useState<CardStats | null>(null);
+  useEffect(() => {
+    if (!card?.id || !card.published) { setStats(null); return; }
+    let alive = true;
+    void fetchCardStats(card.id).then((s) => { if (alive) setStats(s); });
+    return () => { alive = false; };
+  }, [card?.id, card?.published]);
+
 
   const onPublish = async () => {
     if (!card || !pres) return;
@@ -126,19 +141,20 @@ const SmartCardEditorPage = () => {
   };
 
   const copyCard = async () => {
-    if (!url) return;
-    await navigator.clipboard?.writeText(`${title}\n${url}`);
+    if (!link) return;
+    await navigator.clipboard?.writeText(`${title}\n${link}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
 
   const shareCard = async () => {
-    if (!url) return;
+    if (!link) return;
     if (navigator.share) {
-      try { await navigator.share({ title, text: title, url }); return; } catch { /* cancelled */ }
+      try { await navigator.share({ title, text: title, url: link }); return; } catch { /* cancelled */ }
     }
     await copyCard();
   };
+
 
   if (loading || !pres || !card) {
     return (
@@ -308,13 +324,61 @@ const SmartCardEditorPage = () => {
           </div>
 
           {card.published && (
-            <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4 text-xs">
+            <div className="space-y-2 rounded-xl border border-green-500/30 bg-green-500/5 p-4 text-xs">
               <p className="font-semibold text-green-700">Smart Card Published</p>
-              <p className="mt-1 text-muted-foreground">
-                Share it anywhere — supported platforms show the card preview automatically.
+              <p className="text-muted-foreground">
+                Share it anywhere — the link shows this card's title and question as a rich preview.
+              </p>
+              <p className="break-all rounded-md bg-background/70 p-2 font-mono text-[10px] text-muted-foreground">
+                {url}
               </p>
             </div>
           )}
+
+          {card.published && (
+            <div className="space-y-3 rounded-xl border bg-card p-4 text-xs">
+              <span className="text-xs font-medium text-muted-foreground">Card stats</span>
+              {!stats ? (
+                <p className="text-muted-foreground">Loading…</p>
+              ) : stats.attempts === 0 ? (
+                <p className="text-muted-foreground">No one has completed this card yet.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-muted p-2">
+                      <p className="text-[10px] uppercase text-muted-foreground">Players</p>
+                      <p className="text-sm font-semibold tabular-nums">{stats.players}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted p-2">
+                      <p className="text-[10px] uppercase text-muted-foreground">Full marks</p>
+                      <p className="text-sm font-semibold tabular-nums">{stats.attempts}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted p-2">
+                      <p className="text-[10px] uppercase text-muted-foreground">Fastest</p>
+                      <p className="text-sm font-semibold tabular-nums">
+                        {stats.bestMs != null ? formatDuration(stats.bestMs) : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted p-2">
+                      <p className="text-[10px] uppercase text-muted-foreground">Median</p>
+                      <p className="text-sm font-semibold tabular-nums">
+                        {stats.medianMs != null ? formatDuration(stats.medianMs) : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <ol className="divide-y rounded-lg border">
+                    {stats.leaderboard.map((e, i) => (
+                      <li key={`${e.displayName}-${e.completedAt}-${i}`} className="flex items-center justify-between px-2 py-1.5">
+                        <span className="truncate">{i + 1}. {e.displayName}</span>
+                        <span className="tabular-nums text-muted-foreground">{formatDuration(e.durationMs)}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+            </div>
+          )}
+
         </aside>
       </div>
     </div>

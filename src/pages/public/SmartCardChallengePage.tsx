@@ -10,7 +10,7 @@ import PresentationView from "@/components/smartboard/PresentationView";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  fetchPublicCard, formatDuration, loadRememberedIdentity, newParticipantKey,
+  fetchPublicCard, forgetIdentity, formatDuration, loadRememberedIdentity, newParticipantKey,
   rememberIdentity, reportProgress,
   type CardIdentity, type LeaderboardEntry, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
@@ -155,20 +155,31 @@ const SmartCardChallengePage = () => {
     );
   }
 
+
   return (
     <div className="min-h-screen bg-background">
       <div className="flex flex-wrap items-center gap-3 border-b bg-card px-4 py-2 text-xs">
         <span className="font-semibold">{payload.card.title}</span>
-        <span className="text-muted-foreground">{identity.displayName}</span>
+        <span className="text-muted-foreground">
+          {identity.displayName}
+          {identity.remembered && <span className="ml-1 text-[10px] uppercase tracking-wide">· profile</span>}
+        </span>
         <span className="rounded-full bg-muted px-2 py-0.5 tabular-nums">{percent}%</span>
         {qualified && (
           <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-green-700">
             <Trophy className="h-3 w-3" /> Leaderboard qualified
           </span>
         )}
-        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => void poll()}>
-          Refresh score
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <Button size="sm" variant="ghost" onClick={() => void poll()}>Refresh score</Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => { forgetIdentity(); setIdentity(null); setGuestName(""); }}
+          >
+            Switch player
+          </Button>
+        </div>
       </div>
 
       <PresentationView
@@ -190,15 +201,27 @@ const SmartCardChallengePage = () => {
             <Trophy className="h-4 w-4" /> Leaderboard — 100% only, fastest first
           </h2>
           <ol className="divide-y rounded-xl border bg-card text-sm">
-            {leaderboard.map((e, i) => (
-              <li key={`${e.displayName}-${e.completedAt}-${i}`} className="flex items-center justify-between px-3 py-2">
-                <span>{i + 1}. {e.displayName}</span>
-                <span className="tabular-nums text-muted-foreground">{formatDuration(e.durationMs)}</span>
-              </li>
-            ))}
+            {leaderboard.map((e, i) => {
+              const mine = e.displayName === identity.displayName;
+              const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : null;
+              return (
+                <li
+                  key={`${e.displayName}-${e.completedAt}-${i}`}
+                  className={`flex items-center justify-between px-3 py-2 ${mine ? "bg-primary/5 font-medium" : ""}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-6 tabular-nums text-muted-foreground">{medal ?? i + 1}</span>
+                    {e.displayName}
+                    {mine && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">you</span>}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">{formatDuration(e.durationMs)}</span>
+                </li>
+              );
+            })}
           </ol>
         </div>
       )}
+
 
       <footer className="pb-8 text-center text-xs text-muted-foreground">
         <a href="/live" className="underline underline-offset-2">Explore more with MathGPL Life</a>
