@@ -149,7 +149,7 @@ const StudentSmartBoardPage = () => {
   // Live mirror of the teacher's real board (view-only unless made Active Student).
   if (accessEnabled && activeNotebookId) {
     return (
-      <div className="relative">
+      <div className="relative h-screen min-h-screen w-screen overflow-hidden bg-background">
         <Link
           to={`/student/class/${classId}`}
           aria-label="Back to class"
