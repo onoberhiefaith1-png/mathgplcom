@@ -208,9 +208,64 @@ export async function listPublishableGames(): Promise<{ id: string; title: strin
   return (data ?? []) as { id: string; title: string }[];
 }
 
+/* ───────────── Game Challenge mapping (MathGPL Live only) ───────────── */
+
+export interface GameBarSlot {
+  id: string;
+  label: string;
+  index: number;
+  /** Bar 1 is always reserved for the event countdown. */
+  isTimeBar: boolean;
+  /** Title of the Smart Card already using this bar (if any). */
+  takenBy: string | null;
+  takenByCardId: string | null;
+}
+
+/** Every progress bar in a game, in canvas order, with its current purpose. */
+export async function listGameProgressBars(
+  gameId: string,
+  cardId?: string,
+): Promise<GameBarSlot[]> {
+  const [{ data: game }, { data: cards }] = await Promise.all([
+    supabase.from("games").select("canvas").eq("id", gameId).maybeSingle(),
+    supabase
+      .from("smart_cards")
+      .select("id, title, game_progress_element_id")
+      .eq("game_id", gameId)
+      .eq("publish_mode", "game"),
+  ]);
+  const taken = new Map<string, { id: string; title: string }>();
+  for (const c of (cards ?? []) as any[]) {
+    if (c.game_progress_element_id && c.id !== cardId) {
+      taken.set(c.game_progress_element_id, { id: c.id, title: c.title });
+    }
+  }
+  const canvas = normalizeCanvas((game as any)?.canvas);
+  const bars: GameBarSlot[] = [];
+  for (const scene of canvas.scenes) {
+    for (const el of scene.elements) {
+      if (el.kind !== "progress_bar") continue;
+      const owner = taken.get(el.id) ?? null;
+      bars.push({
+        id: el.id,
+        label: (el as any).label || `Progress Bar ${bars.length + 1}`,
+        index: bars.length,
+        isTimeBar: bars.length === 0,
+        takenBy: owner?.title ?? null,
+        takenByCardId: owner?.id ?? null,
+      });
+    }
+  }
+  return bars.map((b, i) => ({ ...b, index: i, isTimeBar: i === 0 }));
+}
+
+/** Marks a player must reach to qualify. */
+export const requiredMarksFor = (totalMarks: number, passPct: number) =>
+  Math.max(1, Math.round((Math.max(0, totalMarks) * Math.max(1, Math.min(100, passPct))) / 100));
+
 /** Game Challenge: attach the card's game to the hidden holder class and point
- *  every progress bar in that game at this card's assessment, so a public
- *  visitor fills the bars by solving the card. */
+ *  ONLY the teacher-chosen progress bar at this card's assessment. Bar 1 is
+ *  reserved as the event Time Bar and never carries a question. */
 async function linkGameChallenge(input: {
   gameId: string;
   classId: string;
@@ -218,6 +273,8 @@ async function linkGameChallenge(input: {
   notebookId: string | null;
   sectionId: string | null;
   totalMarks: number;
+  passMarkPct: number;
+  progressElementId: string | null;
 }): Promise<void> {
   const { gameId, classId, assessmentId } = input;
 
@@ -226,33 +283,62 @@ async function linkGameChallenge(input: {
     { onConflict: "class_id,game_id" },
   );
 
-  const { data: game } = await supabase
-    .from("games")
-    .select("canvas")
-    .eq("id", gameId)
-    .maybeSingle();
-  const canvas = normalizeCanvas((game as any)?.canvas);
-  const barIds: string[] = [];
-  for (const scene of canvas.scenes) {
-    for (const el of scene.elements) if (el.kind === "progress_bar") barIds.push(el.id);
-  }
-  if (barIds.length === 0) throw new Error("game_has_no_progress_bar");
+  const bars = await listGameProgressBars(gameId);
+  if (bars.length === 0) throw new Error("game_has_no_progress_bar");
+  if (bars.length < 2) throw new Error("game_has_no_question_bar");
 
-  // A Smart Card is a single challenge: every bar is fed by the same board.
-  await supabase.from("class_game_boards").delete().eq("class_id", classId).eq("game_id", gameId);
-  await supabase.from("class_game_boards").insert(
-    barIds.map((barId) => ({
+  const timeBar = bars[0];
+  const questionBars = bars.slice(1);
+  const chosen = questionBars.find((b) => b.id === input.progressElementId);
+  if (!chosen) throw new Error("no_progress_bar_selected");
+
+  // Bar 1 is the countdown: make sure a Time Bar row exists on it.
+  const { data: tb } = await supabase
+    .from("game_time_bars" as never)
+    .select("game_id, progress_element_id")
+    .eq("game_id", gameId)
+    .maybeSingle();
+  if (!tb) {
+    await supabase.from("game_time_bars" as never).insert({
+      game_id: gameId,
+      progress_element_id: timeBar.id,
+      duration_seconds: 600,
+      default_duration_seconds: 600,
+    } as never);
+  } else if ((tb as any).progress_element_id !== timeBar.id) {
+    await supabase
+      .from("game_time_bars" as never)
+      .update({ progress_element_id: timeBar.id } as never)
+      .eq("game_id", gameId);
+  }
+
+  // This card owns exactly one bar; other cards keep theirs.
+  await supabase
+    .from("class_game_boards")
+    .delete()
+    .eq("class_id", classId)
+    .eq("game_id", gameId)
+    .eq("assessment_id", assessmentId);
+  await supabase
+    .from("class_game_boards")
+    .delete()
+    .eq("class_id", classId)
+    .eq("game_id", gameId)
+    .eq("progress_element_id", timeBar.id);
+  await supabase.from("class_game_boards").upsert(
+    {
       class_id: classId,
       game_id: gameId,
-      progress_element_id: barId,
+      progress_element_id: chosen.id,
       assessment_id: assessmentId,
       notebook_id: input.notebookId,
       section_id: input.sectionId,
-      required_marks: input.totalMarks,
+      required_marks: requiredMarksFor(input.totalMarks, input.passMarkPct),
       question_keys: [],
-    })) as never,
+    } as never,
   );
 }
+
 
 /** Publish: build the public challenge and mark the card live. */
 export async function publishSmartCard(card: SmartCardRow): Promise<SmartCardRow | null> {
