@@ -207,25 +207,51 @@ function adventureQuota(task: RawTask, memberCount: number): number {
   return task.target / memberCount;
 }
 
-function percentFor(task: RawTask, dataset: TaskDataset, studentId: string): { percent: number; frozen: boolean } {
-  const snap = dataset.frozen.get(task.id)?.get(studentId);
-  if (typeof snap === "number") return { percent: Math.max(0, Math.min(100, snap)), frozen: true };
+interface Measure { percent: number; frozen: boolean; score: number; target: number }
+
+function percentFor(task: RawTask, dataset: TaskDataset, studentId: string): Measure {
   const score = studentScore(task, dataset, studentId);
   const target = task.mode === "adventure" ? adventureQuota(task, dataset.members.length) : task.target;
-  return { percent: pct(score, target), frozen: false };
+  const snap = dataset.frozen.get(task.id)?.get(studentId);
+  if (typeof snap === "number") {
+    return { percent: Math.max(0, Math.min(100, snap)), frozen: true, score, target };
+  }
+  return { percent: pct(score, target), frozen: false, score, target };
 }
 
-function toBar(task: RawTask, percent: number, frozen: boolean): TaskBar {
+function toBar(task: RawTask, m: Measure): TaskBar {
   return {
     taskId: task.id,
     mode: task.mode,
     fullTitle: task.title,
     abbreviation: abbreviateTitle(task.title),
-    percent: Math.round(percent),
+    percent: Math.round(m.percent),
     startedAt: task.startedAt,
     dueAt: task.dueAt,
-    frozen,
+    frozen: m.frozen,
+    score: Math.round(m.score * 10) / 10,
+    target: Math.round(m.target * 10) / 10,
   };
+}
+
+const emptyMeasure = (task: RawTask): Measure => ({ percent: 0, frozen: false, score: 0, target: task.target });
+
+/** Average every student's measure into one class-level measure. */
+function classMeasure(task: RawTask, dataset: TaskDataset): Measure {
+  const n = dataset.members.length;
+  if (n === 0) return emptyMeasure(task);
+  let percent = 0;
+  let score = 0;
+  let target = 0;
+  let frozen = false;
+  for (const m of dataset.members) {
+    const r = percentFor(task, dataset, m.user_id);
+    percent += r.percent;
+    score += r.score;
+    target += r.target;
+    frozen = frozen || r.frozen;
+  }
+  return { percent: percent / n, frozen, score: score / n, target: target / n };
 }
 
 export async function loadClassMembers(classId: string): Promise<ClassMember[]> {
@@ -239,27 +265,13 @@ export async function loadClassMembers(classId: string): Promise<ClassMember[]> 
 /** One bar per task, for a single student. */
 export async function loadStudentTaskBars(classId: string, studentId: string): Promise<TaskBar[]> {
   const dataset = await loadDataset(classId);
-  return dataset.tasks.map((t) => {
-    const { percent, frozen } = percentFor(t, dataset, studentId);
-    return toBar(t, percent, frozen);
-  });
+  return dataset.tasks.map((t) => toBar(t, percentFor(t, dataset, studentId)));
 }
 
 /** One bar per task, averaged across every class member. */
 export async function loadClassTaskBars(classId: string): Promise<TaskBar[]> {
   const dataset = await loadDataset(classId);
-  const n = dataset.members.length;
-  return dataset.tasks.map((t) => {
-    if (n === 0) return toBar(t, 0, false);
-    let sum = 0;
-    let anyFrozen = false;
-    for (const m of dataset.members) {
-      const { percent, frozen } = percentFor(t, dataset, m.user_id);
-      sum += percent;
-      anyFrozen = anyFrozen || frozen;
-    }
-    return toBar(t, sum / n, anyFrozen);
-  });
+  return dataset.tasks.map((t) => toBar(t, classMeasure(t, dataset)));
 }
 
 /** Both views in one round trip, used by the teacher Report page. */
@@ -269,23 +281,11 @@ export async function loadReportData(classId: string): Promise<{
   barsByStudent: Map<string, TaskBar[]>;
 }> {
   const dataset = await loadDataset(classId);
-  const n = dataset.members.length;
   const barsByStudent = new Map<string, TaskBar[]>();
   for (const m of dataset.members) {
-    barsByStudent.set(
-      m.user_id,
-      dataset.tasks.map((t) => {
-        const { percent, frozen } = percentFor(t, dataset, m.user_id);
-        return toBar(t, percent, frozen);
-      }),
-    );
+    barsByStudent.set(m.user_id, dataset.tasks.map((t) => toBar(t, percentFor(t, dataset, m.user_id))));
   }
-  const classBars = dataset.tasks.map((t) => {
-    if (n === 0) return toBar(t, 0, false);
-    let sum = 0;
-    for (const m of dataset.members) sum += percentFor(t, dataset, m.user_id).percent;
-    return toBar(t, sum / n, false);
-  });
+  const classBars = dataset.tasks.map((t) => toBar(t, classMeasure(t, dataset)));
   return { members: dataset.members, classBars, barsByStudent };
 }
 
