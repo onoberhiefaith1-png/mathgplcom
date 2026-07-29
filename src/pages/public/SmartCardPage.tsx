@@ -39,8 +39,13 @@ const SmartCardPage = () => {
   const [params] = useSearchParams();
   // The creator testing their own card is a preview run: fully functional
   // (marking, scoring, timing, reasoning) but excluded from all analytics.
-  const creator = params.get("creator") === "1";
+  // Creator view is detected from the signed-in user vs the card owner, so
+  // the teacher never has to add ?creator=1 by hand. Visitors always get the
+  // plain public dashboard.
+  const [isOwner, setIsOwner] = useState(false);
+  const creator = isOwner;
   const preview = creator || params.get("preview") === "1";
+
   const navigate = useNavigate();
   const [payload, setPayload] = useState<(PublicCardPayload & { stats: CardStatsPublic }) | null>(null);
   const [stats, setStats] = useState<CardStatsPublic | null>(null);
@@ -74,8 +79,14 @@ const SmartCardPage = () => {
       setPayload(p);
       setStats(p?.stats ?? null);
       setLoading(false);
+      // Creator tools unlock only for the signed-in owner of this card.
+      const owner = p?.card?.ownerId ?? null;
+      if (!owner) { setIsOwner(false); return; }
+      const { data } = await supabase.auth.getUser();
+      setIsOwner(Boolean(data.user?.id) && data.user!.id === owner);
     })();
   }, [slug]);
+
 
 
   const beat = useCallback(async () => {
