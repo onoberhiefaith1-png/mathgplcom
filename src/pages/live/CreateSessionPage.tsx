@@ -1,14 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Copy, Check } from "lucide-react";
+import { ArrowLeft, Copy, Check, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LiveSession, SessionVisibility, createSession } from "@/lib/live/sessions";
 
 type NotebookOption = { id: string; label: string };
+
+/** Readable, high-contrast field surface (dark inputs were unreadable). */
+const FIELD =
+  "bg-muted text-foreground border-border placeholder:text-muted-foreground focus-visible:ring-primary";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
+const MINUTES = Array.from({ length: 60 }, (_, i) => pad(i));
+const toISODate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** 0.25 → 2 hours in quarter-hour steps, shown as decimal hours. */
+const DURATION_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 0.25);
 
 const TIME_ZONES: string[] = (() => {
   const local = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -35,9 +48,11 @@ const CreateSessionPage = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [notebookId, setNotebookId] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [duration, setDuration] = useState(60);
+  const [dateObj, setDateObj] = useState<Date | undefined>(undefined);
+  const [hour, setHour] = useState("");
+  const [minute, setMinute] = useState("");
+  const [durationHours, setDurationHours] = useState(1);
+  const [dateOpen, setDateOpen] = useState(false);
   const [timeZone, setTimeZone] = useState(TIME_ZONES[0]);
   const [visibility, setVisibility] = useState<SessionVisibility>("private");
   const [notebooks, setNotebooks] = useState<NotebookOption[]>([]);
@@ -90,8 +105,8 @@ const CreateSessionPage = () => {
     }
 
     let startsAt: string | null = null;
-    if (date && time) {
-      const local = new Date(`${date}T${time}`);
+    if (dateObj && hour !== "" && minute !== "") {
+      const local = new Date(`${toISODate(dateObj)}T${hour}:${minute}`);
       if (!Number.isNaN(local.getTime())) startsAt = local.toISOString();
     }
 
@@ -102,7 +117,7 @@ const CreateSessionPage = () => {
         description,
         notebookId: notebookId || null,
         startsAt,
-        durationMinutes: Math.max(5, Number(duration) || 60),
+        durationMinutes: Math.max(5, Math.round((Number(durationHours) || 1) * 60)),
         timeZone,
         visibility,
         ownerId: userData.user.id,
@@ -130,7 +145,7 @@ const CreateSessionPage = () => {
           <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
             <div className="space-y-2">
               <Label htmlFor="title">Session Title</Label>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" />
+              <Input id="title" className={FIELD} value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" />
             </div>
 
             <div className="space-y-2">
@@ -139,7 +154,7 @@ const CreateSessionPage = () => {
                 id="notebook"
                 value={notebookId}
                 onChange={(e) => setNotebookId(e.target.value)}
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
               >
                 <option value="">No lesson note attached</option>
                 {notebooks.map((n) => (
@@ -150,41 +165,88 @@ const CreateSessionPage = () => {
 
             <div className="space-y-2">
               <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+              <Textarea id="description" className={FIELD} value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <Label>Date</Label>
+                <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={`flex h-10 w-full items-center justify-between rounded-md border px-3 text-sm ${FIELD}`}
+                    >
+                      <span className={dateObj ? "" : "text-muted-foreground"}>
+                        {dateObj ? dateObj.toLocaleDateString(undefined, { dateStyle: "medium" }) : "Pick a date"}
+                      </span>
+                      <CalendarIcon className="h-4 w-4 opacity-70" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateObj}
+                      onSelect={(d) => { setDateObj(d); setDateOpen(false); }}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="time">Start Time</Label>
-                <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                <Label>Start Time (24h)</Label>
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label="Hour"
+                    value={hour}
+                    onChange={(e) => setHour(e.target.value)}
+                    className={`h-10 w-full rounded-md border px-2 text-sm outline-none focus:border-primary ${FIELD}`}
+                  >
+                    <option value="">HH</option>
+                    {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                  <span className="text-muted-foreground">:</span>
+                  <select
+                    aria-label="Minute"
+                    value={minute}
+                    onChange={(e) => setMinute(e.target.value)}
+                    className={`h-10 w-full rounded-md border px-2 text-sm outline-none focus:border-primary ${FIELD}`}
+                  >
+                    <option value="">MM</option>
+                    {MINUTES.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
-                <Input
+                <Label htmlFor="duration">Duration (hours)</Label>
+                <select
                   id="duration"
-                  type="number"
-                  min={5}
-                  step={5}
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                />
+                  value={durationHours}
+                  onChange={(e) => setDurationHours(Number(e.target.value))}
+                  className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
+                >
+                  {DURATION_OPTIONS.map((h) => (
+                    <option key={h} value={h}>{h.toFixed(2)} hours</option>
+                  ))}
+                </select>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="tz">Time Zone</Label>
                 <select
                   id="tz"
                   value={timeZone}
                   onChange={(e) => setTimeZone(e.target.value)}
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                  className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
                 >
                   {TIME_ZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
                 </select>
               </div>
             </div>
+
 
             <div className="space-y-2">
               <Label>Visibility</Label>
