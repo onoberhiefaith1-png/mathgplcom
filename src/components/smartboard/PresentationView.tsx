@@ -46,6 +46,7 @@ import { WritingSurface, WritingFilterDefs } from "./WritingSurface";
 import { Inked } from "./Inked";
 import { SettingsSheet } from "./SettingsSheet";
 import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
+import { graphemes } from "@/lib/text/graphemes";
 
 import { StylesRail } from "./StylesRail";
 import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
@@ -1390,7 +1391,7 @@ const PresentationView = ({
       // click must always produce visible ink, so fall back to writing the
       // raw text as plain character rows.
       mirrored = paragraphs.map((p) => ({
-        row: [...p].map((ch) => mkChar(ch)),
+        row: graphemes(p).map((ch) => mkChar(ch)),
         signature: p,
         ok: true,
       }));
