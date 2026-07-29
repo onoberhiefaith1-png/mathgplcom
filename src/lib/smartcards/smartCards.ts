@@ -69,6 +69,16 @@ export const generateSlug = () =>
 
 export const cardUrl = (slug: string) => `${window.location.origin}/c/${slug}`;
 
+/** Share link that server-renders per-card social previews before landing on
+ *  the same card. Static SPA heads can't do this, so shares go through the
+ *  public preview endpoint. */
+export const shareUrl = (slug: string) => {
+  const base = import.meta.env.VITE_SUPABASE_URL;
+  if (!base) return cardUrl(slug);
+  return `${base}/functions/v1/smart-card-preview?slug=${encodeURIComponent(slug)}&origin=${encodeURIComponent(window.location.origin)}`;
+};
+
+
 export const hydrateCard = (row: Record<string, unknown>): SmartCardRow => ({
   ...(row as unknown as SmartCardRow),
   presentation: hydratePresentation((row as any).presentation),
