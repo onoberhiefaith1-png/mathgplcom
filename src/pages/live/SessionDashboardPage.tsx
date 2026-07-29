@@ -97,14 +97,14 @@ const SessionDashboardPage = () => {
   const joinLink = `${window.location.origin}/live/join/${session.session_code}`;
 
   const tiles: { label: string; icon: typeof Users; to: string }[] = [
-    { label: "Participants", icon: Users, to: `/teaching-hub/classes/${classId}/students` },
-    { label: "Lesson Notes", icon: BookOpen, to: `/teaching-hub/classes/${classId}/lesson-notes` },
-    { label: "SmartBoard", icon: Presentation, to: `/teaching-hub/classes/${classId}/smartboard` },
-    { label: "Assignments", icon: ClipboardList, to: `/teaching-hub/classes/${classId}/assignments` },
-    { label: "Adventure", icon: Compass, to: `/teaching-hub/classes/${classId}/adventures` },
-    { label: "Assessment", icon: Gamepad2, to: `/teaching-hub/classes/${classId}/games` },
-    { label: "Gallery", icon: ImageIcon, to: `/teaching-hub/classes/${classId}/gallery` },
-    { label: "Reports", icon: BarChart3, to: `/teaching-hub/classes/${classId}/report` },
+    { label: "Audience", icon: Users, to: `/live/workspace/${classId}/students` },
+    { label: "Lesson Notes", icon: BookOpen, to: `/live/workspace/${classId}/lesson-notes` },
+    { label: "SmartBoard", icon: Presentation, to: `/live/workspace/${classId}/smartboard` },
+    { label: "Challenges", icon: ClipboardList, to: `/live/workspace/${classId}/assignments` },
+    { label: "Game Challenges", icon: Compass, to: `/live/workspace/${classId}/adventures` },
+    { label: "Assessment", icon: Gamepad2, to: `/live/workspace/${classId}/games` },
+    { label: "Gallery", icon: ImageIcon, to: `/live/workspace/${classId}/gallery` },
+    { label: "Reports", icon: BarChart3, to: `/live/workspace/${classId}/report` },
   ];
 
   return (
