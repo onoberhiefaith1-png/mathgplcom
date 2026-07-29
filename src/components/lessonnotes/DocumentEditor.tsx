@@ -74,6 +74,7 @@ import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions"
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { EmojiPanel } from "./EmojiPanel";
+import { ConversionPanel } from "./ConversionPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   PAPER_LABELS, PAPER_SIZES,
@@ -85,7 +86,7 @@ import {
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
   ChevronUp, ChevronDown, Shapes, Table as TableIcon, LineChart, Calculator,
-  Film, Camera, Boxes,
+  Film, Camera, Boxes, Archive, ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -1299,6 +1300,10 @@ function DocumentEditorInner({
   // Emoji Library dock panel (teacher-managed content).
   const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
 
+  // Conversion tool + archived "Advanced tools" group.
+  const [conversionOpen, setConversionOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
 
   const insertSymbolText = (s: string) => {
     editor?.chain().focus().insertContent(s).run();
@@ -1652,8 +1657,14 @@ function DocumentEditorInner({
         <Btn active={editor?.isActive("bulletList")} onClick={() => editor?.chain().focus().toggleBulletList().run()} title="Bullet list"><List className="h-4 w-4" /></Btn>
         <Btn active={editor?.isActive("orderedList")} onClick={() => editor?.chain().focus().toggleOrderedList().run()} title="Numbered list"><ListOrdered className="h-4 w-4" /></Btn>
         <Divider />
-        <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
-        <Btn onClick={() => setAssetLibOpen(true)} title="Asset Library — browse all symbols & structures"><LayoutGrid className="h-4 w-4" /></Btn>
+        <button
+          type="button"
+          onClick={() => setAssetLibOpen(true)}
+          title="Asset Library — browse all symbols & structures"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <LayoutGrid className="h-4 w-4" /> Asset Library
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="p-1.5 rounded hover:bg-foreground/10 inline-flex items-center gap-1 text-xs" title="Add a section">
@@ -1726,27 +1737,53 @@ function DocumentEditorInner({
         </button>
         <button
           type="button"
-          onClick={() => setAnimateMode((v) => !v)}
-          title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
+          onClick={() => setConversionOpen(true)}
+          title="Conversion — convert between units"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <ArrowLeftRight className="h-4 w-4" /> Conversion
+        </button>
+        {/* Archived / advanced tools — kept available, off the main toolbar. */}
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((v) => !v)}
+          title="Advanced tools — summation, animate, AI, symbols"
+          aria-pressed={advancedOpen}
           className={cn(
             "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-            animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+            advancedOpen ? "bg-foreground/10" : "hover:bg-foreground/10",
           )}
         >
-          <Film className="h-4 w-4" /> Animate
+          <Archive className="h-4 w-4" /> Advanced
         </button>
-        {animateMode && (
-          <button
-            type="button"
-            onClick={captureStep}
-            title="Capture the current selection (or current block) as a new animation frame"
-            className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
-          >
-            <Camera className="h-4 w-4" /> Capture Step
-          </button>
+        {advancedOpen && (
+          <>
+            <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
+            <button
+              type="button"
+              onClick={() => setAnimateMode((v) => !v)}
+              title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
+              className={cn(
+                "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+                animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+              )}
+            >
+              <Film className="h-4 w-4" /> Animate
+            </button>
+            {animateMode && (
+              <button
+                type="button"
+                onClick={captureStep}
+                title="Capture the current selection (or current block) as a new animation frame"
+                className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
+              >
+                <Camera className="h-4 w-4" /> Capture Step
+              </button>
+            )}
+            <GlobalAiButton onGenerate={handleGlobalAi} />
+            <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
+          </>
         )}
-        <GlobalAiButton onGenerate={handleGlobalAi} />
-        <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
         <button
           type="button"
           onClick={() => setEmojiPanelOpen((v) => !v)}
@@ -1873,6 +1910,7 @@ function DocumentEditorInner({
       />
       <AtCommandMenu editor={editor} state={atState} onClose={() => setAtState({ active: false, query: "", from: 0, to: 0, coords: null })} />
       <AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />
+      <ConversionPanel open={conversionOpen} onOpenChange={setConversionOpen} onInsert={insertSymbolText} />
       <MatrixToolbar editor={editor} />
       <GeometryAiPanel />
       <GeometryToolbox />
