@@ -20,15 +20,23 @@ const SmartBoardPage = () => {
 
   useEffect(() => {
     if (!classId || !notebookId) return;
-    // Teacher-side broadcast: upsert the active notebook for the class
-    supabase
-      .from("class_smartboard_state")
-      .upsert(
-        { class_id: classId, notebook_id: notebookId, updated_at: new Date().toISOString() },
-        { onConflict: "class_id" },
-      )
-      .then(() => {});
+    // Teacher-side broadcast: upsert the active notebook for the class and open
+    // student access, so launching a class board always reaches students. The
+    // teacher can stop sharing at any time via the board's access pill.
+    void (async () => {
+      await supabase
+        .from("class_smartboard_state")
+        .upsert(
+          { class_id: classId, notebook_id: notebookId, updated_at: new Date().toISOString() },
+          { onConflict: "class_id" },
+        );
+      await supabase
+        .from("classes")
+        .update({ smartboard_visibility: "student_access_enabled" })
+        .eq("id", classId);
+    })();
   }, [classId, notebookId]);
+
 
   if (!notebookId) return <SmartboardShelf />;
   // viewer flag is currently informational; PresentationView already renders
