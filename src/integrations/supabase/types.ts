@@ -2284,6 +2284,7 @@ export type Database = {
           class_id: string | null
           created_at: string
           difficulty: string | null
+          game_id: string | null
           geometry: Json | null
           id: string
           notebook_id: string | null
@@ -2306,6 +2307,7 @@ export type Database = {
           class_id?: string | null
           created_at?: string
           difficulty?: string | null
+          game_id?: string | null
           geometry?: Json | null
           id?: string
           notebook_id?: string | null
@@ -2328,6 +2330,7 @@ export type Database = {
           class_id?: string | null
           created_at?: string
           difficulty?: string | null
+          game_id?: string | null
           geometry?: Json | null
           id?: string
           notebook_id?: string | null
@@ -2345,7 +2348,15 @@ export type Database = {
           total_marks?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "smart_cards_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
