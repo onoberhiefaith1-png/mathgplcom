@@ -57,12 +57,13 @@ const ClassDashboardPage = () => {
     }
   };
   const tiles: { label: string; icon: typeof Users; to: string }[] = [
-    { label: "Students", icon: Users, to: `${classRoot()}/${classId}/students` },
+    { label: productTerms().people, icon: Users, to: `${classRoot()}/${classId}/students` },
     { label: "Lesson Notes", icon: BookOpen, to: `${classRoot()}/${classId}/lesson-notes` },
     { label: "SmartBoard", icon: Presentation, to: `${classRoot()}/${classId}/smartboard` },
-    { label: "Assignments", icon: ClipboardList, to: `${classRoot()}/${classId}/assignments` },
-    { label: "Adventures", icon: Compass, to: `${classRoot()}/${classId}/adventures` },
+    { label: productTerms().assignments, icon: ClipboardList, to: `${classRoot()}/${classId}/assignments` },
+    { label: productTerms().adventures, icon: Compass, to: `${classRoot()}/${classId}/adventures` },
     { label: "Games", icon: Gamepad2, to: `${classRoot()}/${classId}/games` },
+
     { label: "Gallery", icon: ImageIcon, to: `${classRoot()}/${classId}/gallery` },
     { label: "Report", icon: BarChart3, to: `${classRoot()}/${classId}/report` },
     { label: "Settings", icon: Settings, to: `${classRoot()}/${classId}` },
