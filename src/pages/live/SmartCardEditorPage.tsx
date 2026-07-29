@@ -137,10 +137,13 @@ const SmartCardEditorPage = () => {
     setPublishing(true);
     try {
       await saveSmartCard(card.id, { title, presentation: pres, publish_mode: mode });
+      // Refresh the shared social snapshot from what the teacher sees now.
+      await captureCardPreview(previewNode.current, card.id);
       if (mode === "game") {
         navigate(`/live/smart-cards/${card.id}/game-setup`);
         return;
       }
+
       const updated = await publishSmartCard({
         ...card, title, presentation: pres,
         publish_mode: mode,
