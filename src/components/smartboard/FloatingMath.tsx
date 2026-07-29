@@ -135,7 +135,7 @@ export const FloatingMath = ({ plan, visible, onInsert, onContainer }: Props) =>
               onPrev={() => setContainerOffset((o) => o - 1)}
               onNext={() => setContainerOffset((o) => o + 1)}
               items={visibleContainers.map((c, i) => (
-                <Chip key={`c-${i}-${c}`} onClick={() => onContainer?.(c)}>{CONTAINER_GLYPH[c]}</Chip>
+                <Chip key={`c-${i}-${c}`} onClick={() => onContainer?.(c)}>{CONTAINER_GLYPH[c as keyof typeof CONTAINER_GLYPH]}</Chip>
               ))}
               empty={containers.length === 0}
             />

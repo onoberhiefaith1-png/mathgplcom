@@ -265,10 +265,10 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
     }
     const only = scenes[0];
     const single: Scene = {
-      cameraTargetId: null,
-      tag: "",
-      title: "Canvas",
       ...only,
+      cameraTargetId: only.cameraTargetId ?? null,
+      tag: only.tag ?? "",
+      title: only.title ?? "Canvas",
       elements: (only.elements ?? []).map(withElementDefaults),
     };
     return {
@@ -335,15 +335,15 @@ export const withElementDefaults = (el: CanvasElement): CanvasElement => ({
   slant: el.slant ? migrateSlant(el.slant) : undefined,
   progress: el.progress
     ? {
-        segments: 10,
-        totalMarks: 0,
-        currentMarks: 0,
-        fill: 0,
-        glow: 0.5,
-        effectScale: 1,
-        fillStyle: "plain",
-        progressGoalPct: 100,
         ...el.progress,
+        segments: el.progress.segments ?? 10,
+        totalMarks: el.progress.totalMarks ?? 0,
+        currentMarks: el.progress.currentMarks ?? 0,
+        fill: el.progress.fill ?? 0,
+        glow: el.progress.glow ?? 0.5,
+        effectScale: el.progress.effectScale ?? 1,
+        fillStyle: el.progress.fillStyle ?? "plain",
+        progressGoalPct: el.progress.progressGoalPct ?? 100,
       }
     : undefined,
 });

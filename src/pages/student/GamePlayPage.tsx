@@ -102,7 +102,7 @@ const GamePlayPage = () => {
       if (!membership) { navigate("/join"); return; }
 
       let bundle = getPrefetched(classId, gameId);
-      if (!bundle) bundle = await prefetchGame(classId, gameId);
+      if (!bundle) bundle = (await prefetchGame(classId, gameId)) ?? undefined;
       if (cancelled) return;
       if (!bundle) { navigate(`/student/class/${classId}`); return; }
 

@@ -473,7 +473,7 @@ const MusicGenerator = () => {
 
                 {s.url && (
                   <audio
-                    ref={(el) => (audioRefs.current[t.id] = el)}
+                    ref={(el) => { audioRefs.current[t.id] = el; }}
                     src={s.url}
                     controls
                     loop={t.id !== "success_jingle"}

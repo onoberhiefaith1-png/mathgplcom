@@ -49,7 +49,7 @@ function tokenize(src: string): Tok[] | string {
     if (c === ")") { out.push({ t: "rp" }); prev = { t: "rp" }; i++; continue; }
     if (c === "+" || c === "-" || c === "*" || c === "/" || c === "^") {
       // detect unary minus
-      const isUnary =
+      const isUnary: boolean =
         c === "-" &&
         (!prev || prev.t === "op" || prev.t === "lp" || prev.t === "fn");
       const op: Tok = isUnary

@@ -3181,7 +3181,7 @@ const PresentationView = ({
 
       broadcastCheckResultRef.current?.({
         questionId: current.id,
-        lineId: target.lineId,
+        lineId: target.lineId ?? "",
         mode,
         correct: !!res?.correct,
         verdict: res?.verdict,
