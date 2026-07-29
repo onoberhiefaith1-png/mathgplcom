@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LiveSession, SessionVisibility, createSession } from "@/lib/live/sessions";
+import BroadcastEditor from "@/components/live/BroadcastEditor";
+import { BroadcastEntry, newBroadcastEntry } from "@/lib/live/broadcast";
+
 
 type NotebookOption = { id: string; label: string };
 
