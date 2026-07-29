@@ -145,7 +145,7 @@ const CreateSessionPage = () => {
           <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
             <div className="space-y-2">
               <Label htmlFor="title">Session Title</Label>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" />
+              <Input id="title" className={FIELD} value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" />
             </div>
 
             <div className="space-y-2">
@@ -154,7 +154,7 @@ const CreateSessionPage = () => {
                 id="notebook"
                 value={notebookId}
                 onChange={(e) => setNotebookId(e.target.value)}
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
               >
                 <option value="">No lesson note attached</option>
                 {notebooks.map((n) => (
@@ -165,41 +165,88 @@ const CreateSessionPage = () => {
 
             <div className="space-y-2">
               <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+              <Textarea id="description" className={FIELD} value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <Label>Date</Label>
+                <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={`flex h-10 w-full items-center justify-between rounded-md border px-3 text-sm ${FIELD}`}
+                    >
+                      <span className={dateObj ? "" : "text-muted-foreground"}>
+                        {dateObj ? dateObj.toLocaleDateString(undefined, { dateStyle: "medium" }) : "Pick a date"}
+                      </span>
+                      <CalendarIcon className="h-4 w-4 opacity-70" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateObj}
+                      onSelect={(d) => { setDateObj(d); setDateOpen(false); }}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="time">Start Time</Label>
-                <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                <Label>Start Time (24h)</Label>
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label="Hour"
+                    value={hour}
+                    onChange={(e) => setHour(e.target.value)}
+                    className={`h-10 w-full rounded-md border px-2 text-sm outline-none focus:border-primary ${FIELD}`}
+                  >
+                    <option value="">HH</option>
+                    {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                  <span className="text-muted-foreground">:</span>
+                  <select
+                    aria-label="Minute"
+                    value={minute}
+                    onChange={(e) => setMinute(e.target.value)}
+                    className={`h-10 w-full rounded-md border px-2 text-sm outline-none focus:border-primary ${FIELD}`}
+                  >
+                    <option value="">MM</option>
+                    {MINUTES.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
-                <Input
+                <Label htmlFor="duration">Duration (hours)</Label>
+                <select
                   id="duration"
-                  type="number"
-                  min={5}
-                  step={5}
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                />
+                  value={durationHours}
+                  onChange={(e) => setDurationHours(Number(e.target.value))}
+                  className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
+                >
+                  {DURATION_OPTIONS.map((h) => (
+                    <option key={h} value={h}>{h.toFixed(2)} hours</option>
+                  ))}
+                </select>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="tz">Time Zone</Label>
                 <select
                   id="tz"
                   value={timeZone}
                   onChange={(e) => setTimeZone(e.target.value)}
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                  className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-primary ${FIELD}`}
                 >
                   {TIME_ZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
                 </select>
               </div>
             </div>
+
 
             <div className="space-y-2">
               <Label>Visibility</Label>
