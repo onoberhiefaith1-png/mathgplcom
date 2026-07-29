@@ -1,0 +1,74 @@
+import { useEffect, useState } from "react";
+import { useNavigate, Link } from "@/lib/router-compat";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
+
+/** Completes the password-reset link sent by email. */
+const ResetPasswordPage = () => {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // Supabase exchanges the recovery link for a temporary session.
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session) setReady(true);
+    });
+    supabase.auth.getSession().then(({ data }) => setReady(Boolean(data.session)));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 8) {
+      toast({ title: "Password too short", description: "Use at least 8 characters.", variant: "destructive" });
+      return;
+    }
+    if (password !== confirm) {
+      toast({ title: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (error) {
+      toast({ title: "Could not update password", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Password updated", description: "You are signed in." });
+    navigate("/home", { replace: true });
+  };
+
+  return (
+    <main className="cinematic-sky flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-foreground">
+      <div className="w-full max-w-sm rounded-2xl border border-amber-200/15 bg-card/60 p-6 shadow-2xl backdrop-blur">
+        <h1 className="text-center text-2xl font-semibold">Set a new password</h1>
+        {!ready ? (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Open this page from the reset link in your email to continue.
+          </p>
+        ) : (
+          <form className="mt-6 space-y-3" onSubmit={submit}>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password">New password</Label>
+              <Input id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-password">Confirm password</Label>
+              <Input id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+            </div>
+            <Button type="submit" className="w-full" disabled={busy}>Update password</Button>
+          </form>
+        )}
+      </div>
+      <Link to="/auth" className="text-xs text-muted-foreground hover:text-foreground">← Back to sign in</Link>
+    </main>
+  );
+};
+
+export default ResetPasswordPage;

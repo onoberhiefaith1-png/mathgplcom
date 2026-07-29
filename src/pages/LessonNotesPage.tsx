@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth/AuthProvider";
+
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
@@ -37,18 +39,13 @@ const LessonNotesPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
 
-  // Auth gate
+  // Authentication is handled once by the platform guard (RequireAuth); this
+  // page only needs to know who is signed in.
+  const { user } = useAuth();
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (!s) navigate("/auth", { replace: true });
-      setUserEmail(s?.user.email ?? null);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) navigate("/auth", { replace: true });
-      setUserEmail(data.session?.user.email ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+    setUserEmail(user?.email ?? null);
+  }, [user]);
+
 
   const load = async () => {
     setLoading(true);

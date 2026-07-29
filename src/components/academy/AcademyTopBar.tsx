@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "@/lib/router-compat";
+import { useNavigate } from "@/lib/router-compat";
 import { Search } from "lucide-react";
 import { searchCurriculum } from "@/data/curriculum";
+import AccountMenu from "@/components/academy/AccountMenu";
+
 
 const AcademyTopBar = () => {
   const [query, setQuery] = useState("");
@@ -88,14 +90,10 @@ const AcademyTopBar = () => {
         )}
       </div>
 
-      <Link
-        to="/auth"
-        className="pointer-events-auto ml-auto inline-flex items-center rounded-full border border-primary/60 bg-background/55 px-4 py-2 text-sm font-medium text-primary shadow-[0_4px_22px_hsl(var(--background)/0.6)] backdrop-blur transition hover:border-primary hover:bg-background/80 sm:px-5 sm:text-base"
-      >
-        Login / Sign Up
-      </Link>
+      <AccountMenu />
     </header>
   );
 };
+
 
 export default AcademyTopBar;

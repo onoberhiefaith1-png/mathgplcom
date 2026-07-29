@@ -2127,34 +2127,43 @@ export type Database = {
       }
       organizations: {
         Row: {
+          country: string | null
           created_at: string
           id: string
           kind: string
           name: string
           owner_user_id: string | null
           parent_org_id: string | null
+          school_type: string | null
           status: string
           updated_at: string
+          website: string | null
         }
         Insert: {
+          country?: string | null
           created_at?: string
           id?: string
           kind: string
           name: string
           owner_user_id?: string | null
           parent_org_id?: string | null
+          school_type?: string | null
           status?: string
           updated_at?: string
+          website?: string | null
         }
         Update: {
+          country?: string | null
           created_at?: string
           id?: string
           kind?: string
           name?: string
           owner_user_id?: string | null
           parent_org_id?: string | null
+          school_type?: string | null
           status?: string
           updated_at?: string
+          website?: string | null
         }
         Relationships: [
           {
@@ -2213,23 +2222,53 @@ export type Database = {
       }
       profiles: {
         Row: {
+          children_count: number | null
+          country: string | null
           created_at: string
+          date_of_birth: string | null
           display_name: string | null
+          first_name: string | null
+          last_name: string | null
+          marketing_opt_in: boolean
           mathgpl_student_id: string | null
+          school_name: string | null
+          subjects_taught: string | null
+          terms_accepted_at: string | null
+          time_zone: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          children_count?: number | null
+          country?: string | null
           created_at?: string
+          date_of_birth?: string | null
           display_name?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
+          school_name?: string | null
+          subjects_taught?: string | null
+          terms_accepted_at?: string | null
+          time_zone?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          children_count?: number | null
+          country?: string | null
           created_at?: string
+          date_of_birth?: string | null
           display_name?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
+          school_name?: string | null
+          subjects_taught?: string | null
+          terms_accepted_at?: string | null
+          time_zone?: string | null
           updated_at?: string
           user_id?: string
         }
