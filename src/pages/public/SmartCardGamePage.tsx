@@ -152,7 +152,7 @@ const SmartCardGamePage = () => {
       };
     });
 
-  }, [bundle, boardByElement, scores]);
+  }, [bundle, boardByElement, scores, timeLeftMs]);
 
   const playableBars = useMemo(
     () => elements.filter((e) => e.kind === "progress_bar" && boardByElement.has(e.id)),
