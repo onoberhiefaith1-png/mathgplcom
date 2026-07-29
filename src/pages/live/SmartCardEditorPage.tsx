@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 import {
   cardUrl, shareUrl, fetchCardStats, formatDuration,
+  listPublishableGames,
   loadSmartCard, publishSmartCard, saveSmartCard,
   type CardPresentation, type CardStats, type SmartCardRow,
 } from "@/lib/smartcards/smartCards";
@@ -48,6 +50,11 @@ const SmartCardEditorPage = () => {
   const [card, setCard] = useState<SmartCardRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  // Publish mode: a plain Challenge (board only) or a Game Challenge that
+  // wraps the same question inside an Adventure stage.
+  const [publishMode, setPublishMode] = useState<"challenge" | "game">("challenge");
+  const [gameId, setGameId] = useState<string | null>(null);
+  const [games, setGames] = useState<{ id: string; title: string }[]>([]);
   const [copied, setCopied] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -102,6 +109,16 @@ const SmartCardEditorPage = () => {
     return () => clearTimeout(t);
   }, [cardId, pres, title]);
 
+  useEffect(() => {
+    if (!card) return;
+    setPublishMode(card.publish_mode ?? "challenge");
+    setGameId(card.game_id ?? null);
+  }, [card?.id]);
+
+  useEffect(() => {
+    void listPublishableGames().then(setGames);
+  }, []);
+
   const scenes = useMemo(() => card?.geometry?.scenes ?? [], [card]);
   const url = card?.slug ? cardUrl(card.slug) : "";
   // Shared links go through the preview endpoint so social platforms show a
@@ -122,8 +139,14 @@ const SmartCardEditorPage = () => {
     if (!card || !pres) return;
     setPublishing(true);
     try {
-      await saveSmartCard(card.id, { title, presentation: pres });
-      const updated = await publishSmartCard({ ...card, title, presentation: pres });
+      await saveSmartCard(card.id, {
+        title, presentation: pres, publish_mode: publishMode, game_id: publishMode === "game" ? gameId : null,
+      });
+      const updated = await publishSmartCard({
+        ...card, title, presentation: pres,
+        publish_mode: publishMode,
+        game_id: publishMode === "game" ? gameId : null,
+      });
       if (updated) {
         setCard(updated);
         toast({ title: "Smart Card published", description: "Copy or share it anywhere." });
@@ -133,7 +156,11 @@ const SmartCardEditorPage = () => {
         title: "Could not publish",
         description: (e as Error).message === "no_floating_lines"
           ? "Add floating numbers to the solution first — the challenge needs markable lines."
-          : (e as Error).message,
+          : (e as Error).message === "no_game_selected"
+            ? "Pick the game this challenge should be played inside."
+            : (e as Error).message === "game_has_no_progress_bar"
+              ? "That game has no progress bar yet — add one in the Game Editor."
+              : (e as Error).message,
         variant: "destructive",
       });
     } finally {
@@ -191,6 +218,28 @@ const SmartCardEditorPage = () => {
                 <Eye className="mr-1 h-4 w-4" /> Preview as visitor
               </Button>
             </>
+          )}
+
+          <Select value={publishMode} onValueChange={(v) => setPublishMode(v as "challenge" | "game")}>
+            <SelectTrigger className="h-8 w-[150px] text-xs">
+              <SelectValue placeholder="Publish as" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="challenge">Challenge</SelectItem>
+              <SelectItem value="game">Game Challenge</SelectItem>
+            </SelectContent>
+          </Select>
+          {publishMode === "game" && (
+            <Select value={gameId ?? ""} onValueChange={(v) => setGameId(v)}>
+              <SelectTrigger className="h-8 w-[180px] text-xs">
+                <SelectValue placeholder="Choose game" />
+              </SelectTrigger>
+              <SelectContent>
+                {games.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
 
           <Button size="sm" onClick={onPublish} disabled={publishing}>
