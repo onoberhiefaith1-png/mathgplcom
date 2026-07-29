@@ -4,6 +4,38 @@ import SmartboardShelf from "@/components/smartboard/SmartboardShelf";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { supabase } from "@/integrations/supabase/client";
 
+const openClassSmartBoard = async (classId: string, notebookId: string) => {
+  const now = new Date().toISOString();
+
+  const { error: classError } = await supabase
+    .from("classes")
+    .update({ smartboard_visibility: "student_access_enabled" })
+    .eq("id", classId);
+  if (classError) {
+    console.warn("[class-smartboard] could not enable student access", classError.message);
+  }
+
+  const { error: noteError } = await supabase
+    .from("class_lesson_notes")
+    .upsert(
+      { class_id: classId, notebook_id: notebookId, visibility: "student_access_enabled", added_at: now },
+      { onConflict: "class_id,notebook_id" },
+    );
+  if (noteError) {
+    console.warn("[class-smartboard] could not share notebook with class", noteError.message);
+  }
+
+  const { error: stateError } = await supabase
+    .from("class_smartboard_state")
+    .upsert(
+      { class_id: classId, notebook_id: notebookId, updated_at: now },
+      { onConflict: "class_id" },
+    );
+  if (stateError) {
+    console.warn("[class-smartboard] could not open class board state", stateError.message);
+  }
+};
+
 /**
  * /smartboard           → shelf picker (notebooks)
  * /smartboard/:id       → live presentation of that notebook
@@ -20,27 +52,9 @@ const SmartBoardPage = () => {
 
   useEffect(() => {
     if (!classId || !notebookId) return;
-    // Teacher-side broadcast: upsert the active notebook for the class and open
-    // student access, so launching a class board always reaches students. The
-    // lesson-note link is opened too; otherwise students can receive the active
-    // notebook id but be blocked from reading the notebook itself.
-    void (async () => {
-      await supabase
-        .from("class_smartboard_state")
-        .upsert(
-          { class_id: classId, notebook_id: notebookId, updated_at: new Date().toISOString() },
-          { onConflict: "class_id" },
-        );
-      await supabase
-        .from("classes")
-        .update({ smartboard_visibility: "student_access_enabled" })
-        .eq("id", classId);
-      await supabase
-        .from("class_lesson_notes")
-        .update({ visibility: "student_access_enabled" })
-        .eq("class_id", classId)
-        .eq("notebook_id", notebookId);
-    })();
+    // Teacher-side open: make the class visible, make the notebook readable,
+    // then publish the active notebook as the one source of truth for students.
+    void openClassSmartBoard(classId, notebookId);
   }, [classId, notebookId]);
 
 
