@@ -58,7 +58,9 @@ const CreateSessionPage = () => {
   const [dateOpen, setDateOpen] = useState(false);
   const [timeZone, setTimeZone] = useState(TIME_ZONES[0]);
   const [visibility, setVisibility] = useState<SessionVisibility>("private");
+  const [broadcasts, setBroadcasts] = useState<BroadcastEntry[]>([newBroadcastEntry()]);
   const [notebooks, setNotebooks] = useState<NotebookOption[]>([]);
+
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<LiveSession | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
