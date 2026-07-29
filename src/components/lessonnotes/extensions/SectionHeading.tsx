@@ -55,6 +55,11 @@ function SectionHeadingView(props: NodeViewProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignSub, setAssignSub] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [carding, setCarding] = useState(false);
+  const { pathname } = useLocation();
+  /** Smart Card publishing exists ONLY inside MathGPL Life. */
+  const isLive = pathname.startsWith("/live");
+
   const level: number = node.attrs.level ?? 2;
   const text = node.textContent;
   const kind = (level <= 3) ? detectSectionKind(text) : null;
