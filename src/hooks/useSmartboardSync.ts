@@ -69,7 +69,7 @@ export function useSmartboardSync(opts: {
       .then(({ data }) => { if (!cancelled) apply(data as never); });
 
     let ch: ReturnType<typeof supabase.channel> | null = null;
-    let retried = false;
+    let retries = 0;
 
     const subscribe = () => {
       ch = supabase
@@ -81,11 +81,15 @@ export function useSmartboardSync(opts: {
         )
         .subscribe((status) => {
           // A private channel join can fail if the socket token wasn't ready.
-          // Re-auth and resubscribe once so live sync self-heals.
-          if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !retried && !cancelled) {
-            retried = true;
+            // Re-auth and resubscribe so live sync self-heals instead of going blank.
+            if (status === "SUBSCRIBED") {
+              retries = 0;
+              return;
+            }
+            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && retries < 6 && !cancelled) {
+              retries += 1;
             if (ch) supabase.removeChannel(ch);
-            void ensureRealtimeAuth().then(() => { if (!cancelled) subscribe(); });
+              window.setTimeout(() => { if (!cancelled) void ensureRealtimeAuth().then(subscribe); }, Math.min(3000, 400 * retries));
           }
         });
     };

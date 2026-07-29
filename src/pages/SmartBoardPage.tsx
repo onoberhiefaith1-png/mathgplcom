@@ -22,7 +22,8 @@ const SmartBoardPage = () => {
     if (!classId || !notebookId) return;
     // Teacher-side broadcast: upsert the active notebook for the class and open
     // student access, so launching a class board always reaches students. The
-    // teacher can stop sharing at any time via the board's access pill.
+    // lesson-note link is opened too; otherwise students can receive the active
+    // notebook id but be blocked from reading the notebook itself.
     void (async () => {
       await supabase
         .from("class_smartboard_state")
@@ -34,6 +35,11 @@ const SmartBoardPage = () => {
         .from("classes")
         .update({ smartboard_visibility: "student_access_enabled" })
         .eq("id", classId);
+      await supabase
+        .from("class_lesson_notes")
+        .update({ visibility: "student_access_enabled" })
+        .eq("class_id", classId)
+        .eq("notebook_id", notebookId);
     })();
   }, [classId, notebookId]);
 
