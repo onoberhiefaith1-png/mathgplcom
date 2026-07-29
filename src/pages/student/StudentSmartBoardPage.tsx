@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Presentation } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import PresentationView from "@/components/smartboard/PresentationView";
+
+type ClassBoardState = {
+  name: string;
+  accessEnabled: boolean;
+  notebookId: string | null;
+};
 
 /**
  * Participant SmartBoard — mirrors the teacher's REAL board. View-only by
@@ -19,16 +25,20 @@ const StudentSmartBoardPage = () => {
   const [accessEnabled, setAccessEnabled] = useState(false);
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
   const [className, setClassName] = useState<string>("");
+  const lastLoadedRef = useRef<ClassBoardState | null>(null);
 
-  const loadBoardState = useCallback(async () => {
-    if (!classId) return;
-    const { data: cls } = await supabase
+  const loadBoardState = useCallback(async (): Promise<ClassBoardState | null> => {
+    if (!classId) return null;
+    const { data: cls, error: clsError } = await supabase
       .from("classes")
       .select("name, smartboard_visibility")
       .eq("id", classId)
       .maybeSingle();
-    setClassName(cls?.name ?? "");
-    setAccessEnabled((cls as { smartboard_visibility?: string } | null)?.smartboard_visibility === "student_access_enabled");
+    if (clsError) {
+      console.warn("[student-smartboard] class state load failed", clsError.message);
+      return lastLoadedRef.current;
+    }
+    const access = (cls as { smartboard_visibility?: string } | null)?.smartboard_visibility === "student_access_enabled";
 
     const { data: state, error } = await supabase
       .from("class_smartboard_state")
@@ -37,9 +47,19 @@ const StudentSmartBoardPage = () => {
       .maybeSingle();
     if (error) {
       console.warn("[student-smartboard] board state load failed", error.message);
-      return;
+      const next = { name: cls?.name ?? "", accessEnabled: access, notebookId: null };
+      setClassName(next.name);
+      setAccessEnabled(next.accessEnabled);
+      setActiveNotebookId(null);
+      lastLoadedRef.current = next;
+      return next;
     }
-    setActiveNotebookId(state?.notebook_id ?? null);
+    const next = { name: cls?.name ?? "", accessEnabled: access, notebookId: state?.notebook_id ?? null };
+    setClassName(next.name);
+    setAccessEnabled(next.accessEnabled);
+    setActiveNotebookId(next.notebookId);
+    lastLoadedRef.current = next;
+    return next;
   }, [classId]);
 
   // Identity firewall + initial state load
@@ -73,59 +93,28 @@ const StudentSmartBoardPage = () => {
     return () => { cancelled = true; };
   }, [classId, navigate, loadBoardState]);
 
-  // Follow teacher's active-notebook changes in realtime; recover with a fresh
-  // read if the private realtime join times out or the socket auth was late.
+  // Follow the teacher's class-board row with one source of truth. The periodic
+  // refresh is intentional: if a realtime event is missed while the socket is
+  // authenticating, students still recover instead of staying on a blank board.
   useEffect(() => {
     if (!classId || !authorized) return;
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
     let retries = 0;
+    const poll = window.setInterval(() => { void loadBoardState(); }, 3000);
     const subscribe = () => void ensureRealtimeAuth().then(() => {
       if (cancelled) return;
       ch = supabase
-        .channel(`smartboard-state-${classId}`, { config: { private: true } })
+        .channel(`student-class-smartboard-${classId}`, { config: { private: true } })
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
-          (payload: { new?: { notebook_id?: string } | null }) => {
-            setActiveNotebookId(payload.new?.notebook_id ?? null);
-          },
+          () => { void loadBoardState(); },
         )
-        .subscribe((status) => {
-          if (cancelled) return;
-          if (status === "SUBSCRIBED") {
-            retries = 0;
-            void loadBoardState();
-            return;
-          }
-          if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && retries < 5) {
-            retries += 1;
-            if (ch) supabase.removeChannel(ch);
-            window.setTimeout(() => { if (!cancelled) subscribe(); }, Math.min(3000, 350 * retries));
-          }
-        });
-    });
-    subscribe();
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, authorized, loadBoardState]);
-
-  // Follow SmartBoard access grant/removal in realtime — no refresh needed.
-  useEffect(() => {
-    if (!classId || !authorized) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    let retries = 0;
-    const subscribe = () => void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`class-visibility-${classId}`, { config: { private: true } })
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "classes", filter: `id=eq.${classId}` },
-          (payload: { new?: { smartboard_visibility?: string } | null }) => {
-            setAccessEnabled(payload.new?.smartboard_visibility === "student_access_enabled");
-            void loadBoardState();
-          },
+          () => { void loadBoardState(); },
         )
         .subscribe((status) => {
           if (cancelled) return;
@@ -142,7 +131,11 @@ const StudentSmartBoardPage = () => {
         });
     });
     subscribe();
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      if (ch) supabase.removeChannel(ch);
+    };
   }, [classId, authorized, loadBoardState]);
 
   if (authorized === null) {
@@ -156,7 +149,7 @@ const StudentSmartBoardPage = () => {
   // Live mirror of the teacher's real board (view-only unless made Active Student).
   if (accessEnabled && activeNotebookId) {
     return (
-      <div className="relative">
+      <div className="relative h-screen min-h-screen w-screen overflow-hidden bg-background">
         <Link
           to={`/student/class/${classId}`}
           aria-label="Back to class"

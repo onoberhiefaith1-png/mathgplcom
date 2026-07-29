@@ -58,15 +58,20 @@ export function useSmartboardSync(opts: {
       if (!row) return;
       setActiveStudentId(row.active_student_id ?? null);
       const sj = row.state_json;
-      if (sj && typeof sj === "object") setIncoming(sj as BoardSnapshot);
+      if (sj && typeof sj === "object" && "v" in sj) setIncoming(sj as BoardSnapshot);
     };
 
-    supabase
-      .from("class_smartboard_state")
-      .select("state_json, active_student_id")
-      .eq("class_id", classId)
-      .maybeSingle()
-      .then(({ data }) => { if (!cancelled) apply(data as never); });
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("class_smartboard_state")
+        .select("state_json, active_student_id")
+        .eq("class_id", classId)
+        .maybeSingle();
+      if (!cancelled && !error) apply(data as never);
+      if (error) console.warn("[smartboard-sync] state reload failed", error.message);
+    };
+
+    void load();
 
     let ch: ReturnType<typeof supabase.channel> | null = null;
     let retries = 0;
@@ -84,6 +89,7 @@ export function useSmartboardSync(opts: {
             // Re-auth and resubscribe so live sync self-heals instead of going blank.
             if (status === "SUBSCRIBED") {
               retries = 0;
+              void load();
               return;
             }
             if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && retries < 6 && !cancelled) {
@@ -96,7 +102,13 @@ export function useSmartboardSync(opts: {
 
     void ensureRealtimeAuth().then(() => { if (!cancelled) subscribe(); });
 
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+    const poll = window.setInterval(() => { void load(); }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      if (ch) supabase.removeChannel(ch);
+    };
   }, [classId]);
 
   const pushSnapshot = useCallback((state: BoardState) => {
@@ -108,20 +120,26 @@ export function useSmartboardSync(opts: {
       if (fingerprint === lastSentRef.current) return;
       lastSentRef.current = fingerprint;
       const full: BoardSnapshot = { v: 1, author: selfId, ts: Date.now(), ...state };
-      await supabase
+      const { error } = await supabase
         .from("class_smartboard_state")
-        .update({ state_json: full as never, updated_at: new Date().toISOString() })
-        .eq("class_id", classId);
+        .upsert(
+          { class_id: classId, state_json: full as never, updated_at: new Date().toISOString() },
+          { onConflict: "class_id" },
+        );
+      if (error) console.warn("[smartboard-sync] snapshot push failed", error.message);
     }, 180);
   }, [classId, selfId]);
 
   const setActiveStudent = useCallback(async (uid: string | null) => {
     if (!classId) return;
-    await supabase
+    const { error } = await supabase
       .from("class_smartboard_state")
-      .update({ active_student_id: uid })
-      .eq("class_id", classId);
-    setActiveStudentId(uid);
+      .upsert(
+        { class_id: classId, active_student_id: uid, updated_at: new Date().toISOString() },
+        { onConflict: "class_id" },
+      );
+    if (!error) setActiveStudentId(uid);
+    else console.warn("[smartboard-sync] active student update failed", error.message);
   }, [classId]);
 
   return { enabled, selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent };
