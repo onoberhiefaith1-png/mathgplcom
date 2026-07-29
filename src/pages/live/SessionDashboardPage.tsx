@@ -58,7 +58,7 @@ const SessionDashboardPage = () => {
         navigate("/live/sessions");
         return;
       }
-      const row = data as LiveSession;
+      const row = hydrateSession(data as Record<string, unknown>);
       if (row.owner_id !== userData.user.id) {
         navigate(`/live/s/${row.id}`, { replace: true });
         return;
@@ -69,7 +69,9 @@ const SessionDashboardPage = () => {
         return;
       }
       setSession(row);
+      setBroadcasts(row.broadcasts);
       setLoading(false);
+
     })();
   }, [sessionId, navigate, toast]);
 
