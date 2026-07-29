@@ -119,7 +119,7 @@ const TrendLineChart = ({ points, title, subtitle, settings }: TrendLineChartPro
           </div>
 
           {/* Scrolling plot */}
-          <div className="report-scroll min-w-0 flex-1 overflow-x-auto pb-1">
+          <div ref={scrollRef} className="report-scroll min-w-0 flex-1 overflow-x-auto pb-1">
             <div className="relative" style={{ height: PLOT_HEIGHT, minWidth: plotWidth }}>
               <svg
                 width={plotWidth}
