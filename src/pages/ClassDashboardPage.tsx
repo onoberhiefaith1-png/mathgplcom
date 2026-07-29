@@ -63,6 +63,7 @@ const ClassDashboardPage = () => {
     { label: "Adventures", icon: Compass, to: `/teaching-hub/classes/${classId}/adventures` },
     { label: "Games", icon: Gamepad2, to: `/teaching-hub/classes/${classId}/games` },
     { label: "Gallery", icon: ImageIcon, to: `/teaching-hub/classes/${classId}/gallery` },
+    { label: "Report", icon: BarChart3, to: `/teaching-hub/classes/${classId}/report` },
     { label: "Settings", icon: Settings, to: `/teaching-hub/classes/${classId}` },
   ];
 
