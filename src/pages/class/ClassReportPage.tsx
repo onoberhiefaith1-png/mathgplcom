@@ -163,9 +163,30 @@ const ClassReportPage = () => {
               : "Completion per assigned task."
           }
         />
+
+        {settings.showTrend && (
+          <div className="mt-6 space-y-3">
+            <div className="flex justify-end">
+              <TrendRangeBar value={settings.trendGrouping} onChange={(v) => update("trendGrouping", v)} />
+            </div>
+            <TrendLineChart
+              points={trendPoints}
+              settings={settings}
+              title={selected === "class" ? "Class Trend" : `${selectedName} — Trend`}
+              subtitle={TREND_SUBTITLE[settings.trendGrouping]}
+            />
+          </div>
+        )}
       </main>
 
-      <ReportSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} settings={settings} update={update} />
+      <ReportSettingsSheet
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        settings={settings}
+        update={update}
+        updateTrendColor={updateTrendColor}
+      />
+
     </div>
   );
 };
