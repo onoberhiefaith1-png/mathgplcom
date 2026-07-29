@@ -19,6 +19,7 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const slug = (url.searchParams.get("slug") ?? url.pathname.split("/").pop() ?? "").trim();
   const origin = url.searchParams.get("origin") ?? SITE;
+  const wantsImage = url.searchParams.get("image") === "1";
   if (!/^[a-z0-9]{3,64}$/.test(slug)) {
     return new Response("Not found", { status: 404, headers: corsHeaders });
   }
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
 
   const { data: card } = await admin
     .from("smart_cards")
-    .select("slug, title, presentation, published")
+    .select("slug, title, presentation, published, preview_image_path")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -41,10 +42,29 @@ Deno.serve(async (req) => {
     });
   }
 
+  // The card snapshot lives in a private bucket; this endpoint is the public
+  // door crawlers use to fetch it.
+  if (wantsImage) {
+    const path = (card.preview_image_path as string | null) ?? "";
+    if (!path) return new Response("No preview", { status: 404, headers: corsHeaders });
+    const { data: file, error } = await admin.storage.from("smart-card-previews").download(path);
+    if (error || !file) return new Response("No preview", { status: 404, headers: corsHeaders });
+    return new Response(await file.arrayBuffer(), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=300",
+      },
+    });
+  }
+
   const target = `${origin.replace(/\/$/, "")}/c/${card.slug}`;
   const title = String((card.title as string) || "MathGPL Smart Card").slice(0, 90);
-  const question = String(((card.presentation as any)?.questionText ?? "")).replace(/\s+/g, " ").trim();
-  const description = (question ? `${question.slice(0, 140)}` : "Solve this maths challenge on the MathGPL Smartboard — instant AI marking.");
+  const description = "Solve this interactive mathematics challenge using the MathGPL Smartboard.";
+  const image = card.preview_image_path
+    ? `${Deno.env.get("SUPABASE_URL")}/functions/v1/smart-card-preview?slug=${encodeURIComponent(card.slug as string)}&image=1`
+    : "";
+
 
   const html = `<!doctype html>
 <html lang="en">
