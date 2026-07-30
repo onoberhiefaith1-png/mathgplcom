@@ -3,8 +3,8 @@
 // Properties Panel. The table is high-contrast and readable by default.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Minus, Plus, Settings2 } from "lucide-react";
-import { evaluate, formatNumber } from "./evaluator";
+import { Minus, Plus, Settings2, Sigma } from "lucide-react";
+import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
@@ -122,10 +122,19 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const [buffer, setBuffer] = useState<string>("");
   const [dimensionMode, setDimensionMode] = useState<"rows" | "cols">("rows");
   const [panelOpen, setPanelOpen] = useState(false);
+  const [sumMenuOpen, setSumMenuOpen] = useState(false);
+  const [sumMode, setSumMode] = useState<"row" | "col" | null>(null);
 
   useEffect(() => {
-    if (!selected) setPanelOpen(false);
+    if (!selected) { setPanelOpen(false); setSumMenuOpen(false); setSumMode(null); }
   }, [selected]);
+
+  useEffect(() => {
+    if (!sumMode) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSumMode(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sumMode]);
 
   const patch = useCallback((next: Partial<SmartTableAttrs>) => {
     onChange({ ...next });
@@ -144,9 +153,46 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     if (r === -1) {
       const next = [...headers]; next[c] = buffer.trim(); patch({ headers: next });
     } else {
-      const next = cells.map((row) => [...row]); next[r][c] = buffer.trim(); patch({ cells: next });
+      const raw = buffer.trim();
+      const solved = tryEvaluate(raw);
+      const next = cells.map((row) => [...row]); next[r][c] = solved ?? raw; patch({ cells: next });
     }
     cancelEdit();
+  };
+
+  const writeCell = (r: number, c: number, value: string) => {
+    const next = cells.map((row) => [...row]);
+    next[r][c] = value;
+    patch({ cells: next });
+  };
+
+  /** Σ Sum Row — add every numeric cell to the LEFT of (r, c). */
+  const sumRow = (r: number, c: number) => {
+    let total = 0;
+    for (let i = 0; i < c; i++) {
+      const n = cellNumber(cells[r][i]);
+      if (n !== null) total += n;
+    }
+    writeCell(r, c, formatNumber(total));
+  };
+
+  /** Σ Sum Column — add every numeric cell ABOVE (r, c). Headers excluded. */
+  const sumCol = (r: number, c: number) => {
+    let total = 0;
+    for (let i = 0; i < r; i++) {
+      const n = cellNumber(cells[i][c]);
+      if (n !== null) total += n;
+    }
+    writeCell(r, c, formatNumber(total));
+  };
+
+  const handleCellClick = (r: number, c: number) => {
+    if (sumMode) {
+      if (sumMode === "row") sumRow(r, c); else sumCol(r, c);
+      setSumMode(null);
+      return;
+    }
+    if (!isEditing(r, c)) beginEdit(r, c);
   };
 
   const addRow = (at: number) => {
@@ -267,6 +313,14 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   return (
     <div className="smart-table not-prose relative inline-block align-middle" onClick={(e) => e.stopPropagation()}>
+      {sumMode && (
+        <div
+          contentEditable={false}
+          className="mb-1.5 inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground"
+        >
+          {sumMode === "row" ? "Sum Row" : "Sum Column"} — click the total cell (Esc to cancel)
+        </div>
+      )}
       <table style={tableStyle}>
         <thead>
           <tr>
@@ -275,7 +329,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 key={c}
                 style={{ ...headerCss, ...colStyle(c) }}
                 className="relative"
-                onClick={(e) => { e.stopPropagation(); if (!isEditing(-1, c)) beginEdit(-1, c); }}
+                onClick={(e) => { e.stopPropagation(); if (sumMode) return; if (!isEditing(-1, c)) beginEdit(-1, c); }}
               >
                 {isEditing(-1, c) ? (
                   <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
@@ -297,8 +351,8 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                   <td
                     key={c}
                     style={{ ...cellCss, ...colStyle(c) }}
-                    className="cursor-text hover:bg-black/5"
-                    onClick={(e) => { e.stopPropagation(); if (!editing) beginEdit(r, c); }}
+                    className={sumMode ? "cursor-pointer hover:bg-primary/20" : "cursor-text hover:bg-black/5"}
+                    onClick={(e) => { e.stopPropagation(); handleCellClick(r, c); }}
                   >
                     {editing ? (
                       <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
@@ -365,6 +419,42 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Summation tools"
+              onClick={() => {
+                if (sumMode) { setSumMode(null); setSumMenuOpen(false); return; }
+                setSumMenuOpen((v) => !v);
+              }}
+              className={
+                "inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 shadow-xs " +
+                (sumMode || sumMenuOpen
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-foreground hover:bg-foreground/10")
+              }
+            >
+              <Sigma className="h-3.5 w-3.5" />
+            </button>
+            {sumMenuOpen && !sumMode && (
+              <div className="absolute left-1/2 top-8 z-50 w-36 -translate-x-1/2 overflow-hidden rounded-md border border-foreground/20 bg-background shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => { setSumMode("row"); setSumMenuOpen(false); }}
+                  className="block w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-foreground hover:bg-foreground/10"
+                >
+                  Sum Row
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSumMode("col"); setSumMenuOpen(false); }}
+                  className="block w-full border-t border-foreground/10 px-2.5 py-1.5 text-left text-[11px] font-medium text-foreground hover:bg-foreground/10"
+                >
+                  Sum Column
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             aria-label="Open Smart table edit panel"
