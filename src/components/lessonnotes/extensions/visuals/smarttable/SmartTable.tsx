@@ -3,8 +3,8 @@
 // Properties Panel. The table is high-contrast and readable by default.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Minus, Plus, Settings2 } from "lucide-react";
-import { evaluate, formatNumber } from "./evaluator";
+import { Minus, Plus, Settings2, Sigma } from "lucide-react";
+import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
