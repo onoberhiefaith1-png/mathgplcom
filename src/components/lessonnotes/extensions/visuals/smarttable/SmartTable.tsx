@@ -122,10 +122,19 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const [buffer, setBuffer] = useState<string>("");
   const [dimensionMode, setDimensionMode] = useState<"rows" | "cols">("rows");
   const [panelOpen, setPanelOpen] = useState(false);
+  const [sumMenuOpen, setSumMenuOpen] = useState(false);
+  const [sumMode, setSumMode] = useState<"row" | "col" | null>(null);
 
   useEffect(() => {
-    if (!selected) setPanelOpen(false);
+    if (!selected) { setPanelOpen(false); setSumMenuOpen(false); setSumMode(null); }
   }, [selected]);
+
+  useEffect(() => {
+    if (!sumMode) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSumMode(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sumMode]);
 
   const patch = useCallback((next: Partial<SmartTableAttrs>) => {
     onChange({ ...next });
@@ -144,9 +153,46 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     if (r === -1) {
       const next = [...headers]; next[c] = buffer.trim(); patch({ headers: next });
     } else {
-      const next = cells.map((row) => [...row]); next[r][c] = buffer.trim(); patch({ cells: next });
+      const raw = buffer.trim();
+      const solved = tryEvaluate(raw);
+      const next = cells.map((row) => [...row]); next[r][c] = solved ?? raw; patch({ cells: next });
     }
     cancelEdit();
+  };
+
+  const writeCell = (r: number, c: number, value: string) => {
+    const next = cells.map((row) => [...row]);
+    next[r][c] = value;
+    patch({ cells: next });
+  };
+
+  /** Σ Sum Row — add every numeric cell to the LEFT of (r, c). */
+  const sumRow = (r: number, c: number) => {
+    let total = 0;
+    for (let i = 0; i < c; i++) {
+      const n = cellNumber(cells[r][i]);
+      if (n !== null) total += n;
+    }
+    writeCell(r, c, formatNumber(total));
+  };
+
+  /** Σ Sum Column — add every numeric cell ABOVE (r, c). Headers excluded. */
+  const sumCol = (r: number, c: number) => {
+    let total = 0;
+    for (let i = 0; i < r; i++) {
+      const n = cellNumber(cells[i][c]);
+      if (n !== null) total += n;
+    }
+    writeCell(r, c, formatNumber(total));
+  };
+
+  const handleCellClick = (r: number, c: number) => {
+    if (sumMode) {
+      if (sumMode === "row") sumRow(r, c); else sumCol(r, c);
+      setSumMode(null);
+      return;
+    }
+    if (!isEditing(r, c)) beginEdit(r, c);
   };
 
   const addRow = (at: number) => {
