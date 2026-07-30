@@ -313,6 +313,14 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   return (
     <div className="smart-table not-prose relative inline-block align-middle" onClick={(e) => e.stopPropagation()}>
+      {sumMode && (
+        <div
+          contentEditable={false}
+          className="mb-1.5 inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground"
+        >
+          {sumMode === "row" ? "Sum Row" : "Sum Column"} — click the total cell (Esc to cancel)
+        </div>
+      )}
       <table style={tableStyle}>
         <thead>
           <tr>
@@ -321,7 +329,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 key={c}
                 style={{ ...headerCss, ...colStyle(c) }}
                 className="relative"
-                onClick={(e) => { e.stopPropagation(); if (!isEditing(-1, c)) beginEdit(-1, c); }}
+                onClick={(e) => { e.stopPropagation(); if (sumMode) return; if (!isEditing(-1, c)) beginEdit(-1, c); }}
               >
                 {isEditing(-1, c) ? (
                   <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
@@ -343,8 +351,8 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                   <td
                     key={c}
                     style={{ ...cellCss, ...colStyle(c) }}
-                    className="cursor-text hover:bg-black/5"
-                    onClick={(e) => { e.stopPropagation(); if (!editing) beginEdit(r, c); }}
+                    className={sumMode ? "cursor-pointer hover:bg-primary/20" : "cursor-text hover:bg-black/5"}
+                    onClick={(e) => { e.stopPropagation(); handleCellClick(r, c); }}
                   >
                     {editing ? (
                       <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
