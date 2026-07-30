@@ -419,6 +419,42 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Summation tools"
+              onClick={() => {
+                if (sumMode) { setSumMode(null); setSumMenuOpen(false); return; }
+                setSumMenuOpen((v) => !v);
+              }}
+              className={
+                "inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 shadow-xs " +
+                (sumMode || sumMenuOpen
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-foreground hover:bg-foreground/10")
+              }
+            >
+              <Sigma className="h-3.5 w-3.5" />
+            </button>
+            {sumMenuOpen && !sumMode && (
+              <div className="absolute left-1/2 top-8 z-50 w-36 -translate-x-1/2 overflow-hidden rounded-md border border-foreground/20 bg-background shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => { setSumMode("row"); setSumMenuOpen(false); }}
+                  className="block w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-foreground hover:bg-foreground/10"
+                >
+                  Sum Row
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSumMode("col"); setSumMenuOpen(false); }}
+                  className="block w-full border-t border-foreground/10 px-2.5 py-1.5 text-left text-[11px] font-medium text-foreground hover:bg-foreground/10"
+                >
+                  Sum Column
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             aria-label="Open Smart table edit panel"
