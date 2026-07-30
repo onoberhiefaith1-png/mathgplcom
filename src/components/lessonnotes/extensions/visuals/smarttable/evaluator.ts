@@ -147,3 +147,30 @@ export function formatNumber(n: number): string {
   const rounded = Math.round(n * 1e10) / 1e10;
   return String(rounded);
 }
+
+/** True when the string is already just a plain number (nothing to solve). */
+const isPlainNumber = (s: string): boolean => /^-?\d+(\.\d+)?$/.test(s.trim());
+
+/** Cell calculator: returns the solved value as text when `raw` is a solvable
+ *  arithmetic expression, else null (plain numbers and text are left alone). */
+export function tryEvaluate(raw: string): string | null {
+  const s = (raw ?? "").trim();
+  if (!s) return null;
+  const body = s.startsWith("=") ? s.slice(1) : s;
+  if (!body.trim()) return null;
+  if (!s.startsWith("=") && isPlainNumber(body)) return null;
+  // Must contain at least one operator/function to count as a calculation.
+  if (!/[+\-*/^×÷√²³()]/.test(body)) return null;
+  const r = evaluate(body);
+  return r.ok ? formatNumber(r.value) : null;
+}
+
+/** Numeric value of a cell for summation. Empty/text cells → null. */
+export function cellNumber(raw: string): number | null {
+  const s = (raw ?? "").trim();
+  if (!s) return null;
+  const body = s.startsWith("=") ? s.slice(1) : s;
+  if (isPlainNumber(body)) return Number(body);
+  const r = evaluate(body);
+  return r.ok && Number.isFinite(r.value) ? r.value : null;
+}
