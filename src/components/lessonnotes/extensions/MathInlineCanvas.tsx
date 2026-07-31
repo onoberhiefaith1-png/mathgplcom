@@ -15,11 +15,13 @@
 //                  caret to the surrounding prose
 //   click        → place the caret exactly where clicked, at any depth
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   type Row,
   type Node,
   type Cursor,
+  type MathSelection,
+  type RowRange,
   mkChar,
   mkFrac,
   mkSqrt,
@@ -30,11 +32,23 @@ import {
   insertChar,
   insertNode,
   insertNodeWrapping,
+  insertFragment,
   backspace as treeBackspace,
   moveLeft,
   moveRight,
+  moveWord,
+  moveRange,
+  deleteForward,
+  deleteRange,
+  normalizeSelection,
+  sliceRange,
+  unwrapContainer,
+  rowStartCursor,
+  rowEndCursor,
+  cursorsEqual,
   extractWrapTargetLeftOf,
 } from "@/lib/smartboard/mathTree";
+
 
 interface Props {
   root: Row;
