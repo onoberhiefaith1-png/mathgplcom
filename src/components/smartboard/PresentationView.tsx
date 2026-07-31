@@ -2598,6 +2598,40 @@ const PresentationView = ({
     setTableSensorCellFor(group.objId, null);
   }, [setTableSensorCellFor]);
 
+  /* ── ERASER INSIDE OBJECTS ───────────────────────────────────────────
+     Two kinds of ink live in a Smart Table / Smart Structure:
+       • RETAINED  — the teacher's drawing (bracket, horizontal rules, minus
+         signs, ladder divider, "R" labels, headings) plus any value marked
+         retained. Read-only ink: the eraser passes straight over it.
+       • ENTERED   — anything written into an editable cell. The eraser rubs
+         it out in place, exactly like a digit on the board.
+     Only Clear (all entered values) and Remove from board touch more. */
+  useEffect(() => {
+    eraseObjectCellRef.current = (cx: number, cy: number): boolean => {
+      if (typeof document === "undefined") return false;
+      for (const el of document.elementsFromPoint(cx, cy)) {
+        const cellEl = (el as HTMLElement).closest?.<HTMLElement>("[data-sb-cell]");
+        if (!cellEl) continue;
+        const host = cellEl.closest<HTMLElement>("[data-sb-table-obj-id]");
+        const objId = host?.getAttribute("data-sb-table-obj-id");
+        const key = cellEl.getAttribute("data-sb-cell") ?? "";
+        if (!objId || !key) continue;
+        // Retained / structural ink — handled (swallowed) but never erased.
+        if (cellEl.dataset.sbLocked === "1") return true;
+        const group = tableGroups.find((g) => g.objId === objId);
+        if (!group) return true;
+        const structural = Array.isArray((group.grid as any).staticCells)
+          && ((group.grid as any).staticCells as string[]).includes(key);
+        if (structural || isRetained(group, key)) return true;
+        setTableEntry(objId, key, "");
+        return true;
+      }
+      return false;
+    };
+    return () => { eraseObjectCellRef.current = null; };
+  }, [tableGroups, setTableEntry]);
+
+
   /* ── LESSON STEPS vs T-SERIES ────────────────────────────────────────
      Lesson numbering NEVER counts table rows: a table is one lesson step.
      The active workspace follows the CURSOR: clicking a cell inside a placed
