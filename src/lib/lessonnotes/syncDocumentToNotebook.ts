@@ -13,6 +13,13 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { detectSectionKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import {
+  INLINE_OBJECT_TYPES,
+  familyLabel,
+  isObjectNodeType,
+  objectFamily,
+  type SolutionObject,
+} from "@/lib/floating/solutionItems";
 
 type Node = any;
 
