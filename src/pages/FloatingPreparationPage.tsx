@@ -20,6 +20,13 @@ import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingComp
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { cn } from "@/lib/utils";
+import {
+  buildSolutionItems,
+  familyLabel,
+  readSolutionObjects,
+  type SolutionObject,
+} from "@/lib/floating/solutionItems";
+import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 
 interface TokenRef { line: number; tok: number }
 interface Highlight {
