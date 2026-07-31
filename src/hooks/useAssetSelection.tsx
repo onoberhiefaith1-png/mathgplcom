@@ -3,8 +3,15 @@
 // calls `useRegisterAssetEditor` while it is the active selection, and the
 // panel renders whatever editor node it registered. This gives the whole
 // application ONE editing surface.
+//
+// The registration lives in an external store rather than React state on a
+// provider: assets hand over a fresh `editor` JSX node on every render, and
+// storing that in provider state re-rendered the whole subtree (including the
+// asset), which re-created the editor node and looped forever
+// ("Maximum update depth exceeded"). With an external store only the panel
+// re-renders when the editor changes, so there is no feedback loop.
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useContext, useEffect, useSyncExternalStore, createContext, type ReactNode } from "react";
 
 interface Registration {
   id: string;
@@ -12,24 +19,34 @@ interface Registration {
   editor: ReactNode;
 }
 
-interface Ctx {
-  reg: Registration | null;
-  setReg: React.Dispatch<React.SetStateAction<Registration | null>>;
+let current: Registration | null = null;
+const listeners = new Set<() => void>();
+
+const emit = () => { listeners.forEach((l) => l()); };
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+const getSnapshot = () => current;
+const getServerSnapshot = () => null;
+
+function publish(next: Registration | null) {
+  if (current === next) return;
+  current = next;
+  emit();
 }
 
-const AssetSelectionContext = createContext<Ctx | null>(null);
+// Kept for API compatibility — the store is module-level, so the provider is
+// just a passthrough marker that tells assets a panel exists.
+const AssetSelectionContext = createContext<boolean>(false);
 
 export function AssetSelectionProvider({ children }: { children: ReactNode }) {
-  const [reg, setReg] = useState<Registration | null>(null);
   return (
-    <AssetSelectionContext.Provider value={{ reg, setReg }}>
-      {children}
-    </AssetSelectionContext.Provider>
+    <AssetSelectionContext.Provider value={true}>{children}</AssetSelectionContext.Provider>
   );
 }
 
+/** Panel-side: the currently registered editor, or null. */
 export function useAssetSelection() {
-  return useContext(AssetSelectionContext);
+  const reg = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return { reg };
 }
 
 /**
@@ -43,20 +60,22 @@ export function useRegisterAssetEditor(
   title: string,
   editor: ReactNode,
 ) {
-  const ctx = useContext(AssetSelectionContext);
+  const enabled = useContext(AssetSelectionContext);
+
+  // Push the latest editor while active. No cleanup here: clearing on every
+  // editor change would blank the panel between renders.
   useEffect(() => {
-    if (!ctx || !active) return;
-    // Functional update: only replace when something meaningful changed.
-    // Prevents an infinite render loop when callers pass a fresh JSX
-    // `editor` each render — we still push the latest editor, but only
-    // trigger a state update if it's actually different.
-    ctx.setReg((prev) => {
-      if (prev && prev.id === id && prev.title === title && prev.editor === editor) return prev;
-      return { id, title, editor };
-    });
+    if (!enabled || !active) return;
+    publish({ id, title, editor });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, active, id, title, editor]);
+
+  // Release the slot when this asset stops being active, or unmounts.
+  useEffect(() => {
+    if (!enabled || !active) return;
     return () => {
-      ctx.setReg((prev) => (prev && prev.id === id ? null : prev));
+      if (current && current.id === id) publish(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, id, title, editor]);
+  }, [enabled, active, id]);
 }
