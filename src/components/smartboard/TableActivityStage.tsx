@@ -92,7 +92,7 @@ const TableActivityStage = ({
     report();
     const ro = new ResizeObserver(report);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); onMeasure(0); };
   }, [onMeasure, open]);
 
   // Keep the caret where the board's sensor is.
