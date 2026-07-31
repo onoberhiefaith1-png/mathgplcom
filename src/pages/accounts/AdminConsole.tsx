@@ -218,6 +218,55 @@ const AdminConsole = () => {
         ))}
       </div>
 
+      <section className="mt-8 rounded-3xl border border-dash-border bg-dash-surface p-6 shadow-[var(--shadow-dash)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-dash-surface-foreground">My accounts</h2>
+            <p className="text-xs text-dash-surface-muted">
+              One of each role, owned by you — use them to check that School, Teacher, Parent and
+              Student all work. Only these open without a password.
+            </p>
+          </div>
+          {(mine.data ?? []).some((m) => !m.userId) && (
+            <button
+              type="button"
+              disabled={settingUp}
+              onClick={() => void setUpMine()}
+              className="inline-flex items-center gap-2 rounded-full bg-dash-gold px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-navy disabled:opacity-50"
+            >
+              {settingUp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Set up my accounts
+            </button>
+          )}
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(mine.data ?? []).map((m) => (
+            <div
+              key={m.role}
+              className="rounded-2xl border border-dash-border bg-background/40 p-4"
+            >
+              <p className="text-sm font-semibold capitalize text-dash-surface-foreground">{m.role}</p>
+              <p className="mt-1 truncate text-xs text-dash-surface-muted">{m.email || "—"}</p>
+              <button
+                type="button"
+                disabled={!m.userId || busyId === m.userId}
+                onClick={() => m.userId && void enter(m.userId)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-dash-border px-2.5 py-1.5 text-xs font-medium text-dash-surface-foreground transition hover:border-dash-gold hover:bg-dash-gold/10 disabled:opacity-50"
+              >
+                {busyId === m.userId ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <LogIn className="h-3.5 w-3.5" />
+                )}
+                {m.userId ? "Open workspace" : "Not created yet"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+
       <div className="mt-8 flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
