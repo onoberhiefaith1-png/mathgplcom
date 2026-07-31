@@ -61,6 +61,9 @@ interface Props {
   /** Viewport point of the click that opened the editor, so the caret can
    *  land exactly where the teacher clicked on the rendered form. */
   entryPoint?: { x: number; y: number } | null;
+  /** Caret position to open with (used when `#` creates the structure from
+   *  prose and the caret must land inside the fresh power slot). */
+  entryCursor?: Cursor | null;
 }
 
 
