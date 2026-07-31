@@ -232,12 +232,12 @@ const Showcase = ({ ringUrls, coreUrls }: { ringUrls: string[]; coreUrls: string
 
       <group ref={worldRef}>
         {/* Inner royal palace core — locked to the same group so it rotates with the city. */}
-        <CentralCore />
+        <CentralCore textures={coreTextures} />
         {academies.map((academy, i) => (
           <WorldSegment
             key={i}
             index={i}
-            texture={textureByUrl.get(academy.image)!}
+            texture={textureByUrl.get(ringUrls[i] ?? academy.image)!}
             interactive
             onActivate={handleActivate}
             onHoverChange={(h) => (hoveredRef.current = h)}
