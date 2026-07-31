@@ -143,17 +143,24 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [sumMenuOpen, setSumMenuOpen] = useState(false);
   const [sumMode, setSumMode] = useState<"row" | "col" | null>(null);
+  /** Whole-line selection: a row or a column, highlighted end to end. */
+  const [line, setLine] = useState<{ kind: "row" | "col"; index: number } | null>(null);
 
   useEffect(() => {
-    if (!selected) { setPanelOpen(false); setSumMenuOpen(false); setSumMode(null); }
+    if (!selected) { setPanelOpen(false); setSumMenuOpen(false); setSumMode(null); setLine(null); }
   }, [selected]);
 
   useEffect(() => {
-    if (!sumMode) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSumMode(null); };
+    if (!sumMode && !line) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setSumMode(null);
+      setLine(null);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sumMode]);
+  }, [sumMode, line]);
+
 
   const patch = useCallback((next: Partial<SmartTableAttrs>) => {
     onChange({ ...next });
@@ -315,6 +322,51 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     if (active?.c === at) cancelEdit();
   };
 
+  // ── Line (whole row / whole column) operations ────────────────────────
+  // A "line" is a selected row or column. Inserting happens INSIDE the
+  // grid at that index, and lines can be moved so rows/columns swap.
+
+  const duplicateRow = (at: number) => {
+    const copy = [...(cells[at] ?? [])];
+    const next = [...cells]; next.splice(at + 1, 0, copy);
+    patch({ rows: rows + 1, cells: next });
+  };
+
+  const duplicateCol = (at: number) => {
+    const nextHeaders = [...headers]; nextHeaders.splice(at + 1, 0, headers[at] ?? "");
+    const nextCells = cells.map((row) => {
+      const rr = [...row]; rr.splice(at + 1, 0, row[at] ?? ""); return rr;
+    });
+    const nextW = colWidths ? [...colWidths] : undefined;
+    if (nextW) nextW.splice(at + 1, 0, nextW[at] ?? 90);
+    patch({ cols: cols + 1, headers: nextHeaders, cells: nextCells, colWidths: nextW });
+  };
+
+  const moveRow = (from: number, to: number) => {
+    if (to < 0 || to >= rows || from === to) return;
+    const next = [...cells];
+    const [row] = next.splice(from, 1);
+    next.splice(to, 0, row);
+    patch({ cells: next });
+    setLine({ kind: "row", index: to });
+    cancelEdit();
+  };
+
+  const moveCol = (from: number, to: number) => {
+    if (to < 0 || to >= cols || from === to) return;
+    const nextHeaders = [...headers];
+    const [h] = nextHeaders.splice(from, 1);
+    nextHeaders.splice(to, 0, h);
+    const nextCells = cells.map((row) => {
+      const rr = [...row]; const [v] = rr.splice(from, 1); rr.splice(to, 0, v); return rr;
+    });
+    let nextW = colWidths ? [...colWidths] : undefined;
+    if (nextW) { const [w] = nextW.splice(from, 1); nextW.splice(to, 0, w); }
+    patch({ headers: nextHeaders, cells: nextCells, colWidths: nextW });
+    setLine({ kind: "col", index: to });
+    cancelEdit();
+  };
+
   const isEditing = (r: number, c: number) => !!active && active.r === r && active.c === c;
   const colStyle = (c: number) => ({ width: colWidths?.[c] ?? undefined, minWidth: 72 });
 
@@ -345,6 +397,46 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const editor = (
     <div>
+      <PanelGroup label={line ? (line.kind === "row" ? `Selected row ${line.index + 1}` : `Selected column ${line.index + 1}`) : "Selected line"}>
+        {!line && (
+          <p className="px-1 py-1 text-[11px] text-foreground/60">
+            Click a row or column handle on the table to select a whole line, then insert, move or delete it here.
+          </p>
+        )}
+        {line?.kind === "row" && (
+          <>
+            <PanelRow label="Insert row">
+              <PanelButton onClick={() => addRow(line.index)}>Above</PanelButton>
+              <PanelButton onClick={() => addRow(line.index + 1)}>Below</PanelButton>
+            </PanelRow>
+            <PanelRow label="Move row">
+              <PanelButton onClick={() => moveRow(line.index, line.index - 1)}>Up</PanelButton>
+              <PanelButton onClick={() => moveRow(line.index, line.index + 1)}>Down</PanelButton>
+            </PanelRow>
+            <PanelRow label="Row">
+              <PanelButton onClick={() => duplicateRow(line.index)}>Duplicate</PanelButton>
+              <PanelButton onClick={() => { delRow(line.index); setLine(null); }}>Delete</PanelButton>
+            </PanelRow>
+          </>
+        )}
+        {line?.kind === "col" && (
+          <>
+            <PanelRow label="Insert column">
+              <PanelButton onClick={() => addCol(line.index)}>Left</PanelButton>
+              <PanelButton onClick={() => addCol(line.index + 1)}>Right</PanelButton>
+            </PanelRow>
+            <PanelRow label="Move column">
+              <PanelButton onClick={() => moveCol(line.index, line.index - 1)}>Left</PanelButton>
+              <PanelButton onClick={() => moveCol(line.index, line.index + 1)}>Right</PanelButton>
+            </PanelRow>
+            <PanelRow label="Column">
+              <PanelButton onClick={() => duplicateCol(line.index)}>Duplicate</PanelButton>
+              <PanelButton onClick={() => { delCol(line.index); setLine(null); }}>Delete</PanelButton>
+            </PanelRow>
+          </>
+        )}
+      </PanelGroup>
+
       <PanelGroup label="Rows">
         <PanelRow label="Number of rows">
           <PanelButton onClick={() => delRow(rows - 1)}><Minus className="h-3 w-3" /></PanelButton>
@@ -392,7 +484,32 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       </PanelGroup>
     </div>
   );
-  useRegisterAssetEditor((!!selected && panelOpen) || active !== null, "smartTable", "Smart table", editor);
+  useRegisterAssetEditor(
+    (!!selected && (panelOpen || line !== null)) || active !== null,
+    "smartTable", "Smart table", editor,
+  );
+
+  const rowSelected = (r: number) => line?.kind === "row" && line.index === r;
+  const colSelected = (c: number) => line?.kind === "col" && line.index === c;
+  const lineHi = (r: number, c: number): React.CSSProperties =>
+    (rowSelected(r) || colSelected(c))
+      ? { background: "rgba(37,99,235,0.16)", boxShadow: "inset 0 0 0 9999px rgba(37,99,235,0.06)" }
+      : {};
+  const handleCss: React.CSSProperties = {
+    border: "1px solid rgba(37,99,235,0.35)",
+    background: "rgba(37,99,235,0.08)",
+    padding: 0,
+    width: 16,
+    minWidth: 16,
+    height: 16,
+    cursor: "pointer",
+  };
+  const selectLine = (kind: "row" | "col", index: number) => {
+    cancelEdit();
+    setSumMode(null);
+    setLine((p) => (p && p.kind === kind && p.index === index ? null : { kind, index }));
+  };
+
 
   const adjustDown = () => {
     if (dimensionMode === "rows") delRow(rows - 1);
@@ -416,11 +533,33 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       )}
       <table style={tableStyle}>
         <thead>
+          {selected && (
+            <tr contentEditable={false}>
+              <th style={{ ...handleCss, background: "transparent", border: "none" }} />
+              {headers.map((_, c) => (
+                <th
+                  key={`ch${c}`}
+                  title={`Select column ${c + 1}`}
+                  aria-label={`Select column ${c + 1}`}
+                  style={{
+                    ...handleCss,
+                    ...colStyle(c),
+                    background: colSelected(c) ? "rgba(37,99,235,0.55)" : handleCss.background,
+                  }}
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); selectLine("col", c); }}
+                />
+              ))}
+            </tr>
+          )}
           <tr>
+            {selected && (
+              <th style={{ ...handleCss, background: "transparent", border: "none" }} contentEditable={false} />
+            )}
             {headers.map((h, c) => (
               <th
                 key={c}
-                style={{ ...headerCss, ...colStyle(c) }}
+                style={{ ...headerCss, ...colStyle(c), ...lineHi(-1, c) }}
                 className="relative"
                 onClick={(e) => { e.stopPropagation(); if (sumMode) return; if (!isEditing(-1, c)) beginEdit(-1, c); }}
               >
@@ -450,19 +589,33 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
         <tbody>
           {cells.map((row, r) => (
             <tr key={r} style={style.striped && r % 2 === 1 ? { background: "rgba(15,23,42,0.04)" } : undefined}>
+              {selected && (
+                <td
+                  contentEditable={false}
+                  title={`Select row ${r + 1}`}
+                  aria-label={`Select row ${r + 1}`}
+                  style={{
+                    ...handleCss,
+                    background: rowSelected(r) ? "rgba(37,99,235,0.55)" : handleCss.background,
+                  }}
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); selectLine("row", r); }}
+                />
+              )}
               {row.map((raw, c) => {
                 const editing = isEditing(r, c);
                 const rendered = cellDisplay(raw, `c${r}-${c}`);
                 return (
                   <td
                     key={c}
-                    style={{ ...cellCss, ...colStyle(c) }}
+                    style={{ ...cellCss, ...colStyle(c), ...lineHi(r, c) }}
                     className={
                       "relative " +
                       (sumMode ? "cursor-pointer hover:bg-primary/20" : "cursor-text hover:bg-black/5")
                     }
                     onClick={(e) => { e.stopPropagation(); handleCellClick(r, c); }}
                   >
+
                     {editing ? (
                       <>
                         <SmartTableCellToolbar

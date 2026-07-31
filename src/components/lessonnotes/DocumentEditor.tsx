@@ -568,8 +568,25 @@ function DocumentEditorInner({
     }
     const label = SECTION_LABELS[opts.kind].toLowerCase();
     switch (opts.action) {
-      case "regenerate":
+      case "regenerate": {
+        // Regenerate means "something is missing — fix it". The teacher's
+        // latest instruction (typed, spoken or scanned from an image) is the
+        // whole point of the press, so it MUST drive the rewrite, with the
+        // current section handed over as the thing being corrected.
+        const hasExisting = opts.sectionText.trim().length > 0;
+        if (prompt && hasExisting) {
+          return {
+            prompt:
+              `Regenerate the ${label} below, applying this teacher instruction exactly:\n` +
+              `"""${prompt}"""\n\n` +
+              `Keep everything the instruction does not mention. Output ONLY the full corrected ${label} body — ` +
+              `no section headings, no commentary about what you changed.`,
+            currentContent: opts.sectionText,
+          };
+        }
         return { prompt: prompt || `Rewrite the ${label} from scratch.`, currentContent: "" };
+      }
+
       case "paraphrase":
         return {
           prompt: (prompt ? prompt + "\n\n" : "") +
