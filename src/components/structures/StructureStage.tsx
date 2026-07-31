@@ -175,11 +175,13 @@ export function StructureStage({
   return (
     <div
       ref={hostRef}
+      data-sb-structure={structureId}
       className="not-prose inline-block"
       style={editable ? undefined : { pointerEvents: "none", opacity: 0.98 }}
     >
       <Asset attrs={attrs} onChange={handleChange} board selected={false} />
     </div>
   );
+
 }
 
