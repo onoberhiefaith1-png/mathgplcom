@@ -25,6 +25,8 @@ import {
   lessonSteps,
   stepIdxForLine,
   tSeriesFor,
+  tagForLine,
+
   type TableEntries,
   type TableValidation,
 } from "@/lib/smartboard/tableActivity";
@@ -2449,7 +2451,9 @@ const PresentationView = ({
   );
   const TABLE_STATE_KEY = `${boardKey("tableActivity", boardScope)}:${activeReservoirIdx}`;
   const [tableEntries, setTableEntries] = useState<Record<string, TableEntries>>({});
-  const [tableSensorCell, setTableSensorCell] = useState<string | null>(null);
+  /** Sensor cell PER table — several tables can sit on the board at once and
+   *  each keeps its own cursor. */
+  const [tableSensorCells, setTableSensorCells] = useState<Record<string, string | null>>({});
   /** Live cursor row, read when the teacher taps a table's Floating Number. */
   const sensorRef = useRef(sensor);
   sensorRef.current = sensor;
@@ -2458,17 +2462,27 @@ const PresentationView = ({
   /** Tables the teacher has PLACED on this board view, and the board row
    *  each one sits on. A table is a permanent lesson line represented by its
    *  Floating Number icon; it appears on the board only when the teacher taps
-   *  that icon. Removing it from the board deletes nothing — entries,
-   *  orientation, retention, T-series and mappings all stay, and the icon
-   *  keeps working, so the same table can be placed again at any cursor. */
+   *  that icon. Once placed the table STAYS visible — moving the cursor away
+   *  only switches the active Floating Number workspace. Removing it from the
+   *  board deletes nothing — entries, orientation, retention, T-series and
+   *  mappings all stay, and the icon keeps working. */
   const [placedTables, setPlacedTables] = useState<Record<string, { row: number }>>({});
 
-  /** The table becomes ACTIVE (T-series takes over the floating numbers)
-   *  only when a cell inside it is clicked — never merely by expanding. */
+  /** The table whose T-series currently owns the Floating Number panel. Set
+   *  when a cell inside a placed table is clicked, cleared as soon as the
+   *  cursor lands anywhere outside a table. Purely a workspace flag: it never
+   *  affects whether the table is drawn. */
   const [activeTableObjId, setActiveTableObjId] = useState<string | null>(null);
-  const openTableObjId = activeTableGroup && expandedTables[activeTableGroup.objId]
-    ? activeTableGroup.objId
+  const openTableObjId = activeTableObjId && expandedTables[activeTableObjId]
+    ? activeTableObjId
     : null;
+  const tableSensorCell = activeTableGroup
+    ? tableSensorCells[activeTableGroup.objId] ?? null
+    : null;
+  const setTableSensorCellFor = useCallback((objId: string, key: string | null) => {
+    setTableSensorCells((prev) => ({ ...prev, [objId]: key }));
+  }, []);
+
 
   // Restore per-cell entries for this reservoir.
   useEffect(() => {
@@ -2479,7 +2493,8 @@ const PresentationView = ({
         : null;
       setTableEntries(raw ? (JSON.parse(raw) ?? {}) : {});
     } catch { setTableEntries({}); }
-    setTableSensorCell(null);
+    setTableSensorCells({});
+
     setExpandedTables({});
     setPlacedTables({});
     setActiveTableObjId(null);
@@ -2506,16 +2521,19 @@ const PresentationView = ({
   const activeTablePlaced = !!activeTablePlacement;
 
 
-  // Floating line change → seat the table sensor on that row/column.
+  // Floating line change → seat the active table's sensor on that row/column.
   useEffect(() => {
-    if (!activeTableGroup) { setTableSensorCell(null); return; }
+    if (!activeTableGroup) return;
+    const objId = activeTableGroup.objId;
     const target = firstOpenCell(activeTableGroup, activeTableEntries, activeLineIdx);
-    setTableSensorCell((cur) => {
-      if (cur && cellKeysForLine(activeTableGroup, activeLineIdx).includes(cur)) return cur;
-      return target;
+    setTableSensorCells((prev) => {
+      const cur = prev[objId] ?? null;
+      if (cur && cellKeysForLine(activeTableGroup, activeLineIdx).includes(cur)) return prev;
+      return { ...prev, [objId]: target };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTableGroup?.objId, activeLineIdx]);
+
 
   const setTableEntry = useCallback(
     (objId: string, key: string, value: string) => {
@@ -2554,8 +2572,8 @@ const PresentationView = ({
       return next;
     });
     setActiveTableObjId((cur) => (cur === group.objId ? null : cur));
-    setTableSensorCell(null);
-  }, []);
+    setTableSensorCellFor(group.objId, null);
+  }, [setTableSensorCellFor]);
 
   /** Place (or re-place) the table on the board at the teacher's cursor —
    *  exactly how an ordinary Floating Number writes at the cursor. */
@@ -2569,14 +2587,15 @@ const PresentationView = ({
    *  headings, structure, formatting and orientation are untouched. */
   const clearTableEntries = useCallback((group: typeof tableGroups[number]) => {
     setTableEntries((prev) => ({ ...prev, [group.objId]: {} }));
-    setTableSensorCell(null);
-  }, []);
+    setTableSensorCellFor(group.objId, null);
+  }, [setTableSensorCellFor]);
 
   /* ── LESSON STEPS vs T-SERIES ────────────────────────────────────────
      Lesson numbering NEVER counts table rows: a table is one lesson step.
-     While a table is ACTIVE (a cell was clicked) the floating-number
-     counter switches to that table's own T-series; leaving the table
-     restores the lesson numbering. */
+     The active workspace follows the CURSOR: clicking a cell inside a placed
+     table hands the floating numbers to that table's T-series, and putting
+     the cursor anywhere outside a table restores the lesson numbering. The
+     table itself stays on the board either way. */
   const steps = useMemo(
     () => lessonSteps(guidedLines.length, tableGroups),
     [guidedLines.length, tableGroups],
@@ -2584,7 +2603,6 @@ const PresentationView = ({
   const activeStepIdx = stepIdxForLine(steps, activeLineIdx);
   /** The table currently driving the counter (only after a cell click). */
   const tSeriesGroup = activeTableGroup
-    && activeTablePlaced
     && activeTableObjId === activeTableGroup.objId
     ? activeTableGroup
     : null;
@@ -2593,7 +2611,24 @@ const PresentationView = ({
     [tSeriesGroup],
   );
 
-  // Leaving the table (another step, collapse, or removal) ends the T-series.
+  /** THE tag of the active floating number — `T{n}` inside a table, the
+   *  lesson step number outside. Every surface reads this one value. */
+  const activeTag = useMemo(
+    () => (tSeriesGroup
+      ? tagForLine(steps, tableGroups, activeLineIdx)
+      : String(activeStepIdx + 1)),
+    [tSeriesGroup, steps, tableGroups, activeLineIdx, activeStepIdx],
+  );
+
+  /** Leave the table workspace: the cursor is no longer inside a table.
+   *  Visibility is untouched — the table stays on the board. */
+  const exitTableWorkspace = useCallback(() => {
+    setActiveTableObjId((cur) => (cur ? null : cur));
+  }, []);
+
+  // The cursor decides the workspace. The table's own lines are the only
+  // positions that keep the T-series alive; any lesson line outside a table
+  // (or an un-placed / collapsed table) restores the lesson numbering.
   useEffect(() => {
     if (!activeTableObjId) return;
     const stillInside = activeTableGroup?.objId === activeTableObjId;
@@ -2602,6 +2637,7 @@ const PresentationView = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTableObjId, activeTableGroup?.objId, expandedTables, placedTables]);
+
 
   // NOTE: the lesson trunk never skips a table. Its lesson line stays a valid
   // cursor position whether or not the table is currently on the board.
@@ -5029,7 +5065,15 @@ const PresentationView = ({
           cursor: eraseMode ? "cell" : undefined,
         }}
         onPointerDown={(e) => {
+          // WORKSPACE SWITCH — the cursor alone decides which floating
+          // numbers are active. A tap anywhere outside every Smart Table
+          // returns the panel to the lesson numbers. The table itself is
+          // untouched: it stays on the board until the teacher removes it.
+          if (!(e.target as HTMLElement).closest("[data-sb-table-line]")) {
+            exitTableWorkspace();
+          }
           if (!canEdit) return; // view-only mirror: no board interaction
+
           // The board is read-only until the teacher activates solving
           // mode via the # button. Eraser still works (handled below).
           if (!solvingMode && !eraseMode && !boxArmed && !dotArmed) return;
@@ -5246,23 +5290,31 @@ const PresentationView = ({
             </div>
           ))}
 
-          {/* Smart Table — a FIRST-CLASS Smartboard object, not a popup. It
-              sits on the writing surface at the board row that owns its
-              lesson line, occupies that one lesson line, and pushes every
-              row underneath down by its own height (so it never covers other
-              lesson content). Internally it still drives its own Floating
-              Number lines, Present, orientation and assessment. */}
-          {activeTableGroup && activeTablePlacement && (() => {
+          {/* Smart Tables — FIRST-CLASS Smartboard objects, not popups. Every
+              table the teacher has PLACED stays on the writing surface at the
+              row where it was placed, regardless of which floating-number
+              workspace is active. It only leaves when the teacher removes it.
+              Several tables can be on the board at once, each with its own
+              entries, expand state and cell cursor. */}
+          {Object.entries(placedTables).map(([objId, placement]) => {
+            const group = tableGroups.find((g) => g.objId === objId);
+            if (!group || !placement) return null;
             // The table sits where the TEACHER placed it (the cursor row at
             // the moment its Floating Number icon was tapped), not wherever
             // the lesson line happens to fall.
             const anchorRow = activeLayout
-              ? clampToActiveBand(activeTablePlacement.row)
-              : activeTablePlacement.row;
-            const objId = activeTableGroup.objId;
+              ? clampToActiveBand(placement.row)
+              : placement.row;
+            const entries = tableEntries[objId] ?? {};
+            // The line the table highlights: the active line when the cursor
+            // is inside this table, otherwise its own first line.
+            const lineIdx = group.memberLineIdxs.includes(activeLineIdx)
+              ? activeLineIdx
+              : group.memberLineIdxs[0] ?? 0;
 
             return (
               <div
+                key={`table:${objId}`}
                 data-sb-table-line
                 style={{
                   position: "absolute",
@@ -5273,10 +5325,10 @@ const PresentationView = ({
                 }}
               >
                 <TableActivityStage
-                  group={activeTableGroup}
-                  activeLineIdx={activeLineIdx}
-                  entries={activeTableEntries}
-                  sensorCell={tableSensorCell}
+                  group={group}
+                  activeLineIdx={lineIdx}
+                  entries={entries}
+                  sensorCell={tableSensorCells[objId] ?? null}
                   open={!!expandedTables[objId]}
                   dark={isDark}
                   editable={canEdit}
@@ -5284,27 +5336,28 @@ const PresentationView = ({
                   onOpenChange={(o) =>
                     setExpandedTables((prev) => ({ ...prev, [objId]: o }))}
                   onActivateLine={(k) => {
-                    // Clicking a cell hands the floating numbers to the
-                    // table's own T-series until the teacher leaves it.
+                    // Clicking a cell hands the floating numbers to this
+                    // table's own T-series until the cursor leaves the table.
                     setActiveTableObjId(objId);
                     setActiveLineIdx(k);
                     setFloatingLineIdx(k);
                     setManualFloatingLineIdx(k);
                   }}
-                  onSensorCell={setTableSensorCell}
+                  onSensorCell={(k) => setTableSensorCellFor(objId, k)}
                   onEntry={(k, v) => setTableEntry(objId, k, v)}
-                  onDelete={() => deleteTableObject(activeTableGroup)}
-                  onClear={() => clearTableEntries(activeTableGroup)}
+                  onDelete={() => deleteTableObject(group)}
+                  onClear={() => clearTableEntries(group)}
                   onMeasure={(h) =>
                     handleBeatMeasure(`table:${objId}`, anchorRow + 1, grid.LINE_HEIGHT, h)}
                 />
               </div>
             );
-          })()}
+          })}
 
-          {/* Not on the board? Nothing is drawn here. The table is a permanent
-              lesson line: its Floating Number icon stays in the panel and the
+          {/* Not placed? Nothing is drawn. The table is a permanent lesson
+              line: its Floating Number icon stays in the panel and the
               teacher places it at the cursor whenever they want it. */}
+
 
 
 
@@ -5495,7 +5548,13 @@ const PresentationView = ({
               : -1;
             const counterNumber = tCount > 0 ? tIdx + 1 : activeStepIdx + 1;
             const counterTotal = tCount > 0 ? tCount : steps.length;
-            const counterLabel = tCount > 0 ? `T${tIdx + 1}` : undefined;
+            /* TAG — always the active floating number's own identifier:
+               `T{n}` (lesson-wide table sequence) inside a table, the lesson
+               step number outside. Never a lesson number for a table row. */
+            const counterLabel = tCount > 0
+              ? (tSeries[tIdx]?.label ?? activeTag)
+              : undefined;
+
             const lineForCounter = (target: number): number | null => {
               if (tCount > 0) return tSeriesGroup?.memberLineIdxs[target] ?? null;
               return steps[target]?.lineIdx ?? null;

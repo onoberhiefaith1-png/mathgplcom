@@ -24,7 +24,12 @@ export interface TableGroup {
   retained: string[];
   /** Reservoir line indices owned by this table, in order. */
   memberLineIdxs: number[];
+  /** How many table floating numbers precede this table in the lesson. The
+   *  T-series is lesson-wide and continuous: the first table starts at T1,
+   *  and every later table carries on from where the previous one ended. */
+  tStart: number;
 }
+
 
 /** Per-table student entries: cellKey -> raw text. */
 export type TableEntries = Record<string, string>;
@@ -59,10 +64,19 @@ export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
       grid: t.grid,
       retained: [...(t.retained ?? [])],
       memberLineIdxs: [idx],
+      tStart: 0,
     });
   });
+  // Lesson-wide continuous T numbering: T1…Tn for the first table, then the
+  // next table carries on from n+1, and so on.
+  let running = 0;
+  for (const g of out) {
+    g.tStart = running;
+    running += g.memberLineIdxs.length;
+  }
   return out;
 };
+
 
 export const groupForLine = (
   groups: TableGroup[],
@@ -280,9 +294,30 @@ export const stepIdxForLine = (steps: LessonStep[], lineIdx: number): number => 
   return owner >= 0 ? owner : 0;
 };
 
-/** T-series for a table: one entry per member line, in generated order. */
+/** T-series for a table: one entry per member line, in generated order.
+ *  Numbering is lesson-wide and continuous (see `tStart`). */
 export const tSeriesFor = (group: TableGroup): { label: string; lineIdx: number }[] =>
-  group.memberLineIdxs.map((lineIdx, i) => ({ label: `T${i + 1}`, lineIdx }));
+  group.memberLineIdxs.map((lineIdx, i) => ({
+    label: `T${group.tStart + i + 1}`,
+    lineIdx,
+  }));
+
+/** THE tag authority. Every floating number displays its own identifier:
+ *  a table row is `T{n}` (lesson-wide sequence), any other line is its
+ *  lesson step number. Nothing else may derive a tag. */
+export const tagForLine = (
+  steps: LessonStep[],
+  groups: TableGroup[],
+  lineIdx: number,
+): string => {
+  const owner = groupForLine(groups, lineIdx);
+  if (owner) {
+    const pos = owner.memberLineIdxs.indexOf(lineIdx);
+    if (pos >= 0) return `T${owner.tStart + pos + 1}`;
+  }
+  return String(stepIdxForLine(steps, lineIdx) + 1);
+};
+
 
 /** Clear = drop every student-entered value; retained content is preserved
  *  (retained cells never live in `entries` — they come from the grid). */

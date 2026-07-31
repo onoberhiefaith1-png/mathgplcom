@@ -11,6 +11,8 @@
 //     after a 6s idle grace period.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildTableGroups, lessonSteps, tagForLine } from "@/lib/smartboard/tableActivity";
+
 import {
   StickyNote,
   // Pencil removed — Present mode uses Sparkles icon.
@@ -682,7 +684,15 @@ const PresenterPreviewPanel = ({
               );
             })()}
 
-            {res && res.lines.length > 0 && (
+            {res && res.lines.length > 0 && (() => {
+              /* TAGS — every line shows its OWN identifier. Table rows belong
+                 to the table workspace and carry the lesson-wide T-series
+                 (T1, T2 …); every other line carries its lesson step number.
+                 A table row must never be tagged with a lesson number. */
+              const tGroups = buildTableGroups(res.lines);
+              const tSteps = lessonSteps(res.lines.length, tGroups);
+              const tagAt = (k: number) => tagForLine(tSteps, tGroups, k);
+              return (
               <div className="mt-3 space-y-3">
                 {res.lines.map((line: ReservoirLine, k: number) => {
                   const eq = asDisplayString(line.equation).trim();
@@ -690,14 +700,17 @@ const PresenterPreviewPanel = ({
                   const note = noteForLine(line);
                   const lineActive = isActive && activeLineIdx === k;
                   const lineKey = `${it.id}::${k}`;
+                  const tag = tagAt(k);
+                  const tagCaption = tag.startsWith("T") ? tag : `Line ${tag}`;
                   const lineTarget: EditTarget = {
                     kind: "solution-line",
                     beatId: it.id,
                     beatOrdinal: it.ordinal,
-                    caption: `${it.caption} · Line ${k + 1}`,
+                    caption: `${it.caption} · ${tagCaption}`,
                     lineIdx: k,
                     text: eq,
                   };
+
                   const lineSel = isSelected(lineTarget);
                   return (
                     <div
@@ -731,7 +744,7 @@ const PresenterPreviewPanel = ({
                         className="mb-1 text-[9px] font-semibold uppercase tracking-[0.25em]"
                         style={{ color: "rgba(138,106,31,0.65)" }}
                       >
-                        Line {k + 1}
+                        {tagCaption}
                       </div>
                       {mode === "normal" && !line.notebookOnly && eq && (
                         <div className="flex items-center gap-3 flex-wrap">
@@ -821,7 +834,9 @@ const PresenterPreviewPanel = ({
                   );
                 })}
               </div>
-            )}
+              );
+            })()}
+
             <AiEditButton target={subTarget} />
           </section>
         );
