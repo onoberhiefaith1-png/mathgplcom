@@ -19,6 +19,9 @@ import { MathBlock } from "./extensions/MathBlock";
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
+import { Scene3DDiagramNode, onScene3DWorkspaceOpen } from "./extensions/Scene3DDiagram";
+import { Workspace3DDialog } from "./geometry3d/Workspace3DDialog";
+import type { Scene3D } from "@/lib/geometry3d/scene3d";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
@@ -367,6 +370,12 @@ function DocumentEditorInner({
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+  /* ─── 3D Geometry Workspace (separate from the 2D editor) ─── */
+  const [diagramTabsOpen, setDiagramTabsOpen] = useState(false);
+  const [workspace3dOpen, setWorkspace3dOpen] = useState(false);
+  const [workspace3dScene, setWorkspace3dScene] = useState<Scene3D | null>(null);
+  const workspace3dApplyRef = useRef<((next: Scene3D) => void) | null>(null);
+
   const [tablesOpen, setTablesOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [objectsOpen, setObjectsOpen] = useState(false);
@@ -1042,6 +1051,7 @@ function DocumentEditorInner({
       SolutionMath,
       SolutionProse,
       GeometryDiagramNode,
+      Scene3DDiagramNode,
       MathTableNode,
       SmartGraphNode,
       SmartCalcNode,
