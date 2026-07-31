@@ -157,15 +157,22 @@ export function StructureStage({
       });
       if (!next) return;
       const locked = new Set(lockedKeys);
+      // ONE CELL AT A TIME. A structure is filled by hand, value by value —
+      // never in bulk. Any patch that would change more than one cell is a
+      // self-normalising / migrating patch from the asset, not a teacher
+      // edit, and is ignored so the answer can never appear by itself.
+      const changes: { key: string; value: string }[] = [];
       for (let r = 0; r < next.rows; r++) {
         for (let c = 0; c < next.cols; c++) {
           const key = `${r}:${c}`;
           if (locked.has(key)) continue;
           const before = String(cells?.[r]?.[c] ?? "");
           const after = String(next.cells?.[r]?.[c] ?? "");
-          if (before !== after) onCellChange(key, after);
+          if (before !== after) changes.push({ key, value: after });
         }
       }
+      if (changes.length !== 1) return;
+      onCellChange(changes[0].key, changes[0].value);
     },
     [attrs, cells, editable, lockedKeys, onCellChange, structureId],
   );
