@@ -26,6 +26,11 @@ export interface TableGrid {
   staticCells?: string[];
   /** Glyph a structural cell renders on the board. */
   staticGlyphs?: Record<string, string>;
+  /** Smart Structure: which asset draws the static layer. When present the
+   *  structure MUST be rendered by that asset, never as a table. */
+  structureId?: string;
+  /** Smart Structure: the teacher's original attributes (static layer). */
+  structureAttrs?: Record<string, any>;
 }
 
 /** True when the cell belongs to the retained structure, not the student. */

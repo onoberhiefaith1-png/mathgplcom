@@ -38,6 +38,10 @@ export interface FloatingTableRef {
     /** Smart Structure: retained structural cells, never Floating Numbers. */
     staticCells?: string[];
     staticGlyphs?: Record<string, string>;
+    /** Smart Structure: asset id + original attrs so the Smartboard redraws
+     *  the teacher's exact structure instead of a generic table. */
+    structureId?: string;
+    structureAttrs?: Record<string, any>;
   };
 
 }
