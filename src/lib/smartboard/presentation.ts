@@ -304,10 +304,12 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // line has a note iff its own highlight authored one. Equation-match
       // guessing caused stray notes (e.g. entire solution tails) to latch
       // onto lines whose Floating Panel entry had no note. Never restore.
-      const rawHighlights = (sub as any).floating_highlights as
-        | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean }[]
+      // Whole-object highlights (tables / diagrams) are skipped here: the
+      // Highlighting Page records them, but their sequencing lands later.
+      const rawHighlights = ((sub as any).floating_highlights as
+        | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean; object?: any }[]
         | null
-        | undefined;
+        | undefined)?.filter((h) => !h?.object);
 
       // Per-line answer key — preferred path when the Lesson Note has been
       // saved with structured floating_lines. Each line contributes its
