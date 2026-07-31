@@ -105,6 +105,8 @@ export async function platformAccounts(kind: string, ownerUserId?: string): Prom
         emails.get(id) ||
         "Account",
       email: emails.get(id) ?? "",
+      isMine: mine.has(id),
+
       organisation: ownOrg ? ownOrg.name : (org?.name ?? "Independent"),
       status: membership?.status ?? org?.status ?? "active",
       joinedAt:
