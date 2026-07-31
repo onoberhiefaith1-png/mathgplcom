@@ -9,6 +9,8 @@
 // paragraph, heading, list or math is an object. No allow-list of table or
 // diagram types exists anywhere, so future assets are supported automatically.
 
+import { TABLES } from "@/lib/lessonnotes/assets/tables";
+
 export type ObjectFamily = "table" | "diagram" | "object";
 
 export interface SolutionObject {
