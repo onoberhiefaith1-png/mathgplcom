@@ -644,6 +644,33 @@ export function MathInlineCanvas({
       return;
     }
 
+    // `#` → superscript on the term to the left. A second `#` while the
+    // freshly-made (still empty) power slot holds the caret moves down into
+    // the subscript slot. Neither trigger is ever written into the note.
+    if (k === "#") {
+      e.preventDefault();
+      const base = withSelectionCleared();
+      const c = base.cursor;
+      if (c.path.length >= 2) {
+        const parentPath = c.path.slice(0, -2);
+        const nodeIdx = c.path[c.path.length - 2];
+        const subIdx = c.path[c.path.length - 1];
+        const holder = getRowAt(base.root, parentPath)[nodeIdx];
+        if (holder && holder.kind === "subsup" && subIdx === 2 &&
+            subRowsOf(holder)[2].length === 0) {
+          setCaret({ path: [...parentPath, nodeIdx, 1], index: 0 }, false);
+          return;
+        }
+      }
+      const row = getRowAt(base.root, c.path);
+      const { start, end } = extractWrapTargetLeftOf(row, c.index);
+      if (end <= start) { apply(insertChar(base.root, c, "#")); return; }
+      const res = insertNodeWrapping(base.root, c, mkSubSup(), start, end, 0);
+      apply({ root: res.root, cursor: { path: [...c.path, start, 2], index: 0 } });
+      return;
+    }
+
+
     if (k === "/") {
       e.preventDefault();
       const base = withSelectionCleared();
