@@ -509,18 +509,20 @@ export function MathInlineCanvas({
 
   return (
     <span
-      className={`math-inline-display inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30" : "cursor-text"}`}
+      ref={hostRef}
+      className={`math-inline-display math-inline-editing inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
       style={{ minHeight: "1.2em", lineHeight: "var(--math-line-height)" }}
-
       onMouseDown={(e) => {
         e.preventDefault();
         onFocus();
-        // Land at end of top row for now (fine-grained hit testing is a
-        // future refinement).
-        setCursor({ path: [], index: root.length });
+        // Caret lands exactly where the teacher clicked — including inside
+        // numerators, exponents, radicands and Σ limits.
+        const hit = hitTestCursor(e.clientX, e.clientY, hostRef.current);
+        setCursor(hit ? clamp(hit) : { path: [], index: root.length });
         setTimeout(() => inputRef.current?.focus(), 0);
       }}
     >
+
       {rowNode}
       <input
         ref={inputRef}
