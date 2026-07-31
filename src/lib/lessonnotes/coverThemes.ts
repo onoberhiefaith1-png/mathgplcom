@@ -55,7 +55,7 @@ export const COVER_THEMES: CoverTheme[] = [
     name: "Academic Gold",
     gradient: "linear-gradient(160deg,#2b1c07,#120a02)",
     ink: "#f6e6c2",
-    accent: "#e2b martial",
+    accent: "#e2b857",
     edge: "#4a3312",
     pattern: "geometry",
     font: "Georgia, 'Times New Roman', serif",
