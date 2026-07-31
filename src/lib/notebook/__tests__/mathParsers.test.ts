@@ -64,3 +64,40 @@ describe("latexToFriendly", () => {
     expect(latexToFriendly("\\sqrt[3]{27}")).toBe("³√(27)");
   });
 });
+
+// The Smartboard editor must be able to represent everything the classroom
+// renderer (and therefore the AI Edit preview) can display. Anything missing
+// here used to leak as raw backslash text into the note.
+describe("advanced constructs round trip", () => {
+  const cases = [
+    "\\sum_{i=1}^{n}",
+    "\\prod_{k=0}^{m}",
+    "\\int_{0}^{1}",
+    "\\lim_{x \\to 0}",
+    "\\bar{x}",
+    "\\vec{v}",
+    "\\hat{y}",
+    "\\binom{n}{r}",
+    "|x_{i} - \\bar{x}|",
+    "\\floor{x}",
+    "\\begin{pmatrix}a & b \\\\ c & d\\end{pmatrix}",
+    // Mean deviation — the formula from the bug report.
+    "\\frac{\\sum_{i=1}^{n}|x_{i} - \\bar{x}|}{n}",
+  ];
+  for (const c of cases) {
+    it(`preserves ${c}`, () => {
+      expect(roundTrip(c).replace(/\s+/g, "")).toBe(c.replace(/\s+/g, ""));
+    });
+  }
+
+  it("keeps the big-operator structure instead of literal text", () => {
+    const tree = latexToTree("\\sum_{i=1}^{n}");
+    expect(tree).toHaveLength(1);
+    expect(tree[0].kind).toBe("bigop");
+  });
+
+  it("keeps the accent structure", () => {
+    const tree = latexToTree("\\bar{x}");
+    expect(tree[0].kind).toBe("accent");
+  });
+});
