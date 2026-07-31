@@ -4689,27 +4689,8 @@ const PresentationView = ({
       >
       <WritingFilterDefs />
 
-      {/* Table Activity — the highlighted Smart Table is ONE lesson step and,
-          once opened, the workspace for its own row/column lines. */}
-      {activeTableGroup && (
-        <TableActivityStage
-          group={activeTableGroup}
-          activeLineIdx={activeLineIdx}
-          entries={activeTableEntries}
-          sensorCell={tableSensorCell}
-          open={openTableObjId === activeTableGroup.objId}
-          dark={isDark}
-          editable={canEdit}
-          onOpenChange={(o) => setOpenTableObjId(o ? activeTableGroup.objId : null)}
-          onActivateLine={(k) => {
-            setActiveLineIdx(k);
-            setFloatingLineIdx(k);
-            setManualFloatingLineIdx(k);
-          }}
-          onSensorCell={setTableSensorCell}
-          onEntry={(k, v) => setTableEntry(activeTableGroup.objId, k, v)}
-        />
-      )}
+
+
 
       {/* Micro-surface texture */}
       <div
