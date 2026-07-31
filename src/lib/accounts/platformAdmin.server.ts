@@ -291,8 +291,10 @@ export async function createAccount(params: {
 
 
 /**
- * Mints a one-time sign-in token for `targetUserId` so the platform owner can
- * enter that workspace exactly as the real account experiences it. Audited.
+ * Mints a one-time sign-in token for `targetUserId` — but only for accounts the
+ * platform owner created for themselves (or their own account). Any other
+ * customer account returns `requiresCredentials`, so the owner must supply that
+ * customer's own email and password to open it. Audited.
  */
 export async function workspaceEntryToken(adminUserId: string, targetUserId: string) {
   const db = await admin();
@@ -303,10 +305,33 @@ export async function workspaceEntryToken(adminUserId: string, targetUserId: str
   const { data: roleRows } = await db.from("user_roles").select("role").eq("user_id", targetUserId);
   const role = (roleRows ?? [])[0]?.role ?? "teacher";
 
+  const { data: profileRow } = await db
+    .from("profiles")
+    .select("display_name, first_name, last_name")
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+
+  const displayName =
+    profileRow?.display_name?.trim() ||
+    [profileRow?.first_name, profileRow?.last_name].filter(Boolean).join(" ").trim() ||
+    email;
+
+  const mine = await myAccountIds(adminUserId);
+  if (targetUserId !== adminUserId && !mine.has(targetUserId)) {
+    return {
+      requiresCredentials: true as const,
+      email,
+      role: role as string,
+      home: HOME_BY_ROLE[role as string] ?? "/",
+      name: displayName,
+    };
+  }
+
   const { data: link, error } = await db.auth.admin.generateLink({ type: "magiclink", email });
   if (error || !link?.properties?.hashed_token) {
     throw new Error(error?.message ?? "Could not open that workspace.");
   }
+
 
   await db.from("admin_impersonation_log").insert({
     admin_user_id: adminUserId,
