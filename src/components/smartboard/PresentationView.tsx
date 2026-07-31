@@ -2495,7 +2495,13 @@ const PresentationView = ({
     ? tableEntries[activeTableGroup.objId] ?? {}
     : {};
 
-  const activeTableDeleted = !!activeTableGroup && deletedTables.includes(activeTableGroup.objId);
+  /** Placement of the table owning the active lesson line (null = not on the
+   *  board yet; the lesson line and its icon still exist). */
+  const activeTablePlacement = activeTableGroup
+    ? placedTables[activeTableGroup.objId] ?? null
+    : null;
+  const activeTablePlaced = !!activeTablePlacement;
+
 
   // Floating line change → seat the table sensor on that row/column.
   useEffect(() => {
