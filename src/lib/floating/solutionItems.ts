@@ -144,12 +144,19 @@ export const readSolutionObjects = (contentJson: any): SolutionObject[] => {
     const nodeType = String(o?.nodeType ?? "");
     if (!nodeType) continue;
     const attrs = (o?.attrs && typeof o.attrs === "object") ? o.attrs : {};
-    const family = (o?.family as ObjectFamily) ?? objectFamily(nodeType, attrs);
+    // Recompute the family from the node itself: highlights saved before
+    // asset-library tables were recognised carry a stale "diagram" family.
+    const family = objectFamily(nodeType, attrs);
+    const savedLabel = String(o?.label ?? "");
+    const label = savedLabel && savedLabel !== "Diagram" && savedLabel !== "Object"
+      ? savedLabel
+      : familyLabel(family);
     out.push({
       objId: String(o?.objId ?? `${nodeType}#0`),
       nodeType,
       family,
-      label: String(o?.label ?? familyLabel(family)),
+      label,
+
       attrs,
       afterLine: Number(o?.afterLine) || 0,
       inline: o?.inline === true,
