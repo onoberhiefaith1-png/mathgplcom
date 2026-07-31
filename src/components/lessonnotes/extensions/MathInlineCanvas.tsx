@@ -24,6 +24,7 @@ import {
   type RowRange,
   mkChar,
   mkFrac,
+  mkSubSup,
   mkSqrt,
   mkBracket,
   getRowAt,
