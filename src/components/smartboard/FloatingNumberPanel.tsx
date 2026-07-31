@@ -202,6 +202,12 @@ interface Props {
    *  Notebook icon pulses to draw the teacher's eye. */
   notebookPending?: boolean;
   placeholderColor?: string;
+  /** Set when the active lesson line IS a Smart Table. The strip then shows a
+   *  single table-icon chip instead of equation fragments. */
+  tableChip?: { objId: string; label: string; placed: boolean } | null;
+  /** Places (or re-places) the table on the board at the teacher's cursor. */
+  onPlaceTable?: (objId: string) => void;
+
 }
 
 export const FloatingNumberPanel = ({
