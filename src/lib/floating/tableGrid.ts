@@ -7,6 +7,7 @@
 // orientation (Row vs Column).
 
 import { flattenObjectAttrs, type SolutionObject } from "@/lib/floating/solutionItems";
+import { structureGridFromObject } from "@/lib/floating/structureGrid";
 
 export type TableOrientation = "row" | "column";
 
@@ -19,7 +20,18 @@ export interface TableGrid {
   cells: string[][];
   rows: number;
   cols: number;
+  /** Smart Structure static mask: `r:c` keys that are pure structure
+   *  (division bracket, minus signs, dividers, ladders). These are retained
+   *  exactly as the teacher drew them and never become Floating Numbers. */
+  staticCells?: string[];
+  /** Glyph a structural cell renders on the board. */
+  staticGlyphs?: Record<string, string>;
 }
+
+/** True when the cell belongs to the retained structure, not the student. */
+export const isStaticCell = (grid: TableGrid, key: string): boolean =>
+  Array.isArray(grid.staticCells) && grid.staticCells.includes(key);
+
 
 /** Stable cell address inside a grid: `r:c` over DATA rows (0-based). */
 export const cellKey = (r: number, c: number): string => `${r}:${c}`;
