@@ -553,9 +553,9 @@ export const FloatingNumberPanel = ({
               textAlign: "center",
               opacity: 0.8,
             }}
-            title={`Line ${lineNumber} of ${lineCount}`}
+            title={lineLabel ? `${lineLabel} of ${lineCount}` : `Line ${lineNumber} of ${lineCount}`}
           >
-            {lineNumber}
+            {lineLabel ?? lineNumber}
           </div>
         )}
         <button
