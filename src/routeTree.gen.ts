@@ -74,8 +74,10 @@ import { Route as HomepageReplaceBuildingIndexRouteImport } from './routes/homep
 import { Route as JoinCodeIndexRouteImport } from './routes/join/$code/index'
 import { Route as LessonNotesIdIndexRouteImport } from './routes/lesson-notes/$id/index'
 import { Route as LevelsIdIndexRouteImport } from './routes/levels/$id/index'
+import { Route as LiveGalleryIndexRouteImport } from './routes/live/gallery/index'
 import { Route as LiveJoinIndexRouteImport } from './routes/live/join/index'
 import { Route as LiveLessonNotesIndexRouteImport } from './routes/live/lesson-notes/index'
+import { Route as LiveReportsIndexRouteImport } from './routes/live/reports/index'
 import { Route as LiveSessionsIndexRouteImport } from './routes/live/sessions/index'
 import { Route as NotebookScanCodeIndexRouteImport } from './routes/notebook-scan/$code/index'
 import { Route as SchoolTeachersIndexRouteImport } from './routes/school/teachers/index'
@@ -511,6 +513,11 @@ const LevelsIdIndexRoute = LevelsIdIndexRouteImport.update({
   path: '/levels/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LiveGalleryIndexRoute = LiveGalleryIndexRouteImport.update({
+  id: '/gallery/',
+  path: '/gallery/',
+  getParentRoute: () => LiveRouteRoute,
+} as any)
 const LiveJoinIndexRoute = LiveJoinIndexRouteImport.update({
   id: '/join/',
   path: '/join/',
@@ -519,6 +526,11 @@ const LiveJoinIndexRoute = LiveJoinIndexRouteImport.update({
 const LiveLessonNotesIndexRoute = LiveLessonNotesIndexRouteImport.update({
   id: '/lesson-notes/',
   path: '/lesson-notes/',
+  getParentRoute: () => LiveRouteRoute,
+} as any)
+const LiveReportsIndexRoute = LiveReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
   getParentRoute: () => LiveRouteRoute,
 } as any)
 const LiveSessionsIndexRoute = LiveSessionsIndexRouteImport.update({
@@ -1216,8 +1228,10 @@ export interface FileRoutesByFullPath {
   '/join/$code/': typeof JoinCodeIndexRoute
   '/lesson-notes/$id/': typeof LessonNotesIdIndexRoute
   '/levels/$id/': typeof LevelsIdIndexRoute
+  '/live/gallery/': typeof LiveGalleryIndexRoute
   '/live/join/': typeof LiveJoinIndexRoute
   '/live/lesson-notes/': typeof LiveLessonNotesIndexRoute
+  '/live/reports/': typeof LiveReportsIndexRoute
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
   '/school/teachers/': typeof SchoolTeachersIndexRoute
@@ -1384,8 +1398,10 @@ export interface FileRoutesByTo {
   '/join/$code': typeof JoinCodeIndexRoute
   '/lesson-notes/$id': typeof LessonNotesIdIndexRoute
   '/levels/$id': typeof LevelsIdIndexRoute
+  '/live/gallery': typeof LiveGalleryIndexRoute
   '/live/join': typeof LiveJoinIndexRoute
   '/live/lesson-notes': typeof LiveLessonNotesIndexRoute
+  '/live/reports': typeof LiveReportsIndexRoute
   '/live/sessions': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code': typeof NotebookScanCodeIndexRoute
   '/school/teachers': typeof SchoolTeachersIndexRoute
@@ -1561,8 +1577,10 @@ export interface FileRoutesById {
   '/join/$code/': typeof JoinCodeIndexRoute
   '/lesson-notes/$id/': typeof LessonNotesIdIndexRoute
   '/levels/$id/': typeof LevelsIdIndexRoute
+  '/live/gallery/': typeof LiveGalleryIndexRoute
   '/live/join/': typeof LiveJoinIndexRoute
   '/live/lesson-notes/': typeof LiveLessonNotesIndexRoute
+  '/live/reports/': typeof LiveReportsIndexRoute
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
   '/school/teachers/': typeof SchoolTeachersIndexRoute
@@ -1739,8 +1757,10 @@ export interface FileRouteTypes {
     | '/join/$code/'
     | '/lesson-notes/$id/'
     | '/levels/$id/'
+    | '/live/gallery/'
     | '/live/join/'
     | '/live/lesson-notes/'
+    | '/live/reports/'
     | '/live/sessions/'
     | '/notebook-scan/$code/'
     | '/school/teachers/'
@@ -1907,8 +1927,10 @@ export interface FileRouteTypes {
     | '/join/$code'
     | '/lesson-notes/$id'
     | '/levels/$id'
+    | '/live/gallery'
     | '/live/join'
     | '/live/lesson-notes'
+    | '/live/reports'
     | '/live/sessions'
     | '/notebook-scan/$code'
     | '/school/teachers'
@@ -2083,8 +2105,10 @@ export interface FileRouteTypes {
     | '/join/$code/'
     | '/lesson-notes/$id/'
     | '/levels/$id/'
+    | '/live/gallery/'
     | '/live/join/'
     | '/live/lesson-notes/'
+    | '/live/reports/'
     | '/live/sessions/'
     | '/notebook-scan/$code/'
     | '/school/teachers/'
@@ -2753,6 +2777,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LevelsIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/live/gallery/': {
+      id: '/live/gallery/'
+      path: '/gallery'
+      fullPath: '/live/gallery/'
+      preLoaderRoute: typeof LiveGalleryIndexRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
     '/live/join/': {
       id: '/live/join/'
       path: '/join'
@@ -2765,6 +2796,13 @@ declare module '@tanstack/react-router' {
       path: '/lesson-notes'
       fullPath: '/live/lesson-notes/'
       preLoaderRoute: typeof LiveLessonNotesIndexRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
+    '/live/reports/': {
+      id: '/live/reports/'
+      path: '/reports'
+      fullPath: '/live/reports/'
+      preLoaderRoute: typeof LiveReportsIndexRouteImport
       parentRoute: typeof LiveRouteRoute
     }
     '/live/sessions/': {
@@ -3597,8 +3635,10 @@ const LessonNotesRouteRouteWithChildren =
 
 interface LiveRouteRouteChildren {
   LiveIndexRoute: typeof LiveIndexRoute
+  LiveGalleryIndexRoute: typeof LiveGalleryIndexRoute
   LiveJoinIndexRoute: typeof LiveJoinIndexRoute
   LiveLessonNotesIndexRoute: typeof LiveLessonNotesIndexRoute
+  LiveReportsIndexRoute: typeof LiveReportsIndexRoute
   LiveSessionsIndexRoute: typeof LiveSessionsIndexRoute
   LiveJoinCodeIndexRoute: typeof LiveJoinCodeIndexRoute
   LiveLessonNotesIdIndexRoute: typeof LiveLessonNotesIdIndexRoute
@@ -3626,8 +3666,10 @@ interface LiveRouteRouteChildren {
 
 const LiveRouteRouteChildren: LiveRouteRouteChildren = {
   LiveIndexRoute: LiveIndexRoute,
+  LiveGalleryIndexRoute: LiveGalleryIndexRoute,
   LiveJoinIndexRoute: LiveJoinIndexRoute,
   LiveLessonNotesIndexRoute: LiveLessonNotesIndexRoute,
+  LiveReportsIndexRoute: LiveReportsIndexRoute,
   LiveSessionsIndexRoute: LiveSessionsIndexRoute,
   LiveJoinCodeIndexRoute: LiveJoinCodeIndexRoute,
   LiveLessonNotesIdIndexRoute: LiveLessonNotesIdIndexRoute,
