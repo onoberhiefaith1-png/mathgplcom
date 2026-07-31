@@ -5561,7 +5561,7 @@ const PresentationView = ({
                step number outside. Never a lesson number for a table row. */
             const counterLabel = tCount > 0
               ? (tSeries[tIdx]?.label ?? activeTag)
-              : undefined;
+              : tagForLine(steps, tableGroups, curLineIdx);
 
             const lineForCounter = (target: number): number | null => {
               if (tCount > 0) return tSeriesGroup?.memberLineIdxs[target] ?? null;
