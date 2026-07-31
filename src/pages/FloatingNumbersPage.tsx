@@ -29,7 +29,7 @@ import { buildLessonContext } from "@/lib/floating/lessonContext";
 import { readSolutionObjects } from "@/lib/floating/solutionItems";
 import TableWorkspace from "@/components/floating/TableWorkspace";
 import {
-  gridFromObject,
+  gridFromAnyObject,
   generateTableLines,
   tableLineEquation,
   cellFitsLine,
