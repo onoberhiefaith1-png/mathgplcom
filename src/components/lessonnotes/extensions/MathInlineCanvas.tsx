@@ -10,8 +10,10 @@
 //   /            → wrap the multiplicative term to the left as a fraction
 //                  numerator; cursor lands in denominator
 //   ( [ | {      → open a bracketed workspace; cursor descends inside
-//   Space        → exit one level; when already at the top row, blur and
-//                  return the caret to the surrounding prose
+//   Space        → insert a real space (spacing is editable)
+//   Tab          → exit one level; at the top row, blur and return the
+//                  caret to the surrounding prose
+//   click        → place the caret exactly where clicked, at any depth
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
