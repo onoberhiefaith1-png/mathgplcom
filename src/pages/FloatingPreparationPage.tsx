@@ -20,6 +20,13 @@ import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingComp
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { cn } from "@/lib/utils";
+import {
+  buildSolutionItems,
+  familyLabel,
+  readSolutionObjects,
+  type SolutionObject,
+} from "@/lib/floating/solutionItems";
+import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 
 interface TokenRef { line: number; tok: number }
 interface Highlight {
@@ -32,6 +39,9 @@ interface Highlight {
   precedingNotebook?: string;
   /** Synthetic row used when the solution begins with unhighlighted content. */
   notebookOnly?: boolean;
+  /** Set when the highlight is a whole object (table, diagram, chart, …)
+   *  rather than a run of text tokens. */
+  object?: SolutionObject;
 }
 interface Snapshot { highlights: Highlight[]; nextId: number }
 
@@ -54,6 +64,20 @@ export const restorePersistedHighlights = (
         precedingNotebook: nb,
         notebookOnly: true,
       });
+      continue;
+    }
+    if (p?.object && typeof p.object === "object" && p.object.nodeType) {
+      const obj = readSolutionObjects({ objects: [p.object] })[0];
+      if (obj) {
+        restored.push({
+          groupId: nextRealId++,
+          tokens: [],
+          payload: String(p.payload ?? `[${obj.label}]`),
+          precedingNotebook: String(p.precedingNotebook ?? ""),
+          notebookOnly: false,
+          object: obj,
+        });
+      }
       continue;
     }
     if (!Array.isArray(p?.tokens) || p.tokens.length === 0) continue;
@@ -160,14 +184,30 @@ export const recomputeNotebooks = (source: Highlight[], lines: string[]): Highli
   return out;
 };
 
+/** Document position used to interleave object highlights with text ones.
+ *  An object captured with `afterLine = L` sits immediately BEFORE line L. */
+const firstLineOf = (h: Highlight): number => {
+  if (h.object) return h.object.afterLine - 0.5;
+  if (h.notebookOnly) return -1;
+  return h.tokens.length ? Math.min(...h.tokens.map((t) => t.line)) : Number.MAX_SAFE_INTEGER;
+};
+
 const orderedHighlights = (source: Highlight[], lines: string[]) => {
-  const withNotebooks = recomputeNotebooks(source, lines);
-  return withNotebooks.map((h, i) => ({
+  // Text highlights keep the existing notebook-checkpoint behaviour untouched.
+  const textOnly = source.filter((h) => !h.object);
+  const objects = source.filter((h) => !!h.object);
+  const withNotebooks = recomputeNotebooks(textOnly, lines);
+  const merged = [...withNotebooks, ...objects]
+    .map((h, i) => ({ h, i, pos: firstLineOf(h) }))
+    .sort((a, b) => (a.pos - b.pos) || (a.i - b.i))
+    .map(({ h }) => h);
+  return merged.map((h, i) => ({
     groupId: i + 1,
     tokens: h.tokens,
     payload: h.payload,
     precedingNotebook: h.precedingNotebook ?? "",
     notebookOnly: h.notebookOnly === true,
+    ...(h.object ? { object: h.object } : {}),
   }));
 };
 
@@ -208,6 +248,7 @@ const FloatingPreparationPage = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
+  const [objects, setObjects] = useState<SolutionObject[]>([]);
   const [lines, setLines] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -293,19 +334,20 @@ const FloatingPreparationPage = () => {
           .maybeSingle(),
         supabase
           .from("notebook_blocks")
-          .select("kind, content_ascii, order_index")
+          .select("kind, content_ascii, content_json, order_index")
           .eq("subsection_id", subsectionId)
           .order("order_index", { ascending: true }),
       ]);
       if (!alive) return;
       setTitle(nbRes.data?.title ?? "");
-      const solution =
-        (blocksRes.data ?? []).find((b: any) => b.kind === "solution")?.content_ascii ?? "";
+      const solBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "solution") as any;
+      const solution = solBlock?.content_ascii ?? "";
       const flat = solution
         .split("\n")
         .map((l: string) => l.replace(/\s+$/, ""))
         .filter((l: string) => l.trim().length > 0);
       setLines(flat);
+      setObjects(readSolutionObjects(solBlock?.content_json));
 
       const prior = (ssRes.data as any)?.floating_highlights as
         | (Highlight | { groupId: number; payload: string })[]
@@ -322,6 +364,14 @@ const FloatingPreparationPage = () => {
 
   /* ---------- Tokenized rows ---------- */
   const rows = useMemo(() => lines.map((l) => tokenize(l)), [lines]);
+
+  /* ---------- Text + object stream, in document order ---------- */
+  const items = useMemo(() => buildSolutionItems(lines, objects), [lines, objects]);
+  const highlightedObjectIds = useMemo(
+    () => new Set(highlights.filter((h) => h.object).map((h) => h.object!.objId)),
+    [highlights],
+  );
+
 
   const selectedSet = useMemo(() => {
     const s = new Set<string>();
@@ -474,6 +524,26 @@ const FloatingPreparationPage = () => {
     nextIdRef.current = 1;
   }, [highlights.length, pushHistory]);
 
+  /* ---------- One-click object highlight (tables / diagrams) ---------- */
+  const toggleObject = useCallback((obj: SolutionObject) => {
+    pushHistory();
+    dirtyRef.current = true;
+    setHighlights((prev) => {
+      const already = prev.some((h) => h.object?.objId === obj.objId);
+      if (already) return prev.filter((h) => h.object?.objId !== obj.objId);
+      return [
+        ...prev,
+        {
+          groupId: nextIdRef.current++,
+          tokens: [],
+          payload: `[${obj.label}]`,
+          object: obj,
+        },
+      ];
+    });
+  }, [pushHistory]);
+
+
   const removeHighlight = useCallback((groupId: number) => {
     pushHistory();
     dirtyRef.current = true;
@@ -590,7 +660,7 @@ const FloatingPreparationPage = () => {
           <div className="text-center text-foreground/60 py-20">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading solution…
           </div>
-        ) : lines.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="mx-auto max-w-3xl rounded-md p-8 text-center text-foreground/55 text-sm border border-border/40">
             This solution is still empty. Write or generate the solution in the
             lesson note, then come back to pick your floating numbers.
@@ -609,27 +679,69 @@ const FloatingPreparationPage = () => {
               fontSize: "18px",
             }}
           >
-            {rows.map((toks, li) => (
-              <div key={li} className="whitespace-nowrap overflow-x-auto">
-                {toks.map((src, ti) => {
-                  const key = `${li}:${ti}`;
-                  const selected = selectedSet.has(key);
-                  return (
-                    <span
-                      key={ti}
-                      data-tok-key={key}
-                      data-tok-src={src}
-                      className={cn(
-                        "inline-block align-baseline px-0.5 mr-1 rounded-sm transition-colors",
-                        selected && "bg-yellow-300/80 ring-1 ring-yellow-500/40",
-                      )}
+            {items.map((item) => {
+              if (item.kind === "object") {
+                const obj = item.object;
+                const on = highlightedObjectIds.has(obj.objId);
+                return (
+                  <div
+                    key={`obj-${obj.objId}`}
+                    className={cn(
+                      "my-4 rounded-md p-3 transition-colors",
+                      on
+                        ? "bg-yellow-200/60 ring-2 ring-yellow-500/70"
+                        : "ring-1 ring-[hsl(220_15%_60%/0.3)]",
+                    )}
+                    style={{ lineHeight: "normal" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleObject(obj)}
+                      className="inline-flex items-center gap-2 text-[13px] font-medium mb-2 select-none"
+                      style={{ color: "hsl(220 35% 22%)" }}
                     >
-                      {renderMathInline(src, `fp-${li}-${ti}`)}
-                    </span>
-                  );
-                })}
-              </div>
-            ))}
+                      <span
+                        className={cn(
+                          "inline-flex h-4 w-4 items-center justify-center rounded-[3px] border text-[11px] leading-none",
+                          on
+                            ? "bg-yellow-500 border-yellow-600 text-white"
+                            : "border-[hsl(220_20%_45%)] bg-white/70",
+                        )}
+                      >
+                        {on ? "✓" : ""}
+                      </span>
+                      Highlight this {familyLabel(obj.family)}
+                    </button>
+                    <div className="overflow-x-auto">
+                      <SolutionObjectView nodeType={obj.nodeType} attrs={obj.attrs} />
+                    </div>
+                  </div>
+                );
+              }
+              const li = item.index;
+              const toks = rows[li] ?? [];
+              return (
+                <div key={`line-${li}`} className="whitespace-nowrap overflow-x-auto">
+                  {toks.map((src, ti) => {
+                    const key = `${li}:${ti}`;
+                    const selected = selectedSet.has(key);
+                    return (
+                      <span
+                        key={ti}
+                        data-tok-key={key}
+                        data-tok-src={src}
+                        className={cn(
+                          "inline-block align-baseline px-0.5 mr-1 rounded-sm transition-colors",
+                          selected && "bg-yellow-300/80 ring-1 ring-yellow-500/40",
+                        )}
+                      >
+                        {renderMathInline(src, `fp-${li}-${ti}`)}
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -646,12 +758,14 @@ const FloatingPreparationPage = () => {
               </div>
               <ul className="space-y-1.5">
                 {highlights.filter((h) => !h.notebookOnly).map((h) => {
-                  const safePayload = assertDisplaySafe(h.payload).cleaned;
+                  const safePayload = h.object ? "" : assertDisplaySafe(h.payload).cleaned;
                   return (
                   <li key={h.groupId} className="flex items-start gap-2 text-sm text-foreground/85">
                     <span className="text-foreground/40 mt-0.5">•</span>
                     <span className="flex-1 break-words whitespace-pre-wrap text-[15px] leading-7">
-                      {renderMathInline(safePayload, `highlight-summary-${h.groupId}`)}
+                      {h.object
+                        ? `Whole ${familyLabel(h.object.family).toLowerCase()}`
+                        : renderMathInline(safePayload, `highlight-summary-${h.groupId}`)}
                     </span>
                     <button
                       onClick={() => removeHighlight(h.groupId)}

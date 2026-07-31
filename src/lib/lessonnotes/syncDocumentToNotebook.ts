@@ -13,6 +13,13 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { detectSectionKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import {
+  INLINE_OBJECT_TYPES,
+  familyLabel,
+  isObjectNodeType,
+  objectFamily,
+  type SolutionObject,
+} from "@/lib/floating/solutionItems";
 
 type Node = any;
 
@@ -57,28 +64,63 @@ interface ParsedSection {
   /** Used only for non-question sections. */
   loose: string[];
   /** Used only for question kinds. */
-  subsections: { problem: string; solution: string }[];
+  subsections: { problem: string; solution: string; solutionObjects: SolutionObject[] }[];
 }
 
 /** Normalize a problem string for matching across edits (case/whitespace). */
 const normalizeProblem = (s: string): string =>
   String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 
-/** Render a contiguous run of body nodes into plain text, paragraph per line. */
-function renderBody(nodes: Node[]): string {
+/** Collect inline object nodes (asset-library visuals) nested inside a block. */
+function collectInlineObjects(node: Node, out: Node[]): void {
+  if (!node || typeof node !== "object") return;
+  if (INLINE_OBJECT_TYPES.has(String(node.type))) { out.push(node); return; }
+  if (Array.isArray(node.content)) for (const c of node.content) collectInlineObjects(c, out);
+}
+
+/** Render a contiguous run of body nodes into plain text (paragraph per line)
+ *  PLUS the ordered list of non-text objects (tables, diagrams, charts, 3D
+ *  scenes, …) found inside it. Objects are never flattened away. */
+function renderBodyRich(nodes: Node[]): { text: string; objects: SolutionObject[] } {
   const lines: string[] = [];
+  const objects: SolutionObject[] = [];
+  const counters = new Map<string, number>();
+
+  const pushObject = (n: Node) => {
+    const nodeType = String(n?.type ?? "");
+    if (!nodeType) return;
+    const attrs = (n?.attrs && typeof n.attrs === "object") ? n.attrs : {};
+    const idx = counters.get(nodeType) ?? 0;
+    counters.set(nodeType, idx + 1);
+    const family = objectFamily(nodeType, attrs);
+    objects.push({
+      objId: `${nodeType}#${idx}`,
+      nodeType,
+      family,
+      label: familyLabel(family),
+      attrs,
+      afterLine: lines.length,
+      inline: INLINE_OBJECT_TYPES.has(nodeType),
+    });
+  };
+
   for (const n of nodes) {
     if (!n) continue;
-    if (n.type === "paragraph" || n.type === "heading" || n.type === "mathBlock") {
-      const t = nodeText(n).trim();
-      if (t) lines.push(t);
-    } else if (Array.isArray(n.content)) {
-      const t = nodeText(n).trim();
-      if (t) lines.push(t);
-    }
+    if (isObjectNodeType(n.type)) { pushObject(n); continue; }
+    const t = nodeText(n).trim();
+    if (t) lines.push(t);
+    const inlineObjs: Node[] = [];
+    collectInlineObjects(n, inlineObjs);
+    for (const o of inlineObjs) pushObject(o);
   }
-  return lines.join("\n").trim();
+  return { text: lines.join("\n").trim(), objects };
 }
+
+/** Text-only view, for section bodies that have no object support. */
+function renderBody(nodes: Node[]): string {
+  return renderBodyRich(nodes).text;
+}
+
 
 /** Split a question section's body into one subsection per H3 "Solution"
  *  boundary. Any H3 whose text matches another section kind starts a NEW
@@ -88,8 +130,8 @@ function renderBody(nodes: Node[]): string {
  *  Example has an empty question and an empty Solution; it must still get a
  *  row so the Floating Numbers workspace can be opened (blank) right away
  *  instead of reporting "not ready". */
-function splitQuestionBody(nodes: Node[]): { problem: string; solution: string }[] {
-  const out: { problem: string; solution: string }[] = [];
+function splitQuestionBody(nodes: Node[]): { problem: string; solution: string; solutionObjects: SolutionObject[] }[] {
+  const out: { problem: string; solution: string; solutionObjects: SolutionObject[] }[] = [];
   let problemBuf: Node[] = [];
   let solutionBuf: Node[] = [];
   let mode: "problem" | "solution" = "problem";
@@ -97,8 +139,10 @@ function splitQuestionBody(nodes: Node[]): { problem: string; solution: string }
 
   const flush = () => {
     const problem = renderBody(problemBuf);
-    const solution = renderBody(solutionBuf);
-    if (problem || solution || sawSolutionHeading) out.push({ problem, solution });
+    const sol = renderBodyRich(solutionBuf);
+    if (problem || sol.text || sol.objects.length || sawSolutionHeading) {
+      out.push({ problem, solution: sol.text, solutionObjects: sol.objects });
+    }
     problemBuf = [];
     solutionBuf = [];
     mode = "problem";
@@ -125,7 +169,7 @@ function splitQuestionBody(nodes: Node[]): { problem: string; solution: string }
   }
   flush();
   // Section with nothing in it at all still gets one empty slot.
-  if (out.length === 0) out.push({ problem: "", solution: "" });
+  if (out.length === 0) out.push({ problem: "", solution: "", solutionObjects: [] });
   return out;
 }
 
@@ -200,11 +244,20 @@ async function writeBlocks(
   subsectionId: string,
   problem: string,
   solution: string,
+  solutionObjects: SolutionObject[] = [],
 ): Promise<void> {
   await supabase.from("notebook_blocks").delete().eq("subsection_id", subsectionId);
   await supabase.from("notebook_blocks").insert([
     { section_id: sectionId, subsection_id: subsectionId, kind: "problem" as any, order_index: 0, content_ascii: problem },
-    { section_id: sectionId, subsection_id: subsectionId, kind: "solution" as any, order_index: 1, content_ascii: solution },
+    {
+      section_id: sectionId,
+      subsection_id: subsectionId,
+      kind: "solution" as any,
+      order_index: 1,
+      content_ascii: solution,
+      // Tables, diagrams, charts and 3D scenes that live inside the solution.
+      content_json: (solutionObjects.length ? { objects: solutionObjects } : null) as any,
+    },
     { section_id: sectionId, subsection_id: subsectionId, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
   ]);
 }
@@ -323,7 +376,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
       }
 
       for (let j = 0; j < sec.subsections.length; j++) {
-        const { problem, solution } = sec.subsections[j];
+        const { problem, solution, solutionObjects } = sec.subsections[j];
         let subId = claimed[j]?.id ?? null;
         if (subId) {
           if ((claimed[j] as ExistingSub).order_index !== j) {
@@ -344,7 +397,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
           if (!subRow) continue;
           subId = subRow.id as string;
         }
-        await writeBlocks(sectionId, subId, problem, solution);
+        await writeBlocks(sectionId, subId, problem, solution, solutionObjects ?? []);
       }
 
       // Subsections the teacher genuinely deleted.
