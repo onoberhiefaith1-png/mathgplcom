@@ -341,6 +341,20 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
               });
               return acc;
             }
+            if (h.object) {
+              // Table workspace: emit every saved line that belongs to it, in
+              // saved order. The grid snapshot travels with the line.
+              const objId = String(h.object?.objId ?? "");
+              for (const rl of (rawLines ?? [])) {
+                if ((rl as any)?.table?.objId !== objId) continue;
+                acc.push({
+                  ...(rl as any),
+                  equation: String((rl as any).equation ?? ""),
+                  notebookOnly: false,
+                });
+              }
+              return acc;
+            }
             const payload = String(h.payload ?? "").trim();
             // Middleman parity guard: a highlight may only consume a saved
             // floating line when that line's Lesson Note equation matches the
