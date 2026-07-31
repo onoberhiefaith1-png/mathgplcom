@@ -479,14 +479,19 @@ export const FloatingNumberPanel = ({
     return gated.cleaned;
   };
 
-  /** 1-based line number that owns a fragment (for the tiny corner badge). */
-  const lineNoOf = (absIdx: number): number | null => {
+  /** THE tag of the line owning a fragment (for the tiny corner badge).
+   *  Never a raw reservoir index: the parent's tag authority decides, so a
+   *  table row reads `T7` and a lesson line reads its step number. */
+  const lineNoOf = (absIdx: number): string | null => {
     for (let li = 0; li < lines.length; li++) {
       const ln = lines[li];
-      if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) return li + 1;
+      if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) {
+        return tagOfLineIdx ? tagOfLineIdx(li) : String(li + 1);
+      }
     }
     return null;
   };
+
 
   // New fallback positioning rule: the floating-number display is a fixed
   // viewport overlay at the bottom-left, just to the right of the hash/eraser
