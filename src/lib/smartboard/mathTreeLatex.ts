@@ -360,11 +360,46 @@ export function treeToLatex(row: Row): string {
       continue;
     }
     if (n.kind === "bracket") {
-      out += `${n.left}${treeToLatex(subRowsOf(n)[0])}${n.right}`;
+      const body = treeToLatex(subRowsOf(n)[0]);
+      // ⌊ ⌋ / ⌈ ⌉ have no literal re-parse path, so serialize them as the
+      // macro form the parser understands. | and ‖ round-trip literally.
+      const macro = n.left === "⌊" || n.left === "⌈" ? FENCE_MACRO[n.left] : null;
+      out += macro ? `\\${macro}{${body}}` : `${n.left}${body}${n.right}`;
+      continue;
+    }
+    if (n.kind === "bigop") {
+      const [body, lower, upper] = subRowsOf(n);
+      out += `\\${n.op}`;
+      if (lower.length > 0) out += `_{${treeToLatex(lower)}}`;
+      if (upper.length > 0) out += `^{${treeToLatex(upper)}}`;
+      out += treeToLatex(body);
+      continue;
+    }
+    if (n.kind === "accent") {
+      const macro = ACCENT_MACRO[n.symbol] ?? "bar";
+      out += `\\${macro}{${treeToLatex(subRowsOf(n)[0])}}`;
+      continue;
+    }
+    if (n.kind === "binom") {
+      const [a, b] = subRowsOf(n);
+      out += `\\binom{${treeToLatex(a)}}{${treeToLatex(b)}}`;
+      continue;
+    }
+    if (n.kind === "matrix") {
+      const env = MATRIX_ENV_FOR[n.left] ?? "matrix";
+      const cells = subRowsOf(n);
+      const lines: string[] = [];
+      for (let r = 0; r < n.nRows; r++) {
+        const cols: string[] = [];
+        for (let c = 0; c < n.nCols; c++) cols.push(treeToLatex(cells[r * n.nCols + c] ?? []));
+        lines.push(cols.join(" & "));
+      }
+      out += `\\begin{${env}}${lines.join(" \\\\ ")}\\end{${env}}`;
       continue;
     }
     // Fallback: emit children.
     for (const sub of subRowsOf(n)) out += treeToLatex(sub);
+
   }
   return out;
 }
