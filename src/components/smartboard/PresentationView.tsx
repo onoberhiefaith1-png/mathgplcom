@@ -2529,27 +2529,37 @@ const PresentationView = ({
      validation logic runs silently here; the Reasoning / Assessment layer
      is the only consumer and the only place feedback may appear. */
   const tableValidationState: TableValidation | null = useMemo(
-    () => (activeTableGroup && !activeTableDeleted
+    () => (activeTableGroup && activeTablePlaced
       ? tableValidation(activeTableGroup, activeTableEntries, activeLineIdx)
       : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeTableGroup?.objId, activeTableEntries, activeLineIdx, activeTableDeleted],
+    [activeTableGroup?.objId, activeTableEntries, activeLineIdx, activeTablePlaced],
   );
   const tableValidationRef = useRef<TableValidation | null>(null);
   tableValidationRef.current = tableValidationState;
 
   /** Remove the Smart Table from THIS board view only. Nothing is deleted:
-   *  its generated floating numbers, T-series, orientation, retained cells,
-   *  assessment mappings, student entries and configuration all survive, so
-   *  the same table can be shown again later. */
+   *  its lesson line, generated floating numbers, T-series, orientation,
+   *  retained cells, assessment mappings, student entries and configuration
+   *  all survive, and its Floating Number icon keeps working, so the same
+   *  table can be placed again at any time. */
   const deleteTableObject = useCallback((group: typeof tableGroups[number]) => {
-    setHiddenTables((prev) => (prev.includes(group.objId) ? prev : [...prev, group.objId]));
+    setPlacedTables((prev) => {
+      if (!(group.objId in prev)) return prev;
+      const next = { ...prev };
+      delete next[group.objId];
+      return next;
+    });
     setActiveTableObjId((cur) => (cur === group.objId ? null : cur));
     setTableSensorCell(null);
   }, []);
 
-  const showTableObject = useCallback((objId: string) => {
-    setHiddenTables((prev) => prev.filter((id) => id !== objId));
+  /** Place (or re-place) the table on the board at the teacher's cursor —
+   *  exactly how an ordinary Floating Number writes at the cursor. */
+  const placeTableAtCursor = useCallback((objId: string) => {
+    const row = Math.floor(sensorRef.current?.line ?? 0);
+    setPlacedTables((prev) => ({ ...prev, [objId]: { row } }));
+    setExpandedTables((prev) => ({ ...prev, [objId]: true }));
   }, []);
 
   /** Clear = drop every student-entered value. Retained cells, formulas,
@@ -2571,7 +2581,7 @@ const PresentationView = ({
   const activeStepIdx = stepIdxForLine(steps, activeLineIdx);
   /** The table currently driving the counter (only after a cell click). */
   const tSeriesGroup = activeTableGroup
-    && !activeTableDeleted
+    && activeTablePlaced
     && activeTableObjId === activeTableGroup.objId
     ? activeTableGroup
     : null;
@@ -2584,23 +2594,15 @@ const PresentationView = ({
   useEffect(() => {
     if (!activeTableObjId) return;
     const stillInside = activeTableGroup?.objId === activeTableObjId;
-    if (!stillInside || !expandedTables[activeTableObjId] || hiddenTables.includes(activeTableObjId)) {
+    if (!stillInside || !expandedTables[activeTableObjId] || !placedTables[activeTableObjId]) {
       setActiveTableObjId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableObjId, activeTableGroup?.objId, expandedTables, hiddenTables]);
+  }, [activeTableObjId, activeTableGroup?.objId, expandedTables, placedTables]);
 
-  // A deleted table no longer holds the lesson: step past its member lines.
-  useEffect(() => {
-    if (!activeTableGroup || !activeTableDeleted) return;
-    const last = activeTableGroup.memberLineIdxs[activeTableGroup.memberLineIdxs.length - 1];
-    const after = last + 1;
-    if (after < guidedLines.length) {
-      setActiveLineIdx(after);
-      setFloatingLineIdx(after);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableDeleted, guidedLines.length]);
+  // NOTE: the lesson trunk never skips a table. Its lesson line stays a valid
+  // cursor position whether or not the table is currently on the board.
+
 
   /** Present / Floating chip taps land in the table when it is open. */
   const writeIntoTableCell = useCallback(
