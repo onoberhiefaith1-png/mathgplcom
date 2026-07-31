@@ -5,7 +5,7 @@ import { Users, GraduationCap, BookOpen, BarChart3, CreditCard, Settings, Shield
 const cards = [
   { to: "/teaching-hub", label: "Teaching Hub", icon: BookOpen, blurb: "Lesson notes, SmartBoard and classes." },
   { to: "/teaching-hub/classes", label: "Classes", icon: Users, blurb: "Every class in this school." },
-  { to: "/school?tab=teachers", label: "Teachers", icon: GraduationCap, blurb: "Teachers owned by this school." },
+  { to: "/school/teachers", label: "Teachers", icon: GraduationCap, blurb: "Add, invite, suspend or remove your teachers." },
   { to: "/school?tab=students", label: "Students", icon: Users, blurb: "Students owned by this school." },
   { to: "/school?tab=reports", label: "Reports & Analytics", icon: BarChart3, blurb: "School-wide progress." },
   { to: "/school?tab=accounts", label: "Accounts", icon: Shield, blurb: "Invitations, permissions, suspensions." },
