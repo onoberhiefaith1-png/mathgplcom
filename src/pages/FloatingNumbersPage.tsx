@@ -736,7 +736,19 @@ const FloatingNumbersPage = () => {
           for (const c of next[i].containers) seenStructures.add(c);
         }
       }
-      setLines(next);
+      // Merge back: table lines keep their slot, text lines take the new set.
+      setLines((prev) => {
+        if (!prev.some((l) => l.table)) return next;
+        const queue = next.slice();
+        const merged: FloatingLine[] = [];
+        for (const l of prev) {
+          if (l.table) { merged.push(l); continue; }
+          const n = queue.shift();
+          if (n) merged.push(n);
+        }
+        merged.push(...queue);
+        return merged;
+      });
       dirtyRef.current = true;
       toast({ title: "Floating numbers ready", description: `${next.length} lines prepared.` });
     } catch (e: any) {
