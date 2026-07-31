@@ -304,12 +304,13 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // line has a note iff its own highlight authored one. Equation-match
       // guessing caused stray notes (e.g. entire solution tails) to latch
       // onto lines whose Floating Panel entry had no note. Never restore.
-      // Whole-object highlights (tables / diagrams) are skipped here: the
-      // Highlighting Page records them, but their sequencing lands later.
+      // Whole-object highlights: a highlighted TABLE expands into the lines
+      // its workspace generated (matched by objId on the saved floating
+      // lines). Other objects (diagrams) are still skipped.
       const rawHighlights = ((sub as any).floating_highlights as
         | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean; object?: any }[]
         | null
-        | undefined)?.filter((h) => !h?.object);
+        | undefined)?.filter((h) => !h?.object || h.object?.family === "table");
 
       // Per-line answer key — preferred path when the Lesson Note has been
       // saved with structured floating_lines. Each line contributes its
