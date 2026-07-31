@@ -183,6 +183,10 @@ interface Props {
   lineCount?: number;
   /** Overrides the counter text (e.g. "T2" while a Smart Table is active). */
   lineLabel?: string;
+  /** Resolves a reservoir line index to its own tag ("T7" inside a table, the
+   *  lesson step number outside). The single tag authority for chip badges. */
+  tagOfLineIdx?: (lineIdx: number) => string;
+
   onPrevLine?: () => void;
   onNextLine?: () => void;
   /** The current line's teaching note, read through the single note
