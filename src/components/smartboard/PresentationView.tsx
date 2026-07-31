@@ -5699,8 +5699,8 @@ const PresentationView = ({
                   onCommitY={(y) => commitAssistantY("structures", beatKey, y)}
                   onPing={pingAssistant}
                   beatId={beatKey}
-                  lineNumber={hasGuidedLines ? curLineIdx + 1 : undefined}
-                  lineCount={hasGuidedLines ? lineCount : undefined}
+                  lineNumber={hasGuidedLines ? counterNumber : undefined}
+                  lineCount={hasGuidedLines ? counterTotal : undefined}
                   onPrevLine={goPrev}
                   onNextLine={goNext}
                 />
