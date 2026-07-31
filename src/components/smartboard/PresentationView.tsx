@@ -3831,6 +3831,11 @@ const PresentationView = ({
       ts: Date.now(),
       questionId: current?.id ?? null,
       activeLineIdx,
+      // TAG of the active floating number — `T{n}` inside a Smart Table,
+      // the lesson step number outside. Every consumer displays this value
+      // instead of deriving its own line number.
+      activeTag: activeTagRef.current,
+
       lineIds: guidedLines.map((g) => g.lineId ?? null),
       rowsAscii,
       linesAscii,
