@@ -20,7 +20,7 @@
 // table and fades away after ~5s of inactivity.
 
 import { useEffect, useMemo, useRef } from "react";
-import { Table2, ChevronDown, ChevronRight, Sigma, Trash2, Maximize2, Minimize2 } from "lucide-react";
+import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2 } from "lucide-react";
 import {
   cellKeysForLine,
   editableCellsForLine,
@@ -51,6 +51,8 @@ interface Props {
   onSensorCell: (key: string | null) => void;
   onEntry: (key: string, value: string) => void;
   onDelete?: () => void;
+  /** Clear every student-entered value; retained content stays. */
+  onClear?: () => void;
   /** Object height in px, so the board can push the rows below down. */
   onMeasure?: (height: number) => void;
 }
@@ -69,6 +71,7 @@ const TableActivityStage = ({
   onSensorCell,
   onEntry,
   onDelete,
+  onClear,
   onMeasure,
 }: Props) => {
   const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
@@ -257,9 +260,24 @@ const TableActivityStage = ({
             <Sigma className="h-3.5 w-3.5" /> Sum {group.orientation}
           </button>
         )}
+        {editable && onClear && (
+          <button
+            onClick={() => { onClear(); ping(); }}
+            className={toolbarBtn}
+            style={{ color: ink }}
+            title="Remove every value students entered — retained cells stay"
+          >
+            <Eraser className="h-3.5 w-3.5" /> Clear
+          </button>
+        )}
         {canDelete && onDelete && (
-          <button onClick={() => { onDelete(); }} className={toolbarBtn} style={{ color: ink }}>
-            <Trash2 className="h-3.5 w-3.5" /> Delete
+          <button
+            onClick={() => { onDelete(); }}
+            className={toolbarBtn}
+            style={{ color: ink }}
+            title="Remove the table from this board view — nothing is deleted"
+          >
+            <EyeOff className="h-3.5 w-3.5" /> Remove from board
           </button>
         )}
       </div>

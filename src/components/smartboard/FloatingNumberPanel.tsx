@@ -181,6 +181,8 @@ interface Props {
   /** 1-based current floating-line for the per-beat line navigator. */
   lineNumber?: number;
   lineCount?: number;
+  /** Overrides the counter text (e.g. "T2" while a Smart Table is active). */
+  lineLabel?: string;
   onPrevLine?: () => void;
   onNextLine?: () => void;
   /** The current line's teaching note, read through the single note
@@ -209,7 +211,7 @@ export const FloatingNumberPanel = ({
   leftPx,
   viewportBottomInset = 0,
   onPing, beatId,
-  lineNumber, lineCount, onPrevLine, onNextLine,
+  lineNumber, lineCount, lineLabel, onPrevLine, onNextLine,
   notebookText,
   onWriteNotebookToBoard,
   onNotebookRead,
@@ -551,9 +553,9 @@ export const FloatingNumberPanel = ({
               textAlign: "center",
               opacity: 0.8,
             }}
-            title={`Line ${lineNumber} of ${lineCount}`}
+            title={lineLabel ? `${lineLabel} of ${lineCount}` : `Line ${lineNumber} of ${lineCount}`}
           >
-            {lineNumber}
+            {lineLabel ?? lineNumber}
           </div>
         )}
         <button

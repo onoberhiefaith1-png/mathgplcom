@@ -22,6 +22,9 @@ import {
   isGroupComplete,
   nextOpenLine,
   tableValidation,
+  lessonSteps,
+  stepIdxForLine,
+  tSeriesFor,
   type TableEntries,
   type TableValidation,
 } from "@/lib/smartboard/tableActivity";
@@ -2449,8 +2452,14 @@ const PresentationView = ({
   const [tableSensorCell, setTableSensorCell] = useState<string | null>(null);
   /** Expand / collapse is per table and remembered for the session. */
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
-  /** Tables the teacher deleted from this lesson. */
-  const [deletedTables, setDeletedTables] = useState<string[]>([]);
+  /** Tables the teacher removed from THIS board view. Nothing is destroyed:
+   *  entries, orientation, retention, T-series and assessment mappings all
+   *  stay — the table can be shown again from its lesson step. */
+  const [hiddenTables, setHiddenTables] = useState<string[]>([]);
+  const deletedTables = hiddenTables;
+  /** The table becomes ACTIVE (T-series takes over the floating numbers)
+   *  only when a cell inside it is clicked — never merely by expanding. */
+  const [activeTableObjId, setActiveTableObjId] = useState<string | null>(null);
   const openTableObjId = activeTableGroup && expandedTables[activeTableGroup.objId]
     ? activeTableGroup.objId
     : null;
@@ -2466,7 +2475,8 @@ const PresentationView = ({
     } catch { setTableEntries({}); }
     setTableSensorCell(null);
     setExpandedTables({});
-    setDeletedTables([]);
+    setHiddenTables([]);
+    setActiveTableObjId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
 
@@ -2519,23 +2529,57 @@ const PresentationView = ({
   const tableValidationRef = useRef<TableValidation | null>(null);
   tableValidationRef.current = tableValidationState;
 
-  /** Delete the Smart Table object: only this object leaves the lesson.
-   *  Its cell entries, expand state and floating-line mappings for this
-   *  lesson go with it; the rest of the lesson is untouched. */
+  /** Remove the Smart Table from THIS board view only. Nothing is deleted:
+   *  its generated floating numbers, T-series, orientation, retained cells,
+   *  assessment mappings, student entries and configuration all survive, so
+   *  the same table can be shown again later. */
   const deleteTableObject = useCallback((group: typeof tableGroups[number]) => {
-    setDeletedTables((prev) => (prev.includes(group.objId) ? prev : [...prev, group.objId]));
-    setTableEntries((prev) => {
-      const next = { ...prev };
-      delete next[group.objId];
-      return next;
-    });
-    setExpandedTables((prev) => {
-      const next = { ...prev };
-      delete next[group.objId];
-      return next;
-    });
+    setHiddenTables((prev) => (prev.includes(group.objId) ? prev : [...prev, group.objId]));
+    setActiveTableObjId((cur) => (cur === group.objId ? null : cur));
     setTableSensorCell(null);
   }, []);
+
+  const showTableObject = useCallback((objId: string) => {
+    setHiddenTables((prev) => prev.filter((id) => id !== objId));
+  }, []);
+
+  /** Clear = drop every student-entered value. Retained cells, formulas,
+   *  headings, structure, formatting and orientation are untouched. */
+  const clearTableEntries = useCallback((group: typeof tableGroups[number]) => {
+    setTableEntries((prev) => ({ ...prev, [group.objId]: {} }));
+    setTableSensorCell(null);
+  }, []);
+
+  /* ── LESSON STEPS vs T-SERIES ────────────────────────────────────────
+     Lesson numbering NEVER counts table rows: a table is one lesson step.
+     While a table is ACTIVE (a cell was clicked) the floating-number
+     counter switches to that table's own T-series; leaving the table
+     restores the lesson numbering. */
+  const steps = useMemo(
+    () => lessonSteps(guidedLines.length, tableGroups),
+    [guidedLines.length, tableGroups],
+  );
+  const activeStepIdx = stepIdxForLine(steps, activeLineIdx);
+  /** The table currently driving the counter (only after a cell click). */
+  const tSeriesGroup = activeTableGroup
+    && !activeTableDeleted
+    && activeTableObjId === activeTableGroup.objId
+    ? activeTableGroup
+    : null;
+  const tSeries = useMemo(
+    () => (tSeriesGroup ? tSeriesFor(tSeriesGroup) : []),
+    [tSeriesGroup],
+  );
+
+  // Leaving the table (another step, collapse, or removal) ends the T-series.
+  useEffect(() => {
+    if (!activeTableObjId) return;
+    const stillInside = activeTableGroup?.objId === activeTableObjId;
+    if (!stillInside || !expandedTables[activeTableObjId] || hiddenTables.includes(activeTableObjId)) {
+      setActiveTableObjId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTableObjId, activeTableGroup?.objId, expandedTables, hiddenTables]);
 
   // A deleted table no longer holds the lesson: step past its member lines.
   useEffect(() => {
@@ -5224,6 +5268,9 @@ const PresentationView = ({
                   onOpenChange={(o) =>
                     setExpandedTables((prev) => ({ ...prev, [objId]: o }))}
                   onActivateLine={(k) => {
+                    // Clicking a cell hands the floating numbers to the
+                    // table's own T-series until the teacher leaves it.
+                    setActiveTableObjId(objId);
                     setActiveLineIdx(k);
                     setFloatingLineIdx(k);
                     setManualFloatingLineIdx(k);
@@ -5231,6 +5278,7 @@ const PresentationView = ({
                   onSensorCell={setTableSensorCell}
                   onEntry={(k, v) => setTableEntry(objId, k, v)}
                   onDelete={() => deleteTableObject(activeTableGroup)}
+                  onClear={() => clearTableEntries(activeTableGroup)}
                   onMeasure={(h) =>
                     handleBeatMeasure(`table:${objId}`, anchorRow + 1, grid.LINE_HEIGHT, h)}
                 />
@@ -5238,6 +5286,35 @@ const PresentationView = ({
             );
           })()}
 
+          {/* Removed from view — nothing was deleted. One click brings the
+              same table back with every entry, formula and heading intact. */}
+          {activeTableGroup && activeTableDeleted && isTeacher && (() => {
+            const anchorLine = groupAnchor(activeTableGroup);
+            const owned = findBoardRowForLine(anchorLine);
+            const anchorRow = owned ?? (activeLayout
+              ? clampToActiveBand(bandStart(activeLayout) + anchorLine)
+              : anchorLine);
+            const objId = activeTableGroup.objId;
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  top: rowTopPx(anchorRow),
+                  left: grid.MARGIN_LEFT,
+                  zIndex: 26,
+                }}
+              >
+                <button
+                  onClick={() => showTableObject(objId)}
+                  className="text-[12px] px-2 py-0.5 rounded border"
+                  style={{ color: palette.ink, borderColor: `${palette.ink}55` }}
+                  title="Show this table again — nothing was deleted"
+                >
+                  ▶ {activeTableGroup.label} (hidden)
+                </button>
+              </div>
+            );
+          })()}
 
 
           {/* Invisible-grid free-writing overlay. Filtered to lines that
@@ -5418,6 +5495,20 @@ const PresentationView = ({
             // the last one. The down-chevron naturally disables at the bottom
             // (cur >= total) so the teacher sees the line is blocked.
             const maxReachable = lineCount - 1;
+            /* COUNTER DOMAIN — lesson steps (a table counts as ONE step, its
+               rows never inflate the numbering) or, while a table is active,
+               that table's own T-series. */
+            const tCount = tSeries.length;
+            const tIdx = tSeriesGroup
+              ? Math.max(0, tSeriesGroup.memberLineIdxs.indexOf(curLineIdx))
+              : -1;
+            const counterNumber = tCount > 0 ? tIdx + 1 : activeStepIdx + 1;
+            const counterTotal = tCount > 0 ? tCount : steps.length;
+            const counterLabel = tCount > 0 ? `T${tIdx + 1}` : undefined;
+            const lineForCounter = (target: number): number | null => {
+              if (tCount > 0) return tSeriesGroup?.memberLineIdxs[target] ?? null;
+              return steps[target]?.lineIdx ?? null;
+            };
             const stepTo = (target: number) => {
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
@@ -5442,6 +5533,12 @@ const PresentationView = ({
               manualSensorRef.current = null;
               manualPushedRef.current = null;
             };
+            const stepToCounter = (target: number) => {
+              if (target < 0 || target >= counterTotal) return;
+              const line = lineForCounter(target);
+              if (line == null) return;
+              stepTo(line);
+            };
             const goPrev = () => {
               if (!hasGuidedLines) return;
               if (notebookRevealIdx != null) {
@@ -5449,7 +5546,7 @@ const PresentationView = ({
                 setNotebookRevealIdx(null);
                 return;
               }
-              stepTo(Math.max(0, curLineIdx - 1));
+              stepToCounter(counterNumber - 2);
             };
             const goNext = () => {
               if (!hasGuidedLines) return;
@@ -5483,7 +5580,7 @@ const PresentationView = ({
                 });
                 return;
               }
-              stepTo(Math.min(lineCount - 1, curLineIdx + 1));
+              stepToCounter(counterNumber);
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
             const currentNotebookText = notebookFor(curLineIdx);
@@ -5562,8 +5659,9 @@ const PresentationView = ({
                   viewportBottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
                   onPing={pingAssistant}
                   beatId={beatKey}
-                  lineNumber={hasGuidedLines ? curLineIdx + 1 : undefined}
-                  lineCount={hasGuidedLines ? lineCount : undefined}
+                  lineNumber={hasGuidedLines ? counterNumber : undefined}
+                  lineCount={hasGuidedLines ? counterTotal : undefined}
+                  lineLabel={counterLabel}
                   onPrevLine={goPrev}
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
@@ -5601,8 +5699,8 @@ const PresentationView = ({
                   onCommitY={(y) => commitAssistantY("structures", beatKey, y)}
                   onPing={pingAssistant}
                   beatId={beatKey}
-                  lineNumber={hasGuidedLines ? curLineIdx + 1 : undefined}
-                  lineCount={hasGuidedLines ? lineCount : undefined}
+                  lineNumber={hasGuidedLines ? counterNumber : undefined}
+                  lineCount={hasGuidedLines ? counterTotal : undefined}
                   onPrevLine={goPrev}
                   onNextLine={goNext}
                 />
