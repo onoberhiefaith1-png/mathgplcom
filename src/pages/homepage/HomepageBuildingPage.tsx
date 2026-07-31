@@ -131,14 +131,27 @@ const HomepageBuildingPage = () => {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {BUILDING_SLOTS.map((slot, i) => (
             <div key={slot.id} className="rounded-2xl border border-border bg-card/50 p-3">
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold">Image {i + 1}</p>
-                {overrides[slot.id] && (
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
-                    Replaced
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {overrides[slot.id] && (
+                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                      Replaced
+                    </span>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[10px]"
+                    disabled={cutoutSlot === slot.id || busySlot === slot.id}
+                    onClick={() => void removeBg(slot)}
+                  >
+                    <Scissors className="mr-1 h-3 w-3" />
+                    {cutoutSlot === slot.id ? "Removing…" : "Remove background"}
+                  </Button>
+                </div>
               </div>
+
               <div className="h-28 w-full overflow-hidden rounded-lg bg-muted/30">
                 <Thumb slot={slot} />
               </div>
