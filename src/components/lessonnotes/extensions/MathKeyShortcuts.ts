@@ -162,22 +162,24 @@ function moveEmptyPowerToSubscript(view: any): boolean {
   return moveToSlot(view, ctx, 1);
 }
 
-/** A script can never contain another script. When the caret is already in
- *  the power/subscript branch of a script structure, `#` toggles between the
- *  two branches instead of wrapping the term in a nested object (the cause of
- *  the runaway spacing). */
+/** `#` while the caret sits in a script branch.
+ *  Empty branch  → switch to the sibling branch (this is the `##` gesture).
+ *  Filled branch → return false so the normal wrap runs and the script nests,
+ *  which is what lets `x #2 #5 #n` build a tree of unlimited depth. */
 function hashInsideScript(view: any): boolean {
   const ctx = slotContext(view.state);
   if (!ctx) return false;
   const kind = String(ctx.structNode.attrs.kind || "");
   if (kind !== "subsup" && kind !== "power" && kind !== "sub") return false;
   if (ctx.slotIndex < 1) return false; // base slot → normal wrap is fine
+  if (ctx.slotNode.content.size !== 0) return false; // has content → allow nesting
   if (kind === "subsup") {
     return moveToSlot(view, ctx, ctx.slotIndex === 2 ? 1 : 2);
   }
-  // power / sub have a single script branch — just swallow the trigger.
+  // power / sub have a single script branch — nothing to switch to.
   return true;
 }
+
 
 
 function termRangeLeftOfSelection(state: any): { from: number; to: number } | null {
