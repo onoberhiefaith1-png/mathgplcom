@@ -24,11 +24,13 @@ export type AccountRow = {
   organisation: string;
   status: string;
   joinedAt: string;
+  isMine?: boolean;
   teachers?: number;
   students?: number;
   parents?: number;
   subscription?: string;
 };
+
 
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -64,9 +66,11 @@ export async function platformStats(): Promise<PlatformStats> {
   };
 }
 
-export async function platformAccounts(kind: string): Promise<AccountRow[]> {
+export async function platformAccounts(kind: string, ownerUserId?: string): Promise<AccountRow[]> {
   const db = await admin();
+  const mine = ownerUserId ? await myAccountIds(ownerUserId) : new Set<string>();
   const role = kind === "admins" ? "co_admin" : kind.replace(/s$/, "");
+
   const { data: roleRows } = await db
     .from("user_roles")
     .select("user_id, created_at")
@@ -101,6 +105,8 @@ export async function platformAccounts(kind: string): Promise<AccountRow[]> {
         emails.get(id) ||
         "Account",
       email: emails.get(id) ?? "",
+      isMine: mine.has(id),
+
       organisation: ownOrg ? ownOrg.name : (org?.name ?? "Independent"),
       status: membership?.status ?? org?.status ?? "active",
       joinedAt:
@@ -285,8 +291,10 @@ export async function createAccount(params: {
 
 
 /**
- * Mints a one-time sign-in token for `targetUserId` so the platform owner can
- * enter that workspace exactly as the real account experiences it. Audited.
+ * Mints a one-time sign-in token for `targetUserId` — but only for accounts the
+ * platform owner created for themselves (or their own account). Any other
+ * customer account returns `requiresCredentials`, so the owner must supply that
+ * customer's own email and password to open it. Audited.
  */
 export async function workspaceEntryToken(adminUserId: string, targetUserId: string) {
   const db = await admin();
@@ -297,10 +305,33 @@ export async function workspaceEntryToken(adminUserId: string, targetUserId: str
   const { data: roleRows } = await db.from("user_roles").select("role").eq("user_id", targetUserId);
   const role = (roleRows ?? [])[0]?.role ?? "teacher";
 
+  const { data: profileRow } = await db
+    .from("profiles")
+    .select("display_name, first_name, last_name")
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+
+  const displayName =
+    profileRow?.display_name?.trim() ||
+    [profileRow?.first_name, profileRow?.last_name].filter(Boolean).join(" ").trim() ||
+    email;
+
+  const mine = await myAccountIds(adminUserId);
+  if (targetUserId !== adminUserId && !mine.has(targetUserId)) {
+    return {
+      requiresCredentials: true as const,
+      email,
+      role: role as string,
+      home: HOME_BY_ROLE[role as string] ?? "/",
+      name: displayName,
+    };
+  }
+
   const { data: link, error } = await db.auth.admin.generateLink({ type: "magiclink", email });
   if (error || !link?.properties?.hashed_token) {
     throw new Error(error?.message ?? "Could not open that workspace.");
   }
+
 
   await db.from("admin_impersonation_log").insert({
     admin_user_id: adminUserId,
@@ -308,20 +339,156 @@ export async function workspaceEntryToken(adminUserId: string, targetUserId: str
     target_role: role as string,
   });
 
-  const { data: profile } = await db
-    .from("profiles")
-    .select("display_name, first_name, last_name")
-    .eq("user_id", targetUserId)
-    .maybeSingle();
-
   return {
+    requiresCredentials: false as const,
     tokenHash: link.properties.hashed_token,
     email,
     role: role as string,
     home: HOME_BY_ROLE[role as string] ?? "/",
-    name:
-      profile?.display_name?.trim() ||
-      [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() ||
-      email,
+    name: displayName,
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * The platform owner's own test accounts (one per role)
+ * ------------------------------------------------------------------ */
+
+export type MyAccountRole = "school" | "teacher" | "parent" | "student";
+
+export type MyAccount = {
+  role: MyAccountRole;
+  userId: string | null;
+  email: string;
+  name: string;
+  home: string;
+};
+
+const MY_ACCOUNT_SPECS: { role: MyAccountRole; suffix: string; name: string }[] = [
+  { role: "school", suffix: "school", name: "My School" },
+  { role: "teacher", suffix: "teacher", name: "My Teacher" },
+  { role: "parent", suffix: "parent", name: "My Parent" },
+  { role: "student", suffix: "student", name: "My Student" },
+];
+
+/** The table is newer than the generated types, so it is reached untyped. */
+async function testAccountsTable() {
+  const db = await admin();
+  return (db as unknown as { from: (t: string) => any }).from("platform_test_accounts");
+}
+
+async function myAccountIds(ownerUserId: string): Promise<Set<string>> {
+  const table = await testAccountsTable();
+  const { data } = await table.select("target_user_id").eq("owner_user_id", ownerUserId);
+  return new Set<string>(((data ?? []) as { target_user_id: string }[]).map((r) => r.target_user_id));
+}
+
+function aliasEmail(ownerEmail: string, suffix: string) {
+  const [local, domain] = ownerEmail.split("@");
+  return `${local}+${suffix}@${domain}`;
+}
+
+/** Creates (or adopts) one account per role for the owner. Safe to re-run. */
+export async function ensureMyAccounts(ownerUserId: string): Promise<MyAccount[]> {
+  const db = await admin();
+  const table = await testAccountsTable();
+
+  const { data: ownerRes } = await db.auth.admin.getUserById(ownerUserId);
+  const ownerEmail = ownerRes?.user?.email;
+  if (!ownerEmail) throw new Error("Your account has no email address.");
+
+  const { data: userList } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const byEmail = new Map<string, string>();
+  for (const u of userList?.users ?? []) if (u.email) byEmail.set(u.email.toLowerCase(), u.id);
+
+  const out: MyAccount[] = [];
+
+  for (const spec of MY_ACCOUNT_SPECS) {
+    const email = aliasEmail(ownerEmail, spec.suffix);
+    let uid = byEmail.get(email.toLowerCase()) ?? null;
+
+    if (!uid) {
+      const password = `Mgpl-${spec.suffix}-${crypto.randomUUID().slice(0, 12)}`;
+      const { data: created, error } = await db.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { account_role: spec.role, display_name: spec.name },
+      });
+      if (error || !created?.user?.id) {
+        throw new Error(error?.message ?? `Could not create ${spec.name}.`);
+      }
+      uid = created.user.id;
+    }
+
+    await db.from("user_roles").upsert(
+      { user_id: uid, role: spec.role as Database["public"]["Enums"]["app_role"] },
+      { onConflict: "user_id,role" },
+    );
+    await db
+      .from("profiles")
+      .upsert({ user_id: uid, display_name: spec.name }, { onConflict: "user_id" });
+
+    if (spec.role === "school") {
+      const { data: existingOrg } = await db
+        .from("organizations")
+        .select("id")
+        .eq("owner_user_id", uid)
+        .maybeSingle();
+      if (!existingOrg) {
+        const { data: org } = await db
+          .from("organizations")
+          .insert({ name: spec.name, kind: "school", status: "active", owner_user_id: uid })
+          .select("id")
+          .maybeSingle();
+        if (org?.id) {
+          await db
+            .from("account_memberships")
+            .upsert(
+              { user_id: uid, org_id: org.id, role: "school" as Database["public"]["Enums"]["app_role"], status: "active" },
+              { onConflict: "user_id,org_id,role" },
+            );
+        }
+      }
+    }
+
+    await table.upsert(
+      { owner_user_id: ownerUserId, target_user_id: uid, role: spec.role },
+      { onConflict: "target_user_id" },
+    );
+
+    out.push({
+      role: spec.role,
+      userId: uid,
+      email,
+      name: spec.name,
+      home: HOME_BY_ROLE[spec.role] ?? "/",
+    });
+  }
+
+  return out;
+}
+
+/** Reads the owner's four accounts without creating anything. */
+export async function myAccounts(ownerUserId: string): Promise<MyAccount[]> {
+  const db = await admin();
+  const table = await testAccountsTable();
+  const { data: ownerRes } = await db.auth.admin.getUserById(ownerUserId);
+  const ownerEmail = ownerRes?.user?.email ?? "";
+
+  const { data: rows } = await table
+    .select("target_user_id, role")
+    .eq("owner_user_id", ownerUserId);
+  const byRole = new Map<string, string>();
+  for (const r of (rows ?? []) as { target_user_id: string; role: string }[]) {
+    byRole.set(r.role, r.target_user_id);
+  }
+
+  return MY_ACCOUNT_SPECS.map((spec) => ({
+    role: spec.role,
+    userId: byRole.get(spec.role) ?? null,
+    email: ownerEmail ? aliasEmail(ownerEmail, spec.suffix) : "",
+    name: spec.name,
+    home: HOME_BY_ROLE[spec.role] ?? "/",
+  }));
+}
+

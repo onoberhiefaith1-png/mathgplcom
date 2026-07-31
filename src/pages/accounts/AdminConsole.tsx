@@ -23,16 +23,20 @@ import DashboardShell from "@/components/accounts/DashboardShell";
 import StatCard from "@/components/accounts/StatCard";
 import AccountPreviewSheet from "@/components/accounts/AccountPreviewSheet";
 import AddAccountDialog from "@/components/accounts/AddAccountDialog";
+import CredentialEntryDialog, { type CredentialTarget } from "@/components/accounts/CredentialEntryDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { beginImpersonation } from "@/lib/accounts/impersonation";
 import {
   fetchPlatformStats,
   fetchPlatformAccounts,
+  fetchMyAccounts,
+  ensureMyAccounts,
   setAccountStatus,
   deletePlatformAccount,
   enterWorkspace,
 } from "@/lib/accounts/platform.functions";
+
 
 type TabKey = "schools" | "teachers" | "parents" | "students" | "admins";
 
@@ -59,9 +63,13 @@ const AdminConsole = () => {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [credentialTarget, setCredentialTarget] = useState<CredentialTarget | null>(null);
+  const [settingUp, setSettingUp] = useState(false);
 
   const loadStats = useServerFn(fetchPlatformStats);
   const loadAccounts = useServerFn(fetchPlatformAccounts);
+  const loadMine = useServerFn(fetchMyAccounts);
+  const createMine = useServerFn(ensureMyAccounts);
   const changeStatus = useServerFn(setAccountStatus);
   const removeAccount = useServerFn(deletePlatformAccount);
   const openWorkspace = useServerFn(enterWorkspace);
@@ -85,11 +93,44 @@ const AdminConsole = () => {
     enabled: allowed,
   });
 
+  const mine = useQuery({
+    queryKey: ["my-test-accounts"],
+    queryFn: async () => (await loadMine()).rows,
+    enabled: allowed,
+  });
+
+  const setUpMine = async () => {
+    setSettingUp(true);
+    try {
+      await createMine();
+      toast({ title: "Your accounts are ready", description: "School, Teacher, Parent and Student." });
+      await Promise.all([mine.refetch(), accounts.refetch(), stats.refetch()]);
+    } catch (e) {
+      toast({ title: "Could not set up accounts", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setSettingUp(false);
+    }
+  };
+
   const enter = async (userId: string) => {
     setBusyId(userId);
     try {
       const entry = await openWorkspace({ data: { userId } });
-      await beginImpersonation(entry);
+      if (entry.requiresCredentials) {
+        setCredentialTarget({
+          email: entry.email,
+          name: entry.name,
+          role: entry.role,
+          home: entry.home,
+        });
+        return;
+      }
+      await beginImpersonation({
+        tokenHash: entry.tokenHash,
+        name: entry.name,
+        role: entry.role,
+        home: entry.home,
+      });
       window.location.assign(entry.home);
     } catch (e) {
       toast({ title: "Could not enter workspace", description: (e as Error).message, variant: "destructive" });
@@ -97,6 +138,7 @@ const AdminConsole = () => {
       setBusyId(null);
     }
   };
+
 
   const toggleStatus = async (userId: string, status: string) => {
     const next = status === "suspended" ? "active" : "suspended";
@@ -176,6 +218,55 @@ const AdminConsole = () => {
         ))}
       </div>
 
+      <section className="mt-8 rounded-3xl border border-dash-border bg-dash-surface p-6 shadow-[var(--shadow-dash)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-dash-surface-foreground">My accounts</h2>
+            <p className="text-xs text-dash-surface-muted">
+              One of each role, owned by you — use them to check that School, Teacher, Parent and
+              Student all work. Only these open without a password.
+            </p>
+          </div>
+          {(mine.data ?? []).some((m) => !m.userId) && (
+            <button
+              type="button"
+              disabled={settingUp}
+              onClick={() => void setUpMine()}
+              className="inline-flex items-center gap-2 rounded-full bg-dash-gold px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-navy disabled:opacity-50"
+            >
+              {settingUp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Set up my accounts
+            </button>
+          )}
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(mine.data ?? []).map((m) => (
+            <div
+              key={m.role}
+              className="rounded-2xl border border-dash-border bg-background/40 p-4"
+            >
+              <p className="text-sm font-semibold capitalize text-dash-surface-foreground">{m.role}</p>
+              <p className="mt-1 truncate text-xs text-dash-surface-muted">{m.email || "—"}</p>
+              <button
+                type="button"
+                disabled={!m.userId || busyId === m.userId}
+                onClick={() => m.userId && void enter(m.userId)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-dash-border px-2.5 py-1.5 text-xs font-medium text-dash-surface-foreground transition hover:border-dash-gold hover:bg-dash-gold/10 disabled:opacity-50"
+              >
+                {busyId === m.userId ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <LogIn className="h-3.5 w-3.5" />
+                )}
+                {m.userId ? "Open workspace" : "Not created yet"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+
       <div className="mt-8 flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
@@ -231,7 +322,15 @@ const AdminConsole = () => {
               <tbody className="text-dash-surface-foreground">
                 {(accounts.data ?? []).map((row) => (
                   <tr key={row.userId} className="border-t border-dash-border/70 transition hover:bg-dash-gold/5">
-                    <td className="py-3 pr-4 font-semibold">{row.name}</td>
+                    <td className="py-3 pr-4 font-semibold">
+                      {row.name}
+                      {row.isMine && (
+                        <span className="ml-2 rounded-full bg-dash-gold/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-dash-navy">
+                          Mine
+                        </span>
+                      )}
+                    </td>
+
                     <td className="py-3 pr-4 text-dash-surface-muted">
                       {row.email ? (
                         <a className="inline-flex items-center gap-1 hover:text-dash-surface-foreground" href={`mailto:${row.email}`}>
@@ -329,6 +428,13 @@ const AdminConsole = () => {
           }}
         />
       )}
+      {credentialTarget && (
+        <CredentialEntryDialog
+          target={credentialTarget}
+          onClose={() => setCredentialTarget(null)}
+        />
+      )}
+
     </DashboardShell>
   );
 };

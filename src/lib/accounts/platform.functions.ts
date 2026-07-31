@@ -19,8 +19,24 @@ export const fetchPlatformAccounts = createServerFn({ method: "GET" })
   )
   .handler(async ({ context, data }) => {
     await platform.assertPlatformAdmin(context.supabase, context.userId);
-    return { rows: await platform.platformAccounts(data.kind) };
+    return { rows: await platform.platformAccounts(data.kind, context.userId) };
   });
+
+/** The owner's own one-per-role sandbox accounts. */
+export const fetchMyAccounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await platform.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await platform.myAccounts(context.userId) };
+  });
+
+export const ensureMyAccounts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await platform.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await platform.ensureMyAccounts(context.userId) };
+  });
+
 
 export const fetchAccountDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

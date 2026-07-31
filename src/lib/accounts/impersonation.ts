@@ -53,6 +53,42 @@ export async function beginImpersonation(entry: {
   );
 }
 
+/**
+ * Entering a customer account the owner does not own: it requires that
+ * customer's own email and password, exactly like any other sign-in.
+ */
+export async function beginImpersonationWithCredentials(entry: {
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+  home: string;
+}) {
+  const { data } = await supabase.auth.getSession();
+  const owner = data.session;
+  if (owner) {
+    window.localStorage.setItem(
+      OWNER_KEY,
+      JSON.stringify({ access_token: owner.access_token, refresh_token: owner.refresh_token }),
+    );
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: entry.email,
+    password: entry.password,
+  });
+  if (error) {
+    window.localStorage.removeItem(OWNER_KEY);
+    throw new Error(error.message);
+  }
+
+  window.localStorage.setItem(
+    ACTIVE_KEY,
+    JSON.stringify({ name: entry.name, role: entry.role, home: entry.home }),
+  );
+}
+
+
 export async function endImpersonation() {
   const raw = window.localStorage.getItem(OWNER_KEY);
   window.localStorage.removeItem(ACTIVE_KEY);
