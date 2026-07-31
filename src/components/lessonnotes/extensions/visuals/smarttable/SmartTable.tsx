@@ -6,9 +6,16 @@ import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { Minus, Plus, Settings2, Sigma } from "lucide-react";
 import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import { useAiEditBridge } from "@/hooks/useAiEditBridge";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
+import { toast } from "@/hooks/use-toast";
+import { SmartTableCellToolbar } from "./SmartTableCellToolbar";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
+
 
 export interface SmartTableStyle {
   cellPadX: number;
