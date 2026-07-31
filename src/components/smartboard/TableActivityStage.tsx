@@ -89,15 +89,21 @@ const TableActivityStage = ({
   );
 
   // Report the object's real height so rows below travel down / back up.
+  // The callback is held in a ref: parents pass an inline arrow, and using it
+  // directly as an effect dep re-subscribes every render → measure → setState
+  // → render loop ("Maximum update depth exceeded").
+  const measureRef = useRef(onMeasure);
+  measureRef.current = onMeasure;
   useEffect(() => {
     const el = hostRef.current;
-    if (!el || !onMeasure) return;
-    const report = () => onMeasure(el.getBoundingClientRect().height);
+    if (!el) return;
+    const report = () => measureRef.current?.(el.getBoundingClientRect().height);
     report();
     const ro = new ResizeObserver(report);
     ro.observe(el);
-    return () => { ro.disconnect(); onMeasure(0); };
-  }, [onMeasure, open]);
+    return () => { ro.disconnect(); measureRef.current?.(0); };
+  }, [open]);
+
 
   // Keep the caret where the board's sensor is.
   useEffect(() => {
