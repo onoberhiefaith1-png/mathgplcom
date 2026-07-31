@@ -145,21 +145,25 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const [sumMode, setSumMode] = useState<"row" | "col" | null>(null);
   /** Whole-line selection: a row or a column, highlighted end to end. */
   const [line, setLine] = useState<{ kind: "row" | "col"; index: number } | null>(null);
+  /** Soft-selected cell: clicking the padding around a cell's text. Used as
+   *  the anchor for inserting a FULL row / column inside the grid. */
+  const [softCell, setSoftCell] = useState<{ r: number; c: number } | null>(null);
 
   useEffect(() => {
-    if (!selected) { setPanelOpen(false); setSumMenuOpen(false); setSumMode(null); setLine(null); }
+    if (!selected) { setPanelOpen(false); setSumMenuOpen(false); setSumMode(null); setLine(null); setSoftCell(null); }
   }, [selected]);
 
   useEffect(() => {
-    if (!sumMode && !line) return;
+    if (!sumMode && !line && !softCell) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       setSumMode(null);
       setLine(null);
+      setSoftCell(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sumMode, line]);
+  }, [sumMode, line, softCell]);
 
 
   const patch = useCallback((next: Partial<SmartTableAttrs>) => {
@@ -250,7 +254,11 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     aiBridge.requestAiEdit({
       text,
       kind: detectSelectionKindFromText(text),
-      label: "Table cell",
+      label: [
+        `Table cell (column "${(r === -1 ? headers[c] : headers[c]) || c + 1}"`,
+        r === -1 ? "header row)" : `row ${r + 1})`,
+        "— you may rewrite, shorten or delete these contents entirely; return only the cell's new value.",
+      ].join(" "),
       onApply: (proposed) => {
         const merged = source.slice(0, s) + proposed + source.slice(e);
         writeAny(r, c, merged);
@@ -286,12 +294,22 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     writeCell(r, c, formatNumber(total));
   };
 
-  const handleCellClick = (r: number, c: number) => {
+  const handleCellClick = (r: number, c: number, e?: React.MouseEvent) => {
     if (sumMode) {
       if (sumMode === "row") sumRow(r, c); else sumCol(r, c);
       setSumMode(null);
       return;
     }
+    // Clicking the cell's TEXT edits the value. Clicking the padding around
+    // it soft-selects the cell so a whole row/column can be inserted there.
+    const hitText = !!(e && (e.target as HTMLElement)?.closest?.("[data-cell-text]"));
+    if (!hitText) {
+      setLine(null);
+      cancelEdit();
+      setSoftCell((p) => (p && p.r === r && p.c === c ? null : { r, c }));
+      return;
+    }
+    setSoftCell(null);
     if (!isEditing(r, c)) beginEdit(r, c);
   };
 
@@ -437,6 +455,35 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
         )}
       </PanelGroup>
 
+      {softCell && (
+        <PanelGroup label={`Selected cell — row ${softCell.r + 1}, column ${softCell.c + 1}`}>
+          <PanelRow label="Insert row">
+            <PanelButton onClick={() => { addRow(softCell.r); setSoftCell({ r: softCell.r + 1, c: softCell.c }); }}>Above</PanelButton>
+            <PanelButton onClick={() => addRow(softCell.r + 1)}>Below</PanelButton>
+          </PanelRow>
+          <PanelRow label="Insert column">
+            <PanelButton onClick={() => { addCol(softCell.c); setSoftCell({ r: softCell.r, c: softCell.c + 1 }); }}>Left</PanelButton>
+            <PanelButton onClick={() => addCol(softCell.c + 1)}>Right</PanelButton>
+          </PanelRow>
+          <PanelRow label="Move row">
+            <PanelButton onClick={() => { moveRow(softCell.r, softCell.r - 1); setSoftCell({ r: Math.max(0, softCell.r - 1), c: softCell.c }); setLine(null); }}>Up</PanelButton>
+            <PanelButton onClick={() => { moveRow(softCell.r, softCell.r + 1); setSoftCell({ r: Math.min(rows - 1, softCell.r + 1), c: softCell.c }); setLine(null); }}>Down</PanelButton>
+          </PanelRow>
+          <PanelRow label="Move column">
+            <PanelButton onClick={() => { moveCol(softCell.c, softCell.c - 1); setSoftCell({ r: softCell.r, c: Math.max(0, softCell.c - 1) }); setLine(null); }}>Left</PanelButton>
+            <PanelButton onClick={() => { moveCol(softCell.c, softCell.c + 1); setSoftCell({ r: softCell.r, c: Math.min(cols - 1, softCell.c + 1) }); setLine(null); }}>Right</PanelButton>
+          </PanelRow>
+          <PanelRow label="Delete">
+            <PanelButton onClick={() => { delRow(softCell.r); setSoftCell(null); }}>Row</PanelButton>
+            <PanelButton onClick={() => { delCol(softCell.c); setSoftCell(null); }}>Column</PanelButton>
+          </PanelRow>
+          <PanelRow label="Cell">
+            <PanelButton onClick={() => { writeCell(softCell.r, softCell.c, ""); }}>Clear</PanelButton>
+            <PanelButton onClick={() => { beginEdit(softCell.r, softCell.c); setSoftCell(null); }}>Edit text</PanelButton>
+          </PanelRow>
+        </PanelGroup>
+      )}
+
       <PanelGroup label="Rows">
         <PanelRow label="Number of rows">
           <PanelButton onClick={() => delRow(rows - 1)}><Minus className="h-3 w-3" /></PanelButton>
@@ -485,16 +532,23 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     </div>
   );
   useRegisterAssetEditor(
-    (!!selected && (panelOpen || line !== null)) || active !== null,
+    (!!selected && (panelOpen || line !== null || softCell !== null)) || active !== null,
     "smartTable", "Smart table", editor,
   );
 
   const rowSelected = (r: number) => line?.kind === "row" && line.index === r;
   const colSelected = (c: number) => line?.kind === "col" && line.index === c;
-  const lineHi = (r: number, c: number): React.CSSProperties =>
-    (rowSelected(r) || colSelected(c))
-      ? { background: "rgba(37,99,235,0.16)", boxShadow: "inset 0 0 0 9999px rgba(37,99,235,0.06)" }
-      : {};
+  const cellSoft = (r: number, c: number) => !!softCell && softCell.r === r && softCell.c === c;
+  const lineHi = (r: number, c: number): React.CSSProperties => {
+    if (rowSelected(r) || colSelected(c)) {
+      return { background: "rgba(37,99,235,0.16)", boxShadow: "inset 0 0 0 9999px rgba(37,99,235,0.06)" };
+    }
+    if (cellSoft(r, c)) {
+      // Soft wash — the text stays perfectly readable.
+      return { background: "rgba(37,99,235,0.12)", outline: "1px solid rgba(37,99,235,0.45)" };
+    }
+    return {};
+  };
   const handleCss: React.CSSProperties = {
     border: "1px solid rgba(37,99,235,0.35)",
     background: "rgba(37,99,235,0.08)",
@@ -507,6 +561,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const selectLine = (kind: "row" | "col", index: number) => {
     cancelEdit();
     setSumMode(null);
+    setSoftCell(null);
     setLine((p) => (p && p.kind === kind && p.index === index ? null : { kind, index }));
   };
 
@@ -613,7 +668,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                       "relative " +
                       (sumMode ? "cursor-pointer hover:bg-primary/20" : "cursor-text hover:bg-black/5")
                     }
-                    onClick={(e) => { e.stopPropagation(); handleCellClick(r, c); }}
+                    onClick={(e) => { e.stopPropagation(); handleCellClick(r, c, e); }}
                   >
 
                     {editing ? (
@@ -630,7 +685,9 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                       </>
                     ) : (
                       <span className="block min-h-[1.4em]">
-                        {rendered ?? <span style={{ color: "#cbd5e1" }}>·</span>}
+                        <span data-cell-text className="inline-block">
+                          {rendered ?? <span style={{ color: "#cbd5e1" }}>·</span>}
+                        </span>
                       </span>
                     )}
                   </td>
@@ -776,8 +833,10 @@ function InlineEditor({ value, onChange, onCommit, onCancel, onSelect, inputRef 
       onSelect={report}
       onKeyUp={report}
       onMouseUp={report}
+      onBlur={onCommit}
       onKeyDown={(e) => {
         if (e.key === "Enter") { e.preventDefault(); onCommit(); }
+        else if (e.key === "Tab") { onCommit(); }
         else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
       }}
       onClick={(e) => { e.stopPropagation(); report(); }}

@@ -24,6 +24,7 @@ import { toast } from "@/hooks/use-toast";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { LessonContext } from "@/lib/floating/lessonContext";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { AutoTextarea } from "@/components/lessonnotes/AutoTextarea";
 
 export type LineUpdateOp =
   | "move_filler"
@@ -892,14 +893,15 @@ export const AssistantPanel = ({
         )}
 
         <div className="px-3 pt-2 flex items-end gap-2">
-          <textarea
-            ref={inputRef}
+          <AutoTextarea
+            textareaRef={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={placeholder}
-            rows={2}
-            className="flex-1 resize-none rounded border px-3 py-2 text-sm focus:outline-hidden"
+            minRows={3}
+            maxRows={10}
+            className="flex-1 rounded border px-3 py-2 text-sm leading-relaxed focus:outline-hidden"
             style={{ borderColor: C.borderStrong, background: C.bg, color: C.text }}
           />
           <div className="flex flex-col gap-1">

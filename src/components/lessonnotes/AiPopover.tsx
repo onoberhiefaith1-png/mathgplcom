@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { VoiceWave } from "./VoiceWave";
+import { AutoTextarea } from "./AutoTextarea";
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import {
   AiPreferences,
@@ -156,14 +157,19 @@ export function AiPopover({
         )}
         {topControls}
 
-        <input
+        <AutoTextarea
           autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); fire(); } }}
-          placeholder={placeholder ?? "What should AI write?"}
-          className="w-full text-sm bg-transparent border-b border-foreground/20 outline-hidden py-1 placeholder:text-foreground/40"
+          minRows={3}
+          maxRows={10}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); fire(); }
+          }}
+          placeholder={placeholder ?? "What should AI write? (Shift+Enter for a new line)"}
+          className="w-full text-sm leading-relaxed bg-transparent border border-foreground/20 rounded-md px-2 py-1.5 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40"
         />
+
         {allowAttachments && images.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {images.map((src, i) => (
