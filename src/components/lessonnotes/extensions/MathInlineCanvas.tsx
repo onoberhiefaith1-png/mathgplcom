@@ -440,9 +440,11 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 }
 
 export function MathInlineCanvas({
-  root, onChange, onBlur, focused, onFocus, entryPoint,
+  root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
 }: Props) {
-  const [cursor, setCursor] = useState<Cursor>({ path: [], index: root.length });
+  const [cursor, setCursor] = useState<Cursor>(
+    () => entryCursor ?? { path: [], index: root.length },
+  );
   const [anchor, setAnchor] = useState<Cursor | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hostRef = useRef<HTMLSpanElement | null>(null);
