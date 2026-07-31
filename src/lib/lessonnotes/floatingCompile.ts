@@ -56,6 +56,8 @@ export interface FloatingLine {
   containersSelected?: boolean[];
   /** Marks awarded when a student reproduces this line correctly. */
   marks?: number;
+  /** Set when this line was generated from a highlighted table workspace. */
+  table?: FloatingTableRef;
 }
 
 export type ScoringMode = "equal" | "individual";
