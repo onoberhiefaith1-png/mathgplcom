@@ -66,9 +66,11 @@ export async function platformStats(): Promise<PlatformStats> {
   };
 }
 
-export async function platformAccounts(kind: string): Promise<AccountRow[]> {
+export async function platformAccounts(kind: string, ownerUserId?: string): Promise<AccountRow[]> {
   const db = await admin();
+  const mine = ownerUserId ? await myAccountIds(ownerUserId) : new Set<string>();
   const role = kind === "admins" ? "co_admin" : kind.replace(/s$/, "");
+
   const { data: roleRows } = await db
     .from("user_roles")
     .select("user_id, created_at")
