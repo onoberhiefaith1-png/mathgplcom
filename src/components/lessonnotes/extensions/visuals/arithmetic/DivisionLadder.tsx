@@ -27,6 +27,8 @@ interface Props {
   attrs: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
   selected?: boolean;
+  /** Smart Structure board mode: static layer preserved, authoring chrome off. */
+  board?: boolean;
 }
 
 function normalize(a: Record<string, unknown>) {
@@ -52,7 +54,7 @@ function normalize(a: Record<string, unknown>) {
   };
 }
 
-export function DivisionLadder({ attrs, onChange, selected }: Props) {
+export function DivisionLadder({ attrs, onChange, selected, board }: Props) {
   const m = useMemo(() => normalize(attrs), [attrs]);
   const patch = useCallback((p: Partial<Attrs>) => onChange({ ...p }), [onChange]);
 
@@ -93,7 +95,7 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
       </PanelGroup>
     </div>
   ), [m.fontSize, m.rowHeight, m.colWidth, m.dividerThickness, patch]);
-  useRegisterAssetEditor(!!selected, "divisionLadder", "Division ladder", editor);
+  useRegisterAssetEditor(!!selected && !board, "divisionLadder", "Division ladder", editor);
 
   const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
   const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
@@ -176,7 +178,7 @@ export function DivisionLadder({ attrs, onChange, selected }: Props) {
 
 
       <AssetBottomToolbar
-        visible={toolbarVisible}
+        visible={toolbarVisible && !board}
         bind={bind}
         actions={[
           { label: "Row", icon: <Plus className="h-3 w-3" />, onClick: addRow },

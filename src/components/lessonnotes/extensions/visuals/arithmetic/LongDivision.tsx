@@ -31,6 +31,8 @@ interface Props {
   attrs: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
   selected?: boolean;
+  /** Smart Structure board mode: static layer preserved, authoring chrome off. */
+  board?: boolean;
 }
 
 const MIN_COLS = 3;
@@ -200,7 +202,7 @@ function DigitCell({
   );
 }
 
-export function LongDivision({ attrs, onChange, selected }: Props) {
+export function LongDivision({ attrs, onChange, selected, board }: Props) {
   const m = useMemo(() => normalize(attrs), [attrs]);
   const nCols = m.dividendDigits.length;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -332,7 +334,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
       </PanelGroup>
     </div>
   ), [m.autoMinus, m.autoLine, m.showWorking, m.divisor, m.lineThickness, m.rowHeight, patch]);
-  useRegisterAssetEditor(!!selected, "longDivision", "Long division", editor);
+  useRegisterAssetEditor(!!selected && !board, "longDivision", "Long division", editor);
 
   const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
 
@@ -522,7 +524,7 @@ export function LongDivision({ attrs, onChange, selected }: Props) {
       })}
 
       <AssetBottomToolbar
-        visible={toolbarVisible}
+        visible={toolbarVisible && !board}
         bind={bind}
         actions={[
           { label: "Working step", icon: <Plus className="h-3 w-3" />, onClick: addStep },

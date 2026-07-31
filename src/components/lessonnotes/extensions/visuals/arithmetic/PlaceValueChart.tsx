@@ -33,6 +33,8 @@ interface Props {
   attrs: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
   selected?: boolean;
+  /** Smart Structure board mode: static layer preserved, authoring chrome off. */
+  board?: boolean;
 }
 
 // Left-expansion order. As the teacher presses Add Column, we pick the
@@ -96,7 +98,7 @@ function normalize(a: Record<string, unknown>): Required<Attrs> {
   };
 }
 
-export function PlaceValueChart({ attrs, onChange, selected }: Props) {
+export function PlaceValueChart({ attrs, onChange, selected, board }: Props) {
   const m = useMemo(() => normalize(attrs), [attrs]);
   const patch = useCallback((p: Partial<Attrs>) => onChange({ ...p }), [onChange]);
 
@@ -191,7 +193,7 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
       </PanelGroup>
     </div>
   ), [m.decimalHeaders.length, m.fontSize, m.headingSize, m.colWidth, m.rowHeight, m.showGuides, m.headingColor, m.digitColor, patch, addDecCol, removeDecCol]);
-  useRegisterAssetEditor(!!selected, "placeValueChart", "Place-value chart", editor);
+  useRegisterAssetEditor(!!selected && !board, "placeValueChart", "Place-value chart", editor);
 
   const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
 
@@ -240,7 +242,7 @@ export function PlaceValueChart({ attrs, onChange, selected }: Props) {
       </table>
 
       <AssetBottomToolbar
-        visible={toolbarVisible}
+        visible={toolbarVisible && !board}
         bind={bind}
         actions={[
           { label: "Column", icon: <Plus className="h-3 w-3" />, onClick: addLeft },

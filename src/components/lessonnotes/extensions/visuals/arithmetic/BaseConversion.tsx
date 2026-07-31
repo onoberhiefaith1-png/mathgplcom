@@ -27,6 +27,8 @@ interface Props {
   attrs: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
   selected?: boolean;
+  /** Smart Structure board mode: static layer preserved, authoring chrome off. */
+  board?: boolean;
 }
 
 function normalize(a: Record<string, unknown>): Required<Attrs> {
@@ -42,7 +44,7 @@ function normalize(a: Record<string, unknown>): Required<Attrs> {
   };
 }
 
-export function BaseConversion({ attrs, onChange, selected }: Props) {
+export function BaseConversion({ attrs, onChange, selected, board }: Props) {
   const m = useMemo(() => normalize(attrs), [attrs]);
   const patch = useCallback((p: Partial<Attrs>) => onChange({ ...p }), [onChange]);
 
@@ -65,7 +67,7 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
       </PanelGroup>
     </div>
   ), [m.fontSize, m.rowHeight, m.colWidth, m.dividerThickness, patch]);
-  useRegisterAssetEditor(!!selected, "baseConversion", "Base conversion", editor);
+  useRegisterAssetEditor(!!selected && !board, "baseConversion", "Base conversion", editor);
 
   const { visible: toolbarVisible, bind } = useHoverIdleVisibility({ idleMs: 10000, forceVisible: !!selected });
 
@@ -156,7 +158,7 @@ export function BaseConversion({ attrs, onChange, selected }: Props) {
 
 
       <AssetBottomToolbar
-        visible={toolbarVisible}
+        visible={toolbarVisible && !board}
         bind={bind}
         actions={[
           { label: "Row", icon: <Plus className="h-3 w-3" />, onClick: addRow },
