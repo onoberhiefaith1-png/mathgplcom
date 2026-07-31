@@ -2447,7 +2447,13 @@ const PresentationView = ({
   const TABLE_STATE_KEY = `${boardKey("tableActivity", boardScope)}:${activeReservoirIdx}`;
   const [tableEntries, setTableEntries] = useState<Record<string, TableEntries>>({});
   const [tableSensorCell, setTableSensorCell] = useState<string | null>(null);
-  const [openTableObjId, setOpenTableObjId] = useState<string | null>(null);
+  /** Expand / collapse is per table and remembered for the session. */
+  const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
+  /** Tables the teacher deleted from this lesson. */
+  const [deletedTables, setDeletedTables] = useState<string[]>([]);
+  const openTableObjId = activeTableGroup && expandedTables[activeTableGroup.objId]
+    ? activeTableGroup.objId
+    : null;
 
   // Restore per-cell entries for this reservoir.
   useEffect(() => {
@@ -2459,7 +2465,8 @@ const PresentationView = ({
       setTableEntries(raw ? (JSON.parse(raw) ?? {}) : {});
     } catch { setTableEntries({}); }
     setTableSensorCell(null);
-    setOpenTableObjId(null);
+    setExpandedTables({});
+    setDeletedTables([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
 
@@ -2474,6 +2481,8 @@ const PresentationView = ({
   const activeTableEntries: TableEntries = activeTableGroup
     ? tableEntries[activeTableGroup.objId] ?? {}
     : {};
+
+  const activeTableDeleted = !!activeTableGroup && deletedTables.includes(activeTableGroup.objId);
 
   // Floating line change → seat the table sensor on that row/column.
   useEffect(() => {
@@ -2496,6 +2505,50 @@ const PresentationView = ({
     [],
   );
 
+  /* ── HIDDEN VALIDATION STATE ─────────────────────────────────────────
+     The board itself stays neutral (no ticks, no marking). The same
+     validation logic runs silently here; the Reasoning / Assessment layer
+     is the only consumer and the only place feedback may appear. */
+  const tableValidationState: TableValidation | null = useMemo(
+    () => (activeTableGroup && !activeTableDeleted
+      ? tableValidation(activeTableGroup, activeTableEntries, activeLineIdx)
+      : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeTableGroup?.objId, activeTableEntries, activeLineIdx, activeTableDeleted],
+  );
+  const tableValidationRef = useRef<TableValidation | null>(null);
+  tableValidationRef.current = tableValidationState;
+
+  /** Delete the Smart Table object: only this object leaves the lesson.
+   *  Its cell entries, expand state and floating-line mappings for this
+   *  lesson go with it; the rest of the lesson is untouched. */
+  const deleteTableObject = useCallback((group: typeof tableGroups[number]) => {
+    setDeletedTables((prev) => (prev.includes(group.objId) ? prev : [...prev, group.objId]));
+    setTableEntries((prev) => {
+      const next = { ...prev };
+      delete next[group.objId];
+      return next;
+    });
+    setExpandedTables((prev) => {
+      const next = { ...prev };
+      delete next[group.objId];
+      return next;
+    });
+    setTableSensorCell(null);
+  }, []);
+
+  // A deleted table no longer holds the lesson: step past its member lines.
+  useEffect(() => {
+    if (!activeTableGroup || !activeTableDeleted) return;
+    const last = activeTableGroup.memberLineIdxs[activeTableGroup.memberLineIdxs.length - 1];
+    const after = last + 1;
+    if (after < guidedLines.length) {
+      setActiveLineIdx(after);
+      setFloatingLineIdx(after);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTableGroup?.objId, activeTableDeleted, guidedLines.length]);
+
   /** Present / Floating chip taps land in the table when it is open. */
   const writeIntoTableCell = useCallback(
     (text: string): boolean => {
@@ -2512,9 +2565,10 @@ const PresentationView = ({
   );
 
   // Completion → next row/column; last one ends the activity and the lesson
-  // advances to the following line.
+  // advances to the following line. Driven by the HIDDEN validation state:
+  // nothing about this is displayed on the board.
   useEffect(() => {
-    if (!activeTableGroup) return;
+    if (!activeTableGroup || activeTableDeleted) return;
     if (!isLineComplete(activeTableGroup, activeTableEntries, activeLineIdx)) return;
     const next = nextOpenLine(activeTableGroup, activeTableEntries, activeLineIdx);
     if (next !== null && next !== activeLineIdx) {
@@ -2525,14 +2579,14 @@ const PresentationView = ({
     if (isGroupComplete(activeTableGroup, activeTableEntries)) {
       const last = activeTableGroup.memberLineIdxs[activeTableGroup.memberLineIdxs.length - 1];
       const after = last + 1;
-      setOpenTableObjId(null);
       if (after < guidedLines.length) {
         setActiveLineIdx(after);
         setFloatingLineIdx(after);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length]);
+  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length, activeTableDeleted]);
+
 
   // NOTE GATE — one uniform live rule for every line, no special cases:
   // a line with a note blocks Next until the note's TEXT IS ON THE BOARD
