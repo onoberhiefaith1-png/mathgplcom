@@ -15,8 +15,8 @@ import { MathObjectNode } from "./extensions/MathObject";
 import { StepAnimationNode } from "./extensions/StepAnimation";
 import { MathStructure, MathSlot } from "./extensions/MathStructure";
 import { MathVisual } from "./extensions/MathVisual";
-import MathInline from "./extensions/MathInline";
-import MathBlock from "./extensions/MathBlock";
+import { MathInline } from "./extensions/MathInline";
+import { MathBlock } from "./extensions/MathBlock";
 import { INLINE_OBJECT_TYPES } from "@/lib/floating/solutionItems";
 
 interface Props {
