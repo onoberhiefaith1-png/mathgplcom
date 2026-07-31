@@ -671,7 +671,9 @@ const FloatingNumbersPage = () => {
         return;
       }
       // Match AI lines back to our equation order by index; fall back to creating fresh ids.
-      const existing = lines;
+      // Table-derived lines are owned by their table workspace — the AI pass
+      // only rewrites the text-highlight lines, index-aligned with them.
+      const existing = lines.filter((l) => !l.table);
       const next: FloatingLine[] = aiLines.map((a, i) => {
         const rawFillers = (a.fillers ?? []).map((s) => String(s)).filter(Boolean);
         // Strip structural macros (e.g. "+\frac{1}{2}", "-\sqrt{3}") out of
