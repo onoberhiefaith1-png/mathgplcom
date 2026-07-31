@@ -2619,6 +2619,9 @@ const PresentationView = ({
       : String(activeStepIdx + 1)),
     [tSeriesGroup, steps, tableGroups, activeLineIdx, activeStepIdx],
   );
+  const activeTagRef = useRef(activeTag);
+  activeTagRef.current = activeTag;
+
 
   /** Leave the table workspace: the cursor is no longer inside a table.
    *  Visibility is untouched — the table stays on the board. */
