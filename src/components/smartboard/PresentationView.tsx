@@ -5184,6 +5184,58 @@ const PresentationView = ({
             </div>
           ))}
 
+          {/* Smart Table — a FIRST-CLASS Smartboard object, not a popup. It
+              sits on the writing surface at the board row that owns its
+              lesson line, occupies that one lesson line, and pushes every
+              row underneath down by its own height (so it never covers other
+              lesson content). Internally it still drives its own Floating
+              Number lines, Present, orientation and assessment. */}
+          {activeTableGroup && !activeTableDeleted && (() => {
+            const anchorLine = groupAnchor(activeTableGroup);
+            const owned = findBoardRowForLine(anchorLine);
+            const anchorRow = owned ?? (activeLayout
+              ? clampToActiveBand(bandStart(activeLayout) + anchorLine)
+              : anchorLine);
+            const objId = activeTableGroup.objId;
+            return (
+              <div
+                data-sb-table-line
+                style={{
+                  position: "absolute",
+                  top: rowTopPx(anchorRow),
+                  left: grid.MARGIN_LEFT,
+                  right: 32,
+                  zIndex: 26,
+                }}
+              >
+                <TableActivityStage
+                  group={activeTableGroup}
+                  activeLineIdx={activeLineIdx}
+                  entries={activeTableEntries}
+                  sensorCell={tableSensorCell}
+                  open={!!expandedTables[objId]}
+                  dark={isDark}
+                  editable={canEdit}
+                  canDelete={isTeacher}
+                  onOpenChange={(o) =>
+                    setExpandedTables((prev) => ({ ...prev, [objId]: o }))}
+                  onActivateLine={(k) => {
+                    setActiveLineIdx(k);
+                    setFloatingLineIdx(k);
+                    setManualFloatingLineIdx(k);
+                  }}
+                  onSensorCell={setTableSensorCell}
+                  onEntry={(k, v) => setTableEntry(objId, k, v)}
+                  onDelete={() => deleteTableObject(activeTableGroup)}
+                  onMeasure={(h) =>
+                    handleBeatMeasure(`table:${objId}`, anchorRow + 1, grid.LINE_HEIGHT, h)}
+                />
+              </div>
+            );
+          })()}
+
+
+
           {/* Invisible-grid free-writing overlay. Filtered to lines that
               fall inside some beat's writable band, so solution ink can
               never bleed above the section line into the cover / previous
