@@ -179,3 +179,65 @@ export const trackLabel = (group: TableGroup, lineIdx: number): string => {
   }
   return `Row ${track + 1}`;
 };
+
+/* ── HIDDEN VALIDATION STATE ──────────────────────────────────────────────
+   The Smartboard is an input surface only: it must never show ticks, crosses,
+   marks or scores. The same validation logic still runs, but silently — its
+   output is this snapshot, consumed by the Reasoning / Assessment layer,
+   which is the only place feedback may appear. */
+
+export interface TableCellStatus {
+  key: string;
+  expected: string;
+  given: string;
+  status: "correct" | "incorrect" | "empty" | "retained";
+}
+
+export interface TableTrackStatus {
+  lineIdx: number;
+  label: string;
+  complete: boolean;
+  cells: TableCellStatus[];
+}
+
+export interface TableValidation {
+  objId: string;
+  label: string;
+  orientation: "row" | "column";
+  tracks: TableTrackStatus[];
+  activeTrack: TableTrackStatus | null;
+  groupComplete: boolean;
+}
+
+export const tableValidation = (
+  group: TableGroup,
+  entries: TableEntries,
+  activeLineIdx: number,
+): TableValidation => {
+  const tracks: TableTrackStatus[] = group.memberLineIdxs.map((lineIdx) => ({
+    lineIdx,
+    label: trackLabel(group, lineIdx),
+    complete: isLineComplete(group, entries, lineIdx),
+    cells: cellKeysForLine(group, lineIdx).map((key) => {
+      const expected = expectedCellValue(group, key);
+      const given = String(entries[key] ?? "");
+      const status: TableCellStatus["status"] = isRetained(group, key)
+        ? "retained"
+        : !given.trim()
+          ? "empty"
+          : isCellCorrect(group, entries, key)
+            ? "correct"
+            : "incorrect";
+      return { key, expected, given, status };
+    }),
+  }));
+  return {
+    objId: group.objId,
+    label: group.label,
+    orientation: group.orientation,
+    tracks,
+    activeTrack: tracks.find((t) => t.lineIdx === activeLineIdx) ?? null,
+    groupComplete: isGroupComplete(group, entries),
+  };
+};
+
