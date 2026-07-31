@@ -28,7 +28,12 @@ export interface StructureGrid {
   staticCells: string[];
   /** Glyph a structural cell renders (bracket, minus, divider, "R", …). */
   staticGlyphs: Record<string, string>;
+  /** Which structure asset draws the static layer (never a table). */
+  structureId: string;
+  /** The teacher's original attributes — the static layer, verbatim. */
+  structureAttrs: Record<string, any>;
 }
+
 
 const key = (r: number, c: number) => `${r}:${c}`;
 
