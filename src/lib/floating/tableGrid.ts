@@ -174,6 +174,11 @@ export const generateTableLines = (
   orientation: TableOrientation,
 ): GeneratedTableLine[] => {
   const out: GeneratedTableLine[] = [];
+  // A non-table object has no cells: it generates exactly ONE line, whose
+  // job is to place the object on the Smartboard.
+  if (grid.object) {
+    return [{ cellKeys: [cellKey(0, 0)], values: [grid.label], label: grid.label }];
+  }
   const editable = (keys: string[]) => keys.filter((k) => !isStaticCell(grid, k));
   if (orientation === "row") {
     for (let r = 0; r < grid.rows; r++) {
@@ -200,7 +205,7 @@ export const generateTableLines = (
 
 /** Equation text shown for a table-derived line. */
 export const tableLineEquation = (grid: TableGrid, cellKeys: string[]): string =>
-  cellKeys
+  grid.object ? grid.label : cellKeys
     .map((k) => cellValue(grid, k))
     .filter((v) => v.trim().length > 0)
     .join("  ");
