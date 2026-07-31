@@ -233,9 +233,7 @@ function wrapProseTermInMathNode(view: any): boolean {
   if (!text) return false;
 
   const base: Row = [...text].map((c) => mkChar(c));
-  const struct = mkSubSup();
-  struct.rows = [base, [], []];
-  const root: Row = [struct];
+  const root: Row = [{ ...(mkSubSup() as Extract<ReturnType<typeof mkSubSup>, { kind: "subsup" }>), rows: [base, [], []] }];
 
   const node = mathInline.create({
     value: treeToLatex(root),
