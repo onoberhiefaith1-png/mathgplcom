@@ -660,7 +660,7 @@ const FloatingPreparationPage = () => {
           <div className="text-center text-foreground/60 py-20">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading solution…
           </div>
-        ) : lines.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="mx-auto max-w-3xl rounded-md p-8 text-center text-foreground/55 text-sm border border-border/40">
             This solution is still empty. Write or generate the solution in the
             lesson note, then come back to pick your floating numbers.
@@ -679,27 +679,69 @@ const FloatingPreparationPage = () => {
               fontSize: "18px",
             }}
           >
-            {rows.map((toks, li) => (
-              <div key={li} className="whitespace-nowrap overflow-x-auto">
-                {toks.map((src, ti) => {
-                  const key = `${li}:${ti}`;
-                  const selected = selectedSet.has(key);
-                  return (
-                    <span
-                      key={ti}
-                      data-tok-key={key}
-                      data-tok-src={src}
-                      className={cn(
-                        "inline-block align-baseline px-0.5 mr-1 rounded-sm transition-colors",
-                        selected && "bg-yellow-300/80 ring-1 ring-yellow-500/40",
-                      )}
+            {items.map((item) => {
+              if (item.kind === "object") {
+                const obj = item.object;
+                const on = highlightedObjectIds.has(obj.objId);
+                return (
+                  <div
+                    key={`obj-${obj.objId}`}
+                    className={cn(
+                      "my-4 rounded-md p-3 transition-colors",
+                      on
+                        ? "bg-yellow-200/60 ring-2 ring-yellow-500/70"
+                        : "ring-1 ring-[hsl(220_15%_60%/0.3)]",
+                    )}
+                    style={{ lineHeight: "normal" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleObject(obj)}
+                      className="inline-flex items-center gap-2 text-[13px] font-medium mb-2 select-none"
+                      style={{ color: "hsl(220 35% 22%)" }}
                     >
-                      {renderMathInline(src, `fp-${li}-${ti}`)}
-                    </span>
-                  );
-                })}
-              </div>
-            ))}
+                      <span
+                        className={cn(
+                          "inline-flex h-4 w-4 items-center justify-center rounded-[3px] border text-[11px] leading-none",
+                          on
+                            ? "bg-yellow-500 border-yellow-600 text-white"
+                            : "border-[hsl(220_20%_45%)] bg-white/70",
+                        )}
+                      >
+                        {on ? "✓" : ""}
+                      </span>
+                      Highlight this {familyLabel(obj.family)}
+                    </button>
+                    <div className="overflow-x-auto">
+                      <SolutionObjectView nodeType={obj.nodeType} attrs={obj.attrs} />
+                    </div>
+                  </div>
+                );
+              }
+              const li = item.index;
+              const toks = rows[li] ?? [];
+              return (
+                <div key={`line-${li}`} className="whitespace-nowrap overflow-x-auto">
+                  {toks.map((src, ti) => {
+                    const key = `${li}:${ti}`;
+                    const selected = selectedSet.has(key);
+                    return (
+                      <span
+                        key={ti}
+                        data-tok-key={key}
+                        data-tok-src={src}
+                        className={cn(
+                          "inline-block align-baseline px-0.5 mr-1 rounded-sm transition-colors",
+                          selected && "bg-yellow-300/80 ring-1 ring-yellow-500/40",
+                        )}
+                      >
+                        {renderMathInline(src, `fp-${li}-${ti}`)}
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         )}
 
