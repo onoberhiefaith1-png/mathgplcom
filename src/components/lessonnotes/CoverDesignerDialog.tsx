@@ -88,15 +88,20 @@ const CoverDesignerDialog = ({ open, onOpenChange, notebook, onSave }: Props) =>
                   const t = themeById(s.themeId);
                   const active = cfg.themeId === s.themeId;
                   return (
-                    <button
+                    <div
                       key={s.themeId}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={active}
                       onClick={() => patch({ themeId: s.themeId })}
-                      className={`rounded-lg p-1 text-left transition ${active ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-border"}`}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") patch({ themeId: s.themeId }); }}
+                      className={`cursor-pointer rounded-lg p-1 text-left transition ${active ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-border"}`}
                     >
-                      <NotebookCover notebook={notebook} config={{ ...cfg, themeId: s.themeId }} />
+                      <div className="pointer-events-none">
+                        <NotebookCover notebook={notebook} config={{ ...cfg, themeId: s.themeId }} />
+                      </div>
                       <div className="mt-1 truncate text-[10px] text-muted-foreground">{t.name}</div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
