@@ -16,7 +16,8 @@ import { useEffect, useMemo, useState } from "react";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import type { Row } from "@/lib/smartboard/mathTree";
 import { MathInlineCanvas } from "./MathInlineCanvas";
-import { latexToFriendly } from "@/lib/notebook/mathFriendly";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { renderMathInline } from "@/lib/notebook/mathRender";
 
 function parseTree(attrs: Record<string, unknown>): Row {
   const t = attrs.tree;
@@ -27,6 +28,21 @@ function parseTree(attrs: Record<string, unknown>): Row {
   const tree = latexToTree(latexToFriendlyForTree(value));
   assertParseRoundTrip(value, tree);
   return tree;
+}
+
+/** True when the tree parser cannot faithfully represent `value`. Such a node
+ *  must NOT be painted from the tree — it would leak backslash text. It is
+ *  displayed through the classroom renderer instead (the same pipeline the AI
+ *  Edit preview uses) until the teacher clicks in to edit. */
+function isLossy(value: string): boolean {
+  const src = latexToFriendlyForTree(value);
+  if (!src.trim()) return false;
+  try {
+    const norm = (s: string) => s.replace(/\s+/g, "");
+    return norm(treeToLatex(latexToTree(src))) !== norm(src);
+  } catch {
+    return true;
+  }
 }
 
 /** Structure check: the parser must be lossless. If re-serialising the tree
@@ -51,10 +67,9 @@ function assertParseRoundTrip(value: string, tree: Row): void {
  *  half-open `x^{` values). The canvas doesn't need the open brace — the
  *  cursor position expresses it. */
 function latexToFriendlyForTree(v: string): string {
-  // Balance any lone open braces so the parser doesn't drop text.
-  let opens = 0;
-  for (const ch of v) { if (ch === "{") opens++; else if (ch === "}" && opens > 0) opens--; }
-  return v + "}".repeat(opens);
+  // One shared normalization + brace balancing, identical to the AI Edit
+  // preview, so both surfaces see the same source string.
+  return normalizeMathSource(v);
 }
 
 function MathInlineView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
@@ -87,6 +102,27 @@ function MathInlineView({ node, updateAttributes, editor, getPos }: NodeViewProp
   };
 
   const empty = useMemo(() => root.length === 0, [root]);
+  const value = String(node.attrs.value ?? "");
+  const lossy = useMemo(() => !node.attrs.tree && isLossy(value), [node.attrs.tree, value]);
+
+  // Display gate: an expression the tree cannot represent is shown with the
+  // classroom renderer (identical to the AI Edit preview) rather than as raw
+  // markup. Clicking it still opens the editable canvas.
+  if (lossy && !focused) {
+    return (
+      <NodeViewWrapper as="span" className="inline-block align-baseline" contentEditable={false}>
+        <span
+          role="button"
+          tabIndex={0}
+          className="cursor-text"
+          onClick={() => setFocused(true)}
+          onFocus={() => setFocused(true)}
+        >
+          {renderMathInline(latexToFriendlyForTree(value), "mi")}
+        </span>
+      </NodeViewWrapper>
+    );
+  }
 
   return (
     <NodeViewWrapper as="span" className="inline-block align-baseline" contentEditable={false}>
