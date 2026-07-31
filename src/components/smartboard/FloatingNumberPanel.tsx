@@ -183,6 +183,10 @@ interface Props {
   lineCount?: number;
   /** Overrides the counter text (e.g. "T2" while a Smart Table is active). */
   lineLabel?: string;
+  /** Resolves a reservoir line index to its own tag ("T7" inside a table, the
+   *  lesson step number outside). The single tag authority for chip badges. */
+  tagOfLineIdx?: (lineIdx: number) => string;
+
   onPrevLine?: () => void;
   onNextLine?: () => void;
   /** The current line's teaching note, read through the single note
@@ -217,7 +221,7 @@ export const FloatingNumberPanel = ({
   leftPx,
   viewportBottomInset = 0,
   onPing, beatId,
-  lineNumber, lineCount, lineLabel, onPrevLine, onNextLine,
+  lineNumber, lineCount, lineLabel, tagOfLineIdx, onPrevLine, onNextLine,
   notebookText,
   onWriteNotebookToBoard,
   onNotebookRead,
@@ -479,14 +483,19 @@ export const FloatingNumberPanel = ({
     return gated.cleaned;
   };
 
-  /** 1-based line number that owns a fragment (for the tiny corner badge). */
-  const lineNoOf = (absIdx: number): number | null => {
+  /** THE tag of the line owning a fragment (for the tiny corner badge).
+   *  Never a raw reservoir index: the parent's tag authority decides, so a
+   *  table row reads `T7` and a lesson line reads its step number. */
+  const lineNoOf = (absIdx: number): string | null => {
     for (let li = 0; li < lines.length; li++) {
       const ln = lines[li];
-      if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) return li + 1;
+      if (absIdx >= ln.fragmentStart && absIdx < ln.fragmentEnd) {
+        return tagOfLineIdx ? tagOfLineIdx(li) : String(li + 1);
+      }
     }
     return null;
   };
+
 
   // New fallback positioning rule: the floating-number display is a fixed
   // viewport overlay at the bottom-left, just to the right of the hash/eraser
