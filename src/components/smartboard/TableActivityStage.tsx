@@ -173,6 +173,20 @@ const TableActivityStage = ({
     return out;
   }, [grid.rows, grid.cols, group]);
 
+  // Editable cells in reading order — the address book the StructureStage
+  // uses to turn "caret is in this field" into "activate this line".
+  const structureEditableKeys = useMemo(() => {
+    const out: string[] = [];
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        const k = cellKey(r, c);
+        if (!isRetained(group, k)) out.push(k);
+      }
+    }
+    return out;
+  }, [grid.rows, grid.cols, group]);
+
+
   const toolbarBtn = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] hover:bg-black/10";
 
   return (
