@@ -428,6 +428,13 @@ const AdminConsole = () => {
           }}
         />
       )}
+      {credentialTarget && (
+        <CredentialEntryDialog
+          target={credentialTarget}
+          onClose={() => setCredentialTarget(null)}
+        />
+      )}
+
     </DashboardShell>
   );
 };
