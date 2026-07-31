@@ -5513,7 +5513,7 @@ const PresentationView = ({
                 setNotebookRevealIdx(null);
                 return;
               }
-              stepTo(Math.max(0, curLineIdx - 1));
+              stepToCounter(counterNumber - 2);
             };
             const goNext = () => {
               if (!hasGuidedLines) return;
