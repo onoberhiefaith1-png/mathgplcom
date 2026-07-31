@@ -1,21 +1,27 @@
 import { useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, RotateCcw, Upload } from "lucide-react";
+import { ArrowLeft, RotateCcw, Scissors, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
+import { makeTransparent } from "@/lib/games/removeBackground";
 import { BUILDING_SLOTS, type BuildingSlot } from "@/lib/homepage/buildingSlots";
-import { useHomepageConfig, type HomepageMediaRef } from "@/lib/homepage/homepageConfig";
+import {
+  resolveMediaUrl,
+  useHomepageConfig,
+  type HomepageMediaRef,
+} from "@/lib/homepage/homepageConfig";
 
 /**
  * Edit MathGPL Building — the original building only.
- * The single available action per slot is Replace Image. Geometry is preserved.
+ * Each slot supports Replace Image and Remove Background. Geometry is preserved.
  */
 const HomepageBuildingPage = () => {
   const { config, save } = useHomepageConfig();
   const overrides = config.slotOverrides ?? {};
   const [busySlot, setBusySlot] = useState<string | null>(null);
+  const [cutoutSlot, setCutoutSlot] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const targetRef = useRef<string | null>(null);
 
@@ -37,12 +43,45 @@ const HomepageBuildingPage = () => {
     }
   };
 
+  /** Cut the backdrop out of the artwork currently shown in this slot. */
+  const removeBg = async (slot: BuildingSlot) => {
+    setCutoutSlot(slot.id);
+    try {
+      const ref = overrides[slot.id];
+      const url = ref ? await resolveMediaUrl(ref) : slot.defaultUrl;
+      if (!url) throw new Error("Could not load this artwork");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Could not load this artwork");
+      const blob = await res.blob();
+      const cut = await makeTransparent(
+        new File([blob], `${slot.id}.png`, { type: blob.type || "image/png" }),
+      );
+      const asset = await uploadGameAsset(
+        new File([cut], `${slot.id}-cutout.png`, { type: "image/png" }),
+        "background",
+        `${slot.id} artwork (cutout)`,
+      );
+      await save({
+        slotOverrides: {
+          ...overrides,
+          [slot.id]: { path: renderPathOf(asset), source: "storage", mediaType: "image" },
+        },
+      });
+      toast.success("Background removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Background removal failed");
+    } finally {
+      setCutoutSlot(null);
+    }
+  };
+
   const revert = async (slotId: string) => {
     const next = { ...overrides };
     delete next[slotId];
     await save({ slotOverrides: next });
     toast.success("Original artwork restored");
   };
+
 
   const Thumb = ({ slot }: { slot: BuildingSlot }) => {
     const ref = overrides[slot.id];
