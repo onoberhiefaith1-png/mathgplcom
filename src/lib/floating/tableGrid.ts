@@ -51,7 +51,8 @@ const asStringMatrix = (raw: any, rows: number, cols: number): string[][] => {
 /** Normalise a captured table object into a grid. Returns null when the
  *  object carries no usable tabular data. */
 export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
-  const a = (obj?.attrs ?? {}) as Record<string, any>;
+  const a = flattenObjectAttrs((obj?.attrs ?? {}) as Record<string, any>);
+
   const rawCells = Array.isArray(a.cells)
     ? a.cells
     : Array.isArray(a.data)
