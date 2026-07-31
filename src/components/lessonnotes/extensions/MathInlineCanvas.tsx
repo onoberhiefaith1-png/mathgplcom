@@ -10,8 +10,10 @@
 //   /            → wrap the multiplicative term to the left as a fraction
 //                  numerator; cursor lands in denominator
 //   ( [ | {      → open a bracketed workspace; cursor descends inside
-//   Space        → exit one level; when already at the top row, blur and
-//                  return the caret to the surrounding prose
+//   Space        → insert a real space (spacing is editable)
+//   Tab          → exit one level; at the top row, blur and return the
+//                  caret to the surrounding prose
+//   click        → place the caret exactly where clicked, at any depth
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -40,7 +42,11 @@ interface Props {
   onBlur: () => void;
   focused: boolean;
   onFocus: () => void;
+  /** Viewport point of the click that opened the editor, so the caret can
+   *  land exactly where the teacher clicked on the rendered form. */
+  entryPoint?: { x: number; y: number } | null;
 }
+
 
 const pathsEqual = (a: number[], b: number[]) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
@@ -73,6 +79,7 @@ function RowView({
   const isCursorRow = focused && pathsEqual(path, cursor.path);
   const depth = depthOf(path);
   const items: React.ReactNode[] = [];
+  const pathKey = JSON.stringify(path);
   for (let i = 0; i <= row.length; i++) {
     if (isCursorRow && cursor.index === i) {
       items.push(<Caret key={`c${i}`} depth={depth} />);
@@ -80,7 +87,9 @@ function RowView({
     if (i < row.length) {
       const n = row[i];
       items.push(
-        <NodeView key={`n${i}`} node={n} path={[...path, i]} cursor={cursor} focused={focused} />,
+        <span key={`n${i}`} data-mpath={pathKey} data-mindex={i}>
+          <NodeView node={n} path={[...path, i]} cursor={cursor} focused={focused} />
+        </span>,
       );
     }
   }
@@ -92,6 +101,8 @@ function RowView({
         key="empty"
         aria-hidden
         data-math-empty-slot="true"
+        data-mpath={pathKey}
+        data-mindex={0}
         className="inline-block"
         style={{
           width: "0.6em",
@@ -102,8 +113,38 @@ function RowView({
       />,
     );
   }
-  return <span className="mrow" style={{ whiteSpace: "pre" }}>{items}</span>;
+  return (
+    <span className="mrow" data-mrow={pathKey} style={{ whiteSpace: "pre" }}>
+      {items}
+    </span>
+  );
 }
+
+/** Map a viewport point to a caret position inside the tree. Returns null
+ *  when the point is not over any glyph (caller falls back to row end). */
+function hitTestCursor(x: number, y: number, container: HTMLElement | null): Cursor | null {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null;
+  if (!el || (container && !container.contains(el))) return null;
+  const glyph = el.closest("[data-mpath]") as HTMLElement | null;
+  if (glyph && (!container || container.contains(glyph))) {
+    try {
+      const path = JSON.parse(glyph.dataset.mpath as string) as number[];
+      const idx = Number(glyph.dataset.mindex ?? 0);
+      const r = glyph.getBoundingClientRect();
+      const isEmptySlot = glyph.dataset.mathEmptySlot === "true";
+      return { path, index: isEmptySlot ? 0 : x > r.left + r.width / 2 ? idx + 1 : idx };
+    } catch { /* fall through */ }
+  }
+  const rowEl = el.closest("[data-mrow]") as HTMLElement | null;
+  if (rowEl) {
+    try {
+      const path = JSON.parse(rowEl.dataset.mrow as string) as number[];
+      return { path, index: Number.MAX_SAFE_INTEGER };
+    } catch { /* noop */ }
+  }
+  return null;
+}
+
 
 function NodeView({
   node, path, cursor, focused,
@@ -365,10 +406,35 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 }
 
 export function MathInlineCanvas({
-  root, onChange, onBlur, focused, onFocus,
+  root, onChange, onBlur, focused, onFocus, entryPoint,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>({ path: [], index: root.length });
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const hostRef = useRef<HTMLSpanElement | null>(null);
+
+  /** Clamp a raw hit-test cursor to a valid index inside its row. */
+  const clamp = useCallback((c: Cursor): Cursor => {
+    try {
+      const row = getRowAt(root, c.path);
+      return { path: c.path, index: Math.max(0, Math.min(c.index, row.length)) };
+    } catch {
+      return { path: [], index: root.length };
+    }
+  }, [root]);
+
+  // Place the caret where the teacher first clicked (the click that opened
+  // the editor happened on the read-only render, so we replay its point).
+  useEffect(() => {
+    if (!focused || !entryPoint) return;
+    const id = requestAnimationFrame(() => {
+      const hit = hitTestCursor(entryPoint.x, entryPoint.y, hostRef.current);
+      if (hit) setCursor(clamp(hit));
+      inputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused, entryPoint?.x, entryPoint?.y]);
+
 
   // Keep cursor valid on external tree changes.
   useEffect(() => {
@@ -403,9 +469,15 @@ export function MathInlineCanvas({
     if (k === "Backspace") { e.preventDefault(); apply(treeBackspace(root, cursor)); return; }
     if (k === "Enter" || k === "Escape") { e.preventDefault(); onBlur(); return; }
     if (k === " ") {
+      // Space is a real space: teachers adjust spacing inside the
+      // expression. Use Tab to pop out a level, Escape/Enter to leave.
+      e.preventDefault();
+      apply(insertChar(root, cursor, " "));
+      return;
+    }
+    if (k === "Tab") {
       e.preventDefault();
       if (cursor.path.length === 0) {
-        // Top row: return to prose.
         onBlur();
       } else {
         // Pop out one level: land after the container node we were inside.
@@ -415,6 +487,7 @@ export function MathInlineCanvas({
       }
       return;
     }
+
     if (k === "/") {
       e.preventDefault();
       const row = getRowAt(root, cursor.path);
@@ -445,18 +518,20 @@ export function MathInlineCanvas({
 
   return (
     <span
-      className={`math-inline-display inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30" : "cursor-text"}`}
+      ref={hostRef}
+      className={`math-inline-display math-inline-editing inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
       style={{ minHeight: "1.2em", lineHeight: "var(--math-line-height)" }}
-
       onMouseDown={(e) => {
         e.preventDefault();
         onFocus();
-        // Land at end of top row for now (fine-grained hit testing is a
-        // future refinement).
-        setCursor({ path: [], index: root.length });
+        // Caret lands exactly where the teacher clicked — including inside
+        // numerators, exponents, radicands and Σ limits.
+        const hit = hitTestCursor(e.clientX, e.clientY, hostRef.current);
+        setCursor(hit ? clamp(hit) : { path: [], index: root.length });
         setTimeout(() => inputRef.current?.focus(), 0);
       }}
     >
+
       {rowNode}
       <input
         ref={inputRef}

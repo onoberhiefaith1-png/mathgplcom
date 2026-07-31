@@ -389,6 +389,30 @@
   line-height: var(--math-inner-line-height);
 }
 
+/* Rendered math is real, selectable content — not an image. Teachers can
+   drag-highlight across it and click into it to edit. */
+.math-inline-selectable,
+.math-inline-selectable * {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+.math-inline-selectable ::selection,
+.math-inline-selectable::selection {
+  background: hsl(var(--primary) / 0.25);
+}
+.math-inline-node--selected {
+  background: hsl(var(--primary) / 0.14);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.35);
+}
+.math-inline-editing,
+.math-inline-editing * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+
 .lesson-doc .ProseMirror-selectednode[data-geometry-diagram],
 .lesson-doc .ProseMirror-selectednode[data-geometry-diagram-node],
 .lesson-doc .ProseMirror-selectednode [data-geometry-diagram-wrapper],
