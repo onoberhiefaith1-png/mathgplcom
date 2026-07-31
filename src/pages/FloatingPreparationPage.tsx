@@ -524,6 +524,26 @@ const FloatingPreparationPage = () => {
     nextIdRef.current = 1;
   }, [highlights.length, pushHistory]);
 
+  /* ---------- One-click object highlight (tables / diagrams) ---------- */
+  const toggleObject = useCallback((obj: SolutionObject) => {
+    pushHistory();
+    dirtyRef.current = true;
+    setHighlights((prev) => {
+      const already = prev.some((h) => h.object?.objId === obj.objId);
+      if (already) return prev.filter((h) => h.object?.objId !== obj.objId);
+      return [
+        ...prev,
+        {
+          groupId: nextIdRef.current++,
+          tokens: [],
+          payload: `[${obj.label}]`,
+          object: obj,
+        },
+      ];
+    });
+  }, [pushHistory]);
+
+
   const removeHighlight = useCallback((groupId: number) => {
     pushHistory();
     dirtyRef.current = true;
