@@ -8,6 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import { latexToFriendly } from "@/lib/notebook/mathFriendly";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 
 const roundTrip = (v: string) => treeToLatex(latexToTree(v));
 
