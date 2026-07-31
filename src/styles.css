@@ -54,6 +54,15 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
+  /* Premium account dashboard surface (Platform / School / Family) */
+  --color-dash-surface: hsl(var(--dash-surface));
+  --color-dash-surface-foreground: hsl(var(--dash-surface-foreground));
+  --color-dash-surface-muted: hsl(var(--dash-surface-muted));
+  --color-dash-border: hsl(var(--dash-border));
+  --color-dash-navy: hsl(var(--dash-navy));
+  --color-dash-gold: hsl(var(--dash-gold));
+
+
   /* Animations ported from tailwind.config.ts */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
