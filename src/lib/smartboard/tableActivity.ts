@@ -43,16 +43,23 @@ const normalise = (raw: string): string =>
     .toLowerCase();
 
 /** Collapse consecutive reservoir lines that came from the same table into
- *  one lesson step. Non-table lines are left untouched. */
+ *  one lesson step. Non-table lines are left untouched.
+ *
+ *  Smart Structures behave identically: their retained structural cells
+ *  (bracket gutters, minus columns, dividers) are merged into `retained` so
+ *  the student never types into the teacher's drawing. */
 export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
   const out: TableGroup[] = [];
   lines.forEach((line, idx) => {
     const t = line?.table;
     if (!t?.objId || !t.grid) return;
+    const structural = Array.isArray((t.grid as any).staticCells)
+      ? ((t.grid as any).staticCells as string[])
+      : [];
     const last = out[out.length - 1];
     if (last && last.objId === t.objId) {
       last.memberLineIdxs.push(idx);
-      for (const k of t.retained ?? []) {
+      for (const k of [...(t.retained ?? []), ...structural]) {
         if (!last.retained.includes(k)) last.retained.push(k);
       }
       return;
@@ -62,11 +69,12 @@ export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
       label: t.label || t.grid.label || "Table",
       orientation: t.orientation === "column" ? "column" : "row",
       grid: t.grid,
-      retained: [...(t.retained ?? [])],
+      retained: Array.from(new Set([...(t.retained ?? []), ...structural])),
       memberLineIdxs: [idx],
       tStart: 0,
     });
   });
+
   // Lesson-wide continuous T numbering: T1…Tn for the first table, then the
   // next table carries on from n+1, and so on.
   let running = 0;
