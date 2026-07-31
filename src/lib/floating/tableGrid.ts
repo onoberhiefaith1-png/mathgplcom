@@ -6,7 +6,7 @@
 // turns that grid into Floating Number lines according to the workspace
 // orientation (Row vs Column).
 
-import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { flattenObjectAttrs, type SolutionObject } from "@/lib/floating/solutionItems";
 
 export type TableOrientation = "row" | "column";
 
@@ -51,7 +51,8 @@ const asStringMatrix = (raw: any, rows: number, cols: number): string[][] => {
 /** Normalise a captured table object into a grid. Returns null when the
  *  object carries no usable tabular data. */
 export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
-  const a = (obj?.attrs ?? {}) as Record<string, any>;
+  const a = flattenObjectAttrs((obj?.attrs ?? {}) as Record<string, any>);
+
   const rawCells = Array.isArray(a.cells)
     ? a.cells
     : Array.isArray(a.data)

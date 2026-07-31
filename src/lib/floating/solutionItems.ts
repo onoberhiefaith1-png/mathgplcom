@@ -9,6 +9,8 @@
 // paragraph, heading, list or math is an object. No allow-list of table or
 // diagram types exists anywhere, so future assets are supported automatically.
 
+import { TABLES } from "@/lib/lessonnotes/assets/tables";
+
 export type ObjectFamily = "table" | "diagram" | "object";
 
 export interface SolutionObject {
@@ -66,10 +68,36 @@ const DIAGRAM_TYPES = new Set([
   "image",
 ]);
 
+/** Ids of every asset in the Tables category ("smarttable", "placeValueChart",
+ *  "divisionLadder", …). Asset-library visuals are inserted as generic
+ *  `mathVisual` nodes whose real identity lives in `attrs.family`, so the node
+ *  type alone never reveals that they are tables. */
+const TABLE_ASSET_IDS = new Set(
+  TABLES.map((t) => String(t.id ?? "").toLowerCase()).filter(Boolean),
+);
+
+/** Asset-library visuals nest their real attributes one level deep. */
+export const flattenObjectAttrs = (attrs: Record<string, any> = {}): Record<string, any> => {
+  const inner = attrs?.attrs && typeof attrs.attrs === "object" ? attrs.attrs : {};
+  return { ...attrs, ...inner };
+};
+
 const looksLikeTable = (nodeType: string, attrs: Record<string, any>): boolean => {
   if (/table/i.test(nodeType)) return true;
-  const hints = [attrs?.visual, attrs?.kind, attrs?.variant, attrs?.assetKind, attrs?.type];
-  return hints.some((h) => typeof h === "string" && /table/i.test(h));
+  const flat = flattenObjectAttrs(attrs);
+  const hints = [
+    attrs?.family,
+    flat?.family,
+    flat?.visual,
+    flat?.kind,
+    flat?.variant,
+    flat?.assetKind,
+    flat?.type,
+  ];
+  return hints.some((h) => {
+    if (typeof h !== "string" || !h) return false;
+    return /table/i.test(h) || TABLE_ASSET_IDS.has(h.toLowerCase());
+  });
 };
 
 export const objectFamily = (nodeType: string, attrs: Record<string, any> = {}): ObjectFamily => {
@@ -78,6 +106,7 @@ export const objectFamily = (nodeType: string, attrs: Record<string, any> = {}):
   if (/diagram|graph|chart|scene|shape|geometry|plot/i.test(nodeType)) return "diagram";
   return "object";
 };
+
 
 export const familyLabel = (family: ObjectFamily): string =>
   family === "table" ? "Table" : family === "diagram" ? "Diagram" : "Object";
@@ -115,12 +144,19 @@ export const readSolutionObjects = (contentJson: any): SolutionObject[] => {
     const nodeType = String(o?.nodeType ?? "");
     if (!nodeType) continue;
     const attrs = (o?.attrs && typeof o.attrs === "object") ? o.attrs : {};
-    const family = (o?.family as ObjectFamily) ?? objectFamily(nodeType, attrs);
+    // Recompute the family from the node itself: highlights saved before
+    // asset-library tables were recognised carry a stale "diagram" family.
+    const family = objectFamily(nodeType, attrs);
+    const savedLabel = String(o?.label ?? "");
+    const label = savedLabel && savedLabel !== "Diagram" && savedLabel !== "Object"
+      ? savedLabel
+      : familyLabel(family);
     out.push({
       objId: String(o?.objId ?? `${nodeType}#0`),
       nodeType,
       family,
-      label: String(o?.label ?? familyLabel(family)),
+      label,
+
       attrs,
       afterLine: Number(o?.afterLine) || 0,
       inline: o?.inline === true,
