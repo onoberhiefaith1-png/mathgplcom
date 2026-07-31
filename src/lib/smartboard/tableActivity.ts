@@ -241,3 +241,49 @@ export const tableValidation = (
   };
 };
 
+
+/* ── LESSON STEPS ─────────────────────────────────────────────────────────
+   The lesson numbering NEVER counts table rows. A table group is exactly one
+   lesson step (its anchor line); every other reservoir line is one step.
+   The T-series (T1, T2 …) lives inside the table and is independent. */
+
+export interface LessonStep {
+  /** Underlying reservoir line index this step lands on. */
+  lineIdx: number;
+  /** The table group owning this step, when it is a table. */
+  group: TableGroup | null;
+}
+
+export const lessonSteps = (
+  lineCount: number,
+  groups: TableGroup[],
+): LessonStep[] => {
+  const steps: LessonStep[] = [];
+  const skip = new Set<number>();
+  for (const g of groups) {
+    for (const idx of g.memberLineIdxs) skip.add(idx);
+  }
+  for (let i = 0; i < lineCount; i++) {
+    const owner = groups.find((g) => groupAnchor(g) === i);
+    if (owner) { steps.push({ lineIdx: i, group: owner }); continue; }
+    if (skip.has(i)) continue; // member line — folded into its table's step
+    steps.push({ lineIdx: i, group: null });
+  }
+  return steps;
+};
+
+/** Step index owning a given reservoir line (table members map to the table). */
+export const stepIdxForLine = (steps: LessonStep[], lineIdx: number): number => {
+  const direct = steps.findIndex((s) => s.lineIdx === lineIdx);
+  if (direct >= 0) return direct;
+  const owner = steps.findIndex((s) => s.group?.memberLineIdxs.includes(lineIdx));
+  return owner >= 0 ? owner : 0;
+};
+
+/** T-series for a table: one entry per member line, in generated order. */
+export const tSeriesFor = (group: TableGroup): { label: string; lineIdx: number }[] =>
+  group.memberLineIdxs.map((lineIdx, i) => ({ label: `T${i + 1}`, lineIdx }));
+
+/** Clear = drop every student-entered value; retained content is preserved
+ *  (retained cells never live in `entries` — they come from the grid). */
+export const clearEntries = (_group: TableGroup, _entries: TableEntries): TableEntries => ({});
