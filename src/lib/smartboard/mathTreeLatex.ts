@@ -197,6 +197,113 @@ export function latexToTree(src: string): Row {
         continue;
       }
     }
+    // \binom{a}{b}
+    if (src.startsWith("\\binom", i)) {
+      const aOpen = i + 6;
+      const aEnd = matchBrace(src, aOpen);
+      if (aEnd > 0 && src[aEnd] === "{") {
+        const bEnd = matchBrace(src, aEnd);
+        if (bEnd > 0) {
+          const n = mkBinom() as Extract<Node, { kind: "binom" }>;
+          n.rows = [
+            latexToTree(src.slice(aOpen + 1, aEnd - 1)),
+            latexToTree(src.slice(aEnd + 1, bEnd - 1)),
+          ];
+          row.push(n);
+          i = bEnd;
+          continue;
+        }
+      }
+    }
+    // \begin{pmatrix} a & b \\ c & d \end{pmatrix}
+    if (src.startsWith("\\begin{", i)) {
+      const close = src.indexOf("}", i + 7);
+      const env = close > 0 ? src.slice(i + 7, close) : "";
+      const pair = MATRIX_ENVS[env];
+      if (pair) {
+        const endTag = `\\end{${env}}`;
+        const endAt = src.indexOf(endTag, close);
+        if (endAt > 0) {
+          const body = src.slice(close + 1, endAt);
+          const cellRows = body.split(/\\\\/).map((r) => r.split("&"));
+          const nRows = cellRows.length;
+          const nCols = Math.max(...cellRows.map((r) => r.length));
+          const n = mkMatrix(nRows, nCols, pair[0], pair[1]) as Extract<Node, { kind: "matrix" }>;
+          const cells: Row[] = [];
+          for (let r = 0; r < nRows; r++) {
+            for (let c = 0; c < nCols; c++) {
+              cells.push(latexToTree((cellRows[r][c] ?? "").trim()));
+            }
+          }
+          n.rows = cells;
+          row.push(n);
+          i = endAt + endTag.length;
+          continue;
+        }
+      }
+    }
+    // Accents: \bar{x}, \overline{x}, \vec{v}, \hat{y}, \tilde{a}, \dot{x}
+    {
+      const m = /^\\([A-Za-z]+)\{/.exec(src.slice(i));
+      if (m) {
+        const name = m[1];
+        const open = i + 1 + name.length;
+        const glyph = ACCENTS[name];
+        const fence = FENCES[name];
+        if (glyph || fence) {
+          const end = matchBrace(src, open);
+          if (end > 0) {
+            const body = latexToTree(src.slice(open + 1, end - 1));
+            if (glyph) {
+              const n = mkAccent(glyph) as Extract<Node, { kind: "accent" }>;
+              n.rows = [body];
+              row.push(n);
+            } else {
+              const n = mkBracket(fence![0], fence![1]) as Extract<Node, { kind: "bracket" }>;
+              n.rows = [body];
+              row.push(n);
+            }
+            i = end;
+            continue;
+          }
+        }
+      }
+    }
+    // Big operators with optional limits: \sum_{i=1}^{n}, \lim_{x \to 0}
+    {
+      const m = /^\\([A-Za-z]+)/.exec(src.slice(i));
+      const name = m?.[1] as BigOpName | undefined;
+      if (name && (BIG_OPS as string[]).includes(name)) {
+        const { lower, upper, end } = readLimits(src, i + 1 + name.length);
+        const n = mkBigOp(name) as Extract<Node, { kind: "bigop" }>;
+        n.rows = [[], lower, upper];
+        row.push(n);
+        i = end;
+        continue;
+      }
+    }
+    // |…| absolute-value fence (paired scan on the same nesting level).
+    if (src[i] === "|" || src[i] === "‖") {
+      const mark = src[i];
+      let j = i + 1;
+      let depth = 0;
+      while (j < src.length) {
+        const ch = src[j];
+        if (ch === "\\") { j += 2; continue; }
+        if (ch === "{") depth++;
+        else if (ch === "}") depth--;
+        else if (ch === mark && depth <= 0) break;
+        j++;
+      }
+      if (j < src.length && src[j] === mark) {
+        const n = mkBracket(mark as BracketKind, mark as BracketKind) as Extract<Node, { kind: "bracket" }>;
+        n.rows = [latexToTree(src.slice(i + 1, j))];
+        row.push(n);
+        i = j + 1;
+        continue;
+      }
+    }
+
     // Emoji identity: never split a surrogate pair / ZWJ sequence.
     const g = graphemes(src.slice(i, i + 16))[0] ?? src[i];
     if (g.length > 1 && isEmoji(g)) {
