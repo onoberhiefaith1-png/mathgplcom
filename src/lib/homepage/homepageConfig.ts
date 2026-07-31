@@ -50,13 +50,17 @@ const writeLocal = (config: HomepageConfig) => {
  * Each signed-in account keeps its own homepage; signed-out visitors see defaults.
  */
 export function useHomepageConfig() {
-  const [config, setConfig] = useState<HomepageConfig>(() => readLocal());
+  // Start empty so SSR and the first client render agree; local cache is
+  // applied after hydration.
+  const [config, setConfig] = useState<HomepageConfig>({});
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let alive = true;
     void (async () => {
+      const local = readLocal();
+      if (alive && Object.keys(local).length > 0) setConfig(local);
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         if (alive) setReady(true);
