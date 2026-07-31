@@ -437,8 +437,14 @@ export function MathInlineCanvas({
   root, onChange, onBlur, focused, onFocus, entryPoint,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>({ path: [], index: root.length });
+  const [anchor, setAnchor] = useState<Cursor | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hostRef = useRef<HTMLSpanElement | null>(null);
+  const dragging = useRef(false);
+  // Local undo history (bounded) so Ctrl+Z inside the expression never
+  // fights the document-level history of the surrounding editor.
+  const undoStack = useRef<{ root: Row; cursor: Cursor }[]>([]);
+  const redoStack = useRef<{ root: Row; cursor: Cursor }[]>([]);
 
   /** Clamp a raw hit-test cursor to a valid index inside its row. */
   const clamp = useCallback((c: Cursor): Cursor => {
@@ -449,6 +455,15 @@ export function MathInlineCanvas({
       return { path: [], index: root.length };
     }
   }, [root]);
+
+  const selection: RowRange | null = useMemo(() => {
+    if (!anchor || cursorsEqual(anchor, cursor)) return null;
+    try {
+      return normalizeSelection(root, { anchor, focus: cursor } as MathSelection);
+    } catch {
+      return null;
+    }
+  }, [anchor, cursor, root]);
 
   // Place the caret where the teacher first clicked (the click that opened
   // the editor happened on the read-only render, so we replay its point).
@@ -480,27 +495,133 @@ export function MathInlineCanvas({
   }, [focused]);
 
   const apply = useCallback((next: { root: Row; cursor: Cursor }) => {
+    undoStack.current.push({ root, cursor });
+    if (undoStack.current.length > 100) undoStack.current.shift();
+    redoStack.current = [];
     onChange(next.root);
     setCursor(next.cursor);
-  }, [onChange]);
+    setAnchor(null);
+  }, [onChange, root, cursor]);
+
+  /** Delete the current selection first (typing replaces a selection, just
+   *  like text). Returns the tree/cursor to continue editing from. */
+  const withSelectionCleared = useCallback((): { root: Row; cursor: Cursor } => {
+    if (!selection) return { root, cursor };
+    return deleteRange(root, selection);
+  }, [root, cursor, selection]);
+
+  const setCaret = (c: Cursor, extend: boolean) => {
+    if (extend) {
+      setAnchor((a) => a ?? cursor);
+    } else {
+      setAnchor(null);
+    }
+    setCursor(c);
+  };
 
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) {
-      // Let browser handle
+    const k = e.key;
+    const mod = e.ctrlKey || e.metaKey;
+
+    // ── clipboard / history / select-all ────────────────────────────────
+    if (mod && (k === "z" || k === "Z")) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        const next = redoStack.current.pop();
+        if (next) {
+          undoStack.current.push({ root, cursor });
+          onChange(next.root);
+          setCursor(next.cursor);
+        }
+      } else {
+        const prev = undoStack.current.pop();
+        if (prev) {
+          redoStack.current.push({ root, cursor });
+          onChange(prev.root);
+          setCursor(prev.cursor);
+        }
+      }
+      setAnchor(null);
       return;
     }
-    const k = e.key;
-    if (k === "ArrowLeft") { e.preventDefault(); setCursor(moveLeft(root, cursor)); return; }
-    if (k === "ArrowRight") { e.preventDefault(); setCursor(moveRight(root, cursor)); return; }
-    if (k === "ArrowUp") { e.preventDefault(); setCursor(moveVertical(root, cursor, -1)); return; }
-    if (k === "ArrowDown") { e.preventDefault(); setCursor(moveVertical(root, cursor, 1)); return; }
-    if (k === "Backspace") { e.preventDefault(); apply(treeBackspace(root, cursor)); return; }
+    if (mod && (k === "y" || k === "Y")) {
+      e.preventDefault();
+      const next = redoStack.current.pop();
+      if (next) { undoStack.current.push({ root, cursor }); onChange(next.root); setCursor(next.cursor); }
+      return;
+    }
+    if (mod && (k === "a" || k === "A")) {
+      e.preventDefault();
+      setAnchor({ path: [], index: 0 });
+      setCursor({ path: [], index: root.length });
+      return;
+    }
+    if (mod && (k === "c" || k === "C" || k === "x" || k === "X")) {
+      // Handled by onCopy/onCut on the hidden input.
+      return;
+    }
+    if (mod && (k === "v" || k === "V")) return; // onPaste
+    // Push a term OUT of its structure.
+    if (mod && e.shiftKey && (k === "u" || k === "U")) {
+      e.preventDefault();
+      const out = unwrapContainer(root, cursor);
+      if (out) apply(out);
+      return;
+    }
+    if (mod && (k === "ArrowLeft" || k === "ArrowRight")) {
+      e.preventDefault();
+      setCaret(moveWord(root, cursor, k === "ArrowLeft" ? -1 : 1), e.shiftKey);
+      return;
+    }
+    if (mod) return; // leave every other browser shortcut alone
+
+    // ── move the selected term sideways ─────────────────────────────────
+    if (e.altKey && (k === "ArrowLeft" || k === "ArrowRight") && selection) {
+      e.preventDefault();
+      const moved = moveRange(root, selection, k === "ArrowLeft" ? -1 : 1);
+      undoStack.current.push({ root, cursor });
+      redoStack.current = [];
+      onChange(moved.root);
+      setAnchor({ path: moved.range.path, index: moved.range.start });
+      setCursor({ path: moved.range.path, index: moved.range.end });
+      return;
+    }
+    if (e.altKey) return;
+
+    // ── caret motion (Shift extends the selection) ──────────────────────
+    if (k === "ArrowLeft") { e.preventDefault(); setCaret(moveLeft(root, cursor), e.shiftKey); return; }
+    if (k === "ArrowRight") { e.preventDefault(); setCaret(moveRight(root, cursor), e.shiftKey); return; }
+    if (k === "ArrowUp") { e.preventDefault(); setCaret(moveVertical(root, cursor, -1), e.shiftKey); return; }
+    if (k === "ArrowDown") { e.preventDefault(); setCaret(moveVertical(root, cursor, 1), e.shiftKey); return; }
+    if (k === "Home") { e.preventDefault(); setCaret(rowStartCursor(cursor), e.shiftKey); return; }
+    if (k === "End") { e.preventDefault(); setCaret(rowEndCursor(root, cursor), e.shiftKey); return; }
+
+    // ── deletion ────────────────────────────────────────────────────────
+    if (k === "Backspace") {
+      e.preventDefault();
+      if (selection) { apply(deleteRange(root, selection)); return; }
+      // At the very start of a sub-row, Backspace dissolves the structure
+      // and pushes its contents into the parent row.
+      if (cursor.index === 0 && cursor.path.length >= 2) {
+        const out = unwrapContainer(root, cursor);
+        if (out) { apply(out); return; }
+      }
+      apply(treeBackspace(root, cursor));
+      return;
+    }
+    if (k === "Delete") {
+      e.preventDefault();
+      if (selection) { apply(deleteRange(root, selection)); return; }
+      apply(deleteForward(root, cursor));
+      return;
+    }
+
     if (k === "Enter" || k === "Escape") { e.preventDefault(); onBlur(); return; }
     if (k === " ") {
-      // Space is a real space: teachers adjust spacing inside the
-      // expression. Use Tab to pop out a level, Escape/Enter to leave.
+      // Space is a real, deletable space character.
       e.preventDefault();
-      apply(insertChar(root, cursor, " "));
+      const base = withSelectionCleared();
+      apply(insertChar(base.root, base.cursor, " "));
       return;
     }
     if (k === "Tab") {
@@ -508,19 +629,19 @@ export function MathInlineCanvas({
       if (cursor.path.length === 0) {
         onBlur();
       } else {
-        // Pop out one level: land after the container node we were inside.
         const parentPath = cursor.path.slice(0, -2);
         const nodeIdx = cursor.path[cursor.path.length - 2];
-        setCursor({ path: parentPath, index: nodeIdx + 1 });
+        setCaret({ path: parentPath, index: nodeIdx + 1 }, false);
       }
       return;
     }
 
     if (k === "/") {
       e.preventDefault();
-      const row = getRowAt(root, cursor.path);
-      const { start, end } = extractWrapTargetLeftOf(row, cursor.index);
-      apply(insertNodeWrapping(root, cursor, mkFrac(), start, end, 0));
+      const base = withSelectionCleared();
+      const row = getRowAt(base.root, base.cursor.path);
+      const { start, end } = extractWrapTargetLeftOf(row, base.cursor.index);
+      apply(insertNodeWrapping(base.root, base.cursor, mkFrac(), start, end, 0));
       return;
     }
     if (k === "(" || k === "[" || k === "{" || k === "|") {
@@ -529,14 +650,34 @@ export function MathInlineCanvas({
         "(": ["(", ")"], "[": ["[", "]"], "{": ["{", "}"], "|": ["|", "|"],
       };
       const [l, r] = map[k];
-      apply(insertNode(root, cursor, mkBracket(l as never, r as never)));
+      const base = withSelectionCleared();
+      apply(insertNode(base.root, base.cursor, mkBracket(l as never, r as never)));
       return;
     }
     if (k.length === 1) {
       e.preventDefault();
-      apply(insertChar(root, cursor, k));
+      const base = withSelectionCleared();
+      apply(insertChar(base.root, base.cursor, k));
       return;
     }
+  };
+
+  const copySelection = (e: React.ClipboardEvent, cut: boolean) => {
+    if (!selection) return;
+    e.preventDefault();
+    const frag = sliceRange(root, selection);
+    try { e.clipboardData.setData("text/plain", treeToLatex(frag)); } catch { /* noop */ }
+    if (cut) apply(deleteRange(root, selection));
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData("text/plain");
+    if (!text) return;
+    e.preventDefault();
+    let frag: Row;
+    try { frag = latexToTree(text); } catch { frag = [...text].map((c) => mkChar(c)); }
+    const base = withSelectionCleared();
+    apply(insertFragment(base.root, base.cursor, frag));
   };
 
   const rowNode = useMemo(
@@ -545,31 +686,56 @@ export function MathInlineCanvas({
   );
 
   return (
-    <span
-      ref={hostRef}
-      className={`math-inline-display math-inline-editing inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
-      style={{ minHeight: "1.2em", lineHeight: "var(--math-line-height)" }}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        onFocus();
-        // Caret lands exactly where the teacher clicked — including inside
-        // numerators, exponents, radicands and Σ limits.
-        const hit = hitTestCursor(e.clientX, e.clientY, hostRef.current);
-        setCursor(hit ? clamp(hit) : { path: [], index: root.length });
-        setTimeout(() => inputRef.current?.focus(), 0);
-      }}
-    >
+    <SelectionCtx.Provider value={focused ? selection : null}>
+      <span
+        ref={hostRef}
+        className={`math-inline-display math-inline-editing inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
+        style={{ minHeight: "1.2em", lineHeight: "var(--math-line-height)" }}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          onFocus();
+          // Caret lands exactly where the teacher clicked — including inside
+          // numerators, exponents, radicands and Σ limits.
+          const hit = hitTestCursor(e.clientX, e.clientY, hostRef.current);
+          const c = hit ? clamp(hit) : { path: [], index: root.length };
+          dragging.current = true;
+          setAnchor(e.shiftKey ? (anchor ?? cursor) : c);
+          setCursor(c);
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }}
+        onMouseMove={(e) => {
+          if (!dragging.current) return;
+          const hit = hitTestCursor(e.clientX, e.clientY, hostRef.current);
+          if (hit) setCursor(clamp(hit));
+        }}
+        onMouseUp={() => { dragging.current = false; }}
+        onMouseLeave={() => { dragging.current = false; }}
+        onDoubleClick={(e) => {
+          // Double-click selects the word/term under the caret.
+          e.preventDefault();
+          const start = moveWord(root, cursor, -1);
+          const end = moveWord(root, { path: start.path, index: start.index }, 1);
+          setAnchor(start);
+          setCursor(end);
+        }}
+      >
 
-      {rowNode}
-      <input
-        ref={inputRef}
-        value=""
-        onChange={() => {}}
-        onKeyDown={handleKey}
-        onBlur={onBlur}
-        aria-label="Math editor"
-        className="sr-only"
-      />
-    </span>
+        {rowNode}
+        <input
+          ref={inputRef}
+          value=""
+          onChange={() => {}}
+          onKeyDown={handleKey}
+          onCopy={(e) => copySelection(e, false)}
+          onCut={(e) => copySelection(e, true)}
+          onPaste={handlePaste}
+          onBlur={() => { dragging.current = false; onBlur(); }}
+          aria-label="Math editor"
+          className="sr-only"
+        />
+      </span>
+    </SelectionCtx.Provider>
   );
 }
+
