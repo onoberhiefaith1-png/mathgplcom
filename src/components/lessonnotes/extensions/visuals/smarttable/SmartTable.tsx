@@ -161,11 +161,20 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const patchStyle = (p: Partial<SmartTableStyle>) => patch({ style: { ...style, ...p } });
 
+  // Latest model for callbacks that fire after the panel stole focus.
+  const modelRef = useRef(model);
+  modelRef.current = model;
+
+  const aiBridge = useAiEditBridge();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [sel, setSel] = useState<{ s: number; e: number }>({ s: 0, e: 0 });
+
   const beginEdit = (r: number, c: number) => {
     setActive({ r, c });
     setBuffer((r === -1 ? headers[c] : cells[r][c]) ?? "");
+    setSel({ s: 0, e: 0 });
   };
-  const cancelEdit = () => { setActive(null); setBuffer(""); };
+  const cancelEdit = () => { setActive(null); setBuffer(""); setSel({ s: 0, e: 0 }); };
   const finishEdit = () => {
     if (!active) return;
     const { r, c } = active;
@@ -178,6 +187,71 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     }
     cancelEdit();
   };
+
+  /** Write any cell (r === -1 addresses the header row) from latest state. */
+  const writeAny = useCallback((r: number, c: number, value: string) => {
+    const m = modelRef.current;
+    if (r === -1) {
+      const next = [...m.headers]; next[c] = value; patch({ headers: next });
+    } else {
+      const next = m.cells.map((row) => [...row]); next[r][c] = value; patch({ cells: next });
+    }
+  }, [patch]);
+
+  // ── Cell-level toolbar (mirrors the document SelectionToolbar) ─────────
+  const selRange = () => {
+    const s = Math.max(0, Math.min(buffer.length, sel.s));
+    const e = Math.max(0, Math.min(buffer.length, sel.e));
+    return s === e ? { s: 0, e: buffer.length } : { s: Math.min(s, e), e: Math.max(s, e) };
+  };
+  const selectedText = () => { const { s, e } = selRange(); return buffer.slice(s, e); };
+  const setBufferAndCell = (value: string) => {
+    setBuffer(value);
+    if (active) writeAny(active.r, active.c, value);
+  };
+
+  const cellCopy = async () => {
+    try { await navigator.clipboard.writeText(selectedText()); toast({ title: "Copied" }); }
+    catch { toast({ title: "Copy failed", variant: "destructive" }); }
+  };
+  const cellCut = async () => {
+    const { s, e } = selRange();
+    try { await navigator.clipboard.writeText(buffer.slice(s, e)); } catch { /* noop */ }
+    setBufferAndCell(buffer.slice(0, s) + buffer.slice(e));
+    setSel({ s, e: s });
+  };
+  const cellDelete = () => {
+    const { s, e } = selRange();
+    setBufferAndCell(buffer.slice(0, s) + buffer.slice(e));
+    setSel({ s, e: s });
+  };
+  const cellDuplicate = () => {
+    const { s, e } = selRange();
+    const piece = buffer.slice(s, e);
+    setBufferAndCell(buffer.slice(0, e) + piece + buffer.slice(e));
+  };
+  const cellComment = () => toast({ title: "Comments coming soon" });
+
+  const cellAiEdit = () => {
+    if (!active) return;
+    if (!aiBridge) { toast({ title: "AI Edit unavailable here", variant: "destructive" }); return; }
+    const { r, c } = active;
+    const { s, e } = selRange();
+    const source = buffer;
+    const text = source.slice(s, e).trim();
+    if (!text) { toast({ title: "Nothing selected", variant: "destructive" }); return; }
+    aiBridge.requestAiEdit({
+      text,
+      kind: detectSelectionKindFromText(text),
+      label: "Table cell",
+      onApply: (proposed) => {
+        const merged = source.slice(0, s) + proposed + source.slice(e);
+        writeAny(r, c, merged);
+        setBuffer(merged);
+      },
+    });
+  };
+
 
   const writeCell = (r: number, c: number, value: string) => {
     const next = cells.map((row) => [...row]);
