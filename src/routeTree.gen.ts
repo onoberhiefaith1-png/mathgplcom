@@ -68,6 +68,9 @@ import { Route as GamesRomanIndexRouteImport } from './routes/games/roman/index'
 import { Route as GamesSubtractionIndexRouteImport } from './routes/games/subtraction/index'
 import { Route as GamesTallyIndexRouteImport } from './routes/games/tally/index'
 import { Route as GradeNIndexRouteImport } from './routes/grade/$n/index'
+import { Route as HomepageBackgroundIndexRouteImport } from './routes/homepage/background/index'
+import { Route as HomepageBuildingIndexRouteImport } from './routes/homepage/building/index'
+import { Route as HomepageReplaceBuildingIndexRouteImport } from './routes/homepage/replace-building/index'
 import { Route as JoinCodeIndexRouteImport } from './routes/join/$code/index'
 import { Route as LessonNotesIdIndexRouteImport } from './routes/lesson-notes/$id/index'
 import { Route as LevelsIdIndexRouteImport } from './routes/levels/$id/index'
@@ -477,6 +480,22 @@ const GradeNIndexRoute = GradeNIndexRouteImport.update({
   path: '/grade/$n/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HomepageBackgroundIndexRoute = HomepageBackgroundIndexRouteImport.update({
+  id: '/homepage/background/',
+  path: '/homepage/background/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomepageBuildingIndexRoute = HomepageBuildingIndexRouteImport.update({
+  id: '/homepage/building/',
+  path: '/homepage/building/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomepageReplaceBuildingIndexRoute =
+  HomepageReplaceBuildingIndexRouteImport.update({
+    id: '/homepage/replace-building/',
+    path: '/homepage/replace-building/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const JoinCodeIndexRoute = JoinCodeIndexRouteImport.update({
   id: '/join/$code/',
   path: '/join/$code/',
@@ -1191,6 +1210,9 @@ export interface FileRoutesByFullPath {
   '/games/subtraction/': typeof GamesSubtractionIndexRoute
   '/games/tally/': typeof GamesTallyIndexRoute
   '/grade/$n/': typeof GradeNIndexRoute
+  '/homepage/background/': typeof HomepageBackgroundIndexRoute
+  '/homepage/building/': typeof HomepageBuildingIndexRoute
+  '/homepage/replace-building/': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code/': typeof JoinCodeIndexRoute
   '/lesson-notes/$id/': typeof LessonNotesIdIndexRoute
   '/levels/$id/': typeof LevelsIdIndexRoute
@@ -1356,6 +1378,9 @@ export interface FileRoutesByTo {
   '/games/subtraction': typeof GamesSubtractionIndexRoute
   '/games/tally': typeof GamesTallyIndexRoute
   '/grade/$n': typeof GradeNIndexRoute
+  '/homepage/background': typeof HomepageBackgroundIndexRoute
+  '/homepage/building': typeof HomepageBuildingIndexRoute
+  '/homepage/replace-building': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code': typeof JoinCodeIndexRoute
   '/lesson-notes/$id': typeof LessonNotesIdIndexRoute
   '/levels/$id': typeof LevelsIdIndexRoute
@@ -1530,6 +1555,9 @@ export interface FileRoutesById {
   '/games/subtraction/': typeof GamesSubtractionIndexRoute
   '/games/tally/': typeof GamesTallyIndexRoute
   '/grade/$n/': typeof GradeNIndexRoute
+  '/homepage/background/': typeof HomepageBackgroundIndexRoute
+  '/homepage/building/': typeof HomepageBuildingIndexRoute
+  '/homepage/replace-building/': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code/': typeof JoinCodeIndexRoute
   '/lesson-notes/$id/': typeof LessonNotesIdIndexRoute
   '/levels/$id/': typeof LevelsIdIndexRoute
@@ -1705,6 +1733,9 @@ export interface FileRouteTypes {
     | '/games/subtraction/'
     | '/games/tally/'
     | '/grade/$n/'
+    | '/homepage/background/'
+    | '/homepage/building/'
+    | '/homepage/replace-building/'
     | '/join/$code/'
     | '/lesson-notes/$id/'
     | '/levels/$id/'
@@ -1870,6 +1901,9 @@ export interface FileRouteTypes {
     | '/games/subtraction'
     | '/games/tally'
     | '/grade/$n'
+    | '/homepage/background'
+    | '/homepage/building'
+    | '/homepage/replace-building'
     | '/join/$code'
     | '/lesson-notes/$id'
     | '/levels/$id'
@@ -2043,6 +2077,9 @@ export interface FileRouteTypes {
     | '/games/subtraction/'
     | '/games/tally/'
     | '/grade/$n/'
+    | '/homepage/background/'
+    | '/homepage/building/'
+    | '/homepage/replace-building/'
     | '/join/$code/'
     | '/lesson-notes/$id/'
     | '/levels/$id/'
@@ -2206,6 +2243,9 @@ export interface RootRouteChildren {
   GamesSubtractionIndexRoute: typeof GamesSubtractionIndexRoute
   GamesTallyIndexRoute: typeof GamesTallyIndexRoute
   GradeNIndexRoute: typeof GradeNIndexRoute
+  HomepageBackgroundIndexRoute: typeof HomepageBackgroundIndexRoute
+  HomepageBuildingIndexRoute: typeof HomepageBuildingIndexRoute
+  HomepageReplaceBuildingIndexRoute: typeof HomepageReplaceBuildingIndexRoute
   JoinCodeIndexRoute: typeof JoinCodeIndexRoute
   LevelsIdIndexRoute: typeof LevelsIdIndexRoute
   NotebookScanCodeIndexRoute: typeof NotebookScanCodeIndexRoute
@@ -2669,6 +2709,27 @@ declare module '@tanstack/react-router' {
       path: '/grade/$n'
       fullPath: '/grade/$n/'
       preLoaderRoute: typeof GradeNIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/homepage/background/': {
+      id: '/homepage/background/'
+      path: '/homepage/background'
+      fullPath: '/homepage/background/'
+      preLoaderRoute: typeof HomepageBackgroundIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/homepage/building/': {
+      id: '/homepage/building/'
+      path: '/homepage/building'
+      fullPath: '/homepage/building/'
+      preLoaderRoute: typeof HomepageBuildingIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/homepage/replace-building/': {
+      id: '/homepage/replace-building/'
+      path: '/homepage/replace-building'
+      fullPath: '/homepage/replace-building/'
+      preLoaderRoute: typeof HomepageReplaceBuildingIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/join/$code/': {
@@ -3791,6 +3852,9 @@ const rootRouteChildren: RootRouteChildren = {
   GamesSubtractionIndexRoute: GamesSubtractionIndexRoute,
   GamesTallyIndexRoute: GamesTallyIndexRoute,
   GradeNIndexRoute: GradeNIndexRoute,
+  HomepageBackgroundIndexRoute: HomepageBackgroundIndexRoute,
+  HomepageBuildingIndexRoute: HomepageBuildingIndexRoute,
+  HomepageReplaceBuildingIndexRoute: HomepageReplaceBuildingIndexRoute,
   JoinCodeIndexRoute: JoinCodeIndexRoute,
   LevelsIdIndexRoute: LevelsIdIndexRoute,
   NotebookScanCodeIndexRoute: NotebookScanCodeIndexRoute,
