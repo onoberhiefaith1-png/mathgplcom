@@ -2452,11 +2452,14 @@ const PresentationView = ({
   const [tableSensorCell, setTableSensorCell] = useState<string | null>(null);
   /** Expand / collapse is per table and remembered for the session. */
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
-  /** Tables the teacher removed from THIS board view. Nothing is destroyed:
-   *  entries, orientation, retention, T-series and assessment mappings all
-   *  stay — the table can be shown again from its lesson step. */
-  const [hiddenTables, setHiddenTables] = useState<string[]>([]);
-  const deletedTables = hiddenTables;
+  /** Tables the teacher has PLACED on this board view, and the board row
+   *  each one sits on. A table is a permanent lesson line represented by its
+   *  Floating Number icon; it appears on the board only when the teacher taps
+   *  that icon. Removing it from the board deletes nothing — entries,
+   *  orientation, retention, T-series and mappings all stay, and the icon
+   *  keeps working, so the same table can be placed again at any cursor. */
+  const [placedTables, setPlacedTables] = useState<Record<string, { row: number }>>({});
+
   /** The table becomes ACTIVE (T-series takes over the floating numbers)
    *  only when a cell inside it is clicked — never merely by expanding. */
   const [activeTableObjId, setActiveTableObjId] = useState<string | null>(null);
