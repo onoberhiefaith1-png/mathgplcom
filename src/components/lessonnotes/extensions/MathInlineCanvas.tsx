@@ -644,20 +644,24 @@ export function MathInlineCanvas({
       return;
     }
 
-    // `#` → superscript on the term to the left. A second `#` while the
-    // freshly-made (still empty) power slot holds the caret moves down into
-    // the subscript slot. Neither trigger is ever written into the note.
+    // `#` → superscript on the term to the left.
+    //   • In an EMPTY script slot it switches branch (that is `##`:
+    //     superscript → subscript) — no nesting, no extra spacing.
+    //   • In a script slot that already holds content it NESTS, so
+    //     x #2 #5 #n builds x^(2^(5^n)) with unlimited depth.
+    // The trigger itself is never written into the note.
     if (k === "#") {
       e.preventDefault();
       const base = withSelectionCleared();
       const c = base.cursor;
-      if (c.path.length >= 2) {
+      const currentRow = getRowAt(base.root, c.path);
+
+      if (c.path.length >= 2 && currentRow.length === 0) {
         const parentPath = c.path.slice(0, -2);
         const nodeIdx = c.path[c.path.length - 2];
         const subIdx = c.path[c.path.length - 1];
         const holder = getRowAt(base.root, parentPath)[nodeIdx];
-        // Already inside a script branch: toggle between power and
-        // subscript. A script never nests inside another script.
+        // Empty script branch → hop to the sibling branch instead of nesting.
         if (holder && (holder.kind === "subsup" || holder.kind === "power") && subIdx >= 1) {
           const target = holder.kind === "subsup" ? (subIdx === 2 ? 1 : 2) : 1;
           setCaret({ path: [...parentPath, nodeIdx, target], index: 0 }, false);
@@ -665,13 +669,23 @@ export function MathInlineCanvas({
         }
       }
 
-      const row = getRowAt(base.root, c.path);
-      const { start, end } = extractWrapTargetLeftOf(row, c.index);
-      if (end <= start) { apply(insertChar(base.root, c, "#")); return; }
+      const { start, end } = extractWrapTargetLeftOf(currentRow, c.index);
+      if (end <= start) {
+        // Nothing to raise — open a fresh empty script object so the teacher
+        // can keep building the tree (never write a literal "#").
+        const res = insertNode(base.root, c, mkSubSup());
+        const nodeIdx = res.cursor.path.length >= 2
+          ? res.cursor.path[res.cursor.path.length - 2]
+          : c.index;
+        apply({ root: res.root, cursor: { path: [...c.path, nodeIdx, 2], index: 0 } });
+        return;
+      }
+
       const res = insertNodeWrapping(base.root, c, mkSubSup(), start, end, 0);
       apply({ root: res.root, cursor: { path: [...c.path, start, 2], index: 0 } });
       return;
     }
+
 
 
     if (k === "/") {
