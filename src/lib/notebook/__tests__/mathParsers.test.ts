@@ -101,3 +101,23 @@ describe("advanced constructs round trip", () => {
     expect(tree[0].kind).toBe("accent");
   });
 });
+
+// Display standard: normalizing then serialising must be stable, so the
+// string AI Edit renders is byte-identical to the string the lesson-note
+// node renders.
+describe("normalize → serialise stability", () => {
+  const cases = [
+    "\\frac{\\sum_{i=1}^{n}|x_{i} - \\bar{x}|}{n}",
+    "\\frac{1}{\\frac{a}{b} + c}",
+    "\\sum_{i=1}^{n} x_{i}^{2}",
+  ];
+  for (const c of cases) {
+    it(`is stable for ${c}`, () => {
+      const once = normalizeMathSource(c);
+      expect(normalizeMathSource(once)).toBe(once);
+      expect(treeToLatex(latexToTree(once)).replace(/\s+/g, "")).toBe(
+        once.replace(/\s+/g, ""),
+      );
+    });
+  }
+});
