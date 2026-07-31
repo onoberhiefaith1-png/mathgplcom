@@ -5252,13 +5252,15 @@ const PresentationView = ({
               row underneath down by its own height (so it never covers other
               lesson content). Internally it still drives its own Floating
               Number lines, Present, orientation and assessment. */}
-          {activeTableGroup && !activeTableDeleted && (() => {
-            const anchorLine = groupAnchor(activeTableGroup);
-            const owned = findBoardRowForLine(anchorLine);
-            const anchorRow = owned ?? (activeLayout
-              ? clampToActiveBand(bandStart(activeLayout) + anchorLine)
-              : anchorLine);
+          {activeTableGroup && activeTablePlacement && (() => {
+            // The table sits where the TEACHER placed it (the cursor row at
+            // the moment its Floating Number icon was tapped), not wherever
+            // the lesson line happens to fall.
+            const anchorRow = activeLayout
+              ? clampToActiveBand(activeTablePlacement.row)
+              : activeTablePlacement.row;
             const objId = activeTableGroup.objId;
+
             return (
               <div
                 data-sb-table-line
