@@ -66,6 +66,20 @@ export const restorePersistedHighlights = (
       });
       continue;
     }
+    if (p?.object && typeof p.object === "object" && p.object.nodeType) {
+      const obj = readSolutionObjects({ objects: [p.object] })[0];
+      if (obj) {
+        restored.push({
+          groupId: nextRealId++,
+          tokens: [],
+          payload: String(p.payload ?? `[${obj.label}]`),
+          precedingNotebook: String(p.precedingNotebook ?? ""),
+          notebookOnly: false,
+          object: obj,
+        });
+      }
+      continue;
+    }
     if (!Array.isArray(p?.tokens) || p.tokens.length === 0) continue;
     restored.push({
       groupId: nextRealId++,
