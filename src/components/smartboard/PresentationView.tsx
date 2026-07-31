@@ -10,7 +10,18 @@ import {
   Eraser, Undo2, Redo2, ScanEye, PanelLeftOpen, X as XIcon,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
-import TableStage from "./TableStage";
+import TableActivityStage from "./TableActivityStage";
+import {
+  buildTableGroups,
+  groupForLine,
+  firstOpenCell,
+  cellKeysForLine,
+  isRetained,
+  isLineComplete,
+  isGroupComplete,
+  nextOpenLine,
+  type TableEntries,
+} from "@/lib/smartboard/tableActivity";
 import { SmartboardRootContext } from "./SmartboardRoot";
 import AiEditWorkspace from "./AiEditWorkspace";
 import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
