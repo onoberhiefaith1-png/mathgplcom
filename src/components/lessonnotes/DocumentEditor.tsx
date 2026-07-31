@@ -1075,6 +1075,29 @@ function DocumentEditorInner({
       saveTimer.current = setTimeout(() => onDocChange(editor.getJSON()), 600);
     },
   });
+  /* ─── 3D workspace: open fresh, or re-open a pasted scene for editing ─── */
+  const open3DWorkspace = useCallback(() => {
+    workspace3dApplyRef.current = null;
+    setWorkspace3dScene(null);
+    setWorkspace3dOpen(true);
+  }, []);
+
+  useEffect(() => onScene3DWorkspaceOpen(({ scene, onApply }) => {
+    workspace3dApplyRef.current = onApply;
+    setWorkspace3dScene(scene);
+    setWorkspace3dOpen(true);
+  }), []);
+
+  const handle3DExport = useCallback((scene: Scene3D) => {
+    if (workspace3dApplyRef.current) {
+      workspace3dApplyRef.current(scene);
+      workspace3dApplyRef.current = null;
+      return;
+    }
+    if (!editor) return;
+    editor.chain().focus().insertContent({ type: "scene3dDiagram", attrs: { scene } }).run();
+  }, [editor]);
+
 
   const geometryDraftRef = useRef<{ pos: number; pendingIds: string[] } | null>(null);
   const geometryToolRef = useRef<ToolId>(geometryTool);
@@ -1689,27 +1712,64 @@ function DocumentEditorInner({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <button
-          type="button"
-          onClick={() => {
-            if (!editor) return;
-            if (geometryMode) {
-              setGeometryMode(false);
-              geometryDraftRef.current = null;
-              return;
-            }
-            setGeometryMode(true);
-          }}
-          title={geometryMode ? "Exit Geometry Mode" : "Geometry Mode — choose a tool, then click the lesson note"}
-          className={cn(
-            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-            geometryMode
-              ? "bg-primary text-primary-foreground"
-              : "hover:bg-foreground/10",
+        <div className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              if (geometryMode) {
+                setGeometryMode(false);
+                geometryDraftRef.current = null;
+                setDiagramTabsOpen(false);
+                return;
+              }
+              setDiagramTabsOpen((v) => !v);
+            }}
+            title="Diagram — choose 2D or 3D"
+            className={cn(
+              "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+              geometryMode || diagramTabsOpen
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-foreground/10",
+            )}
+          >
+            <Shapes className="h-4 w-4" /> Diagram
+          </button>
+          {(diagramTabsOpen || geometryMode) && (
+            <div className="inline-flex items-center rounded border border-foreground/15 overflow-hidden">
+              <button
+                type="button"
+                title="2D geometry editor"
+                onClick={() => {
+                  if (!editor) return;
+                  if (geometryMode) {
+                    setGeometryMode(false);
+                    geometryDraftRef.current = null;
+                  } else {
+                    setGeometryMode(true);
+                  }
+                }}
+                className={cn(
+                  "px-2 py-1 text-xs transition-colors",
+                  geometryMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+                )}
+              >
+                2D
+              </button>
+              <button
+                type="button"
+                title="Open the 3D Geometry Workspace"
+                onClick={() => {
+                  setGeometryMode(false);
+                  geometryDraftRef.current = null;
+                  open3DWorkspace();
+                }}
+                className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
+              >
+                3D
+              </button>
+            </div>
           )}
-        >
-          <Shapes className="h-4 w-4" /> Diagram
-        </button>
+        </div>
         <button
           type="button"
           onClick={() => setTablesOpen(true)}
