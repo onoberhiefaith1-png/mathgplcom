@@ -16,6 +16,7 @@ import { HAS_MATH } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { hasDirectives, splitDirectives } from "@/lib/lessonnotes/ai/materializeDirectives";
 
 type TipTapNode = any;
 
