@@ -219,21 +219,29 @@ export function AiEditPanel({
               className="w-full text-sm bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
             />
 
+            {(voice.listening || voice.transcribing) && (
+              <VoiceWave level={voice.level} seconds={voice.seconds} />
+            )}
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={voice.listening ? voice.stop : voice.start}
+                onClick={() => (voice.listening ? voice.stop() : voice.start())}
                 className={cn(
                   "p-1.5 rounded hover:bg-foreground/5 transition",
                   voice.listening && "text-red-500 animate-pulse bg-red-500/10",
                 )}
-                title={voice.listening ? "Stop voice" : "Speak"}
+                title={voice.listening ? "Stop recording" : "Record"}
               >
-                <Mic className="h-4 w-4" />
+                {voice.listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </button>
               <span className="text-[10px] uppercase tracking-wider text-foreground/55">
-                {voice.listening ? "listening…" : simpleMode ? "type · speak (optional)" : "type or speak"}
+                {voice.listening
+                  ? "recording — tap to stop"
+                  : voice.transcribing
+                    ? "transcribing…"
+                    : simpleMode ? "type · speak (optional)" : "type or speak"}
               </span>
+
               <button
                 type="button"
                 onClick={handleGenerate}
