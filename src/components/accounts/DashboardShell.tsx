@@ -4,7 +4,6 @@ import { ArrowLeft, Check, Image as ImageIcon, ShieldCheck } from "lucide-react"
 import { useAccount } from "@/lib/accounts/useAccount";
 import { ROLE_LABEL, ROLE_NAV } from "@/lib/accounts/roles";
 import { DASHBOARD_BACKGROUNDS, useDashboardBackground } from "@/lib/accounts/dashboardBackground";
-import ImpersonationBanner from "./ImpersonationBanner";
 
 /**
  * Premium chrome shared by the Platform, School and Family dashboards.
