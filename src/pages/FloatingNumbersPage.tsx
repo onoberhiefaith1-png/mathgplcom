@@ -511,14 +511,33 @@ const FloatingNumbersPage = () => {
         setScoring({ ...DEFAULT_SCORING, ...savedScoring });
       }
 
-      // Object highlights (whole tables / diagrams) are recognised on the
-      // Highlighting Page but are not yet sequenced here — skip them.
-      const realHighlights = Array.isArray(highlights)
-        ? highlights.filter((h) => !h.notebookOnly && !(h as any).object && String(h.payload ?? "").trim().length > 0)
+      // Highlight stream, in document order. Text highlights become one
+      // Floating Number line each; a highlighted TABLE becomes a workspace
+      // that can own many lines. Non-table objects (diagrams) stay skipped.
+      const ordered = Array.isArray(highlights)
+        ? highlights.filter((h) => !h.notebookOnly)
         : [];
-      const hasHighlights = realHighlights.length > 0;
-      setFromHighlights(hasHighlights);
-      setHighlightsData(hasHighlights ? realHighlights : []);
+      const seq: Entry[] = [];
+      for (const h of ordered) {
+        const obj = (h as any).object;
+        if (obj) {
+          const parsed = readSolutionObjects({ objects: [obj] })[0];
+          if (!parsed || parsed.family !== "table") continue;
+          const grid = gridFromObject(parsed);
+          if (!grid) continue;
+          seq.push({ kind: "table", objId: grid.objId, grid });
+          continue;
+        }
+        const payload = String(h.payload ?? "");
+        if (!payload.trim()) continue;
+        seq.push({ kind: "text", highlight: { groupId: h.groupId, payload } });
+      }
+      setEntries(seq);
+
+      const textHighlights = seq.flatMap((e) => (e.kind === "text" ? [e.highlight] : []));
+      const hasHighlights = textHighlights.length > 0 || seq.length > 0;
+      setFromHighlights(textHighlights.length > 0);
+      setHighlightsData(textHighlights);
 
       if (hasHighlights) {
         // Highlights drive the list. Re-pair each highlight to its persisted
@@ -527,12 +546,31 @@ const FloatingNumbersPage = () => {
         // Pairing priority: (a) exact equation==payload match, then
         // (b) positional fallback (same index) so a selection is never lost
         // to math/LaTeX normalization drift. Only a removed highlight drops a row.
-        const persistedList: FloatingLine[] = Array.isArray(persisted)
+        const persistedAll: FloatingLine[] = Array.isArray(persisted)
           ? persisted.map(normalizeFloatingLine)
           : [];
+        const persistedList = persistedAll.filter((p) => !p.table);
+        const byTable = new Map<string, FloatingLine[]>();
+        for (const p of persistedAll) {
+          if (!p.table?.objId) continue;
+          const arr = byTable.get(p.table.objId) ?? [];
+          arr.push(p);
+          byTable.set(p.table.objId, arr);
+        }
         const used = new Set<number>();
-        const reconciled: FloatingLine[] = realHighlights.map((h, hi) => {
-          const payload = String(h.payload ?? "");
+        let textIdx = 0;
+        const reconciled: FloatingLine[] = [];
+        for (const e of seq) {
+          if (e.kind === "table") {
+            // Restore the table's saved lines, refreshed with the latest grid.
+            const saved = byTable.get(e.objId) ?? [];
+            for (const s of saved) {
+              reconciled.push({ ...s, table: { ...s.table!, grid: e.grid } });
+            }
+            continue;
+          }
+          const hi = textIdx++;
+          const payload = String(e.highlight.payload ?? "");
           let idx = persistedList.findIndex(
             (p, i) => !used.has(i) && (p.equation ?? "") === payload,
           );
@@ -545,16 +583,17 @@ const FloatingNumbersPage = () => {
             used.add(idx);
             // Lock the equation to the permanent highlight payload while keeping
             // the persisted fillers + selection state.
-            return { ...persistedList[idx], equation: payload };
+            reconciled.push({ ...persistedList[idx], equation: payload });
+            continue;
           }
-          return {
+          reconciled.push({
             lineId: newId(),
             equation: payload,
             fillers: [],
             containers: [],
             arrangement: [],
-          };
-        });
+          });
+        }
         setLines(reconciled);
       } else if (persisted && Array.isArray(persisted) && persisted.length > 0) {
         // Legacy: no highlights — show previously generated lines if any.
