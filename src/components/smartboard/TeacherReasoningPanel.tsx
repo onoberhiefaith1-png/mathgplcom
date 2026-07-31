@@ -316,7 +316,12 @@ const TeacherReasoningPanel = ({
   const currentQ = useMemo(() => questions.find((q) => q.id === currentQid) ?? null, [questions, currentQid]);
   const questionNo = useMemo(() => questions.findIndex((q) => q.id === currentQid) + 1, [questions, currentQid]);
   const activeIdx = Math.max(0, Math.floor(feed?.activeLineIdx ?? 0));
-  const lineNo = activeIdx + 1;
+  /** TAG — the active floating number's OWN identifier, as broadcast by the
+   *  board (`T3` inside a Smart Table, the lesson step number outside). Never
+   *  recomputed here: a table row must not be tagged with a lesson number. */
+  const lineNo = (feed as { activeTag?: string } | null)?.activeTag
+    ?? String(activeIdx + 1);
+
 
   const currentLid = useMemo(() => {
     if (!feed) return null;
