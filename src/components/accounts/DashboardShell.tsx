@@ -29,7 +29,7 @@ const DashboardShell = ({
 
   return (
     <div className="min-h-screen w-full text-dash-surface" style={{ background: css }}>
-      <ImpersonationBanner />
+
 
       <header className="mx-auto w-full max-w-7xl px-6 pt-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
