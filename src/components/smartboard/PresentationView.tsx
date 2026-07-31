@@ -10,6 +10,7 @@ import {
   Eraser, Undo2, Redo2, ScanEye, PanelLeftOpen, X as XIcon,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
+import TableStage from "./TableStage";
 import { SmartboardRootContext } from "./SmartboardRoot";
 import AiEditWorkspace from "./AiEditWorkspace";
 import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/types";
@@ -4519,6 +4520,12 @@ const PresentationView = ({
 
       >
       <WritingFilterDefs />
+
+      {/* Table Stage — shown while the active line comes from a highlighted
+          table workspace. Retained cells stay visible; the rest are blank. */}
+      {guidedLines[activeLineIdx]?.table?.grid && (
+        <TableStage table={guidedLines[activeLineIdx].table!} dark={isDark} />
+      )}
 
       {/* Micro-surface texture */}
       <div
