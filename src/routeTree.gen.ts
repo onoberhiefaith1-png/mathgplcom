@@ -24,6 +24,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as AuthAcceptInviteRouteImport } from './routes/auth/accept-invite'
 import { Route as AuthAdminRouteImport } from './routes/auth/admin'
 import { Route as AuthParentRouteImport } from './routes/auth/parent'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
@@ -50,6 +51,7 @@ import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
 import { Route as CardSlugIndexRouteImport } from './routes/card/$slug/index'
 import { Route as ChallengeSlugIndexRouteImport } from './routes/challenge/$slug/index'
 import { Route as ClassCodeIndexRouteImport } from './routes/class/$code/index'
+import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
 import { Route as GamesAdditionIndexRouteImport } from './routes/games/addition/index'
 import { Route as GamesBidmasIndexRouteImport } from './routes/games/bidmas/index'
@@ -73,6 +75,7 @@ import { Route as LiveJoinIndexRouteImport } from './routes/live/join/index'
 import { Route as LiveLessonNotesIndexRouteImport } from './routes/live/lesson-notes/index'
 import { Route as LiveSessionsIndexRouteImport } from './routes/live/sessions/index'
 import { Route as NotebookScanCodeIndexRouteImport } from './routes/notebook-scan/$code/index'
+import { Route as SchoolTeachersIndexRouteImport } from './routes/school/teachers/index'
 import { Route as SmartboardNotebookIdIndexRouteImport } from './routes/smartboard/$notebookId/index'
 import { Route as StudentClassesIndexRouteImport } from './routes/student/classes/index'
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
@@ -253,6 +256,11 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
   path: '/auth/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
+  id: '/auth/accept-invite',
+  path: '/auth/accept-invite',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthAdminRoute = AuthAdminRouteImport.update({
   id: '/auth/admin',
   path: '/auth/admin',
@@ -383,6 +391,11 @@ const ClassCodeIndexRoute = ClassCodeIndexRouteImport.update({
   path: '/$code/',
   getParentRoute: () => ClassRouteRoute,
 } as any)
+const FamilyTeachersIndexRoute = FamilyTeachersIndexRouteImport.update({
+  id: '/teachers/',
+  path: '/teachers/',
+  getParentRoute: () => FamilyRouteRoute,
+} as any)
 const GameSlugIndexRoute = GameSlugIndexRouteImport.update({
   id: '/game/$slug/',
   path: '/game/$slug/',
@@ -498,6 +511,11 @@ const NotebookScanCodeIndexRoute = NotebookScanCodeIndexRouteImport.update({
   id: '/notebook-scan/$code/',
   path: '/notebook-scan/$code/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SchoolTeachersIndexRoute = SchoolTeachersIndexRouteImport.update({
+  id: '/teachers/',
+  path: '/teachers/',
+  getParentRoute: () => SchoolRouteRoute,
 } as any)
 const SmartboardNotebookIdIndexRoute =
   SmartboardNotebookIdIndexRouteImport.update({
@@ -1125,6 +1143,7 @@ export interface FileRoutesByFullPath {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1155,6 +1174,7 @@ export interface FileRoutesByFullPath {
   '/card/$slug/': typeof CardSlugIndexRoute
   '/challenge/$slug/': typeof ChallengeSlugIndexRoute
   '/class/$code/': typeof ClassCodeIndexRoute
+  '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
   '/games/bidmas/': typeof GamesBidmasIndexRoute
@@ -1178,6 +1198,7 @@ export interface FileRoutesByFullPath {
   '/live/lesson-notes/': typeof LiveLessonNotesIndexRoute
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
+  '/school/teachers/': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
   '/student/classes/': typeof StudentClassesIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
@@ -1287,6 +1308,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1317,6 +1339,7 @@ export interface FileRoutesByTo {
   '/card/$slug': typeof CardSlugIndexRoute
   '/challenge/$slug': typeof ChallengeSlugIndexRoute
   '/class/$code': typeof ClassCodeIndexRoute
+  '/family/teachers': typeof FamilyTeachersIndexRoute
   '/game/$slug': typeof GameSlugIndexRoute
   '/games/addition': typeof GamesAdditionIndexRoute
   '/games/bidmas': typeof GamesBidmasIndexRoute
@@ -1340,6 +1363,7 @@ export interface FileRoutesByTo {
   '/live/lesson-notes': typeof LiveLessonNotesIndexRoute
   '/live/sessions': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code': typeof NotebookScanCodeIndexRoute
+  '/school/teachers': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId': typeof SmartboardNotebookIdIndexRoute
   '/student/classes': typeof StudentClassesIndexRoute
   '/subjects/$subject': typeof SubjectsSubjectIndexRoute
@@ -1458,6 +1482,7 @@ export interface FileRoutesById {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1488,6 +1513,7 @@ export interface FileRoutesById {
   '/card/$slug/': typeof CardSlugIndexRoute
   '/challenge/$slug/': typeof ChallengeSlugIndexRoute
   '/class/$code/': typeof ClassCodeIndexRoute
+  '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
   '/games/bidmas/': typeof GamesBidmasIndexRoute
@@ -1511,6 +1537,7 @@ export interface FileRoutesById {
   '/live/lesson-notes/': typeof LiveLessonNotesIndexRoute
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
+  '/school/teachers/': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
   '/student/classes/': typeof StudentClassesIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
@@ -1630,6 +1657,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -1660,6 +1688,7 @@ export interface FileRouteTypes {
     | '/card/$slug/'
     | '/challenge/$slug/'
     | '/class/$code/'
+    | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
     | '/games/bidmas/'
@@ -1683,6 +1712,7 @@ export interface FileRouteTypes {
     | '/live/lesson-notes/'
     | '/live/sessions/'
     | '/notebook-scan/$code/'
+    | '/school/teachers/'
     | '/smartboard/$notebookId/'
     | '/student/classes/'
     | '/subjects/$subject/'
@@ -1792,6 +1822,7 @@ export interface FileRouteTypes {
     | '/'
     | '/class'
     | '/student'
+    | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -1822,6 +1853,7 @@ export interface FileRouteTypes {
     | '/card/$slug'
     | '/challenge/$slug'
     | '/class/$code'
+    | '/family/teachers'
     | '/game/$slug'
     | '/games/addition'
     | '/games/bidmas'
@@ -1845,6 +1877,7 @@ export interface FileRouteTypes {
     | '/live/lesson-notes'
     | '/live/sessions'
     | '/notebook-scan/$code'
+    | '/school/teachers'
     | '/smartboard/$notebookId'
     | '/student/classes'
     | '/subjects/$subject'
@@ -1962,6 +1995,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -1992,6 +2026,7 @@ export interface FileRouteTypes {
     | '/card/$slug/'
     | '/challenge/$slug/'
     | '/class/$code/'
+    | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
     | '/games/bidmas/'
@@ -2015,6 +2050,7 @@ export interface FileRouteTypes {
     | '/live/lesson-notes/'
     | '/live/sessions/'
     | '/notebook-scan/$code/'
+    | '/school/teachers/'
     | '/smartboard/$notebookId/'
     | '/student/classes/'
     | '/subjects/$subject/'
@@ -2133,6 +2169,7 @@ export interface RootRouteChildren {
   SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
+  AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
   AuthParentRoute: typeof AuthParentRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
@@ -2326,6 +2363,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/accept-invite': {
+      id: '/auth/accept-invite'
+      path: '/auth/accept-invite'
+      fullPath: '/auth/accept-invite'
+      preLoaderRoute: typeof AuthAcceptInviteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/admin': {
       id: '/auth/admin'
       path: '/auth/admin'
@@ -2508,6 +2552,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClassCodeIndexRouteImport
       parentRoute: typeof ClassRouteRoute
     }
+    '/family/teachers/': {
+      id: '/family/teachers/'
+      path: '/teachers'
+      fullPath: '/family/teachers/'
+      preLoaderRoute: typeof FamilyTeachersIndexRouteImport
+      parentRoute: typeof FamilyRouteRoute
+    }
     '/game/$slug/': {
       id: '/game/$slug/'
       path: '/game/$slug'
@@ -2668,6 +2719,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/notebook-scan/$code/'
       preLoaderRoute: typeof NotebookScanCodeIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/school/teachers/': {
+      id: '/school/teachers/'
+      path: '/teachers'
+      fullPath: '/school/teachers/'
+      preLoaderRoute: typeof SchoolTeachersIndexRouteImport
+      parentRoute: typeof SchoolRouteRoute
     }
     '/smartboard/$notebookId/': {
       id: '/smartboard/$notebookId/'
@@ -3442,10 +3500,12 @@ const ClassRouteRouteWithChildren = ClassRouteRoute._addFileChildren(
 
 interface FamilyRouteRouteChildren {
   FamilyIndexRoute: typeof FamilyIndexRoute
+  FamilyTeachersIndexRoute: typeof FamilyTeachersIndexRoute
 }
 
 const FamilyRouteRouteChildren: FamilyRouteRouteChildren = {
   FamilyIndexRoute: FamilyIndexRoute,
+  FamilyTeachersIndexRoute: FamilyTeachersIndexRoute,
 }
 
 const FamilyRouteRouteWithChildren = FamilyRouteRoute._addFileChildren(
@@ -3550,10 +3610,12 @@ const LiveRouteRouteWithChildren = LiveRouteRoute._addFileChildren(
 
 interface SchoolRouteRouteChildren {
   SchoolIndexRoute: typeof SchoolIndexRoute
+  SchoolTeachersIndexRoute: typeof SchoolTeachersIndexRoute
 }
 
 const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolIndexRoute: SchoolIndexRoute,
+  SchoolTeachersIndexRoute: SchoolTeachersIndexRoute,
 }
 
 const SchoolRouteRouteWithChildren = SchoolRouteRoute._addFileChildren(
@@ -3692,6 +3754,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
+  AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,
   AuthParentRoute: AuthParentRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,

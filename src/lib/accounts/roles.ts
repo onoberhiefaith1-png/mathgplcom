@@ -68,7 +68,8 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   ],
   school: [
     { to: "/teaching-hub", label: "Teaching Hub" },
-    { to: "/school?tab=teachers", label: "Teachers" },
+    { to: "/school/teachers", label: "Teachers" },
+
     { to: "/school?tab=students", label: "Students" },
     { to: "/teaching-hub/classes", label: "Classes" },
     { to: "/school?tab=reports", label: "Reports" },
@@ -89,7 +90,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/family", label: "Children" },
     { to: "/family?tab=progress", label: "Progress" },
     { to: "/family?tab=reports", label: "Reports" },
-    { to: "/family?tab=teachers", label: "Teachers" },
+    { to: "/family/teachers", label: "Teachers" },
     { to: "/family?tab=settings", label: "Settings" },
   ],
   student: [{ to: "/student/classes", label: "My Classes" }],

@@ -8,7 +8,7 @@ const cards = [
   { to: "/family?tab=progress", label: "Progress", icon: BarChart3, blurb: "How each child is doing." },
   { to: "/family?tab=reports", label: "Reports", icon: BarChart3, blurb: "Assignment and adventure results." },
   { to: "/family?tab=gallery", label: "Gallery", icon: ImageIcon, blurb: "Work your children are proud of." },
-  { to: "/family?tab=teachers", label: "Teachers", icon: GraduationCap, blurb: "Teachers linked to your children." },
+  { to: "/family/teachers", label: "Teachers", icon: GraduationCap, blurb: "Teachers linked to your children." },
   { to: "/family?tab=settings", label: "Settings", icon: Settings, blurb: "Family account preferences." },
 ];
 
