@@ -34,6 +34,17 @@ Rules for directives:
   • Directives are replaced by real editable objects; do not describe them
     ("the table below shows…" is fine, "|x|f|" is not).
   • If no tool fits, just write the text. Never emit an empty directive.
+
+SMART STRUCTURE LAW (long division, prime-factorisation / division ladder,
+base conversion, place-value chart, column addition, long multiplication):
+  • These layouts are STATIC STRUCTURES the teacher designed. Never redraw,
+    rebuild or re-typeset them, and never approximate them with text, dashes
+    or spaces.
+  • Reuse the existing structure asset and only supply the values that belong
+    in its editable cells (digits, quotients, remainders, partial products).
+  • Structural parts — the division bracket, horizontal rules, minus signs,
+    the ladder divider, the "R" remainder labels, column separators — belong
+    to the structure and must never be emitted as content.
 `.trim();
 
 /** Wrap the client-supplied manifest for the prompt. */

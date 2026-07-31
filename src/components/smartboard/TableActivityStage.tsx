@@ -185,14 +185,22 @@ const TableActivityStage = ({
                 <tr key={`r-${r}`}>
                   {Array.from({ length: grid.cols }, (_, c) => {
                     const k = cellKey(r, c);
-                    const retained = isRetained(group, k);
-                    const inActive = activeCells.has(k);
-                    const isSensor = sensorCell === k;
-                    const value = retained ? expectedCellValue(group, k) : entries[k] ?? "";
+                    // Smart Structure: structural cells are the teacher's
+                    // drawing — always rendered, never editable.
+                    const glyph = (grid as any).staticGlyphs?.[k] as string | undefined;
+                    const structural = Array.isArray((grid as any).staticCells)
+                      && ((grid as any).staticCells as string[]).includes(k);
+                    const retained = structural || isRetained(group, k);
+                    const inActive = !structural && activeCells.has(k);
+                    const isSensor = !structural && sensorCell === k;
+                    const value = structural
+                      ? (glyph ?? "")
+                      : retained ? expectedCellValue(group, k) : entries[k] ?? "";
+
                     return (
                       <td
                         key={k}
-                        onClick={() => focusCell(k)}
+                        onClick={() => { if (!structural) focusCell(k); }}
                         className="p-0 text-center tabular-nums"
                         style={{
                           border: isSensor

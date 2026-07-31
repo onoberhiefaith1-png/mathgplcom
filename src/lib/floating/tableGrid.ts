@@ -7,6 +7,7 @@
 // orientation (Row vs Column).
 
 import { flattenObjectAttrs, type SolutionObject } from "@/lib/floating/solutionItems";
+import { structureGridFromObject } from "@/lib/floating/structureGrid";
 
 export type TableOrientation = "row" | "column";
 
@@ -19,7 +20,18 @@ export interface TableGrid {
   cells: string[][];
   rows: number;
   cols: number;
+  /** Smart Structure static mask: `r:c` keys that are pure structure
+   *  (division bracket, minus signs, dividers, ladders). These are retained
+   *  exactly as the teacher drew them and never become Floating Numbers. */
+  staticCells?: string[];
+  /** Glyph a structural cell renders on the board. */
+  staticGlyphs?: Record<string, string>;
 }
+
+/** True when the cell belongs to the retained structure, not the student. */
+export const isStaticCell = (grid: TableGrid, key: string): boolean =>
+  Array.isArray(grid.staticCells) && grid.staticCells.includes(key);
+
 
 /** Stable cell address inside a grid: `r:c` over DATA rows (0-based). */
 export const cellKey = (r: number, c: number): string => `${r}:${c}`;
@@ -48,10 +60,17 @@ const asStringMatrix = (raw: any, rows: number, cols: number): string[][] => {
   return out;
 };
 
-/** Normalise a captured table object into a grid. Returns null when the
- *  object carries no usable tabular data. */
+/** Normalise a captured table OR Smart Structure object into a grid. Returns
+ *  null when the object carries no usable tabular data. */
 export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
+  // Smart Structures (long division, prime-factorisation ladder, …) own their
+  // own attribute shapes. Their adapter also reports the retained structure.
+  const structure = structureGridFromObject(obj);
+  if (structure) return structure;
+
   const a = flattenObjectAttrs((obj?.attrs ?? {}) as Record<string, any>);
+
+
 
   const rawCells = Array.isArray(a.cells)
     ? a.cells
@@ -115,22 +134,26 @@ export interface GeneratedTableLine {
 }
 
 /** Rebuild the automatic line set for a grid. Row mode → one line per data
- *  row; Column mode → one line per column. Blank lines are dropped. */
+ *  row; Column mode → one line per column. Blank lines are dropped.
+ *
+ *  SMART STRUCTURE LAW: retained structural cells are detected and ignored.
+ *  Only editable cells become Floating Numbers; the drawing stays untouched. */
 export const generateTableLines = (
   grid: TableGrid,
   orientation: TableOrientation,
 ): GeneratedTableLine[] => {
   const out: GeneratedTableLine[] = [];
+  const editable = (keys: string[]) => keys.filter((k) => !isStaticCell(grid, k));
   if (orientation === "row") {
     for (let r = 0; r < grid.rows; r++) {
-      const keys = Array.from({ length: grid.cols }, (_, c) => cellKey(r, c));
+      const keys = editable(Array.from({ length: grid.cols }, (_, c) => cellKey(r, c)));
       const values = keys.map((k) => cellValue(grid, k)).filter((v) => v.trim().length > 0);
       if (!values.length) continue;
       out.push({ cellKeys: keys, values, label: `Row ${r + 1}` });
     }
   } else {
     for (let c = 0; c < grid.cols; c++) {
-      const keys = Array.from({ length: grid.rows }, (_, r) => cellKey(r, c));
+      const keys = editable(Array.from({ length: grid.rows }, (_, r) => cellKey(r, c)));
       const values = keys.map((k) => cellValue(grid, k)).filter((v) => v.trim().length > 0);
       if (!values.length) continue;
       out.push({
@@ -142,6 +165,7 @@ export const generateTableLines = (
   }
   return out;
 };
+
 
 /** Equation text shown for a table-derived line. */
 export const tableLineEquation = (grid: TableGrid, cellKeys: string[]): string =>

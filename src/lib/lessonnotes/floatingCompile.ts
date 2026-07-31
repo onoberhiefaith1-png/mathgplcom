@@ -27,7 +27,7 @@ export interface FloatingTableRef {
   retained?: string[];
   /** True when the teacher built this line by clicking cells. */
   manual?: boolean;
-  /** Snapshot of the table grid (headers + cells). */
+  /** Snapshot of the table / Smart Structure grid (headers + cells). */
   grid?: {
     objId: string;
     label: string;
@@ -35,7 +35,11 @@ export interface FloatingTableRef {
     cells: string[][];
     rows: number;
     cols: number;
+    /** Smart Structure: retained structural cells, never Floating Numbers. */
+    staticCells?: string[];
+    staticGlyphs?: Record<string, string>;
   };
+
 }
 
 export interface FloatingLine {
