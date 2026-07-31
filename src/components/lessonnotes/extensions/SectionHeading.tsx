@@ -330,9 +330,9 @@ function SectionHeadingView(props: NodeViewProps) {
             allowAttachments
             onGenerate={(p, o) => run("generate", p, o)}
             footerActions={[
-              { id: "regenerate", label: "Regenerate", icon: <RotateCcw className="h-3 w-3" />, onRun: () => run("regenerate", "") },
-              { id: "paraphrase", label: "Paraphrase", icon: <Wand2 className="h-3 w-3" />,     onRun: () => run("paraphrase", "") },
-              { id: "extend",     label: "Extend",     icon: <ArrowDownToDot className="h-3 w-3" />, onRun: () => run("extend", "") },
+              { id: "regenerate", label: "Regenerate", icon: <RotateCcw className="h-3 w-3" />, onRun: (p, o) => run("regenerate", p, o) },
+              { id: "paraphrase", label: "Paraphrase", icon: <Wand2 className="h-3 w-3" />,     onRun: (p, o) => run("paraphrase", p, o) },
+              { id: "extend",     label: "Extend",     icon: <ArrowDownToDot className="h-3 w-3" />, onRun: (p, o) => run("extend", p, o) },
               { id: "clear",      label: "Clear",      icon: <Eraser className="h-3 w-3" />,    onRun: () => run("clear", ""), danger: true },
             ]}
             trigger={

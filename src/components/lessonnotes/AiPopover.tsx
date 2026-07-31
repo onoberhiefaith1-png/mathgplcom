@@ -11,9 +11,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "@/lib/router-compat";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Sparkles, Loader2, Mic, Paperclip, Camera, X, Settings2 } from "lucide-react";
+import { Sparkles, Loader2, Mic, Square, Paperclip, Camera, X, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { VoiceWave } from "./VoiceWave";
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import {
   AiPreferences,
@@ -33,7 +35,8 @@ export interface AiFooterAction {
   label: string;
   icon?: React.ReactNode;
   danger?: boolean;
-  onRun: () => Promise<void> | void;
+  /** Receives the current prompt box text plus any attachments. */
+  onRun: (prompt: string, opts: AiGenerateOptions) => Promise<void> | void;
 }
 
 interface Props {
@@ -66,9 +69,8 @@ export function AiPopover({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
   const [images, setImages] = useState<string[]>([]);
-  const recogRef = useRef<any>(null);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
 
@@ -84,29 +86,12 @@ export function AiPopover({
   }, [notebookId]);
   const chips = useMemo(() => activePreferenceChips(prefs), [prefs]);
 
+  // Continuous recording: starts on press, stops only on the next press.
+  const voice = useVoiceInput(setText as any);
+  const listening = voice.listening;
+  const startVoice = () => { void voice.start(); };
+  const stopVoice = () => { void voice.stop(); };
 
-  const startVoice = () => {
-    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { toast({ title: "Voice not supported in this browser" }); return; }
-    try {
-      const r = new SR();
-      r.continuous = false; r.interimResults = true; r.lang = "en-US";
-      r.onresult = (e: any) => {
-        let finalT = "", interim = "";
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const t = e.results[i][0].transcript;
-          if (e.results[i].isFinal) finalT += t; else interim += t;
-        }
-        setText((p) => (finalT ? (p ? `${p} ${finalT}`.trim() : finalT) : interim || p));
-      };
-      r.onend = () => setListening(false);
-      r.onerror = () => setListening(false);
-      recogRef.current = r;
-      r.start();
-      setListening(true);
-    } catch { setListening(false); }
-  };
-  const stopVoice = () => { try { recogRef.current?.stop(); } catch {} setListening(false); };
 
   const pickFiles = async (files: FileList | null) => {
     if (!files) return;
@@ -195,6 +180,9 @@ export function AiPopover({
             ))}
           </div>
         )}
+        {(listening || voice.transcribing) && (
+          <VoiceWave level={voice.level} seconds={voice.seconds} />
+        )}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -203,9 +191,9 @@ export function AiPopover({
               "p-1.5 rounded hover:bg-foreground/5 transition",
               listening && "text-red-500 animate-pulse bg-red-500/10",
             )}
-            title={listening ? "Stop voice" : "Speak"}
+            title={listening ? "Stop recording" : "Record"}
           >
-            <Mic className="h-4 w-4" />
+            {listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </button>
           {allowAttachments && (
             <>
@@ -224,8 +212,9 @@ export function AiPopover({
             </>
           )}
           <span className="text-[10px] uppercase tracking-wider text-popover-foreground/75">
-            {listening ? "listening…" : "type · speak · attach"}
+            {listening ? "recording — tap to stop" : voice.transcribing ? "transcribing…" : "type · speak · attach"}
           </span>
+
           <button
             type="button"
             onClick={fire}
@@ -247,10 +236,21 @@ export function AiPopover({
                 type="button"
                 onClick={async () => {
                   setBusy(true);
-                  try { await a.onRun(); setOpen(false); }
+                  try {
+                    // Actions like Regenerate MUST carry the teacher's latest
+                    // instruction (typed, spoken or attached) — that is the
+                    // whole point of pressing Regenerate after saying what is
+                    // missing. Only clear the box once the run succeeded.
+                    stopVoice();
+                    await a.onRun(text.trim(), { images });
+                    setText("");
+                    setImages([]);
+                    setOpen(false);
+                  }
                   catch (e: any) { toast({ title: "AI failed", description: String(e?.message ?? e), variant: "destructive" }); }
                   finally { setBusy(false); }
                 }}
+
                 disabled={busy}
                 className={cn(
                   "inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-1 rounded hover:bg-foreground/10 transition",
