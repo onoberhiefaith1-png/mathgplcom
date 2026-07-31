@@ -10,6 +10,8 @@
 import { Plus, RefreshCw, Lock, Rows3, Columns3 } from "lucide-react";
 import type { TableGrid, TableOrientation } from "@/lib/floating/tableGrid";
 import { cellKey } from "@/lib/floating/tableGrid";
+import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
+
 
 interface Props {
   grid: TableGrid;
