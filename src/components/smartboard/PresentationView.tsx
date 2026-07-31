@@ -2450,13 +2450,19 @@ const PresentationView = ({
   const TABLE_STATE_KEY = `${boardKey("tableActivity", boardScope)}:${activeReservoirIdx}`;
   const [tableEntries, setTableEntries] = useState<Record<string, TableEntries>>({});
   const [tableSensorCell, setTableSensorCell] = useState<string | null>(null);
+  /** Live cursor row, read when the teacher taps a table's Floating Number. */
+  const sensorRef = useRef(sensor);
+  sensorRef.current = sensor;
   /** Expand / collapse is per table and remembered for the session. */
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
-  /** Tables the teacher removed from THIS board view. Nothing is destroyed:
-   *  entries, orientation, retention, T-series and assessment mappings all
-   *  stay — the table can be shown again from its lesson step. */
-  const [hiddenTables, setHiddenTables] = useState<string[]>([]);
-  const deletedTables = hiddenTables;
+  /** Tables the teacher has PLACED on this board view, and the board row
+   *  each one sits on. A table is a permanent lesson line represented by its
+   *  Floating Number icon; it appears on the board only when the teacher taps
+   *  that icon. Removing it from the board deletes nothing — entries,
+   *  orientation, retention, T-series and mappings all stay, and the icon
+   *  keeps working, so the same table can be placed again at any cursor. */
+  const [placedTables, setPlacedTables] = useState<Record<string, { row: number }>>({});
+
   /** The table becomes ACTIVE (T-series takes over the floating numbers)
    *  only when a cell inside it is clicked — never merely by expanding. */
   const [activeTableObjId, setActiveTableObjId] = useState<string | null>(null);
@@ -2475,7 +2481,7 @@ const PresentationView = ({
     } catch { setTableEntries({}); }
     setTableSensorCell(null);
     setExpandedTables({});
-    setHiddenTables([]);
+    setPlacedTables({});
     setActiveTableObjId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
@@ -2492,7 +2498,13 @@ const PresentationView = ({
     ? tableEntries[activeTableGroup.objId] ?? {}
     : {};
 
-  const activeTableDeleted = !!activeTableGroup && deletedTables.includes(activeTableGroup.objId);
+  /** Placement of the table owning the active lesson line (null = not on the
+   *  board yet; the lesson line and its icon still exist). */
+  const activeTablePlacement = activeTableGroup
+    ? placedTables[activeTableGroup.objId] ?? null
+    : null;
+  const activeTablePlaced = !!activeTablePlacement;
+
 
   // Floating line change → seat the table sensor on that row/column.
   useEffect(() => {
@@ -2520,27 +2532,37 @@ const PresentationView = ({
      validation logic runs silently here; the Reasoning / Assessment layer
      is the only consumer and the only place feedback may appear. */
   const tableValidationState: TableValidation | null = useMemo(
-    () => (activeTableGroup && !activeTableDeleted
+    () => (activeTableGroup && activeTablePlaced
       ? tableValidation(activeTableGroup, activeTableEntries, activeLineIdx)
       : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeTableGroup?.objId, activeTableEntries, activeLineIdx, activeTableDeleted],
+    [activeTableGroup?.objId, activeTableEntries, activeLineIdx, activeTablePlaced],
   );
   const tableValidationRef = useRef<TableValidation | null>(null);
   tableValidationRef.current = tableValidationState;
 
   /** Remove the Smart Table from THIS board view only. Nothing is deleted:
-   *  its generated floating numbers, T-series, orientation, retained cells,
-   *  assessment mappings, student entries and configuration all survive, so
-   *  the same table can be shown again later. */
+   *  its lesson line, generated floating numbers, T-series, orientation,
+   *  retained cells, assessment mappings, student entries and configuration
+   *  all survive, and its Floating Number icon keeps working, so the same
+   *  table can be placed again at any time. */
   const deleteTableObject = useCallback((group: typeof tableGroups[number]) => {
-    setHiddenTables((prev) => (prev.includes(group.objId) ? prev : [...prev, group.objId]));
+    setPlacedTables((prev) => {
+      if (!(group.objId in prev)) return prev;
+      const next = { ...prev };
+      delete next[group.objId];
+      return next;
+    });
     setActiveTableObjId((cur) => (cur === group.objId ? null : cur));
     setTableSensorCell(null);
   }, []);
 
-  const showTableObject = useCallback((objId: string) => {
-    setHiddenTables((prev) => prev.filter((id) => id !== objId));
+  /** Place (or re-place) the table on the board at the teacher's cursor —
+   *  exactly how an ordinary Floating Number writes at the cursor. */
+  const placeTableAtCursor = useCallback((objId: string) => {
+    const row = Math.floor(sensorRef.current?.line ?? 0);
+    setPlacedTables((prev) => ({ ...prev, [objId]: { row } }));
+    setExpandedTables((prev) => ({ ...prev, [objId]: true }));
   }, []);
 
   /** Clear = drop every student-entered value. Retained cells, formulas,
@@ -2562,7 +2584,7 @@ const PresentationView = ({
   const activeStepIdx = stepIdxForLine(steps, activeLineIdx);
   /** The table currently driving the counter (only after a cell click). */
   const tSeriesGroup = activeTableGroup
-    && !activeTableDeleted
+    && activeTablePlaced
     && activeTableObjId === activeTableGroup.objId
     ? activeTableGroup
     : null;
@@ -2575,23 +2597,15 @@ const PresentationView = ({
   useEffect(() => {
     if (!activeTableObjId) return;
     const stillInside = activeTableGroup?.objId === activeTableObjId;
-    if (!stillInside || !expandedTables[activeTableObjId] || hiddenTables.includes(activeTableObjId)) {
+    if (!stillInside || !expandedTables[activeTableObjId] || !placedTables[activeTableObjId]) {
       setActiveTableObjId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableObjId, activeTableGroup?.objId, expandedTables, hiddenTables]);
+  }, [activeTableObjId, activeTableGroup?.objId, expandedTables, placedTables]);
 
-  // A deleted table no longer holds the lesson: step past its member lines.
-  useEffect(() => {
-    if (!activeTableGroup || !activeTableDeleted) return;
-    const last = activeTableGroup.memberLineIdxs[activeTableGroup.memberLineIdxs.length - 1];
-    const after = last + 1;
-    if (after < guidedLines.length) {
-      setActiveLineIdx(after);
-      setFloatingLineIdx(after);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableDeleted, guidedLines.length]);
+  // NOTE: the lesson trunk never skips a table. Its lesson line stays a valid
+  // cursor position whether or not the table is currently on the board.
+
 
   /** Present / Floating chip taps land in the table when it is open. */
   const writeIntoTableCell = useCallback(
@@ -2612,7 +2626,7 @@ const PresentationView = ({
   // advances to the following line. Driven by the HIDDEN validation state:
   // nothing about this is displayed on the board.
   useEffect(() => {
-    if (!activeTableGroup || activeTableDeleted) return;
+    if (!activeTableGroup || !activeTablePlaced) return;
     if (!isLineComplete(activeTableGroup, activeTableEntries, activeLineIdx)) return;
     const next = nextOpenLine(activeTableGroup, activeTableEntries, activeLineIdx);
     if (next !== null && next !== activeLineIdx) {
@@ -2629,7 +2643,7 @@ const PresentationView = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length, activeTableDeleted]);
+  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length, activeTablePlaced]);
 
 
   // NOTE GATE — one uniform live rule for every line, no special cases:
@@ -5238,13 +5252,15 @@ const PresentationView = ({
               row underneath down by its own height (so it never covers other
               lesson content). Internally it still drives its own Floating
               Number lines, Present, orientation and assessment. */}
-          {activeTableGroup && !activeTableDeleted && (() => {
-            const anchorLine = groupAnchor(activeTableGroup);
-            const owned = findBoardRowForLine(anchorLine);
-            const anchorRow = owned ?? (activeLayout
-              ? clampToActiveBand(bandStart(activeLayout) + anchorLine)
-              : anchorLine);
+          {activeTableGroup && activeTablePlacement && (() => {
+            // The table sits where the TEACHER placed it (the cursor row at
+            // the moment its Floating Number icon was tapped), not wherever
+            // the lesson line happens to fall.
+            const anchorRow = activeLayout
+              ? clampToActiveBand(activeTablePlacement.row)
+              : activeTablePlacement.row;
             const objId = activeTableGroup.objId;
+
             return (
               <div
                 data-sb-table-line
@@ -5286,35 +5302,10 @@ const PresentationView = ({
             );
           })()}
 
-          {/* Removed from view — nothing was deleted. One click brings the
-              same table back with every entry, formula and heading intact. */}
-          {activeTableGroup && activeTableDeleted && isTeacher && (() => {
-            const anchorLine = groupAnchor(activeTableGroup);
-            const owned = findBoardRowForLine(anchorLine);
-            const anchorRow = owned ?? (activeLayout
-              ? clampToActiveBand(bandStart(activeLayout) + anchorLine)
-              : anchorLine);
-            const objId = activeTableGroup.objId;
-            return (
-              <div
-                style={{
-                  position: "absolute",
-                  top: rowTopPx(anchorRow),
-                  left: grid.MARGIN_LEFT,
-                  zIndex: 26,
-                }}
-              >
-                <button
-                  onClick={() => showTableObject(objId)}
-                  className="text-[12px] px-2 py-0.5 rounded border"
-                  style={{ color: palette.ink, borderColor: `${palette.ink}55` }}
-                  title="Show this table again — nothing was deleted"
-                >
-                  ▶ {activeTableGroup.label} (hidden)
-                </button>
-              </div>
-            );
-          })()}
+          {/* Not on the board? Nothing is drawn here. The table is a permanent
+              lesson line: its Floating Number icon stays in the panel and the
+              teacher places it at the cursor whenever they want it. */}
+
 
 
           {/* Invisible-grid free-writing overlay. Filtered to lines that
@@ -5662,6 +5653,20 @@ const PresentationView = ({
                   lineNumber={hasGuidedLines ? counterNumber : undefined}
                   lineCount={hasGuidedLines ? counterTotal : undefined}
                   lineLabel={counterLabel}
+                  /* This lesson line IS a table: one table-icon chip instead
+                     of equation fragments. Once a cell is clicked the T-series
+                     takes over and the ordinary chips return so the teacher can
+                     write into cells. */
+                  tableChip={
+                    activeTableGroup && tCount === 0
+                      ? {
+                          objId: activeTableGroup.objId,
+                          label: activeTableGroup.label,
+                          placed: !!activeTablePlacement,
+                        }
+                      : null
+                  }
+                  onPlaceTable={placeTableAtCursor}
                   onPrevLine={goPrev}
                   onNextLine={goNext}
                   notebookText={revealNotebookText}

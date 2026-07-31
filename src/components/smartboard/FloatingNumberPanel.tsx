@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSmartboardRoot } from "./SmartboardRoot";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Table as TableIcon } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
@@ -202,6 +202,12 @@ interface Props {
    *  Notebook icon pulses to draw the teacher's eye. */
   notebookPending?: boolean;
   placeholderColor?: string;
+  /** Set when the active lesson line IS a Smart Table. The strip then shows a
+   *  single table-icon chip instead of equation fragments. */
+  tableChip?: { objId: string; label: string; placed: boolean } | null;
+  /** Places (or re-places) the table on the board at the teacher's cursor. */
+  onPlaceTable?: (objId: string) => void;
+
 }
 
 export const FloatingNumberPanel = ({
@@ -218,6 +224,9 @@ export const FloatingNumberPanel = ({
   frozen = false,
   notebookPending = false,
   placeholderColor,
+  tableChip = null,
+  onPlaceTable,
+
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const [offset, setOffset] = useState<number>(0);
@@ -693,7 +702,39 @@ export const FloatingNumberPanel = ({
           >
             <ChevronLeft size={22} />
           </button>
-          {windowSlots.length === 0 ? (
+          {tableChip ? (
+            /* This lesson line IS a Smart Table. It shows one chip — the
+               table icon — instead of equation fragments. Tapping it places
+               the table on the board at the teacher's cursor. The table is
+               permanent: removing it from the board never removes this chip. */
+            <button
+              onClick={(e) => { e.stopPropagation(); onPlaceTable?.(tableChip.objId); onPing(); }}
+              className="transition-transform hover:scale-110 active:scale-95"
+              title={tableChip.placed
+                ? `${tableChip.label} — on board. Tap to place it again at the cursor.`
+                : `${tableChip.label} — tap to place it on the board at your cursor`}
+              aria-label={`${tableChip.label} — tap to place on board`}
+              style={{
+                background: tableChip.placed ? "#d1fae5" : "transparent",
+                border: tableChip.placed ? "1px solid #6ee7b7" : "1px solid rgba(0,0,0,0.12)",
+                borderRadius: 8,
+                padding: "2px 8px",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                color: tableChip.placed ? "#065f46" : "#111827",
+                fontFamily: "ui-sans-serif, system-ui",
+                fontSize: 15,
+              }}
+            >
+              <TableIcon size={20} />
+              <span style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {tableChip.label}
+              </span>
+            </button>
+          ) : windowSlots.length === 0 ? (
+
             <span style={{ opacity: 0.5, fontSize: 13, color: "#374151" }}>
               no floating numbers
             </span>
