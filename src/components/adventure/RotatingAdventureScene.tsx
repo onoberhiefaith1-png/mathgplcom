@@ -3,13 +3,9 @@ import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/
 import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
-import algebraIsland from "@/assets/adventure/algebra-island.png.asset.json";
-import calculusIsland from "@/assets/adventure/calculus-island.png.asset.json";
-import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
-import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
-import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
-import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
-import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
+import SignedMedia from "@/components/gamebuilder/SignedMedia";
+import { CORE_SLOTS, RING_SLOTS } from "@/lib/homepage/buildingSlots";
+import { useHomepageConfig, useResolvedSlotUrls } from "@/lib/homepage/homepageConfig";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
@@ -18,16 +14,11 @@ import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json
 // Subjects are the primary destinations; MathGPL hubs fill the remaining
 // positions and act as transition/branding hubs between subjects.
 //   Algebra → MathGPL → Geometry → MathGPL → Trigonometry → MathGPL → Statistics → Calculus
-const academies = [
-  { slug: "algebra", image: algebraIsland.url, route: "/subjects/algebra" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "geometry", image: geometryIsland.url, route: "/subjects/geometry" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "trigonometry", image: trigonometryIsland.url, route: "/subjects/trigonometry" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "statistics", image: statisticsIsland.url, route: "/subjects/statistics" },
-  { slug: "calculus", image: calculusIsland.url, route: "/subjects/calculus" },
-];
+const academies = RING_SLOTS.map((slot) => ({
+  slug: slot.id,
+  image: slot.defaultUrl,
+  route: slot.route ?? "/teaching-hub",
+}));
 
 const SEGMENTS = academies.length; // 8
 const SEG_ANGLE = (Math.PI * 2) / SEGMENTS; // 45° per curved slice
@@ -123,18 +114,13 @@ const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number
   );
 };
 
-const CentralCore = () => {
-  const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  return (
-    <group position={[0, CORE_Y_OFFSET, 0]}>
-      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
-        <CoreSegment key={i} index={i} texture={texture} />
-      ))}
-    </group>
-  );
-};
+const CentralCore = ({ textures }: { textures: THREE.Texture[] }) => (
+  <group position={[0, CORE_Y_OFFSET, 0]}>
+    {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
+      <CoreSegment key={i} index={i} texture={textures[i % textures.length]} />
+    ))}
+  </group>
+);
 
 const FloatingParticles = ({ color, size, count, spread }: { color: string; size: number; count: number; spread: number }) => {
   const pointsRef = useRef<THREE.Points>(null);
@@ -164,7 +150,7 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   );
 };
 
-const Showcase = () => {
+const Showcase = ({ ringUrls, coreUrls }: { ringUrls: string[]; coreUrls: string[] }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
@@ -172,8 +158,11 @@ const Showcase = () => {
   const navigate = useNavigate();
   const { camera } = useThree();
 
-  // Six unique textures; the three MathGPL hubs reuse the palace texture.
-  const uniqueUrls = useMemo(() => Array.from(new Set(academies.map((a) => a.image))), []);
+  // Artwork per slot; repeated urls (the MathGPL hubs, the dome copies) load once.
+  const uniqueUrls = useMemo(
+    () => Array.from(new Set([...ringUrls, ...coreUrls])),
+    [ringUrls, coreUrls],
+  );
   const loaded = useLoader(THREE.TextureLoader, uniqueUrls) as THREE.Texture[];
   const textureByUrl = useMemo(() => {
     const map = new Map<string, THREE.Texture>();
@@ -185,6 +174,10 @@ const Showcase = () => {
     });
     return map;
   }, [uniqueUrls, loaded]);
+  const coreTextures = useMemo(
+    () => coreUrls.map((u) => textureByUrl.get(u)!).filter(Boolean),
+    [coreUrls, textureByUrl],
+  );
 
   useFrame((state, delta) => {
     if (!worldRef.current) return;
@@ -239,12 +232,12 @@ const Showcase = () => {
 
       <group ref={worldRef}>
         {/* Inner royal palace core — locked to the same group so it rotates with the city. */}
-        <CentralCore />
+        <CentralCore textures={coreTextures} />
         {academies.map((academy, i) => (
           <WorldSegment
             key={i}
             index={i}
-            texture={textureByUrl.get(academy.image)!}
+            texture={textureByUrl.get(ringUrls[i] ?? academy.image)!}
             interactive
             onActivate={handleActivate}
             onHoverChange={(h) => (hoveredRef.current = h)}
@@ -257,10 +250,78 @@ const Showcase = () => {
   );
 };
 
+/** Layer behind the building: shipped clouds, or the account's own image/video. */
+const HomepageBackground = ({
+  background,
+}: {
+  background: ReturnType<typeof useHomepageConfig>["config"]["background"];
+}) => {
+  if (!background?.path) {
+    return (
+      <img
+        src={adventureClouds.url}
+        alt="Sunset clouds over mountains with sacred geometry"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+        loading="eager"
+      />
+    );
+  }
+  return (
+    <SignedMedia
+      path={background.path}
+      source={background.source}
+      mediaType={background.mediaType}
+      fit="cover"
+      loop
+      muted
+      className="pointer-events-none absolute inset-0 h-full w-full"
+    />
+  );
+};
+
+/** A whole replacement building: one image or one looping video. */
+const CustomBuilding = ({
+  element,
+}: {
+  element: NonNullable<ReturnType<typeof useHomepageConfig>["config"]["customBuilding"]>;
+}) => (
+  <div
+    className="pointer-events-none absolute"
+    style={{
+      left: `${element.x * 100}%`,
+      top: `${element.y * 100}%`,
+      width: `${element.scale * 100}%`,
+      transform: `translate(-50%, -50%) rotate(${element.rotation}deg)`,
+      opacity: element.opacity,
+    }}
+  >
+    <SignedMedia
+      path={element.storagePath}
+      source={element.source}
+      mediaType={element.mediaType}
+      fit="contain"
+      className="h-auto w-full"
+    />
+  </div>
+);
+
 export const RotatingAdventureScene = () => {
   // Recover from "Web page caused context loss and was blocked" by remounting
   // the Canvas with a fresh key when the browser drops the WebGL context.
   const [ctxKey, setCtxKey] = useState(0);
+  const { config } = useHomepageConfig();
+  const slotUrls = useResolvedSlotUrls(config.slotOverrides);
+
+  const ringUrls = useMemo(
+    () => RING_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
+    [slotUrls],
+  );
+  const coreUrls = useMemo(
+    () => CORE_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
+    [slotUrls],
+  );
+
+  const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
 
   useEffect(() => {
     const onLost = () => setCtxKey((k) => k + 1);
@@ -270,30 +331,29 @@ export const RotatingAdventureScene = () => {
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
-      <img
-        src={adventureClouds.url}
-        alt="Sunset clouds over mountains with sacred geometry"
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
-        loading="eager"
-      />
-      <Canvas
-        key={ctxKey}
-        camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
-        dpr={[1, 1.5]}
-        gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
-        onCreated={({ gl }) => {
-          const canvas = gl.domElement;
-          const handleLost = (e: Event) => {
-            e.preventDefault();
-            setCtxKey((k) => k + 1);
-          };
-          canvas.addEventListener("webglcontextlost", handleLost as EventListener);
-        }}
-      >
-        <Suspense fallback={null}>
-          <Showcase />
-        </Suspense>
-      </Canvas>
+      <HomepageBackground background={config.background} />
+      {usingCustom ? (
+        <CustomBuilding element={config.customBuilding!} />
+      ) : (
+        <Canvas
+          key={`${ctxKey}-${ringUrls.join("|")}-${coreUrls.join("|")}`}
+          camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
+          dpr={[1, 1.5]}
+          gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
+          onCreated={({ gl }) => {
+            const canvas = gl.domElement;
+            const handleLost = (e: Event) => {
+              e.preventDefault();
+              setCtxKey((k) => k + 1);
+            };
+            canvas.addEventListener("webglcontextlost", handleLost as EventListener);
+          }}
+        >
+          <Suspense fallback={null}>
+            <Showcase ringUrls={ringUrls} coreUrls={coreUrls} />
+          </Suspense>
+        </Canvas>
+      )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
     </main>
   );
