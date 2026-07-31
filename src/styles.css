@@ -838,3 +838,9 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
   .report-bar-grow { animation: none; }
   .report-bar-grow:hover { transform: none; }
 }
+
+/* Inline math selection: a highlighted range behaves like selected text. */
+.math-inline-selected {
+  background: hsl(var(--primary) / 0.22);
+  border-radius: 2px;
+}

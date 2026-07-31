@@ -12,12 +12,11 @@
 import { Node, mergeAttributes, InputRule } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import type { Row } from "@/lib/smartboard/mathTree";
 import { MathInlineCanvas } from "./MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
-import { renderMathInline } from "@/lib/notebook/mathRender";
 
 function parseTree(attrs: Record<string, unknown>): Row {
   const t = attrs.tree;
@@ -67,8 +66,6 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
   // exactly where the teacher clicked on the rendered expression.
   const [entryPoint, setEntryPoint] = useState<{ x: number; y: number } | null>(null);
 
-  const dragStart = useRef<{ x: number; y: number } | null>(null);
-
   useEffect(() => {
     if (node.attrs.autoEdit) {
       updateAttributes({ autoEdit: false });
@@ -96,75 +93,37 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
   };
 
   const empty = useMemo(() => root.length === 0, [root]);
-  // Display source: always the freshly serialised tree so what is shown after
-  // an edit is the validated form, never a stale attribute.
-  const value = useMemo(() => {
-    try {
-      const back = treeToLatex(root);
-      if (back.trim()) return back;
-    } catch { /* fall through to the stored value */ }
-    return String(node.attrs.value ?? "");
-  }, [root, node.attrs.value]);
-
-  // SINGLE LAYOUT ENGINE: everything that is merely *displayed* goes through
-  // `renderMathInline` — the exact renderer the AI Edit preview uses. The
-  // tree canvas is an editing surface only, shown while the teacher is
-  // actually inside the object. This guarantees identical spacing,
-  // alignment, baselines and typography across AI Edit, the note body and
-  // Present mode.
-  if (!focused) {
-    return (
-      <NodeViewWrapper
-        as="span"
-        className={`inline-block align-baseline math-inline-node${selected ? " math-inline-node--selected" : ""}`}
-        contentEditable={false}
-      >
-        <span
-          className="cursor-text math-inline-display math-inline-selectable"
-          onMouseDown={(e) => {
-            // Left-drag over the expression must highlight text, so only a
-            // plain click (no drag, no existing selection) opens the editor.
-            dragStart.current = { x: e.clientX, y: e.clientY };
-          }}
-          onMouseUp={(e) => {
-            const start = dragStart.current;
-            dragStart.current = null;
-            const moved = start
-              ? Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > 3
-              : false;
-            const sel = window.getSelection();
-            const hasSelection = Boolean(sel && !sel.isCollapsed && sel.toString().trim());
-            if (moved || hasSelection) return;
-            setEntryPoint({ x: e.clientX, y: e.clientY });
-            setFocused(true);
-          }}
-          onDoubleClick={(e) => {
-            setEntryPoint({ x: e.clientX, y: e.clientY });
-            setFocused(true);
-          }}
-        >
-          {empty
-            ? <span className="opacity-40 text-xs px-1">[math]</span>
-            : renderMathInline(latexToFriendlyForTree(value), "mi")}
-        </span>
-      </NodeViewWrapper>
-    );
-  }
-
+  // ONE ENGINE: the tree canvas is both the display and the editing
+  // surface, so what you see is literally what you edit — every gap is a
+  // real character, the caret can go anywhere, and nothing is a picture.
   return (
-    <NodeViewWrapper as="span" className="inline-block align-baseline" contentEditable={false}>
-      <MathInlineCanvas
-        entryPoint={entryPoint}
-        root={root}
-        onChange={commit}
-        onBlur={handleBlur}
-        focused={focused}
-        onFocus={() => setFocused(true)}
-      />
+    <NodeViewWrapper
+      as="span"
+      className={`inline-block align-baseline math-inline-node${selected ? " math-inline-node--selected" : ""}`}
+      contentEditable={false}
+    >
+      {empty && !focused ? (
+        <span
+          className="cursor-text opacity-40 text-xs px-1"
+          onMouseDown={(e) => { setEntryPoint({ x: e.clientX, y: e.clientY }); setFocused(true); }}
+        >
+          [math]
+        </span>
+      ) : (
+        <MathInlineCanvas
+          entryPoint={entryPoint}
+          root={root}
+          onChange={commit}
+          onBlur={handleBlur}
+          focused={focused}
+          onFocus={() => setFocused(true)}
+        />
+      )}
     </NodeViewWrapper>
   );
 
 }
+
 
 export const MathInline = Node.create({
   name: "mathInline",
