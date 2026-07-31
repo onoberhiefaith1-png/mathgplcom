@@ -89,15 +89,21 @@ const TableActivityStage = ({
   );
 
   // Report the object's real height so rows below travel down / back up.
+  // The callback is held in a ref: parents pass an inline arrow, and using it
+  // directly as an effect dep re-subscribes every render → measure → setState
+  // → render loop ("Maximum update depth exceeded").
+  const measureRef = useRef(onMeasure);
+  measureRef.current = onMeasure;
   useEffect(() => {
     const el = hostRef.current;
-    if (!el || !onMeasure) return;
-    const report = () => onMeasure(el.getBoundingClientRect().height);
+    if (!el) return;
+    const report = () => measureRef.current?.(el.getBoundingClientRect().height);
     report();
     const ro = new ResizeObserver(report);
     ro.observe(el);
-    return () => { ro.disconnect(); onMeasure(0); };
-  }, [onMeasure, open]);
+    return () => { ro.disconnect(); measureRef.current?.(0); };
+  }, [open]);
+
 
   // Keep the caret where the board's sensor is.
   useEffect(() => {
@@ -167,6 +173,20 @@ const TableActivityStage = ({
     return out;
   }, [grid.rows, grid.cols, group]);
 
+  // Editable cells in reading order — the address book the StructureStage
+  // uses to turn "caret is in this field" into "activate this line".
+  const structureEditableKeys = useMemo(() => {
+    const out: string[] = [];
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        const k = cellKey(r, c);
+        if (!isRetained(group, k)) out.push(k);
+      }
+    }
+    return out;
+  }, [grid.rows, grid.cols, group]);
+
+
   const toolbarBtn = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] hover:bg-black/10";
 
   return (
@@ -200,8 +220,11 @@ const TableActivityStage = ({
             cells={structureCells}
             editable={!!editable}
             lockedKeys={lockedKeys}
-            onCellChange={(k, v) => { onEntry(k, v); onSensorCell(k); }}
+            editableKeys={structureEditableKeys}
+            onCellFocus={focusCell}
+            onCellChange={(k, v) => { onEntry(k, v); focusCell(k); }}
           />
+
         </div>
       )}
 

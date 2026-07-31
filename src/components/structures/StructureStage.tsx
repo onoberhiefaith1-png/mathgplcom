@@ -13,7 +13,7 @@
 // back into the asset's own attribute shape before rendering, so what the
 // student sees is byte-for-byte the layout the teacher created.
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { LongDivision } from "@/components/lessonnotes/extensions/visuals/arithmetic/LongDivision";
 import { DivisionLadder } from "@/components/lessonnotes/extensions/visuals/arithmetic/DivisionLadder";
 import { BaseConversion } from "@/components/lessonnotes/extensions/visuals/arithmetic/BaseConversion";
@@ -48,6 +48,14 @@ interface Props {
   lockedKeys?: string[];
   /** Fired once per changed editable cell. */
   onCellChange?: (key: string, value: string) => void;
+  /**
+   * Editable `r:c` keys in reading order. Used to map the caret's position
+   * inside the asset to a cell address, so putting the sensor in a cell
+   * activates the floating numbers that belong to that row/column.
+   */
+  editableKeys?: string[];
+  /** Fired when the caret lands inside an editable cell of the structure. */
+  onCellFocus?: (key: string) => void;
 }
 
 export function StructureStage({
@@ -57,14 +65,50 @@ export function StructureStage({
   editable = false,
   lockedKeys = [],
   onCellChange,
+  editableKeys = [],
+  onCellFocus,
 }: Props) {
   const Asset = ASSETS[structureId];
+  const hostRef = useRef<HTMLDivElement | null>(null);
 
   // Static layer + current values, expressed in the asset's own shape.
   const attrs = useMemo(
     () => attrsWithGrid(structureId, structureAttrs ?? {}, cells ?? []),
     [structureId, structureAttrs, cells],
   );
+
+  // Caret → cell address. The asset owns its own markup, so the editable
+  // fields are matched to editable cell keys in DOM (reading) order.
+  const focusRef = useRef(onCellFocus);
+  focusRef.current = onCellFocus;
+  const keysRef = useRef(editableKeys);
+  keysRef.current = editableKeys;
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !editable) return;
+    const resolve = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return;
+      const field = target.closest<HTMLElement>(
+        "input, textarea, [contenteditable='true']",
+      );
+      if (!field) return;
+      const fields = Array.from(
+        host.querySelectorAll<HTMLElement>("input, textarea, [contenteditable='true']"),
+      );
+      const idx = fields.indexOf(field);
+      const key = idx >= 0 ? keysRef.current[idx] : undefined;
+      if (key) focusRef.current?.(key);
+    };
+    const onFocusIn = (e: Event) => resolve(e.target);
+    const onPointer = (e: Event) => resolve(e.target);
+    host.addEventListener("focusin", onFocusIn);
+    host.addEventListener("pointerdown", onPointer);
+    return () => {
+      host.removeEventListener("focusin", onFocusIn);
+      host.removeEventListener("pointerdown", onPointer);
+    };
+  }, [editable]);
 
   const handleChange = useCallback(
     (patch: Record<string, unknown>) => {
@@ -97,6 +141,7 @@ export function StructureStage({
 
   return (
     <div
+      ref={hostRef}
       className="not-prose inline-block"
       style={editable ? undefined : { pointerEvents: "none", opacity: 0.98 }}
     >
@@ -104,3 +149,4 @@ export function StructureStage({
     </div>
   );
 }
+
