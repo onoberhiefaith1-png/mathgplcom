@@ -3,7 +3,7 @@
 // the teacher advances through with Next/Prev. The Smartboard never renders
 // giant section headings — only the per-beat content.
 
-import type { SectionRow, SectionKind, BlockRow, NotebookRow } from "@/hooks/useNotebook";
+import type { SectionRow, SectionKind, BlockRow, SubsectionRow, NotebookRow } from "@/hooks/useNotebook";
 import type { ContainerKind } from "./floatingPlan";
 import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
@@ -69,6 +69,24 @@ const NUMBERED: SectionKind[] = ["example", "exercise", "classwork", "homework"]
 
 const findBlock = (blocks: BlockRow[], kind: string) =>
   blocks.find((b) => b.kind === kind);
+
+/** True when a numbered subsection carries teachable content even though its
+ *  question block has no typed text — i.e. the question is an OBJECT (Smart
+ *  Table, long division, ladder, base conversion, place-value chart) or the
+ *  Lesson Note already produced floating content / a solution for it. */
+const subsectionHasContent = (sub: SubsectionRow): boolean => {
+  const bucket = (sub as any).floating_bucket as
+    | { viewCombined?: string[]; fillers?: string[] } | null | undefined;
+  if ((bucket?.viewCombined?.length ?? 0) > 0) return true;
+  if ((bucket?.fillers?.length ?? 0) > 0) return true;
+  const lines = (sub as any).floating_lines as any[] | null | undefined;
+  if ((lines?.length ?? 0) > 0) return true;
+  const highlights = (sub as any).floating_highlights as any[] | null | undefined;
+  if ((highlights?.length ?? 0) > 0) return true;
+  return sub.blocks.some(
+    (b) => b.kind !== "problem" && String(b.content_ascii ?? "").trim().length > 0,
+  );
+};
 
 const cleanFragments = (items: string[] | undefined | null): string[] =>
   (items ?? [])
@@ -240,7 +258,11 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
 
         const problemBlock = findBlock(sub.blocks, "problem");
         const problem = problemBlock?.content_ascii?.trim() ?? "";
-        if (!problem) continue;
+        // ASSET-ONLY QUESTIONS. A question can be drawn entirely as an object
+        // (base conversion / place-value / long division / table) with no
+        // typed text. It is still a question, so it still becomes a beat —
+        // otherwise Next would dead-end on the previous example.
+        if (!problem && !subsectionHasContent(sub)) continue;
 
         // Pull pre-decomposed floating fragments from the Lesson Note bucket
         // if available, so the Smartboard COMPOSES the equation rather than
@@ -295,7 +317,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       const n = counters[sec.kind];
       const caption = `${sec.kind[0].toUpperCase()}${sec.kind.slice(1)} ${n}`;
       const problemBlock = findBlock(sub.blocks, "problem");
-      if (!problemBlock?.content_ascii?.trim()) continue;
+      if (!problemBlock?.content_ascii?.trim() && !subsectionHasContent(sub)) continue;
       const bucket = (sub as any).floating_bucket as
         | { viewCombined?: string[]; viewRearranged?: string[]; fillers?: string[] }
         | null
