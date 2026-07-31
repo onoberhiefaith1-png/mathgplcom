@@ -181,6 +181,8 @@ interface Props {
   /** 1-based current floating-line for the per-beat line navigator. */
   lineNumber?: number;
   lineCount?: number;
+  /** Overrides the counter text (e.g. "T2" while a Smart Table is active). */
+  lineLabel?: string;
   onPrevLine?: () => void;
   onNextLine?: () => void;
   /** The current line's teaching note, read through the single note
