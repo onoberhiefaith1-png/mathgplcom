@@ -159,6 +159,27 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         <h1 className="mt-2 text-center text-2xl font-semibold">{config.title}</h1>
         <p className="mt-1 text-center text-xs text-muted-foreground">{config.blurb}</p>
 
+        {/* Login as — pick the account type first, then enter credentials. */}
+        <div className="mt-5">
+          <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Login as</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(["school", "teacher", "parent", "student"] as AuthRoleKey[]).map((k) => (
+              <Link
+                key={k}
+                to={`/auth/${k}`}
+                className={`rounded-full px-3 py-1 text-xs transition ${
+                  k === roleKey
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {AUTH_ROLES[k].title.replace(" Account", "")}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+
         <form className="mt-6 space-y-3" onSubmit={submit}>
           {mode === "signup" && (
             <>
