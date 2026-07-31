@@ -206,8 +206,11 @@ const TableActivityStage = ({
             cells={structureCells}
             editable={!!editable}
             lockedKeys={lockedKeys}
-            onCellChange={(k, v) => { onEntry(k, v); onSensorCell(k); }}
+            editableKeys={structureEditableKeys}
+            onCellFocus={focusCell}
+            onCellChange={(k, v) => { onEntry(k, v); focusCell(k); }}
           />
+
         </div>
       )}
 
