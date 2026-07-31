@@ -3747,6 +3747,10 @@ const PresentationView = ({
       activeRow: reasoningRef.current.rowFor(activeLineIdx),
       attempt: reasoningRef.current.attemptFor(activeLineIdx),
       introducedTerms: introducedTermsOf(activeAscii, activeTokens),
+      // Hidden Smart Table validation — the board shows nothing; the
+      // Reasoning engine decides what (if anything) to say about it.
+      table: tableValidationRef.current,
+
     };
 
   }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx]);
