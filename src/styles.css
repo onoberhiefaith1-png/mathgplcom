@@ -364,10 +364,19 @@
 .lesson-doc ul li { list-style: disc; }
 .lesson-doc ol li { list-style: decimal; }
 .lesson-doc ::selection { background: hsl(48 90% 75% / 0.55); }
+/* ONE mathematical typography standard.
+   AI Edit, the lesson-note body, Present mode and export all inherit these
+   tokens — no surface may override math metrics locally. */
+:root {
+  --math-line-height: 1.15;
+  --math-inner-line-height: 1.05;
+  --math-symbol-gap: 0.12em;
+}
 .lesson-doc [data-math-inline],
-.lesson-doc [data-math-block] {
+.lesson-doc [data-math-block],
+.math-inline-display {
   vertical-align: baseline;
-  line-height: 1.05;
+  line-height: var(--math-line-height);
 }
 .lesson-doc [data-math-block] {
   display: block;
@@ -375,9 +384,11 @@
   margin-top: 0;
   margin-bottom: 0;
 }
-.lesson-doc [data-math-inline] * {
-  line-height: 1;
+.lesson-doc [data-math-inline] *,
+.math-inline-display * {
+  line-height: var(--math-inner-line-height);
 }
+
 .lesson-doc .ProseMirror-selectednode[data-geometry-diagram],
 .lesson-doc .ProseMirror-selectednode[data-geometry-diagram-node],
 .lesson-doc .ProseMirror-selectednode [data-geometry-diagram-wrapper],
