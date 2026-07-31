@@ -30,20 +30,8 @@ function parseTree(attrs: Record<string, unknown>): Row {
   return tree;
 }
 
-/** True when the tree parser cannot faithfully represent `value`. Such a node
- *  must NOT be painted from the tree — it would leak backslash text. It is
- *  displayed through the classroom renderer instead (the same pipeline the AI
- *  Edit preview uses) until the teacher clicks in to edit. */
-function isLossy(value: string): boolean {
-  const src = latexToFriendlyForTree(value);
-  if (!src.trim()) return false;
-  try {
-    const norm = (s: string) => s.replace(/\s+/g, "");
-    return norm(treeToLatex(latexToTree(src))) !== norm(src);
-  } catch {
-    return true;
-  }
-}
+
+
 
 /** Structure check: the parser must be lossless. If re-serialising the tree
  *  does not reproduce the stored value, the parse dropped or mangled math
@@ -102,23 +90,35 @@ function MathInlineView({ node, updateAttributes, editor, getPos }: NodeViewProp
   };
 
   const empty = useMemo(() => root.length === 0, [root]);
-  const value = String(node.attrs.value ?? "");
-  const lossy = useMemo(() => !node.attrs.tree && isLossy(value), [node.attrs.tree, value]);
+  // Display source: always the freshly serialised tree so what is shown after
+  // an edit is the validated form, never a stale attribute.
+  const value = useMemo(() => {
+    try {
+      const back = treeToLatex(root);
+      if (back.trim()) return back;
+    } catch { /* fall through to the stored value */ }
+    return String(node.attrs.value ?? "");
+  }, [root, node.attrs.value]);
 
-  // Display gate: an expression the tree cannot represent is shown with the
-  // classroom renderer (identical to the AI Edit preview) rather than as raw
-  // markup. Clicking it still opens the editable canvas.
-  if (lossy && !focused) {
+  // SINGLE LAYOUT ENGINE: everything that is merely *displayed* goes through
+  // `renderMathInline` — the exact renderer the AI Edit preview uses. The
+  // tree canvas is an editing surface only, shown while the teacher is
+  // actually inside the object. This guarantees identical spacing,
+  // alignment, baselines and typography across AI Edit, the note body and
+  // Present mode.
+  if (!focused) {
     return (
       <NodeViewWrapper as="span" className="inline-block align-baseline" contentEditable={false}>
         <span
           role="button"
           tabIndex={0}
-          className="cursor-text"
+          className="cursor-text math-inline-display"
           onClick={() => setFocused(true)}
           onFocus={() => setFocused(true)}
         >
-          {renderMathInline(latexToFriendlyForTree(value), "mi")}
+          {empty
+            ? <span className="opacity-40 text-xs px-1">[math]</span>
+            : renderMathInline(latexToFriendlyForTree(value), "mi")}
         </span>
       </NodeViewWrapper>
     );
@@ -133,11 +133,9 @@ function MathInlineView({ node, updateAttributes, editor, getPos }: NodeViewProp
         focused={focused}
         onFocus={() => setFocused(true)}
       />
-      {empty && !focused && (
-        <span className="opacity-40 text-xs px-1">[math]</span>
-      )}
     </NodeViewWrapper>
   );
+
 }
 
 export const MathInline = Node.create({
