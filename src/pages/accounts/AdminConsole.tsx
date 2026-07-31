@@ -322,7 +322,15 @@ const AdminConsole = () => {
               <tbody className="text-dash-surface-foreground">
                 {(accounts.data ?? []).map((row) => (
                   <tr key={row.userId} className="border-t border-dash-border/70 transition hover:bg-dash-gold/5">
-                    <td className="py-3 pr-4 font-semibold">{row.name}</td>
+                    <td className="py-3 pr-4 font-semibold">
+                      {row.name}
+                      {row.isMine && (
+                        <span className="ml-2 rounded-full bg-dash-gold/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-dash-navy">
+                          Mine
+                        </span>
+                      )}
+                    </td>
+
                     <td className="py-3 pr-4 text-dash-surface-muted">
                       {row.email ? (
                         <a className="inline-flex items-center gap-1 hover:text-dash-surface-foreground" href={`mailto:${row.email}`}>
