@@ -365,6 +365,14 @@ const FloatingPreparationPage = () => {
   /* ---------- Tokenized rows ---------- */
   const rows = useMemo(() => lines.map((l) => tokenize(l)), [lines]);
 
+  /* ---------- Text + object stream, in document order ---------- */
+  const items = useMemo(() => buildSolutionItems(lines, objects), [lines, objects]);
+  const highlightedObjectIds = useMemo(
+    () => new Set(highlights.filter((h) => h.object).map((h) => h.object!.objId)),
+    [highlights],
+  );
+
+
   const selectedSet = useMemo(() => {
     const s = new Set<string>();
     for (const h of highlights) for (const t of h.tokens) s.add(`${t.line}:${t.tok}`);
