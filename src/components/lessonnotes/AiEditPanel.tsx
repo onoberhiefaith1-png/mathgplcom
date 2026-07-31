@@ -11,9 +11,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Sparkles, Loader2, Mic, X } from "lucide-react";
+import { Sparkles, Loader2, Mic, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { VoiceWave } from "./VoiceWave";
 import {
   EDIT_SUGGESTIONS, SELECTION_KIND_LABELS,
 } from "@/lib/lessonnotes/editSuggestions";
