@@ -113,6 +113,8 @@ interface DigitCellProps {
   value: string;
   row: RowKey;
   col: number;
+  /** Smart Structure address (`r:c`) — used by the board sensor and eraser. */
+  cellKey?: string;
   nCols: number;
   rootRef: React.RefObject<HTMLDivElement | null>;
   onWrite: (col: number, digit: string) => void;
@@ -122,7 +124,7 @@ interface DigitCellProps {
 }
 
 function DigitCell({
-  value, row, col, nCols, rootRef, onWrite, onClear, onAppendCol, onTrimTail,
+  value, row, col, nCols, rootRef, onWrite, onClear, onAppendCol, onTrimTail, cellKey,
 }: DigitCellProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const key = e.key;
@@ -185,6 +187,7 @@ function DigitCell({
       onKeyDown={handleKeyDown}
       data-ld-row={row}
       data-ld-col={col}
+      data-sb-cell={cellKey}
       style={{
         width: COL_W,
         padding: 0,
@@ -367,6 +370,7 @@ export function LongDivision({ attrs, onChange, selected, board }: Props) {
             value={d ?? ""}
             row="quotient"
             col={c}
+            cellKey={`0:${c + 1}`}
             nCols={nCols}
             rootRef={rootRef}
             onWrite={writeQuotient}
@@ -382,6 +386,7 @@ export function LongDivision({ attrs, onChange, selected, board }: Props) {
               value=""
               row="quotient"
               col={c}
+              cellKey={`0:${c + 1}`}
               nCols={nCols}
               rootRef={rootRef}
               onWrite={writeQuotient}
@@ -405,6 +410,7 @@ export function LongDivision({ attrs, onChange, selected, board }: Props) {
           <input
             type="text"
             value={m.divisor}
+            data-sb-cell="1:0"
             placeholder=" "
             onChange={(e) => patch({ divisor: e.target.value })}
             onKeyDown={(e) => {
@@ -469,6 +475,7 @@ export function LongDivision({ attrs, onChange, selected, board }: Props) {
               value={d ?? ""}
               row="dividend"
               col={c}
+              cellKey={`1:${c + 1}`}
               nCols={nCols}
               rootRef={rootRef}
               onWrite={writeDividend}
@@ -512,6 +519,7 @@ export function LongDivision({ attrs, onChange, selected, board }: Props) {
                   value={row[c] ?? ""}
                   row={`work-${i}` as RowKey}
                   col={c}
+                  cellKey={`${i + 2}:${c + 1}`}
                   nCols={nCols}
                   rootRef={rootRef}
                   onWrite={(col, d) => writeRow(i, col, d)}
