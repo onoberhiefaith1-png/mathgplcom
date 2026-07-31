@@ -445,8 +445,9 @@ export function MathInlineCanvas({
 
   return (
     <span
-      className={`inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30" : "cursor-text"}`}
-      style={{ minHeight: "1.2em" }}
+      className={`math-inline-display inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30" : "cursor-text"}`}
+      style={{ minHeight: "1.2em", lineHeight: "var(--math-line-height)" }}
+
       onMouseDown={(e) => {
         e.preventDefault();
         onFocus();
