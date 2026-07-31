@@ -689,6 +689,10 @@ ${STRUCTURAL_STANDARD}
 ${GEOMETRY_STANDARD}
 
 ${CONTINUITY_STANDARD}
+
+${WORKSPACE_STANDARD}
+
+${workspaceManifestBlock(b.workspaceManifest)}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
 Task style for this block: ${styleLine}
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
