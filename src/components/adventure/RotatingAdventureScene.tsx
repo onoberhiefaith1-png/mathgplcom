@@ -114,18 +114,13 @@ const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number
   );
 };
 
-const CentralCore = () => {
-  const texture = useLoader(THREE.TextureLoader, centralDomeCore.url) as THREE.Texture;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  return (
-    <group position={[0, CORE_Y_OFFSET, 0]}>
-      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
-        <CoreSegment key={i} index={i} texture={texture} />
-      ))}
-    </group>
-  );
-};
+const CentralCore = ({ textures }: { textures: THREE.Texture[] }) => (
+  <group position={[0, CORE_Y_OFFSET, 0]}>
+    {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
+      <CoreSegment key={i} index={i} texture={textures[i % textures.length]} />
+    ))}
+  </group>
+);
 
 const FloatingParticles = ({ color, size, count, spread }: { color: string; size: number; count: number; spread: number }) => {
   const pointsRef = useRef<THREE.Points>(null);
