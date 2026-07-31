@@ -5268,6 +5268,9 @@ const PresentationView = ({
                   onOpenChange={(o) =>
                     setExpandedTables((prev) => ({ ...prev, [objId]: o }))}
                   onActivateLine={(k) => {
+                    // Clicking a cell hands the floating numbers to the
+                    // table's own T-series until the teacher leaves it.
+                    setActiveTableObjId(objId);
                     setActiveLineIdx(k);
                     setFloatingLineIdx(k);
                     setManualFloatingLineIdx(k);
@@ -5275,6 +5278,7 @@ const PresentationView = ({
                   onSensorCell={setTableSensorCell}
                   onEntry={(k, v) => setTableEntry(objId, k, v)}
                   onDelete={() => deleteTableObject(activeTableGroup)}
+                  onClear={() => clearTableEntries(activeTableGroup)}
                   onMeasure={(h) =>
                     handleBeatMeasure(`table:${objId}`, anchorRow + 1, grid.LINE_HEIGHT, h)}
                 />
