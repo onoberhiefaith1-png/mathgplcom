@@ -111,7 +111,8 @@ function normalize(a: Record<string, unknown>): SmartTableAttrs {
   return { rows, cols, headers, cells, colWidths, style: normalizeStyle(a.style) };
 }
 
-function cellDisplay(raw: string): string {
+/** Source text a cell shows: `=` cells evaluate, everything else is verbatim. */
+function cellSource(raw: string): string {
   const s = (raw ?? "").trim();
   if (!s) return "";
   if (s.startsWith("=")) {
@@ -120,6 +121,17 @@ function cellDisplay(raw: string): string {
   }
   return raw;
 }
+
+/**
+ * Render a cell through the SAME pipeline AI Edit previews with, so
+ * `x_{i}` / `(x_i - μ)^{2}` appear as real mathematics inside tables.
+ */
+function cellDisplay(raw: string, keyBase: string): React.ReactNode {
+  const src = cellSource(raw);
+  if (!src) return null;
+  return <>{renderMathInline(normalizeMathSource(src), keyBase)}</>;
+}
+
 
 export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const model = useMemo(() => normalize(attrs), [attrs]);
