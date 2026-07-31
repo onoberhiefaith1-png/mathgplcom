@@ -172,6 +172,8 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const patchStyle = (p: Partial<SmartTableStyle>) => patch({ style: { ...style, ...p } });
 
+  const instanceIdRef = useRef(`smartTable-${Math.random().toString(36).slice(2, 9)}`);
+
   // Latest model for callbacks that fire after the panel stole focus.
   const modelRef = useRef(model);
   modelRef.current = model;
@@ -313,29 +315,37 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     if (!isEditing(r, c)) beginEdit(r, c);
   };
 
+  // Structural edits always read the LIVE model (modelRef), never the
+  // render-time closure: the Properties Panel button that triggers them can
+  // outlive the render it was created in, and a stale snapshot would silently
+  // revert other cells.
   const addRow = (at: number) => {
-    const blank = Array.from({ length: cols }, () => "");
-    const next = [...cells]; next.splice(at, 0, blank);
-    patch({ rows: rows + 1, cells: next });
+    const m = modelRef.current;
+    const blank = Array.from({ length: m.cols }, () => "");
+    const next = m.cells.map((row) => [...row]); next.splice(at, 0, blank);
+    patch({ rows: m.rows + 1, cells: next });
   };
   const delRow = (at: number) => {
-    if (rows <= 1) return;
-    patch({ rows: rows - 1, cells: cells.filter((_, i) => i !== at) });
+    const m = modelRef.current;
+    if (m.rows <= 1) return;
+    patch({ rows: m.rows - 1, cells: m.cells.filter((_, i) => i !== at).map((row) => [...row]) });
     if (active?.r === at) cancelEdit();
   };
   const addCol = (at: number) => {
-    const nextHeaders = [...headers]; nextHeaders.splice(at, 0, "");
-    const nextCells = cells.map((row) => { const rr = [...row]; rr.splice(at, 0, ""); return rr; });
-    const nextW = colWidths ? [...colWidths] : undefined; if (nextW) nextW.splice(at, 0, 90);
-    patch({ cols: cols + 1, headers: nextHeaders, cells: nextCells, colWidths: nextW });
+    const m = modelRef.current;
+    const nextHeaders = [...m.headers]; nextHeaders.splice(at, 0, "");
+    const nextCells = m.cells.map((row) => { const rr = [...row]; rr.splice(at, 0, ""); return rr; });
+    const nextW = m.colWidths ? [...m.colWidths] : undefined; if (nextW) nextW.splice(at, 0, 90);
+    patch({ cols: m.cols + 1, headers: nextHeaders, cells: nextCells, colWidths: nextW });
   };
   const delCol = (at: number) => {
-    if (cols <= 1) return;
+    const m = modelRef.current;
+    if (m.cols <= 1) return;
     patch({
-      cols: cols - 1,
-      headers: headers.filter((_, i) => i !== at),
-      cells: cells.map((row) => row.filter((_, i) => i !== at)),
-      colWidths: colWidths ? colWidths.filter((_, i) => i !== at) : undefined,
+      cols: m.cols - 1,
+      headers: m.headers.filter((_, i) => i !== at),
+      cells: m.cells.map((row) => row.filter((_, i) => i !== at)),
+      colWidths: m.colWidths ? m.colWidths.filter((_, i) => i !== at) : undefined,
     });
     if (active?.c === at) cancelEdit();
   };
@@ -345,24 +355,27 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   // grid at that index, and lines can be moved so rows/columns swap.
 
   const duplicateRow = (at: number) => {
-    const copy = [...(cells[at] ?? [])];
-    const next = [...cells]; next.splice(at + 1, 0, copy);
-    patch({ rows: rows + 1, cells: next });
+    const m = modelRef.current;
+    const next = m.cells.map((row) => [...row]);
+    next.splice(at + 1, 0, [...(m.cells[at] ?? Array.from({ length: m.cols }, () => ""))]);
+    patch({ rows: m.rows + 1, cells: next });
   };
 
   const duplicateCol = (at: number) => {
-    const nextHeaders = [...headers]; nextHeaders.splice(at + 1, 0, headers[at] ?? "");
-    const nextCells = cells.map((row) => {
+    const m = modelRef.current;
+    const nextHeaders = [...m.headers]; nextHeaders.splice(at + 1, 0, m.headers[at] ?? "");
+    const nextCells = m.cells.map((row) => {
       const rr = [...row]; rr.splice(at + 1, 0, row[at] ?? ""); return rr;
     });
-    const nextW = colWidths ? [...colWidths] : undefined;
+    const nextW = m.colWidths ? [...m.colWidths] : undefined;
     if (nextW) nextW.splice(at + 1, 0, nextW[at] ?? 90);
-    patch({ cols: cols + 1, headers: nextHeaders, cells: nextCells, colWidths: nextW });
+    patch({ cols: m.cols + 1, headers: nextHeaders, cells: nextCells, colWidths: nextW });
   };
 
   const moveRow = (from: number, to: number) => {
-    if (to < 0 || to >= rows || from === to) return;
-    const next = [...cells];
+    const m = modelRef.current;
+    if (to < 0 || to >= m.rows || from === to) return;
+    const next = m.cells.map((row) => [...row]);
     const [row] = next.splice(from, 1);
     next.splice(to, 0, row);
     patch({ cells: next });
@@ -371,14 +384,15 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   };
 
   const moveCol = (from: number, to: number) => {
-    if (to < 0 || to >= cols || from === to) return;
-    const nextHeaders = [...headers];
+    const m = modelRef.current;
+    if (to < 0 || to >= m.cols || from === to) return;
+    const nextHeaders = [...m.headers];
     const [h] = nextHeaders.splice(from, 1);
     nextHeaders.splice(to, 0, h);
-    const nextCells = cells.map((row) => {
+    const nextCells = m.cells.map((row) => {
       const rr = [...row]; const [v] = rr.splice(from, 1); rr.splice(to, 0, v); return rr;
     });
-    let nextW = colWidths ? [...colWidths] : undefined;
+    const nextW = m.colWidths ? [...m.colWidths] : undefined;
     if (nextW) { const [w] = nextW.splice(from, 1); nextW.splice(to, 0, w); }
     patch({ headers: nextHeaders, cells: nextCells, colWidths: nextW });
     setLine({ kind: "col", index: to });
@@ -413,9 +427,46 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     fontWeight: style.headerBold ? 700 : 400,
   };
 
+  // Anchor for in-place insertion: the highlighted cell, row or column.
+  const anchorRow = softCell ? softCell.r : line?.kind === "row" ? line.index : null;
+  const anchorCol = softCell ? softCell.c : line?.kind === "col" ? line.index : null;
+  const anchorLabel = softCell
+    ? `row ${softCell.r + 1}, column ${softCell.c + 1}`
+    : line
+      ? (line.kind === "row" ? `row ${line.index + 1}` : `column ${line.index + 1}`)
+      : null;
+
+  /** Insert a full empty row below the highlight and keep the highlight on it. */
+  const addRowBelowAnchor = () => {
+    const r = anchorRow ?? rows - 1;
+    addRow(r + 1);
+    if (softCell) setSoftCell({ r: r + 1, c: softCell.c });
+    else setLine({ kind: "row", index: r + 1 });
+  };
+  /** Insert a full empty column to the right of the highlight, top to bottom. */
+  const addColRightAnchor = () => {
+    const c = anchorCol ?? cols - 1;
+    addCol(c + 1);
+    if (softCell) setSoftCell({ r: softCell.r, c: c + 1 });
+    else setLine({ kind: "col", index: c + 1 });
+  };
+
   const editor = (
     <div>
+      <PanelGroup label={anchorLabel ? `Highlighted — ${anchorLabel}` : "Insert inside the table"}>
+        {!anchorLabel && (
+          <p className="px-1 py-1 text-[11px] text-foreground/60">
+            Click a cell (or a row / column handle) to highlight it, then add a row or column inside the table here.
+          </p>
+        )}
+        <PanelRow label="Add">
+          <PanelButton onClick={addRowBelowAnchor}>Row below</PanelButton>
+          <PanelButton onClick={addColRightAnchor}>Column right</PanelButton>
+        </PanelRow>
+      </PanelGroup>
+
       <PanelGroup label={line ? (line.kind === "row" ? `Selected row ${line.index + 1}` : `Selected column ${line.index + 1}`) : "Selected line"}>
+
         {!line && (
           <p className="px-1 py-1 text-[11px] text-foreground/60">
             Click a row or column handle on the table to select a whole line, then insert, move or delete it here.
@@ -533,7 +584,9 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   );
   useRegisterAssetEditor(
     (!!selected && (panelOpen || line !== null || softCell !== null)) || active !== null,
-    "smartTable", "Smart table", editor,
+    // Unique per table instance: a shared id let a second table's
+    // registration hijack the first one's panel slot.
+    instanceIdRef.current, "Smart table", editor,
   );
 
   const rowSelected = (r: number) => line?.kind === "row" && line.index === r;

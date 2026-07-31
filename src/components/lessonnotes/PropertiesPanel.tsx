@@ -10,8 +10,7 @@ import { useAssetSelection } from "@/hooks/useAssetSelection";
 import { ChevronLeft, ChevronRight, Settings2, X } from "lucide-react";
 
 export function PropertiesPanel() {
-  const ctx = useAssetSelection();
-  const reg = ctx?.reg ?? null;
+  const { reg } = useAssetSelection();
   const [expanded, setExpanded] = useState(false);
   const seenRef = useRef<Set<string>>(new Set());
 
