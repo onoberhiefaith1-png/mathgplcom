@@ -13,6 +13,12 @@ import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
 import { sanitizePresentation, residueReport } from "./outputHygiene.ts";
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
+  WORKSPACE_STANDARD,
+  workspaceManifestBlock,
+  workspaceViolations,
+  workspaceCorrection,
+} from "./workspaceStandard.ts";
+import {
   runValidationPipeline,
   firstFailingStage,
   formatViolations,
