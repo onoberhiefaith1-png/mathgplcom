@@ -445,3 +445,158 @@ export const rowHasTallStructure = (row: Row): boolean => {
   }
   return false;
 };
+
+/* ─────────── selection & text-style editing ───────────
+ *
+ * Math must behave like a line of text: select a range, replace it, move
+ * it, cut/paste it, and pull a term OUT of a structure. A selection is a
+ * pair of cursors; it is normalised to a contiguous slice of the deepest
+ * row both cursors share, so a drag that starts in a numerator and ends
+ * in prose-level text selects the whole fraction node.
+ */
+
+export interface MathSelection { anchor: Cursor; focus: Cursor; }
+
+export interface RowRange { path: number[]; start: number; end: number; }
+
+const commonPairs = (a: number[], b: number[]): number => {
+  let p = 0;
+  while (p * 2 + 1 < a.length && p * 2 + 1 < b.length &&
+         a[p * 2] === b[p * 2] && a[p * 2 + 1] === b[p * 2 + 1]) p++;
+  return p;
+};
+
+/** Collapse a two-cursor selection into a slice of one shared row. */
+export const normalizeSelection = (
+  root: Row, sel: MathSelection,
+): RowRange | null => {
+  const { anchor, focus } = sel;
+  const L = commonPairs(anchor.path, focus.path);
+  const path = anchor.path.slice(0, L * 2);
+  const bounds = (c: Cursor): [number, number] =>
+    c.path.length === L * 2 ? [c.index, c.index] : [c.path[L * 2], c.path[L * 2] + 1];
+  const [a0, a1] = bounds(anchor);
+  const [b0, b1] = bounds(focus);
+  const start = Math.min(a0, b0);
+  const end = Math.max(a1, b1);
+  if (end <= start) return null;
+  const row = getRowAt(root, path);
+  return { path, start: Math.max(0, start), end: Math.min(row.length, end) };
+};
+
+export const sliceRange = (root: Row, range: RowRange): Row =>
+  getRowAt(root, range.path).slice(range.start, range.end);
+
+export const deleteRange = (root: Row, range: RowRange): EditResult => {
+  const row = getRowAt(root, range.path);
+  const newRow = [...row.slice(0, range.start), ...row.slice(range.end)];
+  return {
+    root: setRowAt(root, range.path, newRow),
+    cursor: { path: range.path, index: range.start },
+  };
+};
+
+/** Insert a whole fragment (several nodes) at the cursor. */
+export const insertFragment = (
+  root: Row, cursor: Cursor, nodes: Row,
+): EditResult => {
+  if (nodes.length === 0) return { root, cursor };
+  const row = getRowAt(root, cursor.path);
+  const at = Math.max(0, Math.min(cursor.index, row.length));
+  const newRow = [...row.slice(0, at), ...nodes, ...row.slice(at)];
+  return {
+    root: setRowAt(root, cursor.path, newRow),
+    cursor: { path: cursor.path, index: at + nodes.length },
+  };
+};
+
+export const replaceRange = (
+  root: Row, range: RowRange, nodes: Row,
+): EditResult => {
+  const cleared = deleteRange(root, range);
+  return insertFragment(cleared.root, cleared.cursor, nodes);
+};
+
+/** Slide the selected slice one position left/right inside its own row. */
+export const moveRange = (
+  root: Row, range: RowRange, dir: -1 | 1,
+): { root: Row; range: RowRange } => {
+  const row = getRowAt(root, range.path);
+  const slice = row.slice(range.start, range.end);
+  const rest = [...row.slice(0, range.start), ...row.slice(range.end)];
+  const at = dir < 0 ? range.start - 1 : range.start + 1;
+  if (at < 0 || at > rest.length) return { root, range };
+  const newRow = [...rest.slice(0, at), ...slice, ...rest.slice(at)];
+  return {
+    root: setRowAt(root, range.path, newRow),
+    range: { path: range.path, start: at, end: at + slice.length },
+  };
+};
+
+/** Forward delete: remove the node right of the cursor, or step into the
+ *  container that follows so the next Delete removes its first glyph. */
+export const deleteForward = (root: Row, cursor: Cursor): EditResult => {
+  const row = getRowAt(root, cursor.path);
+  if (cursor.index < row.length) {
+    const n = row[cursor.index];
+    if (n.kind !== "char" && subRowsOf(n).some((r) => r.length > 0)) {
+      return { root, cursor: { path: [...cursor.path, cursor.index, 0], index: 0 } };
+    }
+    const newRow = [...row.slice(0, cursor.index), ...row.slice(cursor.index + 1)];
+    return { root: setRowAt(root, cursor.path, newRow), cursor };
+  }
+  if (cursor.path.length === 0) return { root, cursor };
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  return { root, cursor: { path: parentPath, index: nodeIdx + 1 } };
+};
+
+/** PUSH OUT: dissolve the container the cursor currently sits inside and
+ *  splice all of its sub-row contents back into the parent row, in order.
+ *  `x` inside a numerator becomes plain `x` next to its siblings. */
+export const unwrapContainer = (root: Row, cursor: Cursor): EditResult | null => {
+  if (cursor.path.length < 2) return null;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  const parentRow = getRowAt(root, parentPath);
+  const node = parentRow[nodeIdx];
+  if (!node || node.kind === "char") return null;
+  const subs = subRowsOf(node);
+  const flat: Row = [];
+  let caretAt = 0;
+  subs.forEach((r, i) => {
+    if (i === subIdx) caretAt = flat.length + cursor.index;
+    flat.push(...r);
+  });
+  const newParent = [...parentRow.slice(0, nodeIdx), ...flat, ...parentRow.slice(nodeIdx + 1)];
+  return {
+    root: setRowAt(root, parentPath, newParent),
+    cursor: { path: parentPath, index: nodeIdx + caretAt },
+  };
+};
+
+const WORD_BREAK = new Set([" ", "+", "−", "-", "×", "*", "÷", "/", "=", ",", ";"]);
+
+/** Word-wise caret motion inside the current row only. */
+export const moveWord = (root: Row, cursor: Cursor, dir: -1 | 1): Cursor => {
+  const row = getRowAt(root, cursor.path);
+  let i = cursor.index;
+  const isBreak = (n: Node | undefined) => !n || (n.kind === "char" && WORD_BREAK.has(n.ch));
+  if (dir < 0) {
+    while (i > 0 && isBreak(row[i - 1])) i--;
+    while (i > 0 && !isBreak(row[i - 1])) i--;
+  } else {
+    while (i < row.length && isBreak(row[i])) i++;
+    while (i < row.length && !isBreak(row[i])) i++;
+  }
+  return { path: cursor.path, index: i };
+};
+
+export const rowStartCursor = (cursor: Cursor): Cursor => ({ path: cursor.path, index: 0 });
+export const rowEndCursor = (root: Row, cursor: Cursor): Cursor =>
+  ({ path: cursor.path, index: getRowAt(root, cursor.path).length });
+
+export const cursorsEqual = (a: Cursor, b: Cursor): boolean =>
+  a.index === b.index && a.path.length === b.path.length &&
+  a.path.every((v, i) => v === b.path[i]);
