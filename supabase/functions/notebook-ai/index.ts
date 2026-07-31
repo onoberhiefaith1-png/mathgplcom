@@ -740,6 +740,27 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
         kind: validationKind,
       });
 
+      // WORKSPACE GUARD — hand-typed tables / ASCII figures / described graphs
+      // must be re-emitted as real workspace tool directives. One round.
+      {
+        const violations = workspaceViolations(content);
+        if (violations.length) {
+          const retry = await generateValidated({
+            messages: [
+              ...baseMessages,
+              { role: "assistant", content },
+              { role: "user", content: workspaceCorrection(violations) },
+            ],
+            kind: validationKind,
+          });
+          if (workspaceViolations(retry.content).length <= violations.length) {
+            content = retry.content;
+            warnings = retry.warnings;
+          }
+        }
+      }
+
+
       // CONTINUITY GUARD — a newly generated question must not duplicate an
       // example already in the lesson. One corrective round, then accept.
       if (!isSolutionBlock && b.blockKind === "problem" && b.lessonContext?.examples?.length) {
