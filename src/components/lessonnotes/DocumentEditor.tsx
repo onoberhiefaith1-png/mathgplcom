@@ -2023,7 +2023,9 @@ function DocumentEditorInner({
         }}
       />
     </div>
+    </AiEditBridgeProvider>
     </AssetSelectionProvider>
+
   );
 }
 
