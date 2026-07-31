@@ -162,6 +162,24 @@ function moveEmptyPowerToSubscript(view: any): boolean {
   return moveToSlot(view, ctx, 1);
 }
 
+/** A script can never contain another script. When the caret is already in
+ *  the power/subscript branch of a script structure, `#` toggles between the
+ *  two branches instead of wrapping the term in a nested object (the cause of
+ *  the runaway spacing). */
+function hashInsideScript(view: any): boolean {
+  const ctx = slotContext(view.state);
+  if (!ctx) return false;
+  const kind = String(ctx.structNode.attrs.kind || "");
+  if (kind !== "subsup" && kind !== "power" && kind !== "sub") return false;
+  if (ctx.slotIndex < 1) return false; // base slot → normal wrap is fine
+  if (kind === "subsup") {
+    return moveToSlot(view, ctx, ctx.slotIndex === 2 ? 1 : 2);
+  }
+  // power / sub have a single script branch — just swallow the trigger.
+  return true;
+}
+
+
 function termRangeLeftOfSelection(state: any): { from: number; to: number } | null {
   const { $from, empty } = state.selection;
   if (!empty) return null;
@@ -343,6 +361,7 @@ export const MathKeyShortcuts = Extension.create({
             // `#` creates or re-enters editable script branches.
             if (ch === "#" && !event.ctrlKey && !event.metaKey && !event.altKey) {
               if (moveEmptyPowerToSubscript(view) ||
+                  hashInsideScript(view) ||
                   wrapLeftTermInStructure(view, "subsup", 2) ||
                   wrapProseTermInMathNode(view)) {
                 event.preventDefault();

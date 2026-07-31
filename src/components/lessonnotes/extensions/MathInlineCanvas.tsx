@@ -656,12 +656,15 @@ export function MathInlineCanvas({
         const nodeIdx = c.path[c.path.length - 2];
         const subIdx = c.path[c.path.length - 1];
         const holder = getRowAt(base.root, parentPath)[nodeIdx];
-        if (holder && holder.kind === "subsup" && subIdx === 2 &&
-            subRowsOf(holder)[2].length === 0) {
-          setCaret({ path: [...parentPath, nodeIdx, 1], index: 0 }, false);
+        // Already inside a script branch: toggle between power and
+        // subscript. A script never nests inside another script.
+        if (holder && (holder.kind === "subsup" || holder.kind === "power") && subIdx >= 1) {
+          const target = holder.kind === "subsup" ? (subIdx === 2 ? 1 : 2) : 1;
+          setCaret({ path: [...parentPath, nodeIdx, target], index: 0 }, false);
           return;
         }
       }
+
       const row = getRowAt(base.root, c.path);
       const { start, end } = extractWrapTargetLeftOf(row, c.index);
       if (end <= start) { apply(insertChar(base.root, c, "#")); return; }
