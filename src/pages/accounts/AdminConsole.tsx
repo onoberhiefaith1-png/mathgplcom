@@ -23,16 +23,20 @@ import DashboardShell from "@/components/accounts/DashboardShell";
 import StatCard from "@/components/accounts/StatCard";
 import AccountPreviewSheet from "@/components/accounts/AccountPreviewSheet";
 import AddAccountDialog from "@/components/accounts/AddAccountDialog";
+import CredentialEntryDialog, { type CredentialTarget } from "@/components/accounts/CredentialEntryDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { beginImpersonation } from "@/lib/accounts/impersonation";
 import {
   fetchPlatformStats,
   fetchPlatformAccounts,
+  fetchMyAccounts,
+  ensureMyAccounts,
   setAccountStatus,
   deletePlatformAccount,
   enterWorkspace,
 } from "@/lib/accounts/platform.functions";
+
 
 type TabKey = "schools" | "teachers" | "parents" | "students" | "admins";
 
