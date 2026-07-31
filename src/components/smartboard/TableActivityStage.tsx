@@ -200,7 +200,7 @@ const TableActivityStage = ({
                     return (
                       <td
                         key={k}
-                        onClick={() => focusCell(k)}
+                        onClick={() => { if (!structural) focusCell(k); }}
                         className="p-0 text-center tabular-nums"
                         style={{
                           border: isSensor
