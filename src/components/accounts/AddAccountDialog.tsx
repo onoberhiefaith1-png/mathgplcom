@@ -28,8 +28,23 @@ const AddAccountDialog = ({ onClose, onCreated }: { onClose: () => void; onCreat
   const submit = async () => {
     setBusy(true);
     try {
-      await create({ data: { role, name: name || undefined, organisation: organisation || undefined, email, password } });
-      toast({ title: "Account created", description: email });
+      const res = await create({
+        data: { role, name: name || undefined, organisation: organisation || undefined, email, password },
+      });
+      if (!res?.ok) {
+        toast({
+          title: "Could not create account",
+          description: res?.message ?? "Please check the details and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: res.existing ? "Existing account updated" : "Account created",
+        description: res.existing
+          ? `${email} already had an account — the ${role.replace("_", "-")} role was added to it.`
+          : email,
+      });
       onCreated();
       onClose();
     } catch (e) {
@@ -38,6 +53,7 @@ const AddAccountDialog = ({ onClose, onCreated }: { onClose: () => void; onCreat
       setBusy(false);
     }
   };
+
 
   const field = "mt-1 w-full rounded-xl border border-dash-border bg-dash-surface px-3 py-2 text-sm text-dash-surface-foreground outline-hidden focus:border-dash-gold";
   const label = "text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted";
