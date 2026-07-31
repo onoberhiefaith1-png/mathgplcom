@@ -211,7 +211,7 @@ export const FloatingNumberPanel = ({
   leftPx,
   viewportBottomInset = 0,
   onPing, beatId,
-  lineNumber, lineCount, onPrevLine, onNextLine,
+  lineNumber, lineCount, lineLabel, onPrevLine, onNextLine,
   notebookText,
   onWriteNotebookToBoard,
   onNotebookRead,
