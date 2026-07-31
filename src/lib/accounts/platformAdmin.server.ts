@@ -171,14 +171,14 @@ export async function accountDetail(userId: string): Promise<AccountDetail> {
       const { count } = await db
         .from("classes")
         .select("id", { count: "exact", head: true })
-        .in("teacher_id", ids);
+        .in("owner_id", ids);
       classes = count ?? 0;
     }
   } else {
     const { count } = await db
       .from("classes")
       .select("id", { count: "exact", head: true })
-      .eq("teacher_id", userId);
+      .eq("owner_id", userId);
     classes = count ?? 0;
   }
 
