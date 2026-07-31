@@ -596,6 +596,8 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
           notation?: string[];
           sequencePosition?: string;
         };
+        /** Live manifest of workspace tools + Asset Library ids. */
+        workspaceManifest?: string;
       };
 
       /** Render the lesson-so-far into a compact, prompt-friendly block. */
