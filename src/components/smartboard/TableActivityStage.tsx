@@ -1,26 +1,31 @@
-// Table Activity Stage — the interactive Smart Table on the Smartboard.
+// Table Activity Stage — the Smart Table as a FIRST-CLASS Smartboard object.
 //
-// Two states:
-//   • Card    — one lesson step: a compact card naming the table.
-//   • Open    — the table full-size, exactly as the teacher built it.
-//               Retained cells arrive filled and read-only; every other cell
-//               is empty and editable, with the Smart Table calculator
-//               (Enter solves arithmetic) and Σ summation.
+// It is not a dialog, modal, popup or overlay: it is another object on the
+// writing surface, occupying its own lesson line in the lesson flow. Its
+// measured height is reported upward (onMeasure) so every row underneath is
+// pushed down — the table never covers other lesson content.
 //
-// The stage never owns state: the active member line, the sensor cell and the
-// student entries all live on the board, so Floating Numbers, Present and
-// Assessment stay in lock-step with the table.
+// Two display states:
+//   • Collapsed — "▶ <label>" only, one lesson line tall.
+//   • Expanded  — "▼ <label>" plus the teacher's original grid, live and
+//                 editable (calculator, Σ, expressions). Retained cells
+//                 arrive filled and read-only.
+//
+// The board remains VISUALLY NEUTRAL: no ticks, no crosses, no marking, no
+// score. Only the active row/column is highlighted, and that is navigation,
+// not feedback. Correctness lives in the hidden validation state the board
+// derives and hands to the Reasoning engine.
+//
+// A toolbar sits underneath the table. It appears on any interaction near the
+// table and fades away after ~5s of inactivity.
 
 import { useEffect, useMemo, useRef } from "react";
-import { Table2, ChevronDown, Sigma, Check } from "lucide-react";
+import { Table2, ChevronDown, ChevronRight, Sigma, Trash2, Maximize2, Minimize2 } from "lucide-react";
 import {
   cellKeysForLine,
   editableCellsForLine,
-  isCellCorrect,
-  isLineComplete,
   isRetained,
   lineIdxForCell,
-  trackLabel,
   trackOf,
   expectedCellValue,
   type TableEntries,
@@ -28,19 +33,26 @@ import {
 } from "@/lib/smartboard/tableActivity";
 import { cellKey, parseCellKey } from "@/lib/floating/tableGrid";
 import { cellNumber, formatNumber, tryEvaluate } from "@/components/lessonnotes/extensions/visuals/smarttable/evaluator";
+import { useAutoHide } from "@/hooks/useAutoHide";
 
 interface Props {
   group: TableGroup;
   activeLineIdx: number;
   entries: TableEntries;
   sensorCell: string | null;
+  /** Expanded (true) or collapsed (false). */
   open: boolean;
   dark?: boolean;
   editable?: boolean;
+  /** Teacher-only object controls. */
+  canDelete?: boolean;
   onOpenChange: (open: boolean) => void;
   onActivateLine: (lineIdx: number) => void;
   onSensorCell: (key: string | null) => void;
   onEntry: (key: string, value: string) => void;
+  onDelete?: () => void;
+  /** Object height in px, so the board can push the rows below down. */
+  onMeasure?: (height: number) => void;
 }
 
 const TableActivityStage = ({
@@ -51,25 +63,37 @@ const TableActivityStage = ({
   open,
   dark,
   editable = true,
+  canDelete = false,
   onOpenChange,
   onActivateLine,
   onSensorCell,
   onEntry,
+  onDelete,
+  onMeasure,
 }: Props) => {
   const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
   const border = dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
-  const surface = dark ? "rgba(20,24,32,0.92)" : "rgba(255,253,247,0.97)";
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const hostRef = useRef<HTMLDivElement | null>(null);
+
+  // Toolbar auto-hide / auto-show — 5s classroom window.
+  const { visible: toolbarVisible, ping } = useAutoHide(5000);
 
   const activeCells = useMemo(
     () => new Set(cellKeysForLine(group, activeLineIdx)),
     [group, activeLineIdx],
   );
 
-  const done = useMemo(
-    () => group.memberLineIdxs.filter((i) => isLineComplete(group, entries, i)).length,
-    [group, entries],
-  );
+  // Report the object's real height so rows below travel down / back up.
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el || !onMeasure) return;
+    const report = () => onMeasure(el.getBoundingClientRect().height);
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [onMeasure, open]);
 
   // Keep the caret where the board's sensor is.
   useEffect(() => {
@@ -77,34 +101,6 @@ const TableActivityStage = ({
     const el = inputRefs.current[sensorCell];
     if (el && document.activeElement !== el) el.focus();
   }, [open, sensorCell]);
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => onOpenChange(true)}
-        className="absolute z-30 rounded-xl px-5 py-4 text-left"
-        style={{
-          left: "50%",
-          top: 120,
-          transform: "translateX(-50%)",
-          minWidth: 320,
-          background: surface,
-          border: `1px solid ${border}`,
-          color: ink,
-          boxShadow: "0 10px 30px rgba(0,0,0,0.20)",
-        }}
-      >
-        <span className="flex items-center gap-2">
-          <Table2 className="h-4 w-4" />
-          <span className="text-base font-semibold">{group.label}</span>
-        </span>
-        <span className="mt-1 block text-[12px] opacity-70">
-          {group.orientation === "row" ? "Row" : "Column"} activity ·{" "}
-          {done}/{group.memberLineIdxs.length} complete — click to open
-        </span>
-      </button>
-    );
-  }
 
   const sumIntoTrack = () => {
     const cells = cellKeysForLine(group, activeLineIdx);
@@ -140,101 +136,76 @@ const TableActivityStage = ({
 
   const grid = group.grid;
 
+  const toolbarBtn = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] hover:bg-black/10";
+
   return (
     <div
-      className="absolute z-30 rounded-xl overflow-hidden"
-      style={{
-        left: "50%",
-        top: 96,
-        transform: "translateX(-50%)",
-        maxWidth: "88%",
-        background: surface,
-        border: `1px solid ${border}`,
-        color: ink,
-        boxShadow: "0 12px 34px rgba(0,0,0,0.22)",
-        backdropFilter: "blur(6px)",
-      }}
+      ref={hostRef}
+      data-sb-table-object
+      onPointerEnter={ping}
+      onPointerMove={ping}
+      onPointerDown={ping}
+      onFocusCapture={ping}
+      style={{ color: ink, width: "100%" }}
     >
-      <header
-        className="flex items-center gap-2 px-4 py-2 border-b"
-        style={{ borderColor: border }}
+      {/* Object title — the lesson line the table occupies. */}
+      <button
+        onClick={() => { onOpenChange(!open); ping(); }}
+        className="inline-flex items-center gap-2 text-left"
+        style={{ color: ink }}
       >
-        <Table2 className="h-3.5 w-3.5" />
-        <span className="text-[11px] uppercase tracking-[0.25em] flex-1 truncate">
-          {group.label}
-        </span>
-        <span className="text-[11px] tabular-nums opacity-80">
-          Expected {trackLabel(group, activeLineIdx)}
-          {isLineComplete(group, entries, activeLineIdx) ? " · Complete" : " · Incomplete"}
-        </span>
-        {editable && (
-          <button
-            onClick={sumIntoTrack}
-            title={`Sum this ${group.orientation}`}
-            className="grid place-items-center rounded-md h-7 w-7 hover:bg-black/10"
-            style={{ color: ink }}
-          >
-            <Sigma className="h-3.5 w-3.5" />
-          </button>
-        )}
-        <button
-          onClick={() => onOpenChange(false)}
-          aria-label="Collapse table"
-          className="grid place-items-center rounded-md h-7 w-7 hover:bg-black/10"
-          style={{ color: ink }}
-        >
-          <ChevronDown className="h-3.5 w-3.5" />
-        </button>
-      </header>
+        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        <Table2 className="h-4 w-4 opacity-70" />
+        <span className="text-[15px] font-semibold">{group.label}</span>
+      </button>
 
-      <div className="px-4 py-3 overflow-auto" style={{ maxHeight: "58vh" }}>
-        <table className="border-collapse text-[16px]" style={{ color: ink }}>
-          {grid.headers?.some((h) => String(h).trim()) && (
-            <thead>
-              <tr>
-                {grid.headers.map((h, c) => (
-                  <th
-                    key={`h-${c}`}
-                    className="px-3 py-1.5 text-center font-semibold"
-                    style={{ border: `1px solid ${border}` }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          )}
-          <tbody>
-            {Array.from({ length: grid.rows }, (_, r) => (
-              <tr key={`r-${r}`}>
-                {Array.from({ length: grid.cols }, (_, c) => {
-                  const k = cellKey(r, c);
-                  const retained = isRetained(group, k);
-                  const inActive = activeCells.has(k);
-                  const isSensor = sensorCell === k;
-                  const value = retained ? expectedCellValue(group, k) : entries[k] ?? "";
-                  const correct = !retained && isCellCorrect(group, entries, k);
-                  return (
-                    <td
-                      key={k}
-                      onClick={() => focusCell(k)}
-                      className="p-0 text-center tabular-nums"
-                      style={{
-                        border: isSensor
-                          ? "2px solid hsl(40 85% 55%)"
-                          : `1px solid ${border}`,
-                        background: inActive
-                          ? dark ? "rgba(255,215,120,0.10)" : "rgba(255,215,120,0.22)"
-                          : undefined,
-                        minWidth: 74,
-                      }}
+      {open && (
+        <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
+          <table className="border-collapse text-[16px]" style={{ color: ink }}>
+            {grid.headers?.some((h) => String(h).trim()) && (
+              <thead>
+                <tr>
+                  {grid.headers.map((h, c) => (
+                    <th
+                      key={`h-${c}`}
+                      className="px-3 py-1.5 text-center font-semibold"
+                      style={{ border: `1px solid ${border}` }}
                     >
-                      {retained || !editable ? (
-                        <span className="block px-3 py-1.5 opacity-90">
-                          {value || "\u00A0"}
-                        </span>
-                      ) : (
-                        <span className="relative flex items-center">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody>
+              {Array.from({ length: grid.rows }, (_, r) => (
+                <tr key={`r-${r}`}>
+                  {Array.from({ length: grid.cols }, (_, c) => {
+                    const k = cellKey(r, c);
+                    const retained = isRetained(group, k);
+                    const inActive = activeCells.has(k);
+                    const isSensor = sensorCell === k;
+                    const value = retained ? expectedCellValue(group, k) : entries[k] ?? "";
+                    return (
+                      <td
+                        key={k}
+                        onClick={() => focusCell(k)}
+                        className="p-0 text-center tabular-nums"
+                        style={{
+                          border: isSensor
+                            ? "2px solid hsl(40 85% 55%)"
+                            : `1px solid ${border}`,
+                          background: inActive
+                            ? dark ? "rgba(255,215,120,0.10)" : "rgba(255,215,120,0.22)"
+                            : undefined,
+                          minWidth: 74,
+                        }}
+                      >
+                        {retained || !editable ? (
+                          <span className="block px-3 py-1.5 opacity-90">
+                            {value || "\u00A0"}
+                          </span>
+                        ) : (
                           <input
                             ref={(el) => { inputRefs.current[k] = el; }}
                             value={value}
@@ -254,26 +225,43 @@ const TableActivityStage = ({
                             className="w-full bg-transparent px-3 py-1.5 text-center outline-none"
                             style={{ color: ink, minWidth: 68 }}
                           />
-                          {correct && (
-                            <Check
-                              className="h-3 w-3 absolute right-1"
-                              style={{ color: "hsl(150 60% 42%)" }}
-                            />
-                          )}
-                        </span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="mt-2 text-[11px] italic opacity-65">
-          {group.orientation === "row"
-            ? "Fill the highlighted row. Enter solves arithmetic and moves on."
-            : "Fill the highlighted column. Enter solves arithmetic and moves on."}
-        </p>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Object toolbar — underneath the table, auto-hiding after ~5s. */}
+      <div
+        className="mt-1 flex items-center gap-1 transition-opacity duration-300"
+        style={{
+          opacity: toolbarVisible ? 1 : 0,
+          pointerEvents: toolbarVisible ? "auto" : "none",
+        }}
+      >
+        <button
+          onClick={() => { onOpenChange(!open); ping(); }}
+          className={toolbarBtn}
+          style={{ color: ink }}
+        >
+          {open ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          {open ? "Collapse" : "Expand"}
+        </button>
+        {open && editable && (
+          <button onClick={() => { sumIntoTrack(); ping(); }} className={toolbarBtn} style={{ color: ink }}>
+            <Sigma className="h-3.5 w-3.5" /> Sum {group.orientation}
+          </button>
+        )}
+        {canDelete && onDelete && (
+          <button onClick={() => { onDelete(); }} className={toolbarBtn} style={{ color: ink }}>
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        )}
       </div>
     </div>
   );
