@@ -590,25 +590,49 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   );
 }
 
-function InlineEditor({ value, onChange, onCommit, onCancel }: {
-  value: string; onChange: (v: string) => void; onCommit: () => void; onCancel: () => void;
+function InlineEditor({ value, onChange, onCommit, onCancel, onSelect, inputRef }: {
+  value: string;
+  onChange: (v: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+  onSelect?: (start: number, end: number) => void;
+  inputRef?: React.MutableRefObject<HTMLInputElement | null>;
 }) {
-  const ref = useRef<HTMLInputElement | null>(null);
-  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
+  const localRef = useRef<HTMLInputElement | null>(null);
+  const attach = (el: HTMLInputElement | null) => {
+    localRef.current = el;
+    if (inputRef) inputRef.current = el;
+  };
+  useEffect(() => {
+    localRef.current?.focus();
+    localRef.current?.select();
+    onSelect?.(0, localRef.current?.value.length ?? 0);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const report = () => {
+    const el = localRef.current;
+    if (!el) return;
+    onSelect?.(el.selectionStart ?? 0, el.selectionEnd ?? 0);
+  };
+
   return (
     <input
-      ref={ref}
+      ref={attach}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => { onChange(e.target.value); report(); }}
+      onSelect={report}
+      onKeyUp={report}
+      onMouseUp={report}
       onKeyDown={(e) => {
         if (e.key === "Enter") { e.preventDefault(); onCommit(); }
         else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); report(); }}
       className="w-full min-w-[3rem] px-1 py-0.5 text-center bg-transparent outline-hidden border-b border-primary"
       style={{ color: "#0f172a" }}
     />
   );
+
 }
 
 export default SmartTable;
