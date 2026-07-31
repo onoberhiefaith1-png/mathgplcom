@@ -110,6 +110,7 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
+import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
 
 const SECTION_OPTIONS: SectionKind[] = [
   "introduction", "objectives", "explanation", "example",
