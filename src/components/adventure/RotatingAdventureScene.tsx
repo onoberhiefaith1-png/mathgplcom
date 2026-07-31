@@ -250,10 +250,78 @@ const Showcase = ({ ringUrls, coreUrls }: { ringUrls: string[]; coreUrls: string
   );
 };
 
+/** Layer behind the building: shipped clouds, or the account's own image/video. */
+const HomepageBackground = ({
+  background,
+}: {
+  background: ReturnType<typeof useHomepageConfig>["config"]["background"];
+}) => {
+  if (!background?.path) {
+    return (
+      <img
+        src={adventureClouds.url}
+        alt="Sunset clouds over mountains with sacred geometry"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+        loading="eager"
+      />
+    );
+  }
+  return (
+    <SignedMedia
+      path={background.path}
+      source={background.source}
+      mediaType={background.mediaType}
+      fit="cover"
+      loop
+      muted
+      className="pointer-events-none absolute inset-0 h-full w-full"
+    />
+  );
+};
+
+/** A whole replacement building: one image or one looping video. */
+const CustomBuilding = ({
+  element,
+}: {
+  element: NonNullable<ReturnType<typeof useHomepageConfig>["config"]["customBuilding"]>;
+}) => (
+  <div
+    className="pointer-events-none absolute"
+    style={{
+      left: `${element.x * 100}%`,
+      top: `${element.y * 100}%`,
+      width: `${element.scale * 100}%`,
+      transform: `translate(-50%, -50%) rotate(${element.rotation}deg)`,
+      opacity: element.opacity,
+    }}
+  >
+    <SignedMedia
+      path={element.storagePath}
+      source={element.source}
+      mediaType={element.mediaType}
+      fit="contain"
+      className="h-auto w-full"
+    />
+  </div>
+);
+
 export const RotatingAdventureScene = () => {
   // Recover from "Web page caused context loss and was blocked" by remounting
   // the Canvas with a fresh key when the browser drops the WebGL context.
   const [ctxKey, setCtxKey] = useState(0);
+  const { config } = useHomepageConfig();
+  const slotUrls = useResolvedSlotUrls(config.slotOverrides);
+
+  const ringUrls = useMemo(
+    () => RING_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
+    [slotUrls],
+  );
+  const coreUrls = useMemo(
+    () => CORE_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
+    [slotUrls],
+  );
+
+  const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
 
   useEffect(() => {
     const onLost = () => setCtxKey((k) => k + 1);
@@ -263,30 +331,29 @@ export const RotatingAdventureScene = () => {
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
-      <img
-        src={adventureClouds.url}
-        alt="Sunset clouds over mountains with sacred geometry"
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
-        loading="eager"
-      />
-      <Canvas
-        key={ctxKey}
-        camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
-        dpr={[1, 1.5]}
-        gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
-        onCreated={({ gl }) => {
-          const canvas = gl.domElement;
-          const handleLost = (e: Event) => {
-            e.preventDefault();
-            setCtxKey((k) => k + 1);
-          };
-          canvas.addEventListener("webglcontextlost", handleLost as EventListener);
-        }}
-      >
-        <Suspense fallback={null}>
-          <Showcase />
-        </Suspense>
-      </Canvas>
+      <HomepageBackground background={config.background} />
+      {usingCustom ? (
+        <CustomBuilding element={config.customBuilding!} />
+      ) : (
+        <Canvas
+          key={`${ctxKey}-${ringUrls.join("|")}-${coreUrls.join("|")}`}
+          camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
+          dpr={[1, 1.5]}
+          gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
+          onCreated={({ gl }) => {
+            const canvas = gl.domElement;
+            const handleLost = (e: Event) => {
+              e.preventDefault();
+              setCtxKey((k) => k + 1);
+            };
+            canvas.addEventListener("webglcontextlost", handleLost as EventListener);
+          }}
+        >
+          <Suspense fallback={null}>
+            <Showcase ringUrls={ringUrls} coreUrls={coreUrls} />
+          </Suspense>
+        </Canvas>
+      )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
     </main>
   );
