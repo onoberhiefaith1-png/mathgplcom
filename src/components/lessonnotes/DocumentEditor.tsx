@@ -292,6 +292,7 @@ async function aiGenerate(opts: {
       activeQuestion: opts.activeQuestion ?? "",
       inheritedContext: opts.inheritedContext ?? false,
       lessonContext: opts.lessonContext ?? null,
+      workspaceManifest: buildWorkspaceManifest(),
     },
   });
   if (error) {
