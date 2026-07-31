@@ -26,6 +26,21 @@ import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditP
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
+import { readSolutionObjects } from "@/lib/floating/solutionItems";
+import TableWorkspace from "@/components/floating/TableWorkspace";
+import {
+  gridFromObject,
+  generateTableLines,
+  tableLineEquation,
+  cellFitsLine,
+  type TableGrid,
+  type TableOrientation,
+} from "@/lib/floating/tableGrid";
+
+/** One item of the highlight stream: a text line, or a whole table workspace. */
+type Entry =
+  | { kind: "text"; highlight: { groupId: number; payload: string } }
+  | { kind: "table"; objId: string; grid: TableGrid };
 
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
