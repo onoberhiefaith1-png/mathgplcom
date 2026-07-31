@@ -35,6 +35,8 @@ export interface StructureGrid {
 }
 
 
+type BuiltGrid = Omit<StructureGrid, "structureId" | "structureAttrs">;
+
 const key = (r: number, c: number) => `${r}:${c}`;
 
 /** Every structure asset we can decompose, mapped to its display label. */
@@ -82,7 +84,7 @@ const rect = (rows: string[][], nCols: number): string[][] =>
    grid). Columns 1…n are the digit columns. Rows: quotient, dividend, then one
    row per working row. The bracket, the horizontal rules and the automatic
    minus signs are drawn by the asset — they are structure, not cells. */
-const longDivisionGrid = (objId: string, label: string, a: Record<string, any>): StructureGrid => {
+const longDivisionGrid = (objId: string, label: string, a: Record<string, any>): BuiltGrid => {
   const dividend: string[] = Array.isArray(a.dividendDigits)
     ? a.dividendDigits.map(str)
     : str(a.dividend).split("");
@@ -132,7 +134,7 @@ const longDivisionGrid = (objId: string, label: string, a: Record<string, any>):
 /* ── Division ladder / prime factorisation ─────────────────────────────────
    Column 0 = divisors down the left of the divider, columns 1…n = the values.
    The vertical divider, the ladder and the alignment are structure. */
-const ladderGrid = (objId: string, label: string, a: Record<string, any>): StructureGrid => {
+const ladderGrid = (objId: string, label: string, a: Record<string, any>): BuiltGrid => {
   const divisors: string[] = Array.isArray(a.divisors) && a.divisors.length
     ? a.divisors.map(str)
     : [""];
@@ -168,7 +170,7 @@ const ladderGrid = (objId: string, label: string, a: Record<string, any>): Struc
 /* ── Base conversion ──────────────────────────────────────────────────────
    Column 0 = base (structure after the first row), column 1 = quotient,
    column 2 = remainder. The divider and the "R" heading are structure. */
-const baseConversionGrid = (objId: string, label: string, a: Record<string, any>): StructureGrid => {
+const baseConversionGrid = (objId: string, label: string, a: Record<string, any>): BuiltGrid => {
   const rowsRaw: any[] = Array.isArray(a.rows) && a.rows.length ? a.rows : [{ q: "", r: "" }];
   const cells: string[][] = [];
   const staticCells: string[] = [];
@@ -195,7 +197,7 @@ const baseConversionGrid = (objId: string, label: string, a: Record<string, any>
 /* ── Place-value chart ────────────────────────────────────────────────────
    The headings (H | T | U | . | tenths …) are structure; the digit rows are
    editable cells. */
-const placeValueGrid = (objId: string, label: string, a: Record<string, any>): StructureGrid => {
+const placeValueGrid = (objId: string, label: string, a: Record<string, any>): BuiltGrid => {
   const wholeHeaders: string[] = Array.isArray(a.wholeHeaders) && a.wholeHeaders.length
     ? a.wholeHeaders.map(str)
     : ["H", "T", "U"];
@@ -232,6 +234,8 @@ export const structureGridFromObject = (obj: SolutionObject): StructureGrid | nu
   const label = obj.label && obj.label !== "Object" && obj.label !== "Diagram"
     ? obj.label
     : STRUCTURE_IDS[id];
+  const raw = ((obj.attrs ?? {}) as Record<string, any>);
+  const built = ((): BuiltGrid | null => {
   switch (id) {
     case "longdivision":
       return longDivisionGrid(obj.objId, label, a);
@@ -244,5 +248,63 @@ export const structureGridFromObject = (obj: SolutionObject): StructureGrid | nu
       return placeValueGrid(obj.objId, label, a);
     default:
       return null;
+  }
+  })();
+  if (!built) return null;
+  // The static layer is the asset's own attributes — carried through so every
+  // renderer redraws the teacher's structure instead of a generic table.
+  return { ...built, structureId: id, structureAttrs: { ...a, ...raw } };
+};
+
+/** Write a grid of values back into the structure's OWN attribute shape, so
+ *  the asset redraws itself (bracket, ladder, divider, alignment intact) with
+ *  the new cell values. The static layer is never touched. */
+export const attrsWithGrid = (
+  structureId: string,
+  attrs: Record<string, any>,
+  cells: string[][],
+): Record<string, any> => {
+  const at = (r: number, c: number) => String(cells?.[r]?.[c] ?? "");
+  const row = (r: number, from = 1) => (cells?.[r] ?? []).slice(from).map((v) => String(v ?? ""));
+  switch (structureId) {
+    case "longdivision": {
+      const working: string[][] = [];
+      for (let r = 2; r < (cells?.length ?? 0); r++) working.push(row(r));
+      return {
+        ...attrs,
+        divisor: at(1, 0),
+        quotientDigits: row(0),
+        dividendDigits: row(1),
+        workingRows: working,
+      };
+    }
+    case "divisionladder":
+    case "primefactorisation": {
+      const divisors: string[] = [];
+      const values: string[][] = [];
+      for (let r = 0; r < (cells?.length ?? 0); r++) {
+        if (r < (cells?.length ?? 0) - 1) divisors.push(at(r, 0));
+        values.push(row(r));
+      }
+      return { ...attrs, divisors, values, cols: Math.max(1, (cells?.[0]?.length ?? 2) - 1) };
+    }
+    case "baseconversion":
+      return {
+        ...attrs,
+        base: at(0, 0),
+        rows: (cells ?? []).map((_, r) => ({ q: at(r, 1), r: at(r, 2) })),
+      };
+    case "placevaluechart": {
+      const wholeLen = Array.isArray(attrs.wholeHeaders) && attrs.wholeHeaders.length
+        ? attrs.wholeHeaders.length
+        : 3;
+      return {
+        ...attrs,
+        rows: (cells ?? []).map((r) => r.slice(0, wholeLen).map((v) => String(v ?? ""))),
+        decRows: (cells ?? []).map((r) => r.slice(wholeLen).map((v) => String(v ?? ""))),
+      };
+    }
+    default:
+      return attrs;
   }
 };
