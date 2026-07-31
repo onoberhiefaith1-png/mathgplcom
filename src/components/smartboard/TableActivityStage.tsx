@@ -193,6 +193,7 @@ const TableActivityStage = ({
     <div
       ref={hostRef}
       data-sb-table-object
+      data-sb-table-obj-id={group.objId}
       onPointerEnter={ping}
       onPointerMove={ping}
       onPointerDown={ping}
@@ -280,12 +281,13 @@ const TableActivityStage = ({
                         }}
                       >
                         {retained || !editable ? (
-                          <span className="block px-3 py-1.5 opacity-90">
+                          <span data-sb-cell={k} data-sb-locked="1" className="block px-3 py-1.5 opacity-90">
                             {value || "\u00A0"}
                           </span>
                         ) : (
                           <input
                             ref={(el) => { inputRefs.current[k] = el; }}
+                            data-sb-cell={k}
                             value={value}
                             onFocus={() => focusCell(k)}
                             onChange={(e) => onEntry(k, e.target.value)}

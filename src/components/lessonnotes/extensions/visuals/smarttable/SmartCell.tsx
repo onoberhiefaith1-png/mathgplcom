@@ -14,6 +14,9 @@ interface Props {
   className?: string;
   minWidth?: number | string;
   ariaLabel?: string;
+  /** Smart Structure address (`r:c`). Lets the board map a click to a cell
+   *  and lets the eraser clear exactly this value. */
+  cellKey?: string;
 }
 
 export function SmartCell({
@@ -24,12 +27,17 @@ export function SmartCell({
   className = "",
   minWidth = "2ch",
   ariaLabel,
+  cellKey,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [buffer, setBuffer] = useState(value);
   const ref = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select(); } }, [editing]);
+  // The stored value is the source of truth: when it changes underneath
+  // (Floating Number write, Clear, eraser) the cell shows the new value.
+  useEffect(() => { if (!editing) setBuffer(value); }, [value, editing]);
+
 
   const commit = () => {
     const raw = buffer.trim();
@@ -48,6 +56,7 @@ export function SmartCell({
       <input
         ref={ref}
         value={buffer}
+        data-sb-cell={cellKey}
         onChange={(e) => setBuffer(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
@@ -68,6 +77,7 @@ export function SmartCell({
   return (
     <button
       type="button"
+      data-sb-cell={cellKey}
       onClick={(e) => { e.stopPropagation(); setBuffer(value); setEditing(true); }}
       aria-label={ariaLabel}
       className={
@@ -80,5 +90,6 @@ export function SmartCell({
     </button>
   );
 }
+
 
 export default SmartCell;

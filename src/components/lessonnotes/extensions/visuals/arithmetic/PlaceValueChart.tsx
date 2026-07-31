@@ -225,7 +225,7 @@ export function PlaceValueChart({ attrs, onChange, selected, board }: Props) {
             <tr key={r}>
               {row.map((v, c) => (
                 <td key={"wv" + r + "-" + c} style={digitStyle}>
-                  <SmartCell value={v} onChange={(nv) => setCell(r, c, nv)} align="center" />
+                  <SmartCell cellKey={`${r}:${c}`} value={v} onChange={(nv) => setCell(r, c, nv)} align="center" />
                 </td>
               ))}
               {m.decimalHeaders.length > 0 && (
@@ -233,7 +233,7 @@ export function PlaceValueChart({ attrs, onChange, selected, board }: Props) {
               )}
               {(m.decRows[r] ?? []).map((v, c) => (
                 <td key={"dv" + r + "-" + c} style={digitStyle}>
-                  <SmartCell value={v} onChange={(nv) => setDecCell(r, c, nv)} align="center" />
+                  <SmartCell cellKey={`${r}:${m.wholeHeaders.length + c}`} value={v} onChange={(nv) => setDecCell(r, c, nv)} align="center" />
                 </td>
               ))}
             </tr>

@@ -842,12 +842,20 @@ const PresentationView = ({
     const lineY = rowTopPx(sensor.line) + grid.LINE_HEIGHT * 0.5;
     setSmartLines((prev) => [...prev, newSmartLine(cx, lineY, grid.LINE_HEIGHT * 2)]);
   };
+  /** Eraser hook for Smart Table / Smart Structure cells. Installed later
+   *  (once the table state exists) and consulted FIRST by the eraser, so a
+   *  value typed inside a structure can be rubbed out in place. Returns true
+   *  when the point was handled. Retained ink (bracket, rules, minus signs,
+   *  divider, "R", teacher-retained values) is never handled → never erased. */
+  const eraseObjectCellRef = useRef<((cx: number, cy: number) => boolean) | null>(null);
 
   /** Per-node eraser. Hit-tests at viewport (cx, cy) and removes only the
    *  individual character / structure piece under the pointer — never the
    *  whole line. Works on stray digits dropped anywhere on the canvas. */
   const eraseAtPoint = useCallback((cx: number, cy: number) => {
     if (typeof document === "undefined") return;
+    if (eraseObjectCellRef.current?.(cx, cy)) return;
+
     const stack = document.elementsFromPoint(cx, cy);
     let targetEl: Element | null = null;
     let lineEl: Element | null = null;
@@ -2589,6 +2597,40 @@ const PresentationView = ({
     setTableEntries((prev) => ({ ...prev, [group.objId]: {} }));
     setTableSensorCellFor(group.objId, null);
   }, [setTableSensorCellFor]);
+
+  /* ── ERASER INSIDE OBJECTS ───────────────────────────────────────────
+     Two kinds of ink live in a Smart Table / Smart Structure:
+       • RETAINED  — the teacher's drawing (bracket, horizontal rules, minus
+         signs, ladder divider, "R" labels, headings) plus any value marked
+         retained. Read-only ink: the eraser passes straight over it.
+       • ENTERED   — anything written into an editable cell. The eraser rubs
+         it out in place, exactly like a digit on the board.
+     Only Clear (all entered values) and Remove from board touch more. */
+  useEffect(() => {
+    eraseObjectCellRef.current = (cx: number, cy: number): boolean => {
+      if (typeof document === "undefined") return false;
+      for (const el of document.elementsFromPoint(cx, cy)) {
+        const cellEl = (el as HTMLElement).closest?.<HTMLElement>("[data-sb-cell]");
+        if (!cellEl) continue;
+        const host = cellEl.closest<HTMLElement>("[data-sb-table-obj-id]");
+        const objId = host?.getAttribute("data-sb-table-obj-id");
+        const key = cellEl.getAttribute("data-sb-cell") ?? "";
+        if (!objId || !key) continue;
+        // Retained / structural ink — handled (swallowed) but never erased.
+        if (cellEl.dataset.sbLocked === "1") return true;
+        const group = tableGroups.find((g) => g.objId === objId);
+        if (!group) return true;
+        const structural = Array.isArray((group.grid as any).staticCells)
+          && ((group.grid as any).staticCells as string[]).includes(key);
+        if (structural || isRetained(group, key)) return true;
+        setTableEntry(objId, key, "");
+        return true;
+      }
+      return false;
+    };
+    return () => { eraseObjectCellRef.current = null; };
+  }, [tableGroups, setTableEntry]);
+
 
   /* ── LESSON STEPS vs T-SERIES ────────────────────────────────────────
      Lesson numbering NEVER counts table rows: a table is one lesson step.
