@@ -63,9 +63,13 @@ const AdminConsole = () => {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [credentialTarget, setCredentialTarget] = useState<CredentialTarget | null>(null);
+  const [settingUp, setSettingUp] = useState(false);
 
   const loadStats = useServerFn(fetchPlatformStats);
   const loadAccounts = useServerFn(fetchPlatformAccounts);
+  const loadMine = useServerFn(fetchMyAccounts);
+  const createMine = useServerFn(ensureMyAccounts);
   const changeStatus = useServerFn(setAccountStatus);
   const removeAccount = useServerFn(deletePlatformAccount);
   const openWorkspace = useServerFn(enterWorkspace);
@@ -89,11 +93,44 @@ const AdminConsole = () => {
     enabled: allowed,
   });
 
+  const mine = useQuery({
+    queryKey: ["my-test-accounts"],
+    queryFn: async () => (await loadMine()).rows,
+    enabled: allowed,
+  });
+
+  const setUpMine = async () => {
+    setSettingUp(true);
+    try {
+      await createMine();
+      toast({ title: "Your accounts are ready", description: "School, Teacher, Parent and Student." });
+      await Promise.all([mine.refetch(), accounts.refetch(), stats.refetch()]);
+    } catch (e) {
+      toast({ title: "Could not set up accounts", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setSettingUp(false);
+    }
+  };
+
   const enter = async (userId: string) => {
     setBusyId(userId);
     try {
       const entry = await openWorkspace({ data: { userId } });
-      await beginImpersonation(entry);
+      if (entry.requiresCredentials) {
+        setCredentialTarget({
+          email: entry.email,
+          name: entry.name,
+          role: entry.role,
+          home: entry.home,
+        });
+        return;
+      }
+      await beginImpersonation({
+        tokenHash: entry.tokenHash,
+        name: entry.name,
+        role: entry.role,
+        home: entry.home,
+      });
       window.location.assign(entry.home);
     } catch (e) {
       toast({ title: "Could not enter workspace", description: (e as Error).message, variant: "destructive" });
@@ -101,6 +138,7 @@ const AdminConsole = () => {
       setBusyId(null);
     }
   };
+
 
   const toggleStatus = async (userId: string, status: string) => {
     const next = status === "suspended" ? "active" : "suspended";
