@@ -248,6 +248,7 @@ const FloatingPreparationPage = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
+  const [objects, setObjects] = useState<SolutionObject[]>([]);
   const [lines, setLines] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
