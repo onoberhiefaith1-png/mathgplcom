@@ -15,6 +15,29 @@ export type ContainerKind =
   | "abs"
   | "vector";
 
+/** A table-derived line: which table it came from, which cells it owns and
+ *  the grid snapshot so the Smartboard can render the table without going
+ *  back to the lesson note. */
+export interface FloatingTableRef {
+  objId: string;
+  label?: string;
+  orientation: "row" | "column";
+  cellKeys: string[];
+  /** Cells the teacher keeps visible (read-only) for students. */
+  retained?: string[];
+  /** True when the teacher built this line by clicking cells. */
+  manual?: boolean;
+  /** Snapshot of the table grid (headers + cells). */
+  grid?: {
+    objId: string;
+    label: string;
+    headers: string[];
+    cells: string[][];
+    rows: number;
+    cols: number;
+  };
+}
+
 export interface FloatingLine {
   lineId: string;
   equation: string;
