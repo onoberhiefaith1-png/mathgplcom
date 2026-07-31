@@ -40,7 +40,11 @@ interface Props {
   onBlur: () => void;
   focused: boolean;
   onFocus: () => void;
+  /** Viewport point of the click that opened the editor, so the caret can
+   *  land exactly where the teacher clicked on the rendered form. */
+  entryPoint?: { x: number; y: number } | null;
 }
+
 
 const pathsEqual = (a: number[], b: number[]) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
