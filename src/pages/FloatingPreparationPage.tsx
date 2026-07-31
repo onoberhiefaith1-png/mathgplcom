@@ -758,12 +758,14 @@ const FloatingPreparationPage = () => {
               </div>
               <ul className="space-y-1.5">
                 {highlights.filter((h) => !h.notebookOnly).map((h) => {
-                  const safePayload = assertDisplaySafe(h.payload).cleaned;
+                  const safePayload = h.object ? "" : assertDisplaySafe(h.payload).cleaned;
                   return (
                   <li key={h.groupId} className="flex items-start gap-2 text-sm text-foreground/85">
                     <span className="text-foreground/40 mt-0.5">•</span>
                     <span className="flex-1 break-words whitespace-pre-wrap text-[15px] leading-7">
-                      {renderMathInline(safePayload, `highlight-summary-${h.groupId}`)}
+                      {h.object
+                        ? `Whole ${familyLabel(h.object.family).toLowerCase()}`
+                        : renderMathInline(safePayload, `highlight-summary-${h.groupId}`)}
                     </span>
                     <button
                       onClick={() => removeHighlight(h.groupId)}
