@@ -224,6 +224,9 @@ export const FloatingNumberPanel = ({
   frozen = false,
   notebookPending = false,
   placeholderColor,
+  tableChip = null,
+  onPlaceTable,
+
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const [offset, setOffset] = useState<number>(0);
