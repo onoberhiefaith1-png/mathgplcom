@@ -5286,6 +5286,35 @@ const PresentationView = ({
             );
           })()}
 
+          {/* Removed from view — nothing was deleted. One click brings the
+              same table back with every entry, formula and heading intact. */}
+          {activeTableGroup && activeTableDeleted && isTeacher && (() => {
+            const anchorLine = groupAnchor(activeTableGroup);
+            const owned = findBoardRowForLine(anchorLine);
+            const anchorRow = owned ?? (activeLayout
+              ? clampToActiveBand(bandStart(activeLayout) + anchorLine)
+              : anchorLine);
+            const objId = activeTableGroup.objId;
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  top: rowTopPx(anchorRow),
+                  left: grid.MARGIN_LEFT,
+                  zIndex: 26,
+                }}
+              >
+                <button
+                  onClick={() => showTableObject(objId)}
+                  className="text-[12px] px-2 py-0.5 rounded border"
+                  style={{ color: palette.ink, borderColor: `${palette.ink}55` }}
+                  title="Show this table again — nothing was deleted"
+                >
+                  ▶ {activeTableGroup.label} (hidden)
+                </button>
+              </div>
+            );
+          })()}
 
 
           {/* Invisible-grid free-writing overlay. Filtered to lines that
