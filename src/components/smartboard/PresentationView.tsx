@@ -14,13 +14,16 @@ import TableActivityStage from "./TableActivityStage";
 import {
   buildTableGroups,
   groupForLine,
+  groupAnchor,
   firstOpenCell,
   cellKeysForLine,
   isRetained,
   isLineComplete,
   isGroupComplete,
   nextOpenLine,
+  tableValidation,
   type TableEntries,
+  type TableValidation,
 } from "@/lib/smartboard/tableActivity";
 import { SmartboardRootContext } from "./SmartboardRoot";
 import AiEditWorkspace from "./AiEditWorkspace";
