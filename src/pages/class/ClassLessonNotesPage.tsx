@@ -3,11 +3,13 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft, Plus, EyeOff, Eye, Trash2, Check, Compass, Settings2, ChevronRight, Folder, FolderPlus, X,
+  Pencil, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
+import { checkoutForEditing, copyIntoClassStorage } from "@/lib/lessonnotes/notebookCopy";
 import {
   assignAdventureNote,
   listAdventureNotes,
@@ -27,7 +29,8 @@ type Attached = {
   notebook: Notebook | null;
 };
 
-const NOTEBOOK_FIELDS = "id, title, teacher, class_name, session, subject, subtopic, color_index";
+const NOTEBOOK_FIELDS =
+  "id, title, teacher, class_name, session, subject, subtopic, color_index, cover_config";
 
 const ClassLessonNotesPage = () => {
   const { classId } = useParams();
@@ -48,6 +51,8 @@ const ClassLessonNotesPage = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [busyRow, setBusyRow] = useState<string | null>(null);
+  const [attaching, setAttaching] = useState(false);
 
   const load = useCallback(async () => {
     if (!classId) return;
@@ -134,9 +139,9 @@ const ClassLessonNotesPage = () => {
       .from("notebooks")
       .select(NOTEBOOK_FIELDS)
       .eq("owner_id", userData.user!.id)
+      .eq("storage_scope", "workspace")
       .order("updated_at", { ascending: false });
-    const attachedIds = new Set(attached.map((a) => a.notebook_id));
-    setAvailable(((nbs ?? []) as Notebook[]).filter((n) => !attachedIds.has(n.id)));
+    setAvailable((nbs ?? []) as Notebook[]);
     setSelected(new Set());
     setPicker(true);
   };
@@ -149,21 +154,46 @@ const ClassLessonNotesPage = () => {
     });
   };
 
+  /**
+   * Assigning a working note to a class stores an independent *duplicate*.
+   * Deleting the working copy in Lesson Notes can never touch class storage.
+   */
   const addToClass = async () => {
     if (selected.size === 0) return;
-    const rows = Array.from(selected).map((notebook_id) => ({
-      class_id: classId!,
-      notebook_id,
-      node_id: currentNodeId,
-    }));
-    const { error } = await supabase.from("class_lesson_notes").insert(rows as never);
-    if (error) {
-      toast({ title: "Could not attach", description: error.message, variant: "destructive" });
-      return;
+    setAttaching(true);
+    try {
+      const rows: { class_id: string; notebook_id: string; node_id: string | null }[] = [];
+      for (const sourceId of selected) {
+        const storedId = await copyIntoClassStorage(sourceId);
+        rows.push({ class_id: classId!, notebook_id: storedId, node_id: currentNodeId });
+      }
+      const { error } = await supabase.from("class_lesson_notes").insert(rows as never);
+      if (error) throw error;
+      toast({
+        title: `Stored ${rows.length} note${rows.length > 1 ? "s" : ""} in this class`,
+        description: "A copy now lives permanently in the class.",
+      });
+      setPicker(false);
+      load();
+    } catch (e) {
+      toast({ title: "Could not store", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setAttaching(false);
     }
-    toast({ title: `Added ${selected.size} note${selected.size > 1 ? "s" : ""} to class` });
-    setPicker(false);
-    load();
+  };
+
+  /** Editing never happens inside storage: bring a working copy back to Lesson Notes. */
+  const editInWorkspace = async (row: Attached) => {
+    setBusyRow(row.id);
+    try {
+      const workingId = await checkoutForEditing(row.notebook_id, row.id);
+      toast({ title: "Copied into Lesson Notes", description: "Save there to replace the class copy." });
+      navigate(`/lesson-notes/${workingId}`);
+    } catch (e) {
+      toast({ title: "Could not open for editing", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setBusyRow(null);
+    }
   };
 
   const toggleVisibility = async (row: Attached) => {
@@ -173,7 +203,9 @@ const ClassLessonNotesPage = () => {
   };
 
   const detach = async (row: Attached) => {
+    if (!window.confirm("Remove this stored note from the class? The stored copy is deleted.")) return;
     await supabase.from("class_lesson_notes").delete().eq("id", row.id);
+    await supabase.from("notebooks").delete().eq("id", row.notebook_id);
     load();
   };
 
@@ -357,6 +389,15 @@ const ClassLessonNotesPage = () => {
                       {isAdventure ? "Adventure" : "Assign"}
                     </button>
                     <button
+                      onClick={() => editInWorkspace(row)}
+                      disabled={busyRow === row.id}
+                      className="inline-flex items-center justify-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[10px] font-medium text-white/80 hover:bg-white/20"
+                      aria-label="Edit in Lesson Notes"
+                    >
+                      {busyRow === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pencil className="h-3 w-3" />}
+                      Edit
+                    </button>
+                    <button
                       onClick={() => detach(row)}
                       className="rounded-md bg-white/10 p-1 text-white/80 hover:bg-destructive/80"
                       aria-label="Remove from class"
@@ -473,9 +514,11 @@ const ClassLessonNotesPage = () => {
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
               <button onClick={() => setPicker(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">Cancel</button>
-              <button onClick={addToClass} disabled={selected.size === 0} className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50">
-                Add To Class{selected.size > 0 ? ` (${selected.size})` : ""}
+              <button onClick={addToClass} disabled={selected.size === 0 || attaching} className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50">
+                {attaching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Store In Class{selected.size > 0 ? ` (${selected.size})` : ""}
               </button>
+
             </div>
           </div>
         </div>

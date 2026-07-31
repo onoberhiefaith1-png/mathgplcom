@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
+import { duplicateNotebook } from "@/lib/lessonnotes/notebookCopy";
 import CreateNotebookDialog, { CreateNotebookValues } from "@/components/lessonnotes/CreateNotebookDialog";
 import {
   DropdownMenu,
@@ -14,8 +15,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import CoverDesignerDialog from "@/components/lessonnotes/CoverDesignerDialog";
+import type { NotebookCoverConfig } from "@/lib/lessonnotes/coverThemes";
 import {
-  Plus, LogOut, Presentation, MoreVertical,
+  Plus, LogOut, Presentation, MoreVertical, Image as ImageIcon,
   Pencil, Copy, Trash2, Play, Sparkles,
   Archive, Share2, Download, FolderOpen, ArrowLeft,
 } from "lucide-react";
@@ -24,6 +27,7 @@ import {
 
 interface NotebookRow extends NotebookCoverData {
   id: string;
+  checkout_link_id?: string | null;
 }
 
 const PAGE_SIZE = 20;
@@ -38,6 +42,7 @@ const LessonNotesPage = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
+  const [coverFor, setCoverFor] = useState<NotebookRow | null>(null);
 
   // Authentication is handled once by the platform guard (RequireAuth); this
   // page only needs to know who is signed in.
@@ -51,7 +56,10 @@ const LessonNotesPage = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("notebooks")
-      .select("id,title,teacher,class_name,session,subject,color_index")
+      .select("id,title,teacher,class_name,session,subject,subtopic,color_index,cover_config,checkout_link_id")
+      // Lesson Notes is the working area: notebooks stored inside a class are
+      // independent copies and never clutter the shelf.
+      .eq("storage_scope", "workspace")
       .order("updated_at", { ascending: false });
     if (error) {
       toast({ title: "Could not load notebooks", description: error.message, variant: "destructive" });
@@ -103,20 +111,27 @@ const LessonNotesPage = () => {
     else load();
   };
 
-  const duplicateNotebook = async (nb: NotebookRow) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { error } = await supabase.from("notebooks").insert({
-      owner_id: user.id,
-      teacher: nb.teacher,
-      class_name: nb.class_name,
-      session: nb.session,
-      subject: nb.subject,
-      title: nb.title ? `${nb.title} (copy)` : null,
-      color_index: nb.color_index,
-    });
-    if (error) toast({ title: "Duplicate failed", description: error.message, variant: "destructive" });
-    else { toast({ title: "Notebook duplicated" }); load(); }
+  const duplicate = async (nb: NotebookRow) => {
+    try {
+      await duplicateNotebook(nb.id, { scope: "workspace", titleSuffix: " (copy)" });
+      toast({ title: "Notebook duplicated" });
+      load();
+    } catch (e) {
+      toast({ title: "Duplicate failed", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    }
+  };
+
+  const saveCover = async (nb: NotebookRow, cfg: NotebookCoverConfig) => {
+    const { error } = await supabase
+      .from("notebooks")
+      .update({ cover_config: cfg as never })
+      .eq("id", nb.id);
+    if (error) {
+      toast({ title: "Could not save cover", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Cover updated" });
+    load();
   };
 
   const signOut = async () => {
@@ -189,7 +204,8 @@ const LessonNotesPage = () => {
                   onOpen={() => navigate(`${livePrefix}/lesson-notes/${nb.id}`)}
                   onPresent={() => navigate(`/smartboard/${nb.id}`)}
                   onRename={() => renameNotebook(nb)}
-                  onDuplicate={() => duplicateNotebook(nb)}
+                  onDuplicate={() => duplicate(nb)}
+                  onCover={() => setCoverFor(nb)}
                   onDelete={() => deleteNotebook(nb)}
                 />
               ))}
@@ -210,18 +226,28 @@ const LessonNotesPage = () => {
       </section>
 
       <CreateNotebookDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreate={create} />
+
+      {coverFor && (
+        <CoverDesignerDialog
+          open
+          onOpenChange={(o) => { if (!o) setCoverFor(null); }}
+          notebook={coverFor}
+          onSave={(cfg) => saveCover(coverFor, cfg)}
+        />
+      )}
     </main>
   );
 };
 
 const NotebookCard = ({
-  nb, onOpen, onPresent, onRename, onDuplicate, onDelete,
+  nb, onOpen, onPresent, onRename, onDuplicate, onCover, onDelete,
 }: {
   nb: NotebookRow;
   onOpen: () => void;
   onPresent: () => void;
   onRename: () => void;
   onDuplicate: () => void;
+  onCover: () => void;
   onDelete: () => void;
 }) => {
   const stub = (label: string) => () =>
@@ -230,6 +256,11 @@ const NotebookCard = ({
   return (
     <div className="relative group transition-transform duration-200 hover:-translate-y-1 hover:scale-[1.02] hover:drop-shadow-[0_18px_30px_hsl(40_90%_50%/0.25)]">
       <NotebookCover notebook={nb} onClick={onOpen} />
+      {nb.checkout_link_id && (
+        <span className="absolute bottom-1.5 left-4 z-10 rounded bg-amber-400/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-950">
+          Editing class copy
+        </span>
+      )}
       <div className="absolute top-1.5 left-4 z-10 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -253,6 +284,9 @@ const NotebookCard = ({
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onDuplicate}>
               <Copy className="h-4 w-4 mr-2" /> Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onCover}>
+              <ImageIcon className="h-4 w-4 mr-2" /> Generate Note Cover (AI)
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onPresent}>

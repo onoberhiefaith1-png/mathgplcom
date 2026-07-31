@@ -2091,17 +2091,21 @@ export type Database = {
       }
       notebooks: {
         Row: {
+          checkout_link_id: string | null
           class_name: string
           color_index: number
+          cover_config: Json | null
           created_at: string
           document_json: Json | null
           id: string
+          origin_notebook_id: string | null
           owner_id: string
           paper_size: string
           paper_style: string
           purpose: string
           score_label: string
           session: string
+          storage_scope: string
           subject: string
           subtopic: string
           teacher: string
@@ -2110,17 +2114,21 @@ export type Database = {
           zoom: number
         }
         Insert: {
+          checkout_link_id?: string | null
           class_name?: string
           color_index?: number
+          cover_config?: Json | null
           created_at?: string
           document_json?: Json | null
           id?: string
+          origin_notebook_id?: string | null
           owner_id: string
           paper_size?: string
           paper_style?: string
           purpose?: string
           score_label?: string
           session?: string
+          storage_scope?: string
           subject?: string
           subtopic?: string
           teacher?: string
@@ -2129,17 +2137,21 @@ export type Database = {
           zoom?: number
         }
         Update: {
+          checkout_link_id?: string | null
           class_name?: string
           color_index?: number
+          cover_config?: Json | null
           created_at?: string
           document_json?: Json | null
           id?: string
+          origin_notebook_id?: string | null
           owner_id?: string
           paper_size?: string
           paper_style?: string
           purpose?: string
           score_label?: string
           session?: string
+          storage_scope?: string
           subject?: string
           subtopic?: string
           teacher?: string

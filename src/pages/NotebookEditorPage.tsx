@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, Presentation, Loader2, Smartphone } from "lucide-react";
+import { ArrowLeft, Presentation, Loader2, Smartphone, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
@@ -17,6 +17,7 @@ import { useNotebook } from "@/hooks/useNotebook";
 import { themeForIndex } from "@/lib/lessonnotes/themes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { saveBackToClass } from "@/lib/lessonnotes/notebookCopy";
 
 const NotebookEditorPage = () => {
   const { id } = useParams();
@@ -47,6 +48,22 @@ const NotebookEditorPage = () => {
   );
   const scanUrl = typeof window !== "undefined" ? `${window.location.origin}/notebook-scan/${scanCode}` : "";
   const [qrOpen, setQrOpen] = useState(false);
+  // Class storage checkout: this working copy was pulled out of a class and
+  // Save must replace the stored version.
+  const checkoutLinkId = (notebook as { checkout_link_id?: string | null } | null)?.checkout_link_id ?? null;
+  const [savingBack, setSavingBack] = useState(false);
+  const saveToClass = async () => {
+    if (!id || !checkoutLinkId) return;
+    setSavingBack(true);
+    try {
+      await saveBackToClass(id, checkoutLinkId);
+      toast({ title: "Class copy updated", description: "The stored notebook now matches this version." });
+    } catch (e) {
+      toast({ title: "Save to class failed", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setSavingBack(false);
+    }
+  };
   const [scanBusy, setScanBusy] = useState(false);
 
   const handleScanImage = useCallback(async (dataUrl: string) => {
@@ -128,6 +145,17 @@ const NotebookEditorPage = () => {
               {notebook.title || "Untitled notebook"}
             </h1>
           </div>
+          {checkoutLinkId && (
+            <Button
+              size="sm"
+              onClick={saveToClass}
+              disabled={savingBack}
+              className="h-8 gap-1.5 bg-amber-400 text-amber-950 hover:bg-amber-300"
+            >
+              {savingBack ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save to class
+            </Button>
+          )}
           <Button
             size="sm" variant="ghost"
             className="gap-1.5 h-8 text-foreground/70 hover:text-foreground"
