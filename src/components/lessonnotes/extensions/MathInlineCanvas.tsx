@@ -73,6 +73,10 @@ const Caret = ({ depth }: { depth: number }) => {
   );
 };
 
+/** Selection is broadcast through context so every nested RowView can
+ *  highlight its own slice without threading a prop through every node. */
+const SelectionCtx = createContext<RowRange | null>(null);
+
 function RowView({
   row, path, cursor, focused,
 }: { row: Row; path: number[]; cursor: Cursor; focused: boolean }) {
@@ -80,19 +84,29 @@ function RowView({
   const depth = depthOf(path);
   const items: React.ReactNode[] = [];
   const pathKey = JSON.stringify(path);
+  const sel = useContext(SelectionCtx);
+  const selHere = sel && pathsEqual(sel.path, path) ? sel : null;
+  const hasSel = Boolean(selHere && selHere.end > selHere.start);
   for (let i = 0; i <= row.length; i++) {
-    if (isCursorRow && cursor.index === i) {
+    if (isCursorRow && cursor.index === i && !hasSel) {
       items.push(<Caret key={`c${i}`} depth={depth} />);
     }
     if (i < row.length) {
       const n = row[i];
+      const selected = Boolean(selHere && i >= selHere.start && i < selHere.end);
       items.push(
-        <span key={`n${i}`} data-mpath={pathKey} data-mindex={i}>
+        <span
+          key={`n${i}`}
+          data-mpath={pathKey}
+          data-mindex={i}
+          className={selected ? "math-inline-selected" : undefined}
+        >
           <NodeView node={n} path={[...path, i]} cursor={cursor} focused={focused} />
         </span>,
       );
     }
   }
+
   if (row.length === 0 && !isCursorRow) {
     // Empty non-active sub-row: show a small placeholder box so the teacher
     // sees where they can click.
