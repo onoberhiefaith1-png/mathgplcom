@@ -103,7 +103,9 @@ function RootComponent() {
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
+          <ImpersonationBanner />
           <FullscreenToggle />
+
           <NavHistoryProvider>
             <Outlet />
           </NavHistoryProvider>
