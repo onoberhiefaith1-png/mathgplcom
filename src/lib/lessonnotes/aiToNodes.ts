@@ -15,6 +15,7 @@
 import { HAS_MATH } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 
 type TipTapNode = any;
 
@@ -189,7 +190,7 @@ function inlineMixedParagraph(line: string): TipTapNode {
   const content: TipTapNode[] = [];
   for (const r of runs) {
     if (r.kind === "math") {
-      content.push({ type: "mathInline", attrs: { value: r.value } });
+      content.push({ type: "mathInline", attrs: { value: normalizeMathSource(r.value) } });
     } else if (r.value) {
       content.push({ type: "text", text: r.value });
     }
@@ -237,7 +238,7 @@ export function aiTextToNodes(text: string): TipTapNode[] {
       continue;
     }
     if (isMostlyMath(line)) {
-      out.push({ type: "mathBlock", attrs: { value: stripDollars(line.trim()) } });
+      out.push({ type: "mathBlock", attrs: { value: normalizeMathSource(stripDollars(line.trim())) } });
     } else if (HAS_MATH(line)) {
       out.push(inlineMixedParagraph(line));
     } else {

@@ -1,15 +1,27 @@
-// Parse LaTeX-ish math strings ↔ mathTree.Row. Covers the subset produced by
-// `friendlyToLatex`: chars, `^{...}`, `_{...}`, `\frac{...}{...}`,
-// `\sqrt{...}`, `\sqrt[n]{...}`, and paren/bracket groups. Anything else
-// falls back to individual char nodes.
+// Parse LaTeX-ish math strings ↔ mathTree.Row.
+//
+// This grammar must stay in step with `renderMathInline` (the classroom
+// renderer used by the AI Edit preview). Anything the renderer can display
+// must be representable here, otherwise the editable node would fall back to
+// raw backslash text. Covered: chars, `^{...}`, `_{...}`,
+// `\frac{...}{...}`, `\binom{...}{...}`, `\sqrt{...}`, `\sqrt[n]{...}`,
+// big operators (`\sum \prod \int \oint \lim`) with limits, accents
+// (`\bar \overline \vec \hat \tilde \dot`), fences (`\abs \norm \floor
+// \ceil` and `|…|`) and matrices (`\begin{pmatrix}…\end{pmatrix}`).
 
 import {
   type Row,
   type Node,
+  type BracketKind,
   mkChar,
   mkFrac,
   mkSqrt,
   mkSubSup,
+  mkBigOp,
+  mkAccent,
+  mkBinom,
+  mkBracket,
+  mkMatrix,
   subRowsOf,
 } from "./mathTree";
 import { graphemes, isEmoji } from "@/lib/text/graphemes";
@@ -30,6 +42,57 @@ const matchBrace = (s: string, i: number): number => {
 };
 
 const isBaseChar = (ch: string): boolean => /[A-Za-z0-9)\]}]/.test(ch);
+
+type BigOpName = "sum" | "prod" | "int" | "oint" | "lim";
+const BIG_OPS: BigOpName[] = ["sum", "prod", "int", "oint", "lim"];
+
+/** LaTeX accent macro → the glyph drawn above the body. */
+const ACCENTS: Record<string, string> = {
+  bar: "‾", overline: "‾", vec: "→", overrightarrow: "→",
+  hat: "^", widehat: "^", tilde: "~", widetilde: "~", dot: "˙",
+};
+/** Reverse map used when serializing an accent node back to LaTeX. */
+const ACCENT_MACRO: Record<string, string> = {
+  "‾": "bar", "→": "vec", "^": "hat", "~": "tilde", "˙": "dot",
+};
+
+/** One-argument fence macros → bracket pair. */
+const FENCES: Record<string, [BracketKind, BracketKind]> = {
+  abs: ["|", "|"], norm: ["‖", "‖"], floor: ["⌊", "⌋"], ceil: ["⌈", "⌉"],
+};
+const FENCE_MACRO: Record<string, string> = {
+  "|": "abs", "‖": "norm", "⌊": "floor", "⌈": "ceil",
+};
+
+const MATRIX_ENVS: Record<string, [string, string]> = {
+  matrix: ["", ""], pmatrix: ["(", ")"], bmatrix: ["[", "]"],
+  Bmatrix: ["{", "}"], vmatrix: ["|", "|"], Vmatrix: ["‖", "‖"],
+};
+const MATRIX_ENV_FOR: Record<string, string> = {
+  "": "matrix", "(": "pmatrix", "[": "bmatrix", "{": "Bmatrix",
+  "|": "vmatrix", "‖": "Vmatrix",
+};
+
+/** Read `_{...}` / `^{...}` limits directly following a big operator. */
+const readLimits = (src: string, start: number): { lower: Row; upper: Row; end: number } => {
+  let i = start;
+  let lower: Row = [];
+  let upper: Row = [];
+  for (let pass = 0; pass < 2; pass++) {
+    const mark = src[i];
+    if ((mark === "_" || mark === "^") && src[i + 1] === "{") {
+      const end = matchBrace(src, i + 1);
+      if (end < 0) break;
+      const body = latexToTree(src.slice(i + 2, end - 1));
+      if (mark === "_") lower = body; else upper = body;
+      i = end;
+      continue;
+    }
+    break;
+  }
+  return { lower, upper, end: i };
+};
+
 
 export function latexToTree(src: string): Row {
   const row: Row = [];
@@ -134,6 +197,113 @@ export function latexToTree(src: string): Row {
         continue;
       }
     }
+    // \binom{a}{b}
+    if (src.startsWith("\\binom", i)) {
+      const aOpen = i + 6;
+      const aEnd = matchBrace(src, aOpen);
+      if (aEnd > 0 && src[aEnd] === "{") {
+        const bEnd = matchBrace(src, aEnd);
+        if (bEnd > 0) {
+          const n = mkBinom() as Extract<Node, { kind: "binom" }>;
+          n.rows = [
+            latexToTree(src.slice(aOpen + 1, aEnd - 1)),
+            latexToTree(src.slice(aEnd + 1, bEnd - 1)),
+          ];
+          row.push(n);
+          i = bEnd;
+          continue;
+        }
+      }
+    }
+    // \begin{pmatrix} a & b \\ c & d \end{pmatrix}
+    if (src.startsWith("\\begin{", i)) {
+      const close = src.indexOf("}", i + 7);
+      const env = close > 0 ? src.slice(i + 7, close) : "";
+      const pair = MATRIX_ENVS[env];
+      if (pair) {
+        const endTag = `\\end{${env}}`;
+        const endAt = src.indexOf(endTag, close);
+        if (endAt > 0) {
+          const body = src.slice(close + 1, endAt);
+          const cellRows = body.split(/\\\\/).map((r) => r.split("&"));
+          const nRows = cellRows.length;
+          const nCols = Math.max(...cellRows.map((r) => r.length));
+          const n = mkMatrix(nRows, nCols, pair[0], pair[1]) as Extract<Node, { kind: "matrix" }>;
+          const cells: Row[] = [];
+          for (let r = 0; r < nRows; r++) {
+            for (let c = 0; c < nCols; c++) {
+              cells.push(latexToTree((cellRows[r][c] ?? "").trim()));
+            }
+          }
+          n.rows = cells;
+          row.push(n);
+          i = endAt + endTag.length;
+          continue;
+        }
+      }
+    }
+    // Accents: \bar{x}, \overline{x}, \vec{v}, \hat{y}, \tilde{a}, \dot{x}
+    {
+      const m = /^\\([A-Za-z]+)\{/.exec(src.slice(i));
+      if (m) {
+        const name = m[1];
+        const open = i + 1 + name.length;
+        const glyph = ACCENTS[name];
+        const fence = FENCES[name];
+        if (glyph || fence) {
+          const end = matchBrace(src, open);
+          if (end > 0) {
+            const body = latexToTree(src.slice(open + 1, end - 1));
+            if (glyph) {
+              const n = mkAccent(glyph) as Extract<Node, { kind: "accent" }>;
+              n.rows = [body];
+              row.push(n);
+            } else {
+              const n = mkBracket(fence![0], fence![1]) as Extract<Node, { kind: "bracket" }>;
+              n.rows = [body];
+              row.push(n);
+            }
+            i = end;
+            continue;
+          }
+        }
+      }
+    }
+    // Big operators with optional limits: \sum_{i=1}^{n}, \lim_{x \to 0}
+    {
+      const m = /^\\([A-Za-z]+)/.exec(src.slice(i));
+      const name = m?.[1] as BigOpName | undefined;
+      if (name && (BIG_OPS as string[]).includes(name)) {
+        const { lower, upper, end } = readLimits(src, i + 1 + name.length);
+        const n = mkBigOp(name) as Extract<Node, { kind: "bigop" }>;
+        n.rows = [[], lower, upper];
+        row.push(n);
+        i = end;
+        continue;
+      }
+    }
+    // |…| absolute-value fence (paired scan on the same nesting level).
+    if (src[i] === "|" || src[i] === "‖") {
+      const mark = src[i];
+      let j = i + 1;
+      let depth = 0;
+      while (j < src.length) {
+        const ch = src[j];
+        if (ch === "\\") { j += 2; continue; }
+        if (ch === "{") depth++;
+        else if (ch === "}") depth--;
+        else if (ch === mark && depth <= 0) break;
+        j++;
+      }
+      if (j < src.length && src[j] === mark) {
+        const n = mkBracket(mark as BracketKind, mark as BracketKind) as Extract<Node, { kind: "bracket" }>;
+        n.rows = [latexToTree(src.slice(i + 1, j))];
+        row.push(n);
+        i = j + 1;
+        continue;
+      }
+    }
+
     // Emoji identity: never split a surrogate pair / ZWJ sequence.
     const g = graphemes(src.slice(i, i + 16))[0] ?? src[i];
     if (g.length > 1 && isEmoji(g)) {
@@ -190,11 +360,46 @@ export function treeToLatex(row: Row): string {
       continue;
     }
     if (n.kind === "bracket") {
-      out += `${n.left}${treeToLatex(subRowsOf(n)[0])}${n.right}`;
+      const body = treeToLatex(subRowsOf(n)[0]);
+      // ⌊ ⌋ / ⌈ ⌉ have no literal re-parse path, so serialize them as the
+      // macro form the parser understands. | and ‖ round-trip literally.
+      const macro = n.left === "⌊" || n.left === "⌈" ? FENCE_MACRO[n.left] : null;
+      out += macro ? `\\${macro}{${body}}` : `${n.left}${body}${n.right}`;
+      continue;
+    }
+    if (n.kind === "bigop") {
+      const [body, lower, upper] = subRowsOf(n);
+      out += `\\${n.op}`;
+      if (lower.length > 0) out += `_{${treeToLatex(lower)}}`;
+      if (upper.length > 0) out += `^{${treeToLatex(upper)}}`;
+      out += treeToLatex(body);
+      continue;
+    }
+    if (n.kind === "accent") {
+      const macro = ACCENT_MACRO[n.symbol] ?? "bar";
+      out += `\\${macro}{${treeToLatex(subRowsOf(n)[0])}}`;
+      continue;
+    }
+    if (n.kind === "binom") {
+      const [a, b] = subRowsOf(n);
+      out += `\\binom{${treeToLatex(a)}}{${treeToLatex(b)}}`;
+      continue;
+    }
+    if (n.kind === "matrix") {
+      const env = MATRIX_ENV_FOR[n.left] ?? "matrix";
+      const cells = subRowsOf(n);
+      const lines: string[] = [];
+      for (let r = 0; r < n.nRows; r++) {
+        const cols: string[] = [];
+        for (let c = 0; c < n.nCols; c++) cols.push(treeToLatex(cells[r * n.nCols + c] ?? []));
+        lines.push(cols.join(" & "));
+      }
+      out += `\\begin{${env}}${lines.join(" \\\\ ")}\\end{${env}}`;
       continue;
     }
     // Fallback: emit children.
     for (const sub of subRowsOf(n)) out += treeToLatex(sub);
+
   }
   return out;
 }

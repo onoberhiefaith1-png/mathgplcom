@@ -254,6 +254,82 @@ function NodeView({
       </span>
     );
   }
+  if (node.kind === "bigop") {
+    const [body, lower, upper] = subRowsOf(node);
+    const GLYPH: Record<string, string> = {
+      sum: "\u2211", prod: "\u220f", int: "\u222b", oint: "\u222e", lim: "lim",
+    };
+    const hasLower = lower.length > 0 || (focused && pathsEqual(cursor.path, [...path, 1]));
+    const hasUpper = upper.length > 0 || (focused && pathsEqual(cursor.path, [...path, 2]));
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", margin: "0 2px" }}>
+        <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
+          {hasUpper && (
+            <span style={{ fontSize: "0.6em" }}>
+              <RowView row={upper} path={[...path, 2]} cursor={cursor} focused={focused} />
+            </span>
+          )}
+          <span style={{ fontSize: node.op === "lim" ? "1em" : "1.5em" }}>{GLYPH[node.op] ?? "\u2211"}</span>
+          {hasLower && (
+            <span style={{ fontSize: "0.6em" }}>
+              <RowView row={lower} path={[...path, 1]} cursor={cursor} focused={focused} />
+            </span>
+          )}
+        </span>
+        {(body.length > 0 || (focused && pathsEqual(cursor.path, [...path, 0]))) && (
+          <span style={{ marginLeft: 2 }}>
+            <RowView row={body} path={[...path, 0]} cursor={cursor} focused={focused} />
+          </span>
+        )}
+      </span>
+    );
+  }
+  if (node.kind === "accent") {
+    return (
+      <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
+        <span aria-hidden style={{ fontSize: "0.7em", height: "0.45em", lineHeight: 0.6 }}>
+          {node.symbol === "\u203e" ? "\u203e" : node.symbol}
+        </span>
+        <RowView row={subRowsOf(node)[0]} path={[...path, 0]} cursor={cursor} focused={focused} />
+      </span>
+    );
+  }
+  if (node.kind === "binom") {
+    const [top, bot] = subRowsOf(node);
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
+        <span style={{ fontSize: "1.6em" }}>(</span>
+        <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 }}>
+          <RowView row={top} path={[...path, 0]} cursor={cursor} focused={focused} />
+          <RowView row={bot} path={[...path, 1]} cursor={cursor} focused={focused} />
+        </span>
+        <span style={{ fontSize: "1.6em" }}>)</span>
+      </span>
+    );
+  }
+  if (node.kind === "matrix") {
+    const cells = subRowsOf(node);
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
+        <span style={{ fontSize: `${Math.max(1.4, node.nRows)}em` }}>{node.left}</span>
+        <span style={{ display: "inline-grid", gridTemplateColumns: `repeat(${node.nCols}, auto)`, gap: "2px 10px", textAlign: "center" }}>
+          {cells.map((r, i) => (
+            <span key={i}>
+              <RowView row={r} path={[...path, i]} cursor={cursor} focused={focused} />
+            </span>
+          ))}
+        </span>
+        <span style={{ fontSize: `${Math.max(1.4, node.nRows)}em` }}>{node.right}</span>
+      </span>
+    );
+  }
+  if (node.kind === "box") {
+    return (
+      <span style={{ display: "inline-block", border: "1px solid currentColor", padding: "0 3px" }}>
+        <RowView row={subRowsOf(node)[0]} path={[...path, 0]} cursor={cursor} focused={focused} />
+      </span>
+    );
+  }
   // Unknown container: render children flatly.
   return (
     <span>
