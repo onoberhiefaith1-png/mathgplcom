@@ -19,6 +19,9 @@ import { MathBlock } from "./extensions/MathBlock";
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
+import { Scene3DDiagramNode, onScene3DWorkspaceOpen } from "./extensions/Scene3DDiagram";
+import { Workspace3DDialog } from "./geometry3d/Workspace3DDialog";
+import type { Scene3D } from "@/lib/geometry3d/scene3d";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
@@ -367,6 +370,12 @@ function DocumentEditorInner({
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+  /* ─── 3D Geometry Workspace (separate from the 2D editor) ─── */
+  const [diagramTabsOpen, setDiagramTabsOpen] = useState(false);
+  const [workspace3dOpen, setWorkspace3dOpen] = useState(false);
+  const [workspace3dScene, setWorkspace3dScene] = useState<Scene3D | null>(null);
+  const workspace3dApplyRef = useRef<((next: Scene3D) => void) | null>(null);
+
   const [tablesOpen, setTablesOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [objectsOpen, setObjectsOpen] = useState(false);
@@ -1042,6 +1051,7 @@ function DocumentEditorInner({
       SolutionMath,
       SolutionProse,
       GeometryDiagramNode,
+      Scene3DDiagramNode,
       MathTableNode,
       SmartGraphNode,
       SmartCalcNode,
@@ -1065,6 +1075,29 @@ function DocumentEditorInner({
       saveTimer.current = setTimeout(() => onDocChange(editor.getJSON()), 600);
     },
   });
+  /* ─── 3D workspace: open fresh, or re-open a pasted scene for editing ─── */
+  const open3DWorkspace = useCallback(() => {
+    workspace3dApplyRef.current = null;
+    setWorkspace3dScene(null);
+    setWorkspace3dOpen(true);
+  }, []);
+
+  useEffect(() => onScene3DWorkspaceOpen(({ scene, onApply }) => {
+    workspace3dApplyRef.current = onApply;
+    setWorkspace3dScene(scene);
+    setWorkspace3dOpen(true);
+  }), []);
+
+  const handle3DExport = useCallback((scene: Scene3D) => {
+    if (workspace3dApplyRef.current) {
+      workspace3dApplyRef.current(scene);
+      workspace3dApplyRef.current = null;
+      return;
+    }
+    if (!editor) return;
+    editor.chain().focus().insertContent({ type: "scene3dDiagram", attrs: { scene } }).run();
+  }, [editor]);
+
 
   const geometryDraftRef = useRef<{ pos: number; pendingIds: string[] } | null>(null);
   const geometryToolRef = useRef<ToolId>(geometryTool);
@@ -1679,27 +1712,64 @@ function DocumentEditorInner({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <button
-          type="button"
-          onClick={() => {
-            if (!editor) return;
-            if (geometryMode) {
-              setGeometryMode(false);
-              geometryDraftRef.current = null;
-              return;
-            }
-            setGeometryMode(true);
-          }}
-          title={geometryMode ? "Exit Geometry Mode" : "Geometry Mode — choose a tool, then click the lesson note"}
-          className={cn(
-            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-            geometryMode
-              ? "bg-primary text-primary-foreground"
-              : "hover:bg-foreground/10",
+        <div className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              if (geometryMode) {
+                setGeometryMode(false);
+                geometryDraftRef.current = null;
+                setDiagramTabsOpen(false);
+                return;
+              }
+              setDiagramTabsOpen((v) => !v);
+            }}
+            title="Diagram — choose 2D or 3D"
+            className={cn(
+              "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+              geometryMode || diagramTabsOpen
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-foreground/10",
+            )}
+          >
+            <Shapes className="h-4 w-4" /> Diagram
+          </button>
+          {(diagramTabsOpen || geometryMode) && (
+            <div className="inline-flex items-center rounded border border-foreground/15 overflow-hidden">
+              <button
+                type="button"
+                title="2D geometry editor"
+                onClick={() => {
+                  if (!editor) return;
+                  if (geometryMode) {
+                    setGeometryMode(false);
+                    geometryDraftRef.current = null;
+                  } else {
+                    setGeometryMode(true);
+                  }
+                }}
+                className={cn(
+                  "px-2 py-1 text-xs transition-colors",
+                  geometryMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+                )}
+              >
+                2D
+              </button>
+              <button
+                type="button"
+                title="Open the 3D Geometry Workspace"
+                onClick={() => {
+                  setGeometryMode(false);
+                  geometryDraftRef.current = null;
+                  open3DWorkspace();
+                }}
+                className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
+              >
+                3D
+              </button>
+            </div>
           )}
-        >
-          <Shapes className="h-4 w-4" /> Diagram
-        </button>
+        </div>
         <button
           type="button"
           onClick={() => setTablesOpen(true)}
@@ -1914,6 +1984,16 @@ function DocumentEditorInner({
       <MatrixToolbar editor={editor} />
       <GeometryAiPanel />
       <GeometryToolbox />
+
+      <Workspace3DDialog
+        open={workspace3dOpen}
+        onOpenChange={(o) => {
+          setWorkspace3dOpen(o);
+          if (!o) workspace3dApplyRef.current = null;
+        }}
+        initialScene={workspace3dScene}
+        onExport={handle3DExport}
+      />
       <MathTablesPicker
         open={tablesOpen}
         onOpenChange={setTablesOpen}
