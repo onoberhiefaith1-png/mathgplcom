@@ -2196,6 +2196,36 @@ export type Database = {
         }
         Relationships: []
       }
+      parent_teacher_links: {
+        Row: {
+          child_user_id: string | null
+          created_at: string
+          id: string
+          parent_user_id: string
+          status: string
+          teacher_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          child_user_id?: string | null
+          created_at?: string
+          id?: string
+          parent_user_id: string
+          status?: string
+          teacher_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          child_user_id?: string | null
+          created_at?: string
+          id?: string
+          parent_user_id?: string
+          status?: string
+          teacher_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       player_stats: {
         Row: {
           best_score: number
@@ -2650,6 +2680,59 @@ export type Database = {
           },
         ]
       }
+      teacher_invitations: {
+        Row: {
+          accepted_user_id: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          first_name: string | null
+          id: string
+          invited_by: string
+          last_name: string | null
+          org_id: string
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_user_id?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          invited_by: string
+          last_name?: string | null
+          org_id: string
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_user_id?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          invited_by?: string
+          last_name?: string | null
+          org_id?: string
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_invitations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2732,6 +2815,7 @@ export type Database = {
       }
       is_class_member: { Args: { _class_id: string }; Returns: boolean }
       is_class_owner: { Args: { _class_id: string }; Returns: boolean }
+      is_org_owner: { Args: { _org_id: string }; Returns: boolean }
       lookup_class_by_code: {
         Args: { code: string }
         Returns: {
@@ -2761,6 +2845,8 @@ export type Database = {
         Args: { _notebook_id: string }
         Returns: boolean
       }
+      org_of: { Args: { _user_id: string }; Returns: string }
+      owner_can_access_user: { Args: { _user_id: string }; Returns: boolean }
       owns_org: { Args: { _org_id: string }; Returns: boolean }
       shares_class_with: { Args: { _other: string }; Returns: boolean }
     }
