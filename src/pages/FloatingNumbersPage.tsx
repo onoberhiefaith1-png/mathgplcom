@@ -1259,35 +1259,62 @@ const FloatingNumbersPage = () => {
             </div>
           ) : (
             <div className="space-y-1" ref={workspaceRef}>
-              {lines.map((l, i) => {
-                const isSelected = l.lineId === selectedLineId;
+              {groups.map((g) => {
+                const renderLine = (l: FloatingLine, i: number) => {
+                  const isSelected = l.lineId === selectedLineId;
+                  return (
+                    <div
+                      key={l.lineId}
+                      data-line-id={l.lineId}
+                      onClick={() => setSelectedLineId(l.lineId)}
+                      className="rounded-md transition-colors cursor-pointer"
+                      style={isSelected ? {
+                        background: "hsl(48 95% 88% / 0.4)",
+                        boxShadow: "inset 3px 0 0 hsl(40 85% 50%)",
+                      } : undefined}
+                      title="Click to select — the AI Assistant will operate on this line"
+                    >
+                      <FloatingWorkspace
+                        line={l}
+                        index={i}
+                        scoreLabel={scoring.label}
+                        scoringMode={scoring.mode}
+                        onChange={(next) => {
+                          dirtyRef.current = true;
+                          setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
+                        }}
+                      />
+                    </div>
+                  );
+                };
+
+                if (g.kind === "text") return renderLine(g.line, g.index);
+
+                const cfg = tableConfig[g.objId] ?? { orientation: "row" as TableOrientation, retained: [] };
+                const activeLine = g.items.find((it) => it.line.lineId === manualLineId);
                 return (
-                  <div
-                    key={l.lineId}
-                    data-line-id={l.lineId}
-                    onClick={() => setSelectedLineId(l.lineId)}
-                    className="rounded-md transition-colors cursor-pointer"
-                    style={isSelected ? {
-                      background: "hsl(48 95% 88% / 0.4)",
-                      boxShadow: "inset 3px 0 0 hsl(40 85% 50%)",
-                    } : undefined}
-                    title="Click to select — the AI Assistant will operate on this line"
+                  <TableWorkspace
+                    key={g.objId}
+                    grid={g.grid}
+                    orientation={cfg.orientation}
+                    retained={cfg.retained}
+                    retentionMode={retentionTable === g.objId}
+                    activeCells={activeLine?.line.table?.cellKeys ?? []}
+                    manualActive={!!activeLine}
+                    lineCount={g.items.length}
+                    onOrientationChange={(o) => setOrientation(g.objId, o)}
+                    onGenerate={() => generateTable(g.grid, g.insertAt, g.items.length)}
+                    onToggleRetention={() => toggleRetentionMode(g.objId)}
+                    onAddLine={() => addManualLine(g.grid, g.insertAt, g.items.length)}
+                    onCellClick={(k) => onTableCellClick(g.grid, k)}
                   >
-                    <FloatingWorkspace
-                      line={l}
-                      index={i}
-                      scoreLabel={scoring.label}
-                      scoringMode={scoring.mode}
-                      onChange={(next) => {
-                        dirtyRef.current = true;
-                        setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
-                      }}
-                    />
-                  </div>
+                    {g.items.map((it) => renderLine(it.line, it.index))}
+                  </TableWorkspace>
                 );
               })}
             </div>
           )}
+
 
           {/* ───── View Session (always rendered so it's discoverable) ───── */}
           {!loading && <ViewSession lines={lines} />}
