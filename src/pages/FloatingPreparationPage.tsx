@@ -32,6 +32,9 @@ interface Highlight {
   precedingNotebook?: string;
   /** Synthetic row used when the solution begins with unhighlighted content. */
   notebookOnly?: boolean;
+  /** Set when the highlight is a whole object (table, diagram, chart, …)
+   *  rather than a run of text tokens. */
+  object?: SolutionObject;
 }
 interface Snapshot { highlights: Highlight[]; nextId: number }
 
