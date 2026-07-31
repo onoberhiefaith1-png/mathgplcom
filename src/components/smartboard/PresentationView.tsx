@@ -5431,6 +5431,9 @@ const PresentationView = ({
                     // silently no-ops. Present Mode gets this for free
                     // via presentWriteAtSensor; the Floating Number
                     // panel now behaves the same way.
+                    // Table Activity: while the table is the workspace, a
+                    // tapped value lands in the cell holding the sensor.
+                    if (writeIntoTableCell(t)) return;
                     presentWriteAtSensor(t);
                   }}
                   onInsertFrac={(p) => {
