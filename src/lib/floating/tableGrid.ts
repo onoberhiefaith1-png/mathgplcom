@@ -60,10 +60,17 @@ const asStringMatrix = (raw: any, rows: number, cols: number): string[][] => {
   return out;
 };
 
-/** Normalise a captured table object into a grid. Returns null when the
- *  object carries no usable tabular data. */
+/** Normalise a captured table OR Smart Structure object into a grid. Returns
+ *  null when the object carries no usable tabular data. */
 export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
+  // Smart Structures (long division, prime-factorisation ladder, …) own their
+  // own attribute shapes. Their adapter also reports the retained structure.
+  const structure = structureGridFromObject(obj);
+  if (structure) return structure;
+
   const a = flattenObjectAttrs((obj?.attrs ?? {}) as Record<string, any>);
+
+
 
   const rawCells = Array.isArray(a.cells)
     ? a.cells
