@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FullscreenToggle } from "@/components/common/FullscreenToggle";
+import ImpersonationBanner from "@/components/accounts/ImpersonationBanner";
+
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 
@@ -103,7 +105,9 @@ function RootComponent() {
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
+          <ImpersonationBanner />
           <FullscreenToggle />
+
           <NavHistoryProvider>
             <Outlet />
           </NavHistoryProvider>
