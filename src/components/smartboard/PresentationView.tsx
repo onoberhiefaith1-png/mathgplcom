@@ -2420,6 +2420,106 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
+  /* ── Table Activity ──────────────────────────────────────────────
+     A highlighted Smart Table's lines are ONE lesson step. While that
+     step is active the table becomes the workspace: cell clicks pick the
+     member line, the Floating Number panel and Present write into the
+     sensor cell, and Assessment follows the row/column. */
+  const tableGroups = useMemo(() => buildTableGroups(guidedLines), [guidedLines]);
+  const activeTableGroup = useMemo(
+    () => groupForLine(tableGroups, activeLineIdx),
+    [tableGroups, activeLineIdx],
+  );
+  const TABLE_STATE_KEY = `${boardKey("tableActivity", boardScope)}:${activeReservoirIdx}`;
+  const [tableEntries, setTableEntries] = useState<Record<string, TableEntries>>({});
+  const [tableSensorCell, setTableSensorCell] = useState<string | null>(null);
+  const [openTableObjId, setOpenTableObjId] = useState<string | null>(null);
+
+  // Restore per-cell entries for this reservoir.
+  useEffect(() => {
+    if (activeReservoirIdx < 0) return;
+    try {
+      const raw = typeof window !== "undefined"
+        ? window.localStorage.getItem(TABLE_STATE_KEY)
+        : null;
+      setTableEntries(raw ? (JSON.parse(raw) ?? {}) : {});
+    } catch { setTableEntries({}); }
+    setTableSensorCell(null);
+    setOpenTableObjId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeReservoirIdx]);
+
+  useEffect(() => {
+    if (activeReservoirIdx < 0) return;
+    try {
+      window.localStorage.setItem(TABLE_STATE_KEY, JSON.stringify(tableEntries));
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableEntries, activeReservoirIdx]);
+
+  const activeTableEntries: TableEntries = activeTableGroup
+    ? tableEntries[activeTableGroup.objId] ?? {}
+    : {};
+
+  // Floating line change → seat the table sensor on that row/column.
+  useEffect(() => {
+    if (!activeTableGroup) { setTableSensorCell(null); return; }
+    const target = firstOpenCell(activeTableGroup, activeTableEntries, activeLineIdx);
+    setTableSensorCell((cur) => {
+      if (cur && cellKeysForLine(activeTableGroup, activeLineIdx).includes(cur)) return cur;
+      return target;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTableGroup?.objId, activeLineIdx]);
+
+  const setTableEntry = useCallback(
+    (objId: string, key: string, value: string) => {
+      setTableEntries((prev) => ({
+        ...prev,
+        [objId]: { ...(prev[objId] ?? {}), [key]: value },
+      }));
+    },
+    [],
+  );
+
+  /** Present / Floating chip taps land in the table when it is open. */
+  const writeIntoTableCell = useCallback(
+    (text: string): boolean => {
+      if (!activeTableGroup) return false;
+      if (openTableObjId !== activeTableGroup.objId) return false;
+      const key = tableSensorCell
+        ?? firstOpenCell(activeTableGroup, activeTableEntries, activeLineIdx);
+      if (!key || isRetained(activeTableGroup, key)) return false;
+      const existing = String(activeTableEntries[key] ?? "");
+      setTableEntry(activeTableGroup.objId, key, `${existing}${text}`);
+      return true;
+    },
+    [activeTableGroup, openTableObjId, tableSensorCell, activeTableEntries, activeLineIdx, setTableEntry],
+  );
+
+  // Completion → next row/column; last one ends the activity and the lesson
+  // advances to the following line.
+  useEffect(() => {
+    if (!activeTableGroup) return;
+    if (!isLineComplete(activeTableGroup, activeTableEntries, activeLineIdx)) return;
+    const next = nextOpenLine(activeTableGroup, activeTableEntries, activeLineIdx);
+    if (next !== null && next !== activeLineIdx) {
+      setActiveLineIdx(next);
+      setFloatingLineIdx(next);
+      return;
+    }
+    if (isGroupComplete(activeTableGroup, activeTableEntries)) {
+      const last = activeTableGroup.memberLineIdxs[activeTableGroup.memberLineIdxs.length - 1];
+      const after = last + 1;
+      setOpenTableObjId(null);
+      if (after < guidedLines.length) {
+        setActiveLineIdx(after);
+        setFloatingLineIdx(after);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length]);
+
   // NOTE GATE — one uniform live rule for every line, no special cases:
   // a line with a note blocks Next until the note's TEXT IS ON THE BOARD
   // (checked live via boardHasTextRow at press time). Clicking the note
