@@ -52,6 +52,30 @@ export type Database = {
           },
         ]
       }
+      admin_impersonation_log: {
+        Row: {
+          admin_user_id: string
+          created_at: string
+          id: string
+          target_role: string | null
+          target_user_id: string
+        }
+        Insert: {
+          admin_user_id: string
+          created_at?: string
+          id?: string
+          target_role?: string | null
+          target_user_id: string
+        }
+        Update: {
+          admin_user_id?: string
+          created_at?: string
+          id?: string
+          target_role?: string | null
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       adventure_games: {
         Row: {
           created_at: string
@@ -2255,6 +2279,7 @@ export type Database = {
           children_count: number | null
           country: string | null
           created_at: string
+          dashboard_background: string | null
           date_of_birth: string | null
           display_name: string | null
           first_name: string | null
@@ -2272,6 +2297,7 @@ export type Database = {
           children_count?: number | null
           country?: string | null
           created_at?: string
+          dashboard_background?: string | null
           date_of_birth?: string | null
           display_name?: string | null
           first_name?: string | null
@@ -2289,6 +2315,7 @@ export type Database = {
           children_count?: number | null
           country?: string | null
           created_at?: string
+          dashboard_background?: string | null
           date_of_birth?: string | null
           display_name?: string | null
           first_name?: string | null
