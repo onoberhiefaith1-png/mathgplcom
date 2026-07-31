@@ -2450,6 +2450,9 @@ const PresentationView = ({
   const TABLE_STATE_KEY = `${boardKey("tableActivity", boardScope)}:${activeReservoirIdx}`;
   const [tableEntries, setTableEntries] = useState<Record<string, TableEntries>>({});
   const [tableSensorCell, setTableSensorCell] = useState<string | null>(null);
+  /** Live cursor row, read when the teacher taps a table's Floating Number. */
+  const sensorRef = useRef(sensor);
+  sensorRef.current = sensor;
   /** Expand / collapse is per table and remembered for the session. */
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   /** Tables the teacher has PLACED on this board view, and the board row
@@ -2623,7 +2626,7 @@ const PresentationView = ({
   // advances to the following line. Driven by the HIDDEN validation state:
   // nothing about this is displayed on the board.
   useEffect(() => {
-    if (!activeTableGroup || activeTableDeleted) return;
+    if (!activeTableGroup || !activeTablePlaced) return;
     if (!isLineComplete(activeTableGroup, activeTableEntries, activeLineIdx)) return;
     const next = nextOpenLine(activeTableGroup, activeTableEntries, activeLineIdx);
     if (next !== null && next !== activeLineIdx) {
@@ -2640,7 +2643,7 @@ const PresentationView = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length, activeTableDeleted]);
+  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length, activeTablePlaced]);
 
 
   // NOTE GATE — one uniform live rule for every line, no special cases:
