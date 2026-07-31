@@ -5547,7 +5547,7 @@ const PresentationView = ({
                 });
                 return;
               }
-              stepTo(Math.min(lineCount - 1, curLineIdx + 1));
+              stepToCounter(counterNumber);
             };
             const lineContainers = hasGuidedLines ? (guidedLines[curLineIdx]?.containers ?? []) : [];
             const currentNotebookText = notebookFor(curLineIdx);
