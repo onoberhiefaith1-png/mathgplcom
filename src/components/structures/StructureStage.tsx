@@ -77,18 +77,28 @@ export function StructureStage({
     [structureId, structureAttrs, cells],
   );
 
-  // Caret → cell address. The asset owns its own markup, so the editable
-  // fields are matched to editable cell keys in DOM (reading) order.
+  // Caret → cell address. Each structure asset stamps `data-sb-cell="r:c"`
+  // on its own value fields, so the address is explicit (no reliance on DOM
+  // ordering). Assets that predate the stamp fall back to reading order.
   const focusRef = useRef(onCellFocus);
   focusRef.current = onCellFocus;
   const keysRef = useRef(editableKeys);
   keysRef.current = editableKeys;
+  const lockedRef = useRef(lockedKeys);
+  lockedRef.current = lockedKeys;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host || !editable) return;
     const resolve = (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement)) return;
+      const stamped = target.closest<HTMLElement>("[data-sb-cell]");
+      const stampedKey = stamped?.getAttribute("data-sb-cell") ?? "";
+      if (stampedKey) {
+        if (lockedRef.current.includes(stampedKey)) return;
+        focusRef.current?.(stampedKey);
+        return;
+      }
       const field = target.closest<HTMLElement>(
         "input, textarea, [contenteditable='true']",
       );
@@ -109,6 +119,29 @@ export function StructureStage({
       host.removeEventListener("pointerdown", onPointer);
     };
   }, [editable]);
+
+  // RETAINED = READ-ONLY INK. Structure cells and teacher-retained values are
+  // neutralised in place: they still show, but they cannot be focused, typed
+  // into, or erased. Everything else stays fully editable.
+  const lockedSig = lockedKeys.join("|");
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const locked = new Set(lockedKeys);
+    host.querySelectorAll<HTMLElement>("[data-sb-cell]").forEach((el) => {
+      const key = el.getAttribute("data-sb-cell") ?? "";
+      const isLocked = locked.has(key);
+      el.dataset.sbLocked = isLocked ? "1" : "0";
+      el.style.pointerEvents = isLocked ? "none" : "";
+      if (isLocked) el.setAttribute("tabindex", "-1");
+      else el.removeAttribute("tabindex");
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        el.readOnly = isLocked;
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockedSig, attrs, editable]);
+
 
   const handleChange = useCallback(
     (patch: Record<string, unknown>) => {
