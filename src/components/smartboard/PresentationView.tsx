@@ -5720,6 +5720,7 @@ const PresentationView = ({
                   lineNumber={hasGuidedLines ? counterNumber : undefined}
                   lineCount={hasGuidedLines ? counterTotal : undefined}
                   lineLabel={counterLabel}
+                  tagOfLineIdx={(idx) => tagForLine(steps, tableGroups, idx)}
                   /* This lesson line IS a table: one table-icon chip instead
                      of equation fragments. Once a cell is clicked the T-series
                      takes over and the ordinary chips return so the teacher can
