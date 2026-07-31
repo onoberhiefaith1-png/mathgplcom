@@ -169,7 +169,7 @@ function splitQuestionBody(nodes: Node[]): { problem: string; solution: string; 
   }
   flush();
   // Section with nothing in it at all still gets one empty slot.
-  if (out.length === 0) out.push({ problem: "", solution: "" });
+  if (out.length === 0) out.push({ problem: "", solution: "", solutionObjects: [] });
   return out;
 }
 
