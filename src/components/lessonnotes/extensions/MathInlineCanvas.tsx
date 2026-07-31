@@ -10,8 +10,7 @@
 //   /            → wrap the multiplicative term to the left as a fraction
 //                  numerator; cursor lands in denominator
 //   ( [ | {      → open a bracketed workspace; cursor descends inside
-//   Space        → insert a real space (spacing is editable)
-//   Tab          → exit one level; at the top row, blur and return the
+//   Space / Tab  → exit one level; at the top row, blur and return the
 //                  caret to the surrounding prose
 //   click        → place the caret exactly where clicked, at any depth
 
@@ -625,14 +624,7 @@ export function MathInlineCanvas({
     }
 
     if (k === "Enter" || k === "Escape") { e.preventDefault(); onBlur(); return; }
-    if (k === " ") {
-      // Space is a real, deletable space character.
-      e.preventDefault();
-      const base = withSelectionCleared();
-      apply(insertChar(base.root, base.cursor, " "));
-      return;
-    }
-    if (k === "Tab") {
+    if (k === " " || k === "Tab") {
       e.preventDefault();
       if (cursor.path.length === 0) {
         onBlur();
@@ -644,43 +636,32 @@ export function MathInlineCanvas({
       return;
     }
 
-    // `#` → superscript on the term to the left.
-    //   • In an EMPTY script slot it switches branch (that is `##`:
-    //     superscript → subscript) — no nesting, no extra spacing.
-    //   • In a script slot that already holds content it NESTS, so
-    //     x #2 #5 #n builds x^(2^(5^n)) with unlimited depth.
-    // The trigger itself is never written into the note.
+    // Original tree workflow:
+    //   `#`  wraps the term immediately to the left and opens its superscript.
+    //   `##` switches the freshly-opened empty superscript to subscript.
+    // Once a script contains ink, another `#` wraps that ink and opens the
+    // next level. This is what makes x#2#5#n an unlimited editable tree.
+    // Keep spacing in rendering only; never change this interaction to solve
+    // visual gaps. Neither trigger is written into the note.
     if (k === "#") {
       e.preventDefault();
       const base = withSelectionCleared();
       const c = base.cursor;
-      const currentRow = getRowAt(base.root, c.path);
-
-      if (c.path.length >= 2 && currentRow.length === 0) {
+      if (c.path.length >= 2) {
         const parentPath = c.path.slice(0, -2);
         const nodeIdx = c.path[c.path.length - 2];
         const subIdx = c.path[c.path.length - 1];
         const holder = getRowAt(base.root, parentPath)[nodeIdx];
-        // Empty script branch → hop to the sibling branch instead of nesting.
-        if (holder && (holder.kind === "subsup" || holder.kind === "power") && subIdx >= 1) {
-          const target = holder.kind === "subsup" ? (subIdx === 2 ? 1 : 2) : 1;
-          setCaret({ path: [...parentPath, nodeIdx, target], index: 0 }, false);
+        if (holder && holder.kind === "subsup" && subIdx === 2 &&
+            subRowsOf(holder)[2].length === 0) {
+          setCaret({ path: [...parentPath, nodeIdx, 1], index: 0 }, false);
           return;
         }
       }
 
+      const currentRow = getRowAt(base.root, c.path);
       const { start, end } = extractWrapTargetLeftOf(currentRow, c.index);
-      if (end <= start) {
-        // Nothing to raise — open a fresh empty script object so the teacher
-        // can keep building the tree (never write a literal "#").
-        const res = insertNode(base.root, c, mkSubSup());
-        const nodeIdx = res.cursor.path.length >= 2
-          ? res.cursor.path[res.cursor.path.length - 2]
-          : c.index;
-        apply({ root: res.root, cursor: { path: [...c.path, nodeIdx, 2], index: 0 } });
-        return;
-      }
-
+      if (end <= start) { apply(insertChar(base.root, c, "#")); return; }
       const res = insertNodeWrapping(base.root, c, mkSubSup(), start, end, 0);
       apply({ root: res.root, cursor: { path: [...c.path, start, 2], index: 0 } });
       return;
