@@ -3,13 +3,9 @@ import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/
 import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
-import algebraIsland from "@/assets/adventure/algebra-island.png.asset.json";
-import calculusIsland from "@/assets/adventure/calculus-island.png.asset.json";
-import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
-import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
-import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
-import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
-import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
+import SignedMedia from "@/components/gamebuilder/SignedMedia";
+import { CORE_SLOTS, RING_SLOTS } from "@/lib/homepage/buildingSlots";
+import { useHomepageConfig, useResolvedSlotUrls } from "@/lib/homepage/homepageConfig";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
@@ -18,16 +14,11 @@ import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json
 // Subjects are the primary destinations; MathGPL hubs fill the remaining
 // positions and act as transition/branding hubs between subjects.
 //   Algebra → MathGPL → Geometry → MathGPL → Trigonometry → MathGPL → Statistics → Calculus
-const academies = [
-  { slug: "algebra", image: algebraIsland.url, route: "/subjects/algebra" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "geometry", image: geometryIsland.url, route: "/subjects/geometry" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "trigonometry", image: trigonometryIsland.url, route: "/subjects/trigonometry" },
-  { slug: "mathgpl", image: mathgplPalace.url, route: "/teaching-hub" },
-  { slug: "statistics", image: statisticsIsland.url, route: "/subjects/statistics" },
-  { slug: "calculus", image: calculusIsland.url, route: "/subjects/calculus" },
-];
+const academies = RING_SLOTS.map((slot) => ({
+  slug: slot.id,
+  image: slot.defaultUrl,
+  route: slot.route ?? "/teaching-hub",
+}));
 
 const SEGMENTS = academies.length; // 8
 const SEG_ANGLE = (Math.PI * 2) / SEGMENTS; // 45° per curved slice
