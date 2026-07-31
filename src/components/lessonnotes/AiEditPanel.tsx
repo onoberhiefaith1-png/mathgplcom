@@ -15,6 +15,7 @@ import { Sparkles, Loader2, Mic, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { VoiceWave } from "./VoiceWave";
+import { AutoTextarea } from "./AutoTextarea";
 import {
   EDIT_SUGGESTIONS, SELECTION_KIND_LABELS,
 } from "@/lib/lessonnotes/editSuggestions";
@@ -201,8 +202,8 @@ export function AiEditPanel({
             {simpleMode && simpleCaption && (
               <p className="text-xs text-foreground/65 leading-snug">{simpleCaption}</p>
             )}
-            <textarea
-              ref={inputRef}
+            <AutoTextarea
+              textareaRef={inputRef}
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
               onKeyDown={(e) => {
@@ -216,8 +217,9 @@ export function AiEditPanel({
                   ? "Optional: tell AI what to fix or how you want it…"
                   : "Tell AI what you want to do…"
               }
-              rows={simpleMode ? 3 : 4}
-              className="w-full text-sm bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
+              minRows={simpleMode ? 3 : 4}
+              maxRows={12}
+              className="w-full text-sm leading-relaxed bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40"
             />
 
             {(voice.listening || voice.transcribing) && (
@@ -360,12 +362,13 @@ export function AiEditPanel({
                   <p className="text-[10px] uppercase tracking-wider text-foreground/55">
                     Or write your own instruction
                   </p>
-                  <textarea
+                  <AutoTextarea
                     value={instruction}
                     onChange={(e) => setInstruction(e.target.value)}
                     placeholder="Tell AI exactly what to change…"
-                    rows={2}
-                    className="w-full text-xs bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40 resize-none"
+                    minRows={3}
+                    maxRows={10}
+                    className="w-full text-xs leading-relaxed bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40"
                   />
                   <div className="flex items-center gap-2">
                     <button

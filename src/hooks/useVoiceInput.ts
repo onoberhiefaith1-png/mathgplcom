@@ -20,6 +20,30 @@ type Updater = (next: string | ((prev: string) => string)) => void;
 
 const TARGET_RATE = 16000;
 
+/**
+ * Lay the transcript out as readable prose instead of one endless line:
+ * every sentence ends a line, and every few sentences start a new
+ * paragraph, so a long dictation can be read at a glance.
+ */
+export function formatTranscript(raw: string): string {
+  const text = (raw ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (sentences.length <= 1) return text;
+  const out: string[] = [];
+  let para: string[] = [];
+  for (const s of sentences) {
+    para.push(s);
+    if (para.length >= 3) { out.push(para.join("\n")); para = []; }
+  }
+  if (para.length) out.push(para.join("\n"));
+  return out.join("\n\n");
+}
+
+
 function downsample(chunks: Float32Array[], from: number, to: number): Float32Array {
   const total = chunks.reduce((n, c) => n + c.length, 0);
   const merged = new Float32Array(total);
@@ -188,11 +212,13 @@ export function useVoiceInput(onTranscript: Updater) {
     try {
       const text = await transcribe(blob);
       if (!text) { toast({ title: "Nothing was heard — please try again." }); return; }
-      // APPEND: a new recording continues from what is already there.
+      // APPEND: a new recording starts a fresh paragraph after what's there.
+      const formatted = formatTranscript(text);
       onTranscriptRef.current((prev) => {
-        const base = (prev ?? "").trim();
-        return base ? `${base} ${text}` : text;
+        const base = (prev ?? "").replace(/\s+$/, "");
+        return base ? `${base}\n\n${formatted}` : formatted;
       });
+
     } catch (e: any) {
       toast({ title: "Transcription failed", description: String(e?.message ?? e) });
     } finally {
