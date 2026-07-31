@@ -885,6 +885,219 @@ const FloatingNumbersPage = () => {
     setScoring((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  /* ───────────────── Table workspaces ─────────────────
+     A highlighted table owns a contiguous run of Floating Number lines.
+     Orientation / Generate / Retention are independent controls. */
+
+  const [tableConfig, setTableConfig] = useState<
+    Record<string, { orientation: TableOrientation; retained: string[] }>
+  >({});
+
+  useEffect(() => {
+    setTableConfig((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const l of lines) {
+        const t = l.table;
+        if (!t?.objId || next[t.objId]) continue;
+        next[t.objId] = { orientation: t.orientation ?? "row", retained: t.retained ?? [] };
+        changed = true;
+      }
+      for (const e of entries) {
+        if (e.kind !== "table" || next[e.objId]) continue;
+        next[e.objId] = { orientation: "row", retained: [] };
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [lines, entries]);
+
+  /** Render groups: text lines and table workspaces, in document order.
+   *  `insertAt` is where a table's lines start inside the flat `lines` list. */
+  type Group =
+    | { kind: "text"; line: FloatingLine; index: number }
+    | { kind: "table"; grid: TableGrid; objId: string; insertAt: number; items: { line: FloatingLine; index: number }[] };
+
+  const groups = useMemo<Group[]>(() => {
+    const out: Group[] = [];
+    let i = 0;
+    for (const e of entries) {
+      if (e.kind === "table") {
+        const items: { line: FloatingLine; index: number }[] = [];
+        const insertAt = i;
+        while (i < lines.length && lines[i].table?.objId === e.objId) {
+          items.push({ line: lines[i], index: i });
+          i++;
+        }
+        out.push({ kind: "table", grid: e.grid, objId: e.objId, insertAt, items });
+      } else {
+        while (i < lines.length && lines[i].table) i++;
+        if (i < lines.length) {
+          out.push({ kind: "text", line: lines[i], index: i });
+          i++;
+        }
+      }
+    }
+    while (i < lines.length) {
+      out.push({ kind: "text", line: lines[i], index: i });
+      i++;
+    }
+    return out;
+  }, [entries, lines]);
+
+  const patchTableLines = useCallback(
+    (objId: string, patch: Partial<NonNullable<FloatingLine["table"]>>) => {
+      dirtyRef.current = true;
+      setLines((prev) =>
+        prev.map((l) =>
+          l.table?.objId === objId ? { ...l, table: { ...l.table, ...patch } } : l,
+        ),
+      );
+    },
+    [],
+  );
+
+  const setOrientation = useCallback(
+    (objId: string, orientation: TableOrientation) => {
+      setTableConfig((prev) => ({
+        ...prev,
+        [objId]: { orientation, retained: prev[objId]?.retained ?? [] },
+      }));
+      setManualLineId(null);
+      patchTableLines(objId, { orientation });
+    },
+    [patchTableLines],
+  );
+
+  const toggleRetentionMode = useCallback((objId: string) => {
+    setManualLineId(null);
+    setRetentionTable((prev) => (prev === objId ? null : objId));
+  }, []);
+
+  const generateTable = useCallback(
+    (grid: TableGrid, insertAt: number, count: number) => {
+      const orientation = tableConfig[grid.objId]?.orientation ?? "row";
+      const retained = tableConfig[grid.objId]?.retained ?? [];
+      const built = generateTableLines(grid, orientation).map((g) => ({
+        lineId: newId(),
+        equation: g.values.join("  "),
+        fillers: g.values,
+        containers: [] as ContainerKind[],
+        arrangement: identityArrangement(g.values.length),
+        fillersSelected: g.values.map(() => false),
+        containersSelected: [],
+        marks: scoring.mode === "equal" ? scoring.marksPerLine : 0,
+        table: {
+          objId: grid.objId,
+          label: g.label,
+          orientation,
+          cellKeys: g.cellKeys,
+          retained,
+          manual: false,
+          grid,
+        },
+      })) as FloatingLine[];
+      dirtyRef.current = true;
+      setManualLineId(null);
+      setLines((prev) => {
+        const next = prev.slice();
+        next.splice(insertAt, count, ...built);
+        return next;
+      });
+      toast({ title: `${built.length} line${built.length === 1 ? "" : "s"} generated`, description: `${grid.label} · ${orientation === "row" ? "row" : "column"}-oriented.` });
+    },
+    [tableConfig, scoring.mode, scoring.marksPerLine],
+  );
+
+  const addManualLine = useCallback(
+    (grid: TableGrid, insertAt: number, count: number) => {
+      const orientation = tableConfig[grid.objId]?.orientation ?? "row";
+      const retained = tableConfig[grid.objId]?.retained ?? [];
+      const line: FloatingLine = {
+        lineId: newId(),
+        equation: "",
+        fillers: [],
+        containers: [],
+        arrangement: [],
+        marks: scoring.mode === "equal" ? scoring.marksPerLine : 0,
+        table: {
+          objId: grid.objId,
+          label: "Manual line",
+          orientation,
+          cellKeys: [],
+          retained,
+          manual: true,
+          grid,
+        },
+      };
+      dirtyRef.current = true;
+      setRetentionTable(null);
+      setManualLineId(line.lineId);
+      setLines((prev) => {
+        const next = prev.slice();
+        next.splice(insertAt + count, 0, line);
+        return next;
+      });
+    },
+    [tableConfig, scoring.mode, scoring.marksPerLine],
+  );
+
+  const onTableCellClick = useCallback(
+    (grid: TableGrid, key: string) => {
+      const objId = grid.objId;
+      const orientation = tableConfig[objId]?.orientation ?? "row";
+
+      // Retention mode — mark cells that stay visible for students.
+      if (retentionTable === objId) {
+        const current = tableConfig[objId]?.retained ?? [];
+        const nextRetained = current.includes(key)
+          ? current.filter((k) => k !== key)
+          : [...current, key];
+        setTableConfig((prev) => ({ ...prev, [objId]: { orientation, retained: nextRetained } }));
+        patchTableLines(objId, { retained: nextRetained });
+        return;
+      }
+
+      // Manual assignment — cells join the line being built.
+      const target = lines.find((l) => l.lineId === manualLineId && l.table?.objId === objId);
+      if (!target) {
+        toast({ title: "Pick a target first", description: 'Click "+ Add Line" (or Retention) before selecting cells.' });
+        return;
+      }
+      const existing = target.table?.cellKeys ?? [];
+      if (!existing.includes(key) && !cellFitsLine(orientation, existing, key)) {
+        toast({
+          title: "Orientation rule",
+          description: `This workspace is ${orientation}-oriented — every cell of a line must share the same ${orientation}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const cellKeys = existing.includes(key)
+        ? existing.filter((k) => k !== key)
+        : [...existing, key];
+      const values = cellKeys
+        .map((k) => tableLineEquation(grid, [k]))
+        .filter((v) => v.trim().length > 0);
+      dirtyRef.current = true;
+      setLines((prev) =>
+        prev.map((l) =>
+          l.lineId !== target.lineId
+            ? l
+            : {
+                ...l,
+                equation: values.join("  "),
+                fillers: values,
+                arrangement: identityArrangement(values.length),
+                fillersSelected: values.map(() => false),
+                table: { ...l.table!, cellKeys, grid },
+              },
+        ),
+      );
+    },
+    [tableConfig, retentionTable, manualLineId, lines, patchTableLines],
+  );
+
 
   return (
     <div className="flex min-h-screen" style={{ background: "hsl(38 35% 92%)" }}>
