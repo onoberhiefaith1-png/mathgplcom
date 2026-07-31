@@ -134,22 +134,26 @@ export interface GeneratedTableLine {
 }
 
 /** Rebuild the automatic line set for a grid. Row mode → one line per data
- *  row; Column mode → one line per column. Blank lines are dropped. */
+ *  row; Column mode → one line per column. Blank lines are dropped.
+ *
+ *  SMART STRUCTURE LAW: retained structural cells are detected and ignored.
+ *  Only editable cells become Floating Numbers; the drawing stays untouched. */
 export const generateTableLines = (
   grid: TableGrid,
   orientation: TableOrientation,
 ): GeneratedTableLine[] => {
   const out: GeneratedTableLine[] = [];
+  const editable = (keys: string[]) => keys.filter((k) => !isStaticCell(grid, k));
   if (orientation === "row") {
     for (let r = 0; r < grid.rows; r++) {
-      const keys = Array.from({ length: grid.cols }, (_, c) => cellKey(r, c));
+      const keys = editable(Array.from({ length: grid.cols }, (_, c) => cellKey(r, c)));
       const values = keys.map((k) => cellValue(grid, k)).filter((v) => v.trim().length > 0);
       if (!values.length) continue;
       out.push({ cellKeys: keys, values, label: `Row ${r + 1}` });
     }
   } else {
     for (let c = 0; c < grid.cols; c++) {
-      const keys = Array.from({ length: grid.rows }, (_, r) => cellKey(r, c));
+      const keys = editable(Array.from({ length: grid.rows }, (_, r) => cellKey(r, c)));
       const values = keys.map((k) => cellValue(grid, k)).filter((v) => v.trim().length > 0);
       if (!values.length) continue;
       out.push({
@@ -161,6 +165,7 @@ export const generateTableLines = (
   }
   return out;
 };
+
 
 /** Equation text shown for a table-derived line. */
 export const tableLineEquation = (grid: TableGrid, cellKeys: string[]): string =>
