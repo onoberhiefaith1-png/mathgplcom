@@ -6,7 +6,7 @@
 // turns that grid into Floating Number lines according to the workspace
 // orientation (Row vs Column).
 
-import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { flattenObjectAttrs, type SolutionObject } from "@/lib/floating/solutionItems";
 
 export type TableOrientation = "row" | "column";
 
