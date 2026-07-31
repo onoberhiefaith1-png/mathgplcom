@@ -153,7 +153,7 @@ export function DivisionLadder({ attrs, onChange, selected, board }: Props) {
                   {isResult ? (
                     <span className="opacity-0 select-none">·</span>
                   ) : (
-                    <SmartCell value={m.divisors[r] ?? ""} onChange={(v) => setDiv(r, v)} align="right" placeholder="" />
+                    <SmartCell cellKey={`${r}:0`} value={m.divisors[r] ?? ""} onChange={(v) => setDiv(r, v)} align="right" placeholder="" />
                   )}
                 </td>
                 {row.map((v, c) => (
@@ -167,7 +167,7 @@ export function DivisionLadder({ attrs, onChange, selected, board }: Props) {
                       ...hoverStyle(r, c),
                     }}
                   >
-                    <SmartCell value={v} onChange={(nv) => setCell(r, c, nv)} align="right" />
+                    <SmartCell cellKey={`${r}:${c + 1}`} value={v} onChange={(nv) => setCell(r, c, nv)} align="right" />
                   </td>
                 ))}
               </tr>

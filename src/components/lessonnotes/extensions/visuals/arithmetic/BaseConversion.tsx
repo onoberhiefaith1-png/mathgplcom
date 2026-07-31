@@ -119,7 +119,7 @@ export function BaseConversion({ attrs, onChange, selected, board }: Props) {
                   background: baseHover ? "rgba(15,23,42,0.04)" : undefined,
                 }}
               >
-                <SmartCell value={m.base} onChange={(v) => patch({ base: v })} align="right" placeholder="" />
+                <SmartCell cellKey={`${i}:0`} value={m.base} onChange={(v) => patch({ base: v })} align="right" placeholder="" />
               </td>
               <td
                 onPointerEnter={() => setHover({ r: i, c: 1 })}
@@ -131,7 +131,7 @@ export function BaseConversion({ attrs, onChange, selected, board }: Props) {
                   ...hoverStyle(i, 1),
                 }}
               >
-                <SmartCell value={row.q} onChange={(v) => setQ(i, v)} align="right" placeholder="" />
+                <SmartCell cellKey={`${i}:1`} value={row.q} onChange={(v) => setQ(i, v)} align="right" placeholder="" />
               </td>
               <td
                 onPointerEnter={() => setHover({ r: i, c: 2 })}
@@ -146,7 +146,7 @@ export function BaseConversion({ attrs, onChange, selected, board }: Props) {
                 {i > 0 && (
                   <span className="inline-flex items-center gap-2">
                     <span style={{ fontWeight: 700 }}>R</span>
-                    <SmartCell value={row.r} onChange={(v) => setR(i, v)} align="left" placeholder="" />
+                    <SmartCell cellKey={`${i}:2`} value={row.r} onChange={(v) => setR(i, v)} align="left" placeholder="" />
                   </span>
                 )}
               </td>
