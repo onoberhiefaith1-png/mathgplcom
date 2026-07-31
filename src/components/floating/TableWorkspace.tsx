@@ -145,8 +145,28 @@ const TableWorkspace = ({
               <tr key={`r-${r}`}>
                 {row.map((v, c) => {
                   const k = cellKey(r, c);
+                  const structural = staticSet.has(k);
                   const isRetained = retainedSet.has(k);
                   const inLine = activeSet.has(k);
+                  if (structural) {
+                    // Static structure — the teacher's drawing. Never a
+                    // Floating Number, never clickable.
+                    return (
+                      <td
+                        key={k}
+                        className="px-3 py-1.5 text-center select-none"
+                        style={{
+                          border: "1px dashed hsl(220 15% 40% / 0.3)",
+                          background: "hsl(220 12% 90%)",
+                          color: "hsl(220 20% 35%)",
+                          minWidth: 56,
+                        }}
+                        title="Retained structure — never a Floating Number"
+                      >
+                        {grid.staticGlyphs?.[k] || <span className="text-foreground/25">▨</span>}
+                      </td>
+                    );
+                  }
                   return (
                     <td
                       key={k}
@@ -165,6 +185,7 @@ const TableWorkspace = ({
                     </td>
                   );
                 })}
+
               </tr>
             ))}
           </tbody>
