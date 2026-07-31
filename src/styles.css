@@ -623,17 +623,102 @@
 .math-struct--nroot .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; border-bottom: 0; font-size: 0.62em; align-self: start; justify-self: end; transform: translate(0.35em, -0.25em); z-index: 1; }
 .math-struct--nroot .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; border-top: 1.5px solid currentColor; padding: 2px 5px 0; }
 
-.math-struct--power, .math-struct--sub, .math-struct--subsup { padding: 0; }
-.math-struct--power .math-slot, .math-struct--sub .math-slot, .math-struct--subsup .math-slot { padding: 0; min-width: 0; }
-.math-struct--power:focus-within .math-slot[data-empty="true"], .math-struct--sub:focus-within .math-slot[data-empty="true"], .math-struct--subsup:focus-within .math-slot[data-empty="true"] { min-width: 0.5em; }
-.math-struct--power, .math-struct--sub { grid-template-columns: max-content max-content; align-items: baseline; }
-.math-struct--power .math-slot:nth-child(1), .math-struct--sub .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; }
-.math-struct--power .math-slot:nth-child(2) { grid-column: 2; grid-row: 1; font-size: 0.68em; align-self: start; transform: translateY(-0.42em); margin-left: -0.05em; }
-.math-struct--sub .math-slot:nth-child(2) { grid-column: 2; grid-row: 1; font-size: 0.68em; align-self: end; transform: translateY(0.34em); margin-left: -0.05em; }
-.math-struct--subsup { grid-template-columns: max-content max-content; grid-template-rows: auto auto; align-items: center; }
-.math-struct--subsup .math-slot:nth-child(1) { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
-.math-struct--subsup .math-slot:nth-child(2) { grid-column: 2; grid-row: 2; font-size: 0.68em; margin-left: -0.05em; }
-.math-struct--subsup .math-slot:nth-child(3) { grid-column: 2; grid-row: 1; font-size: 0.68em; margin-left: -0.05em; }
+/* ── Scripts (power / sub / subsup) ────────────────────────────────
+   These render as TIGHT INLINE TEXT — the same metrics the read-only
+   renderer uses (<sup> with margin-left: 1px). They deliberately do NOT
+   use the grid layout of the other structures: grid cells are sized to
+   max-content and stretch/centre their contents, which added ~20px of
+   dead space around every base and every script. */
+.math-struct--power, .math-struct--sub, .math-struct--subsup {
+  display: inline;
+  width: auto;
+  max-width: none;
+  padding: 0;
+  vertical-align: baseline;
+}
+.math-struct--power .math-slot,
+.math-struct--sub .math-slot,
+.math-struct--subsup .math-slot {
+  display: inline;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  transform: none;
+}
+/* the script slot itself */
+.math-struct--power .math-slot:nth-child(2),
+.math-struct--sub .math-slot:nth-child(2),
+.math-struct--subsup .math-slot:nth-child(2),
+.math-struct--subsup .math-slot:nth-child(3) {
+  display: inline-block;
+  font-size: 0.68em;
+  line-height: 1;
+  margin-left: 1px;
+}
+.math-struct--power .math-slot:nth-child(2),
+.math-struct--subsup .math-slot:nth-child(3) {
+  vertical-align: super;
+  transform: translateY(0.08em);
+}
+.math-struct--sub .math-slot:nth-child(2),
+.math-struct--subsup .math-slot:nth-child(2) {
+  vertical-align: sub;
+  transform: translateY(-0.06em);
+}
+/* An empty script takes no room at all until the teacher is editing it. */
+.math-struct--power .math-slot[data-empty="true"],
+.math-struct--sub .math-slot[data-empty="true"],
+.math-struct--subsup .math-slot[data-empty="true"] {
+  min-width: 0;
+  margin-left: 0;
+}
+.math-struct--power:focus-within .math-slot[data-empty="true"],
+.math-struct--sub:focus-within .math-slot[data-empty="true"],
+.math-struct--subsup:focus-within .math-slot[data-empty="true"] {
+  min-width: 0.5em;
+  margin-left: 1px;
+}
+/* Both scripts present → stack them, still shrink-wrapped. */
+.math-struct--subsup:has(.math-slot:nth-child(2):not([data-empty="true"])):has(.math-slot:nth-child(3):not([data-empty="true"])),
+.math-struct--subsup:focus-within {
+  display: inline-grid;
+  grid-template-columns: max-content max-content;
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-items: start;
+  width: max-content;
+  vertical-align: middle;
+}
+.math-struct--subsup:has(.math-slot:nth-child(2):not([data-empty="true"])):has(.math-slot:nth-child(3):not([data-empty="true"])) .math-slot:nth-child(1),
+.math-struct--subsup:focus-within .math-slot:nth-child(1) {
+  display: block;
+  width: max-content;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+.math-struct--subsup:has(.math-slot:nth-child(2):not([data-empty="true"])):has(.math-slot:nth-child(3):not([data-empty="true"])) .math-slot:nth-child(2),
+.math-struct--subsup:focus-within .math-slot:nth-child(2) {
+  display: block;
+  width: max-content;
+  grid-column: 2;
+  grid-row: 2;
+  vertical-align: baseline;
+  transform: none;
+}
+.math-struct--subsup:has(.math-slot:nth-child(2):not([data-empty="true"])):has(.math-slot:nth-child(3):not([data-empty="true"])) .math-slot:nth-child(3),
+.math-struct--subsup:focus-within .math-slot:nth-child(3) {
+  display: block;
+  width: max-content;
+  grid-column: 2;
+  grid-row: 1;
+  vertical-align: baseline;
+  transform: none;
+}
+
 
 .math-struct--abs, .math-struct--norm, .math-struct--floor, .math-struct--ceil, .math-struct--paren, .math-struct--sqbracket, .math-struct--brace { grid-template-columns: max-content max-content max-content; align-items: stretch; }
 .math-struct--abs::before, .math-struct--abs::after { content: "|"; }
