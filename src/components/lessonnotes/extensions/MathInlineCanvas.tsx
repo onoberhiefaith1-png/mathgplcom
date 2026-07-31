@@ -467,9 +467,15 @@ export function MathInlineCanvas({
     if (k === "Backspace") { e.preventDefault(); apply(treeBackspace(root, cursor)); return; }
     if (k === "Enter" || k === "Escape") { e.preventDefault(); onBlur(); return; }
     if (k === " ") {
+      // Space is a real space: teachers adjust spacing inside the
+      // expression. Use Tab to pop out a level, Escape/Enter to leave.
+      e.preventDefault();
+      apply(insertChar(root, cursor, " "));
+      return;
+    }
+    if (k === "Tab") {
       e.preventDefault();
       if (cursor.path.length === 0) {
-        // Top row: return to prose.
         onBlur();
       } else {
         // Pop out one level: land after the container node we were inside.
@@ -479,6 +485,7 @@ export function MathInlineCanvas({
       }
       return;
     }
+
     if (k === "/") {
       e.preventDefault();
       const row = getRowAt(root, cursor.path);
