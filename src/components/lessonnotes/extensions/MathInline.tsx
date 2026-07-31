@@ -12,7 +12,7 @@
 import { Node, mergeAttributes, InputRule } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import type { Row } from "@/lib/smartboard/mathTree";
 import { MathInlineCanvas } from "./MathInlineCanvas";
@@ -60,9 +60,14 @@ function latexToFriendlyForTree(v: string): string {
   return normalizeMathSource(v);
 }
 
-function MathInlineView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
+function MathInlineView({ node, updateAttributes, editor, getPos, selected }: NodeViewProps) {
   const [root, setRoot] = useState<Row>(() => parseTree(node.attrs as Record<string, unknown>));
   const [focused, setFocused] = useState<boolean>(Boolean(node.attrs.autoEdit));
+  // Point of the click that opened the editor, replayed so the caret lands
+  // exactly where the teacher clicked on the rendered expression.
+  const [entryPoint, setEntryPoint] = useState<{ x: number; y: number } | null>(null);
+
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (node.attrs.autoEdit) {
@@ -80,6 +85,7 @@ function MathInlineView({ node, updateAttributes, editor, getPos }: NodeViewProp
 
   const handleBlur = () => {
     setFocused(false);
+    setEntryPoint(null);
     // Return caret to prose immediately after the math node.
     try {
       const pos = typeof getPos === "function" ? getPos() : null;
@@ -108,13 +114,34 @@ function MathInlineView({ node, updateAttributes, editor, getPos }: NodeViewProp
   // Present mode.
   if (!focused) {
     return (
-      <NodeViewWrapper as="span" className="inline-block align-baseline" contentEditable={false}>
+      <NodeViewWrapper
+        as="span"
+        className={`inline-block align-baseline math-inline-node${selected ? " math-inline-node--selected" : ""}`}
+        contentEditable={false}
+      >
         <span
-          role="button"
-          tabIndex={0}
-          className="cursor-text math-inline-display"
-          onClick={() => setFocused(true)}
-          onFocus={() => setFocused(true)}
+          className="cursor-text math-inline-display math-inline-selectable"
+          onMouseDown={(e) => {
+            // Left-drag over the expression must highlight text, so only a
+            // plain click (no drag, no existing selection) opens the editor.
+            dragStart.current = { x: e.clientX, y: e.clientY };
+          }}
+          onMouseUp={(e) => {
+            const start = dragStart.current;
+            dragStart.current = null;
+            const moved = start
+              ? Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > 3
+              : false;
+            const sel = window.getSelection();
+            const hasSelection = Boolean(sel && !sel.isCollapsed && sel.toString().trim());
+            if (moved || hasSelection) return;
+            setEntryPoint({ x: e.clientX, y: e.clientY });
+            setFocused(true);
+          }}
+          onDoubleClick={(e) => {
+            setEntryPoint({ x: e.clientX, y: e.clientY });
+            setFocused(true);
+          }}
         >
           {empty
             ? <span className="opacity-40 text-xs px-1">[math]</span>
@@ -127,6 +154,7 @@ function MathInlineView({ node, updateAttributes, editor, getPos }: NodeViewProp
   return (
     <NodeViewWrapper as="span" className="inline-block align-baseline" contentEditable={false}>
       <MathInlineCanvas
+        entryPoint={entryPoint}
         root={root}
         onChange={commit}
         onBlur={handleBlur}
