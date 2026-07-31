@@ -225,13 +225,18 @@ export async function deleteAccount(userId: string) {
   return { ok: true };
 }
 
+/**
+ * Creates an account, or — when the email already exists — grants the role to
+ * that existing account instead. Never throws for expected input problems: it
+ * returns { ok: false, message } so the dialog can show a friendly notice.
+ */
 export async function createAccount(params: {
   email: string;
   password: string;
   role: "school" | "teacher" | "parent" | "student" | "co_admin";
   name?: string;
   organisation?: string;
-}) {
+}): Promise<{ ok: boolean; userId?: string; existing?: boolean; message?: string }> {
   const db = await admin();
   const { data, error } = await db.auth.admin.createUser({
     email: params.email,
@@ -243,9 +248,29 @@ export async function createAccount(params: {
       organization_name: params.organisation ?? null,
     },
   });
-  if (error || !data.user) throw new Error(error?.message ?? "Could not create that account.");
 
-  const uid = data.user.id;
+  let uid = data?.user?.id;
+  let existing = false;
+
+  if (!uid) {
+    const alreadyRegistered = /already been registered|already exists|already registered/i.test(
+      error?.message ?? "",
+    );
+    if (!alreadyRegistered) {
+      return { ok: false, message: error?.message ?? "Could not create that account." };
+    }
+    // Reuse the existing account and simply give it the requested role.
+    const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const match = (list?.users ?? []).find(
+      (u) => (u.email ?? "").toLowerCase() === params.email.toLowerCase(),
+    );
+    if (!match) {
+      return { ok: false, message: "That email is already registered on another account." };
+    }
+    uid = match.id;
+    existing = true;
+  }
+
   await db
     .from("user_roles")
     .upsert(
@@ -255,8 +280,9 @@ export async function createAccount(params: {
   if (params.name) {
     await db.from("profiles").upsert({ user_id: uid, display_name: params.name }, { onConflict: "user_id" });
   }
-  return { userId: uid };
+  return { ok: true, userId: uid, existing };
 }
+
 
 /**
  * Mints a one-time sign-in token for `targetUserId` so the platform owner can
