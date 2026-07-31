@@ -112,6 +112,12 @@ const FloatingNumbersPage = () => {
   const dirtyRef = useRef(false);
 
   const [fromHighlights, setFromHighlights] = useState(false);
+  /* Highlight stream (text lines + table workspaces), in document order. */
+  const [entries, setEntries] = useState<Entry[]>([]);
+  /* Table workspace UI state — which table is in Retention mode, and which
+     manual line is currently collecting cell clicks. */
+  const [retentionTable, setRetentionTable] = useState<string | null>(null);
+  const [manualLineId, setManualLineId] = useState<string | null>(null);
   const [highlightsData, setHighlightsData] = useState<{ groupId: number; payload: string }[]>([]);
   const [scoring, setScoring] = useState<FloatingScoring>(DEFAULT_SCORING);
 
