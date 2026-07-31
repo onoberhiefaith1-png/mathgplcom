@@ -150,7 +150,7 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   );
 };
 
-const Showcase = () => {
+const Showcase = ({ ringUrls, coreUrls }: { ringUrls: string[]; coreUrls: string[] }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
@@ -158,8 +158,11 @@ const Showcase = () => {
   const navigate = useNavigate();
   const { camera } = useThree();
 
-  // Six unique textures; the three MathGPL hubs reuse the palace texture.
-  const uniqueUrls = useMemo(() => Array.from(new Set(academies.map((a) => a.image))), []);
+  // Artwork per slot; repeated urls (the MathGPL hubs, the dome copies) load once.
+  const uniqueUrls = useMemo(
+    () => Array.from(new Set([...ringUrls, ...coreUrls])),
+    [ringUrls, coreUrls],
+  );
   const loaded = useLoader(THREE.TextureLoader, uniqueUrls) as THREE.Texture[];
   const textureByUrl = useMemo(() => {
     const map = new Map<string, THREE.Texture>();
@@ -171,6 +174,10 @@ const Showcase = () => {
     });
     return map;
   }, [uniqueUrls, loaded]);
+  const coreTextures = useMemo(
+    () => coreUrls.map((u) => textureByUrl.get(u)!).filter(Boolean),
+    [coreUrls, textureByUrl],
+  );
 
   useFrame((state, delta) => {
     if (!worldRef.current) return;
