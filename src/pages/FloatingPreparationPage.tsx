@@ -184,14 +184,30 @@ export const recomputeNotebooks = (source: Highlight[], lines: string[]): Highli
   return out;
 };
 
+/** Document position used to interleave object highlights with text ones.
+ *  An object captured with `afterLine = L` sits immediately BEFORE line L. */
+const firstLineOf = (h: Highlight): number => {
+  if (h.object) return h.object.afterLine - 0.5;
+  if (h.notebookOnly) return -1;
+  return h.tokens.length ? Math.min(...h.tokens.map((t) => t.line)) : Number.MAX_SAFE_INTEGER;
+};
+
 const orderedHighlights = (source: Highlight[], lines: string[]) => {
-  const withNotebooks = recomputeNotebooks(source, lines);
-  return withNotebooks.map((h, i) => ({
+  // Text highlights keep the existing notebook-checkpoint behaviour untouched.
+  const textOnly = source.filter((h) => !h.object);
+  const objects = source.filter((h) => !!h.object);
+  const withNotebooks = recomputeNotebooks(textOnly, lines);
+  const merged = [...withNotebooks, ...objects]
+    .map((h, i) => ({ h, i, pos: firstLineOf(h) }))
+    .sort((a, b) => (a.pos - b.pos) || (a.i - b.i))
+    .map(({ h }) => h);
+  return merged.map((h, i) => ({
     groupId: i + 1,
     tokens: h.tokens,
     payload: h.payload,
     precedingNotebook: h.precedingNotebook ?? "",
     notebookOnly: h.notebookOnly === true,
+    ...(h.object ? { object: h.object } : {}),
   }));
 };
 
