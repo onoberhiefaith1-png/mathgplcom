@@ -24,6 +24,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as AuthAcceptInviteRouteImport } from './routes/auth/accept-invite'
 import { Route as AuthAdminRouteImport } from './routes/auth/admin'
 import { Route as AuthParentRouteImport } from './routes/auth/parent'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
@@ -253,6 +254,11 @@ const AssetsIndexRoute = AssetsIndexRouteImport.update({
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/auth/',
   path: '/auth/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
+  id: '/auth/accept-invite',
+  path: '/auth/accept-invite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthAdminRoute = AuthAdminRouteImport.update({
@@ -1137,6 +1143,7 @@ export interface FileRoutesByFullPath {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1301,6 +1308,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1474,6 +1482,7 @@ export interface FileRoutesById {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -1648,6 +1657,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -1812,6 +1822,7 @@ export interface FileRouteTypes {
     | '/'
     | '/class'
     | '/student'
+    | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -1984,6 +1995,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
     | '/auth/reset-password'
@@ -2157,6 +2169,7 @@ export interface RootRouteChildren {
   SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
+  AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
   AuthParentRoute: typeof AuthParentRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
@@ -2348,6 +2361,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth/'
       preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/accept-invite': {
+      id: '/auth/accept-invite'
+      path: '/auth/accept-invite'
+      fullPath: '/auth/accept-invite'
+      preLoaderRoute: typeof AuthAcceptInviteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/admin': {
@@ -3734,6 +3754,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
+  AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,
   AuthParentRoute: AuthParentRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
