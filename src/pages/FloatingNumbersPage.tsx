@@ -26,6 +26,21 @@ import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditP
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
+import { readSolutionObjects } from "@/lib/floating/solutionItems";
+import TableWorkspace from "@/components/floating/TableWorkspace";
+import {
+  gridFromObject,
+  generateTableLines,
+  tableLineEquation,
+  cellFitsLine,
+  type TableGrid,
+  type TableOrientation,
+} from "@/lib/floating/tableGrid";
+
+/** One item of the highlight stream: a text line, or a whole table workspace. */
+type Entry =
+  | { kind: "text"; highlight: { groupId: number; payload: string } }
+  | { kind: "table"; objId: string; grid: TableGrid };
 
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
@@ -97,6 +112,12 @@ const FloatingNumbersPage = () => {
   const dirtyRef = useRef(false);
 
   const [fromHighlights, setFromHighlights] = useState(false);
+  /* Highlight stream (text lines + table workspaces), in document order. */
+  const [entries, setEntries] = useState<Entry[]>([]);
+  /* Table workspace UI state — which table is in Retention mode, and which
+     manual line is currently collecting cell clicks. */
+  const [retentionTable, setRetentionTable] = useState<string | null>(null);
+  const [manualLineId, setManualLineId] = useState<string | null>(null);
   const [highlightsData, setHighlightsData] = useState<{ groupId: number; payload: string }[]>([]);
   const [scoring, setScoring] = useState<FloatingScoring>(DEFAULT_SCORING);
 
@@ -511,14 +532,33 @@ const FloatingNumbersPage = () => {
         setScoring({ ...DEFAULT_SCORING, ...savedScoring });
       }
 
-      // Object highlights (whole tables / diagrams) are recognised on the
-      // Highlighting Page but are not yet sequenced here — skip them.
-      const realHighlights = Array.isArray(highlights)
-        ? highlights.filter((h) => !h.notebookOnly && !(h as any).object && String(h.payload ?? "").trim().length > 0)
+      // Highlight stream, in document order. Text highlights become one
+      // Floating Number line each; a highlighted TABLE becomes a workspace
+      // that can own many lines. Non-table objects (diagrams) stay skipped.
+      const ordered = Array.isArray(highlights)
+        ? highlights.filter((h) => !h.notebookOnly)
         : [];
-      const hasHighlights = realHighlights.length > 0;
-      setFromHighlights(hasHighlights);
-      setHighlightsData(hasHighlights ? realHighlights : []);
+      const seq: Entry[] = [];
+      for (const h of ordered) {
+        const obj = (h as any).object;
+        if (obj) {
+          const parsed = readSolutionObjects({ objects: [obj] })[0];
+          if (!parsed || parsed.family !== "table") continue;
+          const grid = gridFromObject(parsed);
+          if (!grid) continue;
+          seq.push({ kind: "table", objId: grid.objId, grid });
+          continue;
+        }
+        const payload = String(h.payload ?? "");
+        if (!payload.trim()) continue;
+        seq.push({ kind: "text", highlight: { groupId: h.groupId, payload } });
+      }
+      setEntries(seq);
+
+      const textHighlights = seq.flatMap((e) => (e.kind === "text" ? [e.highlight] : []));
+      const hasHighlights = textHighlights.length > 0 || seq.length > 0;
+      setFromHighlights(textHighlights.length > 0);
+      setHighlightsData(textHighlights);
 
       if (hasHighlights) {
         // Highlights drive the list. Re-pair each highlight to its persisted
@@ -527,12 +567,31 @@ const FloatingNumbersPage = () => {
         // Pairing priority: (a) exact equation==payload match, then
         // (b) positional fallback (same index) so a selection is never lost
         // to math/LaTeX normalization drift. Only a removed highlight drops a row.
-        const persistedList: FloatingLine[] = Array.isArray(persisted)
+        const persistedAll: FloatingLine[] = Array.isArray(persisted)
           ? persisted.map(normalizeFloatingLine)
           : [];
+        const persistedList = persistedAll.filter((p) => !p.table);
+        const byTable = new Map<string, FloatingLine[]>();
+        for (const p of persistedAll) {
+          if (!p.table?.objId) continue;
+          const arr = byTable.get(p.table.objId) ?? [];
+          arr.push(p);
+          byTable.set(p.table.objId, arr);
+        }
         const used = new Set<number>();
-        const reconciled: FloatingLine[] = realHighlights.map((h, hi) => {
-          const payload = String(h.payload ?? "");
+        let textIdx = 0;
+        const reconciled: FloatingLine[] = [];
+        for (const e of seq) {
+          if (e.kind === "table") {
+            // Restore the table's saved lines, refreshed with the latest grid.
+            const saved = byTable.get(e.objId) ?? [];
+            for (const s of saved) {
+              reconciled.push({ ...s, table: { ...s.table!, grid: e.grid } });
+            }
+            continue;
+          }
+          const hi = textIdx++;
+          const payload = String(e.highlight.payload ?? "");
           let idx = persistedList.findIndex(
             (p, i) => !used.has(i) && (p.equation ?? "") === payload,
           );
@@ -545,16 +604,17 @@ const FloatingNumbersPage = () => {
             used.add(idx);
             // Lock the equation to the permanent highlight payload while keeping
             // the persisted fillers + selection state.
-            return { ...persistedList[idx], equation: payload };
+            reconciled.push({ ...persistedList[idx], equation: payload });
+            continue;
           }
-          return {
+          reconciled.push({
             lineId: newId(),
             equation: payload,
             fillers: [],
             containers: [],
             arrangement: [],
-          };
-        });
+          });
+        }
         setLines(reconciled);
       } else if (persisted && Array.isArray(persisted) && persisted.length > 0) {
         // Legacy: no highlights — show previously generated lines if any.
@@ -611,7 +671,9 @@ const FloatingNumbersPage = () => {
         return;
       }
       // Match AI lines back to our equation order by index; fall back to creating fresh ids.
-      const existing = lines;
+      // Table-derived lines are owned by their table workspace — the AI pass
+      // only rewrites the text-highlight lines, index-aligned with them.
+      const existing = lines.filter((l) => !l.table);
       const next: FloatingLine[] = aiLines.map((a, i) => {
         const rawFillers = (a.fillers ?? []).map((s) => String(s)).filter(Boolean);
         // Strip structural macros (e.g. "+\frac{1}{2}", "-\sqrt{3}") out of
@@ -674,7 +736,19 @@ const FloatingNumbersPage = () => {
           for (const c of next[i].containers) seenStructures.add(c);
         }
       }
-      setLines(next);
+      // Merge back: table lines keep their slot, text lines take the new set.
+      setLines((prev) => {
+        if (!prev.some((l) => l.table)) return next;
+        const queue = next.slice();
+        const merged: FloatingLine[] = [];
+        for (const l of prev) {
+          if (l.table) { merged.push(l); continue; }
+          const n = queue.shift();
+          if (n) merged.push(n);
+        }
+        merged.push(...queue);
+        return merged;
+      });
       dirtyRef.current = true;
       toast({ title: "Floating numbers ready", description: `${next.length} lines prepared.` });
     } catch (e: any) {
@@ -824,6 +898,219 @@ const FloatingNumbersPage = () => {
     dirtyRef.current = true;
     setScoring((prev) => ({ ...prev, ...patch }));
   }, []);
+
+  /* ───────────────── Table workspaces ─────────────────
+     A highlighted table owns a contiguous run of Floating Number lines.
+     Orientation / Generate / Retention are independent controls. */
+
+  const [tableConfig, setTableConfig] = useState<
+    Record<string, { orientation: TableOrientation; retained: string[] }>
+  >({});
+
+  useEffect(() => {
+    setTableConfig((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const l of lines) {
+        const t = l.table;
+        if (!t?.objId || next[t.objId]) continue;
+        next[t.objId] = { orientation: t.orientation ?? "row", retained: t.retained ?? [] };
+        changed = true;
+      }
+      for (const e of entries) {
+        if (e.kind !== "table" || next[e.objId]) continue;
+        next[e.objId] = { orientation: "row", retained: [] };
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [lines, entries]);
+
+  /** Render groups: text lines and table workspaces, in document order.
+   *  `insertAt` is where a table's lines start inside the flat `lines` list. */
+  type Group =
+    | { kind: "text"; line: FloatingLine; index: number }
+    | { kind: "table"; grid: TableGrid; objId: string; insertAt: number; items: { line: FloatingLine; index: number }[] };
+
+  const groups = useMemo<Group[]>(() => {
+    const out: Group[] = [];
+    let i = 0;
+    for (const e of entries) {
+      if (e.kind === "table") {
+        const items: { line: FloatingLine; index: number }[] = [];
+        const insertAt = i;
+        while (i < lines.length && lines[i].table?.objId === e.objId) {
+          items.push({ line: lines[i], index: i });
+          i++;
+        }
+        out.push({ kind: "table", grid: e.grid, objId: e.objId, insertAt, items });
+      } else {
+        while (i < lines.length && lines[i].table) i++;
+        if (i < lines.length) {
+          out.push({ kind: "text", line: lines[i], index: i });
+          i++;
+        }
+      }
+    }
+    while (i < lines.length) {
+      out.push({ kind: "text", line: lines[i], index: i });
+      i++;
+    }
+    return out;
+  }, [entries, lines]);
+
+  const patchTableLines = useCallback(
+    (objId: string, patch: Partial<NonNullable<FloatingLine["table"]>>) => {
+      dirtyRef.current = true;
+      setLines((prev) =>
+        prev.map((l) =>
+          l.table?.objId === objId ? { ...l, table: { ...l.table, ...patch } } : l,
+        ),
+      );
+    },
+    [],
+  );
+
+  const setOrientation = useCallback(
+    (objId: string, orientation: TableOrientation) => {
+      setTableConfig((prev) => ({
+        ...prev,
+        [objId]: { orientation, retained: prev[objId]?.retained ?? [] },
+      }));
+      setManualLineId(null);
+      patchTableLines(objId, { orientation });
+    },
+    [patchTableLines],
+  );
+
+  const toggleRetentionMode = useCallback((objId: string) => {
+    setManualLineId(null);
+    setRetentionTable((prev) => (prev === objId ? null : objId));
+  }, []);
+
+  const generateTable = useCallback(
+    (grid: TableGrid, insertAt: number, count: number) => {
+      const orientation = tableConfig[grid.objId]?.orientation ?? "row";
+      const retained = tableConfig[grid.objId]?.retained ?? [];
+      const built = generateTableLines(grid, orientation).map((g) => ({
+        lineId: newId(),
+        equation: g.values.join("  "),
+        fillers: g.values,
+        containers: [] as ContainerKind[],
+        arrangement: identityArrangement(g.values.length),
+        fillersSelected: g.values.map(() => false),
+        containersSelected: [],
+        marks: scoring.mode === "equal" ? scoring.marksPerLine : 0,
+        table: {
+          objId: grid.objId,
+          label: g.label,
+          orientation,
+          cellKeys: g.cellKeys,
+          retained,
+          manual: false,
+          grid,
+        },
+      })) as FloatingLine[];
+      dirtyRef.current = true;
+      setManualLineId(null);
+      setLines((prev) => {
+        const next = prev.slice();
+        next.splice(insertAt, count, ...built);
+        return next;
+      });
+      toast({ title: `${built.length} line${built.length === 1 ? "" : "s"} generated`, description: `${grid.label} · ${orientation === "row" ? "row" : "column"}-oriented.` });
+    },
+    [tableConfig, scoring.mode, scoring.marksPerLine],
+  );
+
+  const addManualLine = useCallback(
+    (grid: TableGrid, insertAt: number, count: number) => {
+      const orientation = tableConfig[grid.objId]?.orientation ?? "row";
+      const retained = tableConfig[grid.objId]?.retained ?? [];
+      const line: FloatingLine = {
+        lineId: newId(),
+        equation: "",
+        fillers: [],
+        containers: [],
+        arrangement: [],
+        marks: scoring.mode === "equal" ? scoring.marksPerLine : 0,
+        table: {
+          objId: grid.objId,
+          label: "Manual line",
+          orientation,
+          cellKeys: [],
+          retained,
+          manual: true,
+          grid,
+        },
+      };
+      dirtyRef.current = true;
+      setRetentionTable(null);
+      setManualLineId(line.lineId);
+      setLines((prev) => {
+        const next = prev.slice();
+        next.splice(insertAt + count, 0, line);
+        return next;
+      });
+    },
+    [tableConfig, scoring.mode, scoring.marksPerLine],
+  );
+
+  const onTableCellClick = useCallback(
+    (grid: TableGrid, key: string) => {
+      const objId = grid.objId;
+      const orientation = tableConfig[objId]?.orientation ?? "row";
+
+      // Retention mode — mark cells that stay visible for students.
+      if (retentionTable === objId) {
+        const current = tableConfig[objId]?.retained ?? [];
+        const nextRetained = current.includes(key)
+          ? current.filter((k) => k !== key)
+          : [...current, key];
+        setTableConfig((prev) => ({ ...prev, [objId]: { orientation, retained: nextRetained } }));
+        patchTableLines(objId, { retained: nextRetained });
+        return;
+      }
+
+      // Manual assignment — cells join the line being built.
+      const target = lines.find((l) => l.lineId === manualLineId && l.table?.objId === objId);
+      if (!target) {
+        toast({ title: "Pick a target first", description: 'Click "+ Add Line" (or Retention) before selecting cells.' });
+        return;
+      }
+      const existing = target.table?.cellKeys ?? [];
+      if (!existing.includes(key) && !cellFitsLine(orientation, existing, key)) {
+        toast({
+          title: "Orientation rule",
+          description: `This workspace is ${orientation}-oriented — every cell of a line must share the same ${orientation}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const cellKeys = existing.includes(key)
+        ? existing.filter((k) => k !== key)
+        : [...existing, key];
+      const values = cellKeys
+        .map((k) => tableLineEquation(grid, [k]))
+        .filter((v) => v.trim().length > 0);
+      dirtyRef.current = true;
+      setLines((prev) =>
+        prev.map((l) =>
+          l.lineId !== target.lineId
+            ? l
+            : {
+                ...l,
+                equation: values.join("  "),
+                fillers: values,
+                arrangement: identityArrangement(values.length),
+                fillersSelected: values.map(() => false),
+                table: { ...l.table!, cellKeys, grid },
+              },
+        ),
+      );
+    },
+    [tableConfig, retentionTable, manualLineId, lines, patchTableLines],
+  );
 
 
   return (
@@ -980,41 +1267,68 @@ const FloatingNumbersPage = () => {
             <div className="py-12 text-center text-sm text-foreground/55">
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading…
             </div>
-          ) : lines.length === 0 ? (
+          ) : groups.length === 0 ? (
             <div className="py-12 text-center text-sm text-foreground/55">
               No solution lines yet. Generate the solution in the lesson note first.
             </div>
           ) : (
             <div className="space-y-1" ref={workspaceRef}>
-              {lines.map((l, i) => {
-                const isSelected = l.lineId === selectedLineId;
+              {groups.map((g) => {
+                const renderLine = (l: FloatingLine, i: number) => {
+                  const isSelected = l.lineId === selectedLineId;
+                  return (
+                    <div
+                      key={l.lineId}
+                      data-line-id={l.lineId}
+                      onClick={() => setSelectedLineId(l.lineId)}
+                      className="rounded-md transition-colors cursor-pointer"
+                      style={isSelected ? {
+                        background: "hsl(48 95% 88% / 0.4)",
+                        boxShadow: "inset 3px 0 0 hsl(40 85% 50%)",
+                      } : undefined}
+                      title="Click to select — the AI Assistant will operate on this line"
+                    >
+                      <FloatingWorkspace
+                        line={l}
+                        index={i}
+                        scoreLabel={scoring.label}
+                        scoringMode={scoring.mode}
+                        onChange={(next) => {
+                          dirtyRef.current = true;
+                          setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
+                        }}
+                      />
+                    </div>
+                  );
+                };
+
+                if (g.kind === "text") return renderLine(g.line, g.index);
+
+                const cfg = tableConfig[g.objId] ?? { orientation: "row" as TableOrientation, retained: [] };
+                const activeLine = g.items.find((it) => it.line.lineId === manualLineId);
                 return (
-                  <div
-                    key={l.lineId}
-                    data-line-id={l.lineId}
-                    onClick={() => setSelectedLineId(l.lineId)}
-                    className="rounded-md transition-colors cursor-pointer"
-                    style={isSelected ? {
-                      background: "hsl(48 95% 88% / 0.4)",
-                      boxShadow: "inset 3px 0 0 hsl(40 85% 50%)",
-                    } : undefined}
-                    title="Click to select — the AI Assistant will operate on this line"
+                  <TableWorkspace
+                    key={g.objId}
+                    grid={g.grid}
+                    orientation={cfg.orientation}
+                    retained={cfg.retained}
+                    retentionMode={retentionTable === g.objId}
+                    activeCells={activeLine?.line.table?.cellKeys ?? []}
+                    manualActive={!!activeLine}
+                    lineCount={g.items.length}
+                    onOrientationChange={(o) => setOrientation(g.objId, o)}
+                    onGenerate={() => generateTable(g.grid, g.insertAt, g.items.length)}
+                    onToggleRetention={() => toggleRetentionMode(g.objId)}
+                    onAddLine={() => addManualLine(g.grid, g.insertAt, g.items.length)}
+                    onCellClick={(k) => onTableCellClick(g.grid, k)}
                   >
-                    <FloatingWorkspace
-                      line={l}
-                      index={i}
-                      scoreLabel={scoring.label}
-                      scoringMode={scoring.mode}
-                      onChange={(next) => {
-                        dirtyRef.current = true;
-                        setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
-                      }}
-                    />
-                  </div>
+                    {g.items.map((it) => renderLine(it.line, it.index))}
+                  </TableWorkspace>
                 );
               })}
             </div>
           )}
+
 
           {/* ───── View Session (always rendered so it's discoverable) ───── */}
           {!loading && <ViewSession lines={lines} />}
