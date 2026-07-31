@@ -565,6 +565,9 @@
   line-height: 1.12;
   padding: 0 2px;
   color: currentColor;
+  /* Slots are blockified grid items, so a paragraph's first-line indent
+     would otherwise be re-applied inside every slot and pad it by ~1.25em. */
+  text-indent: 0;
 }
 .math-struct__slots,
 .math-struct__slots > [data-node-view-content-react] { display: contents; }
@@ -577,7 +580,9 @@
   cursor: text;
   text-align: center;
   white-space: nowrap;
+  text-indent: 0;
 }
+
 .math-slot:hover { border-bottom-color: hsl(var(--muted-foreground) / 0.3); }
 .math-slot:focus-within { border-bottom-color: hsl(var(--primary) / 0.6); outline: none; }
 .math-slot[data-empty="true"]::before,
