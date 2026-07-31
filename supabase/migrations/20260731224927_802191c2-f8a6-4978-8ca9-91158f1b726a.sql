@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS homepage_config jsonb NOT NULL DEFAULT '{}'::jsonb;

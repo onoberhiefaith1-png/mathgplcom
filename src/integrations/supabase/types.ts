@@ -2307,6 +2307,7 @@ export type Database = {
           date_of_birth: string | null
           display_name: string | null
           first_name: string | null
+          homepage_config: Json
           last_name: string | null
           marketing_opt_in: boolean
           mathgpl_student_id: string | null
@@ -2325,6 +2326,7 @@ export type Database = {
           date_of_birth?: string | null
           display_name?: string | null
           first_name?: string | null
+          homepage_config?: Json
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
@@ -2343,6 +2345,7 @@ export type Database = {
           date_of_birth?: string | null
           display_name?: string | null
           first_name?: string | null
+          homepage_config?: Json
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
