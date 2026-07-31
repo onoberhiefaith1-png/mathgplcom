@@ -64,21 +64,56 @@ interface ParsedSection {
 const normalizeProblem = (s: string): string =>
   String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 
-/** Render a contiguous run of body nodes into plain text, paragraph per line. */
-function renderBody(nodes: Node[]): string {
+/** Collect inline object nodes (asset-library visuals) nested inside a block. */
+function collectInlineObjects(node: Node, out: Node[]): void {
+  if (!node || typeof node !== "object") return;
+  if (INLINE_OBJECT_TYPES.has(String(node.type))) { out.push(node); return; }
+  if (Array.isArray(node.content)) for (const c of node.content) collectInlineObjects(c, out);
+}
+
+/** Render a contiguous run of body nodes into plain text (paragraph per line)
+ *  PLUS the ordered list of non-text objects (tables, diagrams, charts, 3D
+ *  scenes, …) found inside it. Objects are never flattened away. */
+function renderBodyRich(nodes: Node[]): { text: string; objects: SolutionObject[] } {
   const lines: string[] = [];
+  const objects: SolutionObject[] = [];
+  const counters = new Map<string, number>();
+
+  const pushObject = (n: Node) => {
+    const nodeType = String(n?.type ?? "");
+    if (!nodeType) return;
+    const attrs = (n?.attrs && typeof n.attrs === "object") ? n.attrs : {};
+    const idx = counters.get(nodeType) ?? 0;
+    counters.set(nodeType, idx + 1);
+    const family = objectFamily(nodeType, attrs);
+    objects.push({
+      objId: `${nodeType}#${idx}`,
+      nodeType,
+      family,
+      label: familyLabel(family),
+      attrs,
+      afterLine: lines.length,
+      inline: INLINE_OBJECT_TYPES.has(nodeType),
+    });
+  };
+
   for (const n of nodes) {
     if (!n) continue;
-    if (n.type === "paragraph" || n.type === "heading" || n.type === "mathBlock") {
-      const t = nodeText(n).trim();
-      if (t) lines.push(t);
-    } else if (Array.isArray(n.content)) {
-      const t = nodeText(n).trim();
-      if (t) lines.push(t);
-    }
+    if (isObjectNodeType(n.type)) { pushObject(n); continue; }
+    const t = nodeText(n).trim();
+    if (t) lines.push(t);
+    const inlineObjs: Node[] = [];
+    collectInlineObjects(n, inlineObjs);
+    for (const o of inlineObjs) pushObject(o);
   }
-  return lines.join("\n").trim();
+  return { text: lines.join("\n").trim(), objects };
 }
+
+/** Text-only view, for section bodies that have no object support. */
+function renderBody(nodes: Node[]): string {
+  return renderBodyRich(nodes).text;
+}
+
 
 /** Split a question section's body into one subsection per H3 "Solution"
  *  boundary. Any H3 whose text matches another section kind starts a NEW
