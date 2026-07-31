@@ -10,7 +10,10 @@
 // node (the fallback rule).
 
 import { resolveAsset } from "./toolManifest";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { requiredSlotCount, validateStructure } from "@/lib/lessonnotes/structureValidator";
+
 import { DEFAULT_GRAPH } from "@/components/lessonnotes/extensions/SmartGraph";
 import {
   EMPTY_SCENE_3D,
@@ -55,6 +58,21 @@ const num = (v: string | undefined, d: number) =>
 
 /* ------------------------------ Smart Table ------------------------------ */
 
+/**
+ * Every generated cell passes through the SAME hygiene + normalization layer
+ * AI Edit uses, so a generated cell is already valid and already renderable.
+ * A cell that cannot be normalized is kept verbatim (still editable).
+ */
+function normalizeCell(raw: string): string {
+  const src = (raw ?? "").trim();
+  if (!src) return "";
+  try {
+    return normalizeMathSource(sanitizePresentation(src)) || src;
+  } catch {
+    return src;
+  }
+}
+
 function smartTableNode(p: Record<string, string>): TipTapNode {
   const headers = splitList(p.headers ?? p.cols);
   const rowSpecs = (p.rows ?? "")
@@ -65,9 +83,9 @@ function smartTableNode(p: Record<string, string>): TipTapNode {
   const cols = Math.max(headers.length, ...cells.map((c) => c.length), num(p.cols, 0), 2);
   const rows = Math.max(cells.length, num(p.rowCount, 0), 1);
   const grid = Array.from({ length: rows }, (_, r) =>
-    Array.from({ length: cols }, (_, c) => cells[r]?.[c] ?? ""),
+    Array.from({ length: cols }, (_, c) => normalizeCell(cells[r]?.[c] ?? "")),
   );
-  const head = Array.from({ length: cols }, (_, c) => headers[c] ?? "");
+  const head = Array.from({ length: cols }, (_, c) => normalizeCell(headers[c] ?? ""));
   return {
     type: "paragraph",
     content: [
@@ -81,6 +99,7 @@ function smartTableNode(p: Record<string, string>): TipTapNode {
     ],
   };
 }
+
 
 /* -------------------------------- Graph ---------------------------------- */
 

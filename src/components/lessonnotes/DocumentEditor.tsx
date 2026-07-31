@@ -73,6 +73,10 @@ import {
 import { MathSymbolPanel } from "./MathSymbolPanel";
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
+import { AiEditBridgeProvider, type AiEditRequest } from "@/hooks/useAiEditBridge";
+import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
+
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
@@ -1547,16 +1551,32 @@ function DocumentEditorInner({
   const aiEditRangeRef = useRef<{ from: number; to: number } | null>(null);
   const [aiEditOpen, setAiEditOpen] = useState(false);
 
+  /** Custom apply target, set when AI Edit was requested by an asset. */
+  const aiEditBridgeApplyRef = useRef<((proposed: string) => void) | null>(null);
+
   const openAiEdit = (snap: SelectionSnapshot) => {
+    aiEditBridgeApplyRef.current = null;
     aiEditRangeRef.current = { from: snap.from, to: snap.to };
     setAiEditTarget({ text: snap.text, kind: snap.kind });
     setAiEditOpen(true);
   };
 
+  /** Asset-driven AI Edit (Smart Table cells, …) — same panel, own apply. */
+  const requestAiEdit = useCallback((req: AiEditRequest) => {
+    aiEditRangeRef.current = null;
+    aiEditBridgeApplyRef.current = req.onApply;
+    setAiEditTarget({
+      text: req.text,
+      kind: req.kind ?? detectSelectionKindFromText(req.text),
+    });
+    setAiEditOpen(true);
+  }, []);
+
   const closeAiEdit = () => {
     setAiEditOpen(false);
     setAiEditTarget(null);
     aiEditRangeRef.current = null;
+    aiEditBridgeApplyRef.current = null;
   };
 
   const runAiEdit = async (instruction: string, target: AiEditTarget): Promise<string> => {
@@ -1582,6 +1602,11 @@ function DocumentEditorInner({
   };
 
   const applyAiEdit = (proposed: string) => {
+    const bridgeApply = aiEditBridgeApplyRef.current;
+    if (bridgeApply) {
+      bridgeApply(sanitizePresentation(proposed));
+      return;
+    }
     const range = aiEditRangeRef.current;
     if (!editor || !range) return;
     const nodes = aiTextToNodes(proposed);
@@ -1590,6 +1615,7 @@ function DocumentEditorInner({
       .insertContentAt(range.from, nodes)
       .run();
   };
+
 
 
   // ── Free-position text boxes (overlay layer) ──────────────────────────
@@ -1670,7 +1696,9 @@ function DocumentEditorInner({
 
   return (
     <AssetSelectionProvider>
+    <AiEditBridgeProvider requestAiEdit={requestAiEdit}>
     <div className="flex flex-col h-full">
+
 
       {/* Word-style ribbon — fixed to the viewport so the center handle is always reachable */}
       <div ref={ribbonShellRef} className="lesson-ribbon-shell">
@@ -2021,7 +2049,9 @@ function DocumentEditorInner({
         }}
       />
     </div>
+    </AiEditBridgeProvider>
     </AssetSelectionProvider>
+
   );
 }
 

@@ -6,9 +6,16 @@ import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { Minus, Plus, Settings2, Sigma } from "lucide-react";
 import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import { useAiEditBridge } from "@/hooks/useAiEditBridge";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
+import { toast } from "@/hooks/use-toast";
+import { SmartTableCellToolbar } from "./SmartTableCellToolbar";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
+
 
 export interface SmartTableStyle {
   cellPadX: number;
@@ -104,7 +111,8 @@ function normalize(a: Record<string, unknown>): SmartTableAttrs {
   return { rows, cols, headers, cells, colWidths, style: normalizeStyle(a.style) };
 }
 
-function cellDisplay(raw: string): string {
+/** Source text a cell shows: `=` cells evaluate, everything else is verbatim. */
+function cellSource(raw: string): string {
   const s = (raw ?? "").trim();
   if (!s) return "";
   if (s.startsWith("=")) {
@@ -113,6 +121,17 @@ function cellDisplay(raw: string): string {
   }
   return raw;
 }
+
+/**
+ * Render a cell through the SAME pipeline AI Edit previews with, so
+ * `x_{i}` / `(x_i - μ)^{2}` appear as real mathematics inside tables.
+ */
+function cellDisplay(raw: string, keyBase: string): React.ReactNode {
+  const src = cellSource(raw);
+  if (!src) return null;
+  return <>{renderMathInline(normalizeMathSource(src), keyBase)}</>;
+}
+
 
 export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const model = useMemo(() => normalize(attrs), [attrs]);
@@ -142,11 +161,20 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const patchStyle = (p: Partial<SmartTableStyle>) => patch({ style: { ...style, ...p } });
 
+  // Latest model for callbacks that fire after the panel stole focus.
+  const modelRef = useRef(model);
+  modelRef.current = model;
+
+  const aiBridge = useAiEditBridge();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [sel, setSel] = useState<{ s: number; e: number }>({ s: 0, e: 0 });
+
   const beginEdit = (r: number, c: number) => {
     setActive({ r, c });
     setBuffer((r === -1 ? headers[c] : cells[r][c]) ?? "");
+    setSel({ s: 0, e: 0 });
   };
-  const cancelEdit = () => { setActive(null); setBuffer(""); };
+  const cancelEdit = () => { setActive(null); setBuffer(""); setSel({ s: 0, e: 0 }); };
   const finishEdit = () => {
     if (!active) return;
     const { r, c } = active;
@@ -159,6 +187,71 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     }
     cancelEdit();
   };
+
+  /** Write any cell (r === -1 addresses the header row) from latest state. */
+  const writeAny = useCallback((r: number, c: number, value: string) => {
+    const m = modelRef.current;
+    if (r === -1) {
+      const next = [...m.headers]; next[c] = value; patch({ headers: next });
+    } else {
+      const next = m.cells.map((row) => [...row]); next[r][c] = value; patch({ cells: next });
+    }
+  }, [patch]);
+
+  // ── Cell-level toolbar (mirrors the document SelectionToolbar) ─────────
+  const selRange = () => {
+    const s = Math.max(0, Math.min(buffer.length, sel.s));
+    const e = Math.max(0, Math.min(buffer.length, sel.e));
+    return s === e ? { s: 0, e: buffer.length } : { s: Math.min(s, e), e: Math.max(s, e) };
+  };
+  const selectedText = () => { const { s, e } = selRange(); return buffer.slice(s, e); };
+  const setBufferAndCell = (value: string) => {
+    setBuffer(value);
+    if (active) writeAny(active.r, active.c, value);
+  };
+
+  const cellCopy = async () => {
+    try { await navigator.clipboard.writeText(selectedText()); toast({ title: "Copied" }); }
+    catch { toast({ title: "Copy failed", variant: "destructive" }); }
+  };
+  const cellCut = async () => {
+    const { s, e } = selRange();
+    try { await navigator.clipboard.writeText(buffer.slice(s, e)); } catch { /* noop */ }
+    setBufferAndCell(buffer.slice(0, s) + buffer.slice(e));
+    setSel({ s, e: s });
+  };
+  const cellDelete = () => {
+    const { s, e } = selRange();
+    setBufferAndCell(buffer.slice(0, s) + buffer.slice(e));
+    setSel({ s, e: s });
+  };
+  const cellDuplicate = () => {
+    const { s, e } = selRange();
+    const piece = buffer.slice(s, e);
+    setBufferAndCell(buffer.slice(0, e) + piece + buffer.slice(e));
+  };
+  const cellComment = () => toast({ title: "Comments coming soon" });
+
+  const cellAiEdit = () => {
+    if (!active) return;
+    if (!aiBridge) { toast({ title: "AI Edit unavailable here", variant: "destructive" }); return; }
+    const { r, c } = active;
+    const { s, e } = selRange();
+    const source = buffer;
+    const text = source.slice(s, e).trim();
+    if (!text) { toast({ title: "Nothing selected", variant: "destructive" }); return; }
+    aiBridge.requestAiEdit({
+      text,
+      kind: detectSelectionKindFromText(text),
+      label: "Table cell",
+      onApply: (proposed) => {
+        const merged = source.slice(0, s) + proposed + source.slice(e);
+        writeAny(r, c, merged);
+        setBuffer(merged);
+      },
+    });
+  };
+
 
   const writeCell = (r: number, c: number, value: string) => {
     const next = cells.map((row) => [...row]);
@@ -332,10 +425,22 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 onClick={(e) => { e.stopPropagation(); if (sumMode) return; if (!isEditing(-1, c)) beginEdit(-1, c); }}
               >
                 {isEditing(-1, c) ? (
-                  <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
+                  <>
+                    <SmartTableCellToolbar
+                      onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
+                      onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
+                    />
+                    <InlineEditor
+                      inputRef={inputRef} value={buffer} onChange={setBuffer}
+                      onSelect={(s, e) => setSel({ s, e })}
+                      onCommit={finishEdit} onCancel={cancelEdit}
+                    />
+                  </>
                 ) : (
                   <span className="block min-h-[1.4em]">
-                    {h || <span style={{ color: "#94a3b8" }}>header</span>}
+                    {h
+                      ? cellDisplay(h, `h${c}`)
+                      : <span style={{ color: "#94a3b8" }}>header</span>}
                   </span>
                 )}
               </th>
@@ -347,23 +452,38 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             <tr key={r} style={style.striped && r % 2 === 1 ? { background: "rgba(15,23,42,0.04)" } : undefined}>
               {row.map((raw, c) => {
                 const editing = isEditing(r, c);
+                const rendered = cellDisplay(raw, `c${r}-${c}`);
                 return (
                   <td
                     key={c}
                     style={{ ...cellCss, ...colStyle(c) }}
-                    className={sumMode ? "cursor-pointer hover:bg-primary/20" : "cursor-text hover:bg-black/5"}
+                    className={
+                      "relative " +
+                      (sumMode ? "cursor-pointer hover:bg-primary/20" : "cursor-text hover:bg-black/5")
+                    }
                     onClick={(e) => { e.stopPropagation(); handleCellClick(r, c); }}
                   >
                     {editing ? (
-                      <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
+                      <>
+                        <SmartTableCellToolbar
+                          onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
+                          onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
+                        />
+                        <InlineEditor
+                          inputRef={inputRef} value={buffer} onChange={setBuffer}
+                          onSelect={(s, e) => setSel({ s, e })}
+                          onCommit={finishEdit} onCancel={cancelEdit}
+                        />
+                      </>
                     ) : (
                       <span className="block min-h-[1.4em]">
-                        {cellDisplay(raw) || <span style={{ color: "#cbd5e1" }}>·</span>}
+                        {rendered ?? <span style={{ color: "#cbd5e1" }}>·</span>}
                       </span>
                     )}
                   </td>
                 );
               })}
+
             </tr>
           ))}
         </tbody>
@@ -470,25 +590,49 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   );
 }
 
-function InlineEditor({ value, onChange, onCommit, onCancel }: {
-  value: string; onChange: (v: string) => void; onCommit: () => void; onCancel: () => void;
+function InlineEditor({ value, onChange, onCommit, onCancel, onSelect, inputRef }: {
+  value: string;
+  onChange: (v: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+  onSelect?: (start: number, end: number) => void;
+  inputRef?: React.MutableRefObject<HTMLInputElement | null>;
 }) {
-  const ref = useRef<HTMLInputElement | null>(null);
-  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
+  const localRef = useRef<HTMLInputElement | null>(null);
+  const attach = (el: HTMLInputElement | null) => {
+    localRef.current = el;
+    if (inputRef) inputRef.current = el;
+  };
+  useEffect(() => {
+    localRef.current?.focus();
+    localRef.current?.select();
+    onSelect?.(0, localRef.current?.value.length ?? 0);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const report = () => {
+    const el = localRef.current;
+    if (!el) return;
+    onSelect?.(el.selectionStart ?? 0, el.selectionEnd ?? 0);
+  };
+
   return (
     <input
-      ref={ref}
+      ref={attach}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => { onChange(e.target.value); report(); }}
+      onSelect={report}
+      onKeyUp={report}
+      onMouseUp={report}
       onKeyDown={(e) => {
         if (e.key === "Enter") { e.preventDefault(); onCommit(); }
         else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); report(); }}
       className="w-full min-w-[3rem] px-1 py-0.5 text-center bg-transparent outline-hidden border-b border-primary"
       style={{ color: "#0f172a" }}
     />
   );
+
 }
 
 export default SmartTable;
