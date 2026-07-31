@@ -5653,6 +5653,20 @@ const PresentationView = ({
                   lineNumber={hasGuidedLines ? counterNumber : undefined}
                   lineCount={hasGuidedLines ? counterTotal : undefined}
                   lineLabel={counterLabel}
+                  /* This lesson line IS a table: one table-icon chip instead
+                     of equation fragments. Once a cell is clicked the T-series
+                     takes over and the ordinary chips return so the teacher can
+                     write into cells. */
+                  tableChip={
+                    activeTableGroup && tCount === 0
+                      ? {
+                          objId: activeTableGroup.objId,
+                          label: activeTableGroup.label,
+                          placed: !!activeTablePlacement,
+                        }
+                      : null
+                  }
+                  onPlaceTable={placeTableAtCursor}
                   onPrevLine={goPrev}
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
