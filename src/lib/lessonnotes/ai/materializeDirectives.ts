@@ -194,7 +194,7 @@ function structureNode(
 function solid3dNode(p: Record<string, string>): TipTapNode | null {
   const kind = p.kind as Solid3DKind;
   if (!kind || !(kind in SOLID_DEFS)) return null;
-  const solid = createSolid(kind, EMPTY_SCENE_3D.settings.defaultDisplay);
+  const solid = createSolid(kind, EMPTY_SCENE_3D.settings?.defaultDisplay ?? "solid");
   const params = { ...(solid.params ?? {}) };
   for (const [k, v] of Object.entries(p)) {
     if (k === "kind") continue;
