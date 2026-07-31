@@ -48,6 +48,8 @@ import {
   cursorsEqual,
   extractWrapTargetLeftOf,
 } from "@/lib/smartboard/mathTree";
+import { treeToLatex, latexToTree } from "@/lib/smartboard/mathTreeLatex";
+
 
 
 interface Props {
