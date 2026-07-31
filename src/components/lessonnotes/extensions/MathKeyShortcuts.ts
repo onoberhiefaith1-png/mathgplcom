@@ -361,6 +361,7 @@ export const MathKeyShortcuts = Extension.create({
             // `#` creates or re-enters editable script branches.
             if (ch === "#" && !event.ctrlKey && !event.metaKey && !event.altKey) {
               if (moveEmptyPowerToSubscript(view) ||
+                  hashInsideScript(view) ||
                   wrapLeftTermInStructure(view, "subsup", 2) ||
                   wrapProseTermInMathNode(view)) {
                 event.preventDefault();
