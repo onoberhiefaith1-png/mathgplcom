@@ -514,9 +514,11 @@ const ClassLessonNotesPage = () => {
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
               <button onClick={() => setPicker(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">Cancel</button>
-              <button onClick={addToClass} disabled={selected.size === 0} className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50">
-                Add To Class{selected.size > 0 ? ` (${selected.size})` : ""}
+              <button onClick={addToClass} disabled={selected.size === 0 || attaching} className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50">
+                {attaching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Store In Class{selected.size > 0 ? ` (${selected.size})` : ""}
               </button>
+
             </div>
           </div>
         </div>
