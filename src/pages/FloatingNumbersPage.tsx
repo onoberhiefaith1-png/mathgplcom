@@ -503,7 +503,7 @@ const FloatingNumbersPage = () => {
       });
 
       const highlights = (ss as any).floating_highlights as
-        | { groupId: number; payload: string; notebookOnly?: boolean }[] | null;
+        | { groupId: number; payload: string; notebookOnly?: boolean; object?: any }[] | null;
       const persisted = (ss as any).floating_lines as FloatingLine[] | null;
 
       const savedScoring = (ss as any).floating_scoring as FloatingScoring | null;
@@ -511,8 +511,10 @@ const FloatingNumbersPage = () => {
         setScoring({ ...DEFAULT_SCORING, ...savedScoring });
       }
 
+      // Object highlights (whole tables / diagrams) are recognised on the
+      // Highlighting Page but are not yet sequenced here — skip them.
       const realHighlights = Array.isArray(highlights)
-        ? highlights.filter((h) => !h.notebookOnly && String(h.payload ?? "").trim().length > 0)
+        ? highlights.filter((h) => !h.notebookOnly && !(h as any).object && String(h.payload ?? "").trim().length > 0)
         : [];
       const hasHighlights = realHighlights.length > 0;
       setFromHighlights(hasHighlights);
