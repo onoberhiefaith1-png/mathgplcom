@@ -1,15 +1,27 @@
-// Parse LaTeX-ish math strings ↔ mathTree.Row. Covers the subset produced by
-// `friendlyToLatex`: chars, `^{...}`, `_{...}`, `\frac{...}{...}`,
-// `\sqrt{...}`, `\sqrt[n]{...}`, and paren/bracket groups. Anything else
-// falls back to individual char nodes.
+// Parse LaTeX-ish math strings ↔ mathTree.Row.
+//
+// This grammar must stay in step with `renderMathInline` (the classroom
+// renderer used by the AI Edit preview). Anything the renderer can display
+// must be representable here, otherwise the editable node would fall back to
+// raw backslash text. Covered: chars, `^{...}`, `_{...}`,
+// `\frac{...}{...}`, `\binom{...}{...}`, `\sqrt{...}`, `\sqrt[n]{...}`,
+// big operators (`\sum \prod \int \oint \lim`) with limits, accents
+// (`\bar \overline \vec \hat \tilde \dot`), fences (`\abs \norm \floor
+// \ceil` and `|…|`) and matrices (`\begin{pmatrix}…\end{pmatrix}`).
 
 import {
   type Row,
   type Node,
+  type BracketKind,
   mkChar,
   mkFrac,
   mkSqrt,
   mkSubSup,
+  mkBigOp,
+  mkAccent,
+  mkBinom,
+  mkBracket,
+  mkMatrix,
   subRowsOf,
 } from "./mathTree";
 import { graphemes, isEmoji } from "@/lib/text/graphemes";
@@ -30,6 +42,57 @@ const matchBrace = (s: string, i: number): number => {
 };
 
 const isBaseChar = (ch: string): boolean => /[A-Za-z0-9)\]}]/.test(ch);
+
+type BigOpName = "sum" | "prod" | "int" | "oint" | "lim";
+const BIG_OPS: BigOpName[] = ["sum", "prod", "int", "oint", "lim"];
+
+/** LaTeX accent macro → the glyph drawn above the body. */
+const ACCENTS: Record<string, string> = {
+  bar: "‾", overline: "‾", vec: "→", overrightarrow: "→",
+  hat: "^", widehat: "^", tilde: "~", widetilde: "~", dot: "˙",
+};
+/** Reverse map used when serializing an accent node back to LaTeX. */
+const ACCENT_MACRO: Record<string, string> = {
+  "‾": "bar", "→": "vec", "^": "hat", "~": "tilde", "˙": "dot",
+};
+
+/** One-argument fence macros → bracket pair. */
+const FENCES: Record<string, [BracketKind, BracketKind]> = {
+  abs: ["|", "|"], norm: ["‖", "‖"], floor: ["⌊", "⌋"], ceil: ["⌈", "⌉"],
+};
+const FENCE_MACRO: Record<string, string> = {
+  "|": "abs", "‖": "norm", "⌊": "floor", "⌈": "ceil",
+};
+
+const MATRIX_ENVS: Record<string, [string, string]> = {
+  matrix: ["", ""], pmatrix: ["(", ")"], bmatrix: ["[", "]"],
+  Bmatrix: ["{", "}"], vmatrix: ["|", "|"], Vmatrix: ["‖", "‖"],
+};
+const MATRIX_ENV_FOR: Record<string, string> = {
+  "": "matrix", "(": "pmatrix", "[": "bmatrix", "{": "Bmatrix",
+  "|": "vmatrix", "‖": "Vmatrix",
+};
+
+/** Read `_{...}` / `^{...}` limits directly following a big operator. */
+const readLimits = (src: string, start: number): { lower: Row; upper: Row; end: number } => {
+  let i = start;
+  let lower: Row = [];
+  let upper: Row = [];
+  for (let pass = 0; pass < 2; pass++) {
+    const mark = src[i];
+    if ((mark === "_" || mark === "^") && src[i + 1] === "{") {
+      const end = matchBrace(src, i + 1);
+      if (end < 0) break;
+      const body = latexToTree(src.slice(i + 2, end - 1));
+      if (mark === "_") lower = body; else upper = body;
+      i = end;
+      continue;
+    }
+    break;
+  }
+  return { lower, upper, end: i };
+};
+
 
 export function latexToTree(src: string): Row {
   const row: Row = [];
