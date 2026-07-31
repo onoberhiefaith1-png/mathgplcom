@@ -45,6 +45,10 @@ const TableWorkspace = ({
 }: Props) => {
   const retainedSet = new Set(retained);
   const activeSet = new Set(activeCells);
+  // Smart Structure: cells that are pure structure (bracket gutter, minus
+  // column, divider) are retained by definition and never generate lines.
+  const staticSet = new Set(grid.staticCells ?? []);
+
 
   const hint = retentionMode
     ? "Retention: click cells students should still see. Everything else is blank on the Smartboard."
