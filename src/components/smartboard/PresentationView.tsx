@@ -2478,7 +2478,7 @@ const PresentationView = ({
     } catch { setTableEntries({}); }
     setTableSensorCell(null);
     setExpandedTables({});
-    setHiddenTables([]);
+    setPlacedTables({});
     setActiveTableObjId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReservoirIdx]);
