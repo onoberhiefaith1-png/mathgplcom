@@ -4632,10 +4632,26 @@ const PresentationView = ({
       >
       <WritingFilterDefs />
 
-      {/* Table Stage — shown while the active line comes from a highlighted
-          table workspace. Retained cells stay visible; the rest are blank. */}
-      {guidedLines[activeLineIdx]?.table?.grid && (
-        <TableStage table={guidedLines[activeLineIdx].table!} dark={isDark} />
+      {/* Table Activity — the highlighted Smart Table is ONE lesson step and,
+          once opened, the workspace for its own row/column lines. */}
+      {activeTableGroup && (
+        <TableActivityStage
+          group={activeTableGroup}
+          activeLineIdx={activeLineIdx}
+          entries={activeTableEntries}
+          sensorCell={tableSensorCell}
+          open={openTableObjId === activeTableGroup.objId}
+          dark={isDark}
+          editable={canEdit}
+          onOpenChange={(o) => setOpenTableObjId(o ? activeTableGroup.objId : null)}
+          onActivateLine={(k) => {
+            setActiveLineIdx(k);
+            setFloatingLineIdx(k);
+            setManualFloatingLineIdx(k);
+          }}
+          onSensorCell={setTableSensorCell}
+          onEntry={(k, v) => setTableEntry(activeTableGroup.objId, k, v)}
+        />
       )}
 
       {/* Micro-surface texture */}
