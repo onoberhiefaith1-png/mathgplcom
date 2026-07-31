@@ -674,9 +674,13 @@ export function MathInlineCanvas({
         // Nothing to raise — open a fresh empty script object so the teacher
         // can keep building the tree (never write a literal "#").
         const res = insertNode(base.root, c, mkSubSup());
-        apply({ root: res.root, cursor: { path: [...c.path, c.index, 2], index: 0 } });
+        const nodeIdx = res.cursor.path.length >= 2
+          ? res.cursor.path[res.cursor.path.length - 2]
+          : c.index;
+        apply({ root: res.root, cursor: { path: [...c.path, nodeIdx, 2], index: 0 } });
         return;
       }
+
       const res = insertNodeWrapping(base.root, c, mkSubSup(), start, end, 0);
       apply({ root: res.root, cursor: { path: [...c.path, start, 2], index: 0 } });
       return;
