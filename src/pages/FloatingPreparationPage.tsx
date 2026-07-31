@@ -334,7 +334,7 @@ const FloatingPreparationPage = () => {
           .maybeSingle(),
         supabase
           .from("notebook_blocks")
-          .select("kind, content_ascii, order_index")
+          .select("kind, content_ascii, content_json, order_index")
           .eq("subsection_id", subsectionId)
           .order("order_index", { ascending: true }),
       ]);
