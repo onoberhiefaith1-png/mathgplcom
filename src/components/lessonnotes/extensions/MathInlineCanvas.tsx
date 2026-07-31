@@ -400,10 +400,35 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 }
 
 export function MathInlineCanvas({
-  root, onChange, onBlur, focused, onFocus,
+  root, onChange, onBlur, focused, onFocus, entryPoint,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>({ path: [], index: root.length });
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const hostRef = useRef<HTMLSpanElement | null>(null);
+
+  /** Clamp a raw hit-test cursor to a valid index inside its row. */
+  const clamp = useCallback((c: Cursor): Cursor => {
+    try {
+      const row = getRowAt(root, c.path);
+      return { path: c.path, index: Math.max(0, Math.min(c.index, row.length)) };
+    } catch {
+      return { path: [], index: root.length };
+    }
+  }, [root]);
+
+  // Place the caret where the teacher first clicked (the click that opened
+  // the editor happened on the read-only render, so we replay its point).
+  useEffect(() => {
+    if (!focused || !entryPoint) return;
+    const id = requestAnimationFrame(() => {
+      const hit = hitTestCursor(entryPoint.x, entryPoint.y, hostRef.current);
+      if (hit) setCursor(clamp(hit));
+      inputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused, entryPoint?.x, entryPoint?.y]);
+
 
   // Keep cursor valid on external tree changes.
   useEffect(() => {
