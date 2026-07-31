@@ -162,9 +162,25 @@ const TableActivityStage = ({
         <span className="text-[15px] font-semibold">{group.label}</span>
       </button>
 
-      {open && (
+      {open && structureId && canRenderStructure(structureId) && (
+        // Smart Structure: the teacher's own layout, preserved exactly.
+        // Only the editable cells accept input; the static layer is fixed.
+        <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
+          <StructureStage
+            structureId={structureId}
+            structureAttrs={(grid as any).structureAttrs ?? {}}
+            cells={structureCells}
+            editable={!!editable}
+            lockedKeys={lockedKeys}
+            onCellChange={(k, v) => { onEntry(k, v); onSensorCell(k); }}
+          />
+        </div>
+      )}
+
+      {open && !(structureId && canRenderStructure(structureId)) && (
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
           <table className="border-collapse text-[16px]" style={{ color: ink }}>
+
             {grid.headers?.some((h) => String(h).trim()) && (
               <thead>
                 <tr>
