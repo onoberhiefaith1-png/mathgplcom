@@ -130,8 +130,8 @@ function renderBody(nodes: Node[]): string {
  *  Example has an empty question and an empty Solution; it must still get a
  *  row so the Floating Numbers workspace can be opened (blank) right away
  *  instead of reporting "not ready". */
-function splitQuestionBody(nodes: Node[]): { problem: string; solution: string }[] {
-  const out: { problem: string; solution: string }[] = [];
+function splitQuestionBody(nodes: Node[]): { problem: string; solution: string; solutionObjects: SolutionObject[] }[] {
+  const out: { problem: string; solution: string; solutionObjects: SolutionObject[] }[] = [];
   let problemBuf: Node[] = [];
   let solutionBuf: Node[] = [];
   let mode: "problem" | "solution" = "problem";
@@ -139,8 +139,10 @@ function splitQuestionBody(nodes: Node[]): { problem: string; solution: string }
 
   const flush = () => {
     const problem = renderBody(problemBuf);
-    const solution = renderBody(solutionBuf);
-    if (problem || solution || sawSolutionHeading) out.push({ problem, solution });
+    const sol = renderBodyRich(solutionBuf);
+    if (problem || sol.text || sol.objects.length || sawSolutionHeading) {
+      out.push({ problem, solution: sol.text, solutionObjects: sol.objects });
+    }
     problemBuf = [];
     solutionBuf = [];
     mode = "problem";
