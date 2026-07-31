@@ -2250,6 +2250,30 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_test_accounts: {
+        Row: {
+          created_at: string
+          id: string
+          owner_user_id: string
+          role: string
+          target_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_user_id: string
+          role: string
+          target_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_user_id?: string
+          role?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       player_stats: {
         Row: {
           best_score: number
