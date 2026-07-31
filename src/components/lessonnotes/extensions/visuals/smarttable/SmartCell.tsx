@@ -56,6 +56,7 @@ export function SmartCell({
       <input
         ref={ref}
         value={buffer}
+        data-sb-cell={cellKey}
         onChange={(e) => setBuffer(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
@@ -76,6 +77,7 @@ export function SmartCell({
   return (
     <button
       type="button"
+      data-sb-cell={cellKey}
       onClick={(e) => { e.stopPropagation(); setBuffer(value); setEditing(true); }}
       aria-label={ariaLabel}
       className={
@@ -88,5 +90,6 @@ export function SmartCell({
     </button>
   );
 }
+
 
 export default SmartCell;
