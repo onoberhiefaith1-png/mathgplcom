@@ -11,6 +11,7 @@ import { Plus, RefreshCw, Lock, Rows3, Columns3 } from "lucide-react";
 import type { TableGrid, TableOrientation } from "@/lib/floating/tableGrid";
 import { cellKey } from "@/lib/floating/tableGrid";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
+import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 
 
 interface Props {
@@ -128,6 +129,19 @@ const TableWorkspace = ({
         </span>
       </div>
 
+      {/* NON-TABLE OBJECT (diagram, graph, 3D scene, animation, image). It has
+          no editable cells: it travels as ONE placeable lesson object. */}
+      {grid.object ? (
+        <div className="px-3 py-3 overflow-x-auto">
+          <div className="rounded-md bg-[hsl(38_30%_96%)] p-3 inline-block max-w-full">
+            <SolutionObjectView nodeType={grid.object.nodeType} attrs={grid.object.attrs} />
+          </div>
+          <p className="mt-2 text-[11px] text-foreground/55 italic">
+            Diagram object — press Generate to create the line that places it on the Smartboard.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* Smart Structure — the teacher's own layout, preserved exactly. The
           static layer (bracket, rules, divider, alignment) is drawn by the
           asset itself; only the editable cells are pickable, as chips. */}
@@ -245,6 +259,8 @@ const TableWorkspace = ({
         </table>
         <p className="mt-2 text-[11px] text-foreground/55 italic">{hint}</p>
       </div>
+      )}
+      </>
       )}
 
 

@@ -31,7 +31,33 @@ export interface TableGrid {
   structureId?: string;
   /** Smart Structure: the teacher's original attributes (static layer). */
   structureAttrs?: Record<string, any>;
+  /** NON-TABLE OBJECT (geometry diagram, 3D scene, graph, chart, animation,
+   *  image, …). When present the object is rendered by its own node view and
+   *  carries no editable cells: it is a single placeable lesson object. */
+  object?: { nodeType: string; attrs: Record<string, any> };
 }
+
+/** A grid that is really a single non-table object (diagram / graph / 3D /
+ *  animation / image). Every object in a solution travels through the
+ *  Floating Number pipeline; the ones without cells simply become one
+ *  placeable item instead of a workspace of many lines. */
+export const gridFromAnyObject = (obj: SolutionObject): TableGrid | null => {
+  const tabular = gridFromObject(obj);
+  if (tabular) return tabular;
+  if (!obj?.objId || !obj.nodeType) return null;
+  return {
+    objId: obj.objId,
+    label: obj.label || "Diagram",
+    headers: [],
+    cells: [[""]],
+    rows: 1,
+    cols: 1,
+    object: { nodeType: obj.nodeType, attrs: (obj.attrs ?? {}) as Record<string, any> },
+  };
+};
+
+/** True when the grid is a single placeable object with no editable cells. */
+export const isObjectGrid = (grid?: TableGrid | null): boolean => !!grid?.object;
 
 /** True when the cell belongs to the retained structure, not the student. */
 export const isStaticCell = (grid: TableGrid, key: string): boolean =>
@@ -148,6 +174,11 @@ export const generateTableLines = (
   orientation: TableOrientation,
 ): GeneratedTableLine[] => {
   const out: GeneratedTableLine[] = [];
+  // A non-table object has no cells: it generates exactly ONE line, whose
+  // job is to place the object on the Smartboard.
+  if (grid.object) {
+    return [{ cellKeys: [cellKey(0, 0)], values: [grid.label], label: grid.label }];
+  }
   const editable = (keys: string[]) => keys.filter((k) => !isStaticCell(grid, k));
   if (orientation === "row") {
     for (let r = 0; r < grid.rows; r++) {
@@ -174,7 +205,7 @@ export const generateTableLines = (
 
 /** Equation text shown for a table-derived line. */
 export const tableLineEquation = (grid: TableGrid, cellKeys: string[]): string =>
-  cellKeys
+  grid.object ? grid.label : cellKeys
     .map((k) => cellValue(grid, k))
     .filter((v) => v.trim().length > 0)
     .join("  ");

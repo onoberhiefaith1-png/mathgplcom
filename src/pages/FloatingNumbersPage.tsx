@@ -29,7 +29,7 @@ import { buildLessonContext } from "@/lib/floating/lessonContext";
 import { readSolutionObjects } from "@/lib/floating/solutionItems";
 import TableWorkspace from "@/components/floating/TableWorkspace";
 import {
-  gridFromObject,
+  gridFromAnyObject,
   generateTableLines,
   tableLineEquation,
   cellFitsLine,
@@ -543,8 +543,11 @@ const FloatingNumbersPage = () => {
         const obj = (h as any).object;
         if (obj) {
           const parsed = readSolutionObjects({ objects: [obj] })[0];
-          if (!parsed || parsed.family !== "table") continue;
-          const grid = gridFromObject(parsed);
+          if (!parsed) continue;
+          // EVERY object travels: tables and Smart Structures become
+          // workspaces; diagrams, graphs, 3D scenes, animations and images
+          // become a single placeable lesson object.
+          const grid = gridFromAnyObject(parsed);
           if (!grid) continue;
           seq.push({ kind: "table", objId: grid.objId, grid });
           continue;

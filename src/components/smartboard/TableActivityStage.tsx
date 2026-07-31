@@ -35,6 +35,7 @@ import { cellKey, parseCellKey } from "@/lib/floating/tableGrid";
 import { cellNumber, formatNumber, tryEvaluate } from "@/components/lessonnotes/extensions/visuals/smarttable/evaluator";
 import { useAutoHide } from "@/hooks/useAutoHide";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
+import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 
 interface Props {
   group: TableGroup;
@@ -211,7 +212,18 @@ const TableActivityStage = ({
         <span className="text-[15px] font-semibold">{group.label}</span>
       </button>
 
-      {open && structureId && canRenderStructure(structureId) && (
+      {/* NON-TABLE OBJECT — the teacher's diagram / graph / 3D scene / chart,
+          rendered by its own node view exactly as it appears in the note. */}
+      {open && (grid as any).object && (
+        <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
+          <SolutionObjectView
+            nodeType={(grid as any).object.nodeType}
+            attrs={(grid as any).object.attrs ?? {}}
+          />
+        </div>
+      )}
+
+      {open && !(grid as any).object && structureId && canRenderStructure(structureId) && (
         // Smart Structure: the teacher's own layout, preserved exactly.
         // Only the editable cells accept input; the static layer is fixed.
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
@@ -229,7 +241,7 @@ const TableActivityStage = ({
         </div>
       )}
 
-      {open && !(structureId && canRenderStructure(structureId)) && (
+      {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
           <table className="border-collapse text-[16px]" style={{ color: ink }}>
 

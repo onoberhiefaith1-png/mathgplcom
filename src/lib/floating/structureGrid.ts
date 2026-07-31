@@ -276,6 +276,11 @@ export const attrsWithGrid = (
         quotientDigits: row(0),
         dividendDigits: row(1),
         workingRows: working,
+        // LEGACY ANSWER FIELDS ARE STRIPPED. If they survive, the asset's own
+        // migration effect fires on mount and pushes the teacher's whole
+        // answer back as a bulk patch — the "solution appears by itself" bug.
+        dividend: undefined,
+        quotient: undefined,
       };
     }
     case "divisionladder":
