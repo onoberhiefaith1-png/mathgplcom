@@ -34,6 +34,7 @@ import {
 import { cellKey, parseCellKey } from "@/lib/floating/tableGrid";
 import { cellNumber, formatNumber, tryEvaluate } from "@/components/lessonnotes/extensions/visuals/smarttable/evaluator";
 import { useAutoHide } from "@/hooks/useAutoHide";
+import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
 
 interface Props {
   group: TableGroup;
@@ -139,6 +140,33 @@ const TableActivityStage = ({
 
   const grid = group.grid;
 
+  // Smart Structure: the static layer belongs to the asset, not to a table.
+  const structureId = (grid as any).structureId as string | undefined;
+  const structureCells = useMemo(() => {
+    const out: string[][] = [];
+    for (let r = 0; r < grid.rows; r++) {
+      const row: string[] = [];
+      for (let c = 0; c < grid.cols; c++) {
+        const k = cellKey(r, c);
+        row.push(
+          isRetained(group, k) ? expectedCellValue(group, k) : String(entries[k] ?? ""),
+        );
+      }
+      out.push(row);
+    }
+    return out;
+  }, [grid.rows, grid.cols, group, entries]);
+  const lockedKeys = useMemo(() => {
+    const out: string[] = [];
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        const k = cellKey(r, c);
+        if (isRetained(group, k)) out.push(k);
+      }
+    }
+    return out;
+  }, [grid.rows, grid.cols, group]);
+
   const toolbarBtn = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] hover:bg-black/10";
 
   return (
@@ -162,9 +190,25 @@ const TableActivityStage = ({
         <span className="text-[15px] font-semibold">{group.label}</span>
       </button>
 
-      {open && (
+      {open && structureId && canRenderStructure(structureId) && (
+        // Smart Structure: the teacher's own layout, preserved exactly.
+        // Only the editable cells accept input; the static layer is fixed.
+        <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
+          <StructureStage
+            structureId={structureId}
+            structureAttrs={(grid as any).structureAttrs ?? {}}
+            cells={structureCells}
+            editable={!!editable}
+            lockedKeys={lockedKeys}
+            onCellChange={(k, v) => { onEntry(k, v); onSensorCell(k); }}
+          />
+        </div>
+      )}
+
+      {open && !(structureId && canRenderStructure(structureId)) && (
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
           <table className="border-collapse text-[16px]" style={{ color: ink }}>
+
             {grid.headers?.some((h) => String(h).trim()) && (
               <thead>
                 <tr>
