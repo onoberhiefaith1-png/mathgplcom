@@ -1,21 +1,27 @@
 import { useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, RotateCcw, Upload } from "lucide-react";
+import { ArrowLeft, RotateCcw, Scissors, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
+import { makeTransparent } from "@/lib/games/removeBackground";
 import { BUILDING_SLOTS, type BuildingSlot } from "@/lib/homepage/buildingSlots";
-import { useHomepageConfig, type HomepageMediaRef } from "@/lib/homepage/homepageConfig";
+import {
+  resolveMediaUrl,
+  useHomepageConfig,
+  type HomepageMediaRef,
+} from "@/lib/homepage/homepageConfig";
 
 /**
  * Edit MathGPL Building — the original building only.
- * The single available action per slot is Replace Image. Geometry is preserved.
+ * Each slot supports Replace Image and Remove Background. Geometry is preserved.
  */
 const HomepageBuildingPage = () => {
   const { config, save } = useHomepageConfig();
   const overrides = config.slotOverrides ?? {};
   const [busySlot, setBusySlot] = useState<string | null>(null);
+  const [cutoutSlot, setCutoutSlot] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const targetRef = useRef<string | null>(null);
 
@@ -37,12 +43,45 @@ const HomepageBuildingPage = () => {
     }
   };
 
+  /** Cut the backdrop out of the artwork currently shown in this slot. */
+  const removeBg = async (slot: BuildingSlot) => {
+    setCutoutSlot(slot.id);
+    try {
+      const ref = overrides[slot.id];
+      const url = ref ? await resolveMediaUrl(ref) : slot.defaultUrl;
+      if (!url) throw new Error("Could not load this artwork");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Could not load this artwork");
+      const blob = await res.blob();
+      const cut = await makeTransparent(
+        new File([blob], `${slot.id}.png`, { type: blob.type || "image/png" }),
+      );
+      const asset = await uploadGameAsset(
+        new File([cut], `${slot.id}-cutout.png`, { type: "image/png" }),
+        "background",
+        `${slot.id} artwork (cutout)`,
+      );
+      await save({
+        slotOverrides: {
+          ...overrides,
+          [slot.id]: { path: renderPathOf(asset), source: "storage", mediaType: "image" },
+        },
+      });
+      toast.success("Background removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Background removal failed");
+    } finally {
+      setCutoutSlot(null);
+    }
+  };
+
   const revert = async (slotId: string) => {
     const next = { ...overrides };
     delete next[slotId];
     await save({ slotOverrides: next });
     toast.success("Original artwork restored");
   };
+
 
   const Thumb = ({ slot }: { slot: BuildingSlot }) => {
     const ref = overrides[slot.id];
@@ -92,14 +131,27 @@ const HomepageBuildingPage = () => {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {BUILDING_SLOTS.map((slot, i) => (
             <div key={slot.id} className="rounded-2xl border border-border bg-card/50 p-3">
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold">Image {i + 1}</p>
-                {overrides[slot.id] && (
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
-                    Replaced
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {overrides[slot.id] && (
+                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                      Replaced
+                    </span>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[10px]"
+                    disabled={cutoutSlot === slot.id || busySlot === slot.id}
+                    onClick={() => void removeBg(slot)}
+                  >
+                    <Scissors className="mr-1 h-3 w-3" />
+                    {cutoutSlot === slot.id ? "Removing…" : "Remove background"}
+                  </Button>
+                </div>
               </div>
+
               <div className="h-28 w-full overflow-hidden rounded-lg bg-muted/30">
                 <Thumb slot={slot} />
               </div>
