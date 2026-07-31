@@ -24,11 +24,13 @@ export type AccountRow = {
   organisation: string;
   status: string;
   joinedAt: string;
+  isMine?: boolean;
   teachers?: number;
   students?: number;
   parents?: number;
   subscription?: string;
 };
+
 
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
