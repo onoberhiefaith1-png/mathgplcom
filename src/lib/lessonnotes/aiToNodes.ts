@@ -16,6 +16,7 @@ import { HAS_MATH } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { hasDirectives, splitDirectives } from "@/lib/lessonnotes/ai/materializeDirectives";
 
 type TipTapNode = any;
 
@@ -215,7 +216,23 @@ function isAsciiArtLine(line: string): boolean {
   return false;
 }
 
+/** Workspace-tool aware entry point. AI directives (`[[tool:…]]`) become the
+ *  real editable workspace nodes (Smart Table, Graph, Diagram, 3D object,
+ *  Calculator, Structure); everything else falls through to the text pass. */
 export function aiTextToNodes(text: string): TipTapNode[] {
+  if (!text) return [{ type: "paragraph" }];
+  if (!hasDirectives(text)) return plainAiTextToNodes(text);
+  const out: TipTapNode[] = [];
+  for (const part of splitDirectives(text)) {
+    if (part.kind === "node") { out.push(part.node); continue; }
+    const chunk = part.text.replace(/^\n+|\n+$/g, "");
+    if (!chunk.trim()) continue;
+    out.push(...plainAiTextToNodes(chunk).filter((n) => !isEmptyPara(n)));
+  }
+  return out.length ? out : [{ type: "paragraph" }];
+}
+
+function plainAiTextToNodes(text: string): TipTapNode[] {
   if (!text) return [{ type: "paragraph" }];
   // Presentation hygiene FIRST — markdown, JSON, HTML, escape residue and AI
   // placeholders must never become notebook text.

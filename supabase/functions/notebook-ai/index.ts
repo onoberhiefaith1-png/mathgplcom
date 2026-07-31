@@ -13,6 +13,12 @@ import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
 import { sanitizePresentation, residueReport } from "./outputHygiene.ts";
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
+  WORKSPACE_STANDARD,
+  workspaceManifestBlock,
+  workspaceViolations,
+  workspaceCorrection,
+} from "./workspaceStandard.ts";
+import {
   runValidationPipeline,
   firstFailingStage,
   formatViolations,
@@ -590,6 +596,8 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
           notation?: string[];
           sequencePosition?: string;
         };
+        /** Live manifest of workspace tools + Asset Library ids. */
+        workspaceManifest?: string;
       };
 
       /** Render the lesson-so-far into a compact, prompt-friendly block. */
@@ -681,6 +689,10 @@ ${STRUCTURAL_STANDARD}
 ${GEOMETRY_STANDARD}
 
 ${CONTINUITY_STANDARD}
+
+${WORKSPACE_STANDARD}
+
+${workspaceManifestBlock(b.workspaceManifest)}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
 Task style for this block: ${styleLine}
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
@@ -727,6 +739,27 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
         messages: baseMessages,
         kind: validationKind,
       });
+
+      // WORKSPACE GUARD — hand-typed tables / ASCII figures / described graphs
+      // must be re-emitted as real workspace tool directives. One round.
+      {
+        const violations = workspaceViolations(content);
+        if (violations.length) {
+          const retry = await generateValidated({
+            messages: [
+              ...baseMessages,
+              { role: "assistant", content },
+              { role: "user", content: workspaceCorrection(violations) },
+            ],
+            kind: validationKind,
+          });
+          if (workspaceViolations(retry.content).length <= violations.length) {
+            content = retry.content;
+            warnings = retry.warnings;
+          }
+        }
+      }
+
 
       // CONTINUITY GUARD — a newly generated question must not duplicate an
       // example already in the lesson. One corrective round, then accept.

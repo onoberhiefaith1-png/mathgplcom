@@ -110,6 +110,7 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
+import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
 
 const SECTION_OPTIONS: SectionKind[] = [
   "introduction", "objectives", "explanation", "example",
@@ -292,6 +293,7 @@ async function aiGenerate(opts: {
       activeQuestion: opts.activeQuestion ?? "",
       inheritedContext: opts.inheritedContext ?? false,
       lessonContext: opts.lessonContext ?? null,
+      workspaceManifest: buildWorkspaceManifest(),
     },
   });
   if (error) {
