@@ -64,7 +64,7 @@ interface ParsedSection {
   /** Used only for non-question sections. */
   loose: string[];
   /** Used only for question kinds. */
-  subsections: { problem: string; solution: string }[];
+  subsections: { problem: string; solution: string; solutionObjects: SolutionObject[] }[];
 }
 
 /** Normalize a problem string for matching across edits (case/whitespace). */
