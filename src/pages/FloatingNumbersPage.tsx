@@ -1253,7 +1253,7 @@ const FloatingNumbersPage = () => {
             <div className="py-12 text-center text-sm text-foreground/55">
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading…
             </div>
-          ) : lines.length === 0 ? (
+          ) : groups.length === 0 ? (
             <div className="py-12 text-center text-sm text-foreground/55">
               No solution lines yet. Generate the solution in the lesson note first.
             </div>
