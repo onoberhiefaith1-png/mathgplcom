@@ -73,6 +73,10 @@ import {
 import { MathSymbolPanel } from "./MathSymbolPanel";
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
+import { AiEditBridgeProvider, type AiEditRequest } from "@/hooks/useAiEditBridge";
+import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
+
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
