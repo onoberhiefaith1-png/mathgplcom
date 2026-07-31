@@ -340,13 +340,14 @@ const FloatingPreparationPage = () => {
       ]);
       if (!alive) return;
       setTitle(nbRes.data?.title ?? "");
-      const solution =
-        (blocksRes.data ?? []).find((b: any) => b.kind === "solution")?.content_ascii ?? "";
+      const solBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "solution") as any;
+      const solution = solBlock?.content_ascii ?? "";
       const flat = solution
         .split("\n")
         .map((l: string) => l.replace(/\s+$/, ""))
         .filter((l: string) => l.trim().length > 0);
       setLines(flat);
+      setObjects(readSolutionObjects(solBlock?.content_json));
 
       const prior = (ssRes.data as any)?.floating_highlights as
         | (Highlight | { groupId: number; payload: string })[]
