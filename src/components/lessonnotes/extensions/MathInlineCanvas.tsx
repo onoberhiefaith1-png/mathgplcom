@@ -73,6 +73,7 @@ function RowView({
   const isCursorRow = focused && pathsEqual(path, cursor.path);
   const depth = depthOf(path);
   const items: React.ReactNode[] = [];
+  const pathKey = JSON.stringify(path);
   for (let i = 0; i <= row.length; i++) {
     if (isCursorRow && cursor.index === i) {
       items.push(<Caret key={`c${i}`} depth={depth} />);
@@ -80,7 +81,9 @@ function RowView({
     if (i < row.length) {
       const n = row[i];
       items.push(
-        <NodeView key={`n${i}`} node={n} path={[...path, i]} cursor={cursor} focused={focused} />,
+        <span key={`n${i}`} data-mpath={pathKey} data-mindex={i}>
+          <NodeView node={n} path={[...path, i]} cursor={cursor} focused={focused} />
+        </span>,
       );
     }
   }
@@ -92,6 +95,8 @@ function RowView({
         key="empty"
         aria-hidden
         data-math-empty-slot="true"
+        data-mpath={pathKey}
+        data-mindex={0}
         className="inline-block"
         style={{
           width: "0.6em",
@@ -102,8 +107,38 @@ function RowView({
       />,
     );
   }
-  return <span className="mrow" style={{ whiteSpace: "pre" }}>{items}</span>;
+  return (
+    <span className="mrow" data-mrow={pathKey} style={{ whiteSpace: "pre" }}>
+      {items}
+    </span>
+  );
 }
+
+/** Map a viewport point to a caret position inside the tree. Returns null
+ *  when the point is not over any glyph (caller falls back to row end). */
+function hitTestCursor(x: number, y: number, container: HTMLElement | null): Cursor | null {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null;
+  if (!el || (container && !container.contains(el))) return null;
+  const glyph = el.closest("[data-mpath]") as HTMLElement | null;
+  if (glyph && (!container || container.contains(glyph))) {
+    try {
+      const path = JSON.parse(glyph.dataset.mpath as string) as number[];
+      const idx = Number(glyph.dataset.mindex ?? 0);
+      const r = glyph.getBoundingClientRect();
+      const isEmptySlot = glyph.dataset.mathEmptySlot === "true";
+      return { path, index: isEmptySlot ? 0 : x > r.left + r.width / 2 ? idx + 1 : idx };
+    } catch { /* fall through */ }
+  }
+  const rowEl = el.closest("[data-mrow]") as HTMLElement | null;
+  if (rowEl) {
+    try {
+      const path = JSON.parse(rowEl.dataset.mrow as string) as number[];
+      return { path, index: Number.MAX_SAFE_INTEGER };
+    } catch { /* noop */ }
+  }
+  return null;
+}
+
 
 function NodeView({
   node, path, cursor, focused,
