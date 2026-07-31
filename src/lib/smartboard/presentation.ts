@@ -5,6 +5,7 @@
 
 import type { SectionRow, SectionKind, BlockRow, NotebookRow } from "@/hooks/useNotebook";
 import type { ContainerKind } from "./floatingPlan";
+import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
@@ -49,6 +50,9 @@ export interface ReservoirLine {
   marks?: number;
   /** This line has only notebook content and no highlighted floating math. */
   notebookOnly?: boolean;
+  /** Set when the line came from a highlighted table workspace. Carries the
+   *  grid snapshot + retained cells so the board can render the table. */
+  table?: FloatingTableRef;
 }
 
 export interface Reservoir {
@@ -89,6 +93,7 @@ type RawFloatingLine = {
   containers?: ContainerKind[];
   explanation?: string;
   arrangement?: number[];
+  table?: FloatingTableRef;
 };
 
 export const lessonSourceKey = (raw: string): string => normEq(toUnicodeMath(String(raw ?? "").trim()));
@@ -328,7 +333,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // belongs to the highlight ABOVE it, so leading prose has no parent
       // and remains independent.
       const sourceLines = rawHighlights && rawHighlights.length > 0
-        ? rawHighlights.reduce<Array<{ equation: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean }>>((acc, h, hi) => {
+        ? rawHighlights.reduce<Array<{ equation: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef }>>((acc, h, hi) => {
             if (h.notebookOnly) {
               const nb = String(h.precedingNotebook ?? "").trim();
               if (!nb) return acc;
@@ -423,6 +428,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             explanation: explanation || undefined,
             notebook,
             notebookOnly: isNotebookOnly,
+            table: (rl as any).table,
           });
         }
       }
