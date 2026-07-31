@@ -24,6 +24,7 @@ import {
   type RowRange,
   mkChar,
   mkFrac,
+  mkSubSup,
   mkSqrt,
   mkBracket,
   getRowAt,
@@ -61,6 +62,9 @@ interface Props {
   /** Viewport point of the click that opened the editor, so the caret can
    *  land exactly where the teacher clicked on the rendered form. */
   entryPoint?: { x: number; y: number } | null;
+  /** Caret position to open with (used when `#` creates the structure from
+   *  prose and the caret must land inside the fresh power slot). */
+  entryCursor?: Cursor | null;
 }
 
 
@@ -436,9 +440,11 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 }
 
 export function MathInlineCanvas({
-  root, onChange, onBlur, focused, onFocus, entryPoint,
+  root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
 }: Props) {
-  const [cursor, setCursor] = useState<Cursor>({ path: [], index: root.length });
+  const [cursor, setCursor] = useState<Cursor>(
+    () => entryCursor ?? { path: [], index: root.length },
+  );
   const [anchor, setAnchor] = useState<Cursor | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hostRef = useRef<HTMLSpanElement | null>(null);
@@ -637,6 +643,33 @@ export function MathInlineCanvas({
       }
       return;
     }
+
+    // `#` → superscript on the term to the left. A second `#` while the
+    // freshly-made (still empty) power slot holds the caret moves down into
+    // the subscript slot. Neither trigger is ever written into the note.
+    if (k === "#") {
+      e.preventDefault();
+      const base = withSelectionCleared();
+      const c = base.cursor;
+      if (c.path.length >= 2) {
+        const parentPath = c.path.slice(0, -2);
+        const nodeIdx = c.path[c.path.length - 2];
+        const subIdx = c.path[c.path.length - 1];
+        const holder = getRowAt(base.root, parentPath)[nodeIdx];
+        if (holder && holder.kind === "subsup" && subIdx === 2 &&
+            subRowsOf(holder)[2].length === 0) {
+          setCaret({ path: [...parentPath, nodeIdx, 1], index: 0 }, false);
+          return;
+        }
+      }
+      const row = getRowAt(base.root, c.path);
+      const { start, end } = extractWrapTargetLeftOf(row, c.index);
+      if (end <= start) { apply(insertChar(base.root, c, "#")); return; }
+      const res = insertNodeWrapping(base.root, c, mkSubSup(), start, end, 0);
+      apply({ root: res.root, cursor: { path: [...c.path, start, 2], index: 0 } });
+      return;
+    }
+
 
     if (k === "/") {
       e.preventDefault();

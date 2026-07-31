@@ -22,6 +22,8 @@
 // attach the new mathematical workspace to.
 
 import { Extension } from "@tiptap/core";
+import { mkChar, mkSubSup, type Row } from "@/lib/smartboard/mathTree";
+import { treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
 
 
@@ -216,6 +218,34 @@ function wrapLeftTermInStructure(view: any, kind: "subsup" | "fraction", targetS
   return true;
 }
 
+/** Prose-level `#`: turn the plain-text term left of the caret into a real
+ *  `mathInline` node whose base holds that term, opening with the caret in
+ *  the (empty) power slot. `##` is then handled inside the math canvas. */
+function wrapProseTermInMathNode(view: any): boolean {
+  const { state } = view;
+  const mathInline = state.schema.nodes.mathInline;
+  if (!mathInline) return false;
+
+  const range = termRangeLeftOfSelection(state);
+  if (!range) return false;
+
+  const text = state.doc.textBetween(range.from, range.to, "");
+  if (!text) return false;
+
+  const base: Row = [...text].map((c) => mkChar(c));
+  const root: Row = [{ ...(mkSubSup() as Extract<ReturnType<typeof mkSubSup>, { kind: "subsup" }>), rows: [base, [], []] }];
+
+  const node = mathInline.create({
+    value: treeToLatex(root),
+    tree: JSON.stringify(root),
+    autoEdit: true,
+    entry: JSON.stringify({ path: [0, 2], index: 0 }),
+  });
+
+  view.dispatch(state.tr.replaceWith(range.from, range.to, node));
+  return true;
+}
+
 export const MathKeyShortcuts = Extension.create({
   name: "mathKeyShortcuts",
 
@@ -312,7 +342,9 @@ export const MathKeyShortcuts = Extension.create({
 
             // `#` creates or re-enters editable script branches.
             if (ch === "#" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-              if (moveEmptyPowerToSubscript(view) || wrapLeftTermInStructure(view, "subsup", 2)) {
+              if (moveEmptyPowerToSubscript(view) ||
+                  wrapLeftTermInStructure(view, "subsup", 2) ||
+                  wrapProseTermInMathNode(view)) {
                 event.preventDefault();
                 return true;
               }

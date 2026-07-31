@@ -65,10 +65,17 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
   // Point of the click that opened the editor, replayed so the caret lands
   // exactly where the teacher clicked on the rendered expression.
   const [entryPoint, setEntryPoint] = useState<{ x: number; y: number } | null>(null);
+  // Caret position requested by whoever created the node (the `#` shortcut
+  // asks for the empty power slot).
+  const entryCursor = useMemo(() => {
+    const raw = node.attrs.entry;
+    if (typeof raw !== "string" || !raw) return null;
+    try { return JSON.parse(raw) as { path: number[]; index: number }; } catch { return null; }
+  }, [node.attrs.entry]);
 
   useEffect(() => {
     if (node.attrs.autoEdit) {
-      updateAttributes({ autoEdit: false });
+      updateAttributes({ autoEdit: false, entry: "" });
       try { editor?.commands.blur(); } catch { /* noop */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,6 +119,7 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
       ) : (
         <MathInlineCanvas
           entryPoint={entryPoint}
+          entryCursor={entryCursor}
           root={root}
           onChange={commit}
           onBlur={handleBlur}
@@ -144,6 +152,12 @@ export const MathInline = Node.create({
         default: "",
         parseHTML: (el) => el.getAttribute("data-tree") ?? "",
         renderHTML: (attrs) => (attrs.tree ? { "data-tree": attrs.tree } : {}),
+      },
+      entry: {
+        default: "",
+        parseHTML: () => "",
+        renderHTML: () => ({}),
+        keepOnSplit: false,
       },
       autoEdit: {
         default: false,
