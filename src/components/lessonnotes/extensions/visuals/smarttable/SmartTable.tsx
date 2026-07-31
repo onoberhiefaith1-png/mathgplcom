@@ -425,10 +425,22 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 onClick={(e) => { e.stopPropagation(); if (sumMode) return; if (!isEditing(-1, c)) beginEdit(-1, c); }}
               >
                 {isEditing(-1, c) ? (
-                  <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
+                  <>
+                    <SmartTableCellToolbar
+                      onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
+                      onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
+                    />
+                    <InlineEditor
+                      inputRef={inputRef} value={buffer} onChange={setBuffer}
+                      onSelect={(s, e) => setSel({ s, e })}
+                      onCommit={finishEdit} onCancel={cancelEdit}
+                    />
+                  </>
                 ) : (
                   <span className="block min-h-[1.4em]">
-                    {h || <span style={{ color: "#94a3b8" }}>header</span>}
+                    {h
+                      ? cellDisplay(h, `h${c}`)
+                      : <span style={{ color: "#94a3b8" }}>header</span>}
                   </span>
                 )}
               </th>
@@ -440,23 +452,38 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             <tr key={r} style={style.striped && r % 2 === 1 ? { background: "rgba(15,23,42,0.04)" } : undefined}>
               {row.map((raw, c) => {
                 const editing = isEditing(r, c);
+                const rendered = cellDisplay(raw, `c${r}-${c}`);
                 return (
                   <td
                     key={c}
                     style={{ ...cellCss, ...colStyle(c) }}
-                    className={sumMode ? "cursor-pointer hover:bg-primary/20" : "cursor-text hover:bg-black/5"}
+                    className={
+                      "relative " +
+                      (sumMode ? "cursor-pointer hover:bg-primary/20" : "cursor-text hover:bg-black/5")
+                    }
                     onClick={(e) => { e.stopPropagation(); handleCellClick(r, c); }}
                   >
                     {editing ? (
-                      <InlineEditor value={buffer} onChange={setBuffer} onCommit={finishEdit} onCancel={cancelEdit} />
+                      <>
+                        <SmartTableCellToolbar
+                          onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
+                          onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
+                        />
+                        <InlineEditor
+                          inputRef={inputRef} value={buffer} onChange={setBuffer}
+                          onSelect={(s, e) => setSel({ s, e })}
+                          onCommit={finishEdit} onCancel={cancelEdit}
+                        />
+                      </>
                     ) : (
                       <span className="block min-h-[1.4em]">
-                        {cellDisplay(raw) || <span style={{ color: "#cbd5e1" }}>·</span>}
+                        {rendered ?? <span style={{ color: "#cbd5e1" }}>·</span>}
                       </span>
                     )}
                   </td>
                 );
               })}
+
             </tr>
           ))}
         </tbody>
