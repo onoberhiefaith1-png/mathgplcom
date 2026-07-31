@@ -1984,6 +1984,16 @@ function DocumentEditorInner({
       <MatrixToolbar editor={editor} />
       <GeometryAiPanel />
       <GeometryToolbox />
+
+      <Workspace3DDialog
+        open={workspace3dOpen}
+        onOpenChange={(o) => {
+          setWorkspace3dOpen(o);
+          if (!o) workspace3dApplyRef.current = null;
+        }}
+        initialScene={workspace3dScene}
+        onExport={handle3DExport}
+      />
       <MathTablesPicker
         open={tablesOpen}
         onOpenChange={setTablesOpen}
