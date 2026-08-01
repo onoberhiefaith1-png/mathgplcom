@@ -1169,6 +1169,7 @@ export type Database = {
       classes: {
         Row: {
           class_code: string
+          community_shared: boolean
           created_at: string
           description: string | null
           id: string
@@ -1182,6 +1183,7 @@ export type Database = {
         }
         Insert: {
           class_code: string
+          community_shared?: boolean
           created_at?: string
           description?: string | null
           id?: string
@@ -1195,6 +1197,7 @@ export type Database = {
         }
         Update: {
           class_code?: string
+          community_shared?: boolean
           created_at?: string
           description?: string | null
           id?: string
@@ -1205,6 +1208,195 @@ export type Database = {
           smartboard_visibility?: string
           updated_at?: string
           workspace?: string
+        }
+        Relationships: []
+      }
+      community_downloads: {
+        Row: {
+          copy_id: string | null
+          created_at: string
+          id: string
+          resource_id: string
+          revoked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          copy_id?: string | null
+          created_at?: string
+          id?: string
+          resource_id: string
+          revoked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          copy_id?: string | null
+          created_at?: string
+          id?: string
+          resource_id?: string
+          revoked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_downloads_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resource_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_downloads_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_likes: {
+        Row: {
+          created_at: string
+          resource_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          resource_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          resource_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_likes_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resource_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_likes_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      community_reports: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          reporter_id: string
+          resource_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          reporter_id: string
+          resource_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          reporter_id?: string
+          resource_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_reports_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resource_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_reports_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_resources: {
+        Row: {
+          created_at: string
+          description: string | null
+          hashtags: string[]
+          id: string
+          kind: string
+          owner_id: string
+          payload: Json
+          published_at: string
+          source_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          hashtags?: string[]
+          id?: string
+          kind: string
+          owner_id: string
+          payload?: Json
+          published_at?: string
+          source_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          hashtags?: string[]
+          id?: string
+          kind?: string
+          owner_id?: string
+          payload?: Json
+          published_at?: string
+          source_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2831,7 +3023,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      community_resource_cards: {
+        Row: {
+          active_downloads: number | null
+          created_at: string | null
+          description: string | null
+          hashtags: string[] | null
+          id: string | null
+          kind: string | null
+          like_count: number | null
+          owner_id: string | null
+          payload: Json | null
+          published_at: string | null
+          source_id: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          username: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_class_invitation: {
