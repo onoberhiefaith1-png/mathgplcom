@@ -34,9 +34,14 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
   const refresh = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
-      navigate(`/auth?redirect=/live/join${initialCode ? `/${initialCode}` : ""}`);
+      // Audience member: no account, no redirect. They enter the code and go
+      // straight into the session.
+      setUserId(null);
+      setJoined([]);
+      setLoading(false);
       return;
     }
+
     const uid = userData.user.id;
     setUserId(uid);
 
