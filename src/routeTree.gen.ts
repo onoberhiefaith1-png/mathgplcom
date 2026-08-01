@@ -107,6 +107,8 @@ import { Route as CardSlugGameIndexRouteImport } from './routes/card/$slug/game/
 import { Route as CardSlugSolveIndexRouteImport } from './routes/card/$slug/solve/index'
 import { Route as ChallengeSlugGameIndexRouteImport } from './routes/challenge/$slug/game/index'
 import { Route as ChallengeSlugSolveIndexRouteImport } from './routes/challenge/$slug/solve/index'
+import { Route as CommunityAdventureIdIndexRouteImport } from './routes/community/adventure/$id/index'
+import { Route as CommunityNoteIdIndexRouteImport } from './routes/community/note/$id/index'
 import { Route as GamesAbacusModeIndexRouteImport } from './routes/games/abacus/$mode/index'
 import { Route as GamesAbacusRepresentIndexRouteImport } from './routes/games/abacus/represent/index'
 import { Route as GamesAdditionDifficultyIndexRouteImport } from './routes/games/addition/$difficulty/index'
@@ -696,6 +698,17 @@ const ChallengeSlugSolveIndexRoute = ChallengeSlugSolveIndexRouteImport.update({
   id: '/challenge/$slug/solve/',
   path: '/challenge/$slug/solve/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityAdventureIdIndexRoute =
+  CommunityAdventureIdIndexRouteImport.update({
+    id: '/adventure/$id/',
+    path: '/adventure/$id/',
+    getParentRoute: () => CommunityRouteRoute,
+  } as any)
+const CommunityNoteIdIndexRoute = CommunityNoteIdIndexRouteImport.update({
+  id: '/note/$id/',
+  path: '/note/$id/',
+  getParentRoute: () => CommunityRouteRoute,
 } as any)
 const GamesAbacusModeIndexRoute = GamesAbacusModeIndexRouteImport.update({
   id: '/games/abacus/$mode/',
@@ -1330,6 +1343,8 @@ export interface FileRoutesByFullPath {
   '/card/$slug/solve/': typeof CardSlugSolveIndexRoute
   '/challenge/$slug/game/': typeof ChallengeSlugGameIndexRoute
   '/challenge/$slug/solve/': typeof ChallengeSlugSolveIndexRoute
+  '/community/adventure/$id/': typeof CommunityAdventureIdIndexRoute
+  '/community/note/$id/': typeof CommunityNoteIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent/': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty/': typeof GamesAdditionDifficultyIndexRoute
@@ -1510,6 +1525,8 @@ export interface FileRoutesByTo {
   '/card/$slug/solve': typeof CardSlugSolveIndexRoute
   '/challenge/$slug/game': typeof ChallengeSlugGameIndexRoute
   '/challenge/$slug/solve': typeof ChallengeSlugSolveIndexRoute
+  '/community/adventure/$id': typeof CommunityAdventureIdIndexRoute
+  '/community/note/$id': typeof CommunityNoteIdIndexRoute
   '/games/abacus/$mode': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty': typeof GamesAdditionDifficultyIndexRoute
@@ -1700,6 +1717,8 @@ export interface FileRoutesById {
   '/card/$slug/solve/': typeof CardSlugSolveIndexRoute
   '/challenge/$slug/game/': typeof ChallengeSlugGameIndexRoute
   '/challenge/$slug/solve/': typeof ChallengeSlugSolveIndexRoute
+  '/community/adventure/$id/': typeof CommunityAdventureIdIndexRoute
+  '/community/note/$id/': typeof CommunityNoteIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent/': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty/': typeof GamesAdditionDifficultyIndexRoute
@@ -1891,6 +1910,8 @@ export interface FileRouteTypes {
     | '/card/$slug/solve/'
     | '/challenge/$slug/game/'
     | '/challenge/$slug/solve/'
+    | '/community/adventure/$id/'
+    | '/community/note/$id/'
     | '/games/abacus/$mode/'
     | '/games/abacus/represent/'
     | '/games/addition/$difficulty/'
@@ -2071,6 +2092,8 @@ export interface FileRouteTypes {
     | '/card/$slug/solve'
     | '/challenge/$slug/game'
     | '/challenge/$slug/solve'
+    | '/community/adventure/$id'
+    | '/community/note/$id'
     | '/games/abacus/$mode'
     | '/games/abacus/represent'
     | '/games/addition/$difficulty'
@@ -2260,6 +2283,8 @@ export interface FileRouteTypes {
     | '/card/$slug/solve/'
     | '/challenge/$slug/game/'
     | '/challenge/$slug/solve/'
+    | '/community/adventure/$id/'
+    | '/community/note/$id/'
     | '/games/abacus/$mode/'
     | '/games/abacus/represent/'
     | '/games/addition/$difficulty/'
@@ -3142,6 +3167,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChallengeSlugSolveIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/community/adventure/$id/': {
+      id: '/community/adventure/$id/'
+      path: '/adventure/$id'
+      fullPath: '/community/adventure/$id/'
+      preLoaderRoute: typeof CommunityAdventureIdIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/note/$id/': {
+      id: '/community/note/$id/'
+      path: '/note/$id'
+      fullPath: '/community/note/$id/'
+      preLoaderRoute: typeof CommunityNoteIdIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
     '/games/abacus/$mode/': {
       id: '/games/abacus/$mode/'
       path: '/games/abacus/$mode'
@@ -3819,6 +3858,8 @@ interface CommunityRouteRouteChildren {
   CommunityLessonNotesIndexRoute: typeof CommunityLessonNotesIndexRoute
   CommunityLiveIndexRoute: typeof CommunityLiveIndexRoute
   CommunityTeachingHubIndexRoute: typeof CommunityTeachingHubIndexRoute
+  CommunityAdventureIdIndexRoute: typeof CommunityAdventureIdIndexRoute
+  CommunityNoteIdIndexRoute: typeof CommunityNoteIdIndexRoute
 }
 
 const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
@@ -3832,6 +3873,8 @@ const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
   CommunityLessonNotesIndexRoute: CommunityLessonNotesIndexRoute,
   CommunityLiveIndexRoute: CommunityLiveIndexRoute,
   CommunityTeachingHubIndexRoute: CommunityTeachingHubIndexRoute,
+  CommunityAdventureIdIndexRoute: CommunityAdventureIdIndexRoute,
+  CommunityNoteIdIndexRoute: CommunityNoteIdIndexRoute,
 }
 
 const CommunityRouteRouteWithChildren = CommunityRouteRoute._addFileChildren(

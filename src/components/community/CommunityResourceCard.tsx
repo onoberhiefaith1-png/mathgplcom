@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
-import { Copy, Download, Heart, Loader2, MoreVertical, Radio, Trash2, UserPlus, EyeOff, Eye } from "lucide-react";
+import { Copy, Download, Eye, EyeOff, Heart, Loader2, MoreVertical, Radio, Trash2, UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -10,6 +10,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { deleteResource, downloadResource, requestClassAccess, setResourceStatus } from "@/lib/community/community";
 import { KIND_LABEL, type CommunityCard } from "@/lib/community/types";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import NotebookCover from "@/components/lessonnotes/NotebookCover";
+import { useSignedUrl } from "@/components/gamebuilder/SignedMedia";
+import { sectionLabel } from "@/lib/lessonnotes/assets/customAssets";
 
 /**
  * One community card shape for every resource type. Cards always show the
@@ -37,6 +42,15 @@ const CommunityResourceCard = ({
   const isClass = card.kind === "class";
   const isSession = card.kind === "session";
   const isLessonAsset = card.kind === "lesson_asset";
+  const isNote = card.kind === "lesson_note";
+  const isAdventure = card.kind === "adventure";
+  // A shared note or adventure is viewable before it is copied — the creator's
+  // own cover artwork travels with the listing.
+  const viewPath = isNote
+    ? `/community/note/${card.id}`
+    : isAdventure
+      ? `/community/adventure/${card.id}`
+      : null;
 
   const act = async () => {
     setBusy(true);
@@ -105,14 +119,60 @@ const CommunityResourceCard = ({
   };
 
   const preview = (card.payload?.preview_url as string | undefined) ?? null;
+  const coverPath =
+    (card.payload?.cover_path as string | undefined) ??
+    (card.payload?.storage_path as string | undefined) ??
+    null;
+  const signedCover = useSignedUrl(isAdventure ? coverPath : null);
+  const payloadCover = isNote ? (card.payload?.cover as Record<string, unknown> | undefined) : undefined;
+  // Listings published before covers travelled in the payload still show the
+  // creator's real cover: read it straight from the shared notebook.
+  const notebookId = (card.payload?.notebook_id as string | undefined) ?? card.source_id;
+  const { data: fetchedCover } = useQuery({
+    queryKey: ["community", "note-cover", notebookId],
+    enabled: isNote && !payloadCover && !!notebookId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("notebooks")
+        .select("title, teacher, class_name, session, subject, subtopic, color_index, cover_config")
+        .eq("id", notebookId!)
+        .maybeSingle();
+      return (data as Record<string, unknown> | null) ?? null;
+    },
+  });
+  const noteCover = payloadCover ?? fetchedCover ?? undefined;
+
+  const header = isNote && noteCover ? (
+    <div className="w-32 shrink-0 self-start p-3">
+      <NotebookCover
+        notebook={{
+          title: (noteCover.title as string) ?? card.title,
+          teacher: (noteCover.teacher as string) ?? "",
+          class_name: (noteCover.class_name as string) ?? "",
+          session: (noteCover.session as string) ?? "",
+          subject: (noteCover.subject as string) ?? "",
+          subtopic: (noteCover.subtopic as string) ?? "",
+          color_index: Number(noteCover.color_index ?? 0),
+          cover_config: noteCover.cover_config,
+        }}
+        onClick={viewPath ? () => navigate(viewPath) : undefined}
+      />
+    </div>
+  ) : signedCover || preview ? (
+    <img
+      src={signedCover ?? preview!}
+      alt=""
+      loading="lazy"
+      className="h-32 w-full object-cover"
+    />
+  ) : (
+    <div className="h-2 w-full bg-gradient-to-r from-dash-gold/70 to-dash-gold/20" />
+  );
 
   return (
     <article className="relative flex flex-col overflow-hidden rounded-2xl border border-dash-border bg-dash-surface text-dash-surface-foreground shadow-[var(--shadow-dash)] transition hover:-translate-y-0.5">
-      {preview ? (
-        <img src={preview} alt="" loading="lazy" className="h-32 w-full object-cover" />
-      ) : (
-        <div className="h-2 w-full bg-gradient-to-r from-dash-gold/70 to-dash-gold/20" />
-      )}
+      {header}
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-2">
@@ -155,6 +215,12 @@ const CommunityResourceCard = ({
           <p className="line-clamp-3 text-sm text-dash-surface-muted">{card.description}</p>
         )}
 
+        {isLessonAsset && typeof card.payload?.section === "string" && (
+          <p className="text-xs text-dash-surface-muted">
+            {sectionLabel(String(card.payload.section))}
+          </p>
+        )}
+
         {isClass && (
           <p className="text-xs text-dash-surface-muted">
             {(card.payload?.subject as string) ?? "Mathematics"}
@@ -187,6 +253,16 @@ const CommunityResourceCard = ({
             </span>
           </div>
 
+          <div className="flex items-center gap-2">
+          {viewPath && (
+            <button
+              type="button"
+              onClick={() => navigate(viewPath)}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-dash-navy/20 px-3 py-1.5 text-sm font-medium text-dash-surface-foreground transition hover:bg-dash-navy/5"
+            >
+              <Eye className="h-4 w-4" /> View
+            </button>
+          )}
           {(canDownload || isClass || isSession) && (
             <button
               type="button"
@@ -212,6 +288,7 @@ const CommunityResourceCard = ({
                     : "Copy to My Workspace"}
             </button>
           )}
+          </div>
         </div>
       </div>
     </article>

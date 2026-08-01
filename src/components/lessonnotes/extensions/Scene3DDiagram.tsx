@@ -12,6 +12,7 @@ import type { NodeViewProps } from "@tiptap/react";
 import { Boxes, Pencil, Trash2 } from "lucide-react";
 import { Scene3DCanvas } from "@/components/lessonnotes/geometry3d/Scene3DCanvas";
 import { EMPTY_SCENE_3D, sanitizeScene3D, type Scene3D } from "@/lib/geometry3d/scene3d";
+import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
 
 const EDIT_EVENT = "geometry3d-workspace:open";
@@ -41,6 +42,12 @@ function Scene3DDiagramView({ node, updateAttributes, deleteNode, selected, edit
   );
   const [active, setActive] = useState(false);
   const height = Number(node.attrs.height) || 360;
+  useRegisterAssetSnapshot(!!selected, "scene3d", () => ({
+    node: node.toJSON(),
+    suggestedName: "3D diagram",
+    source: "3d" as const,
+    suggestedSection: "diagrams" as const,
+  }));
   const isEditable = editor?.isEditable ?? false;
 
   return (

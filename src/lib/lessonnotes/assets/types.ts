@@ -19,8 +19,11 @@ export type AssetRender =
   | { kind: "structure"; structure: string; slots: number; attrs?: Record<string, unknown> }
   /** Atomic SVG / visual node. */
   | { kind: "visual"; visual: string; attrs?: Record<string, unknown> }
+  /** A saved object from the teacher's own Asset Library — raw node JSON. */
+  | { kind: "node"; node: unknown }
   /** Drill-down submenu of variants. */
   | { kind: "variants"; children: AssetDef[] };
+
 
 export interface AssetDef {
   id: string;

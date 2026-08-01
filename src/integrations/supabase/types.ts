@@ -1400,6 +1400,45 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_assets: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          payload: Json
+          preview_path: string | null
+          section: string
+          short_code: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          payload?: Json
+          preview_path?: string | null
+          section: string
+          short_code: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          payload?: Json
+          preview_path?: string | null
+          section?: string
+          short_code?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       emoji_categories: {
         Row: {
           content: string
@@ -3143,6 +3182,10 @@ export type Database = {
       }
       is_class_member: { Args: { _class_id: string }; Returns: boolean }
       is_class_owner: { Args: { _class_id: string }; Returns: boolean }
+      is_community_published: {
+        Args: { _kind: string; _source_id: string }
+        Returns: boolean
+      }
       is_org_owner: { Args: { _org_id: string }; Returns: boolean }
       lookup_class_by_code: {
         Args: { code: string }

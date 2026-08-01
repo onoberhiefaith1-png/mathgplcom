@@ -2,7 +2,7 @@
 // registry the @-command menu uses. Sections stack vertically; each is a
 // responsive grid of tiles that insert on click.
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { Editor } from "@tiptap/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,16 @@ import { isFavorite, toggleFavorite, listFavorites, subscribeFavorites } from "@
 import { listRecent, getLastInserted, subscribeRecents } from "@/lib/lessonnotes/assets/recents";
 import { renderVisual } from "./extensions/visuals/visualDispatch";
 import { MatrixCreateDialog, type MatrixDialogKind, type MatrixDialogResult } from "./MatrixCreateDialog";
-import { Search, MoreVertical, Heart } from "lucide-react";
+import { Search, MoreVertical, Heart, Library } from "lucide-react";
+import ShareMenu from "@/components/community/ShareMenu";
+import { toast } from "@/hooks/use-toast";
+import {
+  customAssetToDef,
+  deleteCustomAsset,
+  listMyCustomAssets,
+  sectionLabel,
+  type CustomAssetRow,
+} from "@/lib/lessonnotes/assets/customAssets";
 
 
 interface Props {
@@ -269,6 +278,102 @@ function GroupedSection({
   );
 }
 
+/**
+ * "My assets" — everything the teacher saved from their own lesson notes.
+ * Each one carries the universal ⋯ menu, so it can be shared with MathGPL
+ * Community (as a Lesson Note Asset, inside the same section) or deleted.
+ */
+function MyAssetsSection({
+  open,
+  onPick,
+}: {
+  open: boolean;
+  onPick: (a: AssetDef) => void;
+}) {
+  const [rows, setRows] = useState<CustomAssetRow[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    listMyCustomAssets()
+      .then(setRows)
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (open) load();
+  }, [open, load]);
+
+  const remove = async (row: CustomAssetRow) => {
+    if (!window.confirm(`Delete "${row.name}" from your Asset Library?`)) return;
+    try {
+      await deleteCustomAsset(row.id);
+      load();
+    } catch (e) {
+      toast({ title: "Could not delete", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    }
+  };
+
+  return (
+    <section>
+      <div className="mb-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Library className="h-4 w-4" /> My assets
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Objects you saved from your lesson notes. Only you can see them — use the ⋯ menu to share one with MathGPL Community.
+        </p>
+      </div>
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading your assets…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Select any diagram in a lesson note and choose “Add to Asset Library” in the right-hand settings panel.
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+          {rows.map((row) => (
+            <div key={row.id} className="relative">
+              <button
+                type="button"
+                onClick={() => onPick(customAssetToDef(row))}
+                title={`@${row.short_code}`}
+                className="h-28 w-full flex flex-col items-center justify-between gap-1.5 rounded-lg border border-foreground/10 bg-background p-2 text-center transition hover:border-primary/60 hover:bg-primary/5"
+              >
+                <span className="mt-3 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {sectionLabel(row.section)}
+                </span>
+                <span className="text-[11px] font-medium leading-tight line-clamp-2">{row.name}</span>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70">
+                  @{row.short_code}
+                </span>
+              </button>
+              <ShareMenu
+                className="absolute right-1 top-1"
+                kind="lesson_asset"
+                sourceId={row.id}
+                title={row.name}
+                description={`${sectionLabel(row.section)} · saved from a lesson note`}
+                hashtags={`#${sectionLabel(row.section).replace(/[^A-Za-z0-9]/g, "")}`}
+                payload={{
+                  custom_asset_id: row.id,
+                  section: row.section,
+                  short_code: row.short_code,
+                  source: row.source,
+                  node: row.payload?.node ?? null,
+                }}
+                items={[]}
+                onDelete={() => remove(row)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 type ViewMode = "all" | "favorites" | "recent" | "last";
 
 export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
@@ -441,6 +546,8 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
             </section>
           ) : (
             <>
+              <MyAssetsSection open={open} onPick={onPick} />
+
               {/* Section 1 — Symbols */}
               <GroupedSection
                 n={1}

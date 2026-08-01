@@ -85,4 +85,17 @@ export function insertAsset(editor: Editor, a: AssetDef, from?: number, to?: num
     else chain.insertContent(content).run();
     return;
   }
+  if (r.kind === "node") {
+    // A saved Asset Library object: insert the stored node verbatim, so the
+    // teacher gets back the exact same live diagram they saved.
+    if (!r.node) return;
+    const clone = JSON.parse(JSON.stringify(r.node));
+    if (clone?.attrs?.attrs && typeof clone.attrs.attrs === "object") {
+      // Drop the per-instance id so the copy gets a fresh one.
+      delete clone.attrs.attrs.__instanceId;
+    }
+    if (hasRange) chain.insertContentAt({ from: from!, to: to! }, clone).run();
+    else chain.insertContent(clone).run();
+    return;
+  }
 }
