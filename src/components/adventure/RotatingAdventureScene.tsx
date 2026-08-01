@@ -172,21 +172,49 @@ const Showcase = ({
     () => Array.from(new Set([...ringUrls, ...coreUrls])),
     [ringUrls, coreUrls],
   );
-  const loaded = useLoader(THREE.TextureLoader, uniqueUrls) as THREE.Texture[];
-  const textureByUrl = useMemo(() => {
-    const map = new Map<string, THREE.Texture>();
-    uniqueUrls.forEach((url, i) => {
-      const t = loaded[i];
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 8;
-      map.set(url, t);
+  // Textures load OUTSIDE Suspense and are swapped in only once decoded, so a
+  // re-signed URL updates the existing materials instead of suspending (and
+  // blanking) the whole scene.
+  const [textureByUrl, setTextureByUrl] = useState<Map<string, THREE.Texture>>(new Map());
+  useEffect(() => {
+    let alive = true;
+    const loader = new THREE.TextureLoader();
+    void Promise.all(
+      uniqueUrls.map(
+        (url) =>
+          new Promise<[string, THREE.Texture | null]>((resolve) => {
+            loader.load(
+              url,
+              (t) => {
+                t.colorSpace = THREE.SRGBColorSpace;
+                t.anisotropy = 8;
+                resolve([url, t]);
+              },
+              undefined,
+              () => resolve([url, null]),
+            );
+          }),
+      ),
+    ).then((entries) => {
+      if (!alive) return;
+      setTextureByUrl((prev) => {
+        const next = new Map(prev);
+        entries.forEach(([url, t]) => {
+          if (t) next.set(url, t);
+        });
+        return next;
+      });
     });
-    return map;
-  }, [uniqueUrls, loaded]);
+    return () => {
+      alive = false;
+    };
+  }, [uniqueUrls]);
+
   const coreTextures = useMemo(
-    () => coreUrls.map((u) => textureByUrl.get(u)!).filter(Boolean),
+    () => coreUrls.map((u) => textureByUrl.get(u)).filter((t): t is THREE.Texture => !!t),
     [coreUrls, textureByUrl],
   );
+
 
   useFrame((state, delta) => {
     if (!worldRef.current) return;
