@@ -83,6 +83,12 @@ export type EmailTemplate = {
   body: string;
   footer: string;
   signature: string;
+  /** Branding the administrator controls from the dashboard. */
+  heading_color: string;
+  text_color: string;
+  button_color: string;
+  button_label: string;
+  logo_text: string;
 };
 
 export type EmailSender = {
@@ -90,6 +96,39 @@ export type EmailSender = {
   sender_email: string;
   reply_to_email: string;
 };
+
+/** A saved sender address the administrator can switch to. */
+export type SavedSender = {
+  id: string;
+  sender_name: string;
+  sender_email: string;
+  reply_to_email: string;
+  is_active: boolean;
+};
+
+export type EmailActivityRow = {
+  message_id: string;
+  template_name: string;
+  recipient_email: string;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type EmailActivity = {
+  available: boolean;
+  totals: { total: number; sent: number; failed: number; suppressed: number; pending: number };
+  templates: string[];
+  rows: EmailActivityRow[];
+};
+
+export const ACTIVITY_RANGES = [
+  { key: "24h", label: "Last 24 hours", hours: 24 },
+  { key: "7d", label: "Last 7 days", hours: 24 * 7 },
+  { key: "30d", label: "Last 30 days", hours: 24 * 30 },
+] as const;
+
+export type ActivityRangeKey = (typeof ACTIVITY_RANGES)[number]["key"];
 
 export type ConnectionState =
   | "connected"
