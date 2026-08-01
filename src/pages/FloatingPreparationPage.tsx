@@ -639,8 +639,47 @@ const FloatingPreparationPage = () => {
               {title || "Notebook"} — Solution
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             <span className="text-[11px] text-foreground/55 mr-1">{summary}</span>
+            <select
+              value={paperSize}
+              onChange={(e) => updatePaper({ paper_size: e.target.value as PaperSize })}
+              className="text-xs bg-transparent border border-foreground/20 rounded px-1.5 py-1.5 text-foreground/85 hover:bg-foreground/10"
+              title="Paper size"
+            >
+              {(Object.entries(PAPER_SIZES) as [PaperSize, { label: string }][]).map(([k, v]) => (
+                <option key={k} value={k} style={{ color: "#15132a" }}>{v.label}</option>
+              ))}
+            </select>
+            <select
+              value={paperStyle}
+              onChange={(e) => updatePaper({ paper_style: e.target.value as PaperStyle })}
+              className="text-xs bg-transparent border border-foreground/20 rounded px-1.5 py-1.5 text-foreground/85 hover:bg-foreground/10"
+              title="Paper type"
+            >
+              {(["plain", "ruled", "math", "grid", "dotted"] as PaperStyle[]).map((k) => (
+                <option key={k} value={k} style={{ color: "#15132a" }}>{PAPER_LABELS[k]}</option>
+              ))}
+            </select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-foreground/20 text-foreground/80 hover:bg-foreground/10"
+                  title="Export"
+                >
+                  <Download className="h-3.5 w-3.5" /> Export
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportDocx}>
+                  <FileText className="h-4 w-4 mr-2" /> DOCX (Word, WPS, Google Docs)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.print()}>
+                  <Download className="h-4 w-4 mr-2" /> PDF (via Print)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <button
               onClick={undo}
               disabled={undoStack.current.length === 0}
