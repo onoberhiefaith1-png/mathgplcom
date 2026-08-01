@@ -1,23 +1,20 @@
 import { Link } from "@/lib/router-compat";
-import { BookOpen, Boxes, Gamepad2, Home, Image, Landmark, Users } from "lucide-react";
+import { GraduationCap, Home, Radio, Settings2 } from "lucide-react";
 
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import { useCommunityIdentity } from "@/lib/community/useCommunity";
 
 /**
- * MathGPL Community home — the very same rotating building, only the content
- * behind each section comes from what other educators shared. Nothing here
- * creates, generates or edits: the community is for discovering and copying.
+ * MathGPL Community home — the very same rotating building, used purely as a
+ * navigation hub. No lesson notes, classes, assets or galleries are shown
+ * here: each button opens its own dedicated community workspace.
  */
-const COMMUNITY_BUILDING_ROUTE = "/community/lesson-notes";
+const COMMUNITY_HUB_ROUTE = "/community/teaching-hub";
 
-const SECTIONS = [
-  { to: "/community/lesson-notes", label: "Lesson Notes", Icon: BookOpen },
-  { to: "/community/classes", label: "Classes", Icon: Users },
-  { to: "/community/adventure", label: "Adventure", Icon: Gamepad2 },
-  { to: "/community/backgrounds", label: "Backgrounds", Icon: Image },
-  { to: "/community/buildings", label: "Buildings", Icon: Landmark },
-  { to: "/community/assets", label: "Assets", Icon: Boxes },
+const ENTRIES = [
+  { to: "/community/teaching-hub", label: "Teaching Hub", Icon: GraduationCap },
+  { to: "/community/live", label: "MathGPL Live", Icon: Radio },
+  { to: "/community/building", label: "Settings", Icon: Settings2 },
 ];
 
 const CommunityHome = () => {
@@ -25,8 +22,8 @@ const CommunityHome = () => {
 
   return (
     <>
-      {/* Every ring segment leads into the community mirror, never a private page. */}
-      <RotatingAdventureScene routeFor={() => COMMUNITY_BUILDING_ROUTE} />
+      {/* Every ring segment leads into the community Teaching Hub, never straight to content. */}
+      <RotatingAdventureScene routeFor={() => COMMUNITY_HUB_ROUTE} />
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-wrap items-center justify-between gap-2 p-4">
         <div className="pointer-events-auto rounded-full border border-sky-300/40 bg-background/70 px-4 py-2 text-sm font-semibold text-sky-100 shadow-[0_0_24px_hsl(205_90%_60%/0.3)] backdrop-blur">
@@ -43,7 +40,7 @@ const CommunityHome = () => {
       </div>
 
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-wrap justify-center gap-2 p-4">
-        {SECTIONS.map(({ to, label, Icon }) => (
+        {ENTRIES.map(({ to, label, Icon }) => (
           <Link
             key={to}
             to={to}
