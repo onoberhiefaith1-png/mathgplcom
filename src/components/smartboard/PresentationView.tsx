@@ -5104,7 +5104,7 @@ const PresentationView = ({
           places the writing sensor on the nearest invisible baseline. */}
       <main
         ref={boardScrollRef}
-        className="relative z-10 h-full w-full overflow-y-auto"
+        className="relative z-10 h-full w-full overflow-x-hidden overflow-y-auto overscroll-contain"
         style={{
           paddingTop: 24,
           // Reserve only the COLLAPSED bottom-tab height. Expanding the
@@ -5113,7 +5113,12 @@ const PresentationView = ({
           paddingBottom: 24 + TAB_HEIGHT,
           paddingRight: 0,
           cursor: eraseMode ? "cell" : undefined,
+          // Touch devices: a finger on the board writes/erases instead of
+          // triggering browser pan-zoom gestures.
+          touchAction: eraseMode ? "none" : "pan-y",
+          WebkitTapHighlightColor: "transparent",
         }}
+
         onPointerDown={(e) => {
           // WORKSPACE SWITCH — the cursor alone decides which floating
           // numbers are active. A tap anywhere outside every Smart Table
