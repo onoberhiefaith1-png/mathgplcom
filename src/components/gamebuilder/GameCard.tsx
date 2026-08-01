@@ -1,14 +1,10 @@
 import { useState } from "react";
-import { Gamepad2, Loader2, MoreVertical, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Gamepad2, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { useSignedUrl } from "./SignedMedia";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import ShareMenu from "@/components/community/ShareMenu";
 import { normalizeCanvas, type GameRow } from "@/lib/games/types";
 import { cn } from "@/lib/utils";
+
 
 interface GameCardProps {
   game: GameRow;
