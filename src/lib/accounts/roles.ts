@@ -39,8 +39,24 @@ export type Capability =
   | "analytics"
   | "smartboard";
 
-/** Where each role lands after signing in. */
+/**
+ * Where each role lands after signing in.
+ *
+ * Every account arrives on the Rotating Building homepage first; from there
+ * they enter their own workspace. The dashboards below stay directly
+ * reachable — only the automatic redirect target is the homepage.
+ */
 export const HOME_PATH: Record<AppRole, string> = {
+  platform_owner: "/",
+  co_admin: "/",
+  school: "/",
+  teacher: "/",
+  parent: "/",
+  student: "/",
+};
+
+/** The dashboard each role opens from the homepage or the Account menu. */
+export const WORKSPACE_PATH: Record<AppRole, string> = {
   platform_owner: "/admin",
   co_admin: "/admin",
   school: "/school",
@@ -48,6 +64,7 @@ export const HOME_PATH: Record<AppRole, string> = {
   parent: "/family",
   student: "/student/classes",
 };
+
 
 export type NavItem = { to: string; label: string };
 
