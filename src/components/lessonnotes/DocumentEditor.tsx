@@ -1728,15 +1728,27 @@ function DocumentEditorInner({
         <Btn onClick={() => editor?.chain().focus().undo().run()} title="Undo (Ctrl+Z)"><Undo2 className="h-4 w-4" /></Btn>
         <Btn onClick={() => editor?.chain().focus().redo().run()} title="Redo (Ctrl+Y)"><Redo2 className="h-4 w-4" /></Btn>
         <Divider />
-        <Btn active={editor?.isActive("bold")} onClick={() => editor?.chain().focus().toggleBold().run()} title="Bold"><Bold className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("italic")} onClick={() => editor?.chain().focus().toggleItalic().run()} title="Italic"><Italic className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("underline")} onClick={() => editor?.chain().focus().toggleUnderline().run()} title="Underline"><UnderlineIcon className="h-4 w-4" /></Btn>
+        <button
+          type="button"
+          onClick={extendNote}
+          title="Note Extend — add more writing space at the bottom of the page"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <ChevronsDown className="h-4 w-4" /> Note Extend
+        </button>
+        <button
+          type="button"
+          onClick={shrinkNote}
+          disabled={pageExtraMm <= 0}
+          title={pageExtraMm <= 0
+            ? "Note Shrink — the page is already tight against your last object"
+            : "Note Shrink — remove empty space at the bottom (never crops content)"}
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <ChevronsUp className="h-4 w-4" /> Note Shrink
+        </button>
         <Divider />
-        <Btn active={editor?.isActive("heading", { level: 1 })} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} title="Heading 1"><Heading1 className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("heading", { level: 2 })} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2"><Heading2 className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("bulletList")} onClick={() => editor?.chain().focus().toggleBulletList().run()} title="Bullet list"><List className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("orderedList")} onClick={() => editor?.chain().focus().toggleOrderedList().run()} title="Numbered list"><ListOrdered className="h-4 w-4" /></Btn>
-        <Divider />
+
         <button
           type="button"
           onClick={() => setAssetLibOpen(true)}
