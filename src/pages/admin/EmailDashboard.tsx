@@ -106,7 +106,7 @@ const EmailDashboard = () => {
   const [templateFilter, setTemplateFilter] = useState("all");
   const [newSender, setNewSender] = useState({ sender_name: "", sender_email: "", reply_to_email: "" });
 
-  const window = useMemo(() => {
+  const rangeWindow = useMemo(() => {
     const hours = ACTIVITY_RANGES.find((r) => r.key === range)?.hours ?? 168;
     const until = new Date();
     const since = new Date(until.getTime() - hours * 3600_000);
@@ -115,8 +115,8 @@ const EmailDashboard = () => {
 
   const senders = useQuery({ queryKey: ["email-senders"], queryFn: () => fetchSavedSenders() });
   const activity = useQuery({
-    queryKey: ["email-activity", window.since, window.until],
-    queryFn: () => fetchEmailActivity({ data: window }),
+    queryKey: ["email-activity", rangeWindow.since, rangeWindow.until],
+    queryFn: () => fetchEmailActivity({ data: rangeWindow }),
   });
 
   const refreshSenders = () => {
