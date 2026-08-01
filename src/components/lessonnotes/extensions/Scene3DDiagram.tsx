@@ -44,7 +44,7 @@ function Scene3DDiagramView({ node, updateAttributes, deleteNode, selected, edit
   const height = Number(node.attrs.height) || 360;
   useRegisterAssetSnapshot(!!selected, "scene3d", () => ({
     node: node.toJSON(),
-    suggestedName: scene?.meta?.title || "3D diagram",
+    suggestedName: "3D diagram",
     source: "3d" as const,
     suggestedSection: "diagrams" as const,
   }));

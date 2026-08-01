@@ -80,6 +80,13 @@ function GeometryDiagramView({
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
     hideTimer.current = window.setTimeout(() => setAiVisible(false), 10_000);
   };
+  useRegisterAssetSnapshot(!!selected, `geometry:${instanceId}`, () => ({
+    node: node.toJSON(),
+    suggestedName: topic || "Geometry diagram",
+    source: "2d" as const,
+    suggestedSection: "diagrams" as const,
+  }));
+
   useEffect(() => {
     if (selected) kickAi();
     return () => { if (hideTimer.current) window.clearTimeout(hideTimer.current); };
