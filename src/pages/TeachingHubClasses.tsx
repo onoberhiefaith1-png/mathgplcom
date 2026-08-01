@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2, Users } from "lucide-react";
+import ClassPageShell from "@/components/class/ClassPageShell";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import JoinClassPanel from "@/components/class/JoinClassPanel";
