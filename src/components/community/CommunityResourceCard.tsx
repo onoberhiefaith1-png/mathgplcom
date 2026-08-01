@@ -196,7 +196,7 @@ const CommunityResourceCard = ({
           <p className="line-clamp-3 text-sm text-dash-surface-muted">{card.description}</p>
         )}
 
-        {isLessonAsset && card.payload?.section && (
+        {isLessonAsset && typeof card.payload?.section === "string" && (
           <p className="text-xs text-dash-surface-muted">
             {sectionLabel(String(card.payload.section))}
           </p>
