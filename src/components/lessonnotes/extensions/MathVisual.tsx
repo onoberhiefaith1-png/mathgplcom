@@ -9,6 +9,7 @@ import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { useCallback, useEffect, useRef } from "react";
 import { LivingDiagram } from "./visuals/living/LivingDiagram";
+import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 
 function makeVisualInstanceId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -39,6 +40,15 @@ function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeVi
     if (persistedInstanceId) return;
     updateAttributes({ attrs: { ...attrsRef.current, __instanceId: assetInstanceId } });
   }, [assetInstanceId, persistedInstanceId, updateAttributes]);
+
+  // While selected, this object can be saved into the teacher's Asset Library
+  // from the right-hand Properties Panel.
+  useRegisterAssetSnapshot(!!selected, assetInstanceId, () => ({
+    node: node.toJSON(),
+    suggestedName: variant || family,
+    source: "visual" as const,
+    suggestedSection: family === "smartChart" ? ("tables" as const) : ("diagrams" as const),
+  }));
 
   const handleChange = useCallback(
     (patch: Record<string, unknown>) => updateAttributes({ attrs: { ...attrsRef.current, ...patch } }),

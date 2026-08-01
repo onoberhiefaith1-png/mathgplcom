@@ -23,6 +23,7 @@ import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useG
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
+import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
 
 const OPEN_EVENT = "geometry-ai-edit:open";
