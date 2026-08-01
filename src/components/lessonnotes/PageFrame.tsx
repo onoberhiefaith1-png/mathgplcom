@@ -42,10 +42,13 @@ export function PageFrame({ size, style, zoom = 1, extraMm = 0, sheetRef, childr
 
   const inner: CSSProperties = {
     paddingTop: marginPx,
-    paddingBottom: marginPx,
+    // Extra writing space is real padding so it also works once the content
+    // has already grown past one page height.
+    paddingBottom: marginPx + extraPx,
     paddingLeft: marginPx,
     paddingRight: marginPx,
-    minHeight: minHeightPx - 2,
+    minHeight: heightMm * MM_TO_PX - 2,
+
     cursor: "text",
     display: "flex",
     flexDirection: "column",
