@@ -7,11 +7,16 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { useAssetSelection } from "@/hooks/useAssetSelection";
-import { ChevronLeft, ChevronRight, Settings2, X } from "lucide-react";
+import { useAssetSnapshot } from "@/hooks/useAssetSnapshot";
+import { AddToLibraryDialog } from "./AddToLibraryDialog";
+import type { AssetSnapshot } from "@/lib/lessonnotes/assets/customAssets";
+import { ChevronLeft, ChevronRight, Library, Settings2, X } from "lucide-react";
 
 export function PropertiesPanel() {
   const { reg } = useAssetSelection();
+  const entry = useAssetSnapshot();
   const [expanded, setExpanded] = useState(false);
+  const [libraryFor, setLibraryFor] = useState<AssetSnapshot | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
 
   // Only auto-expand the very first time a given asset id is selected.
@@ -112,6 +117,22 @@ export function PropertiesPanel() {
         <div className="flex-1 overflow-auto p-3 text-sm text-foreground">
           {reg.editor}
         </div>
+        {entry && (
+          <div className="border-t border-border p-3">
+            <button
+              type="button"
+              onClick={() => setLibraryFor(entry.snapshot())}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-muted"
+            >
+              <Library className="h-3.5 w-3.5" /> Add to Asset Library
+            </button>
+          </div>
+        )}
+        <AddToLibraryDialog
+          snapshot={libraryFor}
+          open={!!libraryFor}
+          onOpenChange={(o) => { if (!o) setLibraryFor(null); }}
+        />
       </div>
     </aside>,
     document.body,
