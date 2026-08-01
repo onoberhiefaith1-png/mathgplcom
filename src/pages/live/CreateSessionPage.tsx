@@ -290,6 +290,35 @@ const CreateSessionPage = () => {
             </div>
 
             <button
+              type="button"
+              onClick={() => setAskParticipantName((v) => !v)}
+              aria-pressed={askParticipantName}
+              className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border p-4 text-left transition ${
+                askParticipantName ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
+              }`}
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold">Ask participants for a name</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Audience members join the link instantly. Turn this on to request a display name first.
+                </span>
+              </span>
+              <span
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+                  askParticipantName ? "bg-primary" : "bg-muted"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-background transition-all ${
+                    askParticipantName ? "left-[1.375rem]" : "left-0.5"
+                  }`}
+                />
+              </span>
+            </button>
+
+
+
+            <button
               type="submit"
               disabled={submitting}
               className="w-full rounded-md bg-primary px-4 py-2.5 font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
