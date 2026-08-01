@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
-import { Copy, Download, Heart, Loader2, MoreVertical, Trash2, UserPlus, EyeOff, Eye } from "lucide-react";
+import { Copy, Download, Heart, Loader2, MoreVertical, Radio, Trash2, UserPlus, EyeOff, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -35,6 +35,8 @@ const CommunityResourceCard = ({
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const isClass = card.kind === "class";
+  const isSession = card.kind === "session";
+  const isLessonAsset = card.kind === "lesson_asset";
 
   const act = async () => {
     setBusy(true);
@@ -51,6 +53,15 @@ const CommunityResourceCard = ({
         }
         return;
       }
+      if (isSession) {
+        const code = (card.payload?.session_code as string | undefined) ?? null;
+        if (!code) {
+          toast({ title: "This session is not open yet", description: "Ask the teacher for the join link." });
+          return;
+        }
+        navigate(`/live/join/${code}`);
+        return;
+      }
       const res = await downloadResource(card);
       if (res.kind === "lesson_note") {
         toast({ title: "Copied to your Lesson Notes", description: "It is yours now — edit it freely." });
@@ -60,7 +71,9 @@ const CommunityResourceCard = ({
         navigate(`/adventure`);
       } else {
         toast({
-          title: `${KIND_LABEL[card.kind]} copied to your workspace`,
+          title: isLessonAsset
+            ? "Copied to your Asset Library"
+            : `${KIND_LABEL[card.kind]} copied to your workspace`,
           description: "Find it in your own gallery.",
         });
       }
@@ -174,15 +187,29 @@ const CommunityResourceCard = ({
             </span>
           </div>
 
-          {(canDownload || isClass) && (
+          {(canDownload || isClass || isSession) && (
             <button
               type="button"
               onClick={act}
               disabled={busy}
               className="inline-flex min-h-[36px] items-center gap-2 rounded-full bg-dash-navy px-3.5 py-1.5 text-sm font-medium text-dash-surface transition hover:opacity-90 disabled:opacity-60"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : isClass ? <UserPlus className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {isClass ? "Request Access" : "Copy to My Workspace"}
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isClass ? (
+                <UserPlus className="h-4 w-4" />
+              ) : isSession ? (
+                <Radio className="h-4 w-4" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              {isClass
+                ? "Request Access"
+                : isSession
+                  ? "Join Session"
+                  : isLessonAsset
+                    ? "Copy to My Asset Library"
+                    : "Copy to My Workspace"}
             </button>
           )}
         </div>
