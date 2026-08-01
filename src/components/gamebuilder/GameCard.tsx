@@ -74,30 +74,20 @@ const GameCard = ({ game, coverPending, onOpen, onRename, onRegenerate, onDelete
         </div>
       </button>
 
-      <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="grid h-8 w-8 place-items-center rounded-full border border-border/50 bg-background/80 text-foreground backdrop-blur hover:bg-background"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onRename(game)}>
-              <Pencil className="mr-2 h-4 w-4" /> Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRegenerate(game)}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Regenerate cover
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(game)}>
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <ShareMenu
+        className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100"
+        kind="adventure"
+        sourceId={game.id}
+        title={game.title}
+        hashtags="#Adventure"
+        payload={{ game_id: game.id }}
+        items={[
+          { label: "Rename", icon: Pencil, onClick: () => onRename(game) },
+          { label: "Regenerate cover", icon: RefreshCw, onClick: () => onRegenerate(game) },
+        ]}
+        onDelete={() => onDelete(game)}
+      />
+
     </div>
   );
 };
