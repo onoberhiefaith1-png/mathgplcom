@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import CommunitySectionPage from "@/pages/community/CommunitySectionPage";
+import { TEACHING_SECTIONS } from "@/lib/community/mode";
 
 const DESCRIPTION =
-  "Adventure games shared with MathGPL Community. Preview, like and copy an adventure into your own game workspace.";
+  "Adventures and maths games shared with MathGPL Community. Preview one and copy it into your own Adventure workspace.";
 
 export const Route = createFileRoute("/community/adventure/")({
   head: () => ({
@@ -17,10 +18,13 @@ export const Route = createFileRoute("/community/adventure/")({
   }),
   component: () => (
     <CommunitySectionPage
-      kind="adventure"
+      tabs={[{ kind: "adventure", label: "Adventures" }]}
       title="Community Adventures"
-      subtitle="Copy an adventure and it lands in your own Adventure workspace, fully editable."
+      subtitle="Copy an adventure and it becomes yours — every scene, question and reward included."
       workspacePath="/adventure"
+      backTo="/community/teaching-hub"
+      backLabel="Community Teaching Hub"
+      siblings={TEACHING_SECTIONS}
     />
   ),
 });
