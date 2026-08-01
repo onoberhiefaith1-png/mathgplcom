@@ -331,6 +331,28 @@ const FloatingPreparationPage = () => {
 
 
 
+  /* ---------- Paper size / type / export (same controls as Lesson Notes) ---------- */
+  const updatePaper = useCallback(
+    async (patch: { paper_size?: PaperSize; paper_style?: PaperStyle }) => {
+      if (patch.paper_size) setPaperSize(patch.paper_size);
+      if (patch.paper_style) setPaperStyle(patch.paper_style);
+      if (!notebookId) return;
+      const { error } = await supabase.from("notebooks").update(patch as any).eq("id", notebookId);
+      if (error) {
+        toast({ title: "Could not save paper settings", description: error.message, variant: "destructive" });
+      }
+    },
+    [notebookId],
+  );
+
+  const handleExportDocx = useCallback(async () => {
+    try {
+      await exportDocx(documentJson ?? { type: "doc", content: [] }, title || "lesson-notes");
+    } catch (e: any) {
+      toast({ title: "DOCX export failed", description: String(e?.message ?? e), variant: "destructive" });
+    }
+  }, [documentJson, title]);
+
   /* ---------- Load solution-only content + prior highlights ---------- */
   useEffect(() => {
     let alive = true;
@@ -726,10 +748,13 @@ const FloatingPreparationPage = () => {
         ) : (
           <div
             ref={docRef}
-            className="mx-auto max-w-3xl rounded-md p-8 select-text"
+            className="rounded-md p-8 select-text"
             style={{
-              background:
-                "repeating-linear-gradient(to bottom, hsl(38 38% 96%) 0px, hsl(38 38% 96%) 35px, hsl(220 30% 70% / 0.18) 36px)",
+              width: `min(100%, ${PAPER_SIZES[paperSize].widthMm * (96 / 25.4)}px)`,
+              marginLeft: "auto",
+              marginRight: "auto",
+              background: "hsl(0 0% 100%)",
+              ...paperBackground(paperStyle),
               border: "1px solid hsl(220 15% 60% / 0.25)",
               color: "hsl(220 35% 18%)",
               lineHeight: "36px",
