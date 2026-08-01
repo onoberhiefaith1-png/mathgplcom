@@ -1,5 +1,6 @@
 import { Link } from "@/lib/router-compat";
-import { GraduationCap, Image, Package, Users } from "lucide-react";
+import { GraduationCap, Globe2, Image, Package, Users } from "lucide-react";
+
 import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import LevelNavPanel from "@/components/academy/LevelNavPanel";
@@ -33,11 +34,20 @@ const Index = () => {
         <Package className="h-4 w-4" />
         Assets
       </Link>
+      {/* Every account type enters the shared creator ecosystem from here. */}
+      <Link
+        to="/community"
+        aria-label="Open MyGPL Community"
+        className="fixed bottom-35 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-sky-200 shadow-[0_0_24px_hsl(205_90%_60%/0.3)] backdrop-blur transition hover:bg-sky-500/20"
+      >
+        <Globe2 className="h-4 w-4" />
+        MyGPL Community
+      </Link>
       {isStudent ? (
         <Link
           to="/join"
           aria-label="Join a class"
-          className="fixed bottom-20 right-5 z-50 inline-flex items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
+          className="fixed bottom-20 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
         >
           <Users className="h-4 w-4" />
           Join Class
@@ -46,12 +56,13 @@ const Index = () => {
         <Link
           to="/teaching-hub"
           aria-label="Open Teaching Hub"
-          className="fixed bottom-20 right-5 z-50 inline-flex items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
+          className="fixed bottom-20 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
         >
           <GraduationCap className="h-4 w-4" />
           Teaching Hub
         </Link>
       )}
+
     </>
   );
 };

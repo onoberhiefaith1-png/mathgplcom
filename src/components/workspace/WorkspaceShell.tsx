@@ -3,12 +3,14 @@ import { Link } from "@/lib/router-compat";
 import { ArrowLeft, Maximize, Minimize, Settings as SettingsIcon } from "lucide-react";
 import WorkspaceCard, { type WorkspaceTile } from "./WorkspaceCard";
 
-export type WorkspaceId = "teaching-hub" | "live";
+export type WorkspaceId = "teaching-hub" | "live" | "community";
 
 const TABS: { id: WorkspaceId; label: string; to: string }[] = [
   { id: "teaching-hub", label: "Teaching Hub", to: "/teaching-hub" },
   { id: "live", label: "MathGPL Live", to: "/live" },
+  { id: "community", label: "MyGPL Community", to: "/community" },
 ];
+
 
 const SETTINGS_PATH = "/teaching-hub/settings";
 

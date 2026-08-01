@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AdventureRouteRouteImport } from './routes/adventure/route'
 import { Route as ClassRouteRouteImport } from './routes/class/route'
+import { Route as CommunityRouteRouteImport } from './routes/community/route'
 import { Route as FamilyRouteRouteImport } from './routes/family/route'
 import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/route'
 import { Route as LiveRouteRouteImport } from './routes/live/route'
@@ -32,6 +33,7 @@ import { Route as AuthSchoolRouteImport } from './routes/auth/school'
 import { Route as AuthStudentRouteImport } from './routes/auth/student'
 import { Route as AuthTeacherRouteImport } from './routes/auth/teacher'
 import { Route as BackgroundsIndexRouteImport } from './routes/backgrounds/index'
+import { Route as CommunityIndexRouteImport } from './routes/community/index'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
@@ -51,6 +53,7 @@ import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
 import { Route as CardSlugIndexRouteImport } from './routes/card/$slug/index'
 import { Route as ChallengeSlugIndexRouteImport } from './routes/challenge/$slug/index'
 import { Route as ClassCodeIndexRouteImport } from './routes/class/$code/index'
+import { Route as CommunityKindIndexRouteImport } from './routes/community/$kind/index'
 import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
 import { Route as GamesAdditionIndexRouteImport } from './routes/games/addition/index'
@@ -206,6 +209,11 @@ const ClassRouteRoute = ClassRouteRouteImport.update({
   path: '/class',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityRouteRoute = CommunityRouteRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FamilyRouteRoute = FamilyRouteRouteImport.update({
   id: '/family',
   path: '/family',
@@ -301,6 +309,11 @@ const BackgroundsIndexRoute = BackgroundsIndexRouteImport.update({
   path: '/backgrounds/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityIndexRoute = CommunityIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
 const FamilyIndexRoute = FamilyIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -395,6 +408,11 @@ const ClassCodeIndexRoute = ClassCodeIndexRouteImport.update({
   id: '/$code/',
   path: '/$code/',
   getParentRoute: () => ClassRouteRoute,
+} as any)
+const CommunityKindIndexRoute = CommunityKindIndexRouteImport.update({
+  id: '/$kind/',
+  path: '/$kind/',
+  getParentRoute: () => CommunityRouteRoute,
 } as any)
 const FamilyTeachersIndexRoute = FamilyTeachersIndexRouteImport.update({
   id: '/teachers/',
@@ -1167,6 +1185,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/adventure': typeof AdventureRouteRouteWithChildren
   '/class': typeof ClassRouteRouteWithChildren
+  '/community': typeof CommunityRouteRouteWithChildren
   '/family': typeof FamilyRouteRouteWithChildren
   '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
   '/live': typeof LiveRouteRouteWithChildren
@@ -1186,6 +1205,7 @@ export interface FileRoutesByFullPath {
   '/assets/': typeof AssetsIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/backgrounds/': typeof BackgroundsIndexRoute
+  '/community/': typeof CommunityIndexRoute
   '/family/': typeof FamilyIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
@@ -1205,6 +1225,7 @@ export interface FileRoutesByFullPath {
   '/card/$slug/': typeof CardSlugIndexRoute
   '/challenge/$slug/': typeof ChallengeSlugIndexRoute
   '/class/$code/': typeof ClassCodeIndexRoute
+  '/community/$kind/': typeof CommunityKindIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -1356,6 +1377,7 @@ export interface FileRoutesByTo {
   '/assets': typeof AssetsIndexRoute
   '/auth': typeof AuthIndexRoute
   '/backgrounds': typeof BackgroundsIndexRoute
+  '/community': typeof CommunityIndexRoute
   '/family': typeof FamilyIndexRoute
   '/home': typeof HomeIndexRoute
   '/join': typeof JoinIndexRoute
@@ -1375,6 +1397,7 @@ export interface FileRoutesByTo {
   '/card/$slug': typeof CardSlugIndexRoute
   '/challenge/$slug': typeof ChallengeSlugIndexRoute
   '/class/$code': typeof ClassCodeIndexRoute
+  '/community/$kind': typeof CommunityKindIndexRoute
   '/family/teachers': typeof FamilyTeachersIndexRoute
   '/game/$slug': typeof GameSlugIndexRoute
   '/games/addition': typeof GamesAdditionIndexRoute
@@ -1516,6 +1539,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/adventure': typeof AdventureRouteRouteWithChildren
   '/class': typeof ClassRouteRouteWithChildren
+  '/community': typeof CommunityRouteRouteWithChildren
   '/family': typeof FamilyRouteRouteWithChildren
   '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
   '/live': typeof LiveRouteRouteWithChildren
@@ -1535,6 +1559,7 @@ export interface FileRoutesById {
   '/assets/': typeof AssetsIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/backgrounds/': typeof BackgroundsIndexRoute
+  '/community/': typeof CommunityIndexRoute
   '/family/': typeof FamilyIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
@@ -1554,6 +1579,7 @@ export interface FileRoutesById {
   '/card/$slug/': typeof CardSlugIndexRoute
   '/challenge/$slug/': typeof ChallengeSlugIndexRoute
   '/class/$code/': typeof ClassCodeIndexRoute
+  '/community/$kind/': typeof CommunityKindIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -1696,6 +1722,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/adventure'
     | '/class'
+    | '/community'
     | '/family'
     | '/lesson-notes'
     | '/live'
@@ -1715,6 +1742,7 @@ export interface FileRouteTypes {
     | '/assets/'
     | '/auth/'
     | '/backgrounds/'
+    | '/community/'
     | '/family/'
     | '/home/'
     | '/join/'
@@ -1734,6 +1762,7 @@ export interface FileRouteTypes {
     | '/card/$slug/'
     | '/challenge/$slug/'
     | '/class/$code/'
+    | '/community/$kind/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -1885,6 +1914,7 @@ export interface FileRouteTypes {
     | '/assets'
     | '/auth'
     | '/backgrounds'
+    | '/community'
     | '/family'
     | '/home'
     | '/join'
@@ -1904,6 +1934,7 @@ export interface FileRouteTypes {
     | '/card/$slug'
     | '/challenge/$slug'
     | '/class/$code'
+    | '/community/$kind'
     | '/family/teachers'
     | '/game/$slug'
     | '/games/addition'
@@ -2044,6 +2075,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/adventure'
     | '/class'
+    | '/community'
     | '/family'
     | '/lesson-notes'
     | '/live'
@@ -2063,6 +2095,7 @@ export interface FileRouteTypes {
     | '/assets/'
     | '/auth/'
     | '/backgrounds/'
+    | '/community/'
     | '/family/'
     | '/home/'
     | '/join/'
@@ -2082,6 +2115,7 @@ export interface FileRouteTypes {
     | '/card/$slug/'
     | '/challenge/$slug/'
     | '/class/$code/'
+    | '/community/$kind/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -2223,6 +2257,7 @@ export interface RootRouteChildren {
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AdventureRouteRoute: typeof AdventureRouteRouteWithChildren
   ClassRouteRoute: typeof ClassRouteRouteWithChildren
+  CommunityRouteRoute: typeof CommunityRouteRouteWithChildren
   FamilyRouteRoute: typeof FamilyRouteRouteWithChildren
   LessonNotesRouteRoute: typeof LessonNotesRouteRouteWithChildren
   LiveRouteRoute: typeof LiveRouteRouteWithChildren
@@ -2348,6 +2383,13 @@ declare module '@tanstack/react-router' {
       path: '/class'
       fullPath: '/class'
       preLoaderRoute: typeof ClassRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/family': {
@@ -2483,6 +2525,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BackgroundsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/community/': {
+      id: '/community/'
+      path: '/'
+      fullPath: '/community/'
+      preLoaderRoute: typeof CommunityIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
     '/family/': {
       id: '/family/'
       path: '/'
@@ -2615,6 +2664,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/class/$code/'
       preLoaderRoute: typeof ClassCodeIndexRouteImport
       parentRoute: typeof ClassRouteRoute
+    }
+    '/community/$kind/': {
+      id: '/community/$kind/'
+      path: '/$kind'
+      fullPath: '/community/$kind/'
+      preLoaderRoute: typeof CommunityKindIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
     }
     '/family/teachers/': {
       id: '/family/teachers/'
@@ -3597,6 +3653,20 @@ const ClassRouteRouteWithChildren = ClassRouteRoute._addFileChildren(
   ClassRouteRouteChildren,
 )
 
+interface CommunityRouteRouteChildren {
+  CommunityIndexRoute: typeof CommunityIndexRoute
+  CommunityKindIndexRoute: typeof CommunityKindIndexRoute
+}
+
+const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
+  CommunityIndexRoute: CommunityIndexRoute,
+  CommunityKindIndexRoute: CommunityKindIndexRoute,
+}
+
+const CommunityRouteRouteWithChildren = CommunityRouteRoute._addFileChildren(
+  CommunityRouteRouteChildren,
+)
+
 interface FamilyRouteRouteChildren {
   FamilyIndexRoute: typeof FamilyIndexRoute
   FamilyTeachersIndexRoute: typeof FamilyTeachersIndexRoute
@@ -3850,6 +3920,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AdventureRouteRoute: AdventureRouteRouteWithChildren,
   ClassRouteRoute: ClassRouteRouteWithChildren,
+  CommunityRouteRoute: CommunityRouteRouteWithChildren,
   FamilyRouteRoute: FamilyRouteRouteWithChildren,
   LessonNotesRouteRoute: LessonNotesRouteRouteWithChildren,
   LiveRouteRoute: LiveRouteRouteWithChildren,
