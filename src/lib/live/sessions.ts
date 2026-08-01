@@ -179,6 +179,8 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
         status: "published",
         session_code: generateSessionCode(),
         broadcasts: normalizeBroadcasts(input.broadcasts ?? []) as unknown as never,
+        ask_participant_name: Boolean(input.askParticipantName),
+
       })
       .select("*")
       .single();
