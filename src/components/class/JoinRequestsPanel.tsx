@@ -17,7 +17,18 @@ type PendingRequest = {
  * the owner approve (→ class_members) or reject them. Subscribes to
  * realtime on class_join_requests so new requests appear live.
  */
-const JoinRequestsPanel = ({ classId }: { classId: string }) => {
+const JoinRequestsPanel = ({ classId, light }: { classId: string; light?: boolean }) => {
+  // `light` = white elevated surface (class dashboard); default = dark card (Live).
+  const shell = light
+    ? "rounded-2xl border border-dash-border bg-dash-surface p-5 shadow-[var(--shadow-dash)] text-dash-surface-foreground"
+    : "rounded-2xl border border-border bg-card/40 p-5 backdrop-blur";
+  const head = light
+    ? "text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted"
+    : "text-sm font-semibold uppercase tracking-wider text-muted-foreground";
+  const muted = light ? "text-dash-surface-muted" : "text-muted-foreground";
+  const rowCls = light
+    ? "flex items-center justify-between gap-3 rounded-xl border border-dash-border bg-dash-navy/[0.03] p-3"
+    : "flex items-center justify-between gap-3 rounded-xl border border-border bg-background/40 p-3";
   const { toast } = useToast();
   const [rows, setRows] = useState<PendingRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,23 +119,23 @@ const JoinRequestsPanel = ({ classId }: { classId: string }) => {
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-card/40 p-5 backdrop-blur">
+    <section className={shell}>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <h2 className={head}>
           Pending Join Requests
         </h2>
         {rows.length > 0 && (
-          <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-xs text-amber-200">
+          <span className={`rounded-full px-2 py-0.5 text-xs ${light ? "bg-amber-100 text-amber-700" : "bg-amber-400/20 text-amber-200"}`}>
             {rows.length}
           </span>
         )}
       </div>
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className={`flex items-center gap-2 text-sm ${muted}`}>
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+        <div className={`rounded-xl border border-dashed p-4 text-center text-sm ${light ? "border-dash-border text-dash-surface-muted" : "border-border text-muted-foreground"}`}>
           No pending requests.
         </div>
       ) : (
@@ -132,11 +143,11 @@ const JoinRequestsPanel = ({ classId }: { classId: string }) => {
           {rows.map((r) => (
             <li
               key={r.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/40 p-3"
+              className={rowCls}
             >
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">{r.display_name ?? "Unnamed student"}</div>
-                <div className="truncate font-mono text-xs text-muted-foreground">
+                <div className={`truncate font-mono text-xs ${muted}`}>
                   {r.mathgpl_student_id ?? "—"}
                 </div>
               </div>
@@ -145,7 +156,7 @@ const JoinRequestsPanel = ({ classId }: { classId: string }) => {
                   type="button"
                   disabled={busy === r.id}
                   onClick={() => approve(r)}
-                  className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
+                  className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${light ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30"}`}
                 >
                   <Check className="h-3.5 w-3.5" /> Approve
                 </button>
@@ -153,7 +164,7 @@ const JoinRequestsPanel = ({ classId }: { classId: string }) => {
                   type="button"
                   disabled={busy === r.id}
                   onClick={() => reject(r)}
-                  className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-500/30 disabled:opacity-50"
+                  className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${light ? "bg-rose-600 text-white hover:bg-rose-700" : "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"}`}
                 >
                   <X className="h-3.5 w-3.5" /> Reject
                 </button>

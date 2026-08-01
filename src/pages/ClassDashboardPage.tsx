@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { classRoot, productTerms, spaceListPath } from "@/lib/product/workspaceRoutes";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3 } from "lucide-react";
+import ClassPageShell from "@/components/class/ClassPageShell";
+
+import { Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
@@ -56,82 +58,84 @@ const ClassDashboardPage = () => {
       toast({ title: "Copy failed", variant: "destructive" });
     }
   };
-  const tiles: { label: string; icon: typeof Users; to: string }[] = [
-    { label: productTerms().people, icon: Users, to: `${classRoot()}/${classId}/students` },
-    { label: "Lesson Notes", icon: BookOpen, to: `${classRoot()}/${classId}/lesson-notes` },
-    { label: "SmartBoard", icon: Presentation, to: `${classRoot()}/${classId}/smartboard` },
-    { label: productTerms().assignments, icon: ClipboardList, to: `${classRoot()}/${classId}/assignments` },
-    { label: productTerms().adventures, icon: Compass, to: `${classRoot()}/${classId}/adventures` },
-    { label: "Games", icon: Gamepad2, to: `${classRoot()}/${classId}/games` },
-
-    { label: "Gallery", icon: ImageIcon, to: `${classRoot()}/${classId}/gallery` },
-    { label: "Report", icon: BarChart3, to: `${classRoot()}/${classId}/report` },
-    { label: "Settings", icon: Settings, to: `${classRoot()}/${classId}` },
+  const tiles: { label: string; icon: typeof Users; to: string; tone: string; blurb: string }[] = [
+    { label: productTerms().people, icon: Users, to: `${classRoot()}/${classId}/students`, tone: "from-violet-500 to-purple-600", blurb: `Everyone in this ${productTerms().space.toLowerCase()}.` },
+    { label: "Lesson Notes", icon: BookOpen, to: `${classRoot()}/${classId}/lesson-notes`, tone: "from-sky-500 to-blue-600", blurb: "Notes stored in this class." },
+    { label: "SmartBoard", icon: Presentation, to: `${classRoot()}/${classId}/smartboard`, tone: "from-fuchsia-500 to-pink-600", blurb: "Teach live on the board." },
+    { label: productTerms().assignments, icon: ClipboardList, to: `${classRoot()}/${classId}/assignments`, tone: "from-amber-400 to-orange-500", blurb: "Set work and track progress." },
+    { label: productTerms().adventures, icon: Compass, to: `${classRoot()}/${classId}/adventures`, tone: "from-emerald-500 to-teal-600", blurb: "Game-based practice." },
+    { label: "Games", icon: Gamepad2, to: `${classRoot()}/${classId}/games`, tone: "from-cyan-500 to-sky-600", blurb: "Live game challenges." },
+    { label: "Gallery", icon: ImageIcon, to: `${classRoot()}/${classId}/gallery`, tone: "from-rose-500 to-red-600", blurb: "Rewards and student work." },
+    { label: "Report", icon: BarChart3, to: `${classRoot()}/${classId}/report`, tone: "from-lime-500 to-green-600", blurb: "Progress and trends." },
+    { label: "Settings", icon: Settings, to: `${classRoot()}/${classId}`, tone: "from-slate-500 to-slate-700", blurb: "Class preferences." },
   ];
 
+  if (loading || !cls) {
+    return (
+      <ClassPageShell backTo={spaceListPath()} backLabel={productTerms().spacePlural} title={`${productTerms().space} Dashboard`}>
+        <div className="text-center text-sm text-dash-surface/70">Loading…</div>
+      </ClassPageShell>
+    );
+  }
+
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
-      <header className="flex items-center justify-between px-6 py-5">
-        <Link to={spaceListPath()} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> {productTerms().spacePlural}
-        </Link>
-        <h1 className="text-lg font-semibold tracking-wide">{productTerms().space} Dashboard</h1>
-        <div className="w-32" />
-      </header>
-
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        {loading || !cls ? (
-          <div className="text-center text-muted-foreground">Loading…</div>
-        ) : (
-          <>
-            <section className="mb-8 rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
-              <div className="text-3xl font-semibold">{cls.name}</div>
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                {([
-                  { label: "Class ID", value: cls.class_code },
-                  { label: "Join Code", value: cls.join_code },
-                  { label: "Invite Link", value: inviteLink },
-                ] as const).map((row) => (
-                  <div key={row.label} className="space-y-1">
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground">{row.label}</div>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 truncate rounded-md border border-border bg-background px-2 py-1.5 text-xs">{row.value}</code>
-                      <button
-                        type="button"
-                        onClick={() => copy(row.label, row.value)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border hover:bg-accent"
-                        aria-label={`Copy ${row.label}`}
-                      >
-                        {copied === row.label ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-              {tiles.map(({ label, icon: Icon, to }) => (
-                <Link
-                  key={label}
-                  to={to}
-                  className="flex h-36 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card/40 p-4 text-center backdrop-blur transition hover:scale-[1.02] hover:border-primary/40 hover:shadow-xl"
+    <ClassPageShell
+      backTo={spaceListPath()}
+      backLabel={productTerms().spacePlural}
+      title={cls.name}
+      subtitle={`${productTerms().space} workspace — lesson notes, board, work, rewards and reports.`}
+    >
+      <section className="mb-6 rounded-2xl border border-dash-border bg-dash-surface p-5 shadow-[var(--shadow-dash)]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {([
+            { label: "Class ID", value: cls.class_code },
+            { label: "Join Code", value: cls.join_code },
+            { label: "Invite Link", value: inviteLink },
+          ] as const).map((row) => (
+            <div key={row.label} className="space-y-1.5">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted">{row.label}</div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 truncate rounded-lg border border-dash-border bg-dash-surface px-2.5 py-1.5 text-xs text-dash-surface-foreground">
+                  {row.value}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => copy(row.label, row.value)}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-dash-border text-dash-surface-muted transition hover:border-dash-gold hover:text-dash-surface-foreground"
+                  aria-label={`Copy ${row.label}`}
                 >
-                  <Icon className="h-7 w-7 text-primary" />
-                  <div className="text-sm font-medium">{label}</div>
-                </Link>
-              ))}
+                  {copied === row.label ? <Check className="h-3.5 w-3.5 text-dash-gold" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
             </div>
+          ))}
+        </div>
+      </section>
 
-            <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <JoinRequestsPanel classId={cls.id} />
-              <InviteByMathGPLId classId={cls.id} />
-            </div>
-          </>
-        )}
-      </main>
-    </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {tiles.map(({ label, icon: Icon, to, tone, blurb }) => (
+          <Link
+            key={label}
+            to={to}
+            className="group relative overflow-hidden rounded-2xl border border-dash-border bg-dash-surface p-5 shadow-[var(--shadow-dash)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_26px_54px_-24px_hsl(224_60%_6%/0.7)] active:translate-y-0 active:scale-[0.99]"
+          >
+            <span aria-hidden className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${tone}`} />
+            <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${tone} text-dash-surface shadow-md transition-transform duration-200 group-hover:scale-110`}>
+              <Icon className="h-5 w-5" />
+            </span>
+            <div className="mt-4 text-lg font-semibold text-dash-surface-foreground">{label}</div>
+            <p className="mt-1 text-xs text-dash-surface-muted">{blurb}</p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <JoinRequestsPanel classId={cls.id} light />
+        <InviteByMathGPLId classId={cls.id} light />
+      </div>
+    </ClassPageShell>
   );
 };
+
 
 export default ClassDashboardPage;
