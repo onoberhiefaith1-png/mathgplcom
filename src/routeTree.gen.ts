@@ -53,6 +53,7 @@ import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
 import { Route as CardSlugIndexRouteImport } from './routes/card/$slug/index'
 import { Route as ChallengeSlugIndexRouteImport } from './routes/challenge/$slug/index'
 import { Route as ClassCodeIndexRouteImport } from './routes/class/$code/index'
+import { Route as CommunityKindIndexRouteImport } from './routes/community/$kind/index'
 import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
 import { Route as GamesAdditionIndexRouteImport } from './routes/games/addition/index'
@@ -407,6 +408,11 @@ const ClassCodeIndexRoute = ClassCodeIndexRouteImport.update({
   id: '/$code/',
   path: '/$code/',
   getParentRoute: () => ClassRouteRoute,
+} as any)
+const CommunityKindIndexRoute = CommunityKindIndexRouteImport.update({
+  id: '/$kind/',
+  path: '/$kind/',
+  getParentRoute: () => CommunityRouteRoute,
 } as any)
 const FamilyTeachersIndexRoute = FamilyTeachersIndexRouteImport.update({
   id: '/teachers/',
@@ -1219,6 +1225,7 @@ export interface FileRoutesByFullPath {
   '/card/$slug/': typeof CardSlugIndexRoute
   '/challenge/$slug/': typeof ChallengeSlugIndexRoute
   '/class/$code/': typeof ClassCodeIndexRoute
+  '/community/$kind/': typeof CommunityKindIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -1390,6 +1397,7 @@ export interface FileRoutesByTo {
   '/card/$slug': typeof CardSlugIndexRoute
   '/challenge/$slug': typeof ChallengeSlugIndexRoute
   '/class/$code': typeof ClassCodeIndexRoute
+  '/community/$kind': typeof CommunityKindIndexRoute
   '/family/teachers': typeof FamilyTeachersIndexRoute
   '/game/$slug': typeof GameSlugIndexRoute
   '/games/addition': typeof GamesAdditionIndexRoute
@@ -1571,6 +1579,7 @@ export interface FileRoutesById {
   '/card/$slug/': typeof CardSlugIndexRoute
   '/challenge/$slug/': typeof ChallengeSlugIndexRoute
   '/class/$code/': typeof ClassCodeIndexRoute
+  '/community/$kind/': typeof CommunityKindIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -1753,6 +1762,7 @@ export interface FileRouteTypes {
     | '/card/$slug/'
     | '/challenge/$slug/'
     | '/class/$code/'
+    | '/community/$kind/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -1924,6 +1934,7 @@ export interface FileRouteTypes {
     | '/card/$slug'
     | '/challenge/$slug'
     | '/class/$code'
+    | '/community/$kind'
     | '/family/teachers'
     | '/game/$slug'
     | '/games/addition'
@@ -2104,6 +2115,7 @@ export interface FileRouteTypes {
     | '/card/$slug/'
     | '/challenge/$slug/'
     | '/class/$code/'
+    | '/community/$kind/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -2652,6 +2664,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/class/$code/'
       preLoaderRoute: typeof ClassCodeIndexRouteImport
       parentRoute: typeof ClassRouteRoute
+    }
+    '/community/$kind/': {
+      id: '/community/$kind/'
+      path: '/$kind'
+      fullPath: '/community/$kind/'
+      preLoaderRoute: typeof CommunityKindIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
     }
     '/family/teachers/': {
       id: '/family/teachers/'
@@ -3636,10 +3655,12 @@ const ClassRouteRouteWithChildren = ClassRouteRoute._addFileChildren(
 
 interface CommunityRouteRouteChildren {
   CommunityIndexRoute: typeof CommunityIndexRoute
+  CommunityKindIndexRoute: typeof CommunityKindIndexRoute
 }
 
 const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
   CommunityIndexRoute: CommunityIndexRoute,
+  CommunityKindIndexRoute: CommunityKindIndexRoute,
 }
 
 const CommunityRouteRouteWithChildren = CommunityRouteRoute._addFileChildren(
