@@ -18,15 +18,20 @@ export type LiveSession = {
   status: SessionStatus;
   session_code: string;
   broadcasts: BroadcastEntry[];
+  /** Teacher switch: ask link-holding audience members for a display name. */
+  ask_participant_name: boolean;
   created_at: string;
   updated_at: string;
+
 };
 
 /** Rows come back with `broadcasts` as raw jsonb — normalise on read. */
 export const hydrateSession = (row: Record<string, unknown>): LiveSession => ({
   ...(row as unknown as LiveSession),
   broadcasts: parseBroadcasts(row.broadcasts),
+  ask_participant_name: Boolean(row.ask_participant_name),
 });
+
 
 
 /** Derived, schedule-driven state shown to teacher and participants. */
@@ -119,7 +124,10 @@ export type CreateSessionInput = {
   visibility: SessionVisibility;
   ownerId: string;
   broadcasts?: BroadcastEntry[];
+  /** Ask link-holding audience members for a display name before they take part. */
+  askParticipantName?: boolean;
 };
+
 
 
 /**
@@ -171,6 +179,8 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
         status: "published",
         session_code: generateSessionCode(),
         broadcasts: normalizeBroadcasts(input.broadcasts ?? []) as unknown as never,
+        ask_participant_name: Boolean(input.askParticipantName),
+
       })
       .select("*")
       .single();

@@ -282,17 +282,21 @@ const StudentClassPage = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
-      <header className="flex items-center justify-between px-6 py-5">
-        <Link to="/join" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> My Classes
+    <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-4 sm:px-6 sm:py-5">
+        <Link
+          to="/student/classes"
+          className="inline-flex min-h-[44px] min-w-0 items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" />
+          <span className="truncate">My Classes</span>
         </Link>
-        <h1 className="truncate text-lg font-semibold tracking-wide">{cls?.name}</h1>
-        <div className="w-24" />
+        <h1 className="max-w-[55vw] truncate text-base font-semibold tracking-wide sm:text-lg">{cls?.name}</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl px-6 py-6">
+      <main className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 sm:py-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
           <Tile
             icon={<BookOpen className="h-3.5 w-3.5" />}
             label="Class Notes"

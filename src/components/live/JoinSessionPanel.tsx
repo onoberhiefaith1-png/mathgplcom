@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,9 +34,14 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
   const refresh = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
-      navigate(`/auth?redirect=/live/join${initialCode ? `/${initialCode}` : ""}`);
+      // Audience member: no account, no redirect. They enter the code and go
+      // straight into the session.
+      setUserId(null);
+      setJoined([]);
+      setLoading(false);
       return;
     }
+
     const uid = userData.user.id;
     setUserId(uid);
 
@@ -65,6 +70,17 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => { if (initialCode) setCode(initialCode.toUpperCase()); }, [initialCode]);
+
+  // A shared link (/live/join/CODE) must open the session itself, never a form.
+  const autoEntered = useRef(false);
+  useEffect(() => {
+    if (loading || !initialCode || autoEntered.current) return;
+    autoEntered.current = true;
+    void submit(initialCode);
+    // `submit` is stable for this purpose — the guard runs it exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, initialCode]);
+
 
   // Poll while a request is pending so approval opens the session automatically.
   useEffect(() => {
@@ -97,7 +113,6 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
       toast({ title: "Enter a session code", variant: "destructive" });
       return;
     }
-    if (!userId) return;
     setSubmitting(true);
     try {
       const { data: session, error } = await supabase
@@ -108,6 +123,14 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
         return;
       }
       const found = session as { id: string; class_id: string };
+
+      // Audience member — straight into the session, no account, no approval.
+      if (!userId) {
+        navigate(`/live/s/${found.id}`);
+        return;
+      }
+
+
 
       const { data: existing } = await supabase
         .from("class_members")
