@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AUTH_FIELD } from "@/lib/accounts/authField";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
@@ -141,7 +142,7 @@ const LoginPage = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               maxLength={255}
-              className="min-h-[44px] bg-white/95"
+              className={`${AUTH_FIELD}`}
             />
           </div>
 
@@ -157,7 +158,7 @@ const LoginPage = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   maxLength={128}
-                  className="min-h-[44px] bg-white/95 pr-11"
+                  className={`${AUTH_FIELD} pr-11`}
                 />
                 <button
                   type="button"

@@ -18,6 +18,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AUTH_FIELD } from "@/lib/accounts/authField";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
@@ -221,13 +222,13 @@ const SignUpPage = () => {
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="full_name" className="text-white/80">Full name</Label>
-                <Input id="full_name" value={values.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={120} className="min-h-[44px] bg-white/95" />
+                <Input id="full_name" value={values.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={120} className={`${AUTH_FIELD}`} />
               </div>
 
               {role === "school" && (
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="school_name" className="text-white/80">School name</Label>
-                  <Input id="school_name" value={values.school_name} onChange={(e) => set("school_name", e.target.value)} maxLength={160} className="min-h-[44px] bg-white/95" />
+                  <Input id="school_name" value={values.school_name} onChange={(e) => set("school_name", e.target.value)} maxLength={160} className={`${AUTH_FIELD}`} />
                 </div>
               )}
 
@@ -237,7 +238,7 @@ const SignUpPage = () => {
                   id="country"
                   value={values.country}
                   onChange={(e) => set("country", e.target.value)}
-                  className="min-h-[44px] w-full rounded-md border border-input bg-white/95 px-3 text-sm text-slate-900"
+                  className={`${AUTH_FIELD} w-full rounded-md border px-3 text-sm`}
                 >
                   <option value="">Select your country</option>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -247,18 +248,18 @@ const SignUpPage = () => {
               {role === "student" && (
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="dob" className="text-white/80">Date of birth</Label>
-                  <Input id="dob" type="date" value={values.date_of_birth} onChange={(e) => set("date_of_birth", e.target.value)} className="min-h-[44px] bg-white/95" />
+                  <Input id="dob" type="date" value={values.date_of_birth} onChange={(e) => set("date_of_birth", e.target.value)} className={`${AUTH_FIELD}`} />
                   <p className="text-xs text-white/50">Kept private and used only to recommend age-appropriate content.</p>
                 </div>
               )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-white/80">Email address</Label>
-                <Input id="email" type="email" autoComplete="email" value={values.email} onChange={(e) => set("email", e.target.value)} maxLength={255} className="min-h-[44px] bg-white/95" />
+                <Input id="email" type="email" autoComplete="email" value={values.email} onChange={(e) => set("email", e.target.value)} maxLength={255} className={`${AUTH_FIELD}`} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm_email" className="text-white/80">Confirm email</Label>
-                <Input id="confirm_email" type="email" value={values.confirm_email} onChange={(e) => set("confirm_email", e.target.value)} maxLength={255} className="min-h-[44px] bg-white/95" />
+                <Input id="confirm_email" type="email" value={values.confirm_email} onChange={(e) => set("confirm_email", e.target.value)} maxLength={255} className={`${AUTH_FIELD}`} />
               </div>
 
               <div className="space-y-1.5">
@@ -271,7 +272,7 @@ const SignUpPage = () => {
                     value={values.password}
                     onChange={(e) => set("password", e.target.value)}
                     maxLength={128}
-                    className="min-h-[44px] bg-white/95 pr-11"
+                    className={`${AUTH_FIELD} pr-11`}
                   />
                   <button
                     type="button"
@@ -292,7 +293,7 @@ const SignUpPage = () => {
                   value={values.confirm_password}
                   onChange={(e) => set("confirm_password", e.target.value)}
                   maxLength={128}
-                  className="min-h-[44px] bg-white/95"
+                  className={`${AUTH_FIELD}`}
                 />
               </div>
             </div>
