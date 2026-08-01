@@ -1858,14 +1858,6 @@ function DocumentEditorInner({
         </button>
         <button
           type="button"
-          onClick={() => setObjectsOpen(true)}
-          title="Insert a math object (cars, apples, dice, coins…)"
-          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
-        >
-          <Boxes className="h-4 w-4" /> Objects
-        </button>
-        <button
-          type="button"
           onClick={() => setConversionOpen(true)}
           title="Conversion — convert between units"
           className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
