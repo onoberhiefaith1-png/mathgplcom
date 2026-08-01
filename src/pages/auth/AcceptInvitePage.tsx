@@ -3,6 +3,7 @@ import { useNavigate, Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AUTH_FIELD } from "@/lib/accounts/authField";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 
@@ -60,11 +61,11 @@ const AcceptInvitePage = () => {
           <form className="mt-6 space-y-3" onSubmit={submit}>
             <div className="space-y-1.5">
               <Label htmlFor="invite-password">Choose a password</Label>
-              <Input id="invite-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+              <Input id="invite-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className={AUTH_FIELD} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="invite-confirm">Confirm password</Label>
-              <Input id="invite-confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+              <Input id="invite-confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required className={AUTH_FIELD} />
             </div>
             <Button type="submit" className="w-full" disabled={busy}>Enter my workspace</Button>
           </form>

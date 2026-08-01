@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AUTH_FIELD } from "@/lib/accounts/authField";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
@@ -186,11 +187,11 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="first_name">First name</Label>
-                  <Input id="first_name" value={values.first_name} onChange={(e) => set("first_name", e.target.value)} maxLength={60} />
+                  <Input id="first_name" value={values.first_name} onChange={(e) => set("first_name", e.target.value)} maxLength={60} className={AUTH_FIELD} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="last_name">Last name</Label>
-                  <Input id="last_name" value={values.last_name} onChange={(e) => set("last_name", e.target.value)} maxLength={60} />
+                  <Input id="last_name" value={values.last_name} onChange={(e) => set("last_name", e.target.value)} maxLength={60} className={AUTH_FIELD} />
                 </div>
               </div>
             </>
@@ -198,13 +199,13 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
 
           <div className="space-y-1.5">
             <Label htmlFor="email">Email address</Label>
-            <Input id="email" type="email" required value={values.email} onChange={(e) => set("email", e.target.value)} maxLength={255} />
+            <Input id="email" type="email" required value={values.email} onChange={(e) => set("email", e.target.value)} maxLength={255} className={AUTH_FIELD} />
           </div>
 
           {mode !== "forgot" && (
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required minLength={mode === "signup" ? 8 : 6} value={values.password} onChange={(e) => set("password", e.target.value)} />
+              <Input id="password" type="password" required minLength={mode === "signup" ? 8 : 6} value={values.password} onChange={(e) => set("password", e.target.value)} className={AUTH_FIELD} />
             </div>
           )}
 
@@ -212,7 +213,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm">Confirm password</Label>
-                <Input id="confirm" type="password" required value={values.confirm} onChange={(e) => set("confirm", e.target.value)} />
+                <Input id="confirm" type="password" required value={values.confirm} onChange={(e) => set("confirm", e.target.value)} className={AUTH_FIELD} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
@@ -229,7 +230,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="time_zone">Time zone</Label>
-                  <Input id="time_zone" value={values.time_zone} onChange={(e) => set("time_zone", e.target.value)} />
+                  <Input id="time_zone" value={values.time_zone} onChange={(e) => set("time_zone", e.target.value)} className={AUTH_FIELD} />
                 </div>
               </div>
 
