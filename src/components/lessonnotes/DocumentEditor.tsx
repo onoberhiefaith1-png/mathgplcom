@@ -88,12 +88,12 @@ import {
   type PaperSize, type PaperStyle,
 } from "@/lib/lessonnotes/paperThemes";
 import {
-  Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
-  Undo2, Redo2, Sigma, Minus, Plus, Heading1, Heading2,
+  Undo2, Redo2, Sigma, Minus, Plus,
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
-  ChevronUp, ChevronDown, Shapes, Table as TableIcon, LineChart, Calculator,
-  Film, Camera, Boxes, Archive, ArrowLeftRight,
+  ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Shapes, Table as TableIcon, LineChart, Calculator,
+  Film, Camera, Archive, ArrowLeftRight,
+
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
