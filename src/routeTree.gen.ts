@@ -56,6 +56,7 @@ import { Route as ClassCodeIndexRouteImport } from './routes/class/$code/index'
 import { Route as CommunityAdventureIndexRouteImport } from './routes/community/adventure/index'
 import { Route as CommunityAssetsIndexRouteImport } from './routes/community/assets/index'
 import { Route as CommunityBackgroundsIndexRouteImport } from './routes/community/backgrounds/index'
+import { Route as CommunityBuildingIndexRouteImport } from './routes/community/building/index'
 import { Route as CommunityBuildingsIndexRouteImport } from './routes/community/buildings/index'
 import { Route as CommunityClassesIndexRouteImport } from './routes/community/classes/index'
 import { Route as CommunityLessonNotesIndexRouteImport } from './routes/community/lesson-notes/index'
@@ -431,6 +432,11 @@ const CommunityBackgroundsIndexRoute =
     path: '/backgrounds/',
     getParentRoute: () => CommunityRouteRoute,
   } as any)
+const CommunityBuildingIndexRoute = CommunityBuildingIndexRouteImport.update({
+  id: '/building/',
+  path: '/building/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
 const CommunityBuildingsIndexRoute = CommunityBuildingsIndexRouteImport.update({
   id: '/buildings/',
   path: '/buildings/',
@@ -1267,6 +1273,7 @@ export interface FileRoutesByFullPath {
   '/community/adventure/': typeof CommunityAdventureIndexRoute
   '/community/assets/': typeof CommunityAssetsIndexRoute
   '/community/backgrounds/': typeof CommunityBackgroundsIndexRoute
+  '/community/building/': typeof CommunityBuildingIndexRoute
   '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
@@ -1445,6 +1452,7 @@ export interface FileRoutesByTo {
   '/community/adventure': typeof CommunityAdventureIndexRoute
   '/community/assets': typeof CommunityAssetsIndexRoute
   '/community/backgrounds': typeof CommunityBackgroundsIndexRoute
+  '/community/building': typeof CommunityBuildingIndexRoute
   '/community/buildings': typeof CommunityBuildingsIndexRoute
   '/community/classes': typeof CommunityClassesIndexRoute
   '/community/lesson-notes': typeof CommunityLessonNotesIndexRoute
@@ -1633,6 +1641,7 @@ export interface FileRoutesById {
   '/community/adventure/': typeof CommunityAdventureIndexRoute
   '/community/assets/': typeof CommunityAssetsIndexRoute
   '/community/backgrounds/': typeof CommunityBackgroundsIndexRoute
+  '/community/building/': typeof CommunityBuildingIndexRoute
   '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
@@ -1822,6 +1831,7 @@ export interface FileRouteTypes {
     | '/community/adventure/'
     | '/community/assets/'
     | '/community/backgrounds/'
+    | '/community/building/'
     | '/community/buildings/'
     | '/community/classes/'
     | '/community/lesson-notes/'
@@ -2000,6 +2010,7 @@ export interface FileRouteTypes {
     | '/community/adventure'
     | '/community/assets'
     | '/community/backgrounds'
+    | '/community/building'
     | '/community/buildings'
     | '/community/classes'
     | '/community/lesson-notes'
@@ -2187,6 +2198,7 @@ export interface FileRouteTypes {
     | '/community/adventure/'
     | '/community/assets/'
     | '/community/backgrounds/'
+    | '/community/building/'
     | '/community/buildings/'
     | '/community/classes/'
     | '/community/lesson-notes/'
@@ -2759,6 +2771,13 @@ declare module '@tanstack/react-router' {
       path: '/backgrounds'
       fullPath: '/community/backgrounds/'
       preLoaderRoute: typeof CommunityBackgroundsIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/building/': {
+      id: '/community/building/'
+      path: '/building'
+      fullPath: '/community/building/'
+      preLoaderRoute: typeof CommunityBuildingIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
     '/community/buildings/': {
@@ -3775,6 +3794,7 @@ interface CommunityRouteRouteChildren {
   CommunityAdventureIndexRoute: typeof CommunityAdventureIndexRoute
   CommunityAssetsIndexRoute: typeof CommunityAssetsIndexRoute
   CommunityBackgroundsIndexRoute: typeof CommunityBackgroundsIndexRoute
+  CommunityBuildingIndexRoute: typeof CommunityBuildingIndexRoute
   CommunityBuildingsIndexRoute: typeof CommunityBuildingsIndexRoute
   CommunityClassesIndexRoute: typeof CommunityClassesIndexRoute
   CommunityLessonNotesIndexRoute: typeof CommunityLessonNotesIndexRoute
@@ -3786,6 +3806,7 @@ const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
   CommunityAdventureIndexRoute: CommunityAdventureIndexRoute,
   CommunityAssetsIndexRoute: CommunityAssetsIndexRoute,
   CommunityBackgroundsIndexRoute: CommunityBackgroundsIndexRoute,
+  CommunityBuildingIndexRoute: CommunityBuildingIndexRoute,
   CommunityBuildingsIndexRoute: CommunityBuildingsIndexRoute,
   CommunityClassesIndexRoute: CommunityClassesIndexRoute,
   CommunityLessonNotesIndexRoute: CommunityLessonNotesIndexRoute,
