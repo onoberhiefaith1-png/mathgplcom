@@ -2148,6 +2148,48 @@ export type Database = {
           },
         ]
       }
+      member_gallery_items: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          media_type: string | null
+          media_url: string | null
+          owner_id: string
+          source: string | null
+          source_resource_id: string | null
+          storage_path: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          media_type?: string | null
+          media_url?: string | null
+          owner_id: string
+          source?: string | null
+          source_resource_id?: string | null
+          storage_path?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          media_type?: string | null
+          media_url?: string | null
+          owner_id?: string
+          source?: string | null
+          source_resource_id?: string | null
+          storage_path?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notebook_blocks: {
         Row: {
           content_ascii: string
