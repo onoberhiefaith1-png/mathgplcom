@@ -8,19 +8,29 @@
 
 export type CommunityKind =
   | "lesson_note"
+  | "lesson_asset"
   | "class"
   | "adventure"
   | "background"
   | "building"
-  | "asset";
+  | "asset"
+  | "decoration"
+  | "effect"
+  | "reward"
+  | "session";
 
 export const COMMUNITY_KINDS: { kind: CommunityKind; label: string; plural: string }[] = [
   { kind: "lesson_note", label: "Lesson Note", plural: "Lesson Notes" },
+  { kind: "lesson_asset", label: "Lesson Note Asset", plural: "Lesson Notes Assets" },
   { kind: "class", label: "Class", plural: "Classes" },
   { kind: "adventure", label: "Adventure", plural: "Adventures" },
   { kind: "background", label: "Background", plural: "Backgrounds" },
   { kind: "building", label: "Building", plural: "Buildings" },
   { kind: "asset", label: "Asset", plural: "Assets" },
+  { kind: "decoration", label: "Decoration", plural: "Decorations" },
+  { kind: "effect", label: "Special Effect", plural: "Special Effects" },
+  { kind: "reward", label: "Reward", plural: "Rewards" },
+  { kind: "session", label: "Live Session", plural: "Live Sessions" },
 ];
 
 export const KIND_LABEL: Record<CommunityKind, string> = COMMUNITY_KINDS.reduce(

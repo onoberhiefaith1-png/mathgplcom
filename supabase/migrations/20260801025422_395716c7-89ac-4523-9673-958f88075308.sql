@@ -1,0 +1,4 @@
+ALTER TABLE public.community_resources DROP CONSTRAINT IF EXISTS community_resources_kind_check;
+ALTER TABLE public.community_resources ADD CONSTRAINT community_resources_kind_check CHECK (kind = ANY (ARRAY['lesson_note','class','adventure','background','building','asset','lesson_asset','decoration','effect','reward','session']));
+ALTER TABLE public.member_gallery_items DROP CONSTRAINT IF EXISTS member_gallery_items_kind_check;
+ALTER TABLE public.member_gallery_items ADD CONSTRAINT member_gallery_items_kind_check CHECK (kind = ANY (ARRAY['background','building','asset','lesson_asset','decoration','effect','reward']));

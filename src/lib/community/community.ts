@@ -235,7 +235,15 @@ export type DownloadResult =
   | { kind: "gallery" }
   | { kind: "other" };
 
-const GALLERY_KINDS: CommunityKind[] = ["background", "building", "asset"];
+const GALLERY_KINDS: CommunityKind[] = [
+  "background",
+  "building",
+  "asset",
+  "lesson_asset",
+  "decoration",
+  "effect",
+  "reward",
+];
 
 /**
  * Copy never touches the device: it copies the resource straight into the

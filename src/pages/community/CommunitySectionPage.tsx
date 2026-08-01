@@ -4,32 +4,47 @@ import { ArrowLeft, Home, Search } from "lucide-react";
 import CommunityResourceCard from "@/components/community/CommunityResourceCard";
 import { useCommunityFeed, useCommunityIdentity, useCommunityRights } from "@/lib/community/useCommunity";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { COMMUNITY_SECTIONS } from "@/lib/community/mode";
+import type { CommunitySection } from "@/lib/community/mode";
 import type { CommunityKind } from "@/lib/community/types";
+
+export type SectionTab = { kind: CommunityKind; label: string; subtitle?: string };
 
 /**
  * One read-only section of the community mirror. It carries the same chrome as
  * the private workspace, but every card is somebody else's work: you can
  * preview it, like it, and copy it into your own workspace — nothing else.
+ *
+ * A section may hold several feeds (e.g. Lesson Notes + Lesson Notes Assets);
+ * they appear as tabs on the very same page.
  */
 const CommunitySectionPage = ({
-  kind,
+  tabs,
   title,
   subtitle,
   workspacePath,
+  backTo = "/community",
+  backLabel = "MathGPL Community",
+  siblings = [],
 }: {
-  kind: CommunityKind;
+  /** One feed per tab; a single tab renders no switcher. */
+  tabs: SectionTab[];
   title: string;
   subtitle: string;
   /** The private-workspace twin of this section. */
   workspacePath: string;
+  backTo?: string;
+  backLabel?: string;
+  /** Sibling sections of the same pipeline, shown as in-page nav. */
+  siblings?: readonly CommunitySection[];
 }) => {
   const [search, setSearch] = useState("");
+  const [tabIdx, setTabIdx] = useState(0);
+  const active = tabs[Math.min(tabIdx, tabs.length - 1)]!;
   const { userId } = useAccount();
   const rights = useCommunityRights();
   const { username } = useCommunityIdentity();
   const { cards, isLoading, likedIds, onToggleLike, refetch } = useCommunityFeed({
-    kind,
+    kind: active.kind,
     search,
     includeUnpublished: rights.canModerate,
   });
@@ -40,13 +55,13 @@ const CommunitySectionPage = ({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <Link
-              to="/community"
+              to={backTo}
               className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-dash-surface/70 transition hover:text-dash-surface"
             >
-              <ArrowLeft className="h-3.5 w-3.5" /> MathGPL Community
+              <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
             </Link>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-            <p className="mt-1 max-w-2xl text-sm text-dash-surface/70">{subtitle}</p>
+            <p className="mt-1 max-w-2xl text-sm text-dash-surface/70">{active.subtitle ?? subtitle}</p>
             {username && (
               <p className="mt-1 text-xs text-dash-surface/50">Signed in as @{username}</p>
             )}
@@ -60,17 +75,39 @@ const CommunitySectionPage = ({
           </Link>
         </div>
 
-        <nav className="mt-6 flex flex-wrap gap-2">
-          {COMMUNITY_SECTIONS.map((s) => (
-            <Link
-              key={s.path}
-              to={s.path}
-              className="rounded-full border border-dash-surface/20 px-3 py-1.5 text-xs font-medium text-dash-surface/80 transition hover:border-dash-gold/50 hover:text-dash-surface"
-            >
-              {s.label}
-            </Link>
-          ))}
-        </nav>
+        {tabs.length > 1 && (
+          <div className="mt-6 inline-flex flex-wrap gap-1 rounded-full border border-dash-surface/20 bg-dash-surface/10 p-1 backdrop-blur">
+            {tabs.map((tab, i) => (
+              <button
+                key={tab.kind}
+                type="button"
+                onClick={() => setTabIdx(i)}
+                aria-current={i === tabIdx ? "true" : undefined}
+                className={`min-h-[36px] rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] transition ${
+                  i === tabIdx
+                    ? "bg-dash-gold text-dash-navy"
+                    : "text-dash-surface/75 hover:text-dash-surface"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {siblings.length > 0 && (
+          <nav className="mt-4 flex flex-wrap gap-2">
+            {siblings.map((s) => (
+              <Link
+                key={s.path}
+                to={s.path}
+                className="rounded-full border border-dash-surface/20 px-3 py-1.5 text-xs font-medium text-dash-surface/80 transition hover:border-dash-gold/50 hover:text-dash-surface"
+              >
+                {s.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       <main className="mx-auto w-full max-w-7xl px-4 pb-24 pt-6 sm:px-6">

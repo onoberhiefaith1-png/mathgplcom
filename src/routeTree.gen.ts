@@ -56,9 +56,12 @@ import { Route as ClassCodeIndexRouteImport } from './routes/class/$code/index'
 import { Route as CommunityAdventureIndexRouteImport } from './routes/community/adventure/index'
 import { Route as CommunityAssetsIndexRouteImport } from './routes/community/assets/index'
 import { Route as CommunityBackgroundsIndexRouteImport } from './routes/community/backgrounds/index'
+import { Route as CommunityBuildingIndexRouteImport } from './routes/community/building/index'
 import { Route as CommunityBuildingsIndexRouteImport } from './routes/community/buildings/index'
 import { Route as CommunityClassesIndexRouteImport } from './routes/community/classes/index'
 import { Route as CommunityLessonNotesIndexRouteImport } from './routes/community/lesson-notes/index'
+import { Route as CommunityLiveIndexRouteImport } from './routes/community/live/index'
+import { Route as CommunityTeachingHubIndexRouteImport } from './routes/community/teaching-hub/index'
 import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
 import { Route as GamesAdditionIndexRouteImport } from './routes/games/addition/index'
@@ -430,6 +433,11 @@ const CommunityBackgroundsIndexRoute =
     path: '/backgrounds/',
     getParentRoute: () => CommunityRouteRoute,
   } as any)
+const CommunityBuildingIndexRoute = CommunityBuildingIndexRouteImport.update({
+  id: '/building/',
+  path: '/building/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
 const CommunityBuildingsIndexRoute = CommunityBuildingsIndexRouteImport.update({
   id: '/buildings/',
   path: '/buildings/',
@@ -444,6 +452,17 @@ const CommunityLessonNotesIndexRoute =
   CommunityLessonNotesIndexRouteImport.update({
     id: '/lesson-notes/',
     path: '/lesson-notes/',
+    getParentRoute: () => CommunityRouteRoute,
+  } as any)
+const CommunityLiveIndexRoute = CommunityLiveIndexRouteImport.update({
+  id: '/live/',
+  path: '/live/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityTeachingHubIndexRoute =
+  CommunityTeachingHubIndexRouteImport.update({
+    id: '/teaching-hub/',
+    path: '/teaching-hub/',
     getParentRoute: () => CommunityRouteRoute,
   } as any)
 const FamilyTeachersIndexRoute = FamilyTeachersIndexRouteImport.update({
@@ -1260,9 +1279,12 @@ export interface FileRoutesByFullPath {
   '/community/adventure/': typeof CommunityAdventureIndexRoute
   '/community/assets/': typeof CommunityAssetsIndexRoute
   '/community/backgrounds/': typeof CommunityBackgroundsIndexRoute
+  '/community/building/': typeof CommunityBuildingIndexRoute
   '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
+  '/community/live/': typeof CommunityLiveIndexRoute
+  '/community/teaching-hub/': typeof CommunityTeachingHubIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -1437,9 +1459,12 @@ export interface FileRoutesByTo {
   '/community/adventure': typeof CommunityAdventureIndexRoute
   '/community/assets': typeof CommunityAssetsIndexRoute
   '/community/backgrounds': typeof CommunityBackgroundsIndexRoute
+  '/community/building': typeof CommunityBuildingIndexRoute
   '/community/buildings': typeof CommunityBuildingsIndexRoute
   '/community/classes': typeof CommunityClassesIndexRoute
   '/community/lesson-notes': typeof CommunityLessonNotesIndexRoute
+  '/community/live': typeof CommunityLiveIndexRoute
+  '/community/teaching-hub': typeof CommunityTeachingHubIndexRoute
   '/family/teachers': typeof FamilyTeachersIndexRoute
   '/game/$slug': typeof GameSlugIndexRoute
   '/games/addition': typeof GamesAdditionIndexRoute
@@ -1624,9 +1649,12 @@ export interface FileRoutesById {
   '/community/adventure/': typeof CommunityAdventureIndexRoute
   '/community/assets/': typeof CommunityAssetsIndexRoute
   '/community/backgrounds/': typeof CommunityBackgroundsIndexRoute
+  '/community/building/': typeof CommunityBuildingIndexRoute
   '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
+  '/community/live/': typeof CommunityLiveIndexRoute
+  '/community/teaching-hub/': typeof CommunityTeachingHubIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -1812,9 +1840,12 @@ export interface FileRouteTypes {
     | '/community/adventure/'
     | '/community/assets/'
     | '/community/backgrounds/'
+    | '/community/building/'
     | '/community/buildings/'
     | '/community/classes/'
     | '/community/lesson-notes/'
+    | '/community/live/'
+    | '/community/teaching-hub/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -1989,9 +2020,12 @@ export interface FileRouteTypes {
     | '/community/adventure'
     | '/community/assets'
     | '/community/backgrounds'
+    | '/community/building'
     | '/community/buildings'
     | '/community/classes'
     | '/community/lesson-notes'
+    | '/community/live'
+    | '/community/teaching-hub'
     | '/family/teachers'
     | '/game/$slug'
     | '/games/addition'
@@ -2175,9 +2209,12 @@ export interface FileRouteTypes {
     | '/community/adventure/'
     | '/community/assets/'
     | '/community/backgrounds/'
+    | '/community/building/'
     | '/community/buildings/'
     | '/community/classes/'
     | '/community/lesson-notes/'
+    | '/community/live/'
+    | '/community/teaching-hub/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -2748,6 +2785,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityBackgroundsIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
+    '/community/building/': {
+      id: '/community/building/'
+      path: '/building'
+      fullPath: '/community/building/'
+      preLoaderRoute: typeof CommunityBuildingIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
     '/community/buildings/': {
       id: '/community/buildings/'
       path: '/buildings'
@@ -2767,6 +2811,20 @@ declare module '@tanstack/react-router' {
       path: '/lesson-notes'
       fullPath: '/community/lesson-notes/'
       preLoaderRoute: typeof CommunityLessonNotesIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/live/': {
+      id: '/community/live/'
+      path: '/live'
+      fullPath: '/community/live/'
+      preLoaderRoute: typeof CommunityLiveIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/teaching-hub/': {
+      id: '/community/teaching-hub/'
+      path: '/teaching-hub'
+      fullPath: '/community/teaching-hub/'
+      preLoaderRoute: typeof CommunityTeachingHubIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
     '/family/teachers/': {
@@ -3755,9 +3813,12 @@ interface CommunityRouteRouteChildren {
   CommunityAdventureIndexRoute: typeof CommunityAdventureIndexRoute
   CommunityAssetsIndexRoute: typeof CommunityAssetsIndexRoute
   CommunityBackgroundsIndexRoute: typeof CommunityBackgroundsIndexRoute
+  CommunityBuildingIndexRoute: typeof CommunityBuildingIndexRoute
   CommunityBuildingsIndexRoute: typeof CommunityBuildingsIndexRoute
   CommunityClassesIndexRoute: typeof CommunityClassesIndexRoute
   CommunityLessonNotesIndexRoute: typeof CommunityLessonNotesIndexRoute
+  CommunityLiveIndexRoute: typeof CommunityLiveIndexRoute
+  CommunityTeachingHubIndexRoute: typeof CommunityTeachingHubIndexRoute
 }
 
 const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
@@ -3765,9 +3826,12 @@ const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
   CommunityAdventureIndexRoute: CommunityAdventureIndexRoute,
   CommunityAssetsIndexRoute: CommunityAssetsIndexRoute,
   CommunityBackgroundsIndexRoute: CommunityBackgroundsIndexRoute,
+  CommunityBuildingIndexRoute: CommunityBuildingIndexRoute,
   CommunityBuildingsIndexRoute: CommunityBuildingsIndexRoute,
   CommunityClassesIndexRoute: CommunityClassesIndexRoute,
   CommunityLessonNotesIndexRoute: CommunityLessonNotesIndexRoute,
+  CommunityLiveIndexRoute: CommunityLiveIndexRoute,
+  CommunityTeachingHubIndexRoute: CommunityTeachingHubIndexRoute,
 }
 
 const CommunityRouteRouteWithChildren = CommunityRouteRoute._addFileChildren(

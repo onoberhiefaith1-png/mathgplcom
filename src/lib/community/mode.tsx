@@ -23,12 +23,29 @@ export const useCommunityMode = () => {
   };
 };
 
-/** Sections of the rotating building, mirrored inside the community. */
-export const COMMUNITY_SECTIONS = [
+export type CommunitySection = { path: string; label: string };
+
+/**
+ * The rotating building is the navigation hub: it never shows content. Each
+ * pipeline below is entered through its own hub page.
+ */
+
+/** Rotating Building → Teaching Hub → … */
+export const TEACHING_SECTIONS: readonly CommunitySection[] = [
   { path: "/community/lesson-notes", label: "Lesson Notes" },
   { path: "/community/classes", label: "Classes" },
   { path: "/community/adventure", label: "Adventure" },
+] as const;
+
+/** Rotating Building → Settings → Building Workspace → … */
+export const BUILDING_SECTIONS: readonly CommunitySection[] = [
   { path: "/community/backgrounds", label: "Backgrounds" },
   { path: "/community/buildings", label: "Buildings" },
   { path: "/community/assets", label: "Assets" },
+] as const;
+
+/** Every mirrored section, in navigation order. */
+export const COMMUNITY_SECTIONS: readonly CommunitySection[] = [
+  ...TEACHING_SECTIONS,
+  ...BUILDING_SECTIONS,
 ] as const;
