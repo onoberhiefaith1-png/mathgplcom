@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Upload, Trash2 } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import SignedMedia from "./SignedMedia";
+import ShareMenu from "@/components/community/ShareMenu";
+import type { CommunityKind } from "@/lib/community/types";
 import {
   deleteGameAsset,
   listGameAssets,
@@ -19,6 +21,15 @@ const TABS: { kind: AssetKind; label: string }[] = [
   { kind: "progress_bar", label: "Progress Bar" },
   { kind: "effect", label: "Effect" },
 ];
+
+/** Game asset kind → the Community shelf it is published on. */
+const COMMUNITY_KIND: Record<AssetKind, CommunityKind> = {
+  background: "background",
+  reward: "reward",
+  progress_bar: "asset",
+  effect: "effect",
+};
+
 
 interface AssetsPanelProps {
   onPick: (asset: GameAssetRow) => void;
@@ -172,14 +183,22 @@ const KindGrid = ({
                   />
                 </div>
               </button>
-              <button
-                type="button"
-                onClick={() => remove(a)}
-                className="absolute right-1 top-1 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-destructive"
-                title="Delete"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              <ShareMenu
+                className="absolute right-1 top-1 opacity-0 transition group-hover:opacity-100"
+                triggerClassName="h-7 w-7"
+                kind={COMMUNITY_KIND[kind]}
+                sourceId={a.id}
+                title={a.title}
+                hashtags={`#${kind.replace("_", "")}`}
+                payload={{
+                  asset_id: a.id,
+                  asset_kind: kind,
+                  storage_path: renderPathOf(a),
+                  media_type: a.media_type,
+                }}
+                onDelete={() => remove(a)}
+              />
+
             </div>
           ))}
         </div>

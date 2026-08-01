@@ -316,7 +316,7 @@ const NotebookCard = ({
               <Play className="h-4 w-4 mr-2" /> Present on Smartboard
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onShare}>
-              <Share2 className="h-4 w-4 mr-2" /> Share with MathGPL Community
+              <Share2 className="h-4 w-4 mr-2" /> Share with Community
             </DropdownMenuItem>
             <DropdownMenuItem onClick={stub("Export")}>
               <Download className="h-4 w-4 mr-2" /> Export

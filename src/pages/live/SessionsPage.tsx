@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, PlusCircle, Trash2, Radio } from "lucide-react";
+import { ArrowLeft, PlusCircle, Radio } from "lucide-react";
+import ShareMenu from "@/components/community/ShareMenu";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -81,13 +83,18 @@ const SessionsPage = () => {
             Code: <code className="rounded bg-background px-1.5 py-0.5">{s.session_code}</code>
           </div>
         </Link>
-        <button
-          onClick={() => remove(s)}
-          className="absolute right-2 top-2 rounded-md border border-border bg-background/60 p-1.5 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-destructive"
-          aria-label="Delete session"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <ShareMenu
+          className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100"
+          triggerClassName="h-7 w-7"
+          kind="session"
+          sourceId={s.id}
+          title={s.title}
+          hashtags="#LiveSession"
+          payload={{ session_id: s.id, session_code: s.session_code }}
+          onDelete={() => remove(s)}
+          deleteLabel="Delete session"
+        />
+
       </div>
     );
   };
