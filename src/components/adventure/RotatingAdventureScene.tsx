@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
@@ -47,7 +47,7 @@ const WorldSegment = ({
   onActivate,
   onHoverChange,
 }: {
-  texture: THREE.Texture;
+  texture?: THREE.Texture;
   index: number;
   interactive: boolean;
   onActivate: (index: number) => void;
@@ -64,6 +64,10 @@ const WorldSegment = ({
   // cover (rather than z-fight with) the edge towers of their neighbours — one
   // tower partially hides the other, reading as a single continuous structure.
   const radius = WORLD_RADIUS + (index % 2 === 0 ? 0.14 : 0);
+
+  // No texture yet (first load / re-sign in flight) → draw nothing for this
+  // slice rather than a white panel. Siblings keep rendering.
+  if (!texture) return null;
 
   return (
     <mesh
@@ -274,7 +278,7 @@ const Showcase = ({
           <WorldSegment
             key={i}
             index={i}
-            texture={textureByUrl.get(ringUrls[i] ?? academy.image)!}
+            texture={textureByUrl.get(ringUrls[i] ?? academy.image)}
             interactive
             onActivate={handleActivate}
             onHoverChange={(h) => (hoveredRef.current = h)}
