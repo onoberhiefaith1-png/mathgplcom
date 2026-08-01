@@ -16,7 +16,7 @@ const RequireAuth = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!ready || user) return;
     const dest = `${location.pathname}${location.search ?? ""}`;
-    navigate(`/auth?next=${encodeURIComponent(dest)}`, { replace: true });
+    navigate(`/login?next=${encodeURIComponent(dest)}`, { replace: true });
   }, [ready, user, navigate, location.pathname, location.search]);
 
   if (!ready || !user) {

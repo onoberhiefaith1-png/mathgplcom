@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@/lib/router-compat";
 import { ChevronDown, LogOut, LayoutDashboard, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
-import { ACCOUNT_MENU } from "@/lib/accounts/authForms";
+
 import { useAccount } from "@/lib/accounts/useAccount";
 
 type MenuLink = { to: string; label: string };
