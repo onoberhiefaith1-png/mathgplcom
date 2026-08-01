@@ -65,7 +65,7 @@ const TeachingHubClasses = () => {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Link
           to="/teaching-hub/classes/create"
-          className="group relative flex flex-col overflow-hidden rounded-2xl border border-dash-border bg-dash-surface p-6 shadow-[var(--shadow-dash)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_26px_54px_-24px_hsl(224_60%_6%/0.7)]"
+          className="group relative flex h-fit flex-col overflow-hidden rounded-2xl border border-dash-border bg-dash-surface p-6 shadow-[var(--shadow-dash)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_26px_54px_-24px_hsl(224_60%_6%/0.7)]"
         >
           <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500 to-blue-600" />
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-dash-surface shadow-md transition-transform duration-200 group-hover:scale-110">
