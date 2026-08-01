@@ -103,13 +103,21 @@ const TeachingHubClasses = () => {
                       Join code: <code className="rounded bg-dash-navy/5 px-1.5 py-0.5 text-dash-surface-foreground">{c.join_code}</code>
                     </div>
                   </Link>
-                  <button
-                    onClick={() => deleteClass(c)}
-                    className="absolute right-3 top-3 rounded-lg border border-dash-border bg-dash-surface p-1.5 text-dash-surface-muted opacity-0 transition group-hover:opacity-100 hover:text-destructive"
-                    aria-label="Delete class"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <ShareMenu
+                    className="absolute right-3 top-3 opacity-0 transition group-hover:opacity-100"
+                    kind="class"
+                    sourceId={c.id}
+                    title={c.name}
+                    description="Members request access — the class is never copied."
+                    hashtags="#Class"
+                    payload={{ class_id: c.id }}
+                    onShareChange={async (shared) => {
+                      await supabase.from("classes").update({ community_shared: shared }).eq("id", c.id);
+                    }}
+                    onDelete={() => deleteClass(c)}
+                    deleteLabel="Delete class"
+                  />
+
                 </div>
               ))}
             </div>
