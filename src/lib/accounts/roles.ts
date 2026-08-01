@@ -77,11 +77,13 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/admin?tab=parents", label: "Parents" },
     { to: "/admin?tab=students", label: "Students" },
     { to: "/admin?tab=admins", label: "Co-Administrators" },
+    { to: "/community", label: "MyGPL Community" },
   ],
   co_admin: [
     { to: "/admin", label: "Overview" },
     { to: "/admin?tab=schools", label: "Schools" },
     { to: "/admin?tab=teachers", label: "Teachers" },
+    { to: "/community", label: "MyGPL Community" },
   ],
   school: [
     { to: "/teaching-hub", label: "Teaching Hub" },
@@ -93,6 +95,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/school?tab=analytics", label: "Analytics" },
     { to: "/school?tab=accounts", label: "Accounts" },
     { to: "/school?tab=billing", label: "Billing" },
+    { to: "/community", label: "MyGPL Community" },
     { to: "/teaching-hub/settings", label: "Settings" },
   ],
   teacher: [
@@ -101,6 +104,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/smartboard", label: "SmartBoard" },
     { to: "/teaching-hub/classes", label: "Classes" },
     { to: "/live", label: "MathGPL Live" },
+    { to: "/community", label: "MyGPL Community" },
     { to: "/teaching-hub/settings", label: "Settings" },
   ],
   parent: [
@@ -108,9 +112,13 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/family?tab=progress", label: "Progress" },
     { to: "/family?tab=reports", label: "Reports" },
     { to: "/family/teachers", label: "Teachers" },
+    { to: "/community", label: "MyGPL Community" },
     { to: "/family?tab=settings", label: "Settings" },
   ],
-  student: [{ to: "/student/classes", label: "My Classes" }],
+  student: [
+    { to: "/student/classes", label: "My Classes" },
+    { to: "/community", label: "MyGPL Community" },
+  ],
 };
 
 export const ROLE_LABEL: Record<AppRole, string> = {
