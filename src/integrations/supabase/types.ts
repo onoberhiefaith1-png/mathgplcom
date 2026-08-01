@@ -2538,6 +2538,69 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_email_settings: {
+        Row: {
+          id: boolean
+          notes: string
+          reply_to_email: string
+          sender_email: string
+          sender_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          notes?: string
+          reply_to_email?: string
+          sender_email?: string
+          sender_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          notes?: string
+          reply_to_email?: string
+          sender_email?: string
+          sender_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      platform_email_templates: {
+        Row: {
+          body: string
+          display_name: string
+          footer: string
+          signature: string
+          subject: string
+          template_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          body: string
+          display_name: string
+          footer?: string
+          signature?: string
+          subject: string
+          template_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          body?: string
+          display_name?: string
+          footer?: string
+          signature?: string
+          subject?: string
+          template_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       platform_test_accounts: {
         Row: {
           created_at: string
@@ -2595,6 +2658,7 @@ export type Database = {
           date_of_birth: string | null
           display_name: string | null
           first_name: string | null
+          full_name: string | null
           homepage_config: Json
           last_name: string | null
           marketing_opt_in: boolean
@@ -2614,6 +2678,7 @@ export type Database = {
           date_of_birth?: string | null
           display_name?: string | null
           first_name?: string | null
+          full_name?: string | null
           homepage_config?: Json
           last_name?: string | null
           marketing_opt_in?: boolean
@@ -2633,6 +2698,7 @@ export type Database = {
           date_of_birth?: string | null
           display_name?: string | null
           first_name?: string | null
+          full_name?: string | null
           homepage_config?: Json
           last_name?: string | null
           marketing_opt_in?: boolean
