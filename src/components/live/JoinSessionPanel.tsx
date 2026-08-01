@@ -71,6 +71,17 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => { if (initialCode) setCode(initialCode.toUpperCase()); }, [initialCode]);
 
+  // A shared link (/live/join/CODE) must open the session itself, never a form.
+  const autoEntered = useRef(false);
+  useEffect(() => {
+    if (loading || !initialCode || autoEntered.current) return;
+    autoEntered.current = true;
+    void submit(initialCode);
+    // `submit` is stable for this purpose — the guard runs it exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, initialCode]);
+
+
   // Poll while a request is pending so approval opens the session automatically.
   useEffect(() => {
     if (!userId || !pendingClassId) return;
