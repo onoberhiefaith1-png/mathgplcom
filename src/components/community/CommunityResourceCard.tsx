@@ -55,10 +55,13 @@ const CommunityResourceCard = ({
       if (res.kind === "lesson_note") {
         toast({ title: "Copied to your Lesson Notes", description: "It is yours now — edit it freely." });
         navigate(`/lesson-notes/${res.notebookId}`);
+      } else if (res.kind === "adventure") {
+        toast({ title: "Copied to your Adventures", description: "It is yours now — edit it freely." });
+        navigate(`/adventure`);
       } else {
         toast({
-          title: `${KIND_LABEL[card.kind]} saved`,
-          description: "It will appear in your gallery as soon as that gallery is switched on.",
+          title: `${KIND_LABEL[card.kind]} copied to your workspace`,
+          description: "Find it in your own gallery.",
         });
       }
       onChanged();
