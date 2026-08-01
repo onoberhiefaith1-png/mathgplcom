@@ -45,14 +45,13 @@ const StudentClassesPage = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
-      <header className="flex items-center justify-between px-6 py-5">
-        <span className="text-xs uppercase tracking-[0.35em] text-primary">MathGPL</span>
-        <h1 className="text-lg font-semibold tracking-wide">My Classes</h1>
-        <div className="w-24" />
+    <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-4 sm:px-6 sm:py-5">
+        <span className="truncate text-[10px] uppercase tracking-[0.35em] text-primary sm:text-xs">MathGPL</span>
+        <h1 className="shrink-0 text-base font-semibold tracking-wide sm:text-lg">My Classes</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl space-y-8 px-6 pb-16">
+      <main className="mx-auto w-full max-w-4xl space-y-8 px-4 pb-16 sm:px-6">
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {classes.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground sm:col-span-2">
@@ -63,15 +62,16 @@ const StudentClassesPage = () => {
               <Link
                 key={c.id}
                 to={`/student/class/${c.id}`}
-                className="rounded-2xl border border-border bg-card/40 p-5 backdrop-blur transition hover:border-primary/40 hover:shadow-xl"
+                className="min-h-[7rem] rounded-2xl border border-border bg-card/40 p-5 backdrop-blur transition active:scale-[0.98] sm:hover:border-primary/40 sm:hover:shadow-xl"
               >
-                <Users className="h-5 w-5 text-primary" />
+                <Users className="h-5 w-5 shrink-0 text-primary" />
                 <div className="mt-3 truncate text-lg font-semibold">{c.name}</div>
                 <p className="mt-1 text-xs text-muted-foreground">Lesson notes, assignments, adventures and gallery.</p>
               </Link>
             ))
           )}
         </section>
+
 
         <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Join a class</h2>
