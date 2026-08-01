@@ -71,7 +71,7 @@ const PublishDialog = ({
         payload,
       });
       toast({
-        title: "Shared with MyGPL Community",
+        title: "Shared with MathGPL Community",
         description: `Your ${KIND_LABEL[kind].toLowerCase()} is now discoverable.`,
       });
       onPublished?.();
@@ -107,7 +107,7 @@ const PublishDialog = ({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Share2 className="h-4 w-4" /> Share with MyGPL Community
+              <Share2 className="h-4 w-4" /> Share with MathGPL Community
             </DialogTitle>
             <DialogDescription>
               Other members can discover this {KIND_LABEL[kind].toLowerCase()} and copy it into their own

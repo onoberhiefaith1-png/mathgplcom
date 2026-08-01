@@ -79,7 +79,7 @@ const CommunityResourceCard = ({
   };
 
   const remove = async () => {
-    if (!window.confirm(`Delete "${card.title}" from MyGPL Community? Existing copies stay with their owners.`)) return;
+    if (!window.confirm(`Delete "${card.title}" from MathGPL Community? Existing copies stay with their owners.`)) return;
     try {
       await deleteResource(card.id);
       onChanged();
