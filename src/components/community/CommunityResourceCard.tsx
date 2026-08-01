@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
-import { Download, Heart, Loader2, MoreVertical, Trash2, UserPlus, EyeOff, Eye } from "lucide-react";
+import { Copy, Download, Heart, Loader2, MoreVertical, Trash2, UserPlus, EyeOff, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -181,8 +181,8 @@ const CommunityResourceCard = ({
               disabled={busy}
               className="inline-flex min-h-[36px] items-center gap-2 rounded-full bg-dash-navy px-3.5 py-1.5 text-sm font-medium text-dash-surface transition hover:opacity-90 disabled:opacity-60"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : isClass ? <UserPlus className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-              {isClass ? "Request Access" : "Download"}
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : isClass ? <UserPlus className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {isClass ? "Request Access" : "Copy to My Workspace"}
             </button>
           )}
         </div>
