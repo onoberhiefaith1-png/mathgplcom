@@ -8,7 +8,10 @@ import { Send } from "lucide-react";
  * MathGPL ID (MGP-XXXXXX). Writes a row to class_invitations; the
  * participant can accept it from /join.
  */
-const InviteByMathGPLId = ({ classId }: { classId: string }) => {
+const InviteByMathGPLId = ({ classId, light }: { classId: string; light?: boolean }) => {
+  const shell = light
+    ? "rounded-2xl border border-dash-border bg-dash-surface p-5 shadow-[var(--shadow-dash)] text-dash-surface-foreground"
+    : "rounded-2xl border border-border bg-card/40 p-5 backdrop-blur";
   const { toast } = useToast();
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,8 +70,8 @@ const InviteByMathGPLId = ({ classId }: { classId: string }) => {
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-card/40 p-5 backdrop-blur">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+    <section className={shell}>
+      <h2 className={`mb-3 ${light ? "text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted" : "text-sm font-semibold uppercase tracking-wider text-muted-foreground"}`}>
         Invite by MathGPL ID
       </h2>
       <div className="flex gap-2">
@@ -76,7 +79,7 @@ const InviteByMathGPLId = ({ classId }: { classId: string }) => {
           value={value}
           onChange={(e) => setValue(e.target.value.toUpperCase())}
           placeholder="MGP-123456"
-          className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono tracking-widest outline-hidden focus:border-primary"
+          className={`flex-1 rounded-lg border px-3 py-2 font-mono tracking-widest outline-hidden ${light ? "border-dash-border bg-dash-navy/[0.03] text-dash-surface-foreground focus:border-dash-gold" : "border-border bg-background focus:border-primary"}`}
         />
         <button
           type="button"
@@ -87,7 +90,7 @@ const InviteByMathGPLId = ({ classId }: { classId: string }) => {
           <Send className="h-4 w-4" /> Send
         </button>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
+      <p className={`mt-2 text-xs ${light ? "text-dash-surface-muted" : "text-muted-foreground"}`}>
         The student will see the invitation under <span className="font-medium">/join</span> and can accept it instantly.
       </p>
     </section>

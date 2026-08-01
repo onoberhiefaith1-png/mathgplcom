@@ -129,13 +129,9 @@ const ClassDashboardPage = () => {
         ))}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 [&_*]:border-dash-border/70 [&_code]:text-dash-surface-foreground">
-        <div className="rounded-2xl border border-dash-border bg-dash-surface p-5 text-dash-surface-foreground shadow-[var(--shadow-dash)]">
-          <JoinRequestsPanel classId={cls.id} />
-        </div>
-        <div className="rounded-2xl border border-dash-border bg-dash-surface p-5 text-dash-surface-foreground shadow-[var(--shadow-dash)]">
-          <InviteByMathGPLId classId={cls.id} />
-        </div>
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <JoinRequestsPanel classId={cls.id} light />
+        <InviteByMathGPLId classId={cls.id} light />
       </div>
     </ClassPageShell>
   );
