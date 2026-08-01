@@ -18,8 +18,11 @@ export type LiveSession = {
   status: SessionStatus;
   session_code: string;
   broadcasts: BroadcastEntry[];
+  /** Teacher switch: ask link-holding audience members for a display name. */
+  ask_participant_name: boolean;
   created_at: string;
   updated_at: string;
+
 };
 
 /** Rows come back with `broadcasts` as raw jsonb — normalise on read. */
