@@ -1,5 +1,5 @@
 /**
- * MyGPL Community — shared types.
+ * MathGPL Community — shared types.
  *
  * Community is a *workspace*, not a second application: a resource published
  * here is a snapshot plus creator identity. Downloading copies it into the

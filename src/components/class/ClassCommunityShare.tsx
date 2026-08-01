@@ -6,7 +6,7 @@ import PublishDialog from "@/components/community/PublishDialog";
 import { findMyPublication, setResourceStatus } from "@/lib/community/community";
 
 /**
- * A class is either Private or Shared with MyGPL Community. Shared classes are
+ * A class is either Private or Shared with MathGPL Community. Shared classes are
  * discoverable and use Request Access instead of a join code.
  */
 const ClassCommunityShare = ({
@@ -46,7 +46,7 @@ const ClassCommunityShare = ({
       if (pub) await setResourceStatus(pub.id, "unpublished");
       await supabase.from("classes").update({ community_shared: false }).eq("id", classId);
       setShared(false);
-      toast({ title: "Class is private again", description: "It is no longer listed in MyGPL Community." });
+      toast({ title: "Class is private again", description: "It is no longer listed in MathGPL Community." });
     } catch (e) {
       toast({ title: "Could not update", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
@@ -69,7 +69,7 @@ const ClassCommunityShare = ({
           <p className="mt-1 flex items-center gap-2 text-sm text-dash-surface-foreground">
             {shared ? <Globe2 className="h-4 w-4 text-dash-gold" /> : <Lock className="h-4 w-4" />}
             {shared
-              ? "Shared with MyGPL Community — students can send access requests."
+              ? "Shared with MathGPL Community — students can send access requests."
               : "Private — only people with the join code or an invite can enter."}
           </p>
         </div>
@@ -80,7 +80,7 @@ const ClassCommunityShare = ({
             onClick={() => setPublishOpen(true)}
             className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-dash-navy px-4 py-2 text-sm font-medium text-dash-surface transition hover:opacity-90 disabled:opacity-60"
           >
-            <Globe2 className="h-4 w-4" /> {shared ? "Update listing" : "Share with MyGPL Community"}
+            <Globe2 className="h-4 w-4" /> {shared ? "Update listing" : "Share with MathGPL Community"}
           </button>
           {shared && (
             <button

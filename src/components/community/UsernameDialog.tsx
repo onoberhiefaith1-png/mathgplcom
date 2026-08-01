@@ -32,7 +32,7 @@ const UsernameDialog = ({
     setSaving(true);
     try {
       await claimUsername(name);
-      toast({ title: "Welcome to MyGPL Community", description: `You are @${name.trim()}` });
+      toast({ title: "Welcome to MathGPL Community", description: `You are @${name.trim()}` });
       onDone();
       onOpenChange(false);
     } catch (e) {
@@ -54,7 +54,7 @@ const UsernameDialog = ({
             <Users className="h-4 w-4" /> {initial ? "Change your username" : "Pick your creator username"}
           </DialogTitle>
           <DialogDescription>
-            Everything you publish in MyGPL Community is shown under this name. {USERNAME_RULES}
+            Everything you publish in MathGPL Community is shown under this name. {USERNAME_RULES}
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-center gap-2">

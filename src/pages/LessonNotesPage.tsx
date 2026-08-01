@@ -45,7 +45,7 @@ const LessonNotesPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [coverFor, setCoverFor] = useState<NotebookRow | null>(null);
-  // Sharing a note with MyGPL Community publishes a listing; the note itself
+  // Sharing a note with MathGPL Community publishes a listing; the note itself
   // never leaves this shelf.
   const [shareFor, setShareFor] = useState<NotebookRow | null>(null);
 
@@ -316,7 +316,7 @@ const NotebookCard = ({
               <Play className="h-4 w-4 mr-2" /> Present on Smartboard
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onShare}>
-              <Share2 className="h-4 w-4 mr-2" /> Share with MyGPL Community
+              <Share2 className="h-4 w-4 mr-2" /> Share with MathGPL Community
             </DropdownMenuItem>
             <DropdownMenuItem onClick={stub("Export")}>
               <Download className="h-4 w-4 mr-2" /> Export

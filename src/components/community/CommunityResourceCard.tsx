@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
-import { Download, Heart, Loader2, MoreVertical, Trash2, UserPlus, EyeOff, Eye } from "lucide-react";
+import { Copy, Download, Heart, Loader2, MoreVertical, Trash2, UserPlus, EyeOff, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -55,10 +55,13 @@ const CommunityResourceCard = ({
       if (res.kind === "lesson_note") {
         toast({ title: "Copied to your Lesson Notes", description: "It is yours now — edit it freely." });
         navigate(`/lesson-notes/${res.notebookId}`);
+      } else if (res.kind === "adventure") {
+        toast({ title: "Copied to your Adventures", description: "It is yours now — edit it freely." });
+        navigate(`/adventure`);
       } else {
         toast({
-          title: `${KIND_LABEL[card.kind]} saved`,
-          description: "It will appear in your gallery as soon as that gallery is switched on.",
+          title: `${KIND_LABEL[card.kind]} copied to your workspace`,
+          description: "Find it in your own gallery.",
         });
       }
       onChanged();
@@ -79,7 +82,7 @@ const CommunityResourceCard = ({
   };
 
   const remove = async () => {
-    if (!window.confirm(`Delete "${card.title}" from MyGPL Community? Existing copies stay with their owners.`)) return;
+    if (!window.confirm(`Delete "${card.title}" from MathGPL Community? Existing copies stay with their owners.`)) return;
     try {
       await deleteResource(card.id);
       onChanged();
@@ -178,8 +181,8 @@ const CommunityResourceCard = ({
               disabled={busy}
               className="inline-flex min-h-[36px] items-center gap-2 rounded-full bg-dash-navy px-3.5 py-1.5 text-sm font-medium text-dash-surface transition hover:opacity-90 disabled:opacity-60"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : isClass ? <UserPlus className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-              {isClass ? "Request Access" : "Download"}
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : isClass ? <UserPlus className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {isClass ? "Request Access" : "Copy to My Workspace"}
             </button>
           )}
         </div>

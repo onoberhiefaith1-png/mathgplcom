@@ -8,7 +8,7 @@ export type WorkspaceId = "teaching-hub" | "live" | "community";
 const TABS: { id: WorkspaceId; label: string; to: string }[] = [
   { id: "teaching-hub", label: "Teaching Hub", to: "/teaching-hub" },
   { id: "live", label: "MathGPL Live", to: "/live" },
-  { id: "community", label: "MyGPL Community", to: "/community" },
+  { id: "community", label: "MathGPL Community", to: "/community" },
 ];
 
 

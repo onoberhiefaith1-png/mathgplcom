@@ -1,11 +1,14 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import RequireAuth from "@/components/auth/RequireAuth";
+import { CommunityModeProvider } from "@/lib/community/mode";
 
-/** MyGPL Community is available to every signed-in account. */
+/** MathGPL Community is available to every signed-in account, read-only. */
 export const Route = createFileRoute("/community")({
   component: () => (
     <RequireAuth>
-      <Outlet />
+      <CommunityModeProvider>
+        <Outlet />
+      </CommunityModeProvider>
     </RequireAuth>
   ),
 });
