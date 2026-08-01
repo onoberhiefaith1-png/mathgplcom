@@ -2100,6 +2100,7 @@ export type Database = {
           id: string
           origin_notebook_id: string | null
           owner_id: string
+          page_extra_mm: number
           paper_size: string
           paper_style: string
           purpose: string
@@ -2123,6 +2124,7 @@ export type Database = {
           id?: string
           origin_notebook_id?: string | null
           owner_id: string
+          page_extra_mm?: number
           paper_size?: string
           paper_style?: string
           purpose?: string
@@ -2146,6 +2148,7 @@ export type Database = {
           id?: string
           origin_notebook_id?: string | null
           owner_id?: string
+          page_extra_mm?: number
           paper_size?: string
           paper_style?: string
           purpose?: string

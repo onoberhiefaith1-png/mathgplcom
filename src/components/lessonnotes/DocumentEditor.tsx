@@ -88,12 +88,12 @@ import {
   type PaperSize, type PaperStyle,
 } from "@/lib/lessonnotes/paperThemes";
 import {
-  Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
-  Undo2, Redo2, Sigma, Minus, Plus, Heading1, Heading2,
+  Undo2, Redo2, Sigma, Minus, Plus,
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
-  ChevronUp, ChevronDown, Shapes, Table as TableIcon, LineChart, Calculator,
-  Film, Camera, Boxes, Archive, ArrowLeftRight,
+  ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Shapes, Table as TableIcon, LineChart, Calculator,
+  Film, Camera, Archive, ArrowLeftRight,
+
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -130,6 +130,10 @@ interface Props {
   onPaperSizeChange: (s: PaperSize) => void;
   onPaperStyleChange: (s: PaperStyle) => void;
   onDocChange: (json: any) => void;
+  /** Extra page height (mm) added by Note Extend. */
+  pageExtraMm?: number;
+  onPageExtraMmChange?: (mm: number) => void;
+
   notebookContext?: { subject?: string; topic?: string; subtopic?: string };
   onPresent?: () => void;
   onScanFromPhone?: () => void;
@@ -374,8 +378,61 @@ function DocumentEditorInner({
   documentJson, paperSize, paperStyle, zoom,
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
+  pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+
+  /* ─── Note Extend / Note Shrink ────────────────────────────────────────
+   * The sheet grows in fixed 50 mm slabs. Shrinking is clamped so the page
+   * bottom can never rise above the last rendered object on the page. */
+  const NOTE_STEP_MM = 50;
+  const sheetElRef = useRef<HTMLDivElement | null>(null);
+  const [pageExtraMm, setPageExtraMm] = useState<number>(pageExtraMmProp ?? 0);
+  useEffect(() => {
+    if (typeof pageExtraMmProp === "number") setPageExtraMm(pageExtraMmProp);
+  }, [pageExtraMmProp]);
+
+  const applyPageExtra = (mm: number) => {
+    const next = Math.max(0, Math.round(mm));
+    setPageExtraMm(next);
+    onPageExtraMmChange?.(next);
+  };
+
+  const extendNote = () => applyPageExtra(pageExtraMm + NOTE_STEP_MM);
+
+  /** Millimetres of blank space between the last object and the page bottom. */
+  const trailingBlankMm = (): number => {
+    const sheet = sheetElRef.current;
+    if (!sheet) return pageExtraMm;
+    const inner = sheet.firstElementChild as HTMLElement | null;
+    const contentHost = inner?.firstElementChild as HTMLElement | null;
+    if (!contentHost) return pageExtraMm;
+    const scale = sheet.getBoundingClientRect().width / (sheet.offsetWidth || 1) || 1;
+    let bottom = contentHost.getBoundingClientRect().top;
+    for (const el of Array.from(contentHost.querySelectorAll<HTMLElement>("*"))) {
+      const r = el.getBoundingClientRect();
+      if (r.height === 0 && r.width === 0) continue;
+      if (r.bottom > bottom) bottom = r.bottom;
+    }
+    const sheetBottom = sheet.getBoundingClientRect().bottom;
+    const blankPx = (sheetBottom - bottom) / scale;
+    return Math.max(0, blankPx / (96 / 25.4));
+  };
+
+  const shrinkNote = () => {
+    if (pageExtraMm <= 0) return;
+    // Never shrink into content: only reclaim genuinely blank trailing space.
+    const reclaimable = Math.max(0, trailingBlankMm() - 12);
+    if (reclaimable < 1) {
+      toast({
+        title: "Cannot shrink further",
+        description: "The page already stops just below your last object.",
+      });
+      return;
+    }
+    applyPageExtra(pageExtraMm - Math.min(NOTE_STEP_MM, reclaimable));
+  };
+
   /* ─── 3D Geometry Workspace (separate from the 2D editor) ─── */
   const [diagramTabsOpen, setDiagramTabsOpen] = useState(false);
   const [workspace3dOpen, setWorkspace3dOpen] = useState(false);
@@ -1728,15 +1785,27 @@ function DocumentEditorInner({
         <Btn onClick={() => editor?.chain().focus().undo().run()} title="Undo (Ctrl+Z)"><Undo2 className="h-4 w-4" /></Btn>
         <Btn onClick={() => editor?.chain().focus().redo().run()} title="Redo (Ctrl+Y)"><Redo2 className="h-4 w-4" /></Btn>
         <Divider />
-        <Btn active={editor?.isActive("bold")} onClick={() => editor?.chain().focus().toggleBold().run()} title="Bold"><Bold className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("italic")} onClick={() => editor?.chain().focus().toggleItalic().run()} title="Italic"><Italic className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("underline")} onClick={() => editor?.chain().focus().toggleUnderline().run()} title="Underline"><UnderlineIcon className="h-4 w-4" /></Btn>
+        <button
+          type="button"
+          onClick={extendNote}
+          title="Note Extend — add more writing space at the bottom of the page"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <ChevronsDown className="h-4 w-4" /> Note Extend
+        </button>
+        <button
+          type="button"
+          onClick={shrinkNote}
+          disabled={pageExtraMm <= 0}
+          title={pageExtraMm <= 0
+            ? "Note Shrink — the page is already tight against your last object"
+            : "Note Shrink — remove empty space at the bottom (never crops content)"}
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <ChevronsUp className="h-4 w-4" /> Note Shrink
+        </button>
         <Divider />
-        <Btn active={editor?.isActive("heading", { level: 1 })} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} title="Heading 1"><Heading1 className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("heading", { level: 2 })} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2"><Heading2 className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("bulletList")} onClick={() => editor?.chain().focus().toggleBulletList().run()} title="Bullet list"><List className="h-4 w-4" /></Btn>
-        <Btn active={editor?.isActive("orderedList")} onClick={() => editor?.chain().focus().toggleOrderedList().run()} title="Numbered list"><ListOrdered className="h-4 w-4" /></Btn>
-        <Divider />
+
         <button
           type="button"
           onClick={() => setAssetLibOpen(true)}
@@ -1843,14 +1912,6 @@ function DocumentEditorInner({
           className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
         >
           <Calculator className="h-4 w-4" /> Calc
-        </button>
-        <button
-          type="button"
-          onClick={() => setObjectsOpen(true)}
-          title="Insert a math object (cars, apples, dice, coins…)"
-          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
-        >
-          <Boxes className="h-4 w-4" /> Objects
         </button>
         <button
           type="button"
@@ -1982,7 +2043,7 @@ function DocumentEditorInner({
         }}
       >
         <div className="flex-1 overflow-auto bg-[hsl(220_15%_94%)]">
-          <PageFrame size={paperSize} style={paperStyle} zoom={zoom}>
+          <PageFrame size={paperSize} style={paperStyle} zoom={zoom} extraMm={pageExtraMm} sheetRef={sheetElRef}>
             <div
               ref={paperLayerRef}
               style={{ cursor: "text", flex: 1, minHeight: "60vh", position: "relative" }}

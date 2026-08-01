@@ -28,6 +28,7 @@ export interface NotebookRow {
   document_json: any | null;
   paper_style: string;
   paper_size: string;
+  page_extra_mm?: number;
   zoom: number;
 }
 
@@ -509,7 +510,7 @@ export function useNotebook(notebookId: string | undefined) {
 
   /** Update paper appearance (size + style). */
   const updatePaperSettings = useCallback(
-    async (patch: { paper_size?: string; paper_style?: string }) => {
+    async (patch: { paper_size?: string; paper_style?: string; page_extra_mm?: number }) => {
       if (!notebookId) return;
       setNotebook((prev) => (prev ? { ...prev, ...patch } : prev));
       await supabase.from("notebooks").update(patch as any).eq("id", notebookId);

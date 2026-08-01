@@ -13,7 +13,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Eraser, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
+import { ArrowLeft, Download, Eraser, FileText, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  PAPER_LABELS, PAPER_SIZES, paperBackground,
+  type PaperSize, type PaperStyle,
+} from "@/lib/lessonnotes/paperThemes";
+import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
@@ -248,6 +256,9 @@ const FloatingPreparationPage = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
+  const [paperSize, setPaperSize] = useState<PaperSize>("a4");
+  const [paperStyle, setPaperStyle] = useState<PaperStyle>("ruled");
+  const [documentJson, setDocumentJson] = useState<any | null>(null);
   const [objects, setObjects] = useState<SolutionObject[]>([]);
   const [lines, setLines] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -320,13 +331,39 @@ const FloatingPreparationPage = () => {
 
 
 
+  /* ---------- Paper size / type / export (same controls as Lesson Notes) ---------- */
+  const updatePaper = useCallback(
+    async (patch: { paper_size?: PaperSize; paper_style?: PaperStyle }) => {
+      if (patch.paper_size) setPaperSize(patch.paper_size);
+      if (patch.paper_style) setPaperStyle(patch.paper_style);
+      if (!notebookId) return;
+      const { error } = await supabase.from("notebooks").update(patch as any).eq("id", notebookId);
+      if (error) {
+        toast({ title: "Could not save paper settings", description: error.message, variant: "destructive" });
+      }
+    },
+    [notebookId],
+  );
+
+  const handleExportDocx = useCallback(async () => {
+    try {
+      await exportDocx(documentJson ?? { type: "doc", content: [] }, title || "lesson-notes");
+    } catch (e: any) {
+      toast({ title: "DOCX export failed", description: String(e?.message ?? e), variant: "destructive" });
+    }
+  }, [documentJson, title]);
+
   /* ---------- Load solution-only content + prior highlights ---------- */
   useEffect(() => {
     let alive = true;
     (async () => {
       if (!notebookId || !subsectionId) return;
       const [nbRes, ssRes, blocksRes] = await Promise.all([
-        supabase.from("notebooks").select("title").eq("id", notebookId).maybeSingle(),
+        supabase
+          .from("notebooks")
+          .select("title, paper_size, paper_style, document_json")
+          .eq("id", notebookId)
+          .maybeSingle(),
         supabase
           .from("notebook_subsections")
           .select("floating_highlights")
@@ -340,6 +377,9 @@ const FloatingPreparationPage = () => {
       ]);
       if (!alive) return;
       setTitle(nbRes.data?.title ?? "");
+      setPaperSize(((nbRes.data as any)?.paper_size as PaperSize) || "a4");
+      setPaperStyle(((nbRes.data as any)?.paper_style as PaperStyle) || "ruled");
+      setDocumentJson((nbRes.data as any)?.document_json ?? null);
       const solBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "solution") as any;
       const solution = solBlock?.content_ascii ?? "";
       const flat = solution
@@ -613,16 +653,56 @@ const FloatingPreparationPage = () => {
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Lesson Note
           </button>
-          <div className="flex-1 min-w-0 text-center">
-            <p className="text-[9px] uppercase tracking-[0.4em] text-foreground/40 truncate">
+          <div className="flex-1 min-w-[140px] text-center">
+            <p className="hidden lg:block text-[9px] uppercase tracking-[0.4em] text-foreground/40 truncate">
               Floating Number Selection
             </p>
             <h1 className="text-sm font-medium truncate text-foreground/90">
               {title || "Notebook"} — Solution
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-foreground/55 mr-1">{summary}</span>
+          <div className="flex items-center gap-2 shrink-0 justify-end">
+            <span className="hidden xl:inline text-[11px] text-foreground/55 mr-1">{summary}</span>
+
+            <select
+              value={paperSize}
+              onChange={(e) => updatePaper({ paper_size: e.target.value as PaperSize })}
+              className="text-xs bg-transparent border border-foreground/20 rounded px-1.5 py-1.5 text-foreground/85 hover:bg-foreground/10"
+              title="Paper size"
+            >
+              {(Object.entries(PAPER_SIZES) as [PaperSize, { label: string }][]).map(([k, v]) => (
+                <option key={k} value={k} style={{ color: "#15132a" }}>{v.label}</option>
+              ))}
+            </select>
+            <select
+              value={paperStyle}
+              onChange={(e) => updatePaper({ paper_style: e.target.value as PaperStyle })}
+              className="text-xs bg-transparent border border-foreground/20 rounded px-1.5 py-1.5 text-foreground/85 hover:bg-foreground/10"
+              title="Paper type"
+            >
+              {(["plain", "ruled", "math", "grid", "dotted"] as PaperStyle[]).map((k) => (
+                <option key={k} value={k} style={{ color: "#15132a" }}>{PAPER_LABELS[k]}</option>
+              ))}
+            </select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-foreground/20 text-foreground/80 hover:bg-foreground/10"
+                  title="Export"
+                >
+                  <Download className="h-3.5 w-3.5" /> Export
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportDocx}>
+                  <FileText className="h-4 w-4 mr-2" /> DOCX (Word, WPS, Google Docs)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.print()}>
+                  <Download className="h-4 w-4 mr-2" /> PDF (via Print)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <button
               onClick={undo}
               disabled={undoStack.current.length === 0}
@@ -669,10 +749,13 @@ const FloatingPreparationPage = () => {
         ) : (
           <div
             ref={docRef}
-            className="mx-auto max-w-3xl rounded-md p-8 select-text"
+            className="rounded-md p-8 select-text"
             style={{
-              background:
-                "repeating-linear-gradient(to bottom, hsl(38 38% 96%) 0px, hsl(38 38% 96%) 35px, hsl(220 30% 70% / 0.18) 36px)",
+              width: `min(100%, ${PAPER_SIZES[paperSize].widthMm * (96 / 25.4)}px)`,
+              marginLeft: "auto",
+              marginRight: "auto",
+              background: "hsl(0 0% 100%)",
+              ...paperBackground(paperStyle),
               border: "1px solid hsl(220 15% 60% / 0.25)",
               color: "hsl(220 35% 18%)",
               lineHeight: "36px",

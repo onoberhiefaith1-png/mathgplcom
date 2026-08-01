@@ -3,7 +3,7 @@
 // Content flows naturally inside; page splitting is automatic at print time.
 // For on-screen, a single long sheet is acceptable (TipTap handles wrapping).
 
-import { type ReactNode, type CSSProperties } from "react";
+import { type ReactNode, type CSSProperties, type Ref } from "react";
 import { paperBackground, PAPER_SIZES, type PaperSize, type PaperStyle } from "@/lib/lessonnotes/paperThemes";
 
 interface Props {
@@ -11,16 +11,21 @@ interface Props {
   style: PaperStyle;
   /** zoom factor, 1 = 100% */
   zoom?: number;
+  /** Extra writing space added below the natural page height (mm). */
+  extraMm?: number;
+  /** Ref to the sheet element, used to measure content for Note Shrink. */
+  sheetRef?: Ref<HTMLDivElement>;
   children: ReactNode;
 }
 
 const MM_TO_PX = 96 / 25.4; // CSS px per mm
 const MARGIN_MM = 25.4;     // 1 inch
 
-export function PageFrame({ size, style, zoom = 1, children }: Props) {
+export function PageFrame({ size, style, zoom = 1, extraMm = 0, sheetRef, children }: Props) {
   const { widthMm, heightMm } = PAPER_SIZES[size];
   const widthPx  = widthMm  * MM_TO_PX;
-  const minHeightPx = heightMm * MM_TO_PX;
+  const extraPx = Math.max(0, extraMm) * MM_TO_PX;
+  const minHeightPx = heightMm * MM_TO_PX + extraPx;
   const marginPx = MARGIN_MM * MM_TO_PX;
 
   const sheet: CSSProperties = {
@@ -37,10 +42,13 @@ export function PageFrame({ size, style, zoom = 1, children }: Props) {
 
   const inner: CSSProperties = {
     paddingTop: marginPx,
-    paddingBottom: marginPx,
+    // Extra writing space is real padding so it also works once the content
+    // has already grown past one page height.
+    paddingBottom: marginPx + extraPx,
     paddingLeft: marginPx,
     paddingRight: marginPx,
-    minHeight: minHeightPx - 2,
+    minHeight: heightMm * MM_TO_PX - 2,
+
     cursor: "text",
     display: "flex",
     flexDirection: "column",
@@ -56,9 +64,10 @@ export function PageFrame({ size, style, zoom = 1, children }: Props) {
         zoom,
       } as CSSProperties}
     >
-      <div style={sheet}>
+      <div ref={sheetRef} style={sheet}>
         <div style={inner}>{children}</div>
       </div>
+
     </div>
   );
 }
