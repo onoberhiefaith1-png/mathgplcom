@@ -378,8 +378,61 @@ function DocumentEditorInner({
   documentJson, paperSize, paperStyle, zoom,
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
+  pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+
+  /* ─── Note Extend / Note Shrink ────────────────────────────────────────
+   * The sheet grows in fixed 50 mm slabs. Shrinking is clamped so the page
+   * bottom can never rise above the last rendered object on the page. */
+  const NOTE_STEP_MM = 50;
+  const sheetElRef = useRef<HTMLDivElement | null>(null);
+  const [pageExtraMm, setPageExtraMm] = useState<number>(pageExtraMmProp ?? 0);
+  useEffect(() => {
+    if (typeof pageExtraMmProp === "number") setPageExtraMm(pageExtraMmProp);
+  }, [pageExtraMmProp]);
+
+  const applyPageExtra = (mm: number) => {
+    const next = Math.max(0, Math.round(mm));
+    setPageExtraMm(next);
+    onPageExtraMmChange?.(next);
+  };
+
+  const extendNote = () => applyPageExtra(pageExtraMm + NOTE_STEP_MM);
+
+  /** Millimetres of blank space between the last object and the page bottom. */
+  const trailingBlankMm = (): number => {
+    const sheet = sheetElRef.current;
+    if (!sheet) return pageExtraMm;
+    const inner = sheet.firstElementChild as HTMLElement | null;
+    const contentHost = inner?.firstElementChild as HTMLElement | null;
+    if (!contentHost) return pageExtraMm;
+    const scale = sheet.getBoundingClientRect().width / (sheet.offsetWidth || 1) || 1;
+    let bottom = contentHost.getBoundingClientRect().top;
+    for (const el of Array.from(contentHost.querySelectorAll<HTMLElement>("*"))) {
+      const r = el.getBoundingClientRect();
+      if (r.height === 0 && r.width === 0) continue;
+      if (r.bottom > bottom) bottom = r.bottom;
+    }
+    const sheetBottom = sheet.getBoundingClientRect().bottom;
+    const blankPx = (sheetBottom - bottom) / scale;
+    return Math.max(0, blankPx / (96 / 25.4));
+  };
+
+  const shrinkNote = () => {
+    if (pageExtraMm <= 0) return;
+    // Never shrink into content: only reclaim genuinely blank trailing space.
+    const reclaimable = Math.max(0, trailingBlankMm() - 12);
+    if (reclaimable < 1) {
+      toast({
+        title: "Cannot shrink further",
+        description: "The page already stops just below your last object.",
+      });
+      return;
+    }
+    applyPageExtra(pageExtraMm - Math.min(NOTE_STEP_MM, reclaimable));
+  };
+
   /* ─── 3D Geometry Workspace (separate from the 2D editor) ─── */
   const [diagramTabsOpen, setDiagramTabsOpen] = useState(false);
   const [workspace3dOpen, setWorkspace3dOpen] = useState(false);
