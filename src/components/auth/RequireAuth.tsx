@@ -15,9 +15,12 @@ const RequireAuth = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!ready || user) return;
+    // Never bounce off the sign-in pages themselves — that loops the `next` param.
+    if (/^\/(login|signup|auth)(\/|$)/.test(location.pathname)) return;
     const dest = `${location.pathname}${location.search ?? ""}`;
     navigate(`/login?next=${encodeURIComponent(dest)}`, { replace: true });
   }, [ready, user, navigate, location.pathname, location.search]);
+
 
   if (!ready || !user) {
     return (
