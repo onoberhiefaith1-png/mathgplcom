@@ -231,6 +231,7 @@ export const revokeDownloadForCopy = async (copyId: string) => {
 
 export type DownloadResult =
   | { kind: "lesson_note"; notebookId: string }
+  | { kind: "lesson_asset" }
   | { kind: "adventure"; gameId: string }
   | { kind: "gallery" }
   | { kind: "other" };
@@ -239,7 +240,6 @@ const GALLERY_KINDS: CommunityKind[] = [
   "background",
   "building",
   "asset",
-  "lesson_asset",
   "decoration",
   "effect",
   "reward",
@@ -288,6 +288,29 @@ export const downloadResource = async (card: CommunityCard): Promise<DownloadRes
     if (error) throw error;
     await recordDownload(card.id, copy.id as string);
     return { kind: "adventure", gameId: copy.id as string };
+  }
+
+  // A lesson-note asset is a saved editor object: it lands in the member's own
+  // Asset Library, in the same section the creator filed it under.
+  if (card.kind === "lesson_asset") {
+    const node = card.payload?.node ?? null;
+    if (!node) throw new Error("This asset is no longer available.");
+    const shortCode = String(card.payload?.short_code ?? "").toUpperCase() || "AS";
+    const { data: item, error } = await supabase
+      .from("custom_assets")
+      .insert({
+        owner_id: uid,
+        name: card.title,
+        short_code: shortCode,
+        section: String(card.payload?.section ?? "diagrams"),
+        source: String(card.payload?.source ?? "other"),
+        payload: { node } as never,
+      } as never)
+      .select("id")
+      .single();
+    if (error) throw error;
+    await recordDownload(card.id, item.id as string);
+    return { kind: "lesson_asset" };
   }
 
   if (GALLERY_KINDS.includes(card.kind)) {
