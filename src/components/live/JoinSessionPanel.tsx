@@ -102,7 +102,6 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
       toast({ title: "Enter a session code", variant: "destructive" });
       return;
     }
-    if (!userId) return;
     setSubmitting(true);
     try {
       const { data: session, error } = await supabase
@@ -113,6 +112,14 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
         return;
       }
       const found = session as { id: string; class_id: string };
+
+      // Audience member — straight into the session, no account, no approval.
+      if (!userId) {
+        navigate(`/live/s/${found.id}`);
+        return;
+      }
+
+
 
       const { data: existing } = await supabase
         .from("class_members")
