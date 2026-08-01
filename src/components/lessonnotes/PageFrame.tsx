@@ -3,7 +3,7 @@
 // Content flows naturally inside; page splitting is automatic at print time.
 // For on-screen, a single long sheet is acceptable (TipTap handles wrapping).
 
-import { type ReactNode, type CSSProperties } from "react";
+import { type ReactNode, type CSSProperties, type Ref } from "react";
 import { paperBackground, PAPER_SIZES, type PaperSize, type PaperStyle } from "@/lib/lessonnotes/paperThemes";
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
   /** Extra writing space added below the natural page height (mm). */
   extraMm?: number;
   /** Ref to the sheet element, used to measure content for Note Shrink. */
-  sheetRef?: React.Ref<HTMLDivElement>;
+  sheetRef?: Ref<HTMLDivElement>;
   children: ReactNode;
 }
 
