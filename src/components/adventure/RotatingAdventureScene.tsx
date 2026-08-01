@@ -315,10 +315,13 @@ const CustomBuilding = ({
 );
 
 export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string) => string } = {}) => {
-  // Recover from "Web page caused context loss and was blocked" by remounting
-  // the Canvas with a fresh key when the browser drops the WebGL context.
+  // ONE WebGL context for the life of the page. The canvas is never keyed on
+  // artwork URLs — swapping textures happens INSIDE the live scene, so the
+  // building never blinks out while config or signed URLs settle.
   const [ctxKey, setCtxKey] = useState(0);
-  const { config } = useHomepageConfig();
+  const remountedRef = useRef(false);
+  const [visible, setVisible] = useState(false);
+  const { config, ready } = useHomepageConfig();
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
 
   const ringUrls = useMemo(
@@ -332,38 +335,54 @@ export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string
 
   const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
 
-  useEffect(() => {
-    const onLost = () => setCtxKey((k) => k + 1);
-    window.addEventListener("webglcontextlost", onLost);
-    return () => window.removeEventListener("webglcontextlost", onLost);
-  }, []);
-
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       <HomepageBackground background={config.background} />
       {usingCustom ? (
         <CustomBuilding element={config.customBuilding!} />
-      ) : (
-        <Canvas
-          key={`${ctxKey}-${ringUrls.join("|")}-${coreUrls.join("|")}`}
-          camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
-          dpr={[1, 1.5]}
-          gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
-          onCreated={({ gl }) => {
-            const canvas = gl.domElement;
-            const handleLost = (e: Event) => {
-              e.preventDefault();
-              setCtxKey((k) => k + 1);
-            };
-            canvas.addEventListener("webglcontextlost", handleLost as EventListener);
-          }}
+      ) : ready ? (
+        <div
+          className="absolute inset-0 transition-opacity duration-700"
+          style={{ opacity: visible ? 1 : 0 }}
         >
-          <Suspense fallback={null}>
-            <Showcase ringUrls={ringUrls} coreUrls={coreUrls} routeFor={routeFor} />
-          </Suspense>
-        </Canvas>
-      )}
+          <Canvas
+            key={ctxKey}
+            camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
+            dpr={[1, 1.25]}
+            gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
+            onCreated={({ gl }) => {
+              const canvas = gl.domElement;
+              let restoreTimer: number | undefined;
+              // Standard, no-remount recovery: block the default teardown and
+              // wait for the browser to restore the same context.
+              canvas.addEventListener("webglcontextlost", (e: Event) => {
+                e.preventDefault();
+                setVisible(false);
+                if (remountedRef.current) return;
+                window.clearTimeout(restoreTimer);
+                restoreTimer = window.setTimeout(() => {
+                  // Last resort, once only — never a loss → remount → loss loop.
+                  remountedRef.current = true;
+                  setCtxKey((k) => k + 1);
+                }, 2500);
+              });
+              canvas.addEventListener("webglcontextrestored", () => {
+                window.clearTimeout(restoreTimer);
+                setVisible(true);
+              });
+              // Fade in on the first painted frame so any reload dissolves softly.
+              requestAnimationFrame(() => setVisible(true));
+            }}
+          >
+            {/* Fallback keeps the sky visible; the canvas itself stays mounted. */}
+            <Suspense fallback={null}>
+              <Showcase ringUrls={ringUrls} coreUrls={coreUrls} routeFor={routeFor} />
+            </Suspense>
+          </Canvas>
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
     </main>
   );
 };
+
