@@ -77,7 +77,7 @@ const TeachingHubClasses = () => {
 
         <div className="rounded-2xl border border-dash-border bg-dash-surface p-6 text-dash-surface-foreground shadow-[var(--shadow-dash)]">
           <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted">Join Class</div>
-          <JoinClassPanel />
+          <JoinClassPanel light />
         </div>
       </div>
 

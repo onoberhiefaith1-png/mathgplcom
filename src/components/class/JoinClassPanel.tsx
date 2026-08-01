@@ -24,7 +24,19 @@ const extractCode = (raw: string): string => {
  * invite-link entry, pending-request banner, invitations, MathGPL ID and the
  * student's previously joined classes.
  */
-const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
+const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: boolean }) => {
+  // `light` renders the panel on a white/elevated surface (Classes page) instead
+  // of the translucent dark card used by the standalone /join route.
+  const card = light
+    ? "rounded-2xl border border-dash-border bg-dash-navy/[0.03] p-5"
+    : "rounded-2xl border border-border bg-card/40 p-5 backdrop-blur";
+  const label = light
+    ? "text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted"
+    : "text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+  const field = light
+    ? "flex-1 rounded-lg border border-dash-border bg-dash-surface px-3 py-2 text-dash-surface-foreground outline-hidden focus:border-dash-gold"
+    : "flex-1 rounded-md border border-border bg-background px-3 py-2 outline-hidden focus:border-primary";
+  const muted = light ? "text-dash-surface-muted" : "text-muted-foreground";
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -263,14 +275,14 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
         </section>
       )}
 
-      <section className="rounded-2xl border border-border bg-card/40 p-5 backdrop-blur">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Join Code</label>
+      <section className={card}>
+        <label className={`block ${label}`}>Join Code</label>
         <div className="mt-2 flex gap-2">
           <input
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
             placeholder="e.g. A1B2C3D4"
-            className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono tracking-widest outline-hidden focus:border-primary"
+            className={`${field} font-mono tracking-widest`}
           />
           <button
             disabled={submitting || !joinCode.trim()}
@@ -282,14 +294,14 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border bg-card/40 p-5 backdrop-blur">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invite Link</label>
+      <section className={card}>
+        <label className={`block ${label}`}>Invite Link</label>
         <div className="mt-2 flex gap-2">
           <input
             value={inviteLink}
             onChange={(e) => setInviteLink(e.target.value)}
             placeholder="https://…/join/XXXXXXXX"
-            className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-hidden focus:border-primary"
+            className={`${field} text-sm`}
           />
           <button
             disabled={submitting || !inviteLink.trim()}
@@ -301,30 +313,30 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border bg-card/40 p-5 backdrop-blur">
-        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your MathGPL ID</div>
+      <section className={card}>
+        <div className={label}>Your MathGPL ID</div>
         <div className="mt-2 flex items-center gap-2">
-          <code className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-base">
+          <code className={`${field} font-mono text-base`}>
             {mathgplId || "—"}
           </code>
           <button
             onClick={copyId}
             disabled={!mathgplId}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm hover:border-primary disabled:opacity-50"
+            className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm disabled:opacity-50 ${light ? "border-dash-border text-dash-surface-foreground hover:border-dash-gold" : "border-border hover:border-primary"}`}
           >
             {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className={`mt-2 text-xs ${muted}`}>
           Share this ID with your teacher if they ask for it. It identifies you across MathGPL.
         </p>
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Classes You've Joined</h2>
+        <h2 className={`mb-2 ${label}`}>Classes You've Joined</h2>
         {previous.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          <div className={`rounded-xl border border-dashed p-6 text-center text-sm ${light ? "border-dash-border text-dash-surface-muted" : "border-border text-muted-foreground"}`}>
             You haven't joined any classes yet.
           </div>
         ) : (
@@ -334,10 +346,10 @@ const JoinClassPanel = ({ initialCode }: { initialCode?: string }) => {
                 <button
                   type="button"
                   onClick={() => navigate(`/student/class/${c.id}`)}
-                  className="block w-full rounded-xl border border-border bg-card/40 p-4 text-left backdrop-blur transition hover:border-primary/40"
+                  className={`block w-full rounded-xl p-4 text-left transition ${light ? "border border-dash-border bg-dash-surface hover:border-dash-gold" : "border border-border bg-card/40 backdrop-blur hover:border-primary/40"}`}
                 >
                   <div className="truncate text-base font-semibold">{c.name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">Tap to open</div>
+                  <div className={`mt-1 text-xs ${muted}`}>Tap to open</div>
                 </button>
               </li>
             ))}
