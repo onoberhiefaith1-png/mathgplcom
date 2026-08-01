@@ -2449,6 +2449,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          ask_participant_name: boolean
           broadcasts: Json
           class_id: string
           created_at: string
@@ -2466,6 +2467,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          ask_participant_name?: boolean
           broadcasts?: Json
           class_id: string
           created_at?: string
@@ -2483,6 +2485,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          ask_participant_name?: boolean
           broadcasts?: Json
           class_id?: string
           created_at?: string
@@ -2662,6 +2665,7 @@ export type Database = {
       }
       smart_cards: {
         Row: {
+          ask_participant_name: boolean
           assessment_id: string | null
           class_id: string | null
           created_at: string
@@ -2688,6 +2692,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ask_participant_name?: boolean
           assessment_id?: string | null
           class_id?: string | null
           created_at?: string
@@ -2714,6 +2719,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ask_participant_name?: boolean
           assessment_id?: string | null
           class_id?: string | null
           created_at?: string
