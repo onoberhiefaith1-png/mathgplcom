@@ -231,13 +231,22 @@ export const revokeDownloadForCopy = async (copyId: string) => {
 
 export type DownloadResult =
   | { kind: "lesson_note"; notebookId: string }
+  | { kind: "adventure"; gameId: string }
+  | { kind: "gallery" }
   | { kind: "other" };
 
+const GALLERY_KINDS: CommunityKind[] = ["background", "building", "asset"];
+
 /**
- * Download never touches the device: it copies the resource straight into the
- * matching place in the member's own workspace.
+ * Copy never touches the device: it copies the resource straight into the
+ * matching place in the member's own workspace, where it becomes an
+ * independent, fully editable resource. The original is never modified.
  */
 export const downloadResource = async (card: CommunityCard): Promise<DownloadResult> => {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) throw new Error("Not signed in");
+
   if (card.kind === "lesson_note") {
     const sourceNotebook = (card.payload?.notebook_id as string | undefined) ?? card.source_id;
     if (!sourceNotebook) throw new Error("This lesson note is no longer available.");
@@ -249,9 +258,52 @@ export const downloadResource = async (card: CommunityCard): Promise<DownloadRes
     return { kind: "lesson_note", notebookId: copyId };
   }
 
-  // Backgrounds, buildings, assets and adventures land in their own galleries
-  // once those galleries exist per member (next phase). The download is still
-  // recorded so creators see accurate active-download counts.
+  if (card.kind === "adventure") {
+    const sourceGame = (card.payload?.game_id as string | undefined) ?? card.source_id;
+    if (!sourceGame) throw new Error("This adventure is no longer available.");
+    const { data: source, error: readError } = await supabase
+      .from("games")
+      .select("title, canvas, cover_url")
+      .eq("id", sourceGame)
+      .single();
+    if (readError) throw readError;
+    const { data: copy, error } = await supabase
+      .from("games")
+      .insert({
+        owner_id: uid,
+        title: (source as { title?: string }).title ?? card.title,
+        canvas: (source as { canvas?: unknown }).canvas as never,
+        cover_url: (source as { cover_url?: string | null }).cover_url ?? null,
+      } as never)
+      .select("id")
+      .single();
+    if (error) throw error;
+    await recordDownload(card.id, copy.id as string);
+    return { kind: "adventure", gameId: copy.id as string };
+  }
+
+  if (GALLERY_KINDS.includes(card.kind)) {
+    const { data: item, error } = await supabase
+      .from("member_gallery_items")
+      .insert({
+        owner_id: uid,
+        kind: card.kind,
+        title: card.title,
+        media_url: (card.payload?.media_url as string | undefined) ??
+          (card.payload?.preview_url as string | undefined) ??
+          null,
+        storage_path: (card.payload?.storage_path as string | undefined) ?? null,
+        media_type: (card.payload?.media_type as string | undefined) ?? null,
+        source: (card.payload?.source as string | undefined) ?? null,
+        source_resource_id: card.id,
+      } as never)
+      .select("id")
+      .single();
+    if (error) throw error;
+    await recordDownload(card.id, item.id as string);
+    return { kind: "gallery" };
+  }
+
   await recordDownload(card.id, null);
   return { kind: "other" };
 };
