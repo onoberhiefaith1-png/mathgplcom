@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
@@ -47,7 +47,7 @@ const WorldSegment = ({
   onActivate,
   onHoverChange,
 }: {
-  texture: THREE.Texture;
+  texture?: THREE.Texture;
   index: number;
   interactive: boolean;
   onActivate: (index: number) => void;
@@ -64,6 +64,10 @@ const WorldSegment = ({
   // cover (rather than z-fight with) the edge towers of their neighbours — one
   // tower partially hides the other, reading as a single continuous structure.
   const radius = WORLD_RADIUS + (index % 2 === 0 ? 0.14 : 0);
+
+  // No texture yet (first load / re-sign in flight) → draw nothing for this
+  // slice rather than a white panel. Siblings keep rendering.
+  if (!texture) return null;
 
   return (
     <mesh
@@ -172,21 +176,49 @@ const Showcase = ({
     () => Array.from(new Set([...ringUrls, ...coreUrls])),
     [ringUrls, coreUrls],
   );
-  const loaded = useLoader(THREE.TextureLoader, uniqueUrls) as THREE.Texture[];
-  const textureByUrl = useMemo(() => {
-    const map = new Map<string, THREE.Texture>();
-    uniqueUrls.forEach((url, i) => {
-      const t = loaded[i];
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 8;
-      map.set(url, t);
+  // Textures load OUTSIDE Suspense and are swapped in only once decoded, so a
+  // re-signed URL updates the existing materials instead of suspending (and
+  // blanking) the whole scene.
+  const [textureByUrl, setTextureByUrl] = useState<Map<string, THREE.Texture>>(new Map());
+  useEffect(() => {
+    let alive = true;
+    const loader = new THREE.TextureLoader();
+    void Promise.all(
+      uniqueUrls.map(
+        (url) =>
+          new Promise<[string, THREE.Texture | null]>((resolve) => {
+            loader.load(
+              url,
+              (t) => {
+                t.colorSpace = THREE.SRGBColorSpace;
+                t.anisotropy = 8;
+                resolve([url, t]);
+              },
+              undefined,
+              () => resolve([url, null]),
+            );
+          }),
+      ),
+    ).then((entries) => {
+      if (!alive) return;
+      setTextureByUrl((prev) => {
+        const next = new Map(prev);
+        entries.forEach(([url, t]) => {
+          if (t) next.set(url, t);
+        });
+        return next;
+      });
     });
-    return map;
-  }, [uniqueUrls, loaded]);
+    return () => {
+      alive = false;
+    };
+  }, [uniqueUrls]);
+
   const coreTextures = useMemo(
-    () => coreUrls.map((u) => textureByUrl.get(u)!).filter(Boolean),
+    () => coreUrls.map((u) => textureByUrl.get(u)).filter((t): t is THREE.Texture => !!t),
     [coreUrls, textureByUrl],
   );
+
 
   useFrame((state, delta) => {
     if (!worldRef.current) return;
@@ -246,7 +278,7 @@ const Showcase = ({
           <WorldSegment
             key={i}
             index={i}
-            texture={textureByUrl.get(ringUrls[i] ?? academy.image)!}
+            texture={textureByUrl.get(ringUrls[i] ?? academy.image)}
             interactive
             onActivate={handleActivate}
             onHoverChange={(h) => (hoveredRef.current = h)}
@@ -315,10 +347,13 @@ const CustomBuilding = ({
 );
 
 export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string) => string } = {}) => {
-  // Recover from "Web page caused context loss and was blocked" by remounting
-  // the Canvas with a fresh key when the browser drops the WebGL context.
+  // ONE WebGL context for the life of the page. The canvas is never keyed on
+  // artwork URLs — swapping textures happens INSIDE the live scene, so the
+  // building never blinks out while config or signed URLs settle.
   const [ctxKey, setCtxKey] = useState(0);
-  const { config } = useHomepageConfig();
+  const remountedRef = useRef(false);
+  const [visible, setVisible] = useState(false);
+  const { config, ready } = useHomepageConfig();
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
 
   const ringUrls = useMemo(
@@ -332,38 +367,54 @@ export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string
 
   const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
 
-  useEffect(() => {
-    const onLost = () => setCtxKey((k) => k + 1);
-    window.addEventListener("webglcontextlost", onLost);
-    return () => window.removeEventListener("webglcontextlost", onLost);
-  }, []);
-
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       <HomepageBackground background={config.background} />
       {usingCustom ? (
         <CustomBuilding element={config.customBuilding!} />
-      ) : (
-        <Canvas
-          key={`${ctxKey}-${ringUrls.join("|")}-${coreUrls.join("|")}`}
-          camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
-          dpr={[1, 1.5]}
-          gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
-          onCreated={({ gl }) => {
-            const canvas = gl.domElement;
-            const handleLost = (e: Event) => {
-              e.preventDefault();
-              setCtxKey((k) => k + 1);
-            };
-            canvas.addEventListener("webglcontextlost", handleLost as EventListener);
-          }}
+      ) : ready ? (
+        <div
+          className="absolute inset-0 transition-opacity duration-700"
+          style={{ opacity: visible ? 1 : 0 }}
         >
-          <Suspense fallback={null}>
-            <Showcase ringUrls={ringUrls} coreUrls={coreUrls} routeFor={routeFor} />
-          </Suspense>
-        </Canvas>
-      )}
+          <Canvas
+            key={ctxKey}
+            camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
+            dpr={[1, 1.25]}
+            gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
+            onCreated={({ gl }) => {
+              const canvas = gl.domElement;
+              let restoreTimer: number | undefined;
+              // Standard, no-remount recovery: block the default teardown and
+              // wait for the browser to restore the same context.
+              canvas.addEventListener("webglcontextlost", (e: Event) => {
+                e.preventDefault();
+                setVisible(false);
+                if (remountedRef.current) return;
+                window.clearTimeout(restoreTimer);
+                restoreTimer = window.setTimeout(() => {
+                  // Last resort, once only — never a loss → remount → loss loop.
+                  remountedRef.current = true;
+                  setCtxKey((k) => k + 1);
+                }, 2500);
+              });
+              canvas.addEventListener("webglcontextrestored", () => {
+                window.clearTimeout(restoreTimer);
+                setVisible(true);
+              });
+              // Fade in on the first painted frame so any reload dissolves softly.
+              requestAnimationFrame(() => setVisible(true));
+            }}
+          >
+            {/* Fallback keeps the sky visible; the canvas itself stays mounted. */}
+            <Suspense fallback={null}>
+              <Showcase ringUrls={ringUrls} coreUrls={coreUrls} routeFor={routeFor} />
+            </Suspense>
+          </Canvas>
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
     </main>
   );
 };
+
