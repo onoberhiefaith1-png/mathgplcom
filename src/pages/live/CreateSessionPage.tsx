@@ -127,10 +127,12 @@ const CreateSessionPage = () => {
         durationMinutes: Math.max(5, Math.round((Number(durationHours) || 1) * 60)),
         timeZone,
         visibility,
+        askParticipantName,
         ownerId: userData.user.id,
         broadcasts,
 
       });
+
       setCreated(session);
     } catch (err) {
       toast({ title: "Could not create session", description: String((err as Error).message ?? ""), variant: "destructive" });
