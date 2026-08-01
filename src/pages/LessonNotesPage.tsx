@@ -16,6 +16,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import CoverDesignerDialog from "@/components/lessonnotes/CoverDesignerDialog";
+import PublishDialog from "@/components/community/PublishDialog";
+import { revokeDownloadForCopy } from "@/lib/community/community";
 import type { NotebookCoverConfig } from "@/lib/lessonnotes/coverThemes";
 import {
   Plus, LogOut, Presentation, MoreVertical, Image as ImageIcon,
@@ -43,6 +45,9 @@ const LessonNotesPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [coverFor, setCoverFor] = useState<NotebookRow | null>(null);
+  // Sharing a note with MyGPL Community publishes a listing; the note itself
+  // never leaves this shelf.
+  const [shareFor, setShareFor] = useState<NotebookRow | null>(null);
 
   // Authentication is handled once by the platform guard (RequireAuth); this
   // page only needs to know who is signed in.
@@ -106,6 +111,9 @@ const LessonNotesPage = () => {
 
   const deleteNotebook = async (nb: NotebookRow) => {
     if (!window.confirm(`Delete "${nb.title || nb.subject}"? This cannot be undone.`)) return;
+    // A downloaded copy that no longer exists stops counting towards the
+    // creator's active downloads.
+    await revokeDownloadForCopy(nb.id);
     const { error } = await supabase.from("notebooks").delete().eq("id", nb.id);
     if (error) toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     else load();
@@ -206,6 +214,7 @@ const LessonNotesPage = () => {
                   onRename={() => renameNotebook(nb)}
                   onDuplicate={() => duplicate(nb)}
                   onCover={() => setCoverFor(nb)}
+                  onShare={() => setShareFor(nb)}
                   onDelete={() => deleteNotebook(nb)}
                 />
               ))}
@@ -227,6 +236,19 @@ const LessonNotesPage = () => {
 
       <CreateNotebookDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreate={create} />
 
+      {shareFor && (
+        <PublishDialog
+          open
+          onOpenChange={(o) => { if (!o) setShareFor(null); }}
+          kind="lesson_note"
+          sourceId={shareFor.id}
+          defaultTitle={shareFor.title || shareFor.subject || "Lesson note"}
+          defaultDescription={[shareFor.subject, shareFor.subtopic].filter(Boolean).join(" · ")}
+          defaultHashtags={[shareFor.subject, shareFor.class_name].filter(Boolean).map((t) => `#${String(t).replace(/\s+/g, "")}`).join(" ")}
+          payload={{ notebook_id: shareFor.id, subject: shareFor.subject ?? null }}
+        />
+      )}
+
       {coverFor && (
         <CoverDesignerDialog
           open
@@ -240,7 +262,7 @@ const LessonNotesPage = () => {
 };
 
 const NotebookCard = ({
-  nb, onOpen, onPresent, onRename, onDuplicate, onCover, onDelete,
+  nb, onOpen, onPresent, onRename, onDuplicate, onCover, onShare, onDelete,
 }: {
   nb: NotebookRow;
   onOpen: () => void;
@@ -248,6 +270,7 @@ const NotebookCard = ({
   onRename: () => void;
   onDuplicate: () => void;
   onCover: () => void;
+  onShare: () => void;
   onDelete: () => void;
 }) => {
   const stub = (label: string) => () =>
@@ -292,8 +315,8 @@ const NotebookCard = ({
             <DropdownMenuItem onClick={onPresent}>
               <Play className="h-4 w-4 mr-2" /> Present on Smartboard
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={stub("Share")}>
-              <Share2 className="h-4 w-4 mr-2" /> Share
+            <DropdownMenuItem onClick={onShare}>
+              <Share2 className="h-4 w-4 mr-2" /> Share with MyGPL Community
             </DropdownMenuItem>
             <DropdownMenuItem onClick={stub("Export")}>
               <Download className="h-4 w-4 mr-2" /> Export
