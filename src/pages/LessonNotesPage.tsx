@@ -245,7 +245,22 @@ const LessonNotesPage = () => {
           defaultTitle={shareFor.title || shareFor.subject || "Lesson note"}
           defaultDescription={[shareFor.subject, shareFor.subtopic].filter(Boolean).join(" · ")}
           defaultHashtags={[shareFor.subject, shareFor.class_name].filter(Boolean).map((t) => `#${String(t).replace(/\s+/g, "")}`).join(" ")}
-          payload={{ notebook_id: shareFor.id, subject: shareFor.subject ?? null }}
+          payload={{
+            notebook_id: shareFor.id,
+            subject: shareFor.subject ?? null,
+            // The designed cover travels with the listing so the community card
+            // looks exactly like the note on the teacher's own shelf.
+            cover: {
+              title: shareFor.title,
+              teacher: shareFor.teacher,
+              class_name: shareFor.class_name,
+              session: shareFor.session,
+              subject: shareFor.subject,
+              subtopic: shareFor.subtopic ?? null,
+              color_index: shareFor.color_index,
+              cover_config: shareFor.cover_config ?? null,
+            },
+          }}
         />
       )}
 
