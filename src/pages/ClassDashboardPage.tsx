@@ -9,8 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
 import InviteByMathGPLId from "@/components/class/InviteByMathGPLId";
+import ClassCommunityShare from "@/components/class/ClassCommunityShare";
 
-type ClassRow = { id: string; name: string; class_code: string; join_code: string };
+type ClassRow = { id: string; name: string; class_code: string; description: string | null; join_code: string };
 
 const ClassDashboardPage = () => {
   const { classId } = useParams();
@@ -34,7 +35,7 @@ const ClassDashboardPage = () => {
       }
       const { data, error } = await supabase
         .from("classes")
-        .select("id, name, class_code")
+        .select("id, name, class_code, description")
         .eq("id", classId!)
         .single();
       if (error || !data) {
@@ -111,6 +112,8 @@ const ClassDashboardPage = () => {
           ))}
         </div>
       </section>
+
+      <ClassCommunityShare classId={cls.id} className={cls.name} description={cls.description} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tiles.map(({ label, icon: Icon, to, tone, blurb }) => (
