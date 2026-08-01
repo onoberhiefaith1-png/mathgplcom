@@ -195,14 +195,23 @@ const AdminConsole = () => {
       title="Platform"
       subtitle="Every school, teacher, parent and student on MathGPL — preview an account, or enter its workspace to test the experience exactly as that user has it."
       actions={
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-dash-gold px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-navy shadow-md transition hover:brightness-105"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add account
-        </button>
+        <>
+          <Link
+            to="/admin/email"
+            className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface backdrop-blur transition hover:bg-dash-surface/20"
+          >
+            <Mail className="h-3.5 w-3.5" /> Email Dashboard
+          </Link>
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-dash-gold px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-navy shadow-md transition hover:brightness-105"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add account
+          </button>
+        </>
       }
+
     >
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         {overview.map((o) => (
