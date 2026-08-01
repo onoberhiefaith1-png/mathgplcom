@@ -23,11 +23,10 @@ import { isFavorite, toggleFavorite, listFavorites, subscribeFavorites } from "@
 import { listRecent, getLastInserted, subscribeRecents } from "@/lib/lessonnotes/assets/recents";
 import { renderVisual } from "./extensions/visuals/visualDispatch";
 import { MatrixCreateDialog, type MatrixDialogKind, type MatrixDialogResult } from "./MatrixCreateDialog";
-import { Search, MoreVertical, Heart, Library, Trash2 } from "lucide-react";
+import { Search, MoreVertical, Heart, Library } from "lucide-react";
 import ShareMenu from "@/components/community/ShareMenu";
 import { toast } from "@/hooks/use-toast";
 import {
-  LIBRARY_SECTIONS,
   customAssetToDef,
   deleteCustomAsset,
   listMyCustomAssets,
