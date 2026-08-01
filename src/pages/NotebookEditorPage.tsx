@@ -177,6 +177,8 @@ const NotebookEditorPage = () => {
           onPaperSizeChange={(s) => updatePaperSettings({ paper_size: s })}
           onPaperStyleChange={(s) => updatePaperSettings({ paper_style: s })}
           onDocChange={saveDocumentJson}
+          pageExtraMm={(notebook as { page_extra_mm?: number }).page_extra_mm ?? 0}
+          onPageExtraMmChange={(mm) => updatePaperSettings({ page_extra_mm: mm })}
           notebookContext={{
             subject: notebook.subject,
             topic: notebook.title ?? "",
