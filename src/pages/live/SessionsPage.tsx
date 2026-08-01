@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, PlusCircle, Trash2, Radio } from "lucide-react";
+import { ArrowLeft, PlusCircle, Radio } from "lucide-react";
+import ShareMenu from "@/components/community/ShareMenu";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
