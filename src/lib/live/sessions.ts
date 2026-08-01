@@ -124,7 +124,10 @@ export type CreateSessionInput = {
   visibility: SessionVisibility;
   ownerId: string;
   broadcasts?: BroadcastEntry[];
+  /** Ask link-holding audience members for a display name before they take part. */
+  askParticipantName?: boolean;
 };
+
 
 
 /**
