@@ -1,24 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import CommunityBrowsePage from "@/pages/community/CommunityBrowsePage";
+import CommunityHome from "@/pages/community/CommunityHome";
 
 const DESCRIPTION =
-  "Discover lesson notes, classes, adventures, backgrounds, buildings and assets published by MathGPL educators, and copy them into your own workspace.";
+  "Enter MathGPL Community: the same rotating building, filled with lesson notes, classes, adventures, backgrounds, buildings and assets shared by other educators. Copy anything into your own workspace.";
 
 export const Route = createFileRoute("/community/")({
   head: () => ({
     meta: [
-      { title: "MyGPL Community — Share and discover teaching resources" },
+      { title: "MathGPL Community — Discover and copy shared teaching resources" },
       { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: "MyGPL Community — Share and discover teaching resources" },
+      { property: "og:title", content: "MathGPL Community — Discover and copy shared teaching resources" },
       { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: () => (
-    <CommunityBrowsePage
-      title="MyGPL Community"
-      subtitle="Everything educators have chosen to share. Download a resource and it becomes your own independent copy."
-    />
-  ),
+  component: CommunityHome,
 });
