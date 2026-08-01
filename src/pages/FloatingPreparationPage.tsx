@@ -653,16 +653,17 @@ const FloatingPreparationPage = () => {
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Lesson Note
           </button>
-          <div className="flex-1 min-w-0 text-center">
-            <p className="text-[9px] uppercase tracking-[0.4em] text-foreground/40 truncate">
+          <div className="flex-1 min-w-[140px] text-center">
+            <p className="hidden lg:block text-[9px] uppercase tracking-[0.4em] text-foreground/40 truncate">
               Floating Number Selection
             </p>
             <h1 className="text-sm font-medium truncate text-foreground/90">
               {title || "Notebook"} — Solution
             </h1>
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            <span className="text-[11px] text-foreground/55 mr-1">{summary}</span>
+          <div className="flex items-center gap-2 shrink-0 justify-end">
+            <span className="hidden xl:inline text-[11px] text-foreground/55 mr-1">{summary}</span>
+
             <select
               value={paperSize}
               onChange={(e) => updatePaper({ paper_size: e.target.value as PaperSize })}
