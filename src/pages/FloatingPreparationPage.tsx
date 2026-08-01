@@ -13,7 +13,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Eraser, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
+import { ArrowLeft, Download, Eraser, FileText, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  PAPER_LABELS, PAPER_SIZES, paperBackground,
+  type PaperSize, type PaperStyle,
+} from "@/lib/lessonnotes/paperThemes";
+import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
@@ -248,6 +256,9 @@ const FloatingPreparationPage = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
+  const [paperSize, setPaperSize] = useState<PaperSize>("a4");
+  const [paperStyle, setPaperStyle] = useState<PaperStyle>("ruled");
+  const [documentJson, setDocumentJson] = useState<any | null>(null);
   const [objects, setObjects] = useState<SolutionObject[]>([]);
   const [lines, setLines] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -326,7 +337,11 @@ const FloatingPreparationPage = () => {
     (async () => {
       if (!notebookId || !subsectionId) return;
       const [nbRes, ssRes, blocksRes] = await Promise.all([
-        supabase.from("notebooks").select("title").eq("id", notebookId).maybeSingle(),
+        supabase
+          .from("notebooks")
+          .select("title, paper_size, paper_style, document_json")
+          .eq("id", notebookId)
+          .maybeSingle(),
         supabase
           .from("notebook_subsections")
           .select("floating_highlights")
@@ -340,6 +355,9 @@ const FloatingPreparationPage = () => {
       ]);
       if (!alive) return;
       setTitle(nbRes.data?.title ?? "");
+      setPaperSize(((nbRes.data as any)?.paper_size as PaperSize) || "a4");
+      setPaperStyle(((nbRes.data as any)?.paper_style as PaperStyle) || "ruled");
+      setDocumentJson((nbRes.data as any)?.document_json ?? null);
       const solBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "solution") as any;
       const solution = solBlock?.content_ascii ?? "";
       const flat = solution
