@@ -150,7 +150,16 @@ const FloatingParticles = ({ color, size, count, spread }: { color: string; size
   );
 };
 
-const Showcase = ({ ringUrls, coreUrls }: { ringUrls: string[]; coreUrls: string[] }) => {
+const Showcase = ({
+  ringUrls,
+  coreUrls,
+  routeFor,
+}: {
+  ringUrls: string[];
+  coreUrls: string[];
+  /** Lets the community mirror keep segment clicks inside /community. */
+  routeFor?: (route: string) => string;
+}) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
@@ -216,7 +225,7 @@ const Showcase = ({ ringUrls, coreUrls }: { ringUrls: string[]; coreUrls: string
   const handleActivate = (clickedIndex?: number) => {
     const idx = typeof clickedIndex === "number" ? clickedIndex : frontIndexRef.current;
     const academy = academies[idx];
-    if (academy) navigate(academy.route);
+    if (academy) navigate(routeFor ? routeFor(academy.route) : academy.route);
   };
 
   return (
@@ -305,7 +314,7 @@ const CustomBuilding = ({
   </div>
 );
 
-export const RotatingAdventureScene = () => {
+export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string) => string } = {}) => {
   // Recover from "Web page caused context loss and was blocked" by remounting
   // the Canvas with a fresh key when the browser drops the WebGL context.
   const [ctxKey, setCtxKey] = useState(0);
@@ -350,7 +359,7 @@ export const RotatingAdventureScene = () => {
           }}
         >
           <Suspense fallback={null}>
-            <Showcase ringUrls={ringUrls} coreUrls={coreUrls} />
+            <Showcase ringUrls={ringUrls} coreUrls={coreUrls} routeFor={routeFor} />
           </Suspense>
         </Canvas>
       )}
