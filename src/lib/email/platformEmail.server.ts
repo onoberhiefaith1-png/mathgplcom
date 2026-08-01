@@ -43,7 +43,9 @@ export async function loadTemplates() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("platform_email_templates")
-    .select("template_key, display_name, subject, body, footer, signature, updated_at")
+    .select(
+      "template_key, display_name, subject, body, footer, signature, heading_color, text_color, button_color, button_label, logo_text, updated_at",
+    )
     .order("display_name");
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -102,6 +104,80 @@ export async function connectionStatus(): Promise<{
   };
 }
 
+/** Saved sender addresses; the active one is what recipients see. */
+export async function loadSavedSenders() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await (supabaseAdmin as unknown as AnyClient)
+    .from("platform_email_senders")
+    .select("id, sender_name, sender_email, reply_to_email, is_active")
+    .order("created_at", { ascending: true });
+  return (data ?? []) as unknown as {
+    id: string;
+    sender_name: string;
+    sender_email: string;
+    reply_to_email: string;
+    is_active: boolean;
+  }[];
+}
+
+/**
+ * How much mail has actually gone out.
+ *
+ * `email_send_log` records one row per state change, so a single message can
+ * appear twice (queued, then sent). Rows are collapsed to the latest state per
+ * `message_id` before anything is counted, so one email is always one entry.
+ */
+export async function loadActivity(sinceIso: string, untilIso: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const probe = await (supabaseAdmin as unknown as AnyClient)
+    .from("email_send_log")
+    .select("message_id, template_name, recipient_email, status, error_message, created_at")
+    .gte("created_at", sinceIso)
+    .lte("created_at", untilIso)
+    .order("created_at", { ascending: false })
+    .limit(2000);
+
+  if (probe.error) {
+    return {
+      available: false,
+      totals: { total: 0, sent: 0, failed: 0, suppressed: 0, pending: 0 },
+      templates: [] as string[],
+      rows: [] as Row[],
+    };
+  }
+
+  const raw = (probe.data ?? []) as unknown as Row[];
+  const latest = new Map<string, Row>();
+  for (const row of raw) {
+    const key = row.message_id ?? `${row.recipient_email}-${row.created_at}`;
+    if (!latest.has(key)) latest.set(key, { ...row, message_id: key });
+  }
+  const rows = [...latest.values()].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const count = (test: (s: string) => boolean) => rows.filter((r) => test(r.status)).length;
+
+  return {
+    available: true,
+    totals: {
+      total: rows.length,
+      sent: count((s) => s === "sent"),
+      failed: count((s) => s === "failed" || s === "dlq" || s === "bounced" || s === "complained"),
+      suppressed: count((s) => s === "suppressed"),
+      pending: count((s) => s === "pending"),
+    },
+    templates: [...new Set(rows.map((r) => r.template_name).filter(Boolean))].sort(),
+    rows: rows.slice(0, 300),
+  };
+}
+
+type Row = {
+  message_id: string;
+  template_name: string;
+  recipient_email: string;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+};
+
 export type SendInput = {
   templateKey: string;
   to: string;
@@ -148,6 +224,11 @@ export async function sendPlatformEmail(input: SendInput): Promise<{ ok: boolean
           signature: renderTemplate(template.signature, data),
           senderName: sender.sender_name,
           replyTo: sender.reply_to_email || sender.sender_email,
+          headingColor: template.heading_color,
+          textColor: template.text_color,
+          buttonColor: template.button_color,
+          buttonLabel: template.button_label,
+          logoText: template.logo_text,
         },
       }),
     });

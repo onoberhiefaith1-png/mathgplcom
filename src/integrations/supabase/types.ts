@@ -2538,6 +2538,36 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_email_senders: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          reply_to_email: string
+          sender_email: string
+          sender_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          reply_to_email?: string
+          sender_email: string
+          sender_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          reply_to_email?: string
+          sender_email?: string
+          sender_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       platform_email_settings: {
         Row: {
           id: boolean
@@ -2571,31 +2601,46 @@ export type Database = {
       platform_email_templates: {
         Row: {
           body: string
+          button_color: string
+          button_label: string
           display_name: string
           footer: string
+          heading_color: string
+          logo_text: string
           signature: string
           subject: string
           template_key: string
+          text_color: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           body: string
+          button_color?: string
+          button_label?: string
           display_name: string
           footer?: string
+          heading_color?: string
+          logo_text?: string
           signature?: string
           subject: string
           template_key: string
+          text_color?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           body?: string
+          button_color?: string
+          button_label?: string
           display_name?: string
           footer?: string
+          heading_color?: string
+          logo_text?: string
           signature?: string
           subject?: string
           template_key?: string
+          text_color?: string
           updated_at?: string
           updated_by?: string | null
         }

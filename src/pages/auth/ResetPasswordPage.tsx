@@ -3,6 +3,7 @@ import { useNavigate, Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AUTH_FIELD } from "@/lib/accounts/authField";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 
@@ -56,11 +57,11 @@ const ResetPasswordPage = () => {
           <form className="mt-6 space-y-3" onSubmit={submit}>
             <div className="space-y-1.5">
               <Label htmlFor="new-password">New password</Label>
-              <Input id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+              <Input id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className={AUTH_FIELD} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="confirm-password">Confirm password</Label>
-              <Input id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+              <Input id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required className={AUTH_FIELD} />
             </div>
             <Button type="submit" className="w-full" disabled={busy}>Update password</Button>
           </form>
