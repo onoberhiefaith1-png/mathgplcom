@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { deleteResource, downloadResource, requestClassAccess, setResourceStatus } from "@/lib/community/community";
 import { KIND_LABEL, type CommunityCard } from "@/lib/community/types";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import NotebookCover from "@/components/lessonnotes/NotebookCover";
 import { useSignedUrl } from "@/components/gamebuilder/SignedMedia";
 import { sectionLabel } from "@/lib/lessonnotes/assets/customAssets";
@@ -122,7 +124,24 @@ const CommunityResourceCard = ({
     (card.payload?.storage_path as string | undefined) ??
     null;
   const signedCover = useSignedUrl(isAdventure ? coverPath : null);
-  const noteCover = isNote ? (card.payload?.cover as Record<string, unknown> | undefined) : undefined;
+  const payloadCover = isNote ? (card.payload?.cover as Record<string, unknown> | undefined) : undefined;
+  // Listings published before covers travelled in the payload still show the
+  // creator's real cover: read it straight from the shared notebook.
+  const notebookId = (card.payload?.notebook_id as string | undefined) ?? card.source_id;
+  const { data: fetchedCover } = useQuery({
+    queryKey: ["community", "note-cover", notebookId],
+    enabled: isNote && !payloadCover && !!notebookId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("notebooks")
+        .select("title, teacher, class_name, session, subject, subtopic, color_index, cover_config")
+        .eq("id", notebookId!)
+        .maybeSingle();
+      return (data as Record<string, unknown> | null) ?? null;
+    },
+  });
+  const noteCover = payloadCover ?? fetchedCover ?? undefined;
 
   const header = isNote && noteCover ? (
     <div className="w-32 shrink-0 self-start p-3">
