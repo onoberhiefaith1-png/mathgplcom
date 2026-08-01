@@ -29,7 +29,9 @@ export type LiveSession = {
 export const hydrateSession = (row: Record<string, unknown>): LiveSession => ({
   ...(row as unknown as LiveSession),
   broadcasts: parseBroadcasts(row.broadcasts),
+  ask_participant_name: Boolean(row.ask_participant_name),
 });
+
 
 
 /** Derived, schedule-driven state shown to teacher and participants. */
