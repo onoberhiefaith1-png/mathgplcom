@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import CommunitySectionPage from "@/pages/community/CommunitySectionPage";
+import { BUILDING_SECTIONS } from "@/lib/community/mode";
 
 const DESCRIPTION =
-  "Library assets — diagrams, structures and media — shared with MathGPL Community. Preview, like and copy any asset into your own asset library.";
+  "Building assets, decorations, rewards and special effects shared with MathGPL Community. Preview, like and copy any of them into your own workspace.";
 
 export const Route = createFileRoute("/community/assets/")({
   head: () => ({
@@ -17,10 +18,30 @@ export const Route = createFileRoute("/community/assets/")({
   }),
   component: () => (
     <CommunitySectionPage
-      kind="asset"
+      tabs={[
+        {
+          kind: "asset",
+          label: "Assets",
+          subtitle: "Copy an asset into your own library and reuse it anywhere.",
+        },
+        {
+          kind: "decoration",
+          label: "Decorations",
+          subtitle: "Decorations and floating objects placed around the building.",
+        },
+        { kind: "reward", label: "Rewards", subtitle: "Reward artwork earned inside adventures." },
+        {
+          kind: "effect",
+          label: "Special effects",
+          subtitle: "Looping effects — fire, forcefields, light and weather.",
+        },
+      ]}
       title="Community Assets"
-      subtitle="Copy an asset into your own Asset Library and reuse it in any lesson note."
+      subtitle="Everything that decorates a building or an adventure."
       workspacePath="/assets"
+      backTo="/community/building"
+      backLabel="Community Building Workspace"
+      siblings={BUILDING_SECTIONS}
     />
   ),
 });
