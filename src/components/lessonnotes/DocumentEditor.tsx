@@ -130,6 +130,10 @@ interface Props {
   onPaperSizeChange: (s: PaperSize) => void;
   onPaperStyleChange: (s: PaperStyle) => void;
   onDocChange: (json: any) => void;
+  /** Extra page height (mm) added by Note Extend. */
+  pageExtraMm?: number;
+  onPageExtraMmChange?: (mm: number) => void;
+
   notebookContext?: { subject?: string; topic?: string; subtopic?: string };
   onPresent?: () => void;
   onScanFromPhone?: () => void;
