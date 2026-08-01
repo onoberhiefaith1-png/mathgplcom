@@ -3,12 +3,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   BadgeCheck,
+  CheckCircle2,
   Eye,
   Loader2,
   Mail,
+  Plus,
   RotateCcw,
   Save,
   Send,
+  Trash2,
 } from "lucide-react";
 
 import DashboardShell from "@/components/accounts/DashboardShell";
@@ -18,29 +21,49 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
+  activateSavedSender,
+  addSavedSender,
+  fetchEmailActivity,
   fetchEmailConfig,
+  fetchSavedSenders,
+  removeSavedSender,
   saveEmailSender,
   saveEmailTemplate,
   sendTestEmail,
 } from "@/lib/email/emailAdmin.functions";
 import {
+  ACTIVITY_RANGES,
   CONNECTION_LABEL,
   PREVIEW_DATA,
   TEMPLATE_META,
   renderTemplate,
+  type ActivityRangeKey,
   type ConnectionState,
   type EmailTemplate,
   type TemplateKey,
 } from "@/lib/email/templates";
 
-type Tab = "sender" | "connection" | "test" | "templates";
+type Tab = "sender" | "templates" | "activity" | "connection" | "test";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "sender", label: "Sender" },
+  { key: "templates", label: "Templates" },
+  { key: "activity", label: "Activity" },
   { key: "connection", label: "Connection" },
   { key: "test", label: "Send test email" },
-  { key: "templates", label: "Templates" },
 ];
+
+const FIELD = "bg-white text-slate-900 placeholder:text-slate-400";
+
+const STATUS_TONE: Record<string, string> = {
+  sent: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  pending: "bg-slate-100 text-slate-600 border-slate-200",
+  suppressed: "bg-amber-50 text-amber-700 border-amber-200",
+  dlq: "bg-rose-50 text-rose-700 border-rose-200",
+  failed: "bg-rose-50 text-rose-700 border-rose-200",
+  bounced: "bg-rose-50 text-rose-700 border-rose-200",
+  complained: "bg-rose-50 text-rose-700 border-rose-200",
+};
 
 const Card = ({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) => (
   <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-[0_10px_30px_rgba(9,16,40,0.12)]">
@@ -78,6 +101,56 @@ const EmailDashboard = () => {
   const [activeKey, setActiveKey] = useState<TemplateKey>("email_verification");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [testTo, setTestTo] = useState("");
+  const [range, setRange] = useState<ActivityRangeKey>("7d");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [templateFilter, setTemplateFilter] = useState("all");
+  const [newSender, setNewSender] = useState({ sender_name: "", sender_email: "", reply_to_email: "" });
+
+  const window = useMemo(() => {
+    const hours = ACTIVITY_RANGES.find((r) => r.key === range)?.hours ?? 168;
+    const until = new Date();
+    const since = new Date(until.getTime() - hours * 3600_000);
+    return { since: since.toISOString(), until: until.toISOString() };
+  }, [range]);
+
+  const senders = useQuery({ queryKey: ["email-senders"], queryFn: () => fetchSavedSenders() });
+  const activity = useQuery({
+    queryKey: ["email-activity", window.since, window.until],
+    queryFn: () => fetchEmailActivity({ data: window }),
+  });
+
+  const refreshSenders = () => {
+    qc.invalidateQueries({ queryKey: ["email-senders"] });
+    qc.invalidateQueries({ queryKey: ["email-config"] });
+  };
+
+  const addSender = useMutation({
+    mutationFn: () => addSavedSender({ data: newSender }),
+    onSuccess: () => {
+      setNewSender({ sender_name: "", sender_email: "", reply_to_email: "" });
+      toast({ title: "Sender saved to your list" });
+      refreshSenders();
+    },
+    onError: (e: Error) => toast({ title: "Could not save", description: e.message, variant: "destructive" }),
+  });
+
+  const useSender = useMutation({
+    mutationFn: (id: string) => activateSavedSender({ data: { id } }),
+    onSuccess: () => {
+      toast({ title: "Sender switched", description: "Every MathGPL email now comes from this address." });
+      refreshSenders();
+    },
+    onError: (e: Error) => toast({ title: "Could not switch", description: e.message, variant: "destructive" }),
+  });
+
+  const dropSender = useMutation({
+    mutationFn: (id: string) => removeSavedSender({ data: { id } }),
+    onSuccess: () => {
+      toast({ title: "Sender removed" });
+      refreshSenders();
+    },
+    onError: (e: Error) => toast({ title: "Could not remove", description: e.message, variant: "destructive" }),
+  });
 
   useEffect(() => {
     if (!config.data) return;
@@ -86,7 +159,7 @@ const EmailDashboard = () => {
       sender_email: config.data.sender.sender_email ?? "",
       reply_to_email: config.data.sender.reply_to_email ?? "",
     });
-    setTemplates(config.data.templates as EmailTemplate[]);
+    setTemplates(config.data.templates as unknown as EmailTemplate[]);
   }, [config.data]);
 
   const active = useMemo(
@@ -116,6 +189,11 @@ const EmailDashboard = () => {
           body: active?.body ?? "",
           footer: active?.footer ?? "",
           signature: active?.signature ?? "",
+          heading_color: active?.heading_color || "#0f172a",
+          text_color: active?.text_color || "#334155",
+          button_color: active?.button_color || "#f59e0b",
+          button_label: active?.button_label || "Continue",
+          logo_text: active?.logo_text ?? "MathGPL",
         },
       }),
     onSuccess: () => {
