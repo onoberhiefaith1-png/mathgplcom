@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Upload, Trash2 } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import SignedMedia from "./SignedMedia";
+import ShareMenu from "@/components/community/ShareMenu";
+import type { CommunityKind } from "@/lib/community/types";
 import {
   deleteGameAsset,
   listGameAssets,
@@ -19,6 +21,15 @@ const TABS: { kind: AssetKind; label: string }[] = [
   { kind: "progress_bar", label: "Progress Bar" },
   { kind: "effect", label: "Effect" },
 ];
+
+/** Game asset kind → the Community shelf it is published on. */
+const COMMUNITY_KIND: Record<AssetKind, CommunityKind> = {
+  background: "background",
+  reward: "reward",
+  progress_bar: "asset",
+  effect: "effect",
+};
+
 
 interface AssetsPanelProps {
   onPick: (asset: GameAssetRow) => void;
