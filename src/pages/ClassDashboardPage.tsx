@@ -3,7 +3,7 @@ import { classRoot, productTerms, spaceListPath } from "@/lib/product/workspaceR
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import ClassPageShell from "@/components/class/ClassPageShell";
 
-import { ArrowLeft, Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3 } from "lucide-react";
+import { Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
