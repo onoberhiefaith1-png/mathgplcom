@@ -107,21 +107,24 @@ const AccountMenu = () => {
             </>
           ) : (
             <>
-              <p className="px-3 py-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                Choose your account
-              </p>
-              {ACCOUNT_MENU.map((item) => (
-                <Link
-                  key={item.key}
-                  to={`/auth/${item.key}`}
-                  onClick={() => setOpen(false)}
-                  className="block rounded-xl px-3 py-2 text-sm text-foreground transition hover:bg-primary/15"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {/* One login for everyone — the account type is detected after sign-in. */}
+              <Link
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="block rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-primary/15"
+              >
+                Login
+              </Link>
+              <Link
+                to="/signup"
+                onClick={() => setOpen(false)}
+                className="block rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-primary/15"
+              >
+                Create Account
+              </Link>
             </>
           )}
+
         </div>
       )}
     </div>
