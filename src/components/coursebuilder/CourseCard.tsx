@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { BookOpen, Copy, Eye, Pencil, Trash2 } from "lucide-react";
+import { BookOpen, Copy, Eye, Pencil, School, Trash2 } from "lucide-react";
 import { useCourseMediaUrl } from "@/lib/courses/useCourseMediaUrl";
+import AssignToClassDialog from "./AssignToClassDialog";
 import type { CourseSummary } from "@/lib/courses/api";
 
 interface Props {
@@ -16,6 +18,7 @@ const chip = "inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py
 const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
   const cover = useCourseMediaUrl(course.background_url);
   const published = course.status === "published";
+  const [assigning, setAssigning] = useState(false);
 
   return (
     <article className="overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-slate-200/70">
@@ -68,11 +71,19 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
           </Link>
           <button
             type="button"
+            onClick={() => setAssigning(true)}
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
+          >
+            <School className="h-4 w-4" /> Assign to class
+          </button>
+          <button
+            type="button"
             onClick={() => onDuplicate(course.id)}
             className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
           >
             <Copy className="h-4 w-4" /> Duplicate
           </button>
+
           <button
             type="button"
             onClick={() => onDelete(course)}
@@ -82,7 +93,9 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
           </button>
         </div>
       </div>
+      <AssignToClassDialog open={assigning} onOpenChange={setAssigning} courseId={course.id} />
     </article>
+
   );
 };
 
