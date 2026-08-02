@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "@/lib/router-compat";
 import { z } from "zod";
-import { Eye, EyeOff, GraduationCap, Loader2, LogIn } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Loader2, LogIn, Wrench } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { isDevWorkspaceHost } from "@/lib/env/devWorkspace";
+
 
 const RETURN_KEY = "mathgpl:returnTo";
 
