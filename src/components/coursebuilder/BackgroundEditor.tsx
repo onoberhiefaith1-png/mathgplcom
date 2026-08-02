@@ -50,9 +50,14 @@ const BackgroundEditor = ({ course, onPatch }: Props) => {
         body: JSON.stringify({ prompt }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const json = (await res.json()) as { url?: string };
-      if (!json.url) throw new Error("no_image");
-      onPatch({ background_kind: "image", background_url: json.url });
+      const json = (await res.json()) as { dataUrl?: string };
+      if (!json.dataUrl) throw new Error("no_image");
+      const blob = await (await fetch(json.dataUrl)).blob();
+      const path = await uploadCourseMedia(
+        course.id,
+        new File([blob], "cover.png", { type: blob.type || "image/png" }),
+      );
+      onPatch({ background_kind: "image", background_url: path });
       toast({ title: "Background generated" });
     } catch {
       toast({
