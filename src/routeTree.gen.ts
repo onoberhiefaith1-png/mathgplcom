@@ -53,6 +53,7 @@ import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/inde
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AdminEmailIndexRouteImport } from './routes/admin/email/index'
+import { Route as AdminSecurityIndexRouteImport } from './routes/admin/security/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
@@ -428,6 +429,11 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
 const AdminEmailIndexRoute = AdminEmailIndexRouteImport.update({
   id: '/email/',
   path: '/email/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSecurityIndexRoute = AdminSecurityIndexRouteImport.update({
+  id: '/security/',
+  path: '/security/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
@@ -1359,6 +1365,7 @@ export interface FileRoutesByFullPath {
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/security/': typeof AdminSecurityIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
   '/age/$range/': typeof AgeRangeIndexRoute
   '/assets/$category/': typeof AssetsCategoryIndexRoute
@@ -1551,6 +1558,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/email': typeof AdminEmailIndexRoute
+  '/admin/security': typeof AdminSecurityIndexRoute
   '/adventure/games': typeof AdventureGamesIndexRoute
   '/age/$range': typeof AgeRangeIndexRoute
   '/assets/$category': typeof AssetsCategoryIndexRoute
@@ -1754,6 +1762,7 @@ export interface FileRoutesById {
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/security/': typeof AdminSecurityIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
   '/age/$range/': typeof AgeRangeIndexRoute
   '/assets/$category/': typeof AssetsCategoryIndexRoute
@@ -1958,6 +1967,7 @@ export interface FileRouteTypes {
     | '/terms/'
     | '/.lovable/oauth/consent'
     | '/admin/email/'
+    | '/admin/security/'
     | '/adventure/games/'
     | '/age/$range/'
     | '/assets/$category/'
@@ -2150,6 +2160,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/.lovable/oauth/consent'
     | '/admin/email'
+    | '/admin/security'
     | '/adventure/games'
     | '/age/$range'
     | '/assets/$category'
@@ -2352,6 +2363,7 @@ export interface FileRouteTypes {
     | '/terms/'
     | '/.lovable/oauth/consent'
     | '/admin/email/'
+    | '/admin/security/'
     | '/adventure/games/'
     | '/age/$range/'
     | '/assets/$category/'
@@ -2926,6 +2938,13 @@ declare module '@tanstack/react-router' {
       path: '/email'
       fullPath: '/admin/email/'
       preLoaderRoute: typeof AdminEmailIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/security/': {
+      id: '/admin/security/'
+      path: '/security'
+      fullPath: '/admin/security/'
+      preLoaderRoute: typeof AdminSecurityIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/adventure/games/': {
@@ -4026,11 +4045,13 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminEmailIndexRoute: typeof AdminEmailIndexRoute
+  AdminSecurityIndexRoute: typeof AdminSecurityIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminEmailIndexRoute: AdminEmailIndexRoute,
+  AdminSecurityIndexRoute: AdminSecurityIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
