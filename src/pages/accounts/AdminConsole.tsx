@@ -197,11 +197,18 @@ const AdminConsole = () => {
       actions={
         <>
           <Link
+            to="/admin/security"
+            className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface backdrop-blur transition hover:bg-dash-surface/20"
+          >
+            Security
+          </Link>
+          <Link
             to="/admin/email"
             className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface backdrop-blur transition hover:bg-dash-surface/20"
           >
             <Mail className="h-3.5 w-3.5" /> Email Dashboard
           </Link>
+
           <button
             type="button"
             onClick={() => setAddOpen(true)}
