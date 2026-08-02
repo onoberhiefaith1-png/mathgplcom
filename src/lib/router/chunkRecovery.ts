@@ -28,7 +28,6 @@ export function recoverFromStaleChunk(error: unknown) {
   }
 
   const url = new URL(window.location.href);
-  const routePath = `${url.pathname}${url.searchParams.size > 0 ? `?${url.searchParams.toString()}` : ""}`;
   const previousAttempt = readRecoveryAttempt();
   if (
     previousAttempt?.path === url.pathname &&
