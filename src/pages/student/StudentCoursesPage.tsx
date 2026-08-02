@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "@/lib/router-compat";
+import { useParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, GraduationCap, Loader2, Lock, Play } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   getClassCourseSettings,
   listClassCourses,
@@ -18,7 +17,6 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 /** Students only ever see the pathway their teacher prepared. */
 const StudentCoursesPage = () => {
   const { classId } = useParams<{ classId: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [pathway, setPathway] = useState<ClassCourse[]>([]);
   const [progress, setProgress] = useState<CourseProgressRow[]>([]);

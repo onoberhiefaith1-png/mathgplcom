@@ -29,6 +29,7 @@ const ClassCoursesPage = () => {
   const [loading, setLoading] = useState(true);
   const [picker, setPicker] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const refresh = useCallback(async () => {
     if (!classId) return;
@@ -43,22 +44,26 @@ const ClassCoursesPage = () => {
   useEffect(() => {
     (async () => {
       if (!classId) return;
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        navigate(`/auth?redirect=${classRoot()}/${classId}/courses`);
-        return;
-      }
-      const redirect = await ensureClassOwner(classId, userData.user.id);
-      if (redirect) {
-        navigate(redirect, { replace: true });
-        return;
-      }
-      const { data } = await supabase.from("classes").select("name").eq("id", classId).maybeSingle();
-      setClassName(data?.name ?? "Class");
       try {
+        setLoading(true);
+        setLoadError("");
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) {
+          navigate(`/login?next=${encodeURIComponent(`${classRoot()}/${classId}/courses`)}`);
+          return;
+        }
+        const redirect = await ensureClassOwner(classId, userData.user.id);
+        if (redirect) {
+          navigate(redirect, { replace: true });
+          return;
+        }
+        const { data } = await supabase.from("classes").select("name").eq("id", classId).maybeSingle();
+        setClassName(data?.name ?? "Class");
         await refresh();
       } catch (e: unknown) {
-        toast({ title: "Could not load courses", description: String((e as Error)?.message ?? e), variant: "destructive" });
+        const message = String((e as Error)?.message ?? e);
+        setLoadError(message);
+        toast({ title: "Could not load courses", description: message, variant: "destructive" });
       } finally {
         setLoading(false);
       }
