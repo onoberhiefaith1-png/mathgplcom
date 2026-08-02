@@ -33,7 +33,7 @@ const CourseBuilderLibrary = () => {
     setCreating(true);
     try {
       const course = await createCourse("Untitled course");
-      navigate({ to: `/course-builder/${course.id}` });
+      navigate(`/course-builder/${course.id}`);
     } catch (e: unknown) {
       toast({ title: "Could not create course", description: String((e as Error)?.message ?? e), variant: "destructive" });
       setCreating(false);
