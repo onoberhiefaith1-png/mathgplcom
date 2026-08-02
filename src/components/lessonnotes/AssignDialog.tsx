@@ -22,6 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import AddToCoursePicker from "./AddToCoursePicker";
 import { toast } from "@/hooks/use-toast";
 import { type AssessmentKind } from "@/lib/assessments/createAssessment";
 import { totalMarks as computeTotalMarks, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
