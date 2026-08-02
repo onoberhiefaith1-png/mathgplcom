@@ -41,14 +41,14 @@ export const NavHistoryProvider = ({ children }: { children: ReactNode }) => {
   const goBack = useCallback(
     (fallback?: string) => {
       if (stackRef.current.length > 1) {
-        // Pop optimistically; POP effect will also run and no-op safely.
-        stackRef.current.pop();
+        // The POP effect is the single owner of stack mutation. Popping here
+        // too consumed two entries per click and eventually trapped users.
         navigate(-1);
         return;
       }
-      if (fallback) navigate(fallback, { replace: true });
+      if (fallback) navigate(fallback);
       else if (window.history.length > 1) navigate(-1);
-      else navigate("/", { replace: true });
+      else navigate("/");
     },
     [navigate],
   );

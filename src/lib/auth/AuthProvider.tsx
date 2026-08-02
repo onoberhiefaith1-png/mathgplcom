@@ -16,6 +16,7 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 type AuthContextValue = {
   session: Session | null;
@@ -38,16 +39,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let restored = false;
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       if (!active) return;
+      restored = true;
       setSession(next);
       setReady(true);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setReady(true);
-    });
+    const restore = async () => {
+      try {
+        const { data } = await withTimeout(supabase.auth.getSession(), 8_000, "Session restoration timed out");
+        if (!active) return;
+        restored = true;
+        setSession(data.session);
+      } catch (firstError) {
+        try {
+          const { data } = await withTimeout(supabase.auth.getSession(), 5_000);
+          if (!active) return;
+          restored = true;
+          setSession(data.session);
+        } catch (retryError) {
+          console.warn("[auth] session restoration failed", retryError ?? firstError);
+          if (active && !restored) setSession(null);
+        }
+      } finally {
+        if (active) setReady(true);
+      }
+    };
+    void restore();
     return () => {
       active = false;
       sub.subscription.unsubscribe();

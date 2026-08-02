@@ -107,9 +107,24 @@ slot inside a template, use \\square (which renders as the empty box symbol).
 
 const PEDAGOGY_RULES = PEDAGOGY_REFERENCE;
 
+const AI_REQUEST_TIMEOUT_MS = 25_000;
+const VALIDATION_BUDGET_MS = 55_000;
+
+async function fetchAI(init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(ENDPOINT, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("AI request timed out");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function callAI(messages: any[], model = "google/gemini-2.5-flash") {
-  const res = await fetch(ENDPOINT, {
+  const res = await fetchAI({
     method: "POST",
     headers: {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -134,7 +149,7 @@ async function callAIRich(
   const model = opts.model ?? "google/gemini-2.5-flash";
   const body: any = { model, messages };
   if (opts.maxTokens) body.max_tokens = opts.maxTokens;
-  const res = await fetch(ENDPOINT, {
+  const res = await fetchAI({
     method: "POST",
     headers: {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -189,6 +204,7 @@ async function generateValidated(opts: {
   const model = opts.model ?? "google/gemini-2.5-flash";
   const maxRounds = opts.maxRoundsPerStage ?? 2;
   const messages = [...opts.messages];
+  const deadline = Date.now() + VALIDATION_BUDGET_MS;
   let draft = await callAI(messages, model);
   let cleaned = sanitizePresentation(sanitizeMath(stripFences(draft)));
   let lastStage = 1;
@@ -198,6 +214,7 @@ async function generateValidated(opts: {
   // top so earlier stages catch any regressions the correction introduced.
   let safety = 8; // hard cap across all stages to prevent runaway loops
   while (safety-- > 0) {
+    if (Date.now() >= deadline) break;
     const results = runValidationPipeline(cleaned, opts.kind);
     const failing = firstFailingStage(results);
     if (!failing) {
@@ -208,6 +225,7 @@ async function generateValidated(opts: {
     let round = 0;
     let stageOk = false;
     while (round < maxRounds) {
+      if (Date.now() >= deadline) break;
       round++;
       const standards = STAGE_STANDARDS[failing.stage] ?? RENDERING_STANDARD;
       const correctorPrompt = `Your previous draft FAILED MathGPL pre-publication validation at STAGE ${failing.stage} — ${failing.stageName}.

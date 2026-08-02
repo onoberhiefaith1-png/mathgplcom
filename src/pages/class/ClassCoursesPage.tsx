@@ -29,6 +29,7 @@ const ClassCoursesPage = () => {
   const [loading, setLoading] = useState(true);
   const [picker, setPicker] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const refresh = useCallback(async () => {
     if (!classId) return;
@@ -43,22 +44,26 @@ const ClassCoursesPage = () => {
   useEffect(() => {
     (async () => {
       if (!classId) return;
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        navigate(`/auth?redirect=${classRoot()}/${classId}/courses`);
-        return;
-      }
-      const redirect = await ensureClassOwner(classId, userData.user.id);
-      if (redirect) {
-        navigate(redirect, { replace: true });
-        return;
-      }
-      const { data } = await supabase.from("classes").select("name").eq("id", classId).maybeSingle();
-      setClassName(data?.name ?? "Class");
       try {
+        setLoading(true);
+        setLoadError("");
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) {
+          navigate(`/login?next=${encodeURIComponent(`${classRoot()}/${classId}/courses`)}`);
+          return;
+        }
+        const redirect = await ensureClassOwner(classId, userData.user.id);
+        if (redirect) {
+          navigate(redirect, { replace: true });
+          return;
+        }
+        const { data } = await supabase.from("classes").select("name").eq("id", classId).maybeSingle();
+        setClassName(data?.name ?? "Class");
         await refresh();
       } catch (e: unknown) {
-        toast({ title: "Could not load courses", description: String((e as Error)?.message ?? e), variant: "destructive" });
+        const message = String((e as Error)?.message ?? e);
+        setLoadError(message);
+        toast({ title: "Could not load courses", description: message, variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -156,6 +161,11 @@ const ClassCoursesPage = () => {
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-dash-surface/70">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading pathway…
+        </div>
+      ) : loadError ? (
+        <div className="rounded-lg border border-dash-border bg-dash-surface p-8 text-center shadow-[var(--shadow-dash)]">
+          <p className="text-sm text-dash-surface-muted">The course pathway could not be loaded.</p>
+          <Button className="mt-4" variant="outline" onClick={() => window.location.reload()}>Try again</Button>
         </div>
       ) : pathway.length === 0 ? (
         <div className="rounded-2xl border border-dash-border bg-dash-surface p-10 text-center shadow-[var(--shadow-dash)]">

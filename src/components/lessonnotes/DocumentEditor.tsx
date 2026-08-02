@@ -102,6 +102,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { withTimeout } from "@/lib/async/withTimeout";
 import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import {
   SECTION_LABELS, WHOLE_LESSON_ORDER, aiSectionKind, blockKindFor,
@@ -287,7 +288,7 @@ async function aiGenerate(opts: {
   inheritedContext?: boolean;
   lessonContext?: LessonTeachingContext;
 }): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("notebook-ai", {
+  const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
     body: {
       mode: "generate",
       sectionKind: aiSectionKind(opts.kind),
@@ -303,7 +304,7 @@ async function aiGenerate(opts: {
       lessonContext: opts.lessonContext ?? null,
       workspaceManifest: buildWorkspaceManifest(),
     },
-  });
+  }), 45_000, "Lesson generation took too long. Please try again.");
   if (error) {
     // supabase.functions.invoke surfaces a generic "non-2xx status code"
     // message and hides the JSON body inside error.context (a Response). Read
@@ -349,18 +350,17 @@ const stripLeadingSolutionLabel = (raw: string): string => {
 
 /** Run the existing notebook-ai `scan` mode on each image and merge problems. */
 async function scanImages(images: string[]): Promise<string[]> {
-  const out: string[] = [];
-  for (const dataUrl of images) {
+  const results = await Promise.all(images.map(async (dataUrl) => {
     try {
-      const { data, error } = await supabase.functions.invoke("notebook-ai", {
+      const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
         body: { mode: "scan", imageDataUrl: dataUrl },
-      });
-      if (error) continue;
+      }), 30_000, "Image scanning took too long.");
+      if (error) return [] as string[];
       const items: string[] = (data as any)?.items ?? [];
-      out.push(...items);
-    } catch { /* skip */ }
-  }
-  return out;
+      return items;
+    } catch { return [] as string[]; }
+  }));
+  return results.flat();
 }
 
 // (legacy textToParagraphs removed — see aiTextToNodes for the math-aware version)
@@ -994,13 +994,13 @@ function DocumentEditorInner({
         const topic = ctxRef.current?.topic || notebookContext?.topic;
         const subtopic = ctxRef.current?.subtopic || notebookContext?.subtopic;
         const subject = ctxRef.current?.subject || notebookContext?.subject;
-        const { data, error } = await supabase.functions.invoke("notebook-ai", {
+        const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
           body: {
             mode: "geometry",
             sectionText: content,
             topic, subtopic, subject,
           },
-        });
+        }), 30_000, "Diagram generation took too long.");
         if (error) return;
         const scene = sanitizeScene((data as any)?.scene);
         if (!scene || scene.objects.length === 0) return;
@@ -1659,7 +1659,7 @@ function DocumentEditorInner({
       toast({ title: "Nothing selected", description: "Highlight some text or a math object first.", variant: "destructive" });
       throw new Error("empty selection");
     }
-    const { data, error } = await supabase.functions.invoke("notebook-ai", {
+    const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
       body: {
         mode: "edit",
         kind: target.kind,
@@ -1670,7 +1670,7 @@ function DocumentEditorInner({
         subtopic: ctxRef.current?.subtopic ?? "",
         forceAllStandards: instructionTriggersStandards(instruction),
       },
-    });
+    }), 35_000, "AI editing took too long. Please try again.");
     if (error) throw error;
     return String((data as any)?.content ?? "").trim();
   };
