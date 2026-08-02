@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 import { repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 export type SectionKind =
   | "introduction"
@@ -204,7 +205,11 @@ export function useNotebook(notebookId: string | undefined) {
       }
       let syncP = onOpenSyncPromises.get(notebook.id);
       if (!syncP) {
-        syncP = syncDocumentToNotebook(notebook.id, repaired).catch((e) => {
+        syncP = withTimeout(
+          syncDocumentToNotebook(notebook.id, repaired),
+          20_000,
+          "Notebook synchronization timed out",
+        ).catch((e) => {
           // eslint-disable-next-line no-console
           console.warn("[syncDocumentToNotebook on open] failed:", e);
         });

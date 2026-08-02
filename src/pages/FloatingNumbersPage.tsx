@@ -7,6 +7,7 @@ import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, ChevronRight, Loader2, Shuffle, Sparkles, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { withTimeout } from "@/lib/async/withTimeout";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import {
@@ -664,7 +665,11 @@ const FloatingNumbersPage = () => {
             problem: info.problem,
             solution: info.solution,
           };
-      const { data, error } = await supabase.functions.invoke("notebook-ai", { body });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke("notebook-ai", { body }),
+        45_000,
+        "Floating-number generation took too long. Please try again.",
+      );
       if (error) throw error;
       const aiLines = (data as any)?.lines as
         | { equation: string; fillers: string[]; containers: string[] }[]
