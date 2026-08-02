@@ -35,6 +35,11 @@ const LoginPage = () => {
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState(false);
+  // Development-only shortcut. Resolved after mount so the server-rendered
+  // markup and the first client render always match.
+  const [devHost, setDevHost] = useState(false);
+  useEffect(() => setDevHost(isDevWorkspaceHost()), []);
+
 
   const rawNext = searchParams.get("next") ?? searchParams.get("redirect") ?? "";
   const safeNext = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "";
