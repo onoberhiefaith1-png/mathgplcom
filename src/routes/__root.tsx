@@ -100,12 +100,16 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
-    clearStaleChunkRecovery();
     const onError = (event: ErrorEvent) => recoverFromStaleChunk(event.error ?? event.message);
     const onRejection = (event: PromiseRejectionEvent) => recoverFromStaleChunk(event.reason);
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
+
+    // Keep the loop guard while lazy route modules settle. Clearing it at
+    // mount allowed the same missing chunk to trigger endless reloads.
+    const recoveryCleanup = window.setTimeout(clearStaleChunkRecovery, 15_000);
     return () => {
+      window.clearTimeout(recoveryCleanup);
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
     };
