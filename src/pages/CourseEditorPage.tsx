@@ -102,7 +102,7 @@ const CourseEditorPage = () => {
         if (!source) return;
         const copy = await addSection(courseId, tree.sections.length);
         await updateSection(copy.id, { title: `${source.title} (copy)` });
-        const newBlocks = [];
+        const newBlocks: CourseBlock[] = [];
         for (const b of tree.blocks.filter((x) => x.section_id === id)) {
           const nb = await addBlock(copy.id, b.kind, b.position);
           await updateBlockConfig(nb.id, b.config);
