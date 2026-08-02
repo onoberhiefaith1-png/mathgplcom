@@ -36,7 +36,7 @@ import {
   type QuestionRef,
 } from "@/lib/assignments/pipeline";
 
-type AssignTarget = "assignment" | "adventure";
+type AssignTarget = "assignment" | "adventure" | "course";
 type ClassRow = {
   id: string;
   name: string;
