@@ -421,6 +421,8 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   <>Adds this question to each selected class's <span className="font-medium text-foreground">Adventures</span>. Link it to a progress bar from there.</>
                 )}
               </p>
+              </>
+              )}
             </div>
           )}
           </div>
