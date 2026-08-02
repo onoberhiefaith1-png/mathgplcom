@@ -23,31 +23,34 @@ const StudentCourseRunnerPage = () => {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     (async () => {
       if (!classId || !courseId) return;
-      const [pathway, settings, progress] = await Promise.all([
-        listClassCourses(classId),
-        getClassCourseSettings(classId),
-        myCourseProgress(classId),
-      ]);
-      const idx = pathway.findIndex((p) => p.course.id === courseId);
-      if (idx < 0) {
-        navigate(`/student/class/${classId}/courses`, { replace: true });
-        return;
-      }
-      if (!unlockedFlags(pathway, progress, settings.learning_mode)[idx]) {
-        toast({ title: "This course is still locked" });
-        navigate(`/student/class/${classId}/courses`, { replace: true });
-        return;
-      }
-      setDone(progress.find((p) => p.course_id === courseId)?.status === "completed");
       try {
+        setLoading(true);
+        setLoadError("");
+        const [pathway, settings, progress] = await Promise.all([
+          listClassCourses(classId), getClassCourseSettings(classId), myCourseProgress(classId),
+        ]);
+        const idx = pathway.findIndex((p) => p.course.id === courseId);
+        if (idx < 0) {
+          navigate(`/student/class/${classId}/courses`, { replace: true });
+          return;
+        }
+        if (!unlockedFlags(pathway, progress, settings.learning_mode)[idx]) {
+          toast({ title: "This course is still locked" });
+          navigate(`/student/class/${classId}/courses`, { replace: true });
+          return;
+        }
+        setDone(progress.find((p) => p.course_id === courseId)?.status === "completed");
         setTree(await loadCourseTree(courseId));
         await markCourseProgress({ classId, courseId, status: "in_progress", progress: 10 });
       } catch (e: unknown) {
-        toast({ title: "Could not open course", description: String((e as Error)?.message ?? e), variant: "destructive" });
+        const message = String((e as Error)?.message ?? e);
+        setLoadError(message);
+        toast({ title: "Could not open course", description: message, variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -78,9 +81,14 @@ const StudentCourseRunnerPage = () => {
           <ArrowLeft className="h-3.5 w-3.5" /> My Courses
         </Link>
 
-        {loading || !tree ? (
+        {loading ? (
           <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading course…
+          </div>
+        ) : loadError || !tree ? (
+          <div className="mt-8 rounded-lg border border-border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">This course could not be opened.</p>
+            <Button className="mt-4" variant="outline" onClick={() => navigate(`/student/class/${classId}/courses`)}>Back to courses</Button>
           </div>
         ) : (
           <>

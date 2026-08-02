@@ -12,33 +12,40 @@ import {
   type LearningMode,
 } from "@/lib/courses/classCourses";
 import { Link } from "@/lib/router-compat";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 /** Students only ever see the pathway their teacher prepared. */
 const StudentCoursesPage = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [pathway, setPathway] = useState<ClassCourse[]>([]);
   const [progress, setProgress] = useState<CourseProgressRow[]>([]);
   const [mode, setMode] = useState<LearningMode>("free");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
     if (!classId) return;
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
-      navigate(`/auth?redirect=/student/class/${classId}/courses`);
-      return;
+    setLoading(true);
+    setLoadError("");
+    try {
+      if (!user) throw new Error("Your session is not available. Please log in again.");
+      const [rows, settings, prog] = await Promise.all([
+        listClassCourses(classId), getClassCourseSettings(classId), myCourseProgress(classId),
+      ]);
+      setPathway(rows);
+      setMode(settings.learning_mode);
+      setProgress(prog);
+    } catch (error) {
+      const message = String((error as Error)?.message ?? error);
+      setLoadError(message);
+      toast({ title: "Could not load your courses", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    const [rows, settings, prog] = await Promise.all([
-      listClassCourses(classId),
-      getClassCourseSettings(classId),
-      myCourseProgress(classId),
-    ]);
-    setPathway(rows);
-    setMode(settings.learning_mode);
-    setProgress(prog);
-    setLoading(false);
-  }, [classId, navigate]);
+  }, [classId, user]);
 
   useEffect(() => {
     void load();
@@ -67,6 +74,14 @@ const StudentCoursesPage = () => {
         {loading ? (
           <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading your courses…
+          </div>
+        ) : loadError ? (
+          <div className="mt-8 rounded-lg border border-border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">Your courses could not be loaded.</p>
+            <div className="mt-4 flex justify-center gap-2">
+              <button className="rounded-md border border-border px-4 py-2 text-sm text-foreground" onClick={() => void load()}>Retry</button>
+              <Link to={`/student/class/${classId}`} className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">Back to class</Link>
+            </div>
           </div>
         ) : pathway.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-border bg-card p-8 text-center">
