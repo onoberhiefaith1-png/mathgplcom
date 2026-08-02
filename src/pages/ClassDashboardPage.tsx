@@ -3,7 +3,7 @@ import { classRoot, productTerms, spaceListPath } from "@/lib/product/workspaceR
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import ClassPageShell from "@/components/class/ClassPageShell";
 
-import { Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3 } from "lucide-react";
+import { Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3, GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
@@ -62,6 +62,7 @@ const ClassDashboardPage = () => {
   const tiles: { label: string; icon: typeof Users; to: string; tone: string; blurb: string }[] = [
     { label: productTerms().people, icon: Users, to: `${classRoot()}/${classId}/students`, tone: "from-violet-500 to-purple-600", blurb: `Everyone in this ${productTerms().space.toLowerCase()}.` },
     { label: "Lesson Notes", icon: BookOpen, to: `${classRoot()}/${classId}/lesson-notes`, tone: "from-sky-500 to-blue-600", blurb: "Notes stored in this class." },
+    { label: "Courses", icon: GraduationCap, to: `${classRoot()}/${classId}/courses`, tone: "from-indigo-500 to-blue-700", blurb: "Build this class's learning pathway." },
     { label: "SmartBoard", icon: Presentation, to: `${classRoot()}/${classId}/smartboard`, tone: "from-fuchsia-500 to-pink-600", blurb: "Teach live on the board." },
     { label: productTerms().assignments, icon: ClipboardList, to: `${classRoot()}/${classId}/assignments`, tone: "from-amber-400 to-orange-500", blurb: "Set work and track progress." },
     { label: productTerms().adventures, icon: Compass, to: `${classRoot()}/${classId}/adventures`, tone: "from-emerald-500 to-teal-600", blurb: "Game-based practice." },
