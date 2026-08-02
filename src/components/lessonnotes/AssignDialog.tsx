@@ -22,6 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import AddToCoursePicker from "./AddToCoursePicker";
 import { toast } from "@/hooks/use-toast";
 import { type AssessmentKind } from "@/lib/assessments/createAssessment";
 import { totalMarks as computeTotalMarks, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
@@ -36,7 +37,7 @@ import {
   type QuestionRef,
 } from "@/lib/assignments/pipeline";
 
-type AssignTarget = "assignment" | "adventure";
+type AssignTarget = "assignment" | "adventure" | "course";
 type ClassRow = {
   id: string;
   name: string;
@@ -307,18 +308,15 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
             <div className="py-8 text-center text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading classes…
             </div>
-          ) : classes.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              You have no classes yet. Create a class first, then assign.
-            </div>
           ) : (
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
                 <Label>Assign to</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {([
                     { value: "assignment", label: "Assignment", hint: "Solve on the smartboard" },
                     { value: "adventure", label: "Adventure", hint: "Play inside a game" },
+                    { value: "course", label: "Course", hint: "Add to an Exercise Card" },
                   ] as const).map((opt) => (
                     <button
                       key={opt.value}
@@ -336,6 +334,22 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   ))}
                 </div>
               </div>
+
+              {target === "course" ? (
+                <AddToCoursePicker
+                  notebookId={notebookId}
+                  questionRef={questionRef}
+                  label={title || defaultTitle}
+                  totalMarks={totalMarks}
+                  onDone={() => onOpenChange(false)}
+                />
+              ) : classes.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  You have no classes yet. Create a class first, then assign.
+                </div>
+              ) : (
+              <>
+
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -421,6 +435,8 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   <>Adds this question to each selected class's <span className="font-medium text-foreground">Adventures</span>. Link it to a progress bar from there.</>
                 )}
               </p>
+              </>
+              )}
             </div>
           )}
           </div>

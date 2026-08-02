@@ -1,4 +1,4 @@
-import { BookOpen, Sparkles, Users, Compass } from "lucide-react";
+import { BookOpen, Sparkles, Users, Compass, GraduationCap } from "lucide-react";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 import type { WorkspaceTile } from "@/components/workspace/WorkspaceCard";
@@ -33,6 +33,13 @@ const tiles: WorkspaceTile[] = [
     accent: "from-orange-400/30 to-orange-600/10 border-orange-300/40 text-orange-100",
     image: adventureClouds.url,
     imageAlt: "Sunset clouds over mountains with sacred geometry",
+  },
+  {
+    to: "/course-builder",
+    label: "Skill Builder",
+    description: "Build courses: videos, exercise cards and certificates.",
+    icon: GraduationCap,
+    accent: "from-emerald-400/30 to-emerald-600/10 border-emerald-300/40 text-emerald-100",
   },
 ];
 
