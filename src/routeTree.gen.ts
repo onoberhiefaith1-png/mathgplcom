@@ -23,6 +23,7 @@ import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
+import { Route as ApiCourseBackgroundRouteImport } from './routes/api/course-background'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuthAcceptInviteRouteImport } from './routes/auth/accept-invite'
@@ -272,6 +273,11 @@ const AdventureIndexRoute = AdventureIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdventureRouteRoute,
+} as any)
+const ApiCourseBackgroundRoute = ApiCourseBackgroundRouteImport.update({
+  id: '/api/course-background',
+  path: '/api/course-background',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AssetsIndexRoute = AssetsIndexRouteImport.update({
   id: '/assets/',
@@ -1281,6 +1287,7 @@ export interface FileRoutesByFullPath {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
@@ -1467,6 +1474,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
+  '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
@@ -1663,6 +1671,7 @@ export interface FileRoutesById {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
@@ -1860,6 +1869,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
@@ -2046,6 +2056,7 @@ export interface FileRouteTypes {
     | '/'
     | '/class'
     | '/student'
+    | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
@@ -2241,6 +2252,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
@@ -2437,6 +2449,7 @@ export interface RootRouteChildren {
   SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
+  ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
   AuthParentRoute: typeof AuthParentRoute
@@ -2629,6 +2642,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/adventure/'
       preLoaderRoute: typeof AdventureIndexRouteImport
       parentRoute: typeof AdventureRouteRoute
+    }
+    '/api/course-background': {
+      id: '/api/course-background'
+      path: '/api/course-background'
+      fullPath: '/api/course-background'
+      preLoaderRoute: typeof ApiCourseBackgroundRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/assets/': {
       id: '/assets/'
@@ -4223,6 +4243,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
+  ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,
   AuthParentRoute: AuthParentRoute,

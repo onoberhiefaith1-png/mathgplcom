@@ -1400,6 +1400,192 @@ export type Database = {
         }
         Relationships: []
       }
+      course_blocks: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          kind: string
+          position: number
+          section_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          kind: string
+          position?: number
+          section_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          kind?: string
+          position?: number
+          section_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_blocks_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "course_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_exercise_questions: {
+        Row: {
+          block_id: string
+          created_at: string
+          id: string
+          label: string
+          notebook_id: string | null
+          position: number
+          question_key: string | null
+          section_id: string | null
+          subsection_id: string | null
+          total_marks: number
+          updated_at: string
+        }
+        Insert: {
+          block_id: string
+          created_at?: string
+          id?: string
+          label?: string
+          notebook_id?: string | null
+          position?: number
+          question_key?: string | null
+          section_id?: string | null
+          subsection_id?: string | null
+          total_marks?: number
+          updated_at?: string
+        }
+        Update: {
+          block_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          notebook_id?: string | null
+          position?: number
+          question_key?: string | null
+          section_id?: string | null
+          subsection_id?: string | null
+          total_marks?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_exercise_questions_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "course_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_sections: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_sections_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courses: {
+        Row: {
+          background_kind: string
+          background_url: string | null
+          certificate_mode: string
+          completion_mode: string
+          created_at: string
+          deadline_days: number
+          description: string
+          id: string
+          learning_days: number
+          learning_mode: string
+          owner_id: string
+          pass_mark: number
+          status: string
+          subject: string
+          subtopic: string
+          title: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          background_kind?: string
+          background_url?: string | null
+          certificate_mode?: string
+          completion_mode?: string
+          created_at?: string
+          deadline_days?: number
+          description?: string
+          id?: string
+          learning_days?: number
+          learning_mode?: string
+          owner_id: string
+          pass_mark?: number
+          status?: string
+          subject?: string
+          subtopic?: string
+          title?: string
+          topic?: string
+          updated_at?: string
+        }
+        Update: {
+          background_kind?: string
+          background_url?: string | null
+          certificate_mode?: string
+          completion_mode?: string
+          created_at?: string
+          deadline_days?: number
+          description?: string
+          id?: string
+          learning_days?: number
+          learning_mode?: string
+          owner_id?: string
+          pass_mark?: number
+          status?: string
+          subject?: string
+          subtopic?: string
+          title?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       custom_assets: {
         Row: {
           created_at: string
