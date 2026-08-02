@@ -6,20 +6,20 @@ import {
   HeadContent,
   Outlet,
   Scripts,
-  useRouter,
 } from "@tanstack/react-router";
 
 import "../styles.css";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FullscreenToggle } from "@/components/common/FullscreenToggle";
+import { RouterErrorBoundary } from "@/components/common/RouterErrorBoundary";
 import ImpersonationBanner from "@/components/accounts/ImpersonationBanner";
 
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 
 import { registerRealtimeAuthSync } from "@/lib/realtime/auth";
-import { reportLovableError } from "@/lib/lovable-error-reporting";
+import { clearStaleChunkRecovery, recoverFromStaleChunk } from "@/lib/router/chunkRecovery";
 import NotFound from "@/pages/NotFound";
 
 // ported from App.tsx — keep the realtime socket authenticated so private
@@ -80,7 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFound,
-  errorComponent: ErrorComponent,
+  errorComponent: RouterErrorBoundary,
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
@@ -99,6 +99,18 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    clearStaleChunkRecovery();
+    const onError = (event: ErrorEvent) => recoverFromStaleChunk(event.error ?? event.message);
+    const onRejection = (event: PromiseRejectionEvent) => recoverFromStaleChunk(event.reason);
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -114,40 +126,5 @@ function RootComponent() {
       </AuthProvider>
     </QueryClientProvider>
 
-  );
-}
-
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
-  const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6">
-      <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center">
-        <h1 className="mb-2 text-xl font-semibold text-foreground">This page didn't load</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try again or head back home.
-        </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          <button
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-          >
-            Try again
-          </button>
-          <a
-            className="rounded-md border border-border bg-background px-4 py-2 text-sm text-foreground"
-            href="/"
-          >
-            Go home
-          </a>
-        </div>
-      </div>
-    </div>
   );
 }
