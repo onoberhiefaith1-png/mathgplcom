@@ -34,6 +34,13 @@ const tiles: WorkspaceTile[] = [
     image: adventureClouds.url,
     imageAlt: "Sunset clouds over mountains with sacred geometry",
   },
+  {
+    to: "/course-builder",
+    label: "Skill Builder",
+    description: "Build courses: videos, exercise cards and certificates.",
+    icon: GraduationCap,
+    accent: "from-emerald-400/30 to-emerald-600/10 border-emerald-300/40 text-emerald-100",
+  },
 ];
 
 const TeachingHub = () => <WorkspaceShell active="teaching-hub" tiles={tiles} />;
