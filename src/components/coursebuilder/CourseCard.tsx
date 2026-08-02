@@ -18,6 +18,7 @@ const chip = "inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py
 const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
   const cover = useCourseMediaUrl(course.background_url);
   const published = course.status === "published";
+  const [assigning, setAssigning] = useState(false);
 
   return (
     <article className="overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-slate-200/70">
@@ -92,7 +93,9 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
           </button>
         </div>
       </div>
+      <AssignToClassDialog open={assigning} onOpenChange={setAssigning} courseId={course.id} />
     </article>
+
   );
 };
 
