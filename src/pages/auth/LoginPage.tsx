@@ -125,9 +125,21 @@ const LoginPage = () => {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_20%_20%,hsl(220_60%_22%),hsl(224_65%_10%)_60%)] px-5 py-14">
       <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-7 shadow-[0_30px_80px_rgba(4,8,25,0.55)] backdrop-blur-xl sm:p-9">
+        {devHost && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate("/admin")}
+            className="mb-5 min-h-[44px] w-full border-amber-300/40 bg-amber-300/10 text-amber-100 hover:bg-amber-300/20"
+          >
+            <Wrench className="mr-2 h-4 w-4" /> Go to My Workspace (development only)
+          </Button>
+        )}
+
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white">
           <GraduationCap className="h-4 w-4" /> MathGPL
         </Link>
+
 
         <h1 className="mt-5 text-2xl font-semibold text-white">
           {forgot ? "Reset your password" : "Log in"}
