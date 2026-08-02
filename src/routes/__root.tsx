@@ -22,6 +22,28 @@ import { registerRealtimeAuthSync } from "@/lib/realtime/auth";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
 import NotFound from "@/pages/NotFound";
 
+const CHUNK_RELOAD_KEY = "mathgpl:chunk-reload";
+
+function isStaleChunkError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(message);
+}
+
+function recoverFromStaleChunk(error: unknown) {
+  if (typeof window === "undefined" || !isStaleChunkError(error)) return false;
+
+  const previousPath = window.sessionStorage.getItem(CHUNK_RELOAD_KEY);
+  const currentPath = window.location.href;
+  if (previousPath === currentPath) {
+    window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+    return false;
+  }
+
+  window.sessionStorage.setItem(CHUNK_RELOAD_KEY, currentPath);
+  window.location.reload();
+  return true;
+}
+
 // ported from App.tsx — keep the realtime socket authenticated so private
 // channels stay authorized. Client-only: the realtime socket doesn't exist
 // during SSR module evaluation.
@@ -99,6 +121,18 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+    const onError = (event: ErrorEvent) => recoverFromStaleChunk(event.error ?? event.message);
+    const onRejection = (event: PromiseRejectionEvent) => recoverFromStaleChunk(event.reason);
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -117,10 +151,11 @@ function RootComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+export function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
+    if (recoverFromStaleChunk(error)) return;
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
   return (
