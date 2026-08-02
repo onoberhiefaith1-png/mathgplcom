@@ -18,7 +18,7 @@ import {
   updateSection,
 } from "@/lib/courses/api";
 import { uploadCourseMedia } from "@/lib/courses/media";
-import type { BlockKind, Course, CourseTree } from "@/lib/courses/types";
+import type { BlockKind, Course, CourseBlock, CourseTree } from "@/lib/courses/types";
 
 type Tab = "background" | "sections" | "settings";
 
