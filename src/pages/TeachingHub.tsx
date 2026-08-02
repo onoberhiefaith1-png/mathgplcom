@@ -1,4 +1,4 @@
-import { BookOpen, Sparkles, Users, Compass } from "lucide-react";
+import { BookOpen, Sparkles, Users, Compass, GraduationCap } from "lucide-react";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 import type { WorkspaceTile } from "@/components/workspace/WorkspaceCard";
