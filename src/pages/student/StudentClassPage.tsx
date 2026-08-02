@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Gamepad2, Image as ImageIcon, BarChart3 } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Gamepad2, Image as ImageIcon, BarChart3, GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { joinClassPresence } from "@/lib/realtime/classPresence";
@@ -420,6 +420,22 @@ const StudentClassPage = () => {
                 ))}
               </ul>
             )}
+          </Tile>
+
+          <Tile
+            icon={<GraduationCap className="h-3.5 w-3.5" />}
+            label="Courses"
+            accent="border-indigo-300/40 bg-gradient-to-br from-indigo-400/15 to-indigo-600/5"
+          >
+            <Link
+              to={`/student/class/${classId}/courses`}
+              className="flex h-full flex-col justify-center rounded-xl border border-indigo-300/30 bg-background/30 p-4 text-left transition hover:border-indigo-400/60"
+            >
+              <div className="text-base font-semibold">My courses</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                The learning pathway your teacher prepared.
+              </p>
+            </Link>
           </Tile>
 
           <Tile
