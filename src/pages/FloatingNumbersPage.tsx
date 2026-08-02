@@ -404,7 +404,7 @@ const FloatingNumbersPage = () => {
   const runAiEditForLine = useCallback(async (instruction: string, target: AiEditTarget): Promise<string> => {
     if (!info) return target.text;
     const currentLine = aiEditLineIndex != null ? lines[aiEditLineIndex] : null;
-    const { data, error } = await supabase.functions.invoke("notebook-ai", {
+    const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
       body: {
         mode: "floating_line_edit",
         problem: info.problem,
@@ -416,7 +416,7 @@ const FloatingNumbersPage = () => {
         subtopic: info.subtopic,
         sectionKind: info.sectionKind,
       },
-    });
+    }), 35_000, "AI editing took too long. Please try again.");
     if (error) throw error;
     const d = data as {
       equation?: string;
