@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { BookOpen, Copy, Eye, Pencil, Trash2 } from "lucide-react";
+import { BookOpen, Copy, Eye, Pencil, School, Trash2 } from "lucide-react";
 import { useCourseMediaUrl } from "@/lib/courses/useCourseMediaUrl";
+import AssignToClassDialog from "./AssignToClassDialog";
 import type { CourseSummary } from "@/lib/courses/api";
 
 interface Props {
@@ -68,11 +70,19 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
           </Link>
           <button
             type="button"
+            onClick={() => setAssigning(true)}
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
+          >
+            <School className="h-4 w-4" /> Assign to class
+          </button>
+          <button
+            type="button"
             onClick={() => onDuplicate(course.id)}
             className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
           >
             <Copy className="h-4 w-4" /> Duplicate
           </button>
+
           <button
             type="button"
             onClick={() => onDelete(course)}
