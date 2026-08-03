@@ -32,6 +32,7 @@ import {
   Sliders,
   TowerControl,
   Trophy,
+  Video,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,8 @@ import AssetLibraryModal, { type UrlPick } from "@/components/gamebuilder/AssetL
 import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
 
 import EffectsRail from "@/components/gamebuilder/EffectsRail";
+import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
+import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
 import { getOrCreateClassGallery, saveClassGalleryCanvas } from "@/lib/games/classGallery";
 import { ensureGameQuestionNotebook } from "@/lib/games/gameQuestions";
@@ -64,7 +67,10 @@ import {
   CanvasElement,
   GameAssetRow,
   Scene,
+  VideoBackground,
+  checkpointsOf,
   defaultAnimation,
+  makeCheckpoint,
   normalizeCanvas,
   uid,
 } from "@/lib/games/types";
@@ -94,6 +100,12 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
   const [heightUnits, setHeightUnits] = useState(1);
+  // ── Video Adventure (video background + Checkpoints) ─────────────
+  const [video, setVideo] = useState<VideoBackground | null>(null);
+  const [videoTime, setVideoTime] = useState(0);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoRef = useRef<VideoBackgroundHandle | null>(null);
+  const videoModeRef = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [galleryView, setGalleryView] = useState<"edit" | "view">("edit");
@@ -193,6 +205,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           setScenes(canvas.scenes);
           setActiveSceneId(canvas.activeSceneId ?? canvas.scenes[0]?.id ?? null);
           setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
+          setVideo(canvas.video ?? null);
           loadedRef.current = true;
         } catch (e) {
           console.error(e);
@@ -214,6 +227,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         setScenes(canvas.scenes);
         setActiveSceneId(canvas.activeSceneId ?? canvas.scenes[0]?.id ?? null);
         setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
+        setVideo(canvas.video ?? null);
         loadedRef.current = true;
         // Require Title + Topic + Subtopic so AI questions have context.
         if (!g.topic || !g.subtopic || !g.title || g.title === "Untitled Game") {
@@ -240,7 +254,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       setSaving(true);
       const t = setTimeout(async () => {
         try {
-          await saveClassGalleryCanvas(classId, { scenes, activeSceneId, heightUnits });
+          await saveClassGalleryCanvas(classId, { scenes, activeSceneId, heightUnits, video });
         } catch (e) {
           console.error(e);
         } finally {
@@ -253,7 +267,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setSaving(true);
     const t = setTimeout(async () => {
       try {
-        await saveGameCanvas(gameId, { scenes, activeSceneId, heightUnits });
+        await saveGameCanvas(gameId, { scenes, activeSceneId, heightUnits, video });
       } catch (e) {
         console.error(e);
       } finally {
@@ -261,7 +275,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [scenes, activeSceneId, heightUnits, gameId, classId, isGallery]);
+  }, [scenes, activeSceneId, heightUnits, video, gameId, classId, isGallery]);
 
   const activeScene = useMemo(
     () => scenes.find((s) => s.id === activeSceneId) ?? scenes[0] ?? null,
@@ -748,8 +762,32 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     [elements, setElements],
   );
 
+  /** Use a picked media file as the scene's video background. */
+  const applyVideoBackground = useCallback(
+    (v: VideoBackground) => {
+      videoModeRef.current = false;
+      setVideo({ muted: true, ...v });
+      setHeightUnits(1);
+      setVideoTime(0);
+      setVideoPlaying(false);
+      toast({
+        title: "Video background set",
+        description: "Play the video, then Set Start / Set End to add a Checkpoint.",
+      });
+    },
+    [toast],
+  );
+
   const onPickUploaded = useCallback(
     (asset: GameAssetRow) => {
+      if (videoModeRef.current) {
+        if (asset.media_type !== "video") {
+          toast({ title: "Pick a video file", variant: "destructive" });
+          return;
+        }
+        applyVideoBackground({ path: renderPathOf(asset), source: "storage", title: asset.title });
+        return;
+      }
       const sel = elements.find((e) => e.id === selectedIdRef.current);
       if (asset.kind === "effect" && sel?.kind === "progress_bar" && sel.progress) {
         // Store energy on the selected progress column instead of placing it.
@@ -771,11 +809,19 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         name: asset.title,
       });
     },
-    [placeReward, applyEnergyToSelected, elements],
+    [placeReward, applyEnergyToSelected, elements, applyVideoBackground, toast],
   );
 
   const onPickUrl = useCallback(
     async (pick: UrlPick) => {
+      if (videoModeRef.current) {
+        if (pick.mediaType !== "video") {
+          toast({ title: "Pick a video file", variant: "destructive" });
+          return;
+        }
+        applyVideoBackground({ path: pick.src, source: "url", title: pick.name });
+        return;
+      }
       // Energy mode: import the library asset INTO this game's effects and
       // attach it — never drop it straight onto the scene.
       if (energyModeRef.current) {
@@ -804,14 +850,56 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         name: pick.name,
       });
     },
-    [activeKind, placeReward, applyEnergyToSelected, toast],
+    [activeKind, placeReward, applyEnergyToSelected, toast, applyVideoBackground],
   );
 
   const openAsset = (kind: AssetKind, forEnergy = false) => {
     energyModeRef.current = forEnergy;
+    videoModeRef.current = false;
     setActiveKind(kind);
     setAssetOpen(true);
   };
+
+  /** Pick a video to use as the moving background. */
+  const openVideoPicker = () => {
+    energyModeRef.current = false;
+    videoModeRef.current = true;
+    setActiveKind("background");
+    setAssetOpen(true);
+  };
+
+  // ── Checkpoints (loop regions inside the background video) ───────
+  const checkpoints = useMemo(() => checkpointsOf({ scenes, video }), [scenes, video]);
+
+  const addCheckpoint = useCallback(
+    (start: number, end: number) => {
+      setScenes((prev) => {
+        const cp = makeCheckpoint(prev.length, start, end);
+        setActiveSceneId(cp.id);
+        return [...prev, cp];
+      });
+      setVideoPlaying(false);
+    },
+    [],
+  );
+
+  const patchCheckpoint = useCallback((id: string, patch: Partial<Scene>) => {
+    setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  }, []);
+
+  const deleteCheckpoint = useCallback((id: string) => {
+    setScenes((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      const fallback = next[0]?.id ?? null;
+      setActiveSceneId((cur) => (cur === id ? fallback : cur));
+      return next;
+    });
+  }, []);
+
+  const removeVideoBackground = useCallback(() => {
+    setVideo(null);
+    setVideoPlaying(false);
+  }, []);
 
 
   const patchElement = useCallback(
