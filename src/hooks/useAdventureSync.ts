@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
-import { normalizeCanvas, type CanvasElement, type GameRow } from "@/lib/games/types";
+import { normalizeCanvas, playableElements, type CanvasElement, type GameRow } from "@/lib/games/types";
 import type { GameBoard } from "@/lib/games/gameQuestions";
 import type { StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";
 
