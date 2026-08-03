@@ -266,7 +266,7 @@ export const checkpointAt = (scenes: Scene[], t: number): Scene | null =>
 
 /** A blank checkpoint covering [start, end] of the video. */
 export const makeCheckpoint = (index: number, start: number, end: number): Scene => ({
-  ...makeSceneBase(index),
+  ...makeScene(index),
   title: `Checkpoint ${index + 1}`,
   loopStart: Math.max(0, start),
   loopEnd: Math.max(start + 0.5, end),
@@ -327,6 +327,23 @@ export const makeScene = (index = 0): Scene => ({
  */
 export const normalizeCanvas = (raw: unknown): GameCanvas => {
   const canvas = (raw ?? {}) as GameCanvas;
+  // Video Adventure: every scene is a Checkpoint and must be preserved as-is.
+  if (canvas.video?.path && Array.isArray(canvas.scenes)) {
+    const scenes = canvas.scenes.map((s, i) => ({
+      ...makeScene(i),
+      ...s,
+      title: s.title || `Checkpoint ${i + 1}`,
+      tag: s.tag ?? "",
+      cameraTargetId: s.cameraTargetId ?? null,
+      elements: (s.elements ?? []).map(withElementDefaults),
+    }));
+    return {
+      scenes,
+      activeSceneId: canvas.activeSceneId ?? scenes[0]?.id ?? null,
+      heightUnits: 1,
+      video: { source: "storage", muted: true, ...canvas.video },
+    };
+  }
   if (Array.isArray(canvas.scenes) && canvas.scenes.length > 0) {
     const scenes = canvas.scenes;
     // Multi-scene legacy: flatten into one continuous vertical canvas.
