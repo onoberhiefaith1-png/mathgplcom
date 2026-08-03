@@ -1604,21 +1604,35 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
       {/* Action row */}
       <div className="z-10 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/40 bg-background/80 px-4 py-2 backdrop-blur">
-        <span className="mr-1 text-xs font-semibold text-muted-foreground">
-          Canvas: {heightUnits} section{heightUnits === 1 ? "" : "s"}
-        </span>
-        <Button size="sm" variant="secondary" onClick={extendCanvas} title="Extend canvas upward by one section (adds space at the top)">
-          <Plus className="mr-1.5 h-4 w-4" /> Extend Canvas
-        </Button>
         <Button
           size="sm"
-          variant="ghost"
-          onClick={shrinkCanvas}
-          disabled={heightUnits <= 1}
-          title="Shrink canvas by one section"
+          variant={video ? "default" : "secondary"}
+          onClick={openVideoPicker}
+          title="Use a video as the moving background"
         >
-          <Minus className="mr-1.5 h-4 w-4" /> Shrink
+          <Video className="mr-1.5 h-4 w-4" /> Video Background
         </Button>
+        {!video && (
+          <span className="mr-1 text-xs font-semibold text-muted-foreground">
+            Canvas: {heightUnits} section{heightUnits === 1 ? "" : "s"}
+          </span>
+        )}
+        {!video && (
+          <>
+            <Button size="sm" variant="secondary" onClick={extendCanvas} title="Extend canvas upward by one section (adds space at the top)">
+              <Plus className="mr-1.5 h-4 w-4" /> Extend Canvas
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={shrinkCanvas}
+              disabled={heightUnits <= 1}
+              title="Shrink canvas by one section"
+            >
+              <Minus className="mr-1.5 h-4 w-4" /> Shrink
+            </Button>
+          </>
+        )}
 
         <div className="mx-1 h-6 w-px bg-border/60" />
 
@@ -1670,6 +1684,27 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         </div>
       </div>
 
+      {video && (
+        <CheckpointTimeline
+          duration={video.duration ?? 0}
+          currentTime={videoTime}
+          playing={videoPlaying}
+          checkpoints={checkpoints}
+          activeId={activeSceneId}
+          onTogglePlay={() => setVideoPlaying((v) => !v)}
+          onSeek={(t) => {
+            videoRef.current?.seek(t);
+            setVideoTime(t);
+          }}
+          onAdd={addCheckpoint}
+          onSelect={setActiveSceneId}
+          onDelete={deleteCheckpoint}
+          onPatch={patchCheckpoint}
+          onChangeVideo={openVideoPicker}
+          onRemoveVideo={removeVideoBackground}
+        />
+      )}
+
       {/* Editing area */}
       <div className="flex min-h-0 flex-1">
         <main
@@ -1720,16 +1755,51 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                       }
                 }
               >
-                <GameCanvas
-                  elements={elements}
-                  selectedId={selectedId}
-                  pinnedId={pinnedId}
-                  editable
-                  onSelect={handleSelect}
-                  onMove={moveElement}
-                  heightUnits={heightUnits}
-                  fill={stageFull}
-                />
+                {video ? (
+                  <div className="relative w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: "16 / 9" }}>
+                    <VideoBackgroundLayer
+                      ref={videoRef}
+                      video={video}
+                      playing={videoPlaying}
+                      loop={
+                        videoPlaying && activeScene?.loopEnd != null
+                          ? { start: activeScene.loopStart ?? 0, end: activeScene.loopEnd }
+                          : null
+                      }
+                      onTime={setVideoTime}
+                      onLoaded={(meta) =>
+                        setVideo((v) =>
+                          v ? { ...v, duration: meta.duration, width: meta.width, height: meta.height } : v,
+                        )
+                      }
+                      onEnded={() => setVideoPlaying(false)}
+                    />
+                    <div className="absolute inset-0">
+                      <GameCanvas
+                        elements={elements}
+                        selectedId={selectedId}
+                        pinnedId={pinnedId}
+                        editable
+                        onSelect={handleSelect}
+                        onMove={moveElement}
+                        heightUnits={1}
+                        fill
+                        transparent
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <GameCanvas
+                    elements={elements}
+                    selectedId={selectedId}
+                    pinnedId={pinnedId}
+                    editable
+                    onSelect={handleSelect}
+                    onMove={moveElement}
+                    heightUnits={heightUnits}
+                    fill={stageFull}
+                  />
+                )}
 
               </div>
             </div>

@@ -250,9 +250,11 @@ export const isVideoAdventure = (canvas: GameCanvas | null | undefined): boolean
 
 /** Checkpoints in play order. */
 export const checkpointsOf = (canvas: GameCanvas): Scene[] =>
-  [...(canvas.scenes ?? [])].sort(
-    (a, b) => (a.loopStart ?? 0) - (b.loopStart ?? 0),
-  );
+  (canvas.scenes ?? [])
+    .filter((s) => typeof s.loopStart === "number" && typeof s.loopEnd === "number")
+    .sort(
+      (a, b) => (a.loopStart ?? 0) - (b.loopStart ?? 0),
+    );
 
 /** The checkpoint whose loop region contains `t` (seconds), if any. */
 export const checkpointAt = (scenes: Scene[], t: number): Scene | null =>
