@@ -434,12 +434,6 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setSelectedId(null);
   }, [activeSceneId]);
 
-  // In video mode always edit inside a Checkpoint, never the legacy base scene.
-  useEffect(() => {
-    if (!video || checkpoints.length === 0) return;
-    if (!checkpoints.some((c) => c.id === activeSceneId)) setActiveSceneId(checkpoints[0].id);
-  }, [video, checkpoints, activeSceneId]);
-
   const selectedIdRef = useRef<string | null>(null);
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -906,6 +900,12 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setVideo(null);
     setVideoPlaying(false);
   }, []);
+
+  // In video mode always edit inside a Checkpoint, never the legacy base scene.
+  useEffect(() => {
+    if (!video || checkpoints.length === 0) return;
+    if (!checkpoints.some((c) => c.id === activeSceneId)) setActiveSceneId(checkpoints[0].id);
+  }, [video, checkpoints, activeSceneId]);
 
 
   const patchElement = useCallback(

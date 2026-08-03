@@ -239,9 +239,8 @@ export function useAdventureSync({
   const barSummaries = useMemo<AdventureBarSummary[]>(() => {
     if (!game) return [];
     const canvas = normalizeCanvas(game.canvas);
-    const scene = canvas.scenes.find((s) => s.id === canvas.activeSceneId) ?? canvas.scenes[0];
     const items: AdventureBarSummary[] = [];
-    for (const el of scene?.elements ?? []) {
+    for (const el of playableElements(canvas)) {
       if (el.kind !== "progress_bar") continue;
       const b = boardByElement.get(el.id);
       if (!b) continue;
@@ -281,8 +280,7 @@ export function useAdventureSync({
     if (!game) return [];
     const statsById = new Map(barSummaries.map((b) => [b.id, b]));
     const canvas = normalizeCanvas(game.canvas);
-    const scene = canvas.scenes.find((s) => s.id === canvas.activeSceneId) ?? canvas.scenes[0];
-    return (scene?.elements ?? []).map((el) => {
+    return playableElements(canvas).map((el) => {
       if (el.kind === "progress_bar" && el.progress) {
         const stats = statsById.get(el.id);
         if (stats) return { ...el, progress: { ...el.progress, totalMarks: stats.required, currentMarks: stats.achieved } };
