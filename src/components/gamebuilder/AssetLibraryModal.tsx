@@ -31,6 +31,22 @@ const isPlaceable = (src: string) =>
   /\.(png|jpg|jpeg|webp|gif|svg|mp4|webm|mov|m4v)$/i.test(src);
 const isVideo = (src: string) => /\.(mp4|webm|mov|m4v)$/i.test(src);
 
+/**
+ * Every asset inside a subcategory, whether it sits flat on `assets` or inside
+ * a `groups[]` collection. The picker used to read `assets` only, so grouped
+ * libraries (Video FX, Generative Video, …) looked empty until a full reload.
+ */
+const allAssetsOf = (sub: Subcategory): AssetItem[] => {
+  const flat = sub.assets ?? [];
+  const grouped = (sub.groups ?? []).flatMap((g) => g.assets ?? []);
+  const seen = new Set<string>();
+  return [...flat, ...grouped].filter((a) => {
+    if (!a?.src || seen.has(a.src)) return false;
+    seen.add(a.src);
+    return true;
+  });
+};
+
 const defaultCategoryFor = (kind: AssetKind): string => {
   switch (kind) {
     case "background":
@@ -99,7 +115,7 @@ const MathGplBrowser = ({ kind, onPick }: { kind: AssetKind; onPick: (p: UrlPick
             >
               <p className="text-sm font-medium">{s.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {(s.assets ?? []).length} items
+                {allAssetsOf(s).filter((a) => isPlaceable(a.src)).length} items
               </p>
             </button>
           ))}
@@ -108,7 +124,7 @@ const MathGplBrowser = ({ kind, onPick }: { kind: AssetKind; onPick: (p: UrlPick
     );
   }
 
-  const items = (subcategory.assets ?? []).filter((a) => isPlaceable(a.src));
+  const items = allAssetsOf(subcategory).filter((a) => isPlaceable(a.src));
 
   return (
     <div className="space-y-3">
