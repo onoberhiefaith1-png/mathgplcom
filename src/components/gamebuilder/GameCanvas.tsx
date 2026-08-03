@@ -15,6 +15,8 @@ interface GameCanvasProps {
   heightUnits?: number;
   /** When true, fill the parent (no intrinsic aspect-ratio). Parent controls size. */
   fill?: boolean;
+  /** Transparent stage — used when a video background renders underneath. */
+  transparent?: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ const GameCanvas = ({
   className,
   heightUnits = 1,
   fill = false,
+  transparent = false,
 }: GameCanvasProps) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -52,14 +55,15 @@ const GameCanvas = ({
     <div
       ref={stageRef}
       className={cn(
-        "relative w-full overflow-hidden rounded-xl border border-border/50 bg-black shadow-2xl",
+        "relative w-full overflow-hidden rounded-xl border border-border/50 shadow-2xl",
+        transparent ? "border-transparent bg-transparent shadow-none" : "bg-black",
         fill && "h-full rounded-none border-0",
         className,
       )}
       style={fill ? undefined : { aspectRatio: `16 / ${9 * units}` }}
       onPointerDown={() => editable && onSelect?.(null)}
     >
-      {sorted.length === 0 && (
+      {sorted.length === 0 && !transparent && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
           Add a background, reward or progress bar to begin.
         </div>
