@@ -115,7 +115,7 @@ const MathGplBrowser = ({ kind, onPick }: { kind: AssetKind; onPick: (p: UrlPick
             >
               <p className="text-sm font-medium">{s.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {(s.assets ?? []).length} items
+                {allAssetsOf(s).filter((a) => isPlaceable(a.src)).length} items
               </p>
             </button>
           ))}
@@ -124,7 +124,7 @@ const MathGplBrowser = ({ kind, onPick }: { kind: AssetKind; onPick: (p: UrlPick
     );
   }
 
-  const items = (subcategory.assets ?? []).filter((a) => isPlaceable(a.src));
+  const items = allAssetsOf(subcategory).filter((a) => isPlaceable(a.src));
 
   return (
     <div className="space-y-3">
