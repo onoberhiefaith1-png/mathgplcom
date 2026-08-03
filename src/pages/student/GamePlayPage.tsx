@@ -440,7 +440,9 @@ const GamePlayPage = () => {
             )}
 
             <div className="pointer-events-none absolute inset-0 z-30">
-              {!frozen && playableBars.map((bar) => {
+              {!frozen && playableBars
+                .filter((bar) => (!videoBg ? true : visibleElements.some((e) => e.id === bar.id)))
+                .map((bar) => {
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
                   <button
