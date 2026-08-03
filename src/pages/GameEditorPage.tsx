@@ -1976,6 +1976,48 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 placeholder="Quadratic Formula"
               />
             </div>
+
+            {/* Game mode — how the adventure is staged. More modes land here. */}
+            <div className="space-y-1.5 pt-1">
+              <Label className="text-xs text-muted-foreground">Game mode</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    {
+                      id: "static" as AdventureMode,
+                      name: "Static Adventure",
+                      blurb: "Still background image with a scrollable canvas.",
+                    },
+                    {
+                      id: "video" as AdventureMode,
+                      name: "Video Adventure",
+                      blurb: "Moving video background with looping Checkpoints.",
+                    },
+                  ]
+                ).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMetaMode(m.id)}
+                    className={`rounded-lg border p-2.5 text-left transition ${
+                      metaMode === m.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border/60 hover:bg-muted"
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-foreground">{m.name}</div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      {m.blurb}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {metaMode === "video" && (
+                <p className="text-[11px] text-muted-foreground">
+                  You'll pick the background video next, then mark Checkpoints on its timeline.
+                </p>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button onClick={saveMeta} disabled={!metaTitle.trim() || !metaTopic.trim() || !metaSubtopic.trim()}>Save</Button>
