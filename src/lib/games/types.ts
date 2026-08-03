@@ -233,7 +233,19 @@ export interface VideoBackground {
  * When `video` is set the game is a **Video Adventure**: `scenes` holds one
  * entry per Checkpoint and is never flattened.
  */
+/**
+ * How an adventure is staged.
+ *
+ * - `static` — the classic still-image adventure canvas.
+ * - `video`  — a moving video background with Checkpoints.
+ *
+ * More modes will be added here; everything else keys off this one field.
+ */
+export type AdventureMode = "static" | "video";
+
 export interface GameCanvas {
+  /** Chosen staging mode. Defaults to `static` (or `video` when a video exists). */
+  mode?: AdventureMode;
   scenes: Scene[];
   activeSceneId?: string | null;
   /** Number of 16:9 vertical sections the canvas spans. Defaults to 1. */
@@ -243,6 +255,14 @@ export interface GameCanvas {
   /** @deprecated legacy single-canvas shape */
   elements?: CanvasElement[];
 }
+
+/** The adventure mode of a canvas, inferred for legacy rows without the field. */
+export const adventureModeOf = (canvas: GameCanvas | null | undefined): AdventureMode =>
+  canvas?.mode ?? (canvas?.video?.path ? "video" : "static");
+
+/** Human label for a mode, used in pickers and headers. */
+export const adventureModeLabel = (mode: AdventureMode): string =>
+  mode === "video" ? "Video Adventure" : "Static Adventure";
 
 /** True when this canvas uses a video background (Checkpoint mode). */
 export const isVideoAdventure = (canvas: GameCanvas | null | undefined): boolean =>
@@ -329,6 +349,7 @@ export const makeScene = (index = 0): Scene => ({
  */
 export const normalizeCanvas = (raw: unknown): GameCanvas => {
   const canvas = (raw ?? {}) as GameCanvas;
+  const mode: AdventureMode = adventureModeOf(canvas);
   // Video Adventure: every scene is a Checkpoint and must be preserved as-is.
   if (canvas.video?.path && Array.isArray(canvas.scenes)) {
     const scenes = canvas.scenes.map((s, i) => ({
@@ -340,6 +361,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
       elements: (s.elements ?? []).map(withElementDefaults),
     }));
     return {
+      mode,
       scenes,
       activeSceneId: canvas.activeSceneId ?? scenes[0]?.id ?? null,
       heightUnits: 1,
@@ -364,7 +386,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
         });
       });
       const single: Scene = { ...makeScene(0), elements: merged };
-      return { scenes: [single], activeSceneId: single.id, heightUnits: N };
+      return { mode, scenes: [single], activeSceneId: single.id, heightUnits: N };
     }
     const only = scenes[0];
     const single: Scene = {
@@ -375,6 +397,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
       elements: (only.elements ?? []).map(withElementDefaults),
     };
     return {
+      mode,
       scenes: [single],
       activeSceneId: single.id,
       heightUnits: Math.max(1, Math.floor(Number(canvas.heightUnits) || 1)),
@@ -383,7 +406,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
   // Legacy: wrap flat elements into one scene.
   const legacy = (canvas.elements ?? []).map(withElementDefaults);
   const scene = { ...makeScene(0), elements: legacy };
-  return { scenes: [scene], activeSceneId: scene.id, heightUnits: 1 };
+  return { mode, scenes: [scene], activeSceneId: scene.id, heightUnits: 1 };
 };
 
 /** Default directional tint (off until strength is dialed up). */

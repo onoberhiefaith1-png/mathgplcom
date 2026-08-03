@@ -55,6 +55,7 @@ import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
+import { adventureModeOf, adventureModeLabel, type AdventureMode } from "@/lib/games/types";
 import { getOrCreateClassGallery, saveClassGalleryCanvas } from "@/lib/games/classGallery";
 import { ensureGameQuestionNotebook } from "@/lib/games/gameQuestions";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,6 +103,10 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   const [heightUnits, setHeightUnits] = useState(1);
   // ── Video Adventure (video background + Checkpoints) ─────────────
   const [video, setVideo] = useState<VideoBackground | null>(null);
+  /** Chosen game mode — decides how the adventure is staged. */
+  const [adventureMode, setAdventureMode] = useState<AdventureMode>("static");
+  /** Mode being picked inside the meta dialog (applied on Save). */
+  const [metaMode, setMetaMode] = useState<AdventureMode>("static");
   const [videoTime, setVideoTime] = useState(0);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
@@ -206,6 +211,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           setActiveSceneId(canvas.activeSceneId ?? canvas.scenes[0]?.id ?? null);
           setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
           setVideo(canvas.video ?? null);
+          setAdventureMode(adventureModeOf(canvas));
           loadedRef.current = true;
         } catch (e) {
           console.error(e);
@@ -228,6 +234,8 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         setActiveSceneId(canvas.activeSceneId ?? canvas.scenes[0]?.id ?? null);
         setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
         setVideo(canvas.video ?? null);
+        setAdventureMode(adventureModeOf(canvas));
+        setMetaMode(adventureModeOf(canvas));
         loadedRef.current = true;
         // Require Title + Topic + Subtopic so AI questions have context.
         if (!g.topic || !g.subtopic || !g.title || g.title === "Untitled Game") {
@@ -254,7 +262,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       setSaving(true);
       const t = setTimeout(async () => {
         try {
-          await saveClassGalleryCanvas(classId, { scenes, activeSceneId, heightUnits, video });
+          await saveClassGalleryCanvas(classId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video });
         } catch (e) {
           console.error(e);
         } finally {
@@ -267,7 +275,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setSaving(true);
     const t = setTimeout(async () => {
       try {
-        await saveGameCanvas(gameId, { scenes, activeSceneId, heightUnits, video });
+        await saveGameCanvas(gameId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video });
       } catch (e) {
         console.error(e);
       } finally {
@@ -275,7 +283,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [scenes, activeSceneId, heightUnits, video, gameId, classId, isGallery]);
+  }, [scenes, activeSceneId, heightUnits, video, adventureMode, gameId, classId, isGallery]);
 
   const activeScene = useMemo(
     () => scenes.find((s) => s.id === activeSceneId) ?? scenes[0] ?? null,
@@ -1361,12 +1369,20 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setTitle(t);
     setTopic(tp);
     setSubtopic(st);
+    setAdventureMode(metaMode);
+    // Leaving video mode drops the moving background so the static canvas is clean.
+    if (metaMode === "static") {
+      setVideo(null);
+      setVideoPlaying(false);
+    }
     try {
       await updateGameMeta(gameId, { title: t, topic: tp, subtopic: st });
     } catch (e) {
       console.error(e);
     }
     setMetaOpen(false);
+    // Video Adventure needs a background video before checkpoints can be marked.
+    if (metaMode === "video" && !video) openVideoPicker();
   };
 
   /** Open (or create) the shared "Game Questions" lesson-note for this game.
@@ -1610,14 +1626,24 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
       {/* Action row */}
       <div className="z-10 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/40 bg-background/80 px-4 py-2 backdrop-blur">
-        <Button
-          size="sm"
-          variant={video ? "default" : "secondary"}
-          onClick={openVideoPicker}
-          title="Use a video as the moving background"
+        <button
+          type="button"
+          onClick={() => { setMetaMode(adventureMode); setMetaOpen(true); }}
+          className="rounded-full border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+          title="Change title, topic and game mode"
         >
-          <Video className="mr-1.5 h-4 w-4" /> Video Background
-        </Button>
+          {adventureModeLabel(adventureMode)}
+        </button>
+        {adventureMode === "video" && (
+          <Button
+            size="sm"
+            variant={video ? "default" : "secondary"}
+            onClick={openVideoPicker}
+            title="Use a video as the moving background"
+          >
+            <Video className="mr-1.5 h-4 w-4" /> Video Background
+          </Button>
+        )}
         {!video && (
           <span className="mr-1 text-xs font-semibold text-muted-foreground">
             Canvas: {heightUnits} section{heightUnits === 1 ? "" : "s"}
@@ -1949,6 +1975,48 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 onKeyDown={(e) => e.key === "Enter" && metaTitle.trim() && metaTopic.trim() && metaSubtopic.trim() && saveMeta()}
                 placeholder="Quadratic Formula"
               />
+            </div>
+
+            {/* Game mode — how the adventure is staged. More modes land here. */}
+            <div className="space-y-1.5 pt-1">
+              <Label className="text-xs text-muted-foreground">Game mode</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    {
+                      id: "static" as AdventureMode,
+                      name: "Static Adventure",
+                      blurb: "Still background image with a scrollable canvas.",
+                    },
+                    {
+                      id: "video" as AdventureMode,
+                      name: "Video Adventure",
+                      blurb: "Moving video background with looping Checkpoints.",
+                    },
+                  ]
+                ).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMetaMode(m.id)}
+                    className={`rounded-lg border p-2.5 text-left transition ${
+                      metaMode === m.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border/60 hover:bg-muted"
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-foreground">{m.name}</div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      {m.blurb}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {metaMode === "video" && (
+                <p className="text-[11px] text-muted-foreground">
+                  You'll pick the background video next, then mark Checkpoints on its timeline.
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
