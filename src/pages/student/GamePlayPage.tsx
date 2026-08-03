@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPreset } from "@/lib/games/progressPresets";
-import { type GameRow } from "@/lib/games/types";
+import { checkpointAt, checkpointsOf, normalizeCanvas, type GameRow, type Scene } from "@/lib/games/types";
+import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import type { GameBoard } from "@/lib/games/gameQuestions";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
 import { renderMathInline } from "@/lib/notebook/mathRender";
@@ -57,6 +58,13 @@ const GamePlayPage = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mirror, setMirror] = useState<MirrorSnapshot | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  // ── Video Adventure runtime ─────────────────────────────────────
+  const videoRef = useRef<VideoBackgroundHandle | null>(null);
+  const [videoTime, setVideoTime] = useState(0);
+  const [activeCpId, setActiveCpId] = useState<string | null>(null);
+  const [doneCps, setDoneCps] = useState<Set<string>>(() => new Set());
+  const [cpFailed, setCpFailed] = useState(false);
+  const [cpSecondsLeft, setCpSecondsLeft] = useState<number | null>(null);
 
   const handleGameUpdated = useCallback((updated: GameRow) => {
     setGame(updated);
@@ -231,6 +239,92 @@ const GamePlayPage = () => {
 
 
 
+  const canvas = useMemo(() => (game ? normalizeCanvas(game.canvas) : null), [game]);
+  const videoBg = canvas?.video ?? null;
+  const checkpoints = useMemo(() => (canvas ? checkpointsOf(canvas) : []), [canvas]);
+  const activeCp: Scene | null = useMemo(
+    () => checkpoints.find((c) => c.id === activeCpId) ?? null,
+    [checkpoints, activeCpId],
+  );
+
+  // Reaching a checkpoint's start time freezes the journey into its loop.
+  const onVideoTime = useCallback(
+    (t: number) => {
+      setVideoTime(t);
+      if (activeCpId) return;
+      const hit = checkpointAt(checkpoints, t);
+      if (hit && !doneCps.has(hit.id)) {
+        setActiveCpId(hit.id);
+        setCpFailed(false);
+        setCpSecondsLeft(hit.timerEnabled ? hit.timeLimit ?? 300 : null);
+      }
+    },
+    [activeCpId, checkpoints, doneCps],
+  );
+
+  // Per-checkpoint countdown.
+  useEffect(() => {
+    if (!activeCp || cpSecondsLeft == null || cpFailed) return;
+    if (cpSecondsLeft <= 0) { setCpFailed(true); return; }
+    const t = window.setTimeout(() => setCpSecondsLeft((v) => (v == null ? v : v - 1)), 1000);
+    return () => window.clearTimeout(t);
+  }, [activeCp, cpSecondsLeft, cpFailed]);
+
+  // Only the current checkpoint's overlays exist; everything inside it vanishes
+  // the moment the checkpoint completes, so nothing drifts over the moving video.
+  const visibleElements = useMemo(() => {
+    if (!videoBg) return mirroredElements;
+    if (!activeCp) return [];
+    const ids = new Set((activeCp.elements ?? []).map((e) => e.id));
+    return mirroredElements.filter((e) => ids.has(e.id));
+  }, [videoBg, activeCp, mirroredElements]);
+
+  // Checkpoint complete → hide its overlays and let the video travel on.
+  const cpComplete = useMemo(() => {
+    if (!activeCp) return false;
+    const ids = new Set((activeCp.elements ?? []).map((e) => e.id));
+    const bars = sync.barSummaries.filter((b) => ids.has(b.id));
+    if (bars.length === 0) return false;
+    return bars.every((b) => b.achieved >= b.required);
+  }, [activeCp, sync.barSummaries]);
+
+  useEffect(() => {
+    if (!activeCp || !cpComplete) return;
+    const id = activeCp.id;
+    const resume = window.setTimeout(() => {
+      setDoneCps((prev) => new Set(prev).add(id));
+      setActiveCpId(null);
+      setCpSecondsLeft(null);
+      setOpenBarId(null);
+    }, 1200);
+    return () => window.clearTimeout(resume);
+  }, [activeCp, cpComplete]);
+
+  /** Turn back — replay the previous checkpoint's section of the journey. */
+  const turnBack = useCallback(() => {
+    const cps = checkpoints;
+    const currentIdx = activeCp ? cps.findIndex((c) => c.id === activeCp.id) : -1;
+    let target: Scene | null = null;
+    if (currentIdx > 0) target = cps[currentIdx - 1];
+    else if (currentIdx < 0) {
+      const passed = cps.filter((c) => (c.loopEnd ?? 0) <= videoTime);
+      target = passed.length > 0 ? passed[passed.length - 1] : null;
+    }
+    if (!target) return;
+    setDoneCps((prev) => { const n = new Set(prev); n.delete(target!.id); return n; });
+    setActiveCpId(target.id);
+    setCpFailed(false);
+    setCpSecondsLeft(target.timerEnabled ? target.timeLimit ?? 300 : null);
+    videoRef.current?.seek(target.loopStart ?? 0);
+  }, [checkpoints, activeCp, videoTime]);
+
+  const retryCheckpoint = useCallback(() => {
+    if (!activeCp) return;
+    setCpFailed(false);
+    setCpSecondsLeft(activeCp.timerEnabled ? activeCp.timeLimit ?? 300 : null);
+    videoRef.current?.seek(activeCp.loopStart ?? 0);
+  }, [activeCp]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
@@ -281,9 +375,69 @@ const GamePlayPage = () => {
             className="relative origin-top transition-all duration-300 animate-fade-in"
             style={{ width: isOpen ? "80%" : "100%" }}
           >
-            <div className="pointer-events-none">
-              <GameCanvas elements={mirroredElements} selectedId={null} editable={false} />
-            </div>
+            {videoBg ? (
+              <div className="relative w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: "16 / 9" }}>
+                <VideoBackgroundLayer
+                  ref={videoRef}
+                  video={videoBg}
+                  playing={!frozen && !cpFailed}
+                  loop={
+                    activeCp && activeCp.loopEnd != null
+                      ? { start: activeCp.loopStart ?? 0, end: activeCp.loopEnd }
+                      : null
+                  }
+                  onTime={onVideoTime}
+                />
+                <div className="pointer-events-none absolute inset-0">
+                  <GameCanvas
+                    elements={visibleElements}
+                    selectedId={null}
+                    editable={false}
+                    fill
+                    transparent
+                  />
+                </div>
+                {activeCp && (
+                  <div className="absolute left-3 top-3 z-40 flex items-center gap-2 rounded-full border border-primary/40 bg-background/80 px-3 py-1 text-xs backdrop-blur">
+                    <span className="font-semibold text-primary">{activeCp.title}</span>
+                    {cpSecondsLeft != null && (
+                      <span className="tabular-nums text-muted-foreground">
+                        {Math.floor(Math.max(0, cpSecondsLeft) / 60)}:
+                        {String(Math.max(0, cpSecondsLeft) % 60).padStart(2, "0")}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {checkpoints.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={turnBack}
+                    className="absolute right-3 top-3 z-40 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs backdrop-blur hover:bg-accent"
+                  >
+                    Turn Back
+                  </button>
+                )}
+                {cpFailed && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                    <div className="rounded-xl border border-destructive/40 bg-background/90 px-8 py-5 text-center shadow-2xl">
+                      <div className="text-lg font-bold text-destructive">Game Over</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Time ran out at this checkpoint.</div>
+                      <button
+                        type="button"
+                        onClick={retryCheckpoint}
+                        className="mt-3 rounded-md border border-primary/50 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                      >
+                        Retry Checkpoint
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="pointer-events-none">
+                <GameCanvas elements={mirroredElements} selectedId={null} editable={false} />
+              </div>
+            )}
 
             <div className="pointer-events-none absolute inset-0 z-30">
               {!frozen && playableBars.map((bar) => {
