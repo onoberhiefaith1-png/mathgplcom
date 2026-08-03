@@ -183,30 +183,112 @@ export interface CanvasElement {
   label?: string;
 }
 
-/** A single scene inside a game — its own background + elements. */
+/**
+ * A single scene inside a game — its own background + elements.
+ *
+ * In a Video Adventure the same Scene doubles as a **Checkpoint** (formerly
+ * "Learning Point"): a loop region inside the background video that owns its
+ * own elements (progress bars, rewards, effects, objects, characters).
+ * Everything else about a Scene is unchanged, so the whole existing editor and
+ * runtime keep working.
+ */
 export interface Scene {
   id: string;
   title: string;
   tag: string;
   elements: CanvasElement[];
   cameraTargetId?: string | null;
+  /** Checkpoint loop start, in seconds into the background video. */
+  loopStart?: number;
+  /** Checkpoint loop end, in seconds into the background video. */
+  loopEnd?: number;
+  /** Per-checkpoint countdown. */
+  timerEnabled?: boolean;
+  /** Countdown length in seconds. */
+  timeLimit?: number;
+  timerVisible?: boolean;
+}
+
+/** The uploaded / linked video used as the adventure background. */
+export interface VideoBackground {
+  /** Storage object path or public URL, per `source`. */
+  path: string;
+  source: MediaSource;
+  /** Seconds — filled in once metadata loads. */
+  duration?: number;
+  width?: number;
+  height?: number;
+  title?: string;
+  /** Play the video's own audio track. */
+  muted?: boolean;
 }
 
 /**
- * Persisted canvas. The editor is a single continuous vertically extendable
- * canvas — `scenes` always contains exactly one entry, and `heightUnits`
- * measures how many 16:9 viewports tall the canvas is (1 = default).
+ * Persisted canvas. In classic (static background) mode the editor is a single
+ * continuous vertically extendable canvas — `scenes` always contains exactly
+ * one entry, and `heightUnits` measures how many 16:9 viewports tall it is.
  * Legacy games stored `{ elements }` or multiple `scenes`; both are migrated
  * into the single-scene shape by `normalizeCanvas`.
+ *
+ * When `video` is set the game is a **Video Adventure**: `scenes` holds one
+ * entry per Checkpoint and is never flattened.
  */
 export interface GameCanvas {
   scenes: Scene[];
   activeSceneId?: string | null;
   /** Number of 16:9 vertical sections the canvas spans. Defaults to 1. */
   heightUnits?: number;
+  /** Video background — presence of this switches on Video Adventure mode. */
+  video?: VideoBackground | null;
   /** @deprecated legacy single-canvas shape */
   elements?: CanvasElement[];
 }
+
+/** True when this canvas uses a video background (Checkpoint mode). */
+export const isVideoAdventure = (canvas: GameCanvas | null | undefined): boolean =>
+  Boolean(canvas?.video?.path);
+
+/** Checkpoints in play order. */
+export const checkpointsOf = (canvas: GameCanvas): Scene[] =>
+  (canvas.scenes ?? [])
+    .filter((s) => typeof s.loopStart === "number" && typeof s.loopEnd === "number")
+    .sort(
+      (a, b) => (a.loopStart ?? 0) - (b.loopStart ?? 0),
+    );
+
+/** The checkpoint whose loop region contains `t` (seconds), if any. */
+export const checkpointAt = (scenes: Scene[], t: number): Scene | null =>
+  scenes.find(
+    (s) =>
+      typeof s.loopStart === "number" &&
+      typeof s.loopEnd === "number" &&
+      t >= s.loopStart &&
+      t < s.loopEnd,
+  ) ?? null;
+
+/** A blank checkpoint covering [start, end] of the video. */
+export const makeCheckpoint = (index: number, start: number, end: number): Scene => ({
+  ...makeScene(index),
+  title: `Checkpoint ${index + 1}`,
+  loopStart: Math.max(0, start),
+  loopEnd: Math.max(start + 0.5, end),
+  timerEnabled: false,
+  timeLimit: 300,
+  timerVisible: true,
+});
+
+/**
+ * Elements the runtime should consider. Video adventures spread their elements
+ * across checkpoints, so all of them are in play; classic games only ever use
+ * the active scene.
+ */
+export const playableElements = (canvas: GameCanvas): CanvasElement[] => {
+  if (isVideoAdventure(canvas)) return (canvas.scenes ?? []).flatMap((s) => s.elements ?? []);
+  const scene = canvas.scenes.find((s) => s.id === canvas.activeSceneId) ?? canvas.scenes[0];
+  return scene?.elements ?? [];
+};
+
+
 
 export interface GameRow {
   id: string;
@@ -247,6 +329,27 @@ export const makeScene = (index = 0): Scene => ({
  */
 export const normalizeCanvas = (raw: unknown): GameCanvas => {
   const canvas = (raw ?? {}) as GameCanvas;
+  // Video Adventure: every scene is a Checkpoint and must be preserved as-is.
+  if (canvas.video?.path && Array.isArray(canvas.scenes)) {
+    const scenes = canvas.scenes.map((s, i) => ({
+      ...makeScene(i),
+      ...s,
+      title: s.title || `Checkpoint ${i + 1}`,
+      tag: s.tag ?? "",
+      cameraTargetId: s.cameraTargetId ?? null,
+      elements: (s.elements ?? []).map(withElementDefaults),
+    }));
+    return {
+      scenes,
+      activeSceneId: canvas.activeSceneId ?? scenes[0]?.id ?? null,
+      heightUnits: 1,
+      video: {
+        ...canvas.video,
+        source: canvas.video.source ?? "storage",
+        muted: canvas.video.muted ?? true,
+      },
+    };
+  }
   if (Array.isArray(canvas.scenes) && canvas.scenes.length > 0) {
     const scenes = canvas.scenes;
     // Multi-scene legacy: flatten into one continuous vertical canvas.
