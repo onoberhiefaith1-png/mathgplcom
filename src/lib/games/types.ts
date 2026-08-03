@@ -386,7 +386,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
         });
       });
       const single: Scene = { ...makeScene(0), elements: merged };
-      return { scenes: [single], activeSceneId: single.id, heightUnits: N };
+      return { mode, scenes: [single], activeSceneId: single.id, heightUnits: N };
     }
     const only = scenes[0];
     const single: Scene = {
@@ -406,7 +406,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
   // Legacy: wrap flat elements into one scene.
   const legacy = (canvas.elements ?? []).map(withElementDefaults);
   const scene = { ...makeScene(0), elements: legacy };
-  return { scenes: [scene], activeSceneId: scene.id, heightUnits: 1 };
+  return { mode, scenes: [scene], activeSceneId: scene.id, heightUnits: 1 };
 };
 
 /** Default directional tint (off until strength is dialed up). */
