@@ -341,7 +341,11 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
       scenes,
       activeSceneId: canvas.activeSceneId ?? scenes[0]?.id ?? null,
       heightUnits: 1,
-      video: { source: "storage", muted: true, ...canvas.video },
+      video: {
+        ...canvas.video,
+        source: canvas.video.source ?? "storage",
+        muted: canvas.video.muted ?? true,
+      },
     };
   }
   if (Array.isArray(canvas.scenes) && canvas.scenes.length > 0) {
