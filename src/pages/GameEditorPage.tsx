@@ -973,8 +973,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       if (playheadLoop.id !== activeSceneId) setActiveSceneId(playheadLoop.id);
     } else {
       setSelectedId(null);
+      // Developer-only signal; never rendered on the canvas.
+      console.debug("[adventure] playhead outside every Learning Point — objects hidden");
     }
   }, [video, preview.active, playheadLoop, activeSceneId]);
+
 
 
   useEffect(() => {
