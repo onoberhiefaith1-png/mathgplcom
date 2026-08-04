@@ -1844,7 +1844,28 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         )}
 
 
+        {adventureMode === "video" && video && checkpoints.length > 0 && (
+          <Button
+            size="sm"
+            className={cmpBtn}
+            variant={preview.active ? "default" : "secondary"}
+            onClick={() => {
+              if (preview.active) {
+                preview.stop();
+              } else {
+                setVideoPlaying(false);
+                setSelectedId(null);
+                preview.start();
+              }
+            }}
+            title="Run the adventure and stop at each Learning Point"
+          >
+            <Play className={cmpIcon} /> {preview.active ? "Stop Preview" : "Preview"}
+          </Button>
+        )}
+
         <div className="ml-auto flex items-center gap-1.5">
+
           <Button
             size="sm"
             className={cmpBtn}
