@@ -1662,16 +1662,16 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       <button
         type="button"
         onClick={() => setTopBarOpen((v) => !v)}
-        className="z-20 flex w-full shrink-0 items-center justify-center gap-1.5 border-b border-border/50 bg-background/80 py-1 text-xs font-medium text-muted-foreground backdrop-blur transition hover:bg-muted/50 hover:text-foreground"
+        className="z-20 flex w-full shrink-0 items-center justify-center gap-1 border-b border-border/50 bg-background/80 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur transition hover:bg-muted/50 hover:text-foreground"
         title={topBarOpen ? "Hide toolbar" : "Show toolbar"}
       >
         {topBarOpen ? (
           <>
-            <ChevronUp className="h-3.5 w-3.5" /> Hide toolbar
+            <ChevronUp className="h-3 w-3" /> Hide toolbar
           </>
         ) : (
           <>
-            <ChevronDown className="h-3.5 w-3.5" /> Show toolbar
+            <ChevronDown className="h-3 w-3" /> Show toolbar
           </>
         )}
       </button>
