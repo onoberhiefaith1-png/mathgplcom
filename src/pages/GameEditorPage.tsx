@@ -1794,8 +1794,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 className={
                   stageFull
                     ? "h-full w-full"
-                    : "w-full max-w-6xl transition-transform"
+                    : "w-full transition-transform"
                 }
+
                 style={
                   stageFull
                     ? undefined
