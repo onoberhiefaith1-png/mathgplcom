@@ -61,25 +61,14 @@ const Index = () => {
         <Globe2 className="h-4 w-4" />
         MathGPL Community
       </Link>
-      {isStudent ? (
-        <Link
-          to="/join"
-          aria-label="Join a class"
-          className="fixed bottom-20 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
-        >
-          <Users className="h-4 w-4" />
-          Join Class
-        </Link>
-      ) : (
-        <Link
-          to="/teaching-hub"
-          aria-label="Open Teaching Hub"
-          className="fixed bottom-20 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
-        >
-          <GraduationCap className="h-4 w-4" />
-          Teaching Hub
-        </Link>
-      )}
+      <Link
+        to="/teaching-hub"
+        aria-label="Open Teaching Hub"
+        className="fixed bottom-20 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
+      >
+        <GraduationCap className="h-4 w-4" />
+        Teaching Hub
+      </Link>
 
     </>
   );
