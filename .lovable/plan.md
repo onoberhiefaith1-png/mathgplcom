@@ -1,41 +1,47 @@
-# Loop-Based Object Visibility (Video Adventure)
+# Video Adventure Preview — Manual Learning Point Control
 
-The orange Loop becomes a room: everything created inside a Learning Point exists only while the blue playhead is inside that loop's time range — in the editor and in gameplay.
+Preview becomes a director's run-through: the video plays, stops at each Learning Point and loops there forever until the teacher presses **Next Learning Point**. Live gameplay is unchanged in feel — the student's progress bar replaces that button.
 
-## What already holds
+## 1. Play Preview (currently disabled)
 
-Objects are already owned by exactly one Learning Point: each loop is stored as its own stage with its own `elements`, and gameplay already shows only the current stage's objects and clears them when the loop is cleared. Ownership is automatic — the teacher never types loop times onto an object.
+The "Play Preview" button in the editor toolbar is a disabled "Coming soon" chip today. It becomes a real preview overlay for video adventures:
 
-## What changes
+- Video starts from 0 and plays the introduction normally.
+- Only objects of the loop the playhead is inside are visible (the loop-visibility rule already built for the editor).
+- On reaching a loop's start, the preview enters that loop: the loop's reward, progress bar(s), time bar, characters, effects and question markers appear, and the region loops indefinitely.
+- Preview never auto-exits a loop. It waits for the teacher.
 
-### 1. Editor: playhead drives visibility
+Preview controls while running: **Play**, **Pause**, **Next Learning Point**, **Exit Preview**. `Next Learning Point` exists only in preview — never in student gameplay.
 
-- Track whether `videoTime` sits inside a loop region.
-- When the playhead is inside a loop, that loop becomes the selected loop automatically and its objects render on the canvas exactly where they were placed.
-- When the playhead is outside every loop, the canvas shows only the background video — reward, progress bar, time bar, effects, characters, floating objects and question markers all unmount, and the current selection is dropped so no stale settings panel stays open.
-- Objects from a different loop never render; entering loop 2 shows only loop 2's objects.
-- This reacts in real time to scrubbing, dragging the playhead and normal playback — no reload.
-- A small canvas hint reads "Outside a Learning Point — objects hidden" when nothing is showing, so a blank canvas never looks like lost work.
+## 2. Next Learning Point
 
-### 2. Placing objects stays inside a loop
+Pressing it simulates a completed checkpoint:
 
-- Adding any object while the playhead is outside every loop is not silently dropped into an invisible loop. The editor seeks the playhead to the selected loop's start (making it visible again) and then adds the object to that loop.
-- The existing gate stays: with no loop yet, only video upload and Set Start / Set End are available.
+1. The loop's progress bars snap to full (preview-only visual state, nothing written to the database).
+2. The reward plays its exit animation.
+3. The loop is marked cleared, but the video keeps playing to the loop's end — no jump. At 24.7s in a 20–30s loop it continues 24.7 → 30 naturally.
+4. On reaching loop end, all of that loop's objects unmount and normal playback resumes toward the next loop.
+5. A cleared loop is never re-entered and its objects never come back.
 
-### 3. Gameplay: confirm and tighten
+Final Learning Point instead simulates the ending: final reward collected, gallery/victory sequence, End Adventure — and preview stops there. Intermediate points never open the gallery.
 
-- While the video plays between loops, no loop objects render.
-- On entering a loop region, that loop's objects appear and the region loops.
-- On completion, the reward leaves, every object of that loop unmounts, and the video resumes to the next loop; a cleared loop is never re-entered and its objects never reappear.
-- Only the final loop opens the Class Gallery.
+## 3. Same smooth exit in real gameplay
+
+Gameplay today clears a loop and drops the loop region the instant the bars complete, which can cut the shot. It changes to the same rule: on completion the reward leaves, the loop keeps playing to its end, then objects unmount and normal playback continues. Students see one continuous cinematic, no seek jump.
+
+## 4. Progress bar names
+
+Every progress bar gets an editable name (default "Progress Bar"), stored on the element's existing `label` field:
+
+- A **Name** input at the top of the progress bar's settings in the right-hand properties panel.
+- The name shows in the editor rail, the preview HUD, group/link dialogs, and anywhere a bar is chosen (course/adventure assignment, smart-card setup, class adventure dashboards) instead of the generic "Progress Bar".
+- Links stay keyed by bar id internally; only the display text changes.
 
 ## Technical notes
 
-- `src/lib/games/types.ts`: reuse the existing `checkpointAt(scenes, t)` lookup — no schema or data-shape change; loop ownership is positional in `scenes[]`.
-- `src/pages/GameEditorPage.tsx`:
-  - derive `playheadLoop = checkpointAt(checkpoints, videoTime)` and `insideLoop = playheadLoop?.id === activeScene?.id`;
-  - in video mode, feed `GameCanvas` an empty element list when the playhead is outside the active loop; keep the full list otherwise;
-  - auto-select `playheadLoop` when the playhead enters a different loop; clear `selectedId` when leaving a loop;
-  - object-add handlers seek to `activeScene.loopStart` when the playhead is outside.
-- `src/pages/student/GamePlayPage.tsx`: keep the existing stage machine; only add the guard that objects of cleared loops stay unmounted after the video resumes.
-- No database migration.
+- `src/lib/games/videoPreview.ts` (new): a `usePreviewRuntime` hook holding `playing`, `activeLoopId`, `clearedLoopIds`, `exiting` (loop id awaiting its natural end) and `simulatedFull` bars; exposes `next()`, `play()`, `pause()`, `reset()`. Loop entry/exit reuse `checkpointAt` / `checkpointsOf` / `isFinalStage` from `types.ts` and `stages.ts`.
+- `src/pages/GameEditorPage.tsx`: enable the Play Preview button for video mode; render a preview overlay over the existing `VideoBackgroundLayer` + `GameCanvas` (canvas `editable={false}`, elements filtered to the active loop, bars driven by the simulated marks). Exiting preview restores the authoring playhead state.
+- `src/components/gamebuilder/VideoBackgroundLayer.tsx`: keep the loop region while `exiting` is set but let it run past `end` once (drop the region on the exit tick) so the region finishes instead of wrapping.
+- `src/pages/student/GamePlayPage.tsx`: on stage completion set an `exitingCpId` and only clear the loop/stage when `videoTime` reaches `loopEnd`; keep the existing reward transfer, deferred gallery and final-stage behaviour.
+- `src/components/gamebuilder/SettingsPanel.tsx`: Name field writing `element.label`; bar pickers in `LinkAdventureDialog.tsx`, `GroupsPanel.tsx`, `AssetsPanel.tsx`, `ClassAdventuresPage.tsx`, `AdventureDashboardPage.tsx`, `SmartCardGameSetupPage.tsx` fall back to "Progress Bar" only when `label` is empty.
+- No database migration — `label` already exists on canvas elements.
