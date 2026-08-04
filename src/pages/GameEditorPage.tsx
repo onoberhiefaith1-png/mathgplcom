@@ -1646,12 +1646,12 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
             <Video className="mr-1.5 h-4 w-4" /> Video Background
           </Button>
         )}
-        {!video && (
+        {isGallery && (
           <span className="mr-1 text-xs font-semibold text-muted-foreground">
             Canvas: {heightUnits} section{heightUnits === 1 ? "" : "s"}
           </span>
         )}
-        {!video && (
+        {isGallery && (
           <>
             <Button size="sm" variant="secondary" onClick={extendCanvas} title="Extend canvas upward by one section (adds space at the top)">
               <Plus className="mr-1.5 h-4 w-4" /> Extend Canvas
