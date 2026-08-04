@@ -470,6 +470,44 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     [activeSceneId],
   );
 
+  // ── Scene strip (static Adventure: one stage = one scene) ───────
+  const newSceneId = () =>
+    `scene-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+
+  const addScene = useCallback(() => {
+    const id = newSceneId();
+    setScenes((prev) => [...prev, { id, elements: [] }]);
+    setActiveSceneId(id);
+  }, []);
+
+  const duplicateScene = useCallback((sceneId: string) => {
+    const id = newSceneId();
+    setScenes((prev) => {
+      const i = prev.findIndex((s) => s.id === sceneId);
+      if (i < 0) return prev;
+      const src = prev[i];
+      const copy: Scene = {
+        ...src,
+        id,
+        elements: src.elements.map((el) => ({
+          ...el,
+          id: `${el.kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        })),
+      };
+      return [...prev.slice(0, i + 1), copy, ...prev.slice(i + 1)];
+    });
+    setActiveSceneId(id);
+  }, []);
+
+  const deleteScene = useCallback((sceneId: string) => {
+    setScenes((prev) => {
+      if (prev.length <= 1) return prev;
+      const next = prev.filter((s) => s.id !== sceneId);
+      setActiveSceneId((cur) => (cur === sceneId ? next[0]?.id ?? null : cur));
+      return next;
+    });
+  }, []);
+
   // ── Canvas operations ───────────────────────────────────────────
   /**
    * Grow the canvas by one 16:9 section vertically. Existing elements' y
