@@ -26,6 +26,8 @@ interface CheckpointTimelineProps {
   onPatch: (id: string, patch: Partial<Scene>) => void;
   onChangeVideo: () => void;
   onRemoveVideo: () => void;
+  /** Collapsed by default: the loop detail form only shows when the toolbar is expanded. */
+  expanded?: boolean;
 }
 
 /**
