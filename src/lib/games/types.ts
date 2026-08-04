@@ -377,8 +377,26 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
   }
   if (Array.isArray(canvas.scenes) && canvas.scenes.length > 0) {
     const scenes = canvas.scenes;
-    // Multi-scene legacy: flatten into one continuous vertical canvas.
     if (scenes.length > 1) {
+      // New format (`mode` present): several Scenes are real play stages and
+      // must be preserved exactly as authored.
+      if (canvas.mode) {
+        const staged = scenes.map((s, i) => ({
+          ...makeScene(i),
+          ...s,
+          title: s.title || `Scene ${i + 1}`,
+          tag: s.tag ?? "",
+          cameraTargetId: s.cameraTargetId ?? null,
+          elements: (s.elements ?? []).map(withElementDefaults),
+        }));
+        return {
+          mode,
+          scenes: staged,
+          activeSceneId: canvas.activeSceneId ?? staged[0]?.id ?? null,
+          heightUnits: 1,
+        };
+      }
+      // Legacy multi-scene: flatten into one continuous vertical canvas.
       const N = scenes.length;
       const merged: CanvasElement[] = [];
       scenes.forEach((s, i) => {
@@ -392,6 +410,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
       return { mode, scenes: [single], activeSceneId: single.id, heightUnits: N };
     }
     const only = scenes[0];
+
     const single: Scene = {
       ...only,
       cameraTargetId: only.cameraTargetId ?? null,
