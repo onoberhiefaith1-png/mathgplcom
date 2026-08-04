@@ -1903,7 +1903,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
         {/* Settings drawer */}
         {(drawerOpen || isConfiguringReward) && (
-          <aside className="flex h-full w-80 flex-col border-l border-border/50 bg-background/95 shadow-xl backdrop-blur">
+          <aside className="flex h-full w-[20%] min-w-[15rem] max-w-[24rem] shrink-0 flex-col border-l border-border/50 bg-background/95 shadow-xl backdrop-blur">
             <div className="flex items-center justify-between border-b border-border/50 px-3 py-2.5">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {isConfiguringReward ? "Reward Settings" : "Edit item"}
