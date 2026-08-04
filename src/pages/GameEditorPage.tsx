@@ -55,7 +55,7 @@ import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
 import SceneStrip from "@/components/gamebuilder/SceneStrip";
-import { usePreviewRuntime } from "@/lib/games/videoPreview";
+import { useLoopRuntime } from "@/lib/games/loopRuntime";
 
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
 import { adventureModeOf, adventureModeLabel, type AdventureMode } from "@/lib/games/types";
@@ -948,7 +948,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     videoRef.current?.seek(t);
     setVideoTime(t);
   }, []);
-  const preview = usePreviewRuntime(checkpoints, seekVideo);
+  const preview = useLoopRuntime(checkpoints, seekVideo);
   const previewFinalLoop =
     preview.activeLoopId != null &&
     checkpoints.length > 0 &&
@@ -973,8 +973,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       if (playheadLoop.id !== activeSceneId) setActiveSceneId(playheadLoop.id);
     } else {
       setSelectedId(null);
+      // Developer-only signal; never rendered on the canvas.
+      console.debug("[adventure] playhead outside every Learning Point — objects hidden");
     }
   }, [video, preview.active, playheadLoop, activeSceneId]);
+
 
 
   useEffect(() => {
@@ -2006,11 +2009,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                         if (preview.active) preview.pause();
                       }}
                     />
-                    {!preview.active && !insideActiveLoop && (
-                      <p className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-black/60 px-2 py-1 text-[11px] font-medium text-white/90">
-                        Outside a Learning Point — objects hidden
-                      </p>
-                    )}
+                    {/* No status text on the canvas — it must look like the
+                        real game. Visibility is logged to the console instead. */}
+
                     <div className="absolute inset-0">
                       <GameCanvas
                         elements={

@@ -18,6 +18,8 @@ import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { withGroupBars } from "@/lib/adventures/groupBars";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
+import { loopRegionFor, loopStateOf, type LoopState } from "@/lib/games/loopRuntime";
+
 
 
 
@@ -282,6 +284,27 @@ const GamePlayPage = () => {
     return mirroredElements.filter((e) => stageIds.has(e.id));
   }, [staged, activeStage, stageIds, mirroredElements]);
 
+  /**
+   * Learning Point state, resolved by the shared runtime rules
+   * (upcoming → active → completed → hidden). Developer signal only — never
+   * rendered on the canvas.
+   */
+  const loopStates = useMemo(() => {
+    if (!videoBg) return {} as Record<string, LoopState>;
+    const out: Record<string, LoopState> = {};
+    for (const s of stages) {
+      out[s.title || s.id] = loopStateOf(s.id, {
+        activeId: activeCpId,
+        exitingId: exitingCpId,
+        completedIds: doneCps,
+      });
+    }
+    return out;
+  }, [videoBg, stages, activeCpId, exitingCpId, doneCps]);
+  useEffect(() => {
+    if (videoBg) console.debug("[adventure] learning points", loopStates);
+  }, [videoBg, loopStates]);
+
 
   const playableBars = useMemo(
     () =>
@@ -443,11 +466,8 @@ const GamePlayPage = () => {
                   ref={videoRef}
                   video={videoBg}
                   playing={!frozen && !cpFailed && (!transfer.transferring || !!videoBg)}
-                  loop={
-                    activeCp && activeCp.loopEnd != null && !exitingCpId
-                      ? { start: activeCp.loopStart ?? 0, end: activeCp.loopEnd }
-                      : null
-                  }
+                  loop={loopRegionFor(activeCp, Boolean(exitingCpId))}
+
 
                   onTime={onVideoTime}
                 />
