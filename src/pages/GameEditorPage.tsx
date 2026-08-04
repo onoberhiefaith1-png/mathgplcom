@@ -60,7 +60,15 @@ import { useLoopRuntime } from "@/lib/games/loopRuntime";
 import { useNarrationPlayback } from "@/lib/games/narration";
 
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
-import { adventureModeOf, adventureModeLabel, type AdventureMode } from "@/lib/games/types";
+import {
+  adventureModeOf,
+  adventureModeLabel,
+  nextBarRole,
+  LEARNING_BAR_LABEL,
+  TIME_BAR_LABEL,
+  type AdventureMode,
+  type BarRole,
+} from "@/lib/games/types";
 import { getOrCreateClassGallery, saveClassGalleryCanvas } from "@/lib/games/classGallery";
 import { ensureGameQuestionNotebook } from "@/lib/games/gameQuestions";
 import { supabase } from "@/integrations/supabase/client";
@@ -721,7 +729,18 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   );
 
   // Drop a built-in cinematic progress tower directly onto the stage (no upload).
+  //
+  // Every Scene / Learning Point owns exactly two bars: the system-owned Time
+  // Progress Bar and the Learning Progress Bar that carries the questions.
   const addProgressTower = useCallback(() => {
+    const role = nextBarRole(elementsRef.current);
+    if (!role) {
+      toast({
+        title: "Both Progress Bars already exist",
+        description: `Each Scene has one ${TIME_BAR_LABEL} and one ${LEARNING_BAR_LABEL}. Select one to edit it.`,
+      });
+      return;
+    }
     const base: CanvasElement = {
       id: uid(),
       kind: "progress_bar",
