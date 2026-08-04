@@ -1532,8 +1532,6 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         </>
       )}
 
-      {/* Top interface — capped at 20% of the screen so the stage keeps 80% */}
-      <div className="flex max-h-[20vh] shrink-0 flex-col overflow-y-auto">
       {/* Collapsible top bar */}
       {topBarOpen && (
         <header className="z-20 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-2.5 backdrop-blur">
@@ -1646,12 +1644,12 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
             <Video className="mr-1.5 h-4 w-4" /> Video Background
           </Button>
         )}
-        {isGallery && (
+        {!video && (
           <span className="mr-1 text-xs font-semibold text-muted-foreground">
             Canvas: {heightUnits} section{heightUnits === 1 ? "" : "s"}
           </span>
         )}
-        {isGallery && (
+        {!video && (
           <>
             <Button size="sm" variant="secondary" onClick={extendCanvas} title="Extend canvas upward by one section (adds space at the top)">
               <Plus className="mr-1.5 h-4 w-4" /> Extend Canvas
@@ -1738,9 +1736,6 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           onRemoveVideo={removeVideoBackground}
         />
       )}
-      </div>
-
-
 
       {/* Editing area */}
       <div className="flex min-h-0 flex-1">
