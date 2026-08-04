@@ -1738,6 +1738,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           onRemoveVideo={removeVideoBackground}
         />
       )}
+      </div>
+
+
 
       {/* Editing area */}
       <div className="flex min-h-0 flex-1">
