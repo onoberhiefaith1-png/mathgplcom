@@ -285,7 +285,7 @@ export const narrationsOf = (canvas: GameCanvas | null | undefined): Narration[]
       title: n.title || "Narration",
       source: n.source ?? "storage",
       at: Math.max(0, Number(n.at) || 0),
-      mode: n.mode === "repeat" ? "repeat" : "once",
+      mode: (n.mode === "repeat" ? "repeat" : "once") as Narration["mode"],
     }))
     .sort((a, b) => a.at - b.at);
 
