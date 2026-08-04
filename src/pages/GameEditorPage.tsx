@@ -119,7 +119,10 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   const [assetOpen, setAssetOpen] = useState(false);
   const [energyRefreshKey, setEnergyRefreshKey] = useState(0);
   const energyModeRef = useRef(false);
-  const [topBarOpen, setTopBarOpen] = useState(true);
+  const [topBarOpen, setTopBarOpen] = useState(false);
+  /** Compact chrome: the default toolbar must stay inside ~20% of the height. */
+  const cmpBtn = "h-7 gap-1 px-2 text-[11px]";
+  const cmpIcon = "h-3.5 w-3.5";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
   const [zoom, setZoom] = useState(1);
