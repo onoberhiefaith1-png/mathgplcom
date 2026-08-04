@@ -12,6 +12,24 @@ const Index = () => {
   // Students never teach — their primary entry point is joining a teacher's class.
   const isStudent = role === "student";
 
+  // The student Academy page is view-only: the school's background + rotating
+  // building, and one way in. No search, account menu, settings or tools.
+  if (isStudent) {
+    return (
+      <>
+        <RotatingAdventureScene interactive={false} configMode="school-readonly" />
+        <Link
+          to="/join"
+          aria-label="Join a class"
+          className="fixed bottom-10 left-1/2 z-50 inline-flex min-h-[52px] -translate-x-1/2 items-center gap-2 rounded-full border border-amber-300/60 bg-background/80 px-8 py-3 text-base font-semibold text-amber-200 shadow-[0_0_32px_hsl(40_90%_60%/0.35)] backdrop-blur transition hover:bg-amber-500/25"
+        >
+          <Users className="h-5 w-5" />
+          Join Class
+        </Link>
+      </>
+    );
+  }
+
   return (
     <>
       <AcademyTopBar />
