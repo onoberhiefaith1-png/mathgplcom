@@ -26,6 +26,8 @@ interface CheckpointTimelineProps {
   onPatch: (id: string, patch: Partial<Scene>) => void;
   onChangeVideo: () => void;
   onRemoveVideo: () => void;
+  /** Collapsed by default: the loop detail form only shows when the toolbar is expanded. */
+  expanded?: boolean;
 }
 
 /**
@@ -47,57 +49,62 @@ const CheckpointTimeline = ({
   onPatch,
   onChangeVideo,
   onRemoveVideo,
+  expanded = false,
 }: CheckpointTimelineProps) => {
   const [markStart, setMarkStart] = useState<number | null>(null);
   const active = useMemo(() => checkpoints.find((c) => c.id === activeId) ?? null, [checkpoints, activeId]);
   const dur = duration > 0 ? duration : 1;
+  const cmpBtn = "h-7 gap-1 px-2 text-[11px]";
+  const cmpIcon = "h-3.5 w-3.5";
 
   return (
-    <div className="z-10 shrink-0 space-y-2 border-b border-border/40 bg-background/80 px-4 py-2 backdrop-blur">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="icon" variant="secondary" className="h-8 w-8" onClick={onTogglePlay} title={playing ? "Pause" : "Play"}>
-          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+    <div className="z-10 shrink-0 space-y-1.5 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button size="icon" variant="secondary" className="h-7 w-7" onClick={onTogglePlay} title={playing ? "Pause" : "Play"}>
+          {playing ? <Pause className={cmpIcon} /> : <Play className={cmpIcon} />}
         </Button>
-        <span className="tabular-nums text-xs text-muted-foreground">
+        <span className="tabular-nums text-[11px] text-muted-foreground">
           {fmtTime(currentTime)} / {fmtTime(duration)}
         </span>
 
         {markStart == null ? (
-          <Button size="sm" variant="secondary" onClick={() => setMarkStart(currentTime)}>
-            <Flag className="mr-1.5 h-4 w-4" /> Set Start
+          <Button size="sm" className={cmpBtn} variant="secondary" onClick={() => setMarkStart(currentTime)}>
+            <Flag className={cmpIcon} /> Set Start
           </Button>
         ) : (
           <>
-            <span className="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
               Start {fmtTime(markStart)}
             </span>
             <Button
               size="sm"
+              className={cmpBtn}
               onClick={() => {
                 onAdd(markStart, Math.max(markStart + 0.5, currentTime));
                 setMarkStart(null);
               }}
             >
-              <Flag className="mr-1.5 h-4 w-4" /> Set End &amp; Add Checkpoint
+              <Flag className={cmpIcon} /> Set End &amp; Add Checkpoint
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setMarkStart(null)}>
+            <Button size="sm" className={cmpBtn} variant="ghost" onClick={() => setMarkStart(null)}>
               Cancel
             </Button>
           </>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={onChangeVideo}>
-            <Video className="mr-1.5 h-4 w-4" /> Change Video
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button size="sm" className={cmpBtn} variant="ghost" onClick={onChangeVideo}>
+            <Video className={cmpIcon} /> Change Video
           </Button>
-          <Button size="sm" variant="ghost" onClick={onRemoveVideo} title="Back to a static background">
-            <Trash2 className="mr-1.5 h-4 w-4" /> Remove
+          <Button size="sm" className={cmpBtn} variant="ghost" onClick={onRemoveVideo} title="Back to a static background">
+            <Trash2 className={cmpIcon} /> Remove
           </Button>
         </div>
       </div>
 
       {/* Scrubber with checkpoint regions drawn on it */}
-      <div className="relative h-7 w-full rounded-md bg-muted/60">
+      <div className="relative h-4 w-full rounded-md bg-muted/60">
+
         {checkpoints.map((c) => {
           const s = ((c.loopStart ?? 0) / dur) * 100;
           const w = Math.max(0.8, (((c.loopEnd ?? 0) - (c.loopStart ?? 0)) / dur) * 100);
@@ -143,9 +150,9 @@ const CheckpointTimeline = ({
       </div>
 
       {/* Checkpoint chips */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         {checkpoints.length === 0 && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             Play the video, then Set Start and Set End to create your first Checkpoint.
           </p>
         )}
@@ -153,7 +160,7 @@ const CheckpointTimeline = ({
           <div
             key={c.id}
             className={cn(
-              "flex items-center gap-1 rounded-full border px-2 py-1 text-xs",
+              "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px]",
               c.id === activeId ? "border-primary bg-primary/10 text-primary" : "border-border/60",
             )}
           >
@@ -173,15 +180,17 @@ const CheckpointTimeline = ({
               aria-label={`Delete ${c.title}`}
               className="rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-2.5 w-2.5" />
             </button>
           </div>
         ))}
       </div>
 
-      {/* Active checkpoint settings — loop bounds + per-checkpoint timer */}
-      {active && (
+      {/* Active checkpoint settings — loop bounds + per-checkpoint timer.
+          Hidden until the toolbar is expanded, so the default chrome stays slim. */}
+      {active && expanded && (
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+
           <div className="w-40">
             <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Name</Label>
             <Input
