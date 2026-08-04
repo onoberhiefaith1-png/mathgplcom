@@ -54,8 +54,10 @@ import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
 import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
+import NarrationPanel from "@/components/gamebuilder/NarrationPanel";
 import SceneStrip from "@/components/gamebuilder/SceneStrip";
 import { useLoopRuntime } from "@/lib/games/loopRuntime";
+import { useNarrationPlayback } from "@/lib/games/narration";
 
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
 import { adventureModeOf, adventureModeLabel, type AdventureMode } from "@/lib/games/types";
@@ -77,6 +79,7 @@ import {
 
   defaultAnimation,
   makeCheckpoint,
+  narrationsOf,
   normalizeCanvas,
   uid,
 } from "@/lib/games/types";
@@ -113,6 +116,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   /** Mode being picked inside the meta dialog (applied on Save). */
   const [metaMode, setMetaMode] = useState<AdventureMode>("static");
   const [videoTime, setVideoTime] = useState(0);
+  /** Narration clips pinned to timestamps in the background video. */
+  const [narrations, setNarrations] = useState<Narration[]>([]);
+  const [narrationOpen, setNarrationOpen] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const videoModeRef = useRef(false);
@@ -219,6 +225,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           setActiveSceneId(canvas.activeSceneId ?? canvas.scenes[0]?.id ?? null);
           setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
           setVideo(canvas.video ?? null);
+          setNarrations(narrationsOf(canvas));
           setAdventureMode(adventureModeOf(canvas));
           loadedRef.current = true;
         } catch (e) {
@@ -242,6 +249,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         setActiveSceneId(canvas.activeSceneId ?? canvas.scenes[0]?.id ?? null);
         setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
         setVideo(canvas.video ?? null);
+        setNarrations(narrationsOf(canvas));
         setAdventureMode(adventureModeOf(canvas));
         setMetaMode(adventureModeOf(canvas));
         loadedRef.current = true;
@@ -270,7 +278,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       setSaving(true);
       const t = setTimeout(async () => {
         try {
-          await saveClassGalleryCanvas(classId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video });
+          await saveClassGalleryCanvas(classId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video, narrations });
         } catch (e) {
           console.error(e);
         } finally {
@@ -283,7 +291,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setSaving(true);
     const t = setTimeout(async () => {
       try {
-        await saveGameCanvas(gameId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video });
+        await saveGameCanvas(gameId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video, narrations });
       } catch (e) {
         console.error(e);
       } finally {
@@ -291,7 +299,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [scenes, activeSceneId, heightUnits, video, adventureMode, gameId, classId, isGallery]);
+  }, [scenes, activeSceneId, heightUnits, video, narrations, adventureMode, gameId, classId, isGallery]);
 
   const activeScene = useMemo(
     () => scenes.find((s) => s.id === activeSceneId) ?? scenes[0] ?? null,
