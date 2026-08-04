@@ -20,10 +20,24 @@ export type AdventureGroup = {
   is_primary: boolean;
   position_x: number | null;
   position_y: number | null;
+  /** Look of a duplicated bar. Appearance only — never questions or scoring. */
+  style_color: string | null;
+  style_scale: number | null;
+  style_preset_id: string | null;
+  /** Video Adventure: false once the group missed a Learning Point target. */
+  qualified: boolean;
+  completed_at: string | null;
+  eliminated_at_scene_id: string | null;
 };
 
+/** Groups per class+game are capped so the stage stays readable. */
+export const MAX_GROUPS = 10;
+
+export const DEFAULT_GROUP_COMPLETION_MESSAGE =
+  "This part of the journey isn't over yet. Gather your team, review your strategy, and try again. Every great explorer succeeds through persistence!";
+
 const GROUP_COLS =
-  "id, class_id, game_id, name, progress_element_id, source_element_id, is_primary, position_x, position_y";
+  "id, class_id, game_id, name, progress_element_id, source_element_id, is_primary, position_x, position_y, style_color, style_scale, style_preset_id, qualified, completed_at, eliminated_at_scene_id";
 
 export type AdventureGroupMember = {
   id: string;
@@ -174,4 +188,69 @@ export async function listStudentGroupIds(classId: string, studentId: string): P
     .eq("class_id", classId)
     .eq("student_id", studentId);
   return ((data ?? []) as unknown as Array<{ group_id: string }>).map((r) => r.group_id);
+}
+
+/** Restyle a duplicated bar. Appearance only — questions and scoring never change. */
+export async function styleGroupBar(
+  id: string,
+  style: { color?: string | null; scale?: number | null; presetId?: string | null },
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if ("color" in style) patch['style_color'] = style.color ?? null;
+  if ("scale" in style) patch['style_scale'] = style.scale ?? null;
+  if ("presetId" in style) patch['style_preset_id'] = style.presetId ?? null;
+  const { error } = await supabase.from("adventure_groups" as never).update(patch as never).eq("id", id);
+  if (error) throw error;
+}
+
+/** Video Adventure — record the outcome of a Learning Point for one group. */
+export async function setGroupQualification(
+  id: string,
+  qualified: boolean,
+  sceneId: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("adventure_groups" as never)
+    .update({
+      qualified,
+      eliminated_at_scene_id: qualified ? null : sceneId,
+      completed_at: qualified ? new Date().toISOString() : null,
+    } as never)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** The teacher's encouraging message for groups that missed the target. */
+export async function getGroupCompletionMessage(classId: string, gameId: string): Promise<string> {
+  const { data } = await supabase
+    .from("class_games" as never)
+    .select("group_completion_message")
+    .eq("class_id", classId)
+    .eq("game_id", gameId)
+    .limit(1);
+  const row = (data ?? [])[0] as { group_completion_message: string | null } | undefined;
+  return row?.group_completion_message?.trim() || DEFAULT_GROUP_COMPLETION_MESSAGE;
+}
+
+export async function setGroupCompletionMessage(
+  classId: string,
+  gameId: string,
+  message: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("class_games" as never)
+    .update({ group_completion_message: message.trim() || null } as never)
+    .eq("class_id", classId)
+    .eq("game_id", gameId);
+  if (error) throw error;
+}
+
+/** Adventure race — the first group to finish, if any. */
+export async function recordRaceWinner(classId: string, gameId: string, groupId: string | null): Promise<void> {
+  const { error } = await supabase
+    .from("class_games" as never)
+    .update({ winner_group_id: groupId } as never)
+    .eq("class_id", classId)
+    .eq("game_id", gameId);
+  if (error) throw error;
 }

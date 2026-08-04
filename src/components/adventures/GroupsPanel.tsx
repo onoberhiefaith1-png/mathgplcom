@@ -9,9 +9,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { deleteGroup, renameGroup, assignStudentToGroup, type AdventureGroup } from "@/lib/adventures/groups";
-import { addGroup, backfillUngrouped, defaultSourceBarId, primaryBarId } from "@/lib/adventures/groupCompetition";
+import {
+  deleteGroup,
+  renameGroup,
+  assignStudentToGroup,
+  styleGroupBar,
+  getGroupCompletionMessage,
+  setGroupCompletionMessage,
+  DEFAULT_GROUP_COMPLETION_MESSAGE,
+  MAX_GROUPS,
+  type AdventureGroup,
+} from "@/lib/adventures/groups";
+import { addGroup, backfillUngrouped, defaultSourceBarId, nextGroupName, primaryBarId } from "@/lib/adventures/groupCompetition";
 import { hasRoomForGroupBar } from "@/lib/adventures/groupBars";
+import { adventureModeOf, normalizeCanvas } from "@/lib/games/types";
 import type { AdventureBarSummary } from "@/hooks/useAdventureSync";
 import type { GroupContext } from "@/hooks/useAdventureGroups";
 import type { GameRow } from "@/lib/games/types";
@@ -33,6 +44,19 @@ interface Props {
 
 export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsByBar, reservedBarIds }: Props) {
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(DEFAULT_GROUP_COMPLETION_MESSAGE);
+  const [savingMessage, setSavingMessage] = useState(false);
+
+  const isVideo = useMemo(
+    () => (game ? adventureModeOf(normalizeCanvas(game.canvas)) === "video" : false),
+    [game],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void getGroupCompletionMessage(classId, gameId).then((m) => { if (!cancelled) setMessage(m); });
+    return () => { cancelled = true; };
+  }, [classId, gameId]);
 
   const memberIds = useMemo(() => members.map((m) => m.user_id), [members]);
   const memberById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
@@ -53,7 +77,9 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
   );
 
   const roomLeft = useMemo(
-    () => ctx.groups.length === 0 || hasRoomForGroupBar(game, ctx.groups, sourceBarId),
+    () =>
+      ctx.groups.length < MAX_GROUPS &&
+      (ctx.groups.length === 0 || hasRoomForGroupBar(game, ctx.groups, sourceBarId)),
     [game, ctx.groups, sourceBarId],
   );
 
@@ -70,15 +96,24 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
   }, [classId, gameId, ctx, memberIds]);
 
   const doAdd = async () => {
+    const suggested = nextGroupName(ctx.groups);
+    const name = prompt("Name this group:", suggested);
+    if (name === null) return;
     setBusy(true);
     try {
-      const res = await addGroup({ classId, gameId, game, groups: ctx.groups, memberIds, sourceBarId });
+      const res = await addGroup({
+        classId, gameId, game, groups: ctx.groups, memberIds, sourceBarId, name: name || suggested,
+      });
       if (res.ok === false) {
-        const noSpace = res.reason === "no_space";
+        const title =
+          res.reason === "no_space" ? "No space for another bar"
+          : res.reason === "max_groups" ? `Maximum ${MAX_GROUPS} groups`
+          : "No Progress Bar found";
         toast({
-          title: noSpace ? "No space for another bar" : "No Progress Bar found",
-          description: noSpace
-            ? "Move a bar or remove a group to make room."
+          title,
+          description:
+            res.reason === "no_space" ? "Move a bar or remove a group to make room."
+            : res.reason === "max_groups" ? "Remove a group before adding another."
             : "Link this Adventure to a lesson question first.",
           variant: "destructive",
         });
@@ -86,9 +121,9 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
       }
       await ctx.refresh();
       toast({
-        title: res.adopted ? "Group A created" : `${res.group.name} created`,
+        title: `${res.group.name} created`,
         description: res.adopted
-          ? "The existing Progress Bar is now Group A and every student joined it."
+          ? "The existing Progress Bar now belongs to this group and every student joined it."
           : "An identical Progress Bar was placed in free space.",
       });
     } catch (e) {
@@ -118,6 +153,26 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
   const moveStudent = async (studentId: string, groupId: string) => {
     try { await assignStudentToGroup(classId, gameId, studentId, groupId); await ctx.refresh(); }
     catch (e) { toast({ title: "Could not move", description: (e as Error).message, variant: "destructive" }); }
+  };
+
+  const restyle = async (
+    g: AdventureGroup,
+    style: { color?: string | null; scale?: number | null },
+  ) => {
+    try { await styleGroupBar(g.id, style); await ctx.refresh(); }
+    catch (e) { toast({ title: "Could not restyle", description: (e as Error).message, variant: "destructive" }); }
+  };
+
+  const saveMessage = async () => {
+    setSavingMessage(true);
+    try {
+      await setGroupCompletionMessage(classId, gameId, message);
+      toast({ title: "Message saved" });
+    } catch (e) {
+      toast({ title: "Could not save message", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setSavingMessage(false);
+    }
   };
 
   const ungrouped = members.filter((m) => !ctx.studentGroup.has(m.user_id));
@@ -161,9 +216,34 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
             onRename={() => doRename(g)}
             onDelete={ctx.groups.length > 1 ? () => doDelete(g) : undefined}
             onMoveStudent={moveStudent}
+            group={g}
+            onRestyle={g.is_primary ? undefined : (style) => restyle(g, style)}
           />
         );
       })}
+
+      {isVideo && ctx.groups.length > 0 && (
+        <div className="rounded-xl border border-border bg-card/40 p-3">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Group Completion Message
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Shown to a group that hasn&apos;t reached the target when a Learning Point ends.
+          </p>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            className="mt-2 w-full rounded-md border border-input bg-background p-2 text-xs"
+          />
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={saveMessage} disabled={savingMessage}>Save message</Button>
+            <Button size="sm" variant="ghost" onClick={() => setMessage(DEFAULT_GROUP_COMPLETION_MESSAGE)}>
+              Reset
+            </Button>
+          </div>
+        </div>
+      )}
 
       {!roomLeft && (
         <p className="text-xs text-muted-foreground">
@@ -182,7 +262,7 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
 
 function GroupCard({
   title, subtitle, studentRows, stats, groups, currentGroupId,
-  onRename, onDelete, onMoveStudent,
+  onRename, onDelete, onMoveStudent, group, onRestyle,
 }: {
   title: string;
   subtitle: string;
@@ -193,6 +273,8 @@ function GroupCard({
   onRename?: () => void;
   onDelete?: () => void;
   onMoveStudent?: (studentId: string, groupId: string) => void;
+  group?: AdventureGroup;
+  onRestyle?: (style: { color?: string | null; scale?: number | null }) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const targets = groups.filter((g) => g.id !== currentGroupId);
@@ -220,6 +302,42 @@ function GroupCard({
         <Meta label="Achieved" value={stats ? `${stats.achieved} / ${stats.required}` : "—"} />
         <Meta label="Per Slot" value={stats ? `${stats.perSlot}` : "—"} />
       </div>
+
+      {group && !group.qualified && (
+        <p className="mt-2 rounded-md border border-border bg-background/40 px-2 py-1 text-[11px] text-muted-foreground">
+          Watching the rest of the journey — this group missed a Learning Point target.
+        </p>
+      )}
+
+      {onRestyle && (
+        <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-background/40 px-2 py-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Bar look</span>
+          <input
+            type="color"
+            value={group?.style_color ?? "#8a5cff"}
+            onChange={(e) => onRestyle({ color: e.target.value })}
+            className="h-6 w-8 cursor-pointer rounded border border-input bg-transparent"
+            aria-label="Bar colour"
+          />
+          <input
+            type="range"
+            min={8}
+            max={40}
+            step={1}
+            value={Math.round((group?.style_scale ?? 0.18) * 100)}
+            onChange={(e) => onRestyle({ scale: Number(e.target.value) / 100 })}
+            className="flex-1"
+            aria-label="Bar size"
+          />
+          <button
+            type="button"
+            onClick={() => onRestyle({ color: null, scale: null })}
+            className="rounded-md border border-border px-2 py-0.5 text-[10px] hover:bg-accent"
+          >
+            Reset
+          </button>
+        </div>
+      )}
 
       <button
         type="button"

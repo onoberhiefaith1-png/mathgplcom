@@ -105,7 +105,26 @@ export interface SlotEffect {
   effectSource?: MediaSource;
 }
 
+/**
+ * Which of the two fixed bars this is.
+ *
+ * - `time` — the system-owned Time Progress Bar. Never renamed, deleted or
+ *   linked to questions; only its appearance and duration are editable.
+ * - `learning` — the only bar linked to questions, scores and rewards.
+ *
+ * Legacy bars have no role and are treated as `learning`.
+ */
+export type BarRole = "time" | "learning";
+
 export interface ProgressConfig {
+  /** Fixed role of this bar inside its Scene / Learning Point. */
+  role?: BarRole;
+  /**
+   * Time Progress Bar only — countdown length in seconds.
+   * `0` (or missing) means **No Time**: no timer at all.
+   */
+  timeDurationSeconds?: number;
+
   /** number of slots in the tower (defaults to 10). */
   segments: number;
   /** built-in frame design id; when absent the element's own storagePath is used. */
@@ -531,3 +550,61 @@ export const withElementDefaults = (el: CanvasElement): CanvasElement => ({
 });
 
 export const GAME_ASSETS_BUCKET = "game-assets";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fixed two-bar architecture
+//
+// Every Scene (Adventure) and every Learning Point (Video Adventure) owns
+// exactly two Progress Bars: one Time Progress Bar and one Learning Progress
+// Bar. Legacy games keep whatever bars they already have — the rule is only
+// enforced when new bars are added.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const TIME_BAR_LABEL = "Time Progress Bar";
+export const LEARNING_BAR_LABEL = "Progress Bar";
+
+/** Selectable countdown lengths for the Time Progress Bar (0 = No Time). */
+export const TIME_DURATION_OPTIONS: { seconds: number; label: string }[] = [
+  { seconds: 0, label: "No Time" },
+  { seconds: 60, label: "1 minute" },
+  { seconds: 120, label: "2 minutes" },
+  { seconds: 300, label: "5 minutes" },
+  { seconds: 600, label: "10 minutes" },
+  { seconds: 900, label: "15 minutes" },
+  { seconds: 1200, label: "20 minutes" },
+  { seconds: 1800, label: "30 minutes" },
+];
+
+export const VIDEO_TIME_REQUIRED_MESSAGE =
+  "A Video Adventure requires a Time Progress Bar for each Learning Point. Please set a duration before publishing your adventure.";
+
+export const roleOf = (el: CanvasElement): BarRole => el.progress?.role ?? "learning";
+
+export const isTimeBar = (el: CanvasElement): boolean =>
+  el.kind === "progress_bar" && roleOf(el) === "time";
+
+export const isLearningBar = (el: CanvasElement): boolean =>
+  el.kind === "progress_bar" && roleOf(el) === "learning";
+
+export const timeBarOf = (els: CanvasElement[]): CanvasElement | null =>
+  els.find(isTimeBar) ?? null;
+
+export const learningBarOf = (els: CanvasElement[]): CanvasElement | null =>
+  els.find(isLearningBar) ?? null;
+
+/** Which bar may still be added, or null when both already exist. */
+export const nextBarRole = (els: CanvasElement[]): BarRole | null => {
+  if (!timeBarOf(els)) return "time";
+  if (!learningBarOf(els)) return "learning";
+  return null;
+};
+
+/** Countdown seconds configured for a scene (0 = No Time). */
+export const sceneTimeSeconds = (scene: Scene | null | undefined): number => {
+  const bar = scene ? timeBarOf(scene.elements) : null;
+  return Math.max(0, Math.round(Number(bar?.progress?.timeDurationSeconds) || 0));
+};
+
+/** Learning Points of a Video Adventure that still have No Time set. */
+export const checkpointsMissingTime = (canvas: GameCanvas): Scene[] =>
+  (canvas.scenes ?? []).filter((s) => sceneTimeSeconds(s) <= 0);

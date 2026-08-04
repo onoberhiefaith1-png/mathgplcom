@@ -9,6 +9,8 @@ import {
   assignManyToGroup,
   createGroup,
   setGroupBarElement,
+  setGroupQualification,
+  MAX_GROUPS,
   type AdventureGroup,
 } from "./groups";
 import { groupBarElementId, nextGroupBarPosition, sceneElements } from "./groupBars";
@@ -88,7 +90,7 @@ async function cloneBoardRow(
 
 export type AddGroupResult =
   | { ok: true; group: AdventureGroup; adopted: boolean }
-  | { ok: false; reason: "no_bar" | "no_space" };
+  | { ok: false; reason: "no_bar" | "no_space" | "max_groups" };
 
 /**
  * Add one group.
@@ -102,14 +104,18 @@ export async function addGroup(params: {
   groups: AdventureGroup[];
   memberIds: string[];
   sourceBarId: string | null;
+  /** Teacher-supplied group name; falls back to Group A, Group B, … */
+  name?: string;
 }): Promise<AddGroupResult> {
   const { classId, gameId, game, groups, memberIds } = params;
+  if (groups.length >= MAX_GROUPS) return { ok: false, reason: "max_groups" };
   const source = primaryBarId(groups, params.sourceBarId);
   if (!source) return { ok: false, reason: "no_bar" };
+  const name = params.name?.trim() || nextGroupName(groups);
 
   // First group — adopt the existing bar, nothing is duplicated.
   if (groups.length === 0) {
-    const group = await createGroup(classId, gameId, nextGroupName(groups), source, {
+    const group = await createGroup(classId, gameId, name, source, {
       isPrimary: true,
       sourceElementId: null,
     });
@@ -120,7 +126,7 @@ export async function addGroup(params: {
   const pos = nextGroupBarPosition(game, groups, source);
   if (!pos) return { ok: false, reason: "no_space" };
 
-  const group = await createGroup(classId, gameId, nextGroupName(groups), `pending-${Date.now()}`, {
+  const group = await createGroup(classId, gameId, name, `pending-${Date.now()}`, {
     sourceElementId: source,
     isPrimary: false,
     x: pos.x,
@@ -147,4 +153,42 @@ export async function backfillUngrouped(params: {
   if (missing.length === 0) return false;
   await assignManyToGroup(classId, gameId, missing, target.id);
   return true;
+}
+
+/**
+ * Adventure — a race. The first group whose Learning Progress Bar is complete
+ * wins immediately; there is no timer and no waiting.
+ */
+export function raceWinner(
+  groups: AdventureGroup[],
+  fillByBar: Map<string, number>,
+): AdventureGroup | null {
+  const finished = groups.filter((g) => (fillByBar.get(g.progress_element_id) ?? 0) >= 1);
+  if (finished.length === 0) return null;
+  return (
+    finished
+      .slice()
+      .sort((a, b) => (a.completed_at ?? "").localeCompare(b.completed_at ?? ""))[0] ?? null
+  );
+}
+
+/**
+ * Video Adventure — when a Learning Point's Time Progress Bar runs out, every
+ * group is evaluated once. Groups that reached the target continue; the others
+ * stop travelling and watch the rest of the story.
+ */
+export async function evaluateCheckpoint(params: {
+  sceneId: string;
+  groups: AdventureGroup[];
+  fillByBar: Map<string, number>;
+}): Promise<{ continuing: AdventureGroup[]; waiting: AdventureGroup[] }> {
+  const continuing: AdventureGroup[] = [];
+  const waiting: AdventureGroup[] = [];
+  for (const g of params.groups) {
+    if (!g.qualified) { waiting.push(g); continue; }
+    const done = (params.fillByBar.get(g.progress_element_id) ?? 0) >= 1;
+    (done ? continuing : waiting).push(g);
+    if (!done) await setGroupQualification(g.id, false, params.sceneId);
+  }
+  return { continuing, waiting };
 }

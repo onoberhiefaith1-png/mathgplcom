@@ -28,6 +28,7 @@ import { listGameAssets, renderPathOf } from "@/lib/games/assets";
 import { detectMediaBackground } from "@/lib/games/removeBackground";
 import { getSignedUrl } from "@/lib/games/urls";
 import { PROGRESS_PRESETS } from "@/lib/games/progressPresets";
+import { TIME_BAR_LABEL, TIME_DURATION_OPTIONS, roleOf } from "@/lib/games/types";
 import { cn } from "@/lib/utils";
 import type {
   AnimationType,
@@ -163,6 +164,8 @@ const SettingsPanel = ({
   const isBackground = element.kind === "background";
   const isVideo = element.mediaType === "video";
   const progress = element.progress;
+  // The Time Progress Bar is system-owned: appearance and duration only.
+  const isTimeBar = element.kind === "progress_bar" && roleOf(element) === "time";
   const anim = element.animation;
   const slant = element.slant ?? defaultSlant();
   const patchSlant = (p: Partial<NonNullable<CanvasElement["slant"]>>) =>
@@ -231,14 +234,16 @@ const SettingsPanel = ({
           {element.label || element.kind.replace("_", " ")}
         </span>
         <div className="flex gap-1">
-          {!isBackground && onDuplicate && (
+          {!isBackground && !isTimeBar && onDuplicate && (
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onDuplicate} title="Duplicate">
               <Copy className="h-4 w-4" />
             </Button>
           )}
-          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete} title="Remove">
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {!isTimeBar && (
+            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete} title="Remove">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -414,6 +419,35 @@ const SettingsPanel = ({
 
       {element.kind === "progress_bar" && progress && (
         <>
+          {isTimeBar ? (
+            <>
+              <Section title="Name">
+                <p className="rounded-md border border-border/40 bg-muted/20 p-2 text-xs text-muted-foreground">
+                  {TIME_BAR_LABEL} — this bar always represents time. Its name, questions and scoring are fixed;
+                  you can restyle it and set its duration.
+                </p>
+              </Section>
+
+              <Section title="Time Duration">
+                <Select
+                  value={String(progress.timeDurationSeconds ?? 0)}
+                  onValueChange={(v) => patchProgress({ timeDurationSeconds: Number(v) })}
+                >
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TIME_DURATION_OPTIONS.map((o) => (
+                      <SelectItem key={o.seconds} value={String(o.seconds)}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  No Time hides the timer completely — students keep solving until the Progress Bar is full.
+                  A Video Adventure needs a duration on every Learning Point.
+                </p>
+              </Section>
+            </>
+          ) : (
+          <>
           <Section title="Name">
             <Input
               value={element.label ?? ""}
@@ -436,6 +470,8 @@ const SettingsPanel = ({
               {progress.questionNotebookId ? "Edit Questions" : "Add Questions"}
             </Button>
           </Section>
+          </>
+          )}
 
           <Section title="Design">
             <div className="grid grid-cols-3 gap-2">
@@ -456,6 +492,7 @@ const SettingsPanel = ({
             </button>
           </Section>
 
+          {!isTimeBar && (
           <Section title="Scoring">
             <Row label="Marks to pass (charges the full tower)">
               <Input type="number" min={1} value={progress.totalMarks}
@@ -503,6 +540,7 @@ const SettingsPanel = ({
               Live class total needed = marks × students × goal%. Lower the goal for a partial-completion challenge.
             </p>
           </Section>
+          )}
 
           <Section title="Fill style">
             <div className="grid grid-cols-2 gap-2">

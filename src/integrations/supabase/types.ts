@@ -157,7 +157,9 @@ export type Database = {
       adventure_groups: {
         Row: {
           class_id: string
+          completed_at: string | null
           created_at: string
+          eliminated_at_scene_id: string | null
           game_id: string
           id: string
           is_primary: boolean
@@ -165,12 +167,18 @@ export type Database = {
           position_x: number | null
           position_y: number | null
           progress_element_id: string
+          qualified: boolean
           source_element_id: string | null
+          style_color: string | null
+          style_preset_id: string | null
+          style_scale: number | null
           updated_at: string
         }
         Insert: {
           class_id: string
+          completed_at?: string | null
           created_at?: string
+          eliminated_at_scene_id?: string | null
           game_id: string
           id?: string
           is_primary?: boolean
@@ -178,12 +186,18 @@ export type Database = {
           position_x?: number | null
           position_y?: number | null
           progress_element_id: string
+          qualified?: boolean
           source_element_id?: string | null
+          style_color?: string | null
+          style_preset_id?: string | null
+          style_scale?: number | null
           updated_at?: string
         }
         Update: {
           class_id?: string
+          completed_at?: string | null
           created_at?: string
+          eliminated_at_scene_id?: string | null
           game_id?: string
           id?: string
           is_primary?: boolean
@@ -191,7 +205,11 @@ export type Database = {
           position_x?: number | null
           position_y?: number | null
           progress_element_id?: string
+          qualified?: boolean
           source_element_id?: string | null
+          style_color?: string | null
+          style_preset_id?: string | null
+          style_scale?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -1009,19 +1027,25 @@ export type Database = {
           class_id: string
           created_at: string
           game_id: string
+          group_completion_message: string | null
           id: string
+          winner_group_id: string | null
         }
         Insert: {
           class_id: string
           created_at?: string
           game_id: string
+          group_completion_message?: string | null
           id?: string
+          winner_group_id?: string | null
         }
         Update: {
           class_id?: string
           created_at?: string
           game_id?: string
+          group_completion_message?: string | null
           id?: string
+          winner_group_id?: string | null
         }
         Relationships: [
           {
