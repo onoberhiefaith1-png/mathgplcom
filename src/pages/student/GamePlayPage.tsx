@@ -192,20 +192,25 @@ const GamePlayPage = () => {
   );
 
   const advancedRef = useRef<string | null>(null);
+  /**
+   * Video mode: a completed loop is not cut short. It keeps playing to its own
+   * `loopEnd` and only then do its objects unmount and the journey travel on,
+   * so the student never sees a jump.
+   */
+  const [exitingCpId, setExitingCpId] = useState<string | null>(null);
   const advanceStage = useCallback(() => {
     const stage = activeStage;
     if (!stage || advancedRef.current === stage.id) return;
     advancedRef.current = stage.id;
     setOpenBarId(null);
     if (videoBg) {
-      // The loop stops and the video simply travels on.
-      setDoneCps((prev) => new Set(prev).add(stage.id));
-      setActiveCpId(null);
+      setExitingCpId(stage.id);
       setCpSecondsLeft(null);
     } else {
       setStageIdx((i) => Math.min(stages.length - 1, i + 1));
     }
   }, [activeStage, videoBg, stages.length]);
+
 
   // Part 1/6 — the bar that hits its target transfers this stage's reward.
   // Part 7 — nothing transfers once time is up.
@@ -307,6 +312,17 @@ const GamePlayPage = () => {
   const onVideoTime = useCallback(
     (t: number) => {
       setVideoTime(t);
+      // A cleared loop plays out its final seconds, then everything unmounts.
+      if (exitingCpId) {
+        const leaving = checkpoints.find((c) => c.id === exitingCpId);
+        const end = leaving?.loopEnd ?? 0;
+        if (t >= end - 0.05) {
+          setDoneCps((prev) => new Set(prev).add(exitingCpId));
+          setExitingCpId(null);
+          setActiveCpId(null);
+        }
+        return;
+      }
       if (activeCpId) return;
       const hit = checkpointAt(checkpoints, t);
       if (hit && !doneCps.has(hit.id)) {
@@ -315,8 +331,9 @@ const GamePlayPage = () => {
         setCpSecondsLeft(hit.timerEnabled ? hit.timeLimit ?? 300 : null);
       }
     },
-    [activeCpId, checkpoints, doneCps],
+    [activeCpId, exitingCpId, checkpoints, doneCps],
   );
+
 
   // Per-stage countdown.
   useEffect(() => {
@@ -353,6 +370,8 @@ const GamePlayPage = () => {
     }
     if (!target) return;
     advancedRef.current = null;
+    setExitingCpId(null);
+
     setDoneCps((prev) => { const n = new Set(prev); n.delete(target!.id); return n; });
     setActiveCpId(target.id);
     setCpFailed(false);
@@ -423,12 +442,13 @@ const GamePlayPage = () => {
                 <VideoBackgroundLayer
                   ref={videoRef}
                   video={videoBg}
-                  playing={!frozen && !cpFailed && !transfer.transferring}
+                  playing={!frozen && !cpFailed && (!transfer.transferring || !!videoBg)}
                   loop={
-                    activeCp && activeCp.loopEnd != null
+                    activeCp && activeCp.loopEnd != null && !exitingCpId
                       ? { start: activeCp.loopStart ?? 0, end: activeCp.loopEnd }
                       : null
                   }
+
                   onTime={onVideoTime}
                 />
                 <div className="pointer-events-none absolute inset-0">

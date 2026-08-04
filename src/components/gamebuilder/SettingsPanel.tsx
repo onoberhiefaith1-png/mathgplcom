@@ -414,6 +414,19 @@ const SettingsPanel = ({
 
       {element.kind === "progress_bar" && progress && (
         <>
+          <Section title="Name">
+            <Input
+              value={element.label ?? ""}
+              placeholder="Progress Bar"
+              onChange={(e) => onChange({ label: e.target.value })}
+              className="h-8"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              This name appears everywhere this bar is used — groups, course assignment and reports.
+            </p>
+          </Section>
+
+
           <Section title="Questions">
             <p className="text-[11px] text-muted-foreground">
               The progress bar holds this game's questions. Students solve them on the whiteboard and every correct line charges the tower.
