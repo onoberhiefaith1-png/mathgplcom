@@ -401,6 +401,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
       scenes,
       activeSceneId: canvas.activeSceneId ?? scenes[0]?.id ?? null,
       heightUnits: 1,
+      narrations: narrationsOf(canvas),
       video: {
         ...canvas.video,
         source: canvas.video.source ?? "storage",
