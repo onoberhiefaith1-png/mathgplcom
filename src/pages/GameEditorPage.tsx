@@ -1925,7 +1925,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                       video={video}
                       playing={videoPlaying}
                       loop={
-                        videoPlaying && activeScene?.loopEnd != null
+                        videoPlaying && insideActiveLoop && activeScene?.loopEnd != null
                           ? { start: activeScene.loopStart ?? 0, end: activeScene.loopEnd }
                           : null
                       }
@@ -1937,9 +1937,15 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                       }
                       onEnded={() => setVideoPlaying(false)}
                     />
+                    {!insideActiveLoop && (
+                      <p className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-black/60 px-2 py-1 text-[11px] font-medium text-white/90">
+                        Outside a Learning Point — objects hidden
+                      </p>
+                    )}
                     <div className="absolute inset-0">
                       <GameCanvas
-                        elements={elements}
+                        elements={insideActiveLoop ? elements : []}
+
                         selectedId={selectedId}
                         pinnedId={pinnedId}
                         editable
