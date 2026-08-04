@@ -298,15 +298,18 @@ export const makeCheckpoint = (index: number, start: number, end: number): Scene
 });
 
 /**
- * Elements the runtime should consider. Video adventures spread their elements
- * across checkpoints, so all of them are in play; classic games only ever use
- * the active scene.
+ * Elements the runtime should consider. Staged adventures (video loops, or a
+ * static adventure with several scenes) spread their elements across stages, so
+ * all of them are in play and the runtime shows one stage at a time. A
+ * single-scene static game only ever uses that scene.
  */
 export const playableElements = (canvas: GameCanvas): CanvasElement[] => {
-  if (isVideoAdventure(canvas)) return (canvas.scenes ?? []).flatMap((s) => s.elements ?? []);
+  if (isVideoAdventure(canvas) || (canvas.scenes ?? []).length > 1)
+    return (canvas.scenes ?? []).flatMap((s) => s.elements ?? []);
   const scene = canvas.scenes.find((s) => s.id === canvas.activeSceneId) ?? canvas.scenes[0];
   return scene?.elements ?? [];
 };
+
 
 
 
@@ -374,8 +377,26 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
   }
   if (Array.isArray(canvas.scenes) && canvas.scenes.length > 0) {
     const scenes = canvas.scenes;
-    // Multi-scene legacy: flatten into one continuous vertical canvas.
     if (scenes.length > 1) {
+      // New format (`mode` present): several Scenes are real play stages and
+      // must be preserved exactly as authored.
+      if (canvas.mode) {
+        const staged = scenes.map((s, i) => ({
+          ...makeScene(i),
+          ...s,
+          title: s.title || `Scene ${i + 1}`,
+          tag: s.tag ?? "",
+          cameraTargetId: s.cameraTargetId ?? null,
+          elements: (s.elements ?? []).map(withElementDefaults),
+        }));
+        return {
+          mode,
+          scenes: staged,
+          activeSceneId: canvas.activeSceneId ?? staged[0]?.id ?? null,
+          heightUnits: 1,
+        };
+      }
+      // Legacy multi-scene: flatten into one continuous vertical canvas.
       const N = scenes.length;
       const merged: CanvasElement[] = [];
       scenes.forEach((s, i) => {
@@ -389,6 +410,7 @@ export const normalizeCanvas = (raw: unknown): GameCanvas => {
       return { mode, scenes: [single], activeSceneId: single.id, heightUnits: N };
     }
     const only = scenes[0];
+
     const single: Scene = {
       ...only,
       cameraTargetId: only.cameraTargetId ?? null,

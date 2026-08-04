@@ -915,6 +915,14 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     if (!checkpoints.some((c) => c.id === activeSceneId)) setActiveSceneId(checkpoints[0].id);
   }, [video, checkpoints, activeSceneId]);
 
+  /**
+   * Video Adventure gate: until a first Loop exists the teacher can only
+   * upload a video and mark Set Start / Set End — no background, reward,
+   * progress bar, effects or questions.
+   */
+  const videoGate = adventureMode === "video" && (!video || checkpoints.length === 0);
+
+
 
   const patchElement = useCallback(
     (patch: Partial<CanvasElement>) => {
@@ -1666,31 +1674,41 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           </>
         )}
 
-        <div className="mx-1 h-6 w-px bg-border/60" />
+        {/* Video Adventure: nothing is editable until the first Loop exists. */}
+        {videoGate ? (
+          <span className="ml-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            {video
+              ? "Play the video, then Set Start / Set End to create Loop 1"
+              : "Upload a background video to begin"}
+          </span>
+        ) : (
+          <>
+            <div className="mx-1 h-6 w-px bg-border/60" />
 
-        {slots.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Button key={s.kind} size="sm" variant="secondary" onClick={() => openAsset(s.kind)}>
-              <Icon className="mr-1.5 h-4 w-4" />
-              {s.label}
+            {slots.map((s) => {
+              const Icon = s.icon;
+              return (
+                <Button key={s.kind} size="sm" variant="secondary" onClick={() => openAsset(s.kind)}>
+                  <Icon className="mr-1.5 h-4 w-4" />
+                  {s.label}
+                </Button>
+              );
+            })}
+            <Button size="sm" variant="secondary" onClick={addProgressTower}>
+              <TowerControl className="mr-1.5 h-4 w-4" /> Progress Bar
             </Button>
-          );
-        })}
-        <Button size="sm" variant="secondary" onClick={addProgressTower}>
-          <TowerControl className="mr-1.5 h-4 w-4" /> Progress Bar
-        </Button>
-        <Button size="sm" onClick={() => openAsset("effect")}>
-          <Layers className="mr-1.5 h-4 w-4" /> Add Effect
-        </Button>
+            <Button size="sm" onClick={() => openAsset("effect")}>
+              <Layers className="mr-1.5 h-4 w-4" /> Add Effect
+            </Button>
 
+            <div className="mx-1 h-6 w-px bg-border/60" />
 
+            <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60">
+              <HelpCircle className="mr-1.5 h-4 w-4" /> Questions
+            </Button>
+          </>
+        )}
 
-        <div className="mx-1 h-6 w-px bg-border/60" />
-
-        <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60">
-          <HelpCircle className="mr-1.5 h-4 w-4" /> Questions
-        </Button>
 
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -1776,8 +1794,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 className={
                   stageFull
                     ? "h-full w-full"
-                    : "w-full max-w-6xl transition-transform"
+                    : "w-full transition-transform"
                 }
+
                 style={
                   stageFull
                     ? undefined
@@ -1885,7 +1904,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
         {/* Settings drawer */}
         {(drawerOpen || isConfiguringReward) && (
-          <aside className="flex h-full w-80 flex-col border-l border-border/50 bg-background/95 shadow-xl backdrop-blur">
+          <aside className="flex h-full w-[20%] min-w-[15rem] max-w-[24rem] shrink-0 flex-col border-l border-border/50 bg-background/95 shadow-xl backdrop-blur">
             <div className="flex items-center justify-between border-b border-border/50 px-3 py-2.5">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {isConfiguringReward ? "Reward Settings" : "Edit item"}

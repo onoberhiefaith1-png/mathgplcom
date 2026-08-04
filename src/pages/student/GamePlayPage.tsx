@@ -17,6 +17,8 @@ import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { withGroupBars } from "@/lib/adventures/groupBars";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
+import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
+
 
 
 type MirrorSnapshot = Record<string, { current: number; required: number }>;
@@ -160,8 +162,53 @@ const GamePlayPage = () => {
 
   const timeBar = useGameTimeBar(gameId);
 
-  // Part 1/6 — first bar to hit its target transfers the reward to that
-  // group's Gallery. Part 7 — nothing transfers once time is up.
+  // ── One staged engine ───────────────────────────────────────────
+  // A stage is a Scene (static adventure) or a Loop region (video adventure).
+  // It owns every object inside it; only the FINAL stage opens the Gallery.
+  const canvas = useMemo(() => (game ? normalizeCanvas(game.canvas) : null), [game]);
+  const videoBg = canvas?.video ?? null;
+  const stages = useMemo(() => (canvas ? stagesOf(canvas) : []), [canvas]);
+  const [stageIdx, setStageIdx] = useState(0);
+  const activeStage: Scene | null = videoBg
+    ? stages.find((s) => s.id === activeCpId) ?? null
+    : stages[Math.min(stageIdx, Math.max(0, stages.length - 1))] ?? null;
+
+  // Group clone bars live outside the authored scene, so a clone belongs to
+  // whichever stage holds its source bar.
+  const stageIds = useMemo(() => {
+    const ids = stageElementIds(activeStage);
+    if (ids.size === 0) return ids;
+    for (const g of groups.groups) {
+      if (g.source_element_id && ids.has(g.source_element_id)) ids.add(g.progress_element_id);
+    }
+    return ids;
+  }, [activeStage, groups.groups]);
+
+  const staged = videoBg != null || stages.length > 1;
+  const finalStage = isFinalStage(stages, activeStage?.id);
+  const stageBars = useMemo(
+    () => (staged ? sync.barSummaries.filter((b) => stageIds.has(b.id)) : sync.barSummaries),
+    [staged, sync.barSummaries, stageIds],
+  );
+
+  const advancedRef = useRef<string | null>(null);
+  const advanceStage = useCallback(() => {
+    const stage = activeStage;
+    if (!stage || advancedRef.current === stage.id) return;
+    advancedRef.current = stage.id;
+    setOpenBarId(null);
+    if (videoBg) {
+      // The loop stops and the video simply travels on.
+      setDoneCps((prev) => new Set(prev).add(stage.id));
+      setActiveCpId(null);
+      setCpSecondsLeft(null);
+    } else {
+      setStageIdx((i) => Math.min(stages.length - 1, i + 1));
+    }
+  }, [activeStage, videoBg, stages.length]);
+
+  // Part 1/6 — the bar that hits its target transfers this stage's reward.
+  // Part 7 — nothing transfers once time is up.
   const rewardRefs = useMemo(
     () => sync.elements.filter((el) => el.kind === "reward").map((el) => ({ id: el.id, label: el.label })),
     [sync.elements],
@@ -170,27 +217,32 @@ const GamePlayPage = () => {
   const transfer = useRewardTransfer({
     classId,
     gameId,
-    barSummaries: sync.barSummaries,
+    barSummaries: stageBars,
     barOwner: groups.barOwner,
     timeExpired: timeBar.expired,
     galleryPath: `/student/class/${classId}/gallery`,
     rewardElements: rewardRefs,
+    stageRewardIds: staged ? stageIds : null,
+    stageKey: activeStage?.id ?? "single",
+    deferGallery: staged && !finalStage,
+    onStageAwarded: advanceStage,
   });
 
   // Time beat the goal (Part 7): expired with no valid, in-time win.
   const timeUp = timeBar.expired && !transfer.won;
   const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
-  // Winner declared → the game freezes exactly like Time Up does.
-  const frozen = timeUp || transfer.won;
+  // The game only ends on the final stage; earlier wins just move on.
+  const frozen = timeUp || (transfer.won && (!staged || finalStage));
 
-  // Step 2 — stop the clock the moment a winner exists.
+  // Step 2 — stop the clock the moment the game is actually over.
   const pausedForWinRef = useRef(false);
   useEffect(() => {
-    if (!transfer.won || pausedForWinRef.current) return;
+    if (!transfer.won || (staged && !finalStage)) return;
+    if (pausedForWinRef.current) return;
     if (!timeBar.running) return;
     pausedForWinRef.current = true;
     void timeBar.actions.pause().catch(() => { pausedForWinRef.current = false; });
-  }, [transfer.won, timeBar.running, timeBar.actions]);
+  }, [transfer.won, staged, finalStage, timeBar.running, timeBar.actions]);
 
   const mirroredElements = useMemo(() => {
     const timeBarId = timeBar.elementId;
@@ -214,17 +266,28 @@ const GamePlayPage = () => {
       });
   }, [sync.elements, mirror, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
 
+  /**
+   * Only the current stage exists on screen: reward, progress bar, time bar,
+   * effects, characters, particles and floating objects all belong to it and
+   * all disappear together the moment it completes.
+   */
+  const visibleElements = useMemo(() => {
+    if (!staged) return mirroredElements;
+    if (!activeStage) return [];
+    return mirroredElements.filter((e) => stageIds.has(e.id));
+  }, [staged, activeStage, stageIds, mirroredElements]);
+
 
   const playableBars = useMemo(
     () =>
-      mirroredElements.filter((e) => {
+      visibleElements.filter((e) => {
         if (e.kind !== "progress_bar" || !sync.boardByElement.has(e.id)) return false;
         const owner = groups.barOwner.get(e.id);
         // Grouped bars are only playable by their own group's students.
         if (owner) return owner === myGroupId;
         return true;
       }),
-    [mirroredElements, sync.boardByElement, groups.barOwner, myGroupId],
+    [visibleElements, sync.boardByElement, groups.barOwner, myGroupId],
   );
   const openBoard = sync.boardByElement.get(openBarId ?? "");
   const perQuestion = useMemo(
@@ -232,22 +295,15 @@ const GamePlayPage = () => {
     [openBoard, sync.mySolvedByAssessment],
   );
 
-  // Freeze the board when time is up or a winner has been declared.
+  // Freeze the board when time is up, a stage is handing over, or the game ended.
   useEffect(() => {
-    if (frozen) setOpenBarId(null);
-  }, [frozen]);
+    if (frozen || transfer.transferring) setOpenBarId(null);
+  }, [frozen, transfer.transferring]);
 
+  const checkpoints = stages;
+  const activeCp = videoBg ? activeStage : null;
 
-
-  const canvas = useMemo(() => (game ? normalizeCanvas(game.canvas) : null), [game]);
-  const videoBg = canvas?.video ?? null;
-  const checkpoints = useMemo(() => (canvas ? checkpointsOf(canvas) : []), [canvas]);
-  const activeCp: Scene | null = useMemo(
-    () => checkpoints.find((c) => c.id === activeCpId) ?? null,
-    [checkpoints, activeCpId],
-  );
-
-  // Reaching a checkpoint's start time freezes the journey into its loop.
+  // Reaching a loop's start time freezes the journey into that loop.
   const onVideoTime = useCallback(
     (t: number) => {
       setVideoTime(t);
@@ -262,7 +318,7 @@ const GamePlayPage = () => {
     [activeCpId, checkpoints, doneCps],
   );
 
-  // Per-checkpoint countdown.
+  // Per-stage countdown.
   useEffect(() => {
     if (!activeCp || cpSecondsLeft == null || cpFailed) return;
     if (cpSecondsLeft <= 0) { setCpFailed(true); return; }
@@ -270,37 +326,22 @@ const GamePlayPage = () => {
     return () => window.clearTimeout(t);
   }, [activeCp, cpSecondsLeft, cpFailed]);
 
-  // Only the current checkpoint's overlays exist; everything inside it vanishes
-  // the moment the checkpoint completes, so nothing drifts over the moving video.
-  const visibleElements = useMemo(() => {
-    if (!videoBg) return mirroredElements;
-    if (!activeCp) return [];
-    const ids = new Set((activeCp.elements ?? []).map((e) => e.id));
-    return mirroredElements.filter((e) => ids.has(e.id));
-  }, [videoBg, activeCp, mirroredElements]);
-
-  // Checkpoint complete → hide its overlays and let the video travel on.
-  const cpComplete = useMemo(() => {
-    if (!activeCp) return false;
-    const ids = new Set((activeCp.elements ?? []).map((e) => e.id));
-    const bars = sync.barSummaries.filter((b) => ids.has(b.id));
-    if (bars.length === 0) return false;
-    return bars.every((b) => b.achieved >= b.required);
-  }, [activeCp, sync.barSummaries]);
-
+  /**
+   * Stage complete with nothing left to transfer (no reward linked, or the
+   * reward already left) — still hand over to the next stage. The final stage
+   * never advances: the Gallery takes over there.
+   */
+  const stageDone = useMemo(
+    () => (staged ? stageComplete(sync.barSummaries, stageIds) : false),
+    [staged, sync.barSummaries, stageIds],
+  );
   useEffect(() => {
-    if (!activeCp || !cpComplete) return;
-    const id = activeCp.id;
-    const resume = window.setTimeout(() => {
-      setDoneCps((prev) => new Set(prev).add(id));
-      setActiveCpId(null);
-      setCpSecondsLeft(null);
-      setOpenBarId(null);
-    }, 1200);
-    return () => window.clearTimeout(resume);
-  }, [activeCp, cpComplete]);
+    if (!stageDone || finalStage || transfer.transferring) return;
+    const t = window.setTimeout(() => advanceStage(), 1400);
+    return () => window.clearTimeout(t);
+  }, [stageDone, finalStage, transfer.transferring, advanceStage]);
 
-  /** Turn back — replay the previous checkpoint's section of the journey. */
+  /** Turn back — replay the previous loop's section of the journey. */
   const turnBack = useCallback(() => {
     const cps = checkpoints;
     const currentIdx = activeCp ? cps.findIndex((c) => c.id === activeCp.id) : -1;
@@ -311,6 +352,7 @@ const GamePlayPage = () => {
       target = passed.length > 0 ? passed[passed.length - 1] : null;
     }
     if (!target) return;
+    advancedRef.current = null;
     setDoneCps((prev) => { const n = new Set(prev); n.delete(target!.id); return n; });
     setActiveCpId(target.id);
     setCpFailed(false);
@@ -324,6 +366,7 @@ const GamePlayPage = () => {
     setCpSecondsLeft(activeCp.timerEnabled ? activeCp.timeLimit ?? 300 : null);
     videoRef.current?.seek(activeCp.loopStart ?? 0);
   }, [activeCp]);
+
 
   if (loading) {
     return (
@@ -380,7 +423,7 @@ const GamePlayPage = () => {
                 <VideoBackgroundLayer
                   ref={videoRef}
                   video={videoBg}
-                  playing={!frozen && !cpFailed}
+                  playing={!frozen && !cpFailed && !transfer.transferring}
                   loop={
                     activeCp && activeCp.loopEnd != null
                       ? { start: activeCp.loopStart ?? 0, end: activeCp.loopEnd }
@@ -435,14 +478,13 @@ const GamePlayPage = () => {
               </div>
             ) : (
               <div className="pointer-events-none">
-                <GameCanvas elements={mirroredElements} selectedId={null} editable={false} />
+                <GameCanvas elements={visibleElements} selectedId={null} editable={false} />
               </div>
             )}
 
             <div className="pointer-events-none absolute inset-0 z-30">
-              {!frozen && playableBars
-                .filter((bar) => (!videoBg ? true : visibleElements.some((e) => e.id === bar.id)))
-                .map((bar) => {
+              {!frozen && !transfer.transferring && playableBars.map((bar) => {
+
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
                   <button
@@ -470,12 +512,21 @@ const GamePlayPage = () => {
             {transfer.transferring && (
               <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
-                  <div className="text-sm font-semibold text-primary">Adventure complete!</div>
-                  <div className="mt-1 text-xs text-muted-foreground">Sending your reward to the Gallery…</div>
+                  <div className="text-sm font-semibold text-primary">
+                    {staged && !finalStage ? (videoBg ? "Loop cleared!" : "Scene cleared!") : "Adventure complete!"}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {staged && !finalStage
+                      ? videoBg
+                        ? "Reward stored — the journey continues…"
+                        : "Reward stored — loading the next scene…"
+                      : "Sending your reward to the Gallery…"}
+                  </div>
                 </div>
               </div>
             )}
-            {!transfer.transferring && transfer.goalReached && transfer.blockedReason && !timeUp && (
+            {!transfer.transferring && (!staged || finalStage) && transfer.goalReached && transfer.blockedReason && !timeUp && (
+
               <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
                   <div className="text-sm font-semibold text-primary">Goal reached!</div>
