@@ -915,6 +915,14 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     if (!checkpoints.some((c) => c.id === activeSceneId)) setActiveSceneId(checkpoints[0].id);
   }, [video, checkpoints, activeSceneId]);
 
+  /**
+   * Video Adventure gate: until a first Loop exists the teacher can only
+   * upload a video and mark Set Start / Set End — no background, reward,
+   * progress bar, effects or questions.
+   */
+  const videoGate = adventureMode === "video" && (!video || checkpoints.length === 0);
+
+
 
   const patchElement = useCallback(
     (patch: Partial<CanvasElement>) => {
