@@ -19,7 +19,7 @@ import { withGroupBars, isGroupBarElementId } from "@/lib/adventures/groupBars";
 import { moveGroupBar } from "@/lib/adventures/groups";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useGroupOutcome } from "@/hooks/useGroupOutcome";
-import { adventureModeOf, normalizeCanvas } from "@/lib/games/types";
+import { adventureModeOf } from "@/lib/games/types";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 
 import { TimeBarControl } from "@/components/adventures/TimeBarControl";
