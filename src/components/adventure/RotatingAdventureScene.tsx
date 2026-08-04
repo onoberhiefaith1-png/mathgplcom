@@ -302,7 +302,7 @@ const Showcase = ({
             key={i}
             index={i}
             texture={textureByUrl.get(ringUrls[i] ?? academy.image)}
-            interactive
+            interactive={interactive}
             onActivate={handleActivate}
             onHoverChange={(h) => (hoveredRef.current = h)}
           />
