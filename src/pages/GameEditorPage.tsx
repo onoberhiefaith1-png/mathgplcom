@@ -70,7 +70,9 @@ import {
   GameAssetRow,
   Scene,
   VideoBackground,
+  checkpointAt,
   checkpointsOf,
+
   defaultAnimation,
   makeCheckpoint,
   normalizeCanvas,
@@ -451,9 +453,17 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
+  /**
+   * Video Adventure: a Learning Point behaves like a room. Editing while the
+   * playhead sits outside the loop would drop the object into an invisible
+   * room, so we snap the playhead back inside first (assigned below).
+   */
+  const ensureInsideLoopRef = useRef<() => void>(() => {});
+
   /** Mutate the active scene's elements. */
   const setElements = useCallback(
     (updater: (els: CanvasElement[]) => CanvasElement[]) => {
+      ensureInsideLoopRef.current();
       setScenes((prev) =>
         prev.map((s) =>
           s.id === (activeSceneId ?? prev[0]?.id)
@@ -464,6 +474,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     },
     [activeSceneId],
   );
+
 
   const patchActiveScene = useCallback(
     (patch: Partial<Scene>) => {
@@ -923,6 +934,42 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
   // ── Checkpoints (loop regions inside the background video) ───────
   const checkpoints = useMemo(() => checkpointsOf({ scenes, video }), [scenes, video]);
+
+  /**
+   * Loop-based object visibility. The Loop is a room: the loop under the blue
+   * playhead is the only one whose objects exist. Outside every loop the
+   * workspace shows nothing but the background video.
+   */
+  const playheadLoop = useMemo(
+    () => (video ? checkpointAt(checkpoints, videoTime) : null),
+    [video, checkpoints, videoTime],
+  );
+  const insideActiveLoop = !video || (playheadLoop != null && playheadLoop.id === activeSceneId);
+
+  // Entering a loop selects it; leaving every loop drops the selection so no
+  // stale settings panel stays open on a hidden object.
+  useEffect(() => {
+    if (!video) return;
+    if (playheadLoop) {
+      if (playheadLoop.id !== activeSceneId) setActiveSceneId(playheadLoop.id);
+    } else {
+      setSelectedId(null);
+    }
+  }, [video, playheadLoop, activeSceneId]);
+
+  useEffect(() => {
+    ensureInsideLoopRef.current = () => {
+      if (!video || insideActiveLoop) return;
+      const target = checkpoints.find((c) => c.id === activeSceneId) ?? checkpoints[0];
+      if (!target || target.loopStart == null) return;
+      const t = target.loopStart + 0.05;
+      videoRef.current?.seek(t);
+      setVideoTime(t);
+      if (target.id !== activeSceneId) setActiveSceneId(target.id);
+    };
+  }, [video, insideActiveLoop, checkpoints, activeSceneId]);
+
+
 
   const addCheckpoint = useCallback(
     (start: number, end: number) => {
@@ -1878,7 +1925,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                       video={video}
                       playing={videoPlaying}
                       loop={
-                        videoPlaying && activeScene?.loopEnd != null
+                        videoPlaying && insideActiveLoop && activeScene?.loopEnd != null
                           ? { start: activeScene.loopStart ?? 0, end: activeScene.loopEnd }
                           : null
                       }
@@ -1890,9 +1937,15 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                       }
                       onEnded={() => setVideoPlaying(false)}
                     />
+                    {!insideActiveLoop && (
+                      <p className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-black/60 px-2 py-1 text-[11px] font-medium text-white/90">
+                        Outside a Learning Point — objects hidden
+                      </p>
+                    )}
                     <div className="absolute inset-0">
                       <GameCanvas
-                        elements={elements}
+                        elements={insideActiveLoop ? elements : []}
+
                         selectedId={selectedId}
                         pinnedId={pinnedId}
                         editable
