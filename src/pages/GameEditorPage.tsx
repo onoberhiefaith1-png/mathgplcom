@@ -2006,11 +2006,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                         if (preview.active) preview.pause();
                       }}
                     />
-                    {!preview.active && !insideActiveLoop && (
-                      <p className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-black/60 px-2 py-1 text-[11px] font-medium text-white/90">
-                        Outside a Learning Point — objects hidden
-                      </p>
-                    )}
+                    {/* No status text on the canvas — it must look like the
+                        real game. Visibility is logged to the console instead. */}
+
                     <div className="absolute inset-0">
                       <GameCanvas
                         elements={
