@@ -451,9 +451,17 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
+  /**
+   * Video Adventure: a Learning Point behaves like a room. Editing while the
+   * playhead sits outside the loop would drop the object into an invisible
+   * room, so we snap the playhead back inside first (assigned below).
+   */
+  const ensureInsideLoopRef = useRef<() => void>(() => {});
+
   /** Mutate the active scene's elements. */
   const setElements = useCallback(
     (updater: (els: CanvasElement[]) => CanvasElement[]) => {
+      ensureInsideLoopRef.current();
       setScenes((prev) =>
         prev.map((s) =>
           s.id === (activeSceneId ?? prev[0]?.id)
@@ -464,6 +472,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     },
     [activeSceneId],
   );
+
 
   const patchActiveScene = useCallback(
     (patch: Partial<Scene>) => {
