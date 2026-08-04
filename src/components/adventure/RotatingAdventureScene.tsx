@@ -165,11 +165,17 @@ const Showcase = ({
   ringUrls,
   coreUrls,
   routeFor,
+  interactive = true,
+  onArtworkReady,
 }: {
   ringUrls: string[];
   coreUrls: string[];
   /** Lets the community mirror keep segment clicks inside /community. */
   routeFor?: (route: string) => string;
+  /** Students view the academy — no clicks into teacher destinations. */
+  interactive?: boolean;
+  /** Fires once the building's artwork has decoded, so the page can fade in. */
+  onArtworkReady?: () => void;
 }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
