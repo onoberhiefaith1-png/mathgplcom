@@ -138,7 +138,13 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
       ) : (
         <span
           className="math-inline-display cursor-text"
-          onMouseDown={(e) => { setEntryPoint({ x: e.clientX, y: e.clientY }); setFocused(true); }}
+          onMouseDown={(e) => {
+            // Enter editing from the *normalized* source so the caret works on
+            // exactly what was on screen (no stale editing spacing).
+            try { setRoot(latexToTree(display)); } catch { /* keep current tree */ }
+            setEntryPoint({ x: e.clientX, y: e.clientY });
+            setFocused(true);
+          }}
         >
           {renderMathInline(display, "mi")}
         </span>
