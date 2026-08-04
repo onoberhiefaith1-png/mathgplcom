@@ -55,7 +55,7 @@ import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
 import SceneStrip from "@/components/gamebuilder/SceneStrip";
-import { usePreviewRuntime } from "@/lib/games/videoPreview";
+import { useLoopRuntime } from "@/lib/games/loopRuntime";
 
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
 import { adventureModeOf, adventureModeLabel, type AdventureMode } from "@/lib/games/types";
@@ -948,7 +948,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     videoRef.current?.seek(t);
     setVideoTime(t);
   }, []);
-  const preview = usePreviewRuntime(checkpoints, seekVideo);
+  const preview = useLoopRuntime(checkpoints, seekVideo);
   const previewFinalLoop =
     preview.activeLoopId != null &&
     checkpoints.length > 0 &&
