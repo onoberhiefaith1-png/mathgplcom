@@ -1532,6 +1532,8 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         </>
       )}
 
+      {/* Top interface — capped at 20% of the screen so the stage keeps 80% */}
+      <div className="flex max-h-[20vh] shrink-0 flex-col overflow-y-auto">
       {/* Collapsible top bar */}
       {topBarOpen && (
         <header className="z-20 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-2.5 backdrop-blur">
