@@ -232,6 +232,16 @@ const Showcase = ({
     [coreUrls, textureByUrl],
   );
 
+  // Only announce readiness once the core and at least one ring panel exist —
+  // the page keeps showing the background until then, never a white panel.
+  const artworkReady =
+    coreTextures.length > 0 && ringUrls.some((u) => textureByUrl.has(u));
+  useEffect(() => {
+    if (artworkReady) onArtworkReady?.();
+  }, [artworkReady, onArtworkReady]);
+
+
+
 
   useFrame((state, delta) => {
     if (!worldRef.current) return;
