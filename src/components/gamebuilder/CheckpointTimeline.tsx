@@ -150,9 +150,9 @@ const CheckpointTimeline = ({
       </div>
 
       {/* Checkpoint chips */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         {checkpoints.length === 0 && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             Play the video, then Set Start and Set End to create your first Checkpoint.
           </p>
         )}
@@ -160,7 +160,7 @@ const CheckpointTimeline = ({
           <div
             key={c.id}
             className={cn(
-              "flex items-center gap-1 rounded-full border px-2 py-1 text-xs",
+              "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px]",
               c.id === activeId ? "border-primary bg-primary/10 text-primary" : "border-border/60",
             )}
           >
@@ -180,15 +180,17 @@ const CheckpointTimeline = ({
               aria-label={`Delete ${c.title}`}
               className="rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-2.5 w-2.5" />
             </button>
           </div>
         ))}
       </div>
 
-      {/* Active checkpoint settings — loop bounds + per-checkpoint timer */}
-      {active && (
+      {/* Active checkpoint settings — loop bounds + per-checkpoint timer.
+          Hidden until the toolbar is expanded, so the default chrome stays slim. */}
+      {active && expanded && (
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+
           <div className="w-40">
             <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Name</Label>
             <Input
