@@ -15,6 +15,7 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
+import { useGroupOutcome } from "@/hooks/useGroupOutcome";
 import { withGroupBars } from "@/lib/adventures/groupBars";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
@@ -265,6 +266,24 @@ const GamePlayPage = () => {
   // Time beat the goal (Part 7): expired with no valid, in-time win.
   const timeUp = timeBar.expired && !transfer.won;
   const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
+
+  // Group outcome — a race winner (Adventure) or the encouraging message shown
+  // to a group that did not reach the Learning Point target (Video Adventure).
+  const statsByBar = useMemo(
+    () => new Map(sync.barSummaries.map((b) => [b.id, b])),
+    [sync.barSummaries],
+  );
+  const outcome = useGroupOutcome({
+    classId,
+    gameId,
+    mode: videoBg ? "video" : "static",
+    sceneId: activeStage?.id ?? null,
+    groups: groups.groups,
+    statsByBar,
+    timeExpired: timeBar.expired,
+  });
+  const myGroup = myGroupId ? groups.groups.find((g) => g.id === myGroupId) ?? null : null;
+  const waiting = !!myGroup && outcome.waitingGroupIds.has(myGroup.id);
   // The game only ends on the final stage; earlier wins just move on.
   const frozen = timeUp || (transfer.won && (!staged || finalStage));
 
@@ -458,6 +477,17 @@ const GamePlayPage = () => {
 
   return (
     <div ref={rootRef} className="min-h-screen w-full bg-[#0b0a16] text-foreground">
+      {waiting && (
+        <div className="mx-4 mt-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm text-foreground">
+          <div className="text-xs font-semibold uppercase tracking-wider text-primary">{myGroup?.name}</div>
+          <p className="mt-1">{outcome.message}</p>
+        </div>
+      )}
+      {outcome.winner && !videoBg && (
+        <div className="mx-4 mt-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm font-semibold text-primary">
+          {outcome.winner.name} finished first and takes the reward.
+        </div>
+      )}
       <header className="flex items-center justify-between px-5 py-3">
         <Link to={`/student/class/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Class
