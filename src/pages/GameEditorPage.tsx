@@ -70,7 +70,9 @@ import {
   GameAssetRow,
   Scene,
   VideoBackground,
+  checkpointAt,
   checkpointsOf,
+
   defaultAnimation,
   makeCheckpoint,
   normalizeCanvas,
