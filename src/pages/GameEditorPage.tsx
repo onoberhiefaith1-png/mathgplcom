@@ -1678,11 +1678,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
 
       {/* Action row */}
-      <div className="z-10 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/40 bg-background/80 px-4 py-2 backdrop-blur">
+      <div className="z-10 flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur">
         <button
           type="button"
           onClick={() => { setMetaMode(adventureMode); setMetaOpen(true); }}
-          className="rounded-full border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+          className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted"
           title="Change title, topic and game mode"
         >
           {adventureModeLabel(adventureMode)}
@@ -1690,94 +1690,99 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         {adventureMode === "video" && (
           <Button
             size="sm"
+            className={cmpBtn}
             variant={video ? "default" : "secondary"}
             onClick={openVideoPicker}
             title="Use a video as the moving background"
           >
-            <Video className="mr-1.5 h-4 w-4" /> Video Background
+            <Video className={cmpIcon} /> Video Background
           </Button>
         )}
         {!video && (
-          <span className="mr-1 text-xs font-semibold text-muted-foreground">
+          <span className="mr-1 text-[11px] font-semibold text-muted-foreground">
             Canvas: {heightUnits} section{heightUnits === 1 ? "" : "s"}
           </span>
         )}
         {!video && (
           <>
-            <Button size="sm" variant="secondary" onClick={extendCanvas} title="Extend canvas upward by one section (adds space at the top)">
-              <Plus className="mr-1.5 h-4 w-4" /> Extend Canvas
+            <Button size="sm" className={cmpBtn} variant="secondary" onClick={extendCanvas} title="Extend canvas upward by one section (adds space at the top)">
+              <Plus className={cmpIcon} /> Extend Canvas
             </Button>
             <Button
               size="sm"
+              className={cmpBtn}
               variant="ghost"
               onClick={shrinkCanvas}
               disabled={heightUnits <= 1}
               title="Shrink canvas by one section"
             >
-              <Minus className="mr-1.5 h-4 w-4" /> Shrink
+              <Minus className={cmpIcon} /> Shrink
             </Button>
           </>
         )}
 
         {/* Video Adventure: nothing is editable until the first Loop exists. */}
         {videoGate ? (
-          <span className="ml-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+          <span className="ml-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
             {video
               ? "Play the video, then Set Start / Set End to create Loop 1"
               : "Upload a background video to begin"}
           </span>
         ) : (
           <>
-            <div className="mx-1 h-6 w-px bg-border/60" />
+            <div className="mx-0.5 h-5 w-px bg-border/60" />
 
             {slots.map((s) => {
               const Icon = s.icon;
               return (
-                <Button key={s.kind} size="sm" variant="secondary" onClick={() => openAsset(s.kind)}>
-                  <Icon className="mr-1.5 h-4 w-4" />
+                <Button key={s.kind} size="sm" className={cmpBtn} variant="secondary" onClick={() => openAsset(s.kind)}>
+                  <Icon className={cmpIcon} />
                   {s.label}
                 </Button>
               );
             })}
-            <Button size="sm" variant="secondary" onClick={addProgressTower}>
-              <TowerControl className="mr-1.5 h-4 w-4" /> Progress Bar
+            <Button size="sm" className={cmpBtn} variant="secondary" onClick={addProgressTower}>
+              <TowerControl className={cmpIcon} /> Progress Bar
             </Button>
-            <Button size="sm" onClick={() => openAsset("effect")}>
-              <Layers className="mr-1.5 h-4 w-4" /> Add Effect
+            <Button size="sm" className={cmpBtn} onClick={() => openAsset("effect")}>
+              <Layers className={cmpIcon} /> Add Effect
             </Button>
 
-            <div className="mx-1 h-6 w-px bg-border/60" />
+            <div className="mx-0.5 h-5 w-px bg-border/60" />
 
-            <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60">
-              <HelpCircle className="mr-1.5 h-4 w-4" /> Questions
+            <Button size="sm" variant="ghost" disabled title="Coming soon" className={`${cmpBtn} opacity-60`}>
+              <HelpCircle className={cmpIcon} /> Questions
             </Button>
           </>
         )}
 
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1.5">
           <Button
             size="sm"
+            className={cmpBtn}
             variant={selected && selected.kind !== "background" ? "secondary" : "ghost"}
             disabled={!selected || selected.kind === "background"}
             onClick={setCameraTarget}
           >
-            <Camera className="mr-1.5 h-4 w-4" /> Set Camera Target
+            <Camera className={cmpIcon} /> Set Camera Target
           </Button>
           <Button
             size="sm"
+            className={cmpBtn}
             variant={drawerOpen ? "default" : "secondary"}
             onClick={() => setDrawerOpen((v) => !v)}
           >
-            <Sliders className="mr-1.5 h-4 w-4" /> Settings
+            <Sliders className={cmpIcon} /> Settings
           </Button>
           {!railOpen && (
-            <Button size="sm" variant="secondary" onClick={() => setRailOpen(true)}>
-              <Layers className="mr-1.5 h-4 w-4" /> Layers
+            <Button size="sm" className={cmpBtn} variant="secondary" onClick={() => setRailOpen(true)}>
+              <Layers className={cmpIcon} /> Layers
             </Button>
           )}
         </div>
       </div>
+
 
       {video && (
         <CheckpointTimeline
