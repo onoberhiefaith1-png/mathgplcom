@@ -447,6 +447,7 @@ const SettingsPanel = ({
               </Section>
             </>
           ) : (
+          <>
           <Section title="Name">
             <Input
               value={element.label ?? ""}
@@ -491,6 +492,7 @@ const SettingsPanel = ({
             </button>
           </Section>
 
+          {!isTimeBar && (
           <Section title="Scoring">
             <Row label="Marks to pass (charges the full tower)">
               <Input type="number" min={1} value={progress.totalMarks}
@@ -538,6 +540,7 @@ const SettingsPanel = ({
               Live class total needed = marks × students × goal%. Lower the goal for a partial-completion challenge.
             </p>
           </Section>
+          )}
 
           <Section title="Fill style">
             <div className="grid grid-cols-2 gap-2">
