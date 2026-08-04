@@ -285,7 +285,8 @@ const GamePlayPage = () => {
   const myGroup = myGroupId ? groups.groups.find((g) => g.id === myGroupId) ?? null : null;
   const waiting = !!myGroup && outcome.waitingGroupIds.has(myGroup.id);
   // The game only ends on the final stage; earlier wins just move on.
-  const frozen = timeUp || (transfer.won && (!staged || finalStage));
+  // A waiting group watches the rest of the story; its board stays locked.
+  const frozen = timeUp || waiting || (transfer.won && (!staged || finalStage));
 
   // Step 2 — stop the clock the moment the game is actually over.
   const pausedForWinRef = useRef(false);
