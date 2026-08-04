@@ -46,6 +46,10 @@ export function useRewardTransfer({
   galleryPath,
   rewardElements = [],
   enabled = true,
+  stageRewardIds = null,
+  stageKey = "single",
+  deferGallery = false,
+  onStageAwarded,
 }: {
   classId: string | null | undefined;
   gameId: string | null | undefined;
@@ -58,7 +62,16 @@ export function useRewardTransfer({
   /** Reward assets present in this Adventure — auto-detected from the canvas. */
   rewardElements?: RewardElementRef[];
   enabled?: boolean;
+  /** Reward element ids that belong to the stage being played right now. */
+  stageRewardIds?: Set<string> | null;
+  /** Changes when the played stage changes — re-arms the transfer. */
+  stageKey?: string;
+  /** True for every stage except the last: store the reward, do not open the Gallery. */
+  deferGallery?: boolean;
+  /** Called once a non-final stage's rewards have left the screen + been stored. */
+  onStageAwarded?: (rewardElementIds: string[]) => void;
 }) {
+
   const navigate = useNavigate();
   const [placements, setPlacements] = useState<ClassGalleryRewardRow[]>([]);
   const [placementsLoaded, setPlacementsLoaded] = useState(false);
