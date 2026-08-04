@@ -18,6 +18,8 @@ import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { withGroupBars } from "@/lib/adventures/groupBars";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
+import { loopRegionFor, loopStateOf, type LoopState } from "@/lib/games/loopRuntime";
+
 
 
 
