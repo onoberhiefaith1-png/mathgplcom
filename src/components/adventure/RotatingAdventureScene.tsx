@@ -369,14 +369,25 @@ const CustomBuilding = ({
   </div>
 );
 
-export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string) => string } = {}) => {
+export const RotatingAdventureScene = ({
+  routeFor,
+  interactive = true,
+  configMode = "self",
+}: {
+  routeFor?: (route: string) => string;
+  /** Students view the academy; segments are not clickable for them. */
+  interactive?: boolean;
+  /** "school-readonly" mirrors the academy chosen by the school owner. */
+  configMode?: "self" | "school-readonly";
+} = {}) => {
   // ONE WebGL context for the life of the page. The canvas is never keyed on
   // artwork URLs — swapping textures happens INSIDE the live scene, so the
   // building never blinks out while config or signed URLs settle.
   const [ctxKey, setCtxKey] = useState(0);
   const remountedRef = useRef(false);
-  const [visible, setVisible] = useState(false);
-  const { config, ready } = useHomepageConfig();
+  const [painted, setPainted] = useState(false);
+  const [artworkReady, setArtworkReady] = useState(false);
+  const { config, ready } = useHomepageConfig({ mode: configMode });
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
 
   const ringUrls = useMemo(
@@ -389,6 +400,10 @@ export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string
   );
 
   const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
+  // Only reveal the canvas once it has painted AND the artwork has decoded, so
+  // no untextured (white) geometry is ever on screen.
+  const visible = painted && artworkReady;
+  const handleArtworkReady = useCallback(() => setArtworkReady(true), []);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
@@ -412,7 +427,7 @@ export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string
               // wait for the browser to restore the same context.
               canvas.addEventListener("webglcontextlost", (e: Event) => {
                 e.preventDefault();
-                setVisible(false);
+                setPainted(false);
                 if (remountedRef.current) return;
                 window.clearTimeout(restoreTimer);
                 restoreTimer = window.setTimeout(() => {
@@ -423,15 +438,21 @@ export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string
               });
               canvas.addEventListener("webglcontextrestored", () => {
                 window.clearTimeout(restoreTimer);
-                setVisible(true);
+                setPainted(true);
               });
               // Fade in on the first painted frame so any reload dissolves softly.
-              requestAnimationFrame(() => setVisible(true));
+              requestAnimationFrame(() => setPainted(true));
             }}
           >
             {/* Fallback keeps the sky visible; the canvas itself stays mounted. */}
             <Suspense fallback={null}>
-              <Showcase ringUrls={ringUrls} coreUrls={coreUrls} routeFor={routeFor} />
+              <Showcase
+                ringUrls={ringUrls}
+                coreUrls={coreUrls}
+                routeFor={routeFor}
+                interactive={interactive}
+                onArtworkReady={handleArtworkReady}
+              />
             </Suspense>
           </Canvas>
         </div>
