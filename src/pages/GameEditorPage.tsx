@@ -957,6 +957,14 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setVideoTime(t);
   }, []);
   const preview = useLoopRuntime(checkpoints, seekVideo);
+  // Narration fires only while the adventure is running (Preview), never while
+  // the teacher scrubs the authoring timeline.
+  const narrationRuntime = useNarrationPlayback(narrations, preview.active);
+  useEffect(() => {
+    if (preview.active) narrationRuntime.reset();
+    else narrationRuntime.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview.active]);
   const previewFinalLoop =
     preview.activeLoopId != null &&
     checkpoints.length > 0 &&
@@ -1922,6 +1930,19 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           onChangeVideo={openVideoPicker}
           onRemoveVideo={removeVideoBackground}
           expanded={topBarOpen}
+          onToggleNarration={() => setNarrationOpen((v) => !v)}
+          narrationOpen={narrationOpen}
+          narrationCount={narrations.length}
+          narrationPanel={
+            narrationOpen ? (
+              <NarrationPanel
+                narrations={narrations}
+                playhead={videoTime}
+                onChange={setNarrations}
+                onClose={() => setNarrationOpen(false)}
+              />
+            ) : null
+          }
         />
       )}
 
@@ -2005,7 +2026,10 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                       }
                       onTime={(t) => {
                         setVideoTime(t);
-                        if (preview.active) preview.onTime(t);
+                        if (preview.active) {
+                          preview.onTime(t);
+                          narrationRuntime.onTime(t);
+                        }
                       }}
                       onLoaded={(meta) =>
                         setVideo((v) =>
@@ -2013,8 +2037,13 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                         )
                       }
                       onEnded={() => {
+                        // Reaching the end of the video never completes a
+                        // Learning Point — the runtime decides.
+                        if (preview.active) {
+                          preview.videoEnded();
+                          return;
+                        }
                         setVideoPlaying(false);
-                        if (preview.active) preview.pause();
                       }}
                     />
                     {/* No status text on the canvas — it must look like the
