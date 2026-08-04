@@ -512,12 +512,21 @@ const GamePlayPage = () => {
             {transfer.transferring && (
               <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
-                  <div className="text-sm font-semibold text-primary">Adventure complete!</div>
-                  <div className="mt-1 text-xs text-muted-foreground">Sending your reward to the Gallery…</div>
+                  <div className="text-sm font-semibold text-primary">
+                    {staged && !finalStage ? (videoBg ? "Loop cleared!" : "Scene cleared!") : "Adventure complete!"}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {staged && !finalStage
+                      ? videoBg
+                        ? "Reward stored — the journey continues…"
+                        : "Reward stored — loading the next scene…"
+                      : "Sending your reward to the Gallery…"}
+                  </div>
                 </div>
               </div>
             )}
-            {!transfer.transferring && transfer.goalReached && transfer.blockedReason && !timeUp && (
+            {!transfer.transferring && (!staged || finalStage) && transfer.goalReached && transfer.blockedReason && !timeUp && (
+
               <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
                   <div className="text-sm font-semibold text-primary">Goal reached!</div>
