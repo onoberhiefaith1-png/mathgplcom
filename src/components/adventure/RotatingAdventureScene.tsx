@@ -100,7 +100,7 @@ const WorldSegment = ({
 // The inner royal palace: four identical dome copies wrapped onto overlapping
 // 90° slices of one smaller cylinder. Overlap merges their walls + roofs so the
 // viewer reads a single continuous cylindrical core, not four buildings.
-const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number }) => {
+const CoreSegment = ({ texture, index }: { texture?: THREE.Texture; index: number }) => {
   // Heavy overlap so each copy's edges wrap deep into both neighbours. With many
   // copies tiled around the full circle, their roofs and walls fuse into one
   // continuous, gapless cylindrical core — a single seamless spherical dome.
@@ -110,6 +110,10 @@ const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number
   // Alternate radius so neighbouring copies cover (not z-fight) each other.
   const radius = CORE_RADIUS + (index % 2 === 0 ? 0.06 : 0);
 
+  // Never paint an untextured panel — an unmapped material renders solid white,
+  // which read as a big white box in the middle of the sky while art decoded.
+  if (!texture) return null;
+
   return (
     <mesh renderOrder={index % 2 === 0 ? -1 : -2}>
       <cylinderGeometry args={[radius, radius, CORE_HEIGHT, 64, 1, true, thetaStart, thetaLength]} />
@@ -118,13 +122,16 @@ const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number
   );
 };
 
-const CentralCore = ({ textures }: { textures: THREE.Texture[] }) => (
-  <group position={[0, CORE_Y_OFFSET, 0]}>
-    {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
-      <CoreSegment key={i} index={i} texture={textures[i % textures.length]} />
-    ))}
-  </group>
-);
+const CentralCore = ({ textures }: { textures: THREE.Texture[] }) => {
+  if (textures.length === 0) return null;
+  return (
+    <group position={[0, CORE_Y_OFFSET, 0]}>
+      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
+        <CoreSegment key={i} index={i} texture={textures[i % textures.length]} />
+      ))}
+    </group>
+  );
+};
 
 const FloatingParticles = ({ color, size, count, spread }: { color: string; size: number; count: number; spread: number }) => {
   const pointsRef = useRef<THREE.Points>(null);
