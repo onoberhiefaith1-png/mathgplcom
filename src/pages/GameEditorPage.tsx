@@ -1796,6 +1796,20 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         />
       )}
 
+      {/* Static Adventure: one stage = one scene, played in order. */}
+      {!video && !isGallery && (
+        <SceneStrip
+          scenes={scenes}
+          activeId={activeScene?.id ?? null}
+          onSelect={setActiveSceneId}
+          onAdd={addScene}
+          onDuplicate={duplicateScene}
+          onDelete={deleteScene}
+        />
+      )}
+
+
+
       {/* Editing area */}
       <div className="flex min-h-0 flex-1">
         <main
