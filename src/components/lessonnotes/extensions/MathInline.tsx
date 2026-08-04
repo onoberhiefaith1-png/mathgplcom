@@ -137,7 +137,7 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
         </span>
       ) : (
         <span
-          className="math-inline-display cursor-text"
+          className="math-inline-display math-inline-selectable cursor-text"
           onMouseDown={(e) => {
             // Enter editing from the *normalized* source so the caret works on
             // exactly what was on screen (no stale editing spacing).
