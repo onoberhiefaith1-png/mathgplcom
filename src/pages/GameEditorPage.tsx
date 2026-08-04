@@ -55,6 +55,8 @@ import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
 import SceneStrip from "@/components/gamebuilder/SceneStrip";
+import { usePreviewRuntime } from "@/lib/games/videoPreview";
+
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
 import { adventureModeOf, adventureModeLabel, type AdventureMode } from "@/lib/games/types";
 import { getOrCreateClassGallery, saveClassGalleryCanvas } from "@/lib/games/classGallery";
@@ -296,6 +298,12 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     [scenes, activeSceneId],
   );
   const sceneElements = activeScene?.elements ?? [];
+  /** Every stage's elements — the preview picks the current loop's own set. */
+  const allSceneElements = useMemo(
+    () => scenes.flatMap((s) => s.elements ?? []),
+    [scenes],
+  );
+
   const activeIndex = scenes.findIndex((s) => s.id === activeScene?.id);
 
   // ── Load reward source + existing config for reward-config mode ─
@@ -935,6 +943,17 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   // ── Checkpoints (loop regions inside the background video) ───────
   const checkpoints = useMemo(() => checkpointsOf({ scenes, video }), [scenes, video]);
 
+  // ── Preview runtime (manual Learning Point control) ──────────────
+  const seekVideo = useCallback((t: number) => {
+    videoRef.current?.seek(t);
+    setVideoTime(t);
+  }, []);
+  const preview = usePreviewRuntime(checkpoints, seekVideo);
+  const previewFinalLoop =
+    preview.activeLoopId != null &&
+    checkpoints.length > 0 &&
+    checkpoints[checkpoints.length - 1]?.id === preview.activeLoopId;
+
   /**
    * Loop-based object visibility. The Loop is a room: the loop under the blue
    * playhead is the only one whose objects exist. Outside every loop the
@@ -949,13 +968,14 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   // Entering a loop selects it; leaving every loop drops the selection so no
   // stale settings panel stays open on a hidden object.
   useEffect(() => {
-    if (!video) return;
+    if (!video || preview.active) return;
     if (playheadLoop) {
       if (playheadLoop.id !== activeSceneId) setActiveSceneId(playheadLoop.id);
     } else {
       setSelectedId(null);
     }
-  }, [video, playheadLoop, activeSceneId]);
+  }, [video, preview.active, playheadLoop, activeSceneId]);
+
 
   useEffect(() => {
     ensureInsideLoopRef.current = () => {
@@ -1682,9 +1702,29 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
           <div className="mx-1 h-6 w-px bg-border/60" />
 
-          <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60">
-            <Play className="mr-1.5 h-4 w-4" /> Play Preview
-          </Button>
+          {adventureMode === "video" && video && checkpoints.length > 0 ? (
+            <Button
+              size="sm"
+              variant={preview.active ? "secondary" : "ghost"}
+              className={cmpBtn}
+              onClick={() => {
+                if (preview.active) {
+                  preview.stop();
+                } else {
+                  setVideoPlaying(false);
+                  setSelectedId(null);
+                  preview.start();
+                }
+              }}
+            >
+              <Play className={`mr-1 ${cmpIcon}`} /> {preview.active ? "Stop Preview" : "Play Preview"}
+            </Button>
+          ) : (
+            <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60">
+              <Play className="mr-1.5 h-4 w-4" /> Play Preview
+            </Button>
+          )}
+
           <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60">
             <Radio className="mr-1.5 h-4 w-4" /> Live
           </Button>
@@ -1923,32 +1963,45 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                     <VideoBackgroundLayer
                       ref={videoRef}
                       video={video}
-                      playing={videoPlaying}
+                      playing={preview.active ? preview.playing : videoPlaying}
                       loop={
-                        videoPlaying && insideActiveLoop && activeScene?.loopEnd != null
-                          ? { start: activeScene.loopStart ?? 0, end: activeScene.loopEnd }
-                          : null
+                        preview.active
+                          ? preview.loopRegion
+                          : videoPlaying && insideActiveLoop && activeScene?.loopEnd != null
+                            ? { start: activeScene.loopStart ?? 0, end: activeScene.loopEnd }
+                            : null
                       }
-                      onTime={setVideoTime}
+                      onTime={(t) => {
+                        setVideoTime(t);
+                        if (preview.active) preview.onTime(t);
+                      }}
                       onLoaded={(meta) =>
                         setVideo((v) =>
                           v ? { ...v, duration: meta.duration, width: meta.width, height: meta.height } : v,
                         )
                       }
-                      onEnded={() => setVideoPlaying(false)}
+                      onEnded={() => {
+                        setVideoPlaying(false);
+                        if (preview.active) preview.pause();
+                      }}
                     />
-                    {!insideActiveLoop && (
+                    {!preview.active && !insideActiveLoop && (
                       <p className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-black/60 px-2 py-1 text-[11px] font-medium text-white/90">
                         Outside a Learning Point — objects hidden
                       </p>
                     )}
                     <div className="absolute inset-0">
                       <GameCanvas
-                        elements={insideActiveLoop ? elements : []}
-
-                        selectedId={selectedId}
+                        elements={
+                          preview.active
+                            ? preview.visibleElements(allSceneElements)
+                            : insideActiveLoop
+                              ? elements
+                              : []
+                        }
+                        selectedId={preview.active ? null : selectedId}
                         pinnedId={pinnedId}
-                        editable
+                        editable={!preview.active}
                         onSelect={handleSelect}
                         onMove={moveElement}
                         heightUnits={1}
@@ -1956,8 +2009,58 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                         transparent
                       />
                     </div>
+
+                    {/* Preview HUD — the teacher drives progression */}
+                    {preview.active && (
+                      <div className="absolute inset-x-0 bottom-0 z-20 flex flex-wrap items-center gap-2 bg-gradient-to-t from-black/85 to-transparent px-3 py-2 text-[11px] text-white">
+                        <span className="rounded bg-white/15 px-2 py-0.5 font-semibold uppercase tracking-wide">
+                          Preview
+                        </span>
+                        {preview.playing ? (
+                          <Button size="sm" variant="secondary" className={cmpBtn} onClick={preview.pause}>
+                            <Minus className={cmpIcon} /> Pause
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="secondary" className={cmpBtn} onClick={preview.play}>
+                            <Play className={cmpIcon} /> Play
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          className={cmpBtn}
+                          disabled={!preview.activeLoopId || !!preview.exitingLoopId || preview.ended}
+                          onClick={preview.next}
+                        >
+                          <Check className={cmpIcon} />
+                          {previewFinalLoop ? "Complete Adventure" : "Next Learning Point"}
+                        </Button>
+                        <Button size="sm" variant="ghost" className={`${cmpBtn} text-white hover:bg-white/15`} onClick={() => { preview.stop(); setVideoPlaying(false); }}>
+                          <X className={cmpIcon} /> Exit Preview
+                        </Button>
+                        <span className="ml-auto text-white/80">
+                          {preview.ended
+                            ? "Adventure complete — final reward stored in the Class Gallery"
+                            : preview.exitingLoopId
+                              ? "Learning Point cleared — finishing the shot…"
+                              : preview.activeLoopId
+                                ? `Looping ${checkpoints.find((c) => c.id === preview.activeLoopId)?.title ?? "Learning Point"}`
+                                : "Playing…"}
+                        </span>
+                      </div>
+                    )}
+                    {preview.active && preview.ended && (
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
+                        <Trophy className="h-8 w-8 text-amber-300" />
+                        <p className="text-sm font-semibold">Adventure complete</p>
+                        <p className="text-[11px] text-white/70">Final reward collected · Class Gallery opens for students</p>
+                        <Button size="sm" className={cmpBtn} onClick={preview.start}>
+                          <Play className={cmpIcon} /> Replay preview
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ) : (
+
                   <GameCanvas
                     elements={elements}
                     selectedId={selectedId}
