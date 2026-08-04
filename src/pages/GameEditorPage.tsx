@@ -1666,31 +1666,41 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           </>
         )}
 
-        <div className="mx-1 h-6 w-px bg-border/60" />
+        {/* Video Adventure: nothing is editable until the first Loop exists. */}
+        {videoGate ? (
+          <span className="ml-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            {video
+              ? "Play the video, then Set Start / Set End to create Loop 1"
+              : "Upload a background video to begin"}
+          </span>
+        ) : (
+          <>
+            <div className="mx-1 h-6 w-px bg-border/60" />
 
-        {slots.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Button key={s.kind} size="sm" variant="secondary" onClick={() => openAsset(s.kind)}>
-              <Icon className="mr-1.5 h-4 w-4" />
-              {s.label}
+            {slots.map((s) => {
+              const Icon = s.icon;
+              return (
+                <Button key={s.kind} size="sm" variant="secondary" onClick={() => openAsset(s.kind)}>
+                  <Icon className="mr-1.5 h-4 w-4" />
+                  {s.label}
+                </Button>
+              );
+            })}
+            <Button size="sm" variant="secondary" onClick={addProgressTower}>
+              <TowerControl className="mr-1.5 h-4 w-4" /> Progress Bar
             </Button>
-          );
-        })}
-        <Button size="sm" variant="secondary" onClick={addProgressTower}>
-          <TowerControl className="mr-1.5 h-4 w-4" /> Progress Bar
-        </Button>
-        <Button size="sm" onClick={() => openAsset("effect")}>
-          <Layers className="mr-1.5 h-4 w-4" /> Add Effect
-        </Button>
+            <Button size="sm" onClick={() => openAsset("effect")}>
+              <Layers className="mr-1.5 h-4 w-4" /> Add Effect
+            </Button>
 
+            <div className="mx-1 h-6 w-px bg-border/60" />
 
+            <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60">
+              <HelpCircle className="mr-1.5 h-4 w-4" /> Questions
+            </Button>
+          </>
+        )}
 
-        <div className="mx-1 h-6 w-px bg-border/60" />
-
-        <Button size="sm" variant="ghost" disabled title="Coming soon" className="opacity-60">
-          <HelpCircle className="mr-1.5 h-4 w-4" /> Questions
-        </Button>
 
         <div className="ml-auto flex items-center gap-2">
           <Button
