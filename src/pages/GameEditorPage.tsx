@@ -1802,6 +1802,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           onPatch={patchCheckpoint}
           onChangeVideo={openVideoPicker}
           onRemoveVideo={removeVideoBackground}
+          expanded={topBarOpen}
         />
       )}
 
