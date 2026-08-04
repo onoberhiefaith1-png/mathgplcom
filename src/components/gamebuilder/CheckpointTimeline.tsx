@@ -102,6 +102,23 @@ const CheckpointTimeline = ({
           </>
         )}
 
+        {onToggleNarration && (
+          <Button
+            size="sm"
+            className={cmpBtn}
+            variant={narrationOpen ? "default" : "secondary"}
+            onClick={onToggleNarration}
+          >
+            <AudioLines className={cmpIcon} /> Narration
+            {narrationCount > 0 && (
+              <span className="ml-0.5 rounded bg-black/15 px-1 text-[10px] tabular-nums">{narrationCount}</span>
+            )}
+          </Button>
+        )}
+        {narrationPanel}
+
+
+
         <div className="ml-auto flex items-center gap-1.5">
           <Button size="sm" className={cmpBtn} variant="ghost" onClick={onChangeVideo}>
             <Video className={cmpIcon} /> Change Video
