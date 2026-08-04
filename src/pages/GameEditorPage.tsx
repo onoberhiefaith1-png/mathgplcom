@@ -54,6 +54,7 @@ import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
 import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
+import SceneStrip from "@/components/gamebuilder/SceneStrip";
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
 import { adventureModeOf, adventureModeLabel, type AdventureMode } from "@/lib/games/types";
 import { getOrCreateClassGallery, saveClassGalleryCanvas } from "@/lib/games/classGallery";
