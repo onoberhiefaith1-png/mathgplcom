@@ -105,7 +105,26 @@ export interface SlotEffect {
   effectSource?: MediaSource;
 }
 
+/**
+ * Which of the two fixed bars this is.
+ *
+ * - `time` — the system-owned Time Progress Bar. Never renamed, deleted or
+ *   linked to questions; only its appearance and duration are editable.
+ * - `learning` — the only bar linked to questions, scores and rewards.
+ *
+ * Legacy bars have no role and are treated as `learning`.
+ */
+export type BarRole = "time" | "learning";
+
 export interface ProgressConfig {
+  /** Fixed role of this bar inside its Scene / Learning Point. */
+  role?: BarRole;
+  /**
+   * Time Progress Bar only — countdown length in seconds.
+   * `0` (or missing) means **No Time**: no timer at all.
+   */
+  timeDurationSeconds?: number;
+
   /** number of slots in the tower (defaults to 10). */
   segments: number;
   /** built-in frame design id; when absent the element's own storagePath is used. */
