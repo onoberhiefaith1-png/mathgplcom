@@ -478,14 +478,13 @@ const GamePlayPage = () => {
               </div>
             ) : (
               <div className="pointer-events-none">
-                <GameCanvas elements={mirroredElements} selectedId={null} editable={false} />
+                <GameCanvas elements={visibleElements} selectedId={null} editable={false} />
               </div>
             )}
 
             <div className="pointer-events-none absolute inset-0 z-30">
-              {!frozen && playableBars
-                .filter((bar) => (!videoBg ? true : visibleElements.some((e) => e.id === bar.id)))
-                .map((bar) => {
+              {!frozen && !transfer.transferring && playableBars.map((bar) => {
+
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
                   <button
