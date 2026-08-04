@@ -6,9 +6,12 @@
 //
 //   upcoming → active → completed → hidden
 //
-// Completion never moves the video. It flips one boolean; the loop simply stops
-// wrapping and plays out to its own Loop End, after which its objects unmount
-// and playback travels on naturally.
+// Design law: a Learning Point is NEVER completed because the playhead reached
+// Loop End. It loops forever — even when it is the last thing in the video —
+// until the teacher presses Next (Preview) or a Progress Bar reaches 100%
+// (gameplay). Completion never moves the playhead: it flips one boolean, the
+// loop stops wrapping, and the video plays out to its own Loop End before the
+// objects unmount and the journey travels on.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { checkpointAt, type CanvasElement, type Scene } from "./types";
@@ -42,23 +45,43 @@ export const loopRegionFor = (
 };
 
 /**
+ * Reward exit animation, timed automatically:
+ *
+ *   duration = Loop End − playhead at completion
+ *
+ * so the reward always arrives exactly as the video leaves the Learning Point.
+ */
+export const rewardExitOffset = (progress: number): { dy: number; opacity: number } => {
+  const k = Math.min(1, Math.max(0, progress));
+  return { dy: -1.4 * (k * k), opacity: Math.max(0, 1 - k * k) };
+};
+
+/**
  * Objects that exist on screen right now: only the active (or exiting) loop's.
- * During the exit lap every progress bar in the loop reads as fully charged.
+ * During the exit lap the Progress Bars are gone immediately and the reward
+ * travels upward over the remaining loop time.
  */
 export const visibleLoopElements = (
   all: CanvasElement[],
   loop: Scene | null,
-  opts: { full?: boolean } = {},
+  opts: { exiting?: boolean; exitProgress?: number } = {},
 ): CanvasElement[] => {
   if (!loop) return [];
   const mine = new Set((loop.elements ?? []).map((e) => e.id));
-  return all
-    .filter((e) => mine.has(e.id))
-    .map((e) => {
-      if (!opts.full || e.kind !== "progress_bar" || !e.progress) return e;
-      const total = e.progress.totalMarks > 0 ? e.progress.totalMarks : 1;
-      return { ...e, progress: { ...e.progress, totalMarks: total, currentMarks: total } };
-    });
+  const out: CanvasElement[] = [];
+  for (const e of all) {
+    if (!mine.has(e.id)) continue;
+    if (!opts.exiting) { out.push(e); continue; }
+    // Completed: the Progress Bar is no longer needed and disappears at once.
+    if (e.kind === "progress_bar") continue;
+    if (e.kind === "reward") {
+      const off = rewardExitOffset(opts.exitProgress ?? 0);
+      out.push({ ...e, y: e.y + off.dy, opacity: off.opacity });
+      continue;
+    }
+    out.push(e);
+  }
+  return out;
 };
 
 export interface LoopRuntime {
@@ -70,11 +93,19 @@ export interface LoopRuntime {
   exitingLoopId: string | null;
   /** Loops already left behind. */
   clearedLoopIds: Set<string>;
-  /** True once the final Learning Point has been completed. */
+  /** True once the final Learning Point has been completed and left. */
   ended: boolean;
   stateOf: (loopId: string) => LoopState;
   /** Loop region to hand the video layer (null = travel normally). */
   loopRegion: { start: number; end: number } | null;
+  /** Playhead position when the active loop was completed. */
+  completedAt: number | null;
+  /** Seconds the reward has to finish its upward travel (Loop End − completedAt). */
+  exitDuration: number;
+  /** 0 → 1 across the exit lap. */
+  exitProgress: number;
+  /** True from the moment of completion: bars are hidden immediately. */
+  barsHidden: boolean;
   visibleElements: (all: CanvasElement[]) => CanvasElement[];
   start: () => void;
   stop: () => void;
@@ -85,6 +116,8 @@ export interface LoopRuntime {
   /** @deprecated alias of `complete` kept for existing call sites. */
   next: () => void;
   onTime: (t: number) => void;
+  /** The video reached its end — ignored while an incomplete loop is active. */
+  videoEnded: () => void;
 }
 
 /**
@@ -98,6 +131,9 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
   const [exitingLoopId, setExitingLoopId] = useState<string | null>(null);
   const [clearedLoopIds, setClearedLoopIds] = useState<Set<string>>(() => new Set());
   const [ended, setEnded] = useState(false);
+  const [completedAt, setCompletedAt] = useState<number | null>(null);
+  const [exitDuration, setExitDuration] = useState(0);
+  const [time, setTime] = useState(0);
 
   const loopsRef = useRef(loops);
   loopsRef.current = loops;
@@ -107,19 +143,43 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
   exitingRef.current = exitingLoopId;
   const clearedRef = useRef(clearedLoopIds);
   clearedRef.current = clearedLoopIds;
+  const timeRef = useRef(0);
+  /** The exiting loop is the final one — the adventure ends when its lap ends. */
+  const finalExitRef = useRef(false);
 
   const activeLoop = useMemo(
     () => loops.find((l) => l.id === activeLoopId) ?? null,
     [loops, activeLoopId],
   );
 
+  const finishExit = useCallback((id: string) => {
+    setClearedLoopIds((prev) => new Set(prev).add(id));
+    setExitingLoopId(null);
+    setActiveLoopId(null);
+    setCompletedAt(null);
+    setExitDuration(0);
+    if (finalExitRef.current) {
+      finalExitRef.current = false;
+      setEnded(true);
+      setPlaying(false);
+    }
+  }, []);
+
   const start = useCallback(() => {
     setActive(true);
     setPlaying(true);
-    setActiveLoopId(null);
     setExitingLoopId(null);
     setClearedLoopIds(new Set());
     setEnded(false);
+    setCompletedAt(null);
+    setExitDuration(0);
+    finalExitRef.current = false;
+    timeRef.current = 0;
+    setTime(0);
+    // Edge case: the adventure may begin inside Learning Point 1 (no
+    // introduction) — enter it on the very first frame.
+    const first = checkpointAt(loopsRef.current, 0);
+    setActiveLoopId(first?.id ?? null);
     seek(0);
   }, [seek]);
 
@@ -130,6 +190,9 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
     setExitingLoopId(null);
     setClearedLoopIds(new Set());
     setEnded(false);
+    setCompletedAt(null);
+    setExitDuration(0);
+    finalExitRef.current = false;
   }, []);
 
   const play = useCallback(() => setPlaying(true), []);
@@ -140,37 +203,60 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
     const id = activeRef.current;
     if (!id || exitingRef.current) return;
     const list = loopsRef.current;
-    const isFinal = list.length > 0 && list[list.length - 1]?.id === id;
-    if (isFinal) {
-      setEnded(true);
-      setPlaying(false);
-      return;
-    }
+    const loop = list.find((l) => l.id === id) ?? null;
+    const end = loop?.loopEnd ?? timeRef.current;
+    const at = timeRef.current;
+    finalExitRef.current = list.length > 0 && list[list.length - 1]?.id === id;
+    setCompletedAt(at);
+    setExitDuration(Math.max(0, end - at));
     setExitingLoopId(id);
-  }, []);
+    // Already at (or past) Loop End: nothing left to animate.
+    if (end - at <= 0.05) finishExit(id);
+  }, [finishExit]);
 
-  const onTime = useCallback((t: number) => {
-    const list = loopsRef.current;
-    const exiting = exitingRef.current;
-    if (exiting) {
-      const loop = list.find((l) => l.id === exiting);
-      const end = loop?.loopEnd ?? 0;
-      if (t >= end - 0.05) {
-        setClearedLoopIds((prev) => new Set(prev).add(exiting));
-        setExitingLoopId(null);
-        setActiveLoopId(null);
+  const onTime = useCallback(
+    (t: number) => {
+      timeRef.current = t;
+      setTime(t);
+      const list = loopsRef.current;
+      const exiting = exitingRef.current;
+      if (exiting) {
+        const loop = list.find((l) => l.id === exiting);
+        const end = loop?.loopEnd ?? 0;
+        if (t >= end - 0.05) finishExit(exiting);
+        return;
       }
-      return;
-    }
+      // An active, incomplete Learning Point keeps looping — even at the very
+      // end of the video. Nothing here can complete it.
+      if (activeRef.current) return;
+      const hit = checkpointAt(list, t);
+      if (hit && !clearedRef.current.has(hit.id)) setActiveLoopId(hit.id);
+    },
+    [finishExit],
+  );
+
+  /**
+   * Reaching the end of the video is not completing the adventure. While an
+   * incomplete Learning Point is active the loop simply wraps again.
+   */
+  const videoEnded = useCallback(() => {
+    const exiting = exitingRef.current;
+    if (exiting) { finishExit(exiting); return; }
     if (activeRef.current) return;
-    const hit = checkpointAt(list, t);
-    if (hit && !clearedRef.current.has(hit.id)) setActiveLoopId(hit.id);
-  }, []);
+    setEnded(true);
+    setPlaying(false);
+  }, [finishExit]);
 
   const loopRegion = useMemo(
     () => (active ? loopRegionFor(activeLoop, Boolean(exitingLoopId)) : null),
     [active, activeLoop, exitingLoopId],
   );
+
+  const exitProgress = useMemo(() => {
+    if (!exitingLoopId || completedAt == null) return 0;
+    if (exitDuration <= 0) return 1;
+    return Math.min(1, Math.max(0, (time - completedAt) / exitDuration));
+  }, [exitingLoopId, completedAt, exitDuration, time]);
 
   const stateOf = useCallback(
     (loopId: string) =>
@@ -181,9 +267,12 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
   const visibleElements = useCallback(
     (all: CanvasElement[]) => {
       if (!active) return all;
-      return visibleLoopElements(all, activeLoop, { full: Boolean(exitingLoopId) });
+      return visibleLoopElements(all, activeLoop, {
+        exiting: Boolean(exitingLoopId),
+        exitProgress,
+      });
     },
-    [active, activeLoop, exitingLoopId],
+    [active, activeLoop, exitingLoopId, exitProgress],
   );
 
   return {
@@ -195,6 +284,10 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
     ended,
     stateOf,
     loopRegion,
+    completedAt,
+    exitDuration,
+    exitProgress,
+    barsHidden: Boolean(exitingLoopId),
     visibleElements,
     start,
     stop,
@@ -203,6 +296,7 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
     complete,
     next: complete,
     onTime,
+    videoEnded,
   };
 };
 
