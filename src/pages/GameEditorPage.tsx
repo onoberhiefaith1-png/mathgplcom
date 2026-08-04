@@ -933,6 +933,42 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   // ── Checkpoints (loop regions inside the background video) ───────
   const checkpoints = useMemo(() => checkpointsOf({ scenes, video }), [scenes, video]);
 
+  /**
+   * Loop-based object visibility. The Loop is a room: the loop under the blue
+   * playhead is the only one whose objects exist. Outside every loop the
+   * workspace shows nothing but the background video.
+   */
+  const playheadLoop = useMemo(
+    () => (video ? checkpointAt(checkpoints, videoTime) : null),
+    [video, checkpoints, videoTime],
+  );
+  const insideActiveLoop = !video || (playheadLoop != null && playheadLoop.id === activeSceneId);
+
+  // Entering a loop selects it; leaving every loop drops the selection so no
+  // stale settings panel stays open on a hidden object.
+  useEffect(() => {
+    if (!video) return;
+    if (playheadLoop) {
+      if (playheadLoop.id !== activeSceneId) setActiveSceneId(playheadLoop.id);
+    } else {
+      setSelectedId(null);
+    }
+  }, [video, playheadLoop, activeSceneId]);
+
+  useEffect(() => {
+    ensureInsideLoopRef.current = () => {
+      if (!video || insideActiveLoop) return;
+      const target = checkpoints.find((c) => c.id === activeSceneId) ?? checkpoints[0];
+      if (!target || target.loopStart == null) return;
+      const t = target.loopStart + 0.05;
+      videoRef.current?.seek(t);
+      setVideoTime(t);
+      if (target.id !== activeSceneId) setActiveSceneId(target.id);
+    };
+  }, [video, insideActiveLoop, checkpoints, activeSceneId]);
+
+
+
   const addCheckpoint = useCallback(
     (start: number, end: number) => {
       setScenes((prev) => {
