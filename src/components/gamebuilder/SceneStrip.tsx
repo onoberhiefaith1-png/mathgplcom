@@ -77,9 +77,11 @@ const SceneStrip = ({
         );
       })}
       {onAdd && (
-      <Button size="sm" variant="secondary" className="shrink-0" onClick={onAdd}>
-        <Plus className="mr-1.5 h-4 w-4" /> Add Scene
-      </Button>
+        <Button size="sm" variant="secondary" className="shrink-0" onClick={onAdd}>
+          <Plus className="mr-1.5 h-4 w-4" /> Add Scene
+        </Button>
+      )}
+
     </div>
   );
 };
