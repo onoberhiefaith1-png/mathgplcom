@@ -733,7 +733,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   // Every Scene / Learning Point owns exactly two bars: the system-owned Time
   // Progress Bar and the Learning Progress Bar that carries the questions.
   const addProgressTower = useCallback(() => {
-    const role = nextBarRole(elementsRef.current);
+    const role = nextBarRole(elements);
     if (!role) {
       toast({
         title: "Both Progress Bars already exist",
@@ -748,8 +748,8 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       mediaType: "image",
       storagePath: "",
       source: "url",
-      label: "Progress Bar",
-      x: 0.85,
+      label: role === "time" ? TIME_BAR_LABEL : LEARNING_BAR_LABEL,
+      x: role === "time" ? 0.08 : 0.85,
       y: 0.5,
       scale: 0.18,
       z: 1,
@@ -759,6 +759,8 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       bgRemoval: "none",
       animation: defaultAnimation(),
       progress: {
+        role,
+        ...(role === "time" ? { timeDurationSeconds: 300 } : {}),
         segments: 10,
         presetId: DEFAULT_PRESET_ID,
         totalMarks: 400,
@@ -774,7 +776,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       return [...els, { ...base, z: maxZ + 1 }];
     });
     setSelectedId(base.id);
-  }, [setElements]);
+  }, [elements, setElements, toast]);
 
 
 
