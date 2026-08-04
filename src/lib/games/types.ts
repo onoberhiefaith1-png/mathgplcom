@@ -243,6 +243,24 @@ export interface VideoBackground {
  */
 export type AdventureMode = "static" | "video";
 
+/**
+ * A narration clip attached to an exact timestamp in the background video.
+ *
+ * - `once`   — plays the first time the playhead crosses `at` in a session; a
+ *              loop wrapping back over the point does not replay it.
+ * - `repeat` — plays on every crossing (reminder messages).
+ */
+export interface Narration {
+  id: string;
+  title: string;
+  /** Storage object path or public URL, per `source`. */
+  path: string;
+  source: MediaSource;
+  /** Activation point, in seconds into the video. */
+  at: number;
+  mode: "once" | "repeat";
+}
+
 export interface GameCanvas {
   /** Chosen staging mode. Defaults to `static` (or `video` when a video exists). */
   mode?: AdventureMode;
@@ -252,9 +270,24 @@ export interface GameCanvas {
   heightUnits?: number;
   /** Video background — presence of this switches on Video Adventure mode. */
   video?: VideoBackground | null;
+  /** Narration clips, each pinned to a timestamp in the video. */
+  narrations?: Narration[];
   /** @deprecated legacy single-canvas shape */
   elements?: CanvasElement[];
 }
+
+/** Narrations in activation order, with defaults filled in. */
+export const narrationsOf = (canvas: GameCanvas | null | undefined): Narration[] =>
+  (canvas?.narrations ?? [])
+    .filter((n) => n && typeof n.path === "string" && n.path.length > 0)
+    .map((n) => ({
+      ...n,
+      title: n.title || "Narration",
+      source: n.source ?? "storage",
+      at: Math.max(0, Number(n.at) || 0),
+      mode: n.mode === "repeat" ? "repeat" : "once",
+    }))
+    .sort((a, b) => a.at - b.at);
 
 /** The adventure mode of a canvas, inferred for legacy rows without the field. */
 export const adventureModeOf = (canvas: GameCanvas | null | undefined): AdventureMode =>
