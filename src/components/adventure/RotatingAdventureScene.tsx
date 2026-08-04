@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
@@ -100,7 +100,7 @@ const WorldSegment = ({
 // The inner royal palace: four identical dome copies wrapped onto overlapping
 // 90° slices of one smaller cylinder. Overlap merges their walls + roofs so the
 // viewer reads a single continuous cylindrical core, not four buildings.
-const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number }) => {
+const CoreSegment = ({ texture, index }: { texture?: THREE.Texture; index: number }) => {
   // Heavy overlap so each copy's edges wrap deep into both neighbours. With many
   // copies tiled around the full circle, their roofs and walls fuse into one
   // continuous, gapless cylindrical core — a single seamless spherical dome.
@@ -110,6 +110,10 @@ const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number
   // Alternate radius so neighbouring copies cover (not z-fight) each other.
   const radius = CORE_RADIUS + (index % 2 === 0 ? 0.06 : 0);
 
+  // Never paint an untextured panel — an unmapped material renders solid white,
+  // which read as a big white box in the middle of the sky while art decoded.
+  if (!texture) return null;
+
   return (
     <mesh renderOrder={index % 2 === 0 ? -1 : -2}>
       <cylinderGeometry args={[radius, radius, CORE_HEIGHT, 64, 1, true, thetaStart, thetaLength]} />
@@ -118,13 +122,16 @@ const CoreSegment = ({ texture, index }: { texture: THREE.Texture; index: number
   );
 };
 
-const CentralCore = ({ textures }: { textures: THREE.Texture[] }) => (
-  <group position={[0, CORE_Y_OFFSET, 0]}>
-    {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
-      <CoreSegment key={i} index={i} texture={textures[i % textures.length]} />
-    ))}
-  </group>
-);
+const CentralCore = ({ textures }: { textures: THREE.Texture[] }) => {
+  if (textures.length === 0) return null;
+  return (
+    <group position={[0, CORE_Y_OFFSET, 0]}>
+      {Array.from({ length: CORE_SEGMENTS }).map((_, i) => (
+        <CoreSegment key={i} index={i} texture={textures[i % textures.length]} />
+      ))}
+    </group>
+  );
+};
 
 const FloatingParticles = ({ color, size, count, spread }: { color: string; size: number; count: number; spread: number }) => {
   const pointsRef = useRef<THREE.Points>(null);
@@ -158,11 +165,17 @@ const Showcase = ({
   ringUrls,
   coreUrls,
   routeFor,
+  interactive = true,
+  onArtworkReady,
 }: {
   ringUrls: string[];
   coreUrls: string[];
   /** Lets the community mirror keep segment clicks inside /community. */
   routeFor?: (route: string) => string;
+  /** Students view the academy — no clicks into teacher destinations. */
+  interactive?: boolean;
+  /** Fires once the building's artwork has decoded, so the page can fade in. */
+  onArtworkReady?: () => void;
 }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
@@ -218,6 +231,16 @@ const Showcase = ({
     () => coreUrls.map((u) => textureByUrl.get(u)).filter((t): t is THREE.Texture => !!t),
     [coreUrls, textureByUrl],
   );
+
+  // Only announce readiness once the core and at least one ring panel exist —
+  // the page keeps showing the background until then, never a white panel.
+  const artworkReady =
+    coreTextures.length > 0 && ringUrls.some((u) => textureByUrl.has(u));
+  useEffect(() => {
+    if (artworkReady) onArtworkReady?.();
+  }, [artworkReady, onArtworkReady]);
+
+
 
 
   useFrame((state, delta) => {
@@ -279,7 +302,7 @@ const Showcase = ({
             key={i}
             index={i}
             texture={textureByUrl.get(ringUrls[i] ?? academy.image)}
-            interactive
+            interactive={interactive}
             onActivate={handleActivate}
             onHoverChange={(h) => (hoveredRef.current = h)}
           />
@@ -346,14 +369,25 @@ const CustomBuilding = ({
   </div>
 );
 
-export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string) => string } = {}) => {
+export const RotatingAdventureScene = ({
+  routeFor,
+  interactive = true,
+  configMode = "self",
+}: {
+  routeFor?: (route: string) => string;
+  /** Students view the academy; segments are not clickable for them. */
+  interactive?: boolean;
+  /** "school-readonly" mirrors the academy chosen by the school owner. */
+  configMode?: "self" | "school-readonly";
+} = {}) => {
   // ONE WebGL context for the life of the page. The canvas is never keyed on
   // artwork URLs — swapping textures happens INSIDE the live scene, so the
   // building never blinks out while config or signed URLs settle.
   const [ctxKey, setCtxKey] = useState(0);
   const remountedRef = useRef(false);
-  const [visible, setVisible] = useState(false);
-  const { config, ready } = useHomepageConfig();
+  const [painted, setPainted] = useState(false);
+  const [artworkReady, setArtworkReady] = useState(false);
+  const { config, ready } = useHomepageConfig({ mode: configMode });
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
 
   const ringUrls = useMemo(
@@ -366,6 +400,10 @@ export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string
   );
 
   const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
+  // Only reveal the canvas once it has painted AND the artwork has decoded, so
+  // no untextured (white) geometry is ever on screen.
+  const visible = painted && artworkReady;
+  const handleArtworkReady = useCallback(() => setArtworkReady(true), []);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
@@ -389,7 +427,7 @@ export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string
               // wait for the browser to restore the same context.
               canvas.addEventListener("webglcontextlost", (e: Event) => {
                 e.preventDefault();
-                setVisible(false);
+                setPainted(false);
                 if (remountedRef.current) return;
                 window.clearTimeout(restoreTimer);
                 restoreTimer = window.setTimeout(() => {
@@ -400,15 +438,21 @@ export const RotatingAdventureScene = ({ routeFor }: { routeFor?: (route: string
               });
               canvas.addEventListener("webglcontextrestored", () => {
                 window.clearTimeout(restoreTimer);
-                setVisible(true);
+                setPainted(true);
               });
               // Fade in on the first painted frame so any reload dissolves softly.
-              requestAnimationFrame(() => setVisible(true));
+              requestAnimationFrame(() => setPainted(true));
             }}
           >
             {/* Fallback keeps the sky visible; the canvas itself stays mounted. */}
             <Suspense fallback={null}>
-              <Showcase ringUrls={ringUrls} coreUrls={coreUrls} routeFor={routeFor} />
+              <Showcase
+                ringUrls={ringUrls}
+                coreUrls={coreUrls}
+                routeFor={routeFor}
+                interactive={interactive}
+                onArtworkReady={handleArtworkReady}
+              />
             </Suspense>
           </Canvas>
         </div>

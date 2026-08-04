@@ -3620,6 +3620,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_org_homepage_config: { Args: never; Returns: Json }
       get_owned_class_codes: {
         Args: never
         Returns: {

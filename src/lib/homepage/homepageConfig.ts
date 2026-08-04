@@ -48,8 +48,13 @@ const writeLocal = (config: HomepageConfig) => {
 /**
  * Local-first homepage config with per-account persistence.
  * Each signed-in account keeps its own homepage; signed-out visitors see defaults.
+ *
+ * `mode: "school-readonly"` mirrors the academy configured by the owner of the
+ * viewer's organization (used by students). It never writes and never caches
+ * someone else's theme into this account's local storage.
  */
-export function useHomepageConfig() {
+export function useHomepageConfig(options?: { mode?: "self" | "school-readonly" }) {
+  const mode = options?.mode ?? "self";
   // Start empty so SSR and the first client render agree; local cache is
   // applied after hydration.
   const [config, setConfig] = useState<HomepageConfig>({});
@@ -59,6 +64,14 @@ export function useHomepageConfig() {
   useEffect(() => {
     let alive = true;
     void (async () => {
+      if (mode === "school-readonly") {
+        const { data } = await supabase.rpc("get_org_homepage_config");
+        if (!alive) return;
+        const remote = (data ?? null) as HomepageConfig | null;
+        if (remote && typeof remote === "object") setConfig(remote);
+        setReady(true);
+        return;
+      }
       const local = readLocal();
       if (alive && Object.keys(local).length > 0) setConfig(local);
       const { data: userData } = await supabase.auth.getUser();
@@ -82,7 +95,7 @@ export function useHomepageConfig() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [mode]);
 
   /** Merge a patch into the config. Only the given keys are touched. */
   const save = useCallback(async (patch: Partial<HomepageConfig>) => {
