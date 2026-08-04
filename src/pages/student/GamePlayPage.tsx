@@ -443,11 +443,8 @@ const GamePlayPage = () => {
                   ref={videoRef}
                   video={videoBg}
                   playing={!frozen && !cpFailed && (!transfer.transferring || !!videoBg)}
-                  loop={
-                    activeCp && activeCp.loopEnd != null && !exitingCpId
-                      ? { start: activeCp.loopStart ?? 0, end: activeCp.loopEnd }
-                      : null
-                  }
+                  loop={loopRegionFor(activeCp, Boolean(exitingCpId))}
+
 
                   onTime={onVideoTime}
                 />
