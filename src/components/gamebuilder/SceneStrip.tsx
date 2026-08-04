@@ -7,7 +7,8 @@ interface SceneStripProps {
   scenes: Scene[];
   activeId: string | null;
   onSelect: (id: string) => void;
-  onAdd: () => void;
+  /** Adventure is one complete challenge, so adding scenes is off by default. */
+  onAdd?: () => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -75,6 +76,7 @@ const SceneStrip = ({
           </button>
         );
       })}
+      {onAdd && (
       <Button size="sm" variant="secondary" className="shrink-0" onClick={onAdd}>
         <Plus className="mr-1.5 h-4 w-4" /> Add Scene
       </Button>
