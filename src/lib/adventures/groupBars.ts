@@ -91,13 +91,22 @@ export const buildGroupBarElements = (
     if (!isGroupBarElementId(g.progress_element_id)) continue;
     const src = byId.get(g.source_element_id);
     if (!src || src.kind !== "progress_bar") continue;
+    // A duplicate may be moved, resized and recoloured. Questions, scoring and
+    // reward assignment always stay identical to the source bar.
     out.push({
       ...src,
       id: g.progress_element_id,
       label: g.name,
       x: g.position_x ?? src.x,
       y: g.position_y ?? src.y,
-      progress: src.progress ? { ...src.progress } : src.progress,
+      scale: g.style_scale ?? src.scale,
+      progress: src.progress
+        ? {
+            ...src.progress,
+            ...(g.style_preset_id ? { presetId: g.style_preset_id } : {}),
+            ...(g.style_color ? { fillStyle: "plain" as const, plainColor: g.style_color } : {}),
+          }
+        : src.progress,
     });
   }
   return out;
