@@ -112,8 +112,25 @@ export function useRewardTransfer({
 
   useEffect(() => () => { if (frameRef.current != null) cancelAnimationFrame(frameRef.current); }, []);
 
+  // A new stage re-arms the transfer: each stage transfers its own reward.
+  useEffect(() => {
+    firedRef.current = false;
+    setDeparting(new Set());
+    setExitOffsets(new Map());
+    setTransferring(false);
+  }, [stageKey]);
+
   /** Rewards of this game that have been transferred already — never re-render them. */
   const transferredIds = useMemo(() => alreadyAwarded, [alreadyAwarded]);
+
+  /** Reward placements that belong to the stage currently being played. */
+  const stagePlacements = useMemo(
+    () =>
+      stageRewardIds
+        ? placements.filter((p) => stageRewardIds.has(p.reward_element_id))
+        : placements,
+    [placements, stageRewardIds],
+  );
 
   // A bar is "full" when it reaches the teacher-configured goal for that bar
   // (`required` already encodes the goal percentage) — never a fixed 100%.
@@ -128,9 +145,10 @@ export function useRewardTransfer({
   /** The goal is met, regardless of whether a transfer is possible. */
   const goalReached = !!winnerBar;
   const pendingTargets = useMemo(
-    () => placements.filter((p) => !alreadyAwarded.has(p.reward_element_id)),
-    [placements, alreadyAwarded],
+    () => stagePlacements.filter((p) => !alreadyAwarded.has(p.reward_element_id)),
+    [stagePlacements, alreadyAwarded],
   );
+
 
   /** Reward assets in this Adventure with no placement in the Class Gallery. */
   const unlinkedRewards = useMemo(() => {
