@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { normalizeMathLayout } from "@/lib/notebook/mathLayoutNormalize";
 
 const roundTrip = (v: string) => treeToLatex(latexToTree(v));
 
@@ -121,4 +122,29 @@ describe("normalize → serialise stability", () => {
       );
     });
   }
+});
+
+// ---- Math Layout Normalizer: structures must never reserve space ----
+describe("math layout normalizer", () => {
+  const cases: [string, string][] = [
+    ["a +      \\sqrt{b}", "a + \\sqrt{b}"],
+    ["a -\\;\\sqrt{b}", "a - \\sqrt{b}"],
+    ["\\sqrt {b}", "\\sqrt{b}"],
+    ["\\sqrt{ \\sqrt{b} }", "\\sqrt{\\sqrt{b}}"],
+    ["\\frac{ a }{ \\sqrt{b} }", "\\frac{a}{\\sqrt{b}}"],
+    ["x ^{2}", "x^{2}"],
+    ["\\sum_{i=1}^{n}   x_{i}", "\\sum_{i=1}^{n} x_{i}"],
+  ];
+  for (const [input, expected] of cases) {
+    it(`tightens ${input}`, () => {
+      expect(normalizeMathLayout(input)).toBe(expected);
+    });
+  }
+
+  it("is idempotent", () => {
+    for (const [input] of cases) {
+      const once = normalizeMathLayout(input);
+      expect(normalizeMathLayout(once)).toBe(once);
+    }
+  });
 });

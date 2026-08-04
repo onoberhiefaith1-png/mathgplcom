@@ -126,7 +126,7 @@ function RowView({
     }
   }
 
-  if (row.length === 0 && !isCursorRow) {
+  if (row.length === 0 && !isCursorRow && focused) {
     // Empty non-active sub-row: show a small placeholder box so the teacher
     // sees where they can click.
     items.push(
@@ -196,16 +196,16 @@ function NodeView({
           flexDirection: "column",
           alignItems: "center",
           verticalAlign: "middle",
-          margin: "0 2px",
+          margin: "0 1px",
           lineHeight: 1.05,
           textAlign: "center",
         }}
       >
-        <span style={{ padding: "0 4px" }}>
+        <span style={{ padding: "0 3px" }}>
           <RowView row={num} path={[...path, 0]} cursor={cursor} focused={focused} />
         </span>
         <span style={{ borderTop: "1.5px solid currentColor", alignSelf: "stretch" }} />
-        <span style={{ padding: "0 4px" }}>
+        <span style={{ padding: "0 3px" }}>
           <RowView row={den} path={[...path, 1]} cursor={cursor} focused={focused} />
         </span>
       </span>
@@ -221,7 +221,7 @@ function NodeView({
           </span>
         )}
         <span style={{ fontSize: "1.2em" }}>√</span>
-        <span style={{ borderTop: "1.5px solid currentColor", paddingLeft: 2, paddingRight: 2 }}>
+        <span style={{ borderTop: "1.5px solid currentColor", paddingLeft: 1, paddingRight: 1 }}>
           <RowView row={rows[0]} path={[...path, 0]} cursor={cursor} focused={focused} />
         </span>
       </span>

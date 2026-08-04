@@ -17,6 +17,7 @@ import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import type { Row } from "@/lib/smartboard/mathTree";
 import { MathInlineCanvas } from "./MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { renderMathInline } from "@/lib/notebook/mathRender";
 
 function parseTree(attrs: Record<string, unknown>): Row {
   const t = attrs.tree;
@@ -83,7 +84,9 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
 
   const commit = (next: Row) => {
     setRoot(next);
-    const value = treeToLatex(next);
+    // Layout Normalizer runs on every commit, so the stored value is already
+    // tight — the display renderer never has to undo editing spacing.
+    const value = normalizeMathSource(treeToLatex(next));
     updateAttributes({ value, tree: JSON.stringify(next) });
   };
 
@@ -100,16 +103,32 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
   };
 
   const empty = useMemo(() => root.length === 0, [root]);
-  // ONE ENGINE: the tree canvas is both the display and the editing
-  // surface, so what you see is literally what you edit — every gap is a
-  // real character, the caret can go anywhere, and nothing is a picture.
+  // ONE ENGINE FOR DISPLAY: whenever the teacher is not inside the object it
+  // is painted by `renderMathInline` — the exact renderer the AI Edit preview
+  // uses — so an expression looks identical in AI Edit, the note, Present
+  // mode and export. The tree canvas is an editing surface only.
+  const display = useMemo(
+    () => normalizeMathSource(String(node.attrs.value ?? "") || treeToLatex(root)),
+    [node.attrs.value, root],
+  );
+
   return (
     <NodeViewWrapper
       as="span"
-      className={`inline-block align-baseline math-inline-node${selected ? " math-inline-node--selected" : ""}`}
+      className={`inline align-baseline math-inline-node${selected ? " math-inline-node--selected" : ""}`}
       contentEditable={false}
     >
-      {empty && !focused ? (
+      {focused ? (
+        <MathInlineCanvas
+          entryPoint={entryPoint}
+          entryCursor={entryCursor}
+          root={root}
+          onChange={commit}
+          onBlur={handleBlur}
+          focused
+          onFocus={() => setFocused(true)}
+        />
+      ) : empty ? (
         <span
           className="cursor-text opacity-40 text-xs px-1"
           onMouseDown={(e) => { setEntryPoint({ x: e.clientX, y: e.clientY }); setFocused(true); }}
@@ -117,15 +136,18 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
           [math]
         </span>
       ) : (
-        <MathInlineCanvas
-          entryPoint={entryPoint}
-          entryCursor={entryCursor}
-          root={root}
-          onChange={commit}
-          onBlur={handleBlur}
-          focused={focused}
-          onFocus={() => setFocused(true)}
-        />
+        <span
+          className="math-inline-display math-inline-selectable cursor-text"
+          onMouseDown={(e) => {
+            // Enter editing from the *normalized* source so the caret works on
+            // exactly what was on screen (no stale editing spacing).
+            try { setRoot(latexToTree(display)); } catch { /* keep current tree */ }
+            setEntryPoint({ x: e.clientX, y: e.clientY });
+            setFocused(true);
+          }}
+        >
+          {renderMathInline(display, "mi")}
+        </span>
       )}
     </NodeViewWrapper>
   );

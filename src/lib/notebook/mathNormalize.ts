@@ -7,6 +7,7 @@
 // display a form the AI Edit preview would render differently.
 
 import { normalizeMath } from "@/lib/notebook/mathRender";
+import { normalizeMathLayout } from "@/lib/notebook/mathLayoutNormalize";
 
 /** Close any dangling `{` so a partially-typed value still parses fully. */
 export const balanceBraces = (v: string): string => {
@@ -26,5 +27,7 @@ export const balanceBraces = (v: string): string => {
  */
 export const normalizeMathSource = (raw: string): string => {
   if (!raw) return "";
-  return balanceBraces(normalizeMath(raw));
+  // Layout normalizer runs last: the stored/displayed string is already
+  // tight, so no surface can reintroduce reserved spacing.
+  return normalizeMathLayout(balanceBraces(normalizeMath(raw)));
 };
