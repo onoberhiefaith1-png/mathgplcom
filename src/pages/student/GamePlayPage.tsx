@@ -19,6 +19,8 @@ import { withGroupBars } from "@/lib/adventures/groupBars";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
 import { loopRegionFor, loopStateOf, type LoopState } from "@/lib/games/loopRuntime";
+import { useNarrationPlayback } from "@/lib/games/narration";
+import { narrationsOf } from "@/lib/games/types";
 
 
 
@@ -200,6 +202,21 @@ const GamePlayPage = () => {
    * so the student never sees a jump.
    */
   const [exitingCpId, setExitingCpId] = useState<string | null>(null);
+  /** Live playhead, read when the reward exit duration is calculated. */
+  const videoTimeRef = useRef(0);
+  /**
+   * Some adventures end with a cinematic after the last Learning Point. In that
+   * case the Gallery waits for the video to finish instead of opening the
+   * moment the final reward is collected.
+   */
+  const [awardedIds, setAwardedIds] = useState<string[]>([]);
+  const hasConclusion = useMemo(() => {
+    if (!videoBg || stages.length === 0) return false;
+    const last = stages[stages.length - 1];
+    const dur = videoBg.duration ?? 0;
+    return last?.loopEnd != null && dur > 0 && last.loopEnd < dur - 0.5;
+  }, [videoBg, stages]);
+
   const advanceStage = useCallback(() => {
     const stage = activeStage;
     if (!stage || advancedRef.current === stage.id) return;
@@ -221,6 +238,15 @@ const GamePlayPage = () => {
     [sync.elements],
   );
 
+  /**
+   * Automatic reward animation duration: Loop End − current playhead, so the
+   * reward lands exactly as the video leaves the Learning Point.
+   */
+  const getExitMs = useCallback(() => {
+    if (!videoBg || !activeStage || activeStage.loopEnd == null) return null;
+    return Math.max(0, (activeStage.loopEnd - videoTimeRef.current) * 1000);
+  }, [videoBg, activeStage]);
+
   const transfer = useRewardTransfer({
     classId,
     gameId,
@@ -231,8 +257,9 @@ const GamePlayPage = () => {
     rewardElements: rewardRefs,
     stageRewardIds: staged ? stageIds : null,
     stageKey: activeStage?.id ?? "single",
-    deferGallery: staged && !finalStage,
-    onStageAwarded: advanceStage,
+    deferGallery: staged && (!finalStage || hasConclusion),
+    onStageAwarded: (ids) => { setAwardedIds(ids); advanceStage(); },
+    getExitMs,
   });
 
   // Time beat the goal (Part 7): expired with no valid, in-time win.
@@ -281,8 +308,12 @@ const GamePlayPage = () => {
   const visibleElements = useMemo(() => {
     if (!staged) return mirroredElements;
     if (!activeStage) return [];
-    return mirroredElements.filter((e) => stageIds.has(e.id));
-  }, [staged, activeStage, stageIds, mirroredElements]);
+    const mine = mirroredElements.filter((e) => stageIds.has(e.id));
+    // Completed Learning Point: the Progress Bar is no longer needed and
+    // disappears at once, while the reward finishes travelling upward.
+    if (videoBg && exitingCpId) return mine.filter((e) => e.kind !== "progress_bar");
+    return mine;
+  }, [staged, activeStage, stageIds, mirroredElements, videoBg, exitingCpId]);
 
   /**
    * Learning Point state, resolved by the shared runtime rules
@@ -331,10 +362,15 @@ const GamePlayPage = () => {
   const checkpoints = stages;
   const activeCp = videoBg ? activeStage : null;
 
+  const narrations = useMemo(() => narrationsOf(canvas), [canvas]);
+  const narrationRuntime = useNarrationPlayback(narrations, Boolean(videoBg));
+
   // Reaching a loop's start time freezes the journey into that loop.
   const onVideoTime = useCallback(
     (t: number) => {
       setVideoTime(t);
+      videoTimeRef.current = t;
+      narrationRuntime.onTime(t);
       // A cleared loop plays out its final seconds, then everything unmounts.
       if (exitingCpId) {
         const leaving = checkpoints.find((c) => c.id === exitingCpId);
@@ -354,7 +390,7 @@ const GamePlayPage = () => {
         setCpSecondsLeft(hit.timerEnabled ? hit.timeLimit ?? 300 : null);
       }
     },
-    [activeCpId, exitingCpId, checkpoints, doneCps],
+    [activeCpId, exitingCpId, checkpoints, doneCps, narrationRuntime],
   );
 
 
@@ -470,6 +506,16 @@ const GamePlayPage = () => {
 
 
                   onTime={onVideoTime}
+                  onEnded={() => {
+                    // Conclusion finished — the Gallery opens now, with only the
+                    // newest reward animating into place.
+                    if (!hasConclusion || awardedIds.length === 0) return;
+                    const params = new URLSearchParams({
+                      animateReward: `${gameId}:${awardedIds[0]}`,
+                    });
+                    if (transfer.winnerGroupId) params.set("group", transfer.winnerGroupId);
+                    navigate(`/student/class/${classId}/gallery?${params.toString()}`);
+                  }}
                 />
                 <div className="pointer-events-none absolute inset-0">
                   <GameCanvas

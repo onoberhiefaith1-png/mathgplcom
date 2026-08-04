@@ -54,8 +54,10 @@ import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
 import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
+import NarrationPanel from "@/components/gamebuilder/NarrationPanel";
 import SceneStrip from "@/components/gamebuilder/SceneStrip";
 import { useLoopRuntime } from "@/lib/games/loopRuntime";
+import { useNarrationPlayback } from "@/lib/games/narration";
 
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
 import { adventureModeOf, adventureModeLabel, type AdventureMode } from "@/lib/games/types";
@@ -71,12 +73,14 @@ import {
   CanvasElement,
   GameAssetRow,
   Scene,
+  Narration,
   VideoBackground,
   checkpointAt,
   checkpointsOf,
 
   defaultAnimation,
   makeCheckpoint,
+  narrationsOf,
   normalizeCanvas,
   uid,
 } from "@/lib/games/types";
@@ -113,6 +117,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   /** Mode being picked inside the meta dialog (applied on Save). */
   const [metaMode, setMetaMode] = useState<AdventureMode>("static");
   const [videoTime, setVideoTime] = useState(0);
+  /** Narration clips pinned to timestamps in the background video. */
+  const [narrations, setNarrations] = useState<Narration[]>([]);
+  const [narrationOpen, setNarrationOpen] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const videoModeRef = useRef(false);
@@ -219,6 +226,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           setActiveSceneId(canvas.activeSceneId ?? canvas.scenes[0]?.id ?? null);
           setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
           setVideo(canvas.video ?? null);
+          setNarrations(narrationsOf(canvas));
           setAdventureMode(adventureModeOf(canvas));
           loadedRef.current = true;
         } catch (e) {
@@ -242,6 +250,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         setActiveSceneId(canvas.activeSceneId ?? canvas.scenes[0]?.id ?? null);
         setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
         setVideo(canvas.video ?? null);
+        setNarrations(narrationsOf(canvas));
         setAdventureMode(adventureModeOf(canvas));
         setMetaMode(adventureModeOf(canvas));
         loadedRef.current = true;
@@ -270,7 +279,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       setSaving(true);
       const t = setTimeout(async () => {
         try {
-          await saveClassGalleryCanvas(classId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video });
+          await saveClassGalleryCanvas(classId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video, narrations });
         } catch (e) {
           console.error(e);
         } finally {
@@ -283,7 +292,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setSaving(true);
     const t = setTimeout(async () => {
       try {
-        await saveGameCanvas(gameId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video });
+        await saveGameCanvas(gameId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video, narrations });
       } catch (e) {
         console.error(e);
       } finally {
@@ -291,7 +300,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [scenes, activeSceneId, heightUnits, video, adventureMode, gameId, classId, isGallery]);
+  }, [scenes, activeSceneId, heightUnits, video, narrations, adventureMode, gameId, classId, isGallery]);
 
   const activeScene = useMemo(
     () => scenes.find((s) => s.id === activeSceneId) ?? scenes[0] ?? null,
@@ -949,6 +958,14 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setVideoTime(t);
   }, []);
   const preview = useLoopRuntime(checkpoints, seekVideo);
+  // Narration fires only while the adventure is running (Preview), never while
+  // the teacher scrubs the authoring timeline.
+  const narrationRuntime = useNarrationPlayback(narrations, preview.active);
+  useEffect(() => {
+    if (preview.active) narrationRuntime.reset();
+    else narrationRuntime.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview.active]);
   const previewFinalLoop =
     preview.activeLoopId != null &&
     checkpoints.length > 0 &&
@@ -1914,6 +1931,19 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           onChangeVideo={openVideoPicker}
           onRemoveVideo={removeVideoBackground}
           expanded={topBarOpen}
+          onToggleNarration={() => setNarrationOpen((v) => !v)}
+          narrationOpen={narrationOpen}
+          narrationCount={narrations.length}
+          narrationPanel={
+            narrationOpen ? (
+              <NarrationPanel
+                narrations={narrations}
+                playhead={videoTime}
+                onChange={setNarrations}
+                onClose={() => setNarrationOpen(false)}
+              />
+            ) : null
+          }
         />
       )}
 
@@ -1997,7 +2027,10 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                       }
                       onTime={(t) => {
                         setVideoTime(t);
-                        if (preview.active) preview.onTime(t);
+                        if (preview.active) {
+                          preview.onTime(t);
+                          narrationRuntime.onTime(t);
+                        }
                       }}
                       onLoaded={(meta) =>
                         setVideo((v) =>
@@ -2005,8 +2038,13 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                         )
                       }
                       onEnded={() => {
+                        // Reaching the end of the video never completes a
+                        // Learning Point — the runtime decides.
+                        if (preview.active) {
+                          preview.videoEnded();
+                          return;
+                        }
                         setVideoPlaying(false);
-                        if (preview.active) preview.pause();
                       }}
                     />
                     {/* No status text on the canvas — it must look like the

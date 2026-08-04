@@ -98,7 +98,18 @@ const VideoBackgroundLayer = forwardRef<VideoBackgroundHandle, VideoBackgroundLa
           const v = e.currentTarget;
           onLoaded?.({ duration: v.duration || 0, width: v.videoWidth, height: v.videoHeight });
         }}
-        onEnded={() => onEnded?.()}
+        onEnded={() => {
+          // A Learning Point that runs to the very end of the video must keep
+          // looping: reaching the end is never "adventure complete".
+          const region = loopRef.current;
+          const el = elRef.current;
+          if (region && el) {
+            el.currentTime = region.start;
+            void el.play().catch(() => {});
+            return;
+          }
+          onEnded?.();
+        }}
       />
     );
   },

@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Flag, Pause, Play, Trash2, Video } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { AudioLines, Flag, Pause, Play, Trash2, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,12 @@ interface CheckpointTimelineProps {
   onRemoveVideo: () => void;
   /** Collapsed by default: the loop detail form only shows when the toolbar is expanded. */
   expanded?: boolean;
+  /** Toggles the Narration library panel (beside Set Start). */
+  onToggleNarration?: () => void;
+  narrationOpen?: boolean;
+  narrationCount?: number;
+  /** Rendered inside the toolbar so the panel floats beside the timeline. */
+  narrationPanel?: ReactNode;
 }
 
 /**
@@ -50,6 +56,10 @@ const CheckpointTimeline = ({
   onChangeVideo,
   onRemoveVideo,
   expanded = false,
+  onToggleNarration,
+  narrationOpen = false,
+  narrationCount = 0,
+  narrationPanel,
 }: CheckpointTimelineProps) => {
   const [markStart, setMarkStart] = useState<number | null>(null);
   const active = useMemo(() => checkpoints.find((c) => c.id === activeId) ?? null, [checkpoints, activeId]);
@@ -58,7 +68,7 @@ const CheckpointTimeline = ({
   const cmpIcon = "h-3.5 w-3.5";
 
   return (
-    <div className="z-10 shrink-0 space-y-1.5 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur">
+    <div className="relative z-10 shrink-0 space-y-1.5 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur">
       <div className="flex flex-wrap items-center gap-1.5">
         <Button size="icon" variant="secondary" className="h-7 w-7" onClick={onTogglePlay} title={playing ? "Pause" : "Play"}>
           {playing ? <Pause className={cmpIcon} /> : <Play className={cmpIcon} />}
@@ -91,6 +101,23 @@ const CheckpointTimeline = ({
             </Button>
           </>
         )}
+
+        {onToggleNarration && (
+          <Button
+            size="sm"
+            className={cmpBtn}
+            variant={narrationOpen ? "default" : "secondary"}
+            onClick={onToggleNarration}
+          >
+            <AudioLines className={cmpIcon} /> Narration
+            {narrationCount > 0 && (
+              <span className="ml-0.5 rounded bg-black/15 px-1 text-[10px] tabular-nums">{narrationCount}</span>
+            )}
+          </Button>
+        )}
+        {narrationPanel}
+
+
 
         <div className="ml-auto flex items-center gap-1.5">
           <Button size="sm" className={cmpBtn} variant="ghost" onClick={onChangeVideo}>
