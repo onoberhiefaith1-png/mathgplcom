@@ -50,6 +50,7 @@ export function useRewardTransfer({
   stageKey = "single",
   deferGallery = false,
   onStageAwarded,
+  getExitMs,
 }: {
   classId: string | null | undefined;
   gameId: string | null | undefined;
@@ -70,6 +71,12 @@ export function useRewardTransfer({
   deferGallery?: boolean;
   /** Called once a non-final stage's rewards have left the screen + been stored. */
   onStageAwarded?: (rewardElementIds: string[]) => void;
+  /**
+   * Video Adventures time the exit automatically: the reward must arrive exactly
+   * as the playhead leaves the Learning Point, so the duration is
+   * `Loop End − playhead at completion`. Return null to use the Gallery speed.
+   */
+  getExitMs?: () => number | null;
 }) {
 
   const navigate = useNavigate();
@@ -81,6 +88,8 @@ export function useRewardTransfer({
   const [exitOffsets, setExitOffsets] = useState<Map<string, ExitOffset>>(new Map());
   const [transferring, setTransferring] = useState(false);
   const firedRef = useRef(false);
+  const getExitMsRef = useRef(getExitMs);
+  getExitMsRef.current = getExitMs;
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -196,12 +205,16 @@ export function useRewardTransfer({
 
       // The Adventure scene never owns a speed of its own: the exit uses the
       // same duration the teacher configured for this reward in the Gallery.
-      const exitMs = Math.max(
-        500,
-        Number(targets[0]?.duration_ms) || FALLBACK_EXIT_MS,
-      );
+      const auto = getExitMsRef.current?.();
+      const exitMs =
+        auto != null && Number.isFinite(auto)
+          ? Math.max(0, auto)
+          : Math.max(500, Number(targets[0]?.duration_ms) || FALLBACK_EXIT_MS);
 
-      await new Promise<void>((resolve) => {
+      if (exitMs <= 0) {
+        // The Loop already ended — the reward simply disappears.
+        setExitOffsets(new Map(ids.map((id) => [id, { dy: -1.4, opacity: 0 }])));
+      } else await new Promise<void>((resolve) => {
         const t0 = performance.now();
         const step = (now: number) => {
           const t = Math.min(1, (now - t0) / exitMs);
