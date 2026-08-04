@@ -150,11 +150,15 @@ export function useRewardTransfer({
   );
 
 
-  /** Reward assets in this Adventure with no placement in the Class Gallery. */
+  /** Reward assets of this stage with no placement in the Class Gallery. */
   const unlinkedRewards = useMemo(() => {
     const linked = new Set(placements.map((p) => p.reward_element_id));
-    return rewardElements.filter((el) => !linked.has(el.id) && !alreadyAwarded.has(el.id));
-  }, [rewardElements, placements, alreadyAwarded]);
+    const inStage = stageRewardIds
+      ? rewardElements.filter((el) => stageRewardIds.has(el.id))
+      : rewardElements;
+    return inStage.filter((el) => !linked.has(el.id) && !alreadyAwarded.has(el.id));
+  }, [rewardElements, placements, alreadyAwarded, stageRewardIds]);
+
 
   // Why nothing moved. Only meaningful once the goal is actually reached.
   const blockedReason: TransferBlockedReason = useMemo(() => {
