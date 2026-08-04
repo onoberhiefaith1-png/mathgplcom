@@ -18,6 +18,8 @@ import { GroupsPanel } from "@/components/adventures/GroupsPanel";
 import { withGroupBars, isGroupBarElementId } from "@/lib/adventures/groupBars";
 import { moveGroupBar } from "@/lib/adventures/groups";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
+import { useGroupOutcome } from "@/hooks/useGroupOutcome";
+import { adventureModeOf, normalizeCanvas } from "@/lib/games/types";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 
 import { TimeBarControl } from "@/components/adventures/TimeBarControl";
@@ -105,6 +107,22 @@ const AdventureDashboardPage = () => {
   const statsByBar = useMemo(() => new Map(patchedBarSummaries.map((b) => [b.id, b])), [patchedBarSummaries]);
 
   const timeBar = useGameTimeBar(gameId);
+
+  const canvas = useMemo(() => (game ? normalizeCanvas(game.canvas) : null), [game]);
+  const mode = canvas ? adventureModeOf(canvas) : "static";
+
+  // The dashboard is the single writer of competition outcomes.
+  const outcome = useGroupOutcome({
+    classId,
+    gameId,
+    mode: mode === "video" ? "video" : "static",
+    sceneId: canvas?.activeSceneId ?? null,
+    groups: groups.groups,
+    statsByBar,
+    timeExpired: timeBar.expired,
+    authoritative: true,
+    onChanged: groups.refresh,
+  });
 
   // Part 1/6 — the first bar to reach its target sends its reward to that
   // group's Gallery; nothing transfers once the Time Bar has expired.
@@ -513,6 +531,11 @@ const AdventureDashboardPage = () => {
                 <AssessmentStatusPanel rows={sync.rows} onViewStudent={onViewStudent} />
                 {classId && gameId && (
                   <div className="mt-6 border-t border-border pt-4">
+                    {outcome.winner && (
+                      <div className="mb-3 rounded-xl border border-primary/40 bg-primary/10 p-3 text-sm font-semibold text-primary">
+                        {outcome.winner.name} finished first and takes the reward.
+                      </div>
+                    )}
                     <GroupsPanel
                       classId={classId}
                       gameId={gameId}
