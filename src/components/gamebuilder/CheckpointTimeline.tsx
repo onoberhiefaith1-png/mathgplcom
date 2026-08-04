@@ -56,6 +56,10 @@ const CheckpointTimeline = ({
   onChangeVideo,
   onRemoveVideo,
   expanded = false,
+  onToggleNarration,
+  narrationOpen = false,
+  narrationCount = 0,
+  narrationPanel,
 }: CheckpointTimelineProps) => {
   const [markStart, setMarkStart] = useState<number | null>(null);
   const active = useMemo(() => checkpoints.find((c) => c.id === activeId) ?? null, [checkpoints, activeId]);
@@ -64,7 +68,7 @@ const CheckpointTimeline = ({
   const cmpIcon = "h-3.5 w-3.5";
 
   return (
-    <div className="z-10 shrink-0 space-y-1.5 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur">
+    <div className="relative z-10 shrink-0 space-y-1.5 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur">
       <div className="flex flex-wrap items-center gap-1.5">
         <Button size="icon" variant="secondary" className="h-7 w-7" onClick={onTogglePlay} title={playing ? "Pause" : "Play"}>
           {playing ? <Pause className={cmpIcon} /> : <Play className={cmpIcon} />}
