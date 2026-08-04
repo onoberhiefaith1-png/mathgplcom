@@ -7,7 +7,15 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { compileQuestionSections } from "@/lib/assessments/createAssessment";
-import { normalizeCanvas, type CanvasElement, type GameRow } from "@/lib/games/types";
+import {
+  normalizeCanvas,
+  adventureModeOf,
+  checkpointsMissingTime,
+  isTimeBar,
+  VIDEO_TIME_REQUIRED_MESSAGE,
+  type CanvasElement,
+  type GameRow,
+} from "@/lib/games/types";
 import { useClassMemberIds } from "@/hooks/useClassMemberIds";
 import { timeBarActions } from "@/hooks/useGameTimeBar";
 import { ensureAssignment } from "@/lib/assignments/instances";
@@ -80,10 +88,17 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
   }, [open, sectionIds]);
 
   const pickGame = async (g: GameRow) => {
-    setGameId(g.id);
     const canvas = normalizeCanvas(g.canvas);
+    // A Video Adventure paces its story with the Time Progress Bar, so every
+    // Learning Point needs a duration before it can go out to a class.
+    if (adventureModeOf(canvas) === "video" && checkpointsMissingTime(canvas).length > 0) {
+      toast({ title: "Set a time for every Learning Point", description: VIDEO_TIME_REQUIRED_MESSAGE });
+      return;
+    }
+    setGameId(g.id);
     const list: BarChoice[] = [];
-    for (const s of canvas.scenes) for (const el of s.elements) if (el.kind === "progress_bar") list.push({ sceneTitle: s.title, el });
+    // The Time Progress Bar never carries questions.
+    for (const s of canvas.scenes) for (const el of s.elements) if (el.kind === "progress_bar" && !isTimeBar(el)) list.push({ sceneTitle: s.title, el });
     setBars(list);
     const [{ data: linked }, { data: tb }] = await Promise.all([
       supabase.from("class_game_boards").select("progress_element_id").eq("game_id", g.id),
