@@ -204,6 +204,19 @@ const GamePlayPage = () => {
   const [exitingCpId, setExitingCpId] = useState<string | null>(null);
   /** Live playhead, read when the reward exit duration is calculated. */
   const videoTimeRef = useRef(0);
+  /**
+   * Some adventures end with a cinematic after the last Learning Point. In that
+   * case the Gallery waits for the video to finish instead of opening the
+   * moment the final reward is collected.
+   */
+  const [awardedIds, setAwardedIds] = useState<string[]>([]);
+  const hasConclusion = useMemo(() => {
+    if (!videoBg || stages.length === 0) return false;
+    const last = stages[stages.length - 1];
+    const dur = videoBg.duration ?? 0;
+    return last?.loopEnd != null && dur > 0 && last.loopEnd < dur - 0.5;
+  }, [videoBg, stages]);
+
   const advanceStage = useCallback(() => {
     const stage = activeStage;
     if (!stage || advancedRef.current === stage.id) return;
@@ -244,8 +257,8 @@ const GamePlayPage = () => {
     rewardElements: rewardRefs,
     stageRewardIds: staged ? stageIds : null,
     stageKey: activeStage?.id ?? "single",
-    deferGallery: staged && !finalStage,
-    onStageAwarded: advanceStage,
+    deferGallery: staged && (!finalStage || hasConclusion),
+    onStageAwarded: (ids) => { setAwardedIds(ids); advanceStage(); },
     getExitMs,
   });
 
@@ -493,6 +506,16 @@ const GamePlayPage = () => {
 
 
                   onTime={onVideoTime}
+                  onEnded={() => {
+                    // Conclusion finished — the Gallery opens now, with only the
+                    // newest reward animating into place.
+                    if (!hasConclusion || awardedIds.length === 0) return;
+                    const params = new URLSearchParams({
+                      animateReward: `${gameId}:${awardedIds[0]}`,
+                    });
+                    if (transfer.winnerGroupId) params.set("group", transfer.winnerGroupId);
+                    navigate(`/student/class/${classId}/gallery?${params.toString()}`);
+                  }}
                 />
                 <div className="pointer-events-none absolute inset-0">
                   <GameCanvas
