@@ -476,7 +476,10 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
   const addScene = useCallback(() => {
     const id = newSceneId();
-    setScenes((prev) => [...prev, { id, elements: [] }]);
+    setScenes((prev) => [
+      ...prev,
+      { id, title: `Scene ${prev.length + 1}`, tag: "", elements: [] },
+    ]);
     setActiveSceneId(id);
   }, []);
 
