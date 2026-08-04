@@ -187,7 +187,7 @@ export function useRewardTransfer({
     async (barId: string) => {
       if (!classId || !gameId) return;
       const groupId = barOwner.get(barId) ?? null;
-      const targets = placements.filter((p) => !transferredIds.has(p.reward_element_id));
+      const targets = stagePlacements.filter((p) => !transferredIds.has(p.reward_element_id));
       if (targets.length === 0) return;
 
       setTransferring(true);
@@ -233,6 +233,21 @@ export function useRewardTransfer({
         console.error(e);
       }
 
+      // Reward now lives in the Gallery — it no longer exists in the scene.
+      setAlreadyAwarded((prev) => {
+        const next = new Set(prev);
+        for (const id of ids) next.add(id);
+        return next;
+      });
+
+      if (deferGallery) {
+        // Not the final stage: store the reward silently and hand control back
+        // so the next scene / the rest of the video can start.
+        setTransferring(false);
+        onStageAwarded?.(ids);
+        return;
+      }
+
       const first = targets[0];
       const params = new URLSearchParams({
         animateReward: `${gameId}:${first.reward_element_id}`,
@@ -240,8 +255,19 @@ export function useRewardTransfer({
       if (groupId) params.set("group", groupId);
       navigate(`${galleryPath}?${params.toString()}`);
     },
-    [classId, gameId, barOwner, placements, transferredIds, galleryPath, navigate],
+    [
+      classId,
+      gameId,
+      barOwner,
+      stagePlacements,
+      transferredIds,
+      galleryPath,
+      navigate,
+      deferGallery,
+      onStageAwarded,
+    ],
   );
+
 
   useEffect(() => {
     if (!enabled || firedRef.current) return;
