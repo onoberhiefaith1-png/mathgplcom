@@ -73,6 +73,7 @@ import {
   CanvasElement,
   GameAssetRow,
   Scene,
+  Narration,
   VideoBackground,
   checkpointAt,
   checkpointsOf,
