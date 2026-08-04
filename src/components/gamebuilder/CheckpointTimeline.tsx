@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Flag, Pause, Play, Trash2, Video } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { AudioLines, Flag, Pause, Play, Trash2, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
