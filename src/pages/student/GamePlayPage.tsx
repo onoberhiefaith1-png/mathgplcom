@@ -423,7 +423,7 @@ const GamePlayPage = () => {
                 <VideoBackgroundLayer
                   ref={videoRef}
                   video={videoBg}
-                  playing={!frozen && !cpFailed}
+                  playing={!frozen && !cpFailed && !transfer.transferring}
                   loop={
                     activeCp && activeCp.loopEnd != null
                       ? { start: activeCp.loopStart ?? 0, end: activeCp.loopEnd }
