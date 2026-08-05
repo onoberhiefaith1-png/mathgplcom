@@ -24,6 +24,8 @@ export type UseGameTimeBar = {
   running: boolean;
   paused: boolean;
   expired: boolean;
+  /** True when the duration is "None" — no countdown exists for this game. */
+  noTime: boolean;
   slotsLit: (segments: number) => number;
   refresh: () => Promise<void>;
   /** Live-updating controls: they apply the returned row locally at once. */
@@ -37,7 +39,15 @@ export type UseGameTimeBar = {
   };
 };
 
+/** Shortest real countdown. 0 is also legal and means "No Time". */
 export const MIN_DURATION_SECONDS = 60;
+
+/** Clamp a requested duration: 0 (No Time) or at least one minute. */
+export const clampDuration = (seconds: number): number => {
+  const s = Math.round(Number(seconds) || 0);
+  if (s <= 0) return 0;
+  return Math.max(MIN_DURATION_SECONDS, s);
+};
 
 const elapsedFrom = (row: GameTimeBarRow | null): number => {
   if (!row || !row.started_at) return 0;
@@ -149,20 +159,23 @@ export function useGameTimeBar(gameId: string | null | undefined): UseGameTimeBa
   }, [row?.started_at, row?.paused_at]);
 
 
+  // Duration 0 = "No Time": the countdown is disabled, but every setting is
+  // preserved so the teacher can switch a duration back on at any moment.
+  const noTime = !!row && Number(row.duration_seconds) <= 0;
   const durationMs = Math.max(1, Number(row?.duration_seconds ?? 0)) * 1000;
   const elapsedMs = useMemo(() => {
     void now;
     return Math.min(durationMs, elapsedFrom(row));
   }, [row, durationMs, now]);
-  const running = !!row?.started_at && !row?.paused_at;
-  const paused = !!row?.paused_at;
-  const expired = !!row?.started_at && elapsedMs >= durationMs;
+  const running = !noTime && !!row?.started_at && !row?.paused_at;
+  const paused = !noTime && !!row?.paused_at;
+  const expired = !noTime && !!row?.started_at && elapsedMs >= durationMs;
 
   const slotsLit = useCallback((segments: number) => {
-    if (!row?.started_at) return 0;
+    if (noTime || !row?.started_at) return 0;
     const segs = Math.max(1, segments);
     return Math.min(segs, Math.floor(elapsedMs / (durationMs / segs)));
-  }, [row?.started_at, elapsedMs, durationMs]);
+  }, [noTime, row?.started_at, elapsedMs, durationMs]);
 
   // Every action applies the row returned by the write immediately, so the
   // panel updates without waiting on realtime (or a refresh).
@@ -180,11 +193,18 @@ export function useGameTimeBar(gameId: string | null | undefined): UseGameTimeBa
 
   const actions = useMemo(() => ({
     setDuration: async (seconds: number) => {
-      await apply({ duration_seconds: Math.max(MIN_DURATION_SECONDS, Math.round(seconds)) });
+      // Selecting "None" also clears any run in progress so gameplay is free.
+      const next = clampDuration(seconds);
+      await apply(
+        next === 0
+          ? { duration_seconds: 0, started_at: null, paused_at: null, accumulated_paused_ms: 0 }
+          : { duration_seconds: next },
+      );
     },
     adjustDuration: async (deltaSeconds: number) => {
       const base = Number(row?.duration_seconds ?? 0);
-      await apply({ duration_seconds: Math.max(MIN_DURATION_SECONDS, base + Math.round(deltaSeconds)) });
+      if (base <= 0) return; // No Time — ±1 minute does nothing until a duration is chosen.
+      await apply({ duration_seconds: clampDuration(base + Math.round(deltaSeconds)) });
     },
     start: async () => {
       await apply({ started_at: new Date().toISOString(), paused_at: null, accumulated_paused_ms: 0 });
@@ -206,7 +226,7 @@ export function useGameTimeBar(gameId: string | null | undefined): UseGameTimeBa
         started_at: null,
         paused_at: null,
         accumulated_paused_ms: 0,
-        duration_seconds: Math.max(MIN_DURATION_SECONDS, Math.round(original)),
+        duration_seconds: clampDuration(original),
       });
     },
   }), [apply, row]);
@@ -220,10 +240,47 @@ export function useGameTimeBar(gameId: string | null | undefined): UseGameTimeBa
     running,
     paused,
     expired,
+    noTime,
     slotsLit,
     refresh,
     actions,
   };
+}
+
+/**
+ * The first Progress Bar of every Adventure is reserved as the Time Bar, so its
+ * live row is part of the engine rather than something a teacher links. This
+ * creates the missing row on demand and is safe to call repeatedly.
+ */
+export async function ensureTimeBar(
+  gameId: string,
+  progressElementId: string,
+  defaults?: { durationSeconds?: number },
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from("game_time_bars" as never)
+    .select("game_id, progress_element_id")
+    .eq("game_id", gameId)
+    .maybeSingle();
+  if (existing) {
+    // The reserved bar may have been re-created in the editor; keep it pointed
+    // at the current Time Bar element.
+    if ((existing as any).progress_element_id !== progressElementId) {
+      await supabase
+        .from("game_time_bars" as never)
+        .update({ progress_element_id: progressElementId } as never)
+        .eq("game_id", gameId);
+    }
+    return;
+  }
+  const requested = Number(defaults?.durationSeconds);
+  const seconds = Number.isFinite(requested) ? clampDuration(requested) : 600;
+  await supabase.from("game_time_bars" as never).insert({
+    game_id: gameId,
+    progress_element_id: progressElementId,
+    duration_seconds: seconds,
+    default_duration_seconds: seconds > 0 ? seconds : 600,
+  } as never);
 }
 
 export const timeBarActions = {
