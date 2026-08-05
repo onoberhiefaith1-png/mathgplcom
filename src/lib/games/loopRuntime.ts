@@ -301,6 +301,9 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
   return {
     active,
     playing,
+    runId,
+    elapsed,
+
     activeLoopId,
     exitingLoopId,
     clearedLoopIds,
