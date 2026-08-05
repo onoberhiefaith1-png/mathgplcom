@@ -955,3 +955,42 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
   background: hsl(var(--primary) / 0.22);
   border-radius: 2px;
 }
+
+/* ------------------------------------------------------------------
+ * Premium section themes
+ * Every major module owns one gradient identity. Cards read these
+ * tokens, so no component hardcodes a colour.
+ * ------------------------------------------------------------------ */
+:root {
+  --section-ink: 0 0% 100%;
+  --section-ink-muted: 214 32% 88%;
+
+  --section-lesson-notes: linear-gradient(145deg, hsl(35 78% 34%) 0%, hsl(28 62% 20%) 55%, hsl(24 46% 13%) 100%);
+  --section-smartboard: linear-gradient(145deg, hsl(224 72% 40%) 0%, hsl(258 62% 32%) 55%, hsl(266 52% 18%) 100%);
+  --section-classes: linear-gradient(145deg, hsl(186 70% 28%) 0%, hsl(190 62% 19%) 55%, hsl(196 54% 12%) 100%);
+  --section-adventure: linear-gradient(145deg, hsl(26 88% 46%) 0%, hsl(330 58% 36%) 52%, hsl(268 54% 24%) 100%);
+  --section-skill-builder: linear-gradient(145deg, hsl(158 62% 30%) 0%, hsl(164 58% 20%) 55%, hsl(170 50% 12%) 100%);
+  --section-reports: linear-gradient(145deg, hsl(224 54% 26%) 0%, hsl(226 50% 16%) 55%, hsl(230 46% 11%) 100%);
+  --section-gallery: linear-gradient(145deg, hsl(272 62% 38%) 0%, hsl(280 56% 26%) 55%, hsl(286 50% 16%) 100%);
+  --section-rewards: linear-gradient(145deg, hsl(43 82% 44%) 0%, hsl(38 66% 28%) 55%, hsl(34 54% 16%) 100%);
+  --section-assessment: linear-gradient(145deg, hsl(212 74% 34%) 0%, hsl(216 62% 22%) 55%, hsl(220 54% 13%) 100%);
+  --section-community: linear-gradient(145deg, hsl(196 72% 38%) 0%, hsl(268 56% 34%) 50%, hsl(330 56% 30%) 100%);
+  --section-sessions: linear-gradient(145deg, hsl(350 66% 40%) 0%, hsl(342 58% 26%) 55%, hsl(336 50% 16%) 100%);
+  --section-students: linear-gradient(145deg, hsl(258 62% 40%) 0%, hsl(266 56% 27%) 55%, hsl(272 50% 17%) 100%);
+  --section-courses: linear-gradient(145deg, hsl(232 62% 40%) 0%, hsl(238 56% 27%) 55%, hsl(244 50% 17%) 100%);
+  --section-assignments: linear-gradient(145deg, hsl(32 76% 40%) 0%, hsl(24 64% 26%) 55%, hsl(20 54% 16%) 100%);
+  --section-games: linear-gradient(145deg, hsl(192 72% 32%) 0%, hsl(200 64% 22%) 55%, hsl(206 56% 14%) 100%);
+  --section-settings: linear-gradient(145deg, hsl(220 18% 34%) 0%, hsl(222 20% 22%) 55%, hsl(224 24% 14%) 100%);
+  --section-neutral: linear-gradient(145deg, hsl(222 30% 30%) 0%, hsl(224 30% 20%) 55%, hsl(226 32% 13%) 100%);
+
+  /* Readability scrim placed between artwork/gradient and content. */
+  --section-scrim: linear-gradient(180deg, hsl(224 60% 6% / 0.12) 0%, hsl(224 60% 6% / 0.46) 100%);
+  --section-sheen: radial-gradient(120% 80% at 12% -10%, hsl(0 0% 100% / 0.22), transparent 62%);
+  --shadow-section: 0 20px 48px -24px hsl(224 60% 6% / 0.7), 0 2px 10px -4px hsl(224 60% 6% / 0.4);
+  --shadow-section-hover: 0 30px 62px -26px hsl(224 60% 6% / 0.78), 0 4px 14px -4px hsl(224 60% 6% / 0.45);
+}
+
+@theme inline {
+  --color-section-ink: hsl(var(--section-ink));
+  --color-section-ink-muted: hsl(var(--section-ink-muted));
+}
