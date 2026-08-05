@@ -139,6 +139,11 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
   const [completedAt, setCompletedAt] = useState<number | null>(null);
   const [exitDuration, setExitDuration] = useState(0);
   const [time, setTime] = useState(0);
+  /** Bumped on every start() so downstream runtimes know this is a fresh run. */
+  const [runId, setRunId] = useState(0);
+  /** Real elapsed time of the run — independent of the looping video clock. */
+  const [elapsed, setElapsed] = useState(0);
+
 
   const loopsRef = useRef(loops);
   loopsRef.current = loops;
