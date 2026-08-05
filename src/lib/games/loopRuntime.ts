@@ -186,6 +186,9 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
     finalExitRef.current = false;
     timeRef.current = 0;
     setTime(0);
+    // A run is entirely disposable: new id, clean clock.
+    setRunId((n) => n + 1);
+    setElapsed(0);
     // Edge case: the adventure may begin inside Learning Point 1 (no
     // introduction) — enter it on the very first frame.
     const first = checkpointAt(loopsRef.current, 0);
@@ -202,8 +205,18 @@ export const useLoopRuntime = (loops: Scene[], seek: (t: number) => void): LoopR
     setEnded(false);
     setCompletedAt(null);
     setExitDuration(0);
+    setElapsed(0);
     finalExitRef.current = false;
   }, []);
+
+  // Game Timer: real seconds, counting only while the run is playing. It never
+  // rewinds when the video wraps back to a Loop Start.
+  useEffect(() => {
+    if (!active || !playing) return;
+    const id = window.setInterval(() => setElapsed((e) => e + 0.25), 250);
+    return () => window.clearInterval(id);
+  }, [active, playing]);
+
 
   const play = useCallback(() => setPlaying(true), []);
   const pause = useCallback(() => setPlaying(false), []);
