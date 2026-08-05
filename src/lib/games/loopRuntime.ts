@@ -87,6 +87,11 @@ export const visibleLoopElements = (
 export interface LoopRuntime {
   active: boolean;
   playing: boolean;
+  /** Increments on every `start()` — a brand-new run (resets narration etc.). */
+  runId: number;
+  /** Real elapsed seconds of this run. Never rewinds when the video loops. */
+  elapsed: number;
+
   /** Loop the runtime is currently sitting inside (or finishing). */
   activeLoopId: string | null;
   /** Loop playing out its final lap after completion. */
