@@ -10,14 +10,14 @@ import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { AssessmentStatusPanel } from "@/components/dashboards/AssessmentStatusPanel";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
-import { normalizeCanvas, type GameRow } from "@/lib/games/types";
+import { normalizeCanvas, timeBarOf, sceneTimeSeconds, type GameRow } from "@/lib/games/types";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { GroupsPanel } from "@/components/adventures/GroupsPanel";
 import { withGroupBars, isGroupBarElementId } from "@/lib/adventures/groupBars";
 import { moveGroupBar } from "@/lib/adventures/groups";
-import { useGameTimeBar } from "@/hooks/useGameTimeBar";
+import { useGameTimeBar, ensureTimeBar } from "@/hooks/useGameTimeBar";
 import { useGroupOutcome } from "@/hooks/useGroupOutcome";
 import { adventureModeOf } from "@/lib/games/types";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
@@ -171,14 +171,30 @@ const AdventureDashboardPage = () => {
 
 
 
-  const timeBarMeta = useMemo(() => {
+  // The first Progress Bar of every Adventure is reserved as the Time Bar, so
+  // the live row belongs to the engine — provision it instead of asking the
+  // teacher to link one.
+  const reservedTimeBar = useMemo(() => {
+    const scene = canvas?.scenes?.find((s) => s.id === canvas?.activeSceneId) ?? canvas?.scenes?.[0] ?? null;
+    const el = scene ? timeBarOf(scene.elements) : null;
+    return el ? { el, seconds: sceneTimeSeconds(scene) } : null;
+  }, [canvas]);
 
-    if (!timeBar.elementId) return null;
-    const el = sync.elements.find((e) => e.id === timeBar.elementId);
+  useEffect(() => {
+    if (!gameId || timeBar.loading || timeBar.row || !reservedTimeBar) return;
+    void ensureTimeBar(gameId, reservedTimeBar.el.id, { durationSeconds: reservedTimeBar.seconds })
+      .then(() => timeBar.refresh())
+      .catch(() => {});
+  }, [gameId, timeBar.loading, timeBar.row, timeBar.refresh, reservedTimeBar]);
+
+  const timeBarMeta = useMemo(() => {
+    const el = timeBar.elementId
+      ? sync.elements.find((e) => e.id === timeBar.elementId)
+      : reservedTimeBar?.el;
     const label = el?.label || "Progress Bar";
     const segments = Math.max(1, Number(el?.progress?.segments) || 10);
     return { label, segments };
-  }, [timeBar.elementId, sync.elements]);
+  }, [timeBar.elementId, sync.elements, reservedTimeBar]);
 
 
   useEffect(() => {
@@ -412,7 +428,7 @@ const AdventureDashboardPage = () => {
           )}
 
 
-          {gameId && timeBar.elementId && timeBarMeta && (
+          {gameId && (
             <div className="mx-auto mb-3 w-full max-w-[1500px]">
               <TimeBarControl gameId={gameId} barLabel={timeBarMeta.label} segments={timeBarMeta.segments} />
             </div>
