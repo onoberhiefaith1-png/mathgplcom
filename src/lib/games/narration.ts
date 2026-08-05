@@ -88,6 +88,15 @@ export const useNarrationPlayback = (
     }
   }, [enabled, stop]);
 
+  // A new run (Start Preview, or a new student session) wipes every memory:
+  // Play Once clips are available again and nothing is left speaking.
+  useEffect(() => {
+    stop();
+    playedRef.current = new Set();
+    lastTimeRef.current = 0;
+  }, [runId, stop]);
+
+
   useEffect(() => () => stop(), [stop]);
 
   const fire = useCallback(async (n: Narration) => {
