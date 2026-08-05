@@ -192,3 +192,26 @@ export async function evaluateCheckpoint(params: {
   }
   return { continuing, waiting };
 }
+
+/** Independent dashboard status for one group. */
+export type GroupStatus = "winner" | "completed" | "eliminated" | "in_progress";
+
+export function groupStatus(params: {
+  group: AdventureGroup;
+  fill: number;
+  mode: "static" | "video";
+  winnerGroupId?: string | null;
+}): GroupStatus {
+  const { group, fill, mode, winnerGroupId } = params;
+  if (mode === "static" && winnerGroupId && winnerGroupId === group.id) return "winner";
+  if (mode === "video" && !group.qualified) return "eliminated";
+  if (fill >= 1) return "completed";
+  return "in_progress";
+}
+
+export const GROUP_STATUS_LABEL: Record<GroupStatus, string> = {
+  winner: "Winner",
+  completed: "Completed",
+  eliminated: "Eliminated",
+  in_progress: "In Progress",
+};
