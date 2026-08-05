@@ -12,21 +12,21 @@ const tiles: WorkspaceTile[] = [
     label: "Lesson Notes",
     description: "Shared notes and lesson-note assets. Copy one and it becomes yours.",
     icon: BookOpen,
-    accent: "from-amber-400/30 to-amber-600/10 border-amber-300/40 text-amber-200",
+    theme: "lessonNotes",
   },
   {
     to: "/community/classes",
     label: "Classes",
     description: "Shared classes. Request access and the teacher decides.",
     icon: Users,
-    accent: "from-cyan-400/30 to-cyan-600/10 border-cyan-300/40 text-cyan-200",
+    theme: "classes",
   },
   {
     to: "/community/adventure",
     label: "Adventure",
     description: "Shared games and adventures. Copy one into your Adventure workspace.",
     icon: Compass,
-    accent: "from-orange-400/30 to-orange-600/10 border-orange-300/40 text-orange-100",
+    theme: "adventure",
   },
 ];
 
