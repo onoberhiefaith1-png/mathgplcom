@@ -303,6 +303,9 @@ const GamePlayPage = () => {
     return sync.elements
       // A reward that already lives in the Gallery no longer exists here.
       .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
+      // Duration "None": the countdown is disabled, so the Time Bar is not
+      // drawn at all and students play for as long as they need.
+      .filter((el) => !(timeBar.noTime && timeBarId && el.id === timeBarId))
       .map((el) => {
         if (el.kind === "reward" && transfer.departing.has(el.id)) {
           const off = transfer.exitOffsets.get(el.id);
@@ -318,7 +321,7 @@ const GamePlayPage = () => {
         if (!snap) return el;
         return { ...el, progress: { ...el.progress, currentMarks: snap.current, totalMarks: snap.required } };
       });
-  }, [sync.elements, mirror, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
+  }, [sync.elements, mirror, timeBar.elementId, timeBar.noTime, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
 
   /**
    * Only the current stage exists on screen: reward, progress bar, time bar,

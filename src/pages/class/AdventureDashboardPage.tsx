@@ -157,6 +157,8 @@ const AdventureDashboardPage = () => {
     return sync.elements
       // A reward that already moved to the Gallery no longer exists here.
       .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
+      // Duration "None" — no countdown exists, so the Time Bar is not drawn.
+      .filter((el) => !(timeBar.noTime && targetId && el.id === targetId))
       .map((el) => {
         if (el.kind === "reward" && transfer.departing.has(el.id)) {
           const off = transfer.exitOffsets.get(el.id);
@@ -166,7 +168,7 @@ const AdventureDashboardPage = () => {
         const segs = Math.max(1, Number(el.progress.segments) || 10);
         return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
       });
-  }, [sync.elements, timeBar.elementId, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
+  }, [sync.elements, timeBar.elementId, timeBar.noTime, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
 
 
 
