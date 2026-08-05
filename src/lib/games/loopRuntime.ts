@@ -13,7 +13,7 @@
 // loop stops wrapping, and the video plays out to its own Loop End before the
 // objects unmount and the journey travels on.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { checkpointAt, type CanvasElement, type Scene } from "./types";
 
 /** The four Learning Point states. */
