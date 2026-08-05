@@ -1946,9 +1946,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         <CheckpointTimeline
           duration={video.duration ?? 0}
           currentTime={videoTime}
-          playing={videoPlaying}
+          gameElapsed={preview.active ? preview.elapsed : null}
+          playing={preview.active ? preview.playing : videoPlaying}
           checkpoints={checkpoints}
           activeId={activeSceneId}
+
           onTogglePlay={() => setVideoPlaying((v) => !v)}
           onSeek={(t) => {
             videoRef.current?.seek(t);
