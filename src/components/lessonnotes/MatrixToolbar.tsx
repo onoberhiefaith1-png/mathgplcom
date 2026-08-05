@@ -34,7 +34,7 @@ const TEMPLATES: Array<{ v: MatrixTemplate; label: string }> = [
 export function MatrixToolbar({ editor }: Props) {
   const [state, setState] = useState<{ rect: DOMRect; attrs: MatrixAttrs; pos: number } | null>(null);
   const [rowOpOpen, setRowOpOpen] = useState(false);
-  const [rowOp, setRowOp] = useState("R2 = R2 - R1");
+  const [rowOp, setRowOp] = useState("");
   const [swapRowsOpen, setSwapRowsOpen] = useState(false);
   const [swapColsOpen, setSwapColsOpen] = useState(false);
   const [i, setI] = useState(1);
