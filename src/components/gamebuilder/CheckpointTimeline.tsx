@@ -62,6 +62,8 @@ const CheckpointTimeline = ({
   onChangeVideo,
   onRemoveVideo,
   expanded = false,
+  gameElapsed = null,
+
   onToggleNarration,
   narrationOpen = false,
   narrationCount = 0,
