@@ -7,6 +7,8 @@ import ShareMenu from "@/components/community/ShareMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import JoinClassPanel from "@/components/class/JoinClassPanel";
+import SectionCard from "@/components/ui/SectionCard";
+import { SECTION_CARD_CLASS, sectionCardStyle } from "@/lib/theme/sectionThemes";
 
 
 type OwnedClass = { id: string; name: string; join_code: string };
@@ -65,20 +67,17 @@ const TeachingHubClasses = () => {
       subtitle="Create a class, join one, or open a class you already own."
     >
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Link
+        <SectionCard
+          theme="classes"
           to="/teaching-hub/classes/create"
-          className="group relative flex h-fit flex-col overflow-hidden rounded-2xl border border-dash-border bg-dash-surface p-6 shadow-[var(--shadow-dash)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_26px_54px_-24px_hsl(224_60%_6%/0.7)]"
-        >
-          <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500 to-blue-600" />
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-dash-surface shadow-md transition-transform duration-200 group-hover:scale-110">
-            <PlusCircle className="h-5 w-5" />
-          </span>
-          <div className="mt-4 text-lg font-semibold text-dash-surface-foreground">Create Class</div>
-          <p className="mt-1 text-xs text-dash-surface-muted">Start a new classroom. No lesson notes needed.</p>
-        </Link>
+          icon={PlusCircle}
+          label="Create Class"
+          description="Start a new classroom. No lesson notes needed."
+          className="h-fit p-6"
+        />
 
-        <div className="rounded-2xl border border-dash-border bg-dash-surface p-6 text-dash-surface-foreground shadow-[var(--shadow-dash)]">
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted">Join Class</div>
+        <div className="rounded-2xl border border-section-ink/15 p-6 text-section-ink" style={sectionCardStyle("smartboard")}>
+          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-section-ink-muted">Join Class</div>
           <JoinClassPanel light />
         </div>
       </div>
@@ -93,16 +92,16 @@ const TeachingHubClasses = () => {
               {owned.map((c) => (
                 <div
                   key={c.id}
-                  className="group relative overflow-hidden rounded-2xl border border-dash-border bg-dash-surface p-5 shadow-[var(--shadow-dash)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_26px_54px_-24px_hsl(224_60%_6%/0.7)]"
+                  className={`${SECTION_CARD_CLASS} p-5`}
+                  style={sectionCardStyle("students")}
                 >
-                  <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-500 to-purple-600" />
                   <Link to={`/teaching-hub/classes/${c.id}`} className="block">
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-dash-surface shadow-md transition-transform duration-200 group-hover:scale-110">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-section-ink/15 text-section-ink shadow-inner backdrop-blur transition-transform duration-300 group-hover:scale-110">
                       <Users className="h-5 w-5" />
                     </span>
-                    <div className="mt-4 truncate text-lg font-semibold text-dash-surface-foreground">{c.name}</div>
-                    <div className="mt-1 text-xs text-dash-surface-muted">
-                      Join code: <code className="rounded bg-dash-navy/5 px-1.5 py-0.5 text-dash-surface-foreground">{c.join_code}</code>
+                    <div className="mt-4 truncate text-lg font-semibold text-section-ink drop-shadow-sm">{c.name}</div>
+                    <div className="mt-1 text-xs text-section-ink-muted">
+                      Join code: <code className="rounded bg-section-ink/15 px-1.5 py-0.5 text-section-ink">{c.join_code}</code>
                     </div>
                   </Link>
                   <ShareMenu
