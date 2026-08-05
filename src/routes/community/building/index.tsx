@@ -12,21 +12,21 @@ const tiles: WorkspaceTile[] = [
     label: "Backgrounds",
     description: "Shared scenes behind the building — image, animation or video.",
     icon: Image,
-    accent: "from-sky-400/30 to-sky-600/10 border-sky-300/40 text-sky-200",
+    theme: "community",
   },
   {
     to: "/community/buildings",
     label: "Buildings",
     description: "Whole buildings shared by other creators.",
     icon: Landmark,
-    accent: "from-violet-400/30 to-violet-600/10 border-violet-300/40 text-violet-200",
+    theme: "gallery",
   },
   {
     to: "/community/assets",
     label: "Assets",
     description: "Assets, decorations, rewards and special effects.",
     icon: Boxes,
-    accent: "from-emerald-400/30 to-emerald-600/10 border-emerald-300/40 text-emerald-200",
+    theme: "skillBuilder",
   },
 ];
 

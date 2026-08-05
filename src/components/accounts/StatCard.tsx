@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { sectionCardStyle, type SectionThemeKey } from "@/lib/theme/sectionThemes";
 
 /**
  * Premium dashboard stat card: own colour identity, icon, title, number,
@@ -15,7 +16,8 @@ const StatCard = ({
   icon: LucideIcon;
   label: string;
   value: number | string | undefined;
-  tone: string;
+  /** Module identity from the shared section theme registry. */
+  tone: SectionThemeKey;
   onClick?: () => void;
   active?: boolean;
 }) => {
@@ -23,23 +25,25 @@ const StatCard = ({
   return (
     <Tag
       {...(onClick ? { type: "button" as const, onClick } : {})}
-      className={`group relative overflow-hidden rounded-2xl border bg-dash-surface p-5 text-left shadow-[var(--shadow-dash)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_26px_54px_-24px_hsl(224_60%_6%/0.7)] active:translate-y-0 active:scale-[0.985] ${
-        active ? "border-dash-gold ring-2 ring-dash-gold/40" : "border-dash-border"
+      style={sectionCardStyle(tone)}
+      className={`group relative isolate overflow-hidden rounded-2xl border p-5 text-left text-section-ink shadow-[var(--shadow-section)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-section-hover)] active:translate-y-0 active:scale-[0.985] ${
+        active ? "border-dash-gold ring-2 ring-dash-gold/40" : "border-section-ink/15"
       }`}
     >
       <span
         aria-hidden
-        className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${tone}`}
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{ backgroundImage: "var(--section-scrim)" }}
       />
       <span
-        className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${tone} text-dash-surface shadow-md transition-transform duration-200 group-hover:scale-110`}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-section-ink/15 text-section-ink shadow-inner backdrop-blur transition-transform duration-300 group-hover:scale-110"
       >
         <Icon className="h-5 w-5" />
       </span>
-      <div className="mt-4 text-3xl font-semibold tracking-tight text-dash-surface-foreground tabular-nums">
+      <div className="mt-4 text-3xl font-semibold tracking-tight text-section-ink tabular-nums drop-shadow-sm">
         {value ?? "—"}
       </div>
-      <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted">
+      <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-section-ink-muted">
         {label}
       </div>
     </Tag>

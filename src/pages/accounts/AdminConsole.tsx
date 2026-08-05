@@ -178,13 +178,13 @@ const AdminConsole = () => {
 
   const s = stats.data;
   const overview = [
-    { label: "Schools", value: s?.schools, icon: Building2, tone: "from-sky-500 to-blue-600", tab: "schools" as TabKey },
-    { label: "Teachers", value: s?.teachers, icon: GraduationCap, tone: "from-violet-500 to-purple-600", tab: "teachers" as TabKey },
-    { label: "Parents", value: s?.parents, icon: Baby, tone: "from-emerald-500 to-teal-600", tab: "parents" as TabKey },
-    { label: "Students", value: s?.students, icon: Users, tone: "from-amber-400 to-orange-500", tab: "students" as TabKey },
-    { label: "Active subscriptions", value: s?.activeOrgs, icon: BadgeCheck, tone: "from-lime-500 to-green-600" },
-    { label: "Expired / suspended", value: s?.suspendedOrgs, icon: AlertTriangle, tone: "from-rose-500 to-red-600" },
-    { label: "New in 30 days", value: s?.newThisMonth, icon: Sparkles, tone: "from-fuchsia-500 to-pink-600" },
+    { label: "Schools", value: s?.schools, icon: Building2, tone: "assessment" as const, tab: "schools" as TabKey },
+    { label: "Teachers", value: s?.teachers, icon: GraduationCap, tone: "students" as const, tab: "teachers" as TabKey },
+    { label: "Parents", value: s?.parents, icon: Baby, tone: "skillBuilder" as const, tab: "parents" as TabKey },
+    { label: "Students", value: s?.students, icon: Users, tone: "assignments" as const, tab: "students" as TabKey },
+    { label: "Active subscriptions", value: s?.activeOrgs, icon: BadgeCheck, tone: "skillBuilder" as const },
+    { label: "Expired / suspended", value: s?.suspendedOrgs, icon: AlertTriangle, tone: "sessions" as const },
+    { label: "New in 30 days", value: s?.newThisMonth, icon: Sparkles, tone: "gallery" as const },
   ];
 
   const action =
