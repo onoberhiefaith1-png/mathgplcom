@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { classRoot, productTerms, spaceListPath } from "@/lib/product/workspaceRoutes";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import ClassPageShell from "@/components/class/ClassPageShell";
+import SectionCard from "@/components/ui/SectionCard";
+import { sectionCardStyle, type SectionThemeKey } from "@/lib/theme/sectionThemes";
 
 import { Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3, GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,19 +61,18 @@ const ClassDashboardPage = () => {
       toast({ title: "Copy failed", variant: "destructive" });
     }
   };
-  const tiles: { label: string; icon: typeof Users; to: string; tone: string; blurb: string }[] = [
-    { label: productTerms().people, icon: Users, to: `${classRoot()}/${classId}/students`, tone: "from-violet-500 to-purple-600", blurb: `Everyone in this ${productTerms().space.toLowerCase()}.` },
-    { label: "Lesson Notes", icon: BookOpen, to: `${classRoot()}/${classId}/lesson-notes`, tone: "from-sky-500 to-blue-600", blurb: "Notes stored in this class." },
-    { label: "Courses", icon: GraduationCap, to: `${classRoot()}/${classId}/courses`, tone: "from-indigo-500 to-blue-700", blurb: "Build this class's learning pathway." },
-    { label: "SmartBoard", icon: Presentation, to: `${classRoot()}/${classId}/smartboard`, tone: "from-fuchsia-500 to-pink-600", blurb: "Teach live on the board." },
-    { label: productTerms().assignments, icon: ClipboardList, to: `${classRoot()}/${classId}/assignments`, tone: "from-amber-400 to-orange-500", blurb: "Set work and track progress." },
-    { label: productTerms().adventures, icon: Compass, to: `${classRoot()}/${classId}/adventures`, tone: "from-emerald-500 to-teal-600", blurb: "Game-based practice." },
-    { label: "Games", icon: Gamepad2, to: `${classRoot()}/${classId}/games`, tone: "from-cyan-500 to-sky-600", blurb: "Live game challenges." },
-    { label: "Gallery", icon: ImageIcon, to: `${classRoot()}/${classId}/gallery`, tone: "from-rose-500 to-red-600", blurb: "Rewards and student work." },
-    { label: "Report", icon: BarChart3, to: `${classRoot()}/${classId}/report`, tone: "from-lime-500 to-green-600", blurb: "Progress and trends." },
-    { label: "Settings", icon: Settings, to: `${classRoot()}/${classId}`, tone: "from-slate-500 to-slate-700", blurb: "Class preferences." },
+  const tiles: { label: string; icon: typeof Users; to: string; theme: SectionThemeKey; blurb: string }[] = [
+    { label: productTerms().people, icon: Users, to: `${classRoot()}/${classId}/students`, theme: "students", blurb: `Everyone in this ${productTerms().space.toLowerCase()}.` },
+    { label: "Lesson Notes", icon: BookOpen, to: `${classRoot()}/${classId}/lesson-notes`, theme: "lessonNotes", blurb: "Notes stored in this class." },
+    { label: "Courses", icon: GraduationCap, to: `${classRoot()}/${classId}/courses`, theme: "courses", blurb: "Build this class's learning pathway." },
+    { label: "SmartBoard", icon: Presentation, to: `${classRoot()}/${classId}/smartboard`, theme: "smartboard", blurb: "Teach live on the board." },
+    { label: productTerms().assignments, icon: ClipboardList, to: `${classRoot()}/${classId}/assignments`, theme: "assignments", blurb: "Set work and track progress." },
+    { label: productTerms().adventures, icon: Compass, to: `${classRoot()}/${classId}/adventures`, theme: "adventure", blurb: "Game-based practice." },
+    { label: "Games", icon: Gamepad2, to: `${classRoot()}/${classId}/games`, theme: "games", blurb: "Live game challenges." },
+    { label: "Gallery", icon: ImageIcon, to: `${classRoot()}/${classId}/gallery`, theme: "gallery", blurb: "Rewards and student work." },
+    { label: "Report", icon: BarChart3, to: `${classRoot()}/${classId}/report`, theme: "reports", blurb: "Progress and trends." },
+    { label: "Settings", icon: Settings, to: `${classRoot()}/${classId}`, theme: "settings", blurb: "Class preferences." },
   ];
-
   if (loading || !cls) {
     return (
       <ClassPageShell backTo={spaceListPath()} backLabel={productTerms().spacePlural} title={`${productTerms().space} Dashboard`}>
@@ -87,7 +88,7 @@ const ClassDashboardPage = () => {
       title={cls.name}
       subtitle={`${productTerms().space} workspace — lesson notes, board, work, rewards and reports.`}
     >
-      <section className="mb-6 rounded-2xl border border-dash-border bg-dash-surface p-5 shadow-[var(--shadow-dash)]">
+      <section className="mb-6 rounded-2xl border border-section-ink/15 p-5 text-section-ink" style={sectionCardStyle("classes")}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {([
             { label: "Class ID", value: cls.class_code },
@@ -95,15 +96,15 @@ const ClassDashboardPage = () => {
             { label: "Invite Link", value: inviteLink },
           ] as const).map((row) => (
             <div key={row.label} className="space-y-1.5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted">{row.label}</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-section-ink-muted">{row.label}</div>
               <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded-lg border border-dash-border bg-dash-surface px-2.5 py-1.5 text-xs text-dash-surface-foreground">
+                <code className="flex-1 truncate rounded-lg border border-section-ink/20 bg-section-ink/10 px-2.5 py-1.5 text-xs text-section-ink">
                   {row.value}
                 </code>
                 <button
                   type="button"
                   onClick={() => copy(row.label, row.value)}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-dash-border text-dash-surface-muted transition hover:border-dash-gold hover:text-dash-surface-foreground"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-section-ink/25 text-section-ink-muted transition hover:border-section-ink hover:text-section-ink"
                   aria-label={`Copy ${row.label}`}
                 >
                   {copied === row.label ? <Check className="h-3.5 w-3.5 text-dash-gold" /> : <Copy className="h-3.5 w-3.5" />}
@@ -117,19 +118,8 @@ const ClassDashboardPage = () => {
       <ClassCommunityShare classId={cls.id} className={cls.name} description={cls.description} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {tiles.map(({ label, icon: Icon, to, tone, blurb }) => (
-          <Link
-            key={label}
-            to={to}
-            className="group relative overflow-hidden rounded-2xl border border-dash-border bg-dash-surface p-5 shadow-[var(--shadow-dash)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_26px_54px_-24px_hsl(224_60%_6%/0.7)] active:translate-y-0 active:scale-[0.99]"
-          >
-            <span aria-hidden className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${tone}`} />
-            <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${tone} text-dash-surface shadow-md transition-transform duration-200 group-hover:scale-110`}>
-              <Icon className="h-5 w-5" />
-            </span>
-            <div className="mt-4 text-lg font-semibold text-dash-surface-foreground">{label}</div>
-            <p className="mt-1 text-xs text-dash-surface-muted">{blurb}</p>
-          </Link>
+        {tiles.map(({ label, icon: Icon, to, theme, blurb }) => (
+          <SectionCard key={label} theme={theme} to={to} label={label} description={blurb} icon={Icon} />
         ))}
       </div>
 
