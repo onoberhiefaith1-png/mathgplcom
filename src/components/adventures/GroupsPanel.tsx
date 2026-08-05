@@ -20,7 +20,7 @@ import {
   MAX_GROUPS,
   type AdventureGroup,
 } from "@/lib/adventures/groups";
-import { addGroup, backfillUngrouped, defaultSourceBarId, nextGroupName, primaryBarId } from "@/lib/adventures/groupCompetition";
+import { addGroup, backfillUngrouped, defaultSourceBarId, nextGroupName, primaryBarId, groupStatus, GROUP_STATUS_LABEL, type GroupStatus } from "@/lib/adventures/groupCompetition";
 import { hasRoomForGroupBar } from "@/lib/adventures/groupBars";
 import { adventureModeOf, normalizeCanvas } from "@/lib/games/types";
 import type { AdventureBarSummary } from "@/hooks/useAdventureSync";
@@ -40,9 +40,11 @@ interface Props {
   statsByBar: Map<string, AdventureBarSummary>;
   /** Bar element ids already spoken for (Time Bar). */
   reservedBarIds?: Set<string>;
+  /** Adventure race winner, when one has been decided. */
+  winnerGroupId?: string | null;
 }
 
-export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsByBar, reservedBarIds }: Props) {
+export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsByBar, reservedBarIds, winnerGroupId }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(DEFAULT_GROUP_COMPLETION_MESSAGE);
   const [savingMessage, setSavingMessage] = useState(false);
@@ -218,6 +220,12 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
             onMoveStudent={moveStudent}
             group={g}
             onRestyle={g.is_primary ? undefined : (style) => restyle(g, style)}
+            status={groupStatus({
+              group: g,
+              fill: stats && stats.required > 0 ? stats.achieved / stats.required : 0,
+              mode: isVideo ? "video" : "static",
+              winnerGroupId,
+            })}
           />
         );
       })}
@@ -262,7 +270,7 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
 
 function GroupCard({
   title, subtitle, studentRows, stats, groups, currentGroupId,
-  onRename, onDelete, onMoveStudent, group, onRestyle,
+  onRename, onDelete, onMoveStudent, group, onRestyle, status,
 }: {
   title: string;
   subtitle: string;
@@ -275,6 +283,7 @@ function GroupCard({
   onMoveStudent?: (studentId: string, groupId: string) => void;
   group?: AdventureGroup;
   onRestyle?: (style: { color?: string | null; scale?: number | null }) => void;
+  status?: GroupStatus;
 }) {
   const [expanded, setExpanded] = useState(false);
   const targets = groups.filter((g) => g.id !== currentGroupId);
@@ -286,6 +295,22 @@ function GroupCard({
           <div className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">{subtitle}</div>
         </div>
         <div className="flex items-center gap-1">
+          {status && (
+            <span
+              className={
+                "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider " +
+                (status === "winner"
+                  ? "border-amber-400/60 bg-amber-400/15 text-amber-600 dark:text-amber-300"
+                  : status === "completed"
+                    ? "border-emerald-400/60 bg-emerald-400/15 text-emerald-600 dark:text-emerald-300"
+                    : status === "eliminated"
+                      ? "border-border bg-muted/40 text-muted-foreground"
+                      : "border-primary/40 bg-primary/10 text-primary")
+              }
+            >
+              {GROUP_STATUS_LABEL[status]}
+            </span>
+          )}
           {onRename && (
             <button type="button" onClick={onRename} className="rounded-md border border-border px-2 py-1 text-[10px] hover:bg-accent">Rename</button>
           )}

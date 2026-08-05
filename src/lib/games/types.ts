@@ -565,9 +565,10 @@ export const LEARNING_BAR_LABEL = "Progress Bar";
 
 /** Selectable countdown lengths for the Time Progress Bar (0 = No Time). */
 export const TIME_DURATION_OPTIONS: { seconds: number; label: string }[] = [
-  { seconds: 0, label: "No Time" },
+  { seconds: 0, label: "None" },
   { seconds: 60, label: "1 minute" },
   { seconds: 120, label: "2 minutes" },
+  { seconds: 180, label: "3 minutes" },
   { seconds: 300, label: "5 minutes" },
   { seconds: 600, label: "10 minutes" },
   { seconds: 900, label: "15 minutes" },

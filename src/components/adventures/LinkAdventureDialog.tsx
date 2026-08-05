@@ -1,7 +1,7 @@
 // Teacher — link a Lesson Note card's assigned questions to a specific progress
 // bar of a game, for one class.
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Sparkles, ChevronRight, ArrowLeft, Timer } from "lucide-react";
+import { Loader2, Sparkles, ChevronRight, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +17,6 @@ import {
   type GameRow,
 } from "@/lib/games/types";
 import { useClassMemberIds } from "@/hooks/useClassMemberIds";
-import { timeBarActions } from "@/hooks/useGameTimeBar";
 import { ensureAssignment } from "@/lib/assignments/instances";
 
 export type LinkAdventureQuestion = { sectionId: string; label: string; marks: number; questionKey?: string | null };
@@ -32,7 +31,7 @@ interface Props {
   onLinked?: () => void;
 }
 
-type Step = "game" | "bar" | "config" | "timebar_pick";
+type Step = "game" | "bar" | "config";
 type BarChoice = { sceneTitle: string; el: CanvasElement };
 
 export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, noteTitle, questions, onLinked }: Props) {
@@ -47,8 +46,6 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
   const [questionCount, setQuestionCount] = useState<number>(0);
   const [scoreLabel, setScoreLabel] = useState<string>("Marks");
   const [busy, setBusy] = useState(false);
-  const [lessonLinkedBarIds, setLessonLinkedBarIds] = useState<Set<string>>(new Set());
-  const [timeBarElementId, setTimeBarElementId] = useState<string | null>(null);
 
   const { count: studentCount } = useClassMemberIds(open ? classId : null);
 
@@ -100,12 +97,6 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
     // The Time Progress Bar never carries questions.
     for (const s of canvas.scenes) for (const el of s.elements) if (el.kind === "progress_bar" && !isTimeBar(el)) list.push({ sceneTitle: s.title, el });
     setBars(list);
-    const [{ data: linked }, { data: tb }] = await Promise.all([
-      supabase.from("class_game_boards").select("progress_element_id").eq("game_id", g.id),
-      supabase.from("game_time_bars" as never).select("progress_element_id").eq("game_id", g.id).maybeSingle(),
-    ]);
-    setLessonLinkedBarIds(new Set((linked ?? []).map((r: any) => String(r.progress_element_id))));
-    setTimeBarElementId(((tb as any)?.progress_element_id as string) ?? null);
     setStep("bar");
   };
 
@@ -114,19 +105,6 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
     const existingGoal = Number(b.el.progress?.progressGoalPct);
     setGoalPct(Number.isFinite(existingGoal) && existingGoal > 0 ? Math.min(100, Math.max(1, existingGoal)) : 90);
     setStep("config");
-  };
-
-  const pickTimeBar = async (b: BarChoice) => {
-    if (!gameId) return;
-    setBusy(true);
-    try {
-      await timeBarActions.assign(gameId, b.el.id);
-      toast({ title: "Time Bar assigned", description: `${b.el.label || "Progress Bar"} is now this game's Time Bar.` });
-      onLinked?.();
-      onOpenChange(false);
-    } catch (e: any) {
-      toast({ title: "Could not assign Time Bar", description: String(e?.message ?? e), variant: "destructive" });
-    } finally { setBusy(false); }
   };
 
   const chosenGame = useMemo(() => games.find((g) => g.id === gameId), [games, gameId]);
@@ -291,58 +269,29 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
           <>
             <div className="mb-2 text-xs text-muted-foreground">Game: <span className="font-medium text-foreground">{chosenGame?.title}</span></div>
             {bars.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">This game has no progress bars yet.</div>
+              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">This game has no Question Progress Bars yet.</div>
             ) : (
-              <ul className="max-h-72 space-y-1.5 overflow-y-auto">
-                {!timeBarElementId && (
-                  <li>
-                    <button type="button" disabled={busy} onClick={() => setStep("timebar_pick")} className="flex w-full items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-left text-sm hover:border-primary/60 hover:bg-primary/10 disabled:opacity-60">
-                      <div className="flex items-center gap-2">
-                        <Timer className="h-4 w-4 text-primary" />
-                        <div>
-                          <div className="font-medium">Time Bar</div>
-                          <div className="text-xs text-muted-foreground">Turn a progress bar into the game's countdown.</div>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                  </li>
-                )}
-                {bars.filter((b) => b.el.id !== timeBarElementId).map((b, i) => {
-                  const segs = Math.max(1, Number(b.el.progress?.segments) || 10);
-                  return (
-                    <li key={b.el.id}>
-                      <button type="button" disabled={busy} onClick={() => pickBar(b)} className="flex w-full items-center justify-between rounded-md border border-input px-3 py-2 text-left text-sm hover:border-primary/50 hover:bg-accent/50 disabled:opacity-60">
-                        <div>
-                          <div className="font-medium">{b.el.label || `Progress Bar ${i + 1}`}</div>
-                          <div className="text-xs text-muted-foreground">{b.sceneTitle} · {segs} slots</div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <>
+                <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">Question Progress Bar</div>
+                <ul className="max-h-72 space-y-1.5 overflow-y-auto">
+                  {bars.map((b, i) => {
+                    const segs = Math.max(1, Number(b.el.progress?.segments) || 10);
+                    return (
+                      <li key={b.el.id}>
+                        <button type="button" disabled={busy} onClick={() => pickBar(b)} className="flex w-full items-center justify-between rounded-md border border-input px-3 py-2 text-left text-sm hover:border-primary/50 hover:bg-accent/50 disabled:opacity-60">
+                          <div>
+                            <div className="font-medium">{b.el.label || `Progress Bar ${i + 1}`}</div>
+                            <div className="text-xs text-muted-foreground">{b.sceneTitle} · {segs} slots</div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
           </>
-        ) : step === "timebar_pick" ? (
-          <ul className="max-h-72 space-y-1.5 overflow-y-auto">
-            {bars.map((b, i) => {
-              const segs = Math.max(1, Number(b.el.progress?.segments) || 10);
-              const isLinked = lessonLinkedBarIds.has(b.el.id);
-              return (
-                <li key={b.el.id}>
-                  <button type="button" disabled={busy || isLinked} onClick={() => pickTimeBar(b)} className="flex w-full items-center justify-between rounded-md border border-input px-3 py-2 text-left text-sm hover:border-primary/50 hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-60">
-                    <div>
-                      <div className="font-medium">{b.el.label || `Progress Bar ${i + 1}`}</div>
-                      <div className="text-xs text-muted-foreground">{b.sceneTitle} · {segs} slots{isLinked && <span className="ml-2 text-destructive/80">Already linked</span>}</div>
-                    </div>
-                    {!isLinked && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
         ) : (
           <div className="space-y-3">
             <div className="rounded-md border border-border/70 bg-muted/20 p-3 text-xs">
@@ -367,8 +316,8 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
         )}
 
         <DialogFooter className="mt-2">
-          {(step === "bar" || step === "timebar_pick") && (
-            <Button variant="ghost" onClick={() => setStep(step === "timebar_pick" ? "bar" : "game")} disabled={busy}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
+          {step === "bar" && (
+            <Button variant="ghost" onClick={() => setStep("game")} disabled={busy}><ArrowLeft className="mr-1.5 h-4 w-4" /> Back</Button>
           )}
           {step === "config" && (
             <>
