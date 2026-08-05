@@ -30,6 +30,8 @@
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
+  /* Placeholders must never read as typed content — always dimmer than ink. */
+  --color-placeholder: hsl(var(--muted-foreground) / 0.62);
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-destructive: hsl(var(--destructive));
@@ -871,7 +873,7 @@
    selects, and buttons are always visible against the panel bg. */
 .input-panel {
   @apply h-8 w-full px-2 text-xs rounded border border-border bg-background text-foreground
-         placeholder:text-muted-foreground
+         placeholder:text-placeholder placeholder:italic
          focus:outline-hidden focus:ring-1 focus:ring-primary;
 }
 select.input-panel { @apply pr-6 appearance-none; }
@@ -993,4 +995,19 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
 @theme inline {
   --color-section-ink: hsl(var(--section-ink));
   --color-section-ink-muted: hsl(var(--section-ink-muted));
+}
+
+/* Global rule: a placeholder is a hint, never a value. Keep it clearly
+   dimmer and italic on every surface (light or dark) so example text can
+   never be mistaken for saved data. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-placeholder);
+  font-style: italic;
+  opacity: 1;
+}
+[data-placeholder-hint]:empty::before {
+  content: attr(data-placeholder-hint);
+  color: var(--color-placeholder);
+  font-style: italic;
 }
