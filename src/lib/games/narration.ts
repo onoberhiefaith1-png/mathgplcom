@@ -46,10 +46,16 @@ const TOLERANCE = 0.45;
 /**
  * Plays narrations as the playhead crosses their activation points.
  * `enabled` false keeps the runtime inert (authoring, muted preview…).
+ *
+ * `runId` scopes the "played once" memory to a single run: the editor Preview
+ * passes a counter that increments on every Start Preview (so every preview is
+ * a brand-new game and Play Once clips speak again), while gameplay passes the
+ * session key so Play Once lasts the whole student session.
  */
 export const useNarrationPlayback = (
   narrations: Narration[],
   enabled: boolean,
+  runId?: string | number,
 ): NarrationRuntime => {
   const listRef = useRef(narrations);
   listRef.current = narrations;
@@ -58,6 +64,7 @@ export const useNarrationPlayback = (
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
+
 
   const stop = useCallback(() => {
     const el = audioRef.current;
@@ -80,6 +87,15 @@ export const useNarrationPlayback = (
       lastTimeRef.current = 0;
     }
   }, [enabled, stop]);
+
+  // A new run (Start Preview, or a new student session) wipes every memory:
+  // Play Once clips are available again and nothing is left speaking.
+  useEffect(() => {
+    stop();
+    playedRef.current = new Set();
+    lastTimeRef.current = 0;
+  }, [runId, stop]);
+
 
   useEffect(() => () => stop(), [stop]);
 

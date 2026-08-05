@@ -386,7 +386,10 @@ const GamePlayPage = () => {
   const activeCp = videoBg ? activeStage : null;
 
   const narrations = useMemo(() => narrationsOf(canvas), [canvas]);
-  const narrationRuntime = useNarrationPlayback(narrations, Boolean(videoBg));
+  // Gameplay: Play Once lasts the whole student session (one mounted game).
+  const sessionRunId = useMemo(() => `${gameId ?? "game"}:${Date.now()}`, [gameId]);
+  const narrationRuntime = useNarrationPlayback(narrations, Boolean(videoBg), sessionRunId);
+
 
   // Reaching a loop's start time freezes the journey into that loop.
   const onVideoTime = useCallback(

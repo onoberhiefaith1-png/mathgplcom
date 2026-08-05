@@ -28,12 +28,18 @@ interface CheckpointTimelineProps {
   onRemoveVideo: () => void;
   /** Collapsed by default: the loop detail form only shows when the toolbar is expanded. */
   expanded?: boolean;
+  /**
+   * Real elapsed seconds of the running preview/game. Unlike Video Time this
+   * clock never loops — it only counts upward. `null` = nothing running.
+   */
+  gameElapsed?: number | null;
   /** Toggles the Narration library panel (beside Set Start). */
   onToggleNarration?: () => void;
   narrationOpen?: boolean;
   narrationCount?: number;
   /** Rendered inside the toolbar so the panel floats beside the timeline. */
   narrationPanel?: ReactNode;
+
 }
 
 /**
@@ -56,6 +62,8 @@ const CheckpointTimeline = ({
   onChangeVideo,
   onRemoveVideo,
   expanded = false,
+  gameElapsed = null,
+
   onToggleNarration,
   narrationOpen = false,
   narrationCount = 0,
@@ -73,9 +81,21 @@ const CheckpointTimeline = ({
         <Button size="icon" variant="secondary" className="h-7 w-7" onClick={onTogglePlay} title={playing ? "Pause" : "Play"}>
           {playing ? <Pause className={cmpIcon} /> : <Play className={cmpIcon} />}
         </Button>
-        <span className="tabular-nums text-[11px] text-muted-foreground">
-          {fmtTime(currentTime)} / {fmtTime(duration)}
+        {/* Two independent clocks: Video Time loops with the video, the Game
+            Timer counts real elapsed time of the run and never rewinds. */}
+        <span className="flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="uppercase tracking-wide opacity-70">Video</span>
+          <span className="tabular-nums text-[11px] font-medium text-foreground">
+            {fmtTime(currentTime)} / {fmtTime(duration)}
+          </span>
         </span>
+        <span className="flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="uppercase tracking-wide opacity-70">Game</span>
+          <span className="tabular-nums text-[11px] font-medium text-foreground">
+            {fmtTime(gameElapsed ?? 0)}
+          </span>
+        </span>
+
 
         {markStart == null ? (
           <Button size="sm" className={cmpBtn} variant="secondary" onClick={() => setMarkStart(currentTime)}>

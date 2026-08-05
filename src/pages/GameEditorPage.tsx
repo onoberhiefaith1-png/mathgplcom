@@ -53,7 +53,7 @@ import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
 
 import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
-import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
+import CheckpointTimeline, { fmtTime } from "@/components/gamebuilder/CheckpointTimeline";
 import NarrationPanel from "@/components/gamebuilder/NarrationPanel";
 import SceneStrip from "@/components/gamebuilder/SceneStrip";
 import { useLoopRuntime } from "@/lib/games/loopRuntime";
@@ -991,13 +991,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   }, []);
   const preview = useLoopRuntime(checkpoints, seekVideo);
   // Narration fires only while the adventure is running (Preview), never while
-  // the teacher scrubs the authoring timeline.
-  const narrationRuntime = useNarrationPlayback(narrations, preview.active);
-  useEffect(() => {
-    if (preview.active) narrationRuntime.reset();
-    else narrationRuntime.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview.active]);
+  // the teacher scrubs the authoring timeline. Every Start Preview is a brand
+  // new run (`preview.runId`), so Play Once clips speak again — Play Once /
+  // Repeat only shape behaviour *inside* one run.
+  const narrationRuntime = useNarrationPlayback(narrations, preview.active, preview.runId);
+
   const previewFinalLoop =
     preview.activeLoopId != null &&
     checkpoints.length > 0 &&
@@ -1948,9 +1946,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         <CheckpointTimeline
           duration={video.duration ?? 0}
           currentTime={videoTime}
-          playing={videoPlaying}
+          gameElapsed={preview.active ? preview.elapsed : null}
+          playing={preview.active ? preview.playing : videoPlaying}
           checkpoints={checkpoints}
           activeId={activeSceneId}
+
           onTogglePlay={() => setVideoPlaying((v) => !v)}
           onSeek={(t) => {
             videoRef.current?.seek(t);
@@ -2107,6 +2107,13 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                         <span className="rounded bg-white/15 px-2 py-0.5 font-semibold uppercase tracking-wide">
                           Preview
                         </span>
+                        <span className="rounded bg-white/10 px-2 py-0.5 tabular-nums">
+                          Video {fmtTime(videoTime)} / {fmtTime(video.duration ?? 0)}
+                        </span>
+                        <span className="rounded bg-white/10 px-2 py-0.5 tabular-nums">
+                          Game {fmtTime(preview.elapsed)}
+                        </span>
+
                         {preview.playing ? (
                           <Button size="sm" variant="secondary" className={cmpBtn} onClick={preview.pause}>
                             <Minus className={cmpIcon} /> Pause
