@@ -563,6 +563,7 @@ const AdventureDashboardPage = () => {
                       ctx={groups}
                       statsByBar={statsByBar}
                       reservedBarIds={timeBar.elementId ? new Set([timeBar.elementId]) : undefined}
+                      winnerGroupId={outcome.winner?.id ?? null}
                     />
                   </div>
                 )}
