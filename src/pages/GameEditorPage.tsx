@@ -2107,6 +2107,13 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                         <span className="rounded bg-white/15 px-2 py-0.5 font-semibold uppercase tracking-wide">
                           Preview
                         </span>
+                        <span className="rounded bg-white/10 px-2 py-0.5 tabular-nums">
+                          Video {fmtTime(videoTime)} / {fmtTime(video.duration ?? 0)}
+                        </span>
+                        <span className="rounded bg-white/10 px-2 py-0.5 tabular-nums">
+                          Game {fmtTime(preview.elapsed)}
+                        </span>
+
                         {preview.playing ? (
                           <Button size="sm" variant="secondary" className={cmpBtn} onClick={preview.pause}>
                             <Minus className={cmpIcon} /> Pause
