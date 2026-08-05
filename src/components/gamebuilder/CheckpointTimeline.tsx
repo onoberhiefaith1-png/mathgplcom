@@ -81,9 +81,21 @@ const CheckpointTimeline = ({
         <Button size="icon" variant="secondary" className="h-7 w-7" onClick={onTogglePlay} title={playing ? "Pause" : "Play"}>
           {playing ? <Pause className={cmpIcon} /> : <Play className={cmpIcon} />}
         </Button>
-        <span className="tabular-nums text-[11px] text-muted-foreground">
-          {fmtTime(currentTime)} / {fmtTime(duration)}
+        {/* Two independent clocks: Video Time loops with the video, the Game
+            Timer counts real elapsed time of the run and never rewinds. */}
+        <span className="flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="uppercase tracking-wide opacity-70">Video</span>
+          <span className="tabular-nums text-[11px] font-medium text-foreground">
+            {fmtTime(currentTime)} / {fmtTime(duration)}
+          </span>
         </span>
+        <span className="flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="uppercase tracking-wide opacity-70">Game</span>
+          <span className="tabular-nums text-[11px] font-medium text-foreground">
+            {fmtTime(gameElapsed ?? 0)}
+          </span>
+        </span>
+
 
         {markStart == null ? (
           <Button size="sm" className={cmpBtn} variant="secondary" onClick={() => setMarkStart(currentTime)}>
