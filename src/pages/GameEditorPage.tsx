@@ -991,13 +991,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   }, []);
   const preview = useLoopRuntime(checkpoints, seekVideo);
   // Narration fires only while the adventure is running (Preview), never while
-  // the teacher scrubs the authoring timeline.
-  const narrationRuntime = useNarrationPlayback(narrations, preview.active);
-  useEffect(() => {
-    if (preview.active) narrationRuntime.reset();
-    else narrationRuntime.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview.active]);
+  // the teacher scrubs the authoring timeline. Every Start Preview is a brand
+  // new run (`preview.runId`), so Play Once clips speak again — Play Once /
+  // Repeat only shape behaviour *inside* one run.
+  const narrationRuntime = useNarrationPlayback(narrations, preview.active, preview.runId);
+
   const previewFinalLoop =
     preview.activeLoopId != null &&
     checkpoints.length > 0 &&
