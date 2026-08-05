@@ -28,12 +28,18 @@ interface CheckpointTimelineProps {
   onRemoveVideo: () => void;
   /** Collapsed by default: the loop detail form only shows when the toolbar is expanded. */
   expanded?: boolean;
+  /**
+   * Real elapsed seconds of the running preview/game. Unlike Video Time this
+   * clock never loops — it only counts upward. `null` = nothing running.
+   */
+  gameElapsed?: number | null;
   /** Toggles the Narration library panel (beside Set Start). */
   onToggleNarration?: () => void;
   narrationOpen?: boolean;
   narrationCount?: number;
   /** Rendered inside the toolbar so the panel floats beside the timeline. */
   narrationPanel?: ReactNode;
+
 }
 
 /**
