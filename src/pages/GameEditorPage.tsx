@@ -53,7 +53,7 @@ import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
 
 import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
-import CheckpointTimeline from "@/components/gamebuilder/CheckpointTimeline";
+import CheckpointTimeline, { fmtTime } from "@/components/gamebuilder/CheckpointTimeline";
 import NarrationPanel from "@/components/gamebuilder/NarrationPanel";
 import SceneStrip from "@/components/gamebuilder/SceneStrip";
 import { useLoopRuntime } from "@/lib/games/loopRuntime";
