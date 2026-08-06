@@ -96,7 +96,10 @@ export function useGameTimeBar(gameId: string | null | undefined): UseGameTimeBa
       void ensureRealtimeAuth().then(() => {
         if (cancelled) return;
         ch = supabase
-          .channel(`game-time-bar-${gameId}`)
+          // Unique topic per subscriber: a shared name would hand back an
+          // already-subscribed channel, and binding a listener to that throws
+          // "cannot add postgres_changes callbacks after subscribe()".
+          .channel(`game-time-bar-${gameId}-${Math.random().toString(36).slice(2)}`)
           .on(
             "postgres_changes",
             { event: "*", schema: "public", table: "game_time_bars", filter: `game_id=eq.${gameId}` },

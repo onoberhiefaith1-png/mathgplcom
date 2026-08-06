@@ -13,6 +13,8 @@ import {
 } from "@/lib/adventures/classAdventures";
 import { LinkAdventureDialog, type LinkAdventureQuestion } from "@/components/adventures/LinkAdventureDialog";
 import { compileQuestionSection } from "@/lib/assessments/createAssessment";
+import { normalizeCanvas } from "@/lib/games/types";
+import { checkpointLabel, unassignBar } from "@/lib/adventures/barLinks";
 
 type BarLink = {
   id: string;
@@ -24,6 +26,7 @@ type BarLink = {
   required_marks: number | null;
   game_title: string;
   bar_label: string;
+  checkpoint_label: string;
   segments: number;
 };
 
@@ -71,12 +74,16 @@ const ClassAdventuresPage = () => {
       const g = gameMap.get(b.game_id);
       let barLabel = "Progress Bar";
       let segments = 10;
-      const scenes = g?.canvas?.scenes ?? [];
-      outer: for (const s of scenes) {
+      let checkpointName = "";
+      const canvas = normalizeCanvas(g?.canvas);
+      const scenes = canvas.scenes ?? [];
+      outer: for (let si = 0; si < scenes.length; si += 1) {
+        const s = scenes[si];
         for (const el of s?.elements ?? []) {
           if (el?.id === b.progress_element_id) {
             barLabel = el.label || "Progress Bar";
             segments = Math.max(1, Number(el?.progress?.segments) || 10);
+            checkpointName = checkpointLabel(canvas, s, si);
             break outer;
           }
         }
@@ -91,6 +98,7 @@ const ClassAdventuresPage = () => {
         required_marks: b.required_marks,
         game_title: g?.title ?? "Game",
         bar_label: barLabel,
+        checkpoint_label: checkpointName,
         segments,
       };
       if (!map[link.notebook_id]) map[link.notebook_id] = [];
@@ -214,14 +222,17 @@ const ClassAdventuresPage = () => {
   };
 
   const removeLink = async (link: BarLink) => {
+    const ok = window.confirm(
+      `Unassign “${link.bar_label}”? The Lesson Note is removed from this Progress Bar and you can assign another one.`,
+    );
+    if (!ok) return;
     setBusy(link.id);
     try {
-      await supabase.from("assessments").delete().eq("id", link.assessment_id);
-      await supabase.from("class_game_boards").delete().eq("id", link.id);
+      await unassignBar({ boardId: link.id, assessmentId: link.assessment_id });
       await refresh();
-      toast({ title: "Link removed" });
+      toast({ title: "Lesson Note unassigned" });
     } catch {
-      toast({ title: "Could not remove link", variant: "destructive" });
+      toast({ title: "Could not unassign", variant: "destructive" });
     } finally {
       setBusy(null);
     }
@@ -318,6 +329,9 @@ const ClassAdventuresPage = () => {
                           >
                             <div className="min-w-0">
                               <span className="font-medium">{l.game_title}</span>
+                              {l.checkpoint_label && (
+                                <span className="text-muted-foreground"> · {l.checkpoint_label}</span>
+                              )}
                               <span className="text-muted-foreground"> · {l.bar_label}</span>
                               <span className="text-muted-foreground"> · {labelForSection(l.section_id, g.questions)}</span>
                               {marks > 0 && (
@@ -327,10 +341,11 @@ const ClassAdventuresPage = () => {
                             <button
                               type="button"
                               onClick={() => removeLink(l)}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive"
-                              aria-label="Remove link"
+                              className="inline-flex shrink-0 items-center gap-1 rounded border border-border/60 px-2 py-0.5 text-[11px] hover:bg-destructive/10 hover:text-destructive"
+                              aria-label="Unassign lesson note"
                             >
                               {busy === l.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                              Unassign
                             </button>
                           </li>
                         );
