@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, ChevronRight, Loader2, Shuffle, Sparkles, Save } from "lucide-react";
+import { ArrowLeft, ChevronRight, Loader2, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { withTimeout } from "@/lib/async/withTimeout";
@@ -771,6 +771,21 @@ const FloatingNumbersPage = () => {
     setLines((prev) => prev.map((l) => ({ ...l, arrangement: rearrangeIndices(l.fillers.length) })));
   }, []);
 
+  const resetAll = useCallback(() => {
+    dirtyRef.current = true;
+    setLines((prev) =>
+      prev.map((l) => ({
+        ...l,
+        fillers: [],
+        containers: [],
+        arrangement: [],
+        fillersSelected: [],
+        containersSelected: [],
+      })),
+    );
+    toast({ title: "Reset", description: "All floating numbers cleared. You can now build them manually." });
+  }, []);
+
   /* ---------- Persist (used by autosave + manual Save) ---------- */
   const persist = useCallback(async (silent: boolean) => {
     if (!info) return;
@@ -1187,6 +1202,14 @@ const FloatingNumbersPage = () => {
               style={{ color: "hsl(220 35% 18%)" }}
             >
               <Shuffle className="h-3.5 w-3.5" /> Shuffle
+            </button>
+            <button
+              onClick={resetAll}
+              disabled={loading || lines.every((l) => l.fillers.length === 0 && l.containers.length === 0)}
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-red-300/60 hover:bg-red-50 disabled:opacity-40"
+              style={{ color: "hsl(0 60% 45%)" }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
             </button>
           </div>
         </div>
