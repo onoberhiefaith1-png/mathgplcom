@@ -68,7 +68,7 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
 
   useEffect(() => {
     if (!open) return;
-    setGameId(""); setBars([]); setChosenBar(null); setStep("game"); setLoading(true);
+    setGameId(""); setBarGroups([]); setAssignments({}); setChosenBar(null); setStep("game"); setLoading(true);
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
