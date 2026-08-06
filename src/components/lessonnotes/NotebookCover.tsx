@@ -231,11 +231,13 @@ const LegacyCover = ({ notebook, onClick }: { notebook: NotebookCoverData; onCli
         </div>
 
         <div className="mt-auto space-y-1 text-[10px] leading-snug">
-          <Row label="Teacher" value={notebook.teacher} />
           <Row label="Class" value={notebook.class_name} />
           <Row label="Session" value={notebook.session} />
           <Row label="Subject" value={notebook.subject} />
+          <Row label="Topic" value={notebook.title ?? ""} />
+          <Row label="Subtopic" value={notebook.subtopic ?? ""} />
         </div>
+
       </div>
     </button>
   );
