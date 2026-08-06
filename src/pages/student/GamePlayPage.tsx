@@ -611,15 +611,15 @@ const GamePlayPage = () => {
                 {activeCp && (
                   <div className="absolute left-3 top-3 z-40 flex items-center gap-2 rounded-full border border-primary/40 bg-background/80 px-3 py-1 text-xs backdrop-blur">
                     <span className="font-semibold text-primary">{activeCp.title}</span>
-                    {cpSecondsLeft != null && (
+                    {challengeSecondsLeft != null && (
                       <span className="tabular-nums text-muted-foreground">
-                        {Math.floor(Math.max(0, cpSecondsLeft) / 60)}:
-                        {String(Math.max(0, cpSecondsLeft) % 60).padStart(2, "0")}
+                        {Math.floor(Math.max(0, challengeSecondsLeft) / 60)}:
+                        {String(Math.max(0, challengeSecondsLeft) % 60).padStart(2, "0")}
                       </span>
                     )}
                   </div>
                 )}
-                {checkpoints.length > 0 && (
+                {!teacherLed && checkpoints.length > 0 && (
                   <button
                     type="button"
                     onClick={turnBack}
