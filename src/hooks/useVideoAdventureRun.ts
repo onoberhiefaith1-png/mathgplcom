@@ -60,8 +60,15 @@ export interface UseVideoAdventureRun {
   activeChallenge: ChallengeRow | null;
   challengeFor: (sceneId: string | null | undefined) => ChallengeRow | null;
   remainingMs: number;
+  /**
+   * Countdown left on ONE Learning Point, derived from the teacher's row. Both
+   * the dashboard and every student device read the clock from here, so there is
+   * only ever one timer in the game.
+   */
+  remainingMsFor: (sceneId: string | null | undefined) => number | null;
   expired: boolean;
   refresh: () => Promise<void>;
+
   actions: {
     startGame: () => Promise<void>;
     endGame: () => Promise<void>;
