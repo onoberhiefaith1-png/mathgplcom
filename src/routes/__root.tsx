@@ -14,6 +14,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { FullscreenToggle } from "@/components/common/FullscreenToggle";
 import { RouterErrorBoundary } from "@/components/common/RouterErrorBoundary";
 import ImpersonationBanner from "@/components/accounts/ImpersonationBanner";
+import GlobalSoundtrack from "@/components/audio/GlobalSoundtrack";
 
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
@@ -122,6 +123,7 @@ function RootComponent() {
           <Toaster />
           <ImpersonationBanner />
           <FullscreenToggle />
+          <GlobalSoundtrack />
 
           <NavHistoryProvider>
             <Outlet />
