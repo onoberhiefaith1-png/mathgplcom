@@ -222,14 +222,17 @@ const ClassAdventuresPage = () => {
   };
 
   const removeLink = async (link: BarLink) => {
+    const ok = window.confirm(
+      `Unassign “${link.bar_label}”? The Lesson Note is removed from this Progress Bar and you can assign another one.`,
+    );
+    if (!ok) return;
     setBusy(link.id);
     try {
-      await supabase.from("assessments").delete().eq("id", link.assessment_id);
-      await supabase.from("class_game_boards").delete().eq("id", link.id);
+      await unassignBar({ boardId: link.id, assessmentId: link.assessment_id });
       await refresh();
-      toast({ title: "Link removed" });
+      toast({ title: "Lesson Note unassigned" });
     } catch {
-      toast({ title: "Could not remove link", variant: "destructive" });
+      toast({ title: "Could not unassign", variant: "destructive" });
     } finally {
       setBusy(null);
     }
