@@ -303,14 +303,32 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
         ) : step === "bar" ? (
           <>
             <div className="mb-2 text-xs text-muted-foreground">Game: <span className="font-medium text-foreground">{chosenGame?.title}</span></div>
-            {barGroups.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">This game has no Question Progress Bars yet. The first bar of every Learning Point is reserved as the Time Progress Bar — add another Progress Bar in the editor.</div>
+            {totalLinkable === 0 ? (
+              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                {barGroups.length === 0
+                  ? `This adventure has no ${noun}s yet — add one in the editor.`
+                  : `Every ${noun} only has its reserved Time Progress Bar. Add a second Progress Bar in ${missingBarLabels || `each ${noun}`} to link a Lesson Note.`}
+              </div>
             ) : (
               <div className="max-h-80 space-y-3 overflow-y-auto">
+                {noTimeLabels && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-foreground">
+                    No time set yet for {noTimeLabels}. You can link Lesson Notes now — a duration is only required before publishing.
+                  </div>
+                )}
                 {barGroups.map((grp) => (
                   <div key={grp.sceneId}>
-                    <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">{grp.label}</div>
+                    <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <span>{grp.label}</span>
+                      {!grp.hasTime && <span className="text-amber-600 normal-case">No time set</span>}
+                    </div>
+                    {grp.bars.length === 0 ? (
+                      <div className="rounded-md border border-dashed border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
+                        Only the reserved Time Progress Bar here — add another Progress Bar in the editor to link a Lesson Note.
+                      </div>
+                    ) : (
                     <ul className="space-y-1.5">
+
                       {grp.bars.map((b, i) => {
                         const segs = Math.max(1, Number(b.el.progress?.segments) || 10);
                         const taken = assignments[b.el.id];
