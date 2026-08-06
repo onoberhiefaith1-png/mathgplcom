@@ -10,15 +10,12 @@ import { compileQuestionSections } from "@/lib/assessments/createAssessment";
 import {
   normalizeCanvas,
   adventureModeOf,
-  checkpointsMissingTime,
-  questionBarsOf,
-  VIDEO_TIME_REQUIRED_MESSAGE,
   type CanvasElement,
   type GameRow,
 } from "@/lib/games/types";
 import {
   BAR_OCCUPIED_MESSAGE,
-  checkpointLabel,
+  collectLinkableBars,
   loadBarAssignments,
   unassignBar,
   type BarAssignment,
