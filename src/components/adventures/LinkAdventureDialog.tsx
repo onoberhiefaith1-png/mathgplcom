@@ -93,24 +93,24 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
 
   const pickGame = async (g: GameRow) => {
     const canvas = normalizeCanvas(g.canvas);
-    // A Video Adventure paces its story with the Time Progress Bar, so every
-    // Learning Point needs a duration before it can go out to a class.
-    if (adventureModeOf(canvas) === "video" && checkpointsMissingTime(canvas).length > 0) {
-      toast({ title: "Set a time for every Learning Point", description: VIDEO_TIME_REQUIRED_MESSAGE });
-      return;
-    }
     setGameId(g.id);
-    // The Time Progress Bar of every Learning Point is reserved by the engine
-    // and never carries questions, so it is not listed at all.
-    const groups: BarGroup[] = canvas.scenes.map((s, i) => ({
-      sceneId: s.id,
-      label: checkpointLabel(canvas, s, i),
-      bars: questionBarsOf(s.elements).map((el) => ({ sceneTitle: s.title, el })),
-    })).filter((grp) => grp.bars.length > 0);
-    setBarGroups(groups);
+    setIsVideo(adventureModeOf(canvas) === "video");
+    // Progress Bars live INSIDE Learning Points, so we walk every Learning Point
+    // in play order and collect its bars. The reserved Time Progress Bar of each
+    // Learning Point is skipped — it never carries questions. Groups with no
+    // linkable bar are still listed so the structure stays visible.
+    setBarGroups(
+      collectLinkableBars(canvas).map((grp) => ({
+        sceneId: grp.sceneId,
+        label: grp.label,
+        hasTime: grp.hasTime,
+        bars: grp.bars.map((el) => ({ sceneTitle: grp.label, el })),
+      })),
+    );
     setAssignments(await loadBarAssignments(classId, g.id));
     setStep("bar");
   };
+
 
   const pickBar = (b: BarChoice) => {
     const taken = assignments[b.el.id];
