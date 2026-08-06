@@ -3,14 +3,18 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, Sparkles, ChevronRight, ChevronLeft, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, ChevronRight, ChevronLeft, Maximize2, Minimize2, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { AssessmentStatusPanel } from "@/components/dashboards/AssessmentStatusPanel";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
-import { normalizeCanvas, timeBarOf, sceneTimeSeconds, type GameRow } from "@/lib/games/types";
+import { normalizeCanvas, timeBarOf, sceneTimeSeconds, checkpointAt, checkpointsOf, type GameRow, type Scene } from "@/lib/games/types";
+import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
+import { loopRegionFor } from "@/lib/games/loopRuntime";
+import { useVideoAdventureRun, DEFAULT_LP_DURATION_SECONDS, DEFAULT_REQUIRED_PCT } from "@/hooks/useVideoAdventureRun";
+import { LearningPointTimeBars } from "@/components/adventures/LearningPointTimeBars";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
@@ -36,6 +40,11 @@ const AdventureDashboardPage = () => {
   const [panelOpen, setPanelOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState<"none" | "game" | "panel">("none");
   const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null);
+  // Video Adventure only — the dashboard is the live game screen.
+  const videoRef = useRef<VideoBackgroundHandle | null>(null);
+  const [exitingSceneId, setExitingSceneId] = useState<string | null>(null);
+  const [clearedSceneIds, setClearedSceneIds] = useState<Set<string>>(() => new Set());
+  const lastPublishRef = useRef(0);
 
   useEffect(() => {
     if (fullscreen === "none") return;
