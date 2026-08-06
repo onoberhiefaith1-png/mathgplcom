@@ -683,24 +683,38 @@ const GamePlayPage = () => {
                 Your teacher hasn't linked questions to this game's progress bars yet.
               </div>
             )}
-            {transfer.transferring && (
+            {/* Video Adventure: clearing a Learning Point is not the end of the
+                story, so no completion message interrupts the video. Only the
+                final Learning Point may announce anything. */}
+            {transfer.transferring && (!videoBg || finalStage) && (
               <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
                   <div className="text-sm font-semibold text-primary">
-                    {staged && !finalStage ? (videoBg ? "Loop cleared!" : "Scene cleared!") : "Adventure complete!"}
+                    {staged && !finalStage ? "Scene cleared!" : "Adventure complete!"}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     {staged && !finalStage
-                      ? videoBg
-                        ? "Reward stored — the journey continues…"
-                        : "Reward stored — loading the next scene…"
+                      ? "Reward stored — loading the next scene…"
                       : "Sending your reward to the Gallery…"}
                   </div>
                 </div>
               </div>
             )}
-            {!transfer.transferring && (!staged || finalStage) && transfer.goalReached && transfer.blockedReason && !timeUp && (
-
+            {/* No Gallery linked is never an error: the adventure simply ends. */}
+            {videoBg && !transfer.transferring && finalStage && transfer.goalReached && transfer.blockedReason && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
+                  <div className="text-sm font-semibold text-primary">Adventure complete!</div>
+                  <Link
+                    to={`/student/class/${classId}`}
+                    className="mt-3 inline-flex rounded-md border border-primary/50 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                  >
+                    Return to Class
+                  </Link>
+                </div>
+              </div>
+            )}
+            {!videoBg && !transfer.transferring && (!staged || finalStage) && transfer.goalReached && transfer.blockedReason && !timeUp && (
               <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
                   <div className="text-sm font-semibold text-primary">Goal reached!</div>
@@ -716,7 +730,7 @@ const GamePlayPage = () => {
             )}
 
 
-            {timeUp && (
+            {timeUp && !videoBg && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                 <div className="rounded-xl border border-destructive/40 bg-background/90 px-8 py-5 text-center shadow-2xl">
                   <div className="text-lg font-bold text-destructive">Time Up</div>
