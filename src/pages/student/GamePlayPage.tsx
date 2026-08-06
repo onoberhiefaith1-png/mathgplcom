@@ -787,8 +787,14 @@ const GamePlayPage = () => {
                   Waiting for your teacher to start the adventure.
                 </p>
               )}
-              {(!teacherLed || Boolean(teacherRun.activeChallenge)) &&
+              {teacherLed && teacherStarted && Boolean(teacherRun.activeChallenge) && myPointMet && (
+                <p className="rounded-md border border-primary/40 bg-card/70 px-3 py-2 text-xs font-medium text-primary">
+                  Completed — keep watching with your class.
+                </p>
+              )}
+              {(!teacherLed || (Boolean(teacherRun.activeChallenge) && !myPointMet)) &&
                 !frozen && !transfer.transferring && playableBars.map((bar) => {
+
 
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
