@@ -180,12 +180,31 @@ const GamePlayPage = () => {
   const teacherRun = useVideoAdventureRun(classId, gameId, false);
   const teacherLed = Boolean(videoBg);
   const teacherStarted = teacherLed ? teacherRun.started : true;
+  const teacherSceneId = teacherLed ? teacherRun.run?.active_scene_id ?? null : null;
+  // Continuous follow of the teacher's playhead.
   useEffect(() => {
     if (!teacherLed || !teacherRun.started) return;
     const target = Number(teacherRun.run?.playhead_seconds) || 0;
     const here = videoRef.current?.currentTime() ?? 0;
-    if (Math.abs(here - target) > 1.5) videoRef.current?.seek(target);
+    if (Math.abs(here - target) > 1) videoRef.current?.seek(target);
   }, [teacherLed, teacherRun.started, teacherRun.run?.playhead_seconds]);
+  // The teacher's active Learning Point is the student's active Learning Point.
+  useEffect(() => {
+    if (!teacherLed) return;
+    setActiveCpId(teacherSceneId);
+    setExitingCpId(null);
+    setCpFailed(false);
+  }, [teacherLed, teacherSceneId]);
+  // Cleared challenges come from the teacher's run, never from local timing.
+  useEffect(() => {
+    if (!teacherLed) return;
+    setDoneCps(new Set(teacherRun.challenges.filter((c) => c.ended_at).map((c) => c.scene_id)));
+  }, [teacherLed, teacherRun.challenges]);
+  // A challenge that ends closes every student's solving panel at once.
+  useEffect(() => {
+    if (!teacherLed) return;
+    if (!teacherRun.activeChallenge) setOpenBarId(null);
+  }, [teacherLed, teacherRun.activeChallenge]);
   const stages = useMemo(() => (canvas ? stagesOf(canvas) : []), [canvas]);
   const [stageIdx, setStageIdx] = useState(0);
   const activeStage: Scene | null = videoBg
