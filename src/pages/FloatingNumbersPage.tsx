@@ -771,6 +771,21 @@ const FloatingNumbersPage = () => {
     setLines((prev) => prev.map((l) => ({ ...l, arrangement: rearrangeIndices(l.fillers.length) })));
   }, []);
 
+  const resetAll = useCallback(() => {
+    dirtyRef.current = true;
+    setLines((prev) =>
+      prev.map((l) => ({
+        ...l,
+        fillers: [],
+        containers: [],
+        arrangement: [],
+        fillersSelected: [],
+        containersSelected: [],
+      })),
+    );
+    toast({ title: "Reset", description: "All floating numbers cleared. You can now build them manually." });
+  }, []);
+
   /* ---------- Persist (used by autosave + manual Save) ---------- */
   const persist = useCallback(async (silent: boolean) => {
     if (!info) return;
