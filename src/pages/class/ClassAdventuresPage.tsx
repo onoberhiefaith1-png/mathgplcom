@@ -24,6 +24,7 @@ type BarLink = {
   required_marks: number | null;
   game_title: string;
   bar_label: string;
+  checkpoint_label: string;
   segments: number;
 };
 
