@@ -192,7 +192,6 @@ const GamePlayPage = () => {
   useEffect(() => {
     if (!teacherLed) return;
     setActiveCpId(teacherSceneId);
-    setExitingCpId(null);
     setCpFailed(false);
   }, [teacherLed, teacherSceneId]);
   // Cleared challenges come from the teacher's run, never from local timing.
