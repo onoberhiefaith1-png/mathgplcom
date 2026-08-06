@@ -581,9 +581,14 @@ const GamePlayPage = () => {
     return () => window.clearTimeout(t);
   }, [teacherLed, activeCp, cpSecondsLeft, cpFailed]);
 
+  // The teacher's clock, shown verbatim. A student who has already met the
+  // required mark for this point sees no timer at all.
   const challengeSecondsLeft = teacherLed
-    ? (teacherRun.activeChallenge ? Math.ceil(teacherRun.remainingMs / 1000) : null)
+    ? (teacherRun.activeChallenge && !myPointMet && stageRemainingMs != null
+        ? Math.ceil(stageRemainingMs / 1000)
+        : null)
     : cpSecondsLeft;
+
 
   /**
    * Stage complete with nothing left to transfer (no reward linked, or the
