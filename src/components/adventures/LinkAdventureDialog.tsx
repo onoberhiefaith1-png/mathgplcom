@@ -305,28 +305,59 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
         ) : step === "bar" ? (
           <>
             <div className="mb-2 text-xs text-muted-foreground">Game: <span className="font-medium text-foreground">{chosenGame?.title}</span></div>
-            {bars.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">This game has no Question Progress Bars yet.</div>
+            {barGroups.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">This game has no Question Progress Bars yet. The first bar of every Learning Point is reserved as the Time Progress Bar — add another Progress Bar in the editor.</div>
             ) : (
-              <>
-                <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">Question Progress Bar</div>
-                <ul className="max-h-72 space-y-1.5 overflow-y-auto">
-                  {bars.map((b, i) => {
-                    const segs = Math.max(1, Number(b.el.progress?.segments) || 10);
-                    return (
-                      <li key={b.el.id}>
-                        <button type="button" disabled={busy} onClick={() => pickBar(b)} className="flex w-full items-center justify-between rounded-md border border-input px-3 py-2 text-left text-sm hover:border-primary/50 hover:bg-accent/50 disabled:opacity-60">
-                          <div>
-                            <div className="font-medium">{b.el.label || `Progress Bar ${i + 1}`}</div>
-                            <div className="text-xs text-muted-foreground">{b.sceneTitle} · {segs} slots</div>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
+              <div className="max-h-80 space-y-3 overflow-y-auto">
+                {barGroups.map((grp) => (
+                  <div key={grp.sceneId}>
+                    <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">{grp.label}</div>
+                    <ul className="space-y-1.5">
+                      {grp.bars.map((b, i) => {
+                        const segs = Math.max(1, Number(b.el.progress?.segments) || 10);
+                        const taken = assignments[b.el.id];
+                        const blocked = !!taken && taken.notebookId !== notebookId;
+                        return (
+                          <li key={b.el.id} className={`rounded-md border px-3 py-2 text-sm ${blocked ? "border-border/60 bg-muted/20" : "border-input"}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                disabled={busy || blocked}
+                                onClick={() => pickBar(b)}
+                                className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left disabled:cursor-not-allowed"
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate font-medium">{b.el.label || `Progress Bar ${i + 2}`}</div>
+                                  <div className="truncate text-xs text-muted-foreground">
+                                    {taken
+                                      ? `${taken.notebookTitle}${taken.questionCount ? ` · ${taken.questionCount} question${taken.questionCount === 1 ? "" : "s"}` : ""}`
+                                      : `Empty · ${segs} slots`}
+                                  </div>
+                                </div>
+                                {!blocked && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                              </button>
+                              {taken && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={unassigning === b.el.id || busy}
+                                  onClick={() => doUnassign(b.el.id)}
+                                >
+                                  {unassigning === b.el.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Unassign"}
+                                </Button>
+                              )}
+                            </div>
+                            {blocked && (
+                              <div className="mt-1 text-[11px] text-muted-foreground">{BAR_OCCUPIED_MESSAGE}</div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         ) : (
