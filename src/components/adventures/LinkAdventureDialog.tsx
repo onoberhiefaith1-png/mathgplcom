@@ -37,7 +37,7 @@ interface Props {
 
 type Step = "game" | "bar" | "config";
 type BarChoice = { sceneTitle: string; el: CanvasElement };
-type BarGroup = { sceneId: string; label: string; bars: BarChoice[] };
+type BarGroup = { sceneId: string; label: string; hasTime: boolean; bars: BarChoice[] };
 
 export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, noteTitle, questions, onLinked }: Props) {
   const [step, setStep] = useState<Step>("game");
