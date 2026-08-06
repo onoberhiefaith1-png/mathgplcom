@@ -587,16 +587,36 @@ export const isTimeBar = (el: CanvasElement): boolean =>
 export const isLearningBar = (el: CanvasElement): boolean =>
   el.kind === "progress_bar" && roleOf(el) === "learning";
 
+/**
+ * The reserved Time Progress Bar of a Learning Point / Scene.
+ *
+ * Legacy adventures were authored before bars carried a role, so nothing is
+ * marked `time` there. The architecture reserves the FIRST Progress Bar of
+ * every Learning Point for the countdown, so when no bar is explicitly marked
+ * we infer it from position. Read-time only — no canvas is rewritten.
+ */
+export const reservedTimeBarOf = (els: CanvasElement[]): CanvasElement | null => {
+  const explicit = els.find(isTimeBar);
+  if (explicit) return explicit;
+  return els.find((el) => el.kind === "progress_bar") ?? null;
+};
+
+/** Progress Bars of a Learning Point that may receive a Lesson Note. */
+export const questionBarsOf = (els: CanvasElement[]): CanvasElement[] => {
+  const reserved = reservedTimeBarOf(els);
+  return els.filter((el) => el.kind === "progress_bar" && el.id !== reserved?.id);
+};
+
 export const timeBarOf = (els: CanvasElement[]): CanvasElement | null =>
-  els.find(isTimeBar) ?? null;
+  reservedTimeBarOf(els);
 
 export const learningBarOf = (els: CanvasElement[]): CanvasElement | null =>
-  els.find(isLearningBar) ?? null;
+  questionBarsOf(els)[0] ?? null;
 
 /** Which bar may still be added, or null when both already exist. */
 export const nextBarRole = (els: CanvasElement[]): BarRole | null => {
-  if (!timeBarOf(els)) return "time";
-  if (!learningBarOf(els)) return "learning";
+  if (!els.some(isTimeBar)) return "time";
+  if (!els.some(isLearningBar)) return "learning";
   return null;
 };
 
