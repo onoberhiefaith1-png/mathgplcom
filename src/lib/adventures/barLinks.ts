@@ -75,3 +75,48 @@ export const checkpointLabel = (canvas: GameCanvas, scene: Scene, index: number)
   const generic = !title || /^checkpoint\s*\d+$/i.test(title) || /^scene\s*\d+$/i.test(title);
   return generic ? `${noun} ${index + 1}` : `${noun} ${index + 1} · ${title}`;
 };
+
+/** One Learning Point (Video) / Scene (Static) and its linkable Progress Bars. */
+export type LinkableBarGroup = {
+  sceneId: string;
+  label: string;
+  /** The reserved Time Progress Bar of this Learning Point, if any. */
+  timeBarId: string | null;
+  /** Progress Bars that may receive a Lesson Note (Time Bar excluded). */
+  bars: CanvasElement[];
+  /** Whether a countdown duration is configured (publishing requirement). */
+  hasTime: boolean;
+};
+
+/**
+ * Walk EVERY Learning Point of an adventure and collect the Progress Bars that
+ * can carry questions. Progress Bars live inside Learning Points, never at the
+ * top level, so this is an ordered per-scene traversal:
+ *
+ *   Adventure → Learning Point n → [reserved Time Bar (skipped), ...bars]
+ *
+ * Video Adventures are walked in video play order; static ones in scene order.
+ * Groups are returned even when they contribute no linkable bar, so the teacher
+ * always sees the real structure instead of an empty panel.
+ */
+export function collectLinkableBars(canvas: GameCanvas): LinkableBarGroup[] {
+  const all = canvas.scenes ?? [];
+  const ordered: Scene[] = isVideoAdventure(canvas)
+    ? (() => {
+        const cps = checkpointsOf(canvas);
+        const rest = all.filter((s) => !cps.some((c) => c.id === s.id));
+        return [...cps, ...rest];
+      })()
+    : all;
+
+  return ordered.map((scene, index) => {
+    const els = scene.elements ?? [];
+    return {
+      sceneId: scene.id,
+      label: checkpointLabel(canvas, scene, index),
+      timeBarId: reservedTimeBarOf(els)?.id ?? null,
+      bars: questionBarsOf(els),
+      hasTime: sceneTimeSeconds(scene) > 0,
+    };
+  });
+}
