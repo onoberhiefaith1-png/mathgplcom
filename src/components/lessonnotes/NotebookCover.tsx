@@ -161,7 +161,7 @@ const DesignedCover = ({
         <div className="mt-auto space-y-1 text-[10px] leading-snug">
           {cfg.rows.filter((r) => r.label || r.value).map((r, i) => (
             <div key={i} className="flex gap-1.5">
-              {r.label && <span className="w-12 flex-none opacity-60">{r.label}:</span>}
+              {r.label && <span className="w-14 flex-none opacity-60">{r.label}:</span>}
               <span className="truncate font-medium">{r.value || "—"}</span>
             </div>
           ))}
@@ -245,7 +245,7 @@ const LegacyCover = ({ notebook, onClick }: { notebook: NotebookCoverData; onCli
 
 const Row = ({ label, value }: { label: string; value: string }) => (
   <div className="flex gap-1.5">
-    <span className="opacity-60 w-12 flex-none">{label}:</span>
+    <span className="opacity-60 w-14 flex-none">{label}:</span>
     <span className="font-medium truncate">{value || "—"}</span>
   </div>
 );
