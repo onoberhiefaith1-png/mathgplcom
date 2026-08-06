@@ -103,18 +103,45 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
       return;
     }
     setGameId(g.id);
-    const list: BarChoice[] = [];
-    // The Time Progress Bar never carries questions.
-    for (const s of canvas.scenes) for (const el of s.elements) if (el.kind === "progress_bar" && !isTimeBar(el)) list.push({ sceneTitle: s.title, el });
-    setBars(list);
+    // The Time Progress Bar of every Learning Point is reserved by the engine
+    // and never carries questions, so it is not listed at all.
+    const groups: BarGroup[] = canvas.scenes.map((s, i) => ({
+      sceneId: s.id,
+      label: checkpointLabel(canvas, s, i),
+      bars: questionBarsOf(s.elements).map((el) => ({ sceneTitle: s.title, el })),
+    })).filter((grp) => grp.bars.length > 0);
+    setBarGroups(groups);
+    setAssignments(await loadBarAssignments(classId, g.id));
     setStep("bar");
   };
 
   const pickBar = (b: BarChoice) => {
+    const taken = assignments[b.el.id];
+    // One Progress Bar → one Lesson Note.
+    if (taken && taken.notebookId !== notebookId) {
+      toast({ title: "Progress Bar already assigned", description: BAR_OCCUPIED_MESSAGE, variant: "destructive" });
+      return;
+    }
     setChosenBar(b);
     const existingGoal = Number(b.el.progress?.progressGoalPct);
     setGoalPct(Number.isFinite(existingGoal) && existingGoal > 0 ? Math.min(100, Math.max(1, existingGoal)) : 90);
     setStep("config");
+  };
+
+  const doUnassign = async (barId: string) => {
+    const taken = assignments[barId];
+    if (!taken || !gameId) return;
+    setUnassigning(barId);
+    try {
+      await unassignBar(taken);
+      setAssignments(await loadBarAssignments(classId, gameId));
+      onLinked?.();
+      toast({ title: "Lesson Note unassigned", description: "This Progress Bar is free again." });
+    } catch (e: any) {
+      toast({ title: "Could not unassign", description: String(e?.message ?? e), variant: "destructive" });
+    } finally {
+      setUnassigning(null);
+    }
   };
 
   const chosenGame = useMemo(() => games.find((g) => g.id === gameId), [games, gameId]);
