@@ -579,7 +579,11 @@ const GamePlayPage = () => {
                 <VideoBackgroundLayer
                   ref={videoRef}
                   video={videoBg}
-                  playing={teacherStarted && !frozen && !cpFailed && (!transfer.transferring || !!videoBg)}
+                  playing={
+                    teacherLed
+                      ? teacherStarted && Boolean(teacherRun.run?.playing)
+                      : !frozen && !cpFailed
+                  }
                   loop={loopRegionFor(activeCp, Boolean(exitingCpId))}
 
 
