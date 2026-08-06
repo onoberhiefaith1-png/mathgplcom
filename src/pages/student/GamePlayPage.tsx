@@ -230,6 +230,48 @@ const GamePlayPage = () => {
     [staged, sync.barSummaries, stageIds],
   );
 
+  // ── One timer, owned by the teacher ─────────────────────────────────────────
+  // Video Adventure: the countdown a student sees is derived from the teacher's
+  // Learning Point challenge row, never from a local clock. Entering a point,
+  // pausing, resuming, changing the duration and restarting therefore reach
+  // every device in the same moment.
+  const stageTimeBarId = useMemo(
+    () => (teacherLed && activeStage ? timeBarOf(activeStage.elements)?.id ?? null : null),
+    [teacherLed, activeStage],
+  );
+  const stageChallenge = teacherLed ? teacherRun.challengeFor(activeStage?.id) : null;
+  const stageRemainingMs = teacherLed ? teacherRun.remainingMsFor(activeStage?.id) : null;
+  const challengeExpired =
+    Boolean(stageChallenge?.started_at) && stageRemainingMs != null && stageRemainingMs <= 0;
+  const stageTimeLit = useCallback(
+    (segments: number) => {
+      if (!stageChallenge || stageRemainingMs == null) return 0;
+      const segs = Math.max(1, segments);
+      const total = Math.max(1, stageChallenge.duration_seconds * 1000);
+      return Math.min(segs, Math.floor(((total - stageRemainingMs) / total) * segs));
+    },
+    [stageChallenge, stageRemainingMs],
+  );
+  /** The one clock: teacher-led runs read it from the challenge row. */
+  const timeExpired = teacherLed ? challengeExpired : timeBar.expired;
+
+  /**
+   * Restart Game replays the story and keeps every mark, so when the video
+   * reaches a Learning Point each student is measured against their EXISTING
+   * score. Already at or above the required mark → no bar, no timer, no
+   * questions: they simply keep watching the synchronized video.
+   */
+  const myPointMet = useMemo(() => {
+    if (!teacherLed || !stageChallenge || !me) return false;
+    const bars = stageBars.filter((b) => b.id !== stageTimeBarId);
+    if (bars.length === 0) return false;
+    return bars.every((b) => {
+      const target = Math.max(1, Math.round((b.total * stageChallenge.required_pct) / 100));
+      return (sync.scoresByAssessment[b.assessmentId]?.[me] ?? 0) >= target;
+    });
+  }, [teacherLed, stageChallenge, me, stageBars, stageTimeBarId, sync.scoresByAssessment]);
+
+
   const advancedRef = useRef<string | null>(null);
   /**
    * Video mode: a completed loop is not cut short. It keeps playing to its own
