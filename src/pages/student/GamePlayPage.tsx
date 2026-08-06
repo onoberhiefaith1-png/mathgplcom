@@ -424,11 +424,14 @@ const GamePlayPage = () => {
 
 
   // Reaching a loop's start time freezes the journey into that loop.
+  // Video Adventure: the teacher owns this entirely — the student only reports
+  // narration timing and never activates or clears a Learning Point locally.
   const onVideoTime = useCallback(
     (t: number) => {
       setVideoTime(t);
       videoTimeRef.current = t;
       narrationRuntime.onTime(t);
+      if (teacherLed) return;
       // A cleared loop plays out its final seconds, then everything unmounts.
       if (exitingCpId) {
         const leaving = checkpoints.find((c) => c.id === exitingCpId);
@@ -448,17 +451,22 @@ const GamePlayPage = () => {
         setCpSecondsLeft(hit.timerEnabled ? hit.timeLimit ?? 300 : null);
       }
     },
-    [activeCpId, exitingCpId, checkpoints, doneCps, narrationRuntime],
+    [teacherLed, activeCpId, exitingCpId, checkpoints, doneCps, narrationRuntime],
   );
 
-
-  // Per-stage countdown.
+  // Per-stage countdown (static adventure only; teacher-led runs show the
+  // teacher's challenge clock).
   useEffect(() => {
+    if (teacherLed) return;
     if (!activeCp || cpSecondsLeft == null || cpFailed) return;
     if (cpSecondsLeft <= 0) { setCpFailed(true); return; }
     const t = window.setTimeout(() => setCpSecondsLeft((v) => (v == null ? v : v - 1)), 1000);
     return () => window.clearTimeout(t);
-  }, [activeCp, cpSecondsLeft, cpFailed]);
+  }, [teacherLed, activeCp, cpSecondsLeft, cpFailed]);
+
+  const challengeSecondsLeft = teacherLed
+    ? (teacherRun.activeChallenge ? Math.ceil(teacherRun.remainingMs / 1000) : null)
+    : cpSecondsLeft;
 
   /**
    * Stage complete with nothing left to transfer (no reward linked, or the
@@ -470,10 +478,11 @@ const GamePlayPage = () => {
     [staged, sync.barSummaries, stageIds],
   );
   useEffect(() => {
+    if (teacherLed) return;
     if (!stageDone || finalStage || transfer.transferring) return;
     const t = window.setTimeout(() => advanceStage(), 1400);
     return () => window.clearTimeout(t);
-  }, [stageDone, finalStage, transfer.transferring, advanceStage]);
+  }, [teacherLed, stageDone, finalStage, transfer.transferring, advanceStage]);
 
   /** Turn back — replay the previous loop's section of the journey. */
   const turnBack = useCallback(() => {
