@@ -371,6 +371,8 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
                         );
                       })}
                     </ul>
+                    )}
+
                   </div>
                 ))}
               </div>
