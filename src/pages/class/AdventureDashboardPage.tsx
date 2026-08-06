@@ -632,6 +632,7 @@ const AdventureDashboardPage = () => {
                   }}
                   heightUnits={sync.heightUnits}
                 />
+                )}
                 {timeUp && (
                   <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-background/70 backdrop-blur-sm">
                     <div className="rounded-2xl border border-destructive/50 bg-background px-8 py-5 text-center shadow-2xl">
