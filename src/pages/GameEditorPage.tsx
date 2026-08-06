@@ -55,9 +55,12 @@ import EffectsRail from "@/components/gamebuilder/EffectsRail";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import CheckpointTimeline, { fmtTime } from "@/components/gamebuilder/CheckpointTimeline";
 import NarrationPanel from "@/components/gamebuilder/NarrationPanel";
+import SoundPanel from "@/components/gamebuilder/SoundPanel";
 import SceneStrip from "@/components/gamebuilder/SceneStrip";
 import { useLoopRuntime } from "@/lib/games/loopRuntime";
 import { useNarrationPlayback } from "@/lib/games/narration";
+import { useAdventureAudio } from "@/lib/games/adventureAudio";
+import { unlockAudio } from "@/lib/games/audio";
 
 import { getGame, renameGame, saveGameCanvas, updateGameMeta } from "@/lib/games/games";
 import {
@@ -128,6 +131,9 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   /** Narration clips pinned to timestamps in the background video. */
   const [narrations, setNarrations] = useState<Narration[]>([]);
   const [narrationOpen, setNarrationOpen] = useState(false);
+  /** Ambience, per-stage music and event effects (teacher-uploaded only). */
+  const [sounds, setSounds] = useState<AdventureSounds>({});
+  const [soundOpen, setSoundOpen] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const videoModeRef = useRef(false);
@@ -235,6 +241,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
           setVideo(canvas.video ?? null);
           setNarrations(narrationsOf(canvas));
+          setSounds(soundsOf(canvas));
           setAdventureMode(adventureModeOf(canvas));
           loadedRef.current = true;
         } catch (e) {
@@ -259,6 +266,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         setHeightUnits(Math.max(1, Math.floor(canvas.heightUnits ?? 1)));
         setVideo(canvas.video ?? null);
         setNarrations(narrationsOf(canvas));
+        setSounds(soundsOf(canvas));
         setAdventureMode(adventureModeOf(canvas));
         setMetaMode(adventureModeOf(canvas));
         loadedRef.current = true;
@@ -287,7 +295,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       setSaving(true);
       const t = setTimeout(async () => {
         try {
-          await saveClassGalleryCanvas(classId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video, narrations });
+          await saveClassGalleryCanvas(classId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video, narrations, sounds });
         } catch (e) {
           console.error(e);
         } finally {
@@ -300,7 +308,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setSaving(true);
     const t = setTimeout(async () => {
       try {
-        await saveGameCanvas(gameId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video, narrations });
+        await saveGameCanvas(gameId, { mode: adventureMode, scenes, activeSceneId, heightUnits, video, narrations, sounds });
       } catch (e) {
         console.error(e);
       } finally {
@@ -308,7 +316,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [scenes, activeSceneId, heightUnits, video, narrations, adventureMode, gameId, classId, isGallery]);
+  }, [scenes, activeSceneId, heightUnits, video, narrations, sounds, adventureMode, gameId, classId, isGallery]);
 
   const activeScene = useMemo(
     () => scenes.find((s) => s.id === activeSceneId) ?? scenes[0] ?? null,
@@ -995,6 +1003,24 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   // new run (`preview.runId`), so Play Once clips speak again — Play Once /
   // Repeat only shape behaviour *inside* one run.
   const narrationRuntime = useNarrationPlayback(narrations, preview.active, preview.runId);
+  // Preview owns the audio exactly like real gameplay: the platform soundtrack
+  // steps aside, ambience loops, and the active stage's music plays.
+  const previewAudio = useAdventureAudio(
+    { mode: adventureMode, scenes, video, narrations, sounds },
+    preview.active ? preview.activeLoopId ?? activeSceneId : null,
+    preview.active,
+  );
+
+  // A Learning Point just opened: speak its narration and fire its effect.
+  const previewLoopRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!preview.active) { previewLoopRef.current = null; return; }
+    const id = preview.activeLoopId;
+    if (!id || previewLoopRef.current === id) return;
+    previewLoopRef.current = id;
+    narrationRuntime.onLoopStart(checkpoints.find((c) => c.id === id) ?? null);
+    previewAudio.effect("loop_start");
+  }, [preview.active, preview.activeLoopId, checkpoints, narrationRuntime, previewAudio]);
 
   const previewFinalLoop =
     preview.activeLoopId != null &&
@@ -1761,6 +1787,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 if (preview.active) {
                   preview.stop();
                 } else {
+                  unlockAudio();
                   setVideoPlaying(false);
                   setSelectedId(null);
                   preview.start();
@@ -1903,6 +1930,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
               if (preview.active) {
                 preview.stop();
               } else {
+                unlockAudio();
                 setVideoPlaying(false);
                 setSelectedId(null);
                 preview.start();
@@ -1966,15 +1994,29 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           onToggleNarration={() => setNarrationOpen((v) => !v)}
           narrationOpen={narrationOpen}
           narrationCount={narrations.length}
+          onToggleSound={() => setSoundOpen((v) => !v)}
+          soundOpen={soundOpen}
           narrationPanel={
-            narrationOpen ? (
-              <NarrationPanel
-                narrations={narrations}
-                playhead={videoTime}
-                onChange={setNarrations}
-                onClose={() => setNarrationOpen(false)}
-              />
-            ) : null
+            <>
+              {narrationOpen ? (
+                <NarrationPanel
+                  narrations={narrations}
+                  playhead={videoTime}
+                  onChange={setNarrations}
+                  onClose={() => setNarrationOpen(false)}
+                />
+              ) : null}
+              {soundOpen ? (
+                <SoundPanel
+                  sounds={sounds}
+                  scenes={checkpoints}
+                  activeSceneId={activeSceneId}
+                  sceneNoun="Learning Point"
+                  onChange={setSounds}
+                  onClose={() => setSoundOpen(false)}
+                />
+              ) : null}
+            </>
           }
         />
       )}
