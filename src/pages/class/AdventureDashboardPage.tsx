@@ -320,8 +320,9 @@ const AdventureDashboardPage = () => {
   );
 
   /**
-   * Restart Game replays the story: it resets the teacher's timeline and the
-   * challenge rows only. Student marks and scores are never touched.
+   * Restart Game replays the story: video to 00:00, teacher timeline reset,
+   * every loop state and loop timer cleared. It never writes to student
+   * progress, gallery or award tables — marks and scores carry over untouched.
    */
   const startGame = useCallback(() => {
     if (runtime.started && !window.confirm("Restart the story from the beginning? Student progress and scores are kept.")) {
@@ -331,8 +332,9 @@ const AdventureDashboardPage = () => {
     setClearedSceneIds(new Set());
     setExitingSceneId(null);
     videoRef.current?.seek(0);
-    void runtime.actions.startGame();
-  }, [runtime.actions, runtime.started]);
+    void runtime.actions.startGame().then(() => timeBar.refresh()).catch(() => {});
+  }, [runtime.actions, runtime.started, timeBar.refresh]);
+
 
   // The video sits on its first frame until Start Game is pressed.
   useEffect(() => {

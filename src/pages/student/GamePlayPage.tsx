@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPreset } from "@/lib/games/progressPresets";
-import { checkpointAt, checkpointsOf, normalizeCanvas, type GameRow, type Scene } from "@/lib/games/types";
+import { checkpointAt, checkpointsOf, normalizeCanvas, timeBarOf, type GameRow, type Scene } from "@/lib/games/types";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import type { GameBoard } from "@/lib/games/gameQuestions";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
@@ -206,6 +206,18 @@ const GamePlayPage = () => {
     if (!teacherLed) return;
     if (!teacherRun.activeChallenge) setOpenBarId(null);
   }, [teacherLed, teacherRun.activeChallenge]);
+  // Restart Game: the teacher's run gets a new `started_at`, so every student
+  // device drops its local loop state and replays the story. Scores are never
+  // touched — they live in the database and simply carry over.
+  const runKey = teacherLed ? teacherRun.run?.started_at ?? null : null;
+  useEffect(() => {
+    if (!teacherLed) return;
+    setOpenBarId(null);
+    setExitingCpId(null);
+    setAwardedIds([]);
+    advancedRef.current = null;
+  }, [teacherLed, runKey]);
+
   const stages = useMemo(() => (canvas ? stagesOf(canvas) : []), [canvas]);
   const [stageIdx, setStageIdx] = useState(0);
   const activeStage: Scene | null = videoBg
@@ -229,6 +241,53 @@ const GamePlayPage = () => {
     () => (staged ? sync.barSummaries.filter((b) => stageIds.has(b.id)) : sync.barSummaries),
     [staged, sync.barSummaries, stageIds],
   );
+
+  // ── One timer, owned by the teacher ─────────────────────────────────────────
+  // Video Adventure: the countdown a student sees is derived from the teacher's
+  // Learning Point challenge row, never from a local clock. Entering a point,
+  // pausing, resuming, changing the duration and restarting therefore reach
+  // every device in the same moment.
+  const stageTimeBarId = useMemo(
+    () => (teacherLed && activeStage ? timeBarOf(activeStage.elements)?.id ?? null : null),
+    [teacherLed, activeStage],
+  );
+  const stageChallenge = teacherLed ? teacherRun.challengeFor(activeStage?.id) : null;
+  const stageRemainingMs = teacherLed ? teacherRun.remainingMsFor(activeStage?.id) : null;
+  const challengeExpired =
+    Boolean(stageChallenge?.started_at) && stageRemainingMs != null && stageRemainingMs <= 0;
+  const stageTimeLit = useCallback(
+    (segments: number) => {
+      if (!stageChallenge || stageRemainingMs == null) return 0;
+      const segs = Math.max(1, segments);
+      const total = Math.max(1, stageChallenge.duration_seconds * 1000);
+      return Math.min(segs, Math.floor(((total - stageRemainingMs) / total) * segs));
+    },
+    [stageChallenge, stageRemainingMs],
+  );
+  /** The one clock: teacher-led runs read it from the challenge row. */
+  const timeExpired = teacherLed ? challengeExpired : timeBar.expired;
+
+  /**
+   * Restart Game replays the story and keeps every mark, so when the video
+   * reaches a Learning Point each student is measured against their EXISTING
+   * score. Already at or above the required mark → no bar, no timer, no
+   * questions: they simply keep watching the synchronized video.
+   */
+  const myPointMet = useMemo(() => {
+    if (!teacherLed || !stageChallenge || !me) return false;
+    const bars = stageBars.filter((b) => b.id !== stageTimeBarId);
+    if (bars.length === 0) return false;
+    return bars.every((b) => {
+      const target = Math.max(1, Math.round((b.total * stageChallenge.required_pct) / 100));
+      return (sync.scoresByAssessment[b.assessmentId]?.[me] ?? 0) >= target;
+    });
+  }, [teacherLed, stageChallenge, me, stageBars, stageTimeBarId, sync.scoresByAssessment]);
+  // Already passed: never reopen the question panel for this student.
+  useEffect(() => {
+    if (myPointMet) setOpenBarId(null);
+  }, [myPointMet]);
+
+
 
   const advancedRef = useRef<string | null>(null);
   /**
@@ -287,7 +346,7 @@ const GamePlayPage = () => {
     gameId,
     barSummaries: stageBars,
     barOwner: groups.barOwner,
-    timeExpired: timeBar.expired,
+    timeExpired,
     galleryPath: `/student/class/${classId}/gallery`,
     rewardElements: rewardRefs,
     stageRewardIds: staged ? stageIds : null,
@@ -298,7 +357,7 @@ const GamePlayPage = () => {
   });
 
   // Time beat the goal (Part 7): expired with no valid, in-time win.
-  const timeUp = timeBar.expired && !transfer.won;
+  const timeUp = timeExpired && !transfer.won;
   const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
 
   // Group outcome — a race winner (Adventure) or the encouraging message shown
@@ -314,7 +373,7 @@ const GamePlayPage = () => {
     sceneId: activeStage?.id ?? null,
     groups: groups.groups,
     statsByBar,
-    timeExpired: timeBar.expired,
+    timeExpired,
   });
   const myGroup = myGroupId ? groups.groups.find((g) => g.id === myGroupId) ?? null : null;
   const waiting = !!myGroup && outcome.waitingGroupIds.has(myGroup.id);
@@ -322,24 +381,28 @@ const GamePlayPage = () => {
   // A waiting group watches the rest of the story; its board stays locked.
   const frozen = timeUp || waiting || (transfer.won && (!staged || finalStage));
 
-  // Step 2 — stop the clock the moment the game is actually over.
+  // Step 2 — stop the clock the moment the game is actually over. Teacher-led
+  // runs never touch the clock from a student device.
   const pausedForWinRef = useRef(false);
   useEffect(() => {
+    if (teacherLed) return;
     if (!transfer.won || (staged && !finalStage)) return;
     if (pausedForWinRef.current) return;
     if (!timeBar.running) return;
     pausedForWinRef.current = true;
     void timeBar.actions.pause().catch(() => { pausedForWinRef.current = false; });
-  }, [transfer.won, staged, finalStage, timeBar.running, timeBar.actions]);
+  }, [teacherLed, transfer.won, staged, finalStage, timeBar.running, timeBar.actions]);
 
   const mirroredElements = useMemo(() => {
-    const timeBarId = timeBar.elementId;
+    const timeBarId = teacherLed ? stageTimeBarId : timeBar.elementId;
+    const noTime = teacherLed ? false : timeBar.noTime;
+    const litFor = teacherLed ? stageTimeLit : timeBar.slotsLit;
     return sync.elements
       // A reward that already lives in the Gallery no longer exists here.
       .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
       // Duration "None": the countdown is disabled, so the Time Bar is not
       // drawn at all and students play for as long as they need.
-      .filter((el) => !(timeBar.noTime && timeBarId && el.id === timeBarId))
+      .filter((el) => !(noTime && timeBarId && el.id === timeBarId))
       .map((el) => {
         if (el.kind === "reward" && transfer.departing.has(el.id)) {
           const off = transfer.exitOffsets.get(el.id);
@@ -349,13 +412,26 @@ const GamePlayPage = () => {
         if (el.kind !== "progress_bar" || !el.progress) return el;
         if (timeBarId && el.id === timeBarId) {
           const segs = Math.max(1, Number(el.progress.segments) || 10);
-          return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
+          return { ...el, progress: { ...el.progress, currentMarks: litFor(segs), totalMarks: segs } };
         }
         const snap = mirror?.[el.id];
         if (!snap) return el;
         return { ...el, progress: { ...el.progress, currentMarks: snap.current, totalMarks: snap.required } };
       });
-  }, [sync.elements, mirror, timeBar.elementId, timeBar.noTime, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
+  }, [
+    sync.elements,
+    mirror,
+    teacherLed,
+    stageTimeBarId,
+    stageTimeLit,
+    timeBar.elementId,
+    timeBar.noTime,
+    timeBar.slotsLit,
+    transfer.departing,
+    transfer.exitOffsets,
+    transfer.transferredIds,
+  ]);
+
 
   /**
    * Only the current stage exists on screen: reward, progress bar, time bar,
@@ -374,6 +450,9 @@ const GamePlayPage = () => {
     if (videoBg && teacherLed) {
       const open = teacherRun.activeChallenge?.scene_id === activeStage.id;
       if (!open) return mine.filter((e) => e.kind !== "progress_bar" && e.kind !== "reward");
+      // This student already met the required mark for this point (a replay of
+      // the story): nothing opens, they keep watching with the class.
+      if (myPointMet) return mine.filter((e) => e.kind !== "progress_bar");
     }
     return mine;
   }, [
@@ -385,7 +464,9 @@ const GamePlayPage = () => {
     exitingCpId,
     teacherLed,
     teacherRun.activeChallenge,
+    myPointMet,
   ]);
+
 
   /**
    * Learning Point state, resolved by the shared runtime rules
@@ -456,7 +537,7 @@ const GamePlayPage = () => {
 
   // Gameplay effects.
   useEffect(() => { if (transfer.won) gameAudio.effect("goal"); }, [transfer.won, gameAudio]);
-  useEffect(() => { if (timeBar.expired) gameAudio.effect("time_up"); }, [timeBar.expired, gameAudio]);
+  useEffect(() => { if (timeExpired) gameAudio.effect("time_up"); }, [timeExpired, gameAudio]);
   useEffect(() => { if (awardedIds.length > 0) gameAudio.effect("reward"); }, [awardedIds, gameAudio]);
 
   // Browsers need one gesture before any sound may start.
@@ -517,9 +598,14 @@ const GamePlayPage = () => {
     return () => window.clearTimeout(t);
   }, [teacherLed, activeCp, cpSecondsLeft, cpFailed]);
 
+  // The teacher's clock, shown verbatim. A student who has already met the
+  // required mark for this point sees no timer at all.
   const challengeSecondsLeft = teacherLed
-    ? (teacherRun.activeChallenge ? Math.ceil(teacherRun.remainingMs / 1000) : null)
+    ? (teacherRun.activeChallenge && !myPointMet && stageRemainingMs != null
+        ? Math.ceil(stageRemainingMs / 1000)
+        : null)
     : cpSecondsLeft;
+
 
   /**
    * Stage complete with nothing left to transfer (no reward linked, or the
@@ -718,8 +804,14 @@ const GamePlayPage = () => {
                   Waiting for your teacher to start the adventure.
                 </p>
               )}
-              {(!teacherLed || Boolean(teacherRun.activeChallenge)) &&
+              {teacherLed && teacherStarted && Boolean(teacherRun.activeChallenge) && myPointMet && (
+                <p className="rounded-md border border-primary/40 bg-card/70 px-3 py-2 text-xs font-medium text-primary">
+                  Completed — keep watching with your class.
+                </p>
+              )}
+              {(!teacherLed || (Boolean(teacherRun.activeChallenge) && !myPointMet)) &&
                 !frozen && !transfer.transferring && playableBars.map((bar) => {
+
 
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
