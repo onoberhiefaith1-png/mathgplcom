@@ -184,11 +184,25 @@ export function useVideoAdventureRun(
     [classId, gameId, canWrite],
   );
 
+  /**
+   * Restart Game replays the STORY only.
+   *
+   * It resets the teacher's timeline (video to 00:00), clears every Learning
+   * Point challenge row and stops the shared Time Bar row so no countdown
+   * survives from the previous run. It deliberately writes NOTHING to
+   * `game_progress`, `class_game_boards`, gallery or award tables — student
+   * marks and scores are persistent across restarts.
+   */
   const startGame = useCallback(async () => {
     if (!classId || !gameId || !canWrite) return;
     // A brand new run: every challenge from the previous run is cleared.
     await supabase.from(TABLE_CHALLENGES).delete().eq("class_id", classId).eq("game_id", gameId);
     setChallenges([]);
+    // All loop timers back to a stopped, full state.
+    await supabase
+      .from("game_time_bars" as never)
+      .update({ started_at: null, paused_at: null, accumulated_paused_ms: 0 } as never)
+      .eq("game_id", gameId);
     await patchRun({
       started_at: new Date().toISOString(),
       playing: true,
@@ -197,6 +211,7 @@ export function useVideoAdventureRun(
       ended_at: null,
     });
   }, [classId, gameId, canWrite, patchRun]);
+
 
   const endGame = useCallback(async () => {
     await patchRun({ playing: false, ended_at: new Date().toISOString() });
