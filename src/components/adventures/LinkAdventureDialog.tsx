@@ -45,6 +45,7 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
   const [games, setGames] = useState<GameRow[]>([]);
   const [gameId, setGameId] = useState<string>("");
   const [barGroups, setBarGroups] = useState<BarGroup[]>([]);
+  const [isVideo, setIsVideo] = useState(false);
   const [assignments, setAssignments] = useState<Record<string, BarAssignment>>({});
   const [unassigning, setUnassigning] = useState<string | null>(null);
   const [chosenBar, setChosenBar] = useState<BarChoice | null>(null);
