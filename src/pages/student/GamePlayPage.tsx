@@ -620,7 +620,13 @@ const GamePlayPage = () => {
             )}
 
             <div className="pointer-events-none absolute inset-0 z-30">
-              {!frozen && !transfer.transferring && playableBars.map((bar) => {
+              {teacherLed && !teacherStarted && (
+                <p className="rounded-md border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
+                  Waiting for your teacher to start the adventure.
+                </p>
+              )}
+              {(!teacherLed || Boolean(teacherRun.activeChallenge)) &&
+                !frozen && !transfer.transferring && playableBars.map((bar) => {
 
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (
