@@ -72,12 +72,16 @@ const ClassAdventuresPage = () => {
       const g = gameMap.get(b.game_id);
       let barLabel = "Progress Bar";
       let segments = 10;
-      const scenes = g?.canvas?.scenes ?? [];
-      outer: for (const s of scenes) {
+      let checkpointName = "";
+      const canvas = normalizeCanvas(g?.canvas);
+      const scenes = canvas.scenes ?? [];
+      outer: for (let si = 0; si < scenes.length; si += 1) {
+        const s = scenes[si];
         for (const el of s?.elements ?? []) {
           if (el?.id === b.progress_element_id) {
             barLabel = el.label || "Progress Bar";
             segments = Math.max(1, Number(el?.progress?.segments) || 10);
+            checkpointName = checkpointLabel(canvas, s, si);
             break outer;
           }
         }
@@ -92,6 +96,7 @@ const ClassAdventuresPage = () => {
         required_marks: b.required_marks,
         game_title: g?.title ?? "Game",
         bar_label: barLabel,
+        checkpoint_label: checkpointName,
         segments,
       };
       if (!map[link.notebook_id]) map[link.notebook_id] = [];
