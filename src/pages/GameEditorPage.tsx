@@ -85,6 +85,7 @@ import {
   GameAssetRow,
   Scene,
   Narration,
+  AdventureSounds,
   VideoBackground,
   checkpointAt,
   checkpointsOf,
@@ -92,6 +93,7 @@ import {
   defaultAnimation,
   makeCheckpoint,
   narrationsOf,
+  soundsOf,
   normalizeCanvas,
   uid,
 } from "@/lib/games/types";

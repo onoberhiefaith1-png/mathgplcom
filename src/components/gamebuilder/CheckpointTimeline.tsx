@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { AudioLines, Flag, Pause, Play, Trash2, Video } from "lucide-react";
+import { AudioLines,
+  Music2, Flag, Pause, Play, Trash2, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +38,8 @@ interface CheckpointTimelineProps {
   onToggleNarration?: () => void;
   narrationOpen?: boolean;
   narrationCount?: number;
+  onToggleSound?: () => void;
+  soundOpen?: boolean;
   /** Rendered inside the toolbar so the panel floats beside the timeline. */
   narrationPanel?: ReactNode;
 
@@ -67,6 +70,8 @@ const CheckpointTimeline = ({
   onToggleNarration,
   narrationOpen = false,
   narrationCount = 0,
+  onToggleSound,
+  soundOpen = false,
   narrationPanel,
 }: CheckpointTimelineProps) => {
   const [markStart, setMarkStart] = useState<number | null>(null);
@@ -133,6 +138,16 @@ const CheckpointTimeline = ({
             {narrationCount > 0 && (
               <span className="ml-0.5 rounded bg-black/15 px-1 text-[10px] tabular-nums">{narrationCount}</span>
             )}
+          </Button>
+        )}
+        {onToggleSound && (
+          <Button
+            size="sm"
+            className={cmpBtn}
+            variant={soundOpen ? "default" : "secondary"}
+            onClick={onToggleSound}
+          >
+            <Music2 className={cmpIcon} /> Sound
           </Button>
         )}
         {narrationPanel}
