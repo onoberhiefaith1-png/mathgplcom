@@ -206,6 +206,18 @@ const GamePlayPage = () => {
     if (!teacherLed) return;
     if (!teacherRun.activeChallenge) setOpenBarId(null);
   }, [teacherLed, teacherRun.activeChallenge]);
+  // Restart Game: the teacher's run gets a new `started_at`, so every student
+  // device drops its local loop state and replays the story. Scores are never
+  // touched — they live in the database and simply carry over.
+  const runKey = teacherLed ? teacherRun.run?.started_at ?? null : null;
+  useEffect(() => {
+    if (!teacherLed) return;
+    setOpenBarId(null);
+    setExitingCpId(null);
+    setAwardedIds([]);
+    advancedRef.current = null;
+  }, [teacherLed, runKey]);
+
   const stages = useMemo(() => (canvas ? stagesOf(canvas) : []), [canvas]);
   const [stageIdx, setStageIdx] = useState(0);
   const activeStage: Scene | null = videoBg
