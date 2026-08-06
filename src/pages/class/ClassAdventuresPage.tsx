@@ -13,6 +13,8 @@ import {
 } from "@/lib/adventures/classAdventures";
 import { LinkAdventureDialog, type LinkAdventureQuestion } from "@/components/adventures/LinkAdventureDialog";
 import { compileQuestionSection } from "@/lib/assessments/createAssessment";
+import { normalizeCanvas } from "@/lib/games/types";
+import { checkpointLabel, unassignBar } from "@/lib/adventures/barLinks";
 
 type BarLink = {
   id: string;
