@@ -3557,6 +3557,126 @@ export type Database = {
         }
         Relationships: []
       }
+      video_adventure_challenges: {
+        Row: {
+          accumulated_paused_ms: number
+          class_id: string
+          created_at: string
+          duration_seconds: number
+          ended_at: string | null
+          game_id: string
+          id: string
+          outcome: string | null
+          paused_at: string | null
+          progress_element_id: string | null
+          required_pct: number
+          scene_id: string
+          started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          accumulated_paused_ms?: number
+          class_id: string
+          created_at?: string
+          duration_seconds?: number
+          ended_at?: string | null
+          game_id: string
+          id?: string
+          outcome?: string | null
+          paused_at?: string | null
+          progress_element_id?: string | null
+          required_pct?: number
+          scene_id: string
+          started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accumulated_paused_ms?: number
+          class_id?: string
+          created_at?: string
+          duration_seconds?: number
+          ended_at?: string | null
+          game_id?: string
+          id?: string
+          outcome?: string | null
+          paused_at?: string | null
+          progress_element_id?: string | null
+          required_pct?: number
+          scene_id?: string
+          started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_adventure_challenges_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_adventure_challenges_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_adventure_runs: {
+        Row: {
+          active_scene_id: string | null
+          class_id: string
+          created_at: string
+          ended_at: string | null
+          game_id: string
+          id: string
+          playhead_seconds: number
+          playing: boolean
+          started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          active_scene_id?: string | null
+          class_id: string
+          created_at?: string
+          ended_at?: string | null
+          game_id: string
+          id?: string
+          playhead_seconds?: number
+          playing?: boolean
+          started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active_scene_id?: string | null
+          class_id?: string
+          created_at?: string
+          ended_at?: string | null
+          game_id?: string
+          id?: string
+          playhead_seconds?: number
+          playing?: boolean
+          started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_adventure_runs_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_adventure_runs_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       community_resource_cards: {
