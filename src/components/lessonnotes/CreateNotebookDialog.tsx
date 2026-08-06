@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 export interface CreateNotebookValues {
