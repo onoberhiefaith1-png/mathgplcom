@@ -2,7 +2,17 @@
 // truth for which bars of an adventure are already occupied, so the Link
 // dialog and the Adventures page can never disagree.
 import { supabase } from "@/integrations/supabase/client";
-import { adventureModeOf, type GameCanvas, type Scene } from "@/lib/games/types";
+import {
+  adventureModeOf,
+  checkpointsOf,
+  isVideoAdventure,
+  questionBarsOf,
+  reservedTimeBarOf,
+  sceneTimeSeconds,
+  type CanvasElement,
+  type GameCanvas,
+  type Scene,
+} from "@/lib/games/types";
 
 export type BarAssignment = {
   boardId: string;
