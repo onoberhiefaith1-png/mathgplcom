@@ -460,6 +460,14 @@ const GamePlayPage = () => {
   useEffect(() => { if (awardedIds.length > 0) gameAudio.effect("reward"); }, [awardedIds, gameAudio]);
 
   // Browsers need one gesture before any sound may start.
+  const hasSound = useMemo(() => {
+    const snd = canvas?.sounds ?? null;
+    return (
+      narrations.length > 0 ||
+      Boolean(snd?.ambience?.path) ||
+      Object.keys(snd?.music ?? {}).length > 0
+    );
+  }, [canvas, narrations]);
   const [needsTap, setNeedsTap] = useState(() => !audioUnlocked());
   useEffect(() => {
     if (!needsTap) return;
@@ -570,6 +578,15 @@ const GamePlayPage = () => {
 
   return (
     <div ref={rootRef} className="min-h-screen w-full bg-[#0b0a16] text-foreground">
+      {needsTap && hasSound && (
+        <button
+          type="button"
+          onClick={() => { unlockAudio(); setNeedsTap(false); }}
+          className="fixed bottom-4 right-4 z-50 rounded-full border border-primary/50 bg-primary/15 px-4 py-2 text-xs font-semibold text-primary backdrop-blur"
+        >
+          Tap for sound
+        </button>
+      )}
       {waiting && (
         <div className="mx-4 mt-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm text-foreground">
           <div className="text-xs font-semibold uppercase tracking-wider text-primary">{myGroup?.name}</div>
