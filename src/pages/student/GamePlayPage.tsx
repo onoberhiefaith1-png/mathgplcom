@@ -282,6 +282,11 @@ const GamePlayPage = () => {
       return (sync.scoresByAssessment[b.assessmentId]?.[me] ?? 0) >= target;
     });
   }, [teacherLed, stageChallenge, me, stageBars, stageTimeBarId, sync.scoresByAssessment]);
+  // Already passed: never reopen the question panel for this student.
+  useEffect(() => {
+    if (myPointMet) setOpenBarId(null);
+  }, [myPointMet]);
+
 
 
   const advancedRef = useRef<string | null>(null);
