@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 export interface CreateNotebookValues {
@@ -53,7 +53,6 @@ export const CreateNotebookDialog = ({ open, onOpenChange, onCreate }: Props) =>
   const defaultSession = useMemo(currentSession, []);
   const [v, setV] = useState<CreateNotebookValues>(() => blank(defaultSession));
   const [busy, setBusy] = useState(false);
-  const [classes, setClasses] = useState<string[]>([]);
 
   const teacherName = useMemo(() => {
     const m = (user?.user_metadata ?? {}) as Record<string, unknown>;
@@ -66,26 +65,6 @@ export const CreateNotebookDialog = ({ open, onOpenChange, onCreate }: Props) =>
     if (!open) return;
     setV({ ...blank(defaultSession), teacher: teacherName });
   }, [open, defaultSession, teacherName]);
-
-  useEffect(() => {
-    if (!open || !user) return;
-    let active = true;
-    void supabase
-      .from("classes")
-      .select("name")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (!active) return;
-        const names = Array.from(
-          new Set(((data ?? []) as { name: string | null }[]).map((r) => (r.name ?? "").trim()).filter(Boolean)),
-        );
-        setClasses(names);
-      });
-    return () => {
-      active = false;
-    };
-  }, [open, user]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,27 +105,12 @@ export const CreateNotebookDialog = ({ open, onOpenChange, onCreate }: Props) =>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Class</Label>
-              {classes.length > 0 ? (
-                <Select value={v.class_name} onValueChange={(x) => setV({ ...v, class_name: x })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select class…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  value={v.class_name}
-                  onChange={(e) => setV({ ...v, class_name: e.target.value })}
-                  placeholder="Type class…"
-                  required
-                />
-              )}
+              <Input
+                value={v.class_name}
+                onChange={(e) => setV({ ...v, class_name: e.target.value })}
+                placeholder="Type class…"
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Academic session</Label>

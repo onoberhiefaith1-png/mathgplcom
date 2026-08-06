@@ -183,11 +183,13 @@ export const defaultCoverConfig = (nb: NotebookSeed): NotebookCoverConfig => ({
   subtitle: nb.subtopic?.trim() || "Lesson Notes",
   badge: "Teacher",
   rows: [
-    { label: "Teacher", value: nb.teacher ?? "" },
     { label: "Class", value: nb.class_name ?? "" },
     { label: "Session", value: nb.session ?? "" },
     { label: "Subject", value: nb.subject ?? "" },
+    { label: "Topic", value: nb.title?.trim() ?? "" },
+    { label: "Subtopic", value: nb.subtopic?.trim() ?? "" },
   ],
+
 });
 
 /** Normalises whatever is stored in the DB into a usable config. */
