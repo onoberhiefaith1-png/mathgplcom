@@ -22,6 +22,13 @@ export interface HomepageConfig {
   slotOverrides?: Record<string, HomepageMediaRef>;
   /** A whole replacement building (single image or looping video). */
   customBuilding?: CanvasElement | null;
+  /** The global MATHGPL background soundtrack (plays outside any game). */
+  soundtrack?: HomepageMediaRef | null;
+  /** Off by default — sound only ever starts because the account asked for it. */
+  soundtrackEnabled?: boolean;
+  /** 0–1, default 0.4. */
+  soundtrackVolume?: number;
+
 }
 
 const STORAGE_KEY = "mathgpl.homepage.config";

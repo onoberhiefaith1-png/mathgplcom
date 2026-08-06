@@ -9,8 +9,9 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { GAME_ASSETS_BUCKET, type Narration } from "./types";
+import { GAME_ASSETS_BUCKET, type Narration, type Scene } from "./types";
 import { getSignedUrl } from "./urls";
+import { playNarration, stopChannel } from "./audio";
 
 const rand = () => Math.random().toString(36).slice(2, 10);
 
@@ -35,6 +36,12 @@ export const uploadNarration = async (file: Blob, name: string): Promise<string>
 export interface NarrationRuntime {
   /** Feed every playhead tick. */
   onTime: (t: number) => void;
+  /**
+   * A Learning Point just became active: speak whatever is pinned inside its
+   * loop region. Play Once clips speak once per run; Repeat clips speak on
+   * every activation.
+   */
+  onLoopStart: (loop: Scene | null | undefined) => void;
   /** Clear the "played once" memory — a new session or a Preview restart. */
   reset: () => void;
   /** Stop any clip that is currently speaking. */
@@ -61,17 +68,12 @@ export const useNarrationPlayback = (
   listRef.current = narrations;
   const playedRef = useRef<Set<string>>(new Set());
   const lastTimeRef = useRef(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
 
 
   const stop = useCallback(() => {
-    const el = audioRef.current;
-    if (el) {
-      el.pause();
-      el.currentTime = 0;
-    }
+    stopChannel("narration", 120);
   }, []);
 
   const reset = useCallback(() => {
@@ -103,19 +105,29 @@ export const useNarrationPlayback = (
     try {
       const url = n.source === "url" ? n.path : await getSignedUrl(n.path);
       if (!url) return;
-      let el = audioRef.current;
-      if (!el) {
-        el = new Audio();
-        audioRef.current = el;
-      }
-      el.pause();
-      el.src = url;
-      el.currentTime = 0;
-      await el.play().catch(() => {});
+      // The shared audio bus owns playback: the background music ducks while
+      // the clip speaks, and a queued clip resumes once audio is unlocked.
+      playNarration(url);
     } catch (err) {
       console.error("narration playback failed", err);
     }
   }, []);
+
+  /** Clips pinned inside a Learning Point's loop region. */
+  const onLoopStart = useCallback(
+    (loop: Scene | null | undefined) => {
+      if (!enabledRef.current || !loop) return;
+      const start = loop.loopStart ?? 0;
+      const end = loop.loopEnd ?? start;
+      for (const n of listRef.current) {
+        if (n.at < start - TOLERANCE || n.at > end + TOLERANCE) continue;
+        if (n.mode === "once" && playedRef.current.has(n.id)) continue;
+        playedRef.current.add(n.id);
+        void fire(n);
+      }
+    },
+    [fire],
+  );
 
   const onTime = useCallback(
     (t: number) => {
@@ -139,5 +151,5 @@ export const useNarrationPlayback = (
     [fire],
   );
 
-  return useMemo(() => ({ onTime, reset, stop }), [onTime, reset, stop]);
+  return useMemo(() => ({ onTime, onLoopStart, reset, stop }), [onTime, onLoopStart, reset, stop]);
 };

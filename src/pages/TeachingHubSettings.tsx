@@ -1,5 +1,6 @@
 import { Link } from "@/lib/router-compat";
 import { ArrowLeft, Archive, ChevronRight } from "lucide-react";
+import BackgroundSoundSettings from "@/components/settings/BackgroundSoundSettings";
 
 const TeachingHubSettings = () => (
   <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
@@ -10,7 +11,7 @@ const TeachingHubSettings = () => (
       <h1 className="text-lg font-semibold tracking-wide">Settings</h1>
       <div className="w-32" />
     </header>
-    <main className="mx-auto max-w-2xl px-6 py-10">
+    <main className="mx-auto max-w-2xl space-y-6 px-6 py-10">
       <div className="overflow-hidden rounded-2xl border border-border bg-card/40 backdrop-blur">
         <Link
           to="/teaching-hub/settings/archive"
@@ -23,8 +24,10 @@ const TeachingHubSettings = () => (
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </Link>
       </div>
+      <BackgroundSoundSettings />
     </main>
   </div>
 );
+
 
 export default TeachingHubSettings;

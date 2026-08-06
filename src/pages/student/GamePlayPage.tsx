@@ -21,6 +21,8 @@ import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
 import { loopRegionFor, loopStateOf, type LoopState } from "@/lib/games/loopRuntime";
 import { useNarrationPlayback } from "@/lib/games/narration";
+import { useAdventureAudio } from "@/lib/games/adventureAudio";
+import { audioUnlocked, unlockAudio } from "@/lib/games/audio";
 import { useVideoAdventureRun } from "@/hooks/useVideoAdventureRun";
 import { narrationsOf } from "@/lib/games/types";
 
@@ -367,8 +369,23 @@ const GamePlayPage = () => {
     // Completed Learning Point: the Progress Bar is no longer needed and
     // disappears at once, while the reward finishes travelling upward.
     if (videoBg && exitingCpId) return mine.filter((e) => e.kind !== "progress_bar");
+    // Teacher-led: bars and rewards belong to an OPEN challenge. Between
+    // challenges they must not flash on screen while the video travels.
+    if (videoBg && teacherLed) {
+      const open = teacherRun.activeChallenge?.scene_id === activeStage.id;
+      if (!open) return mine.filter((e) => e.kind !== "progress_bar" && e.kind !== "reward");
+    }
     return mine;
-  }, [staged, activeStage, stageIds, mirroredElements, videoBg, exitingCpId]);
+  }, [
+    staged,
+    activeStage,
+    stageIds,
+    mirroredElements,
+    videoBg,
+    exitingCpId,
+    teacherLed,
+    teacherRun.activeChallenge,
+  ]);
 
   /**
    * Learning Point state, resolved by the shared runtime rules
@@ -421,6 +438,42 @@ const GamePlayPage = () => {
   // Gameplay: Play Once lasts the whole student session (one mounted game).
   const sessionRunId = useMemo(() => `${gameId ?? "game"}:${Date.now()}`, [gameId]);
   const narrationRuntime = useNarrationPlayback(narrations, Boolean(videoBg), sessionRunId);
+
+  // Adventure sound: ambience for the whole game, environmental music for the
+  // stage the student is inside. The platform soundtrack stops on entry and
+  // resumes on exit.
+  const gameAudio = useAdventureAudio(canvas, activeStage?.id ?? null, Boolean(game));
+
+  // A stage opening speaks its narration and fires its effect exactly once.
+  const stageAudioRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = activeStage?.id ?? null;
+    if (!id || stageAudioRef.current === id) return;
+    stageAudioRef.current = id;
+    if (videoBg) narrationRuntime.onLoopStart(activeStage);
+    gameAudio.effect("loop_start");
+  }, [activeStage, videoBg, narrationRuntime, gameAudio]);
+
+  // Gameplay effects.
+  useEffect(() => { if (transfer.won) gameAudio.effect("goal"); }, [transfer.won, gameAudio]);
+  useEffect(() => { if (timeBar.expired) gameAudio.effect("time_up"); }, [timeBar.expired, gameAudio]);
+  useEffect(() => { if (awardedIds.length > 0) gameAudio.effect("reward"); }, [awardedIds, gameAudio]);
+
+  // Browsers need one gesture before any sound may start.
+  const hasSound = useMemo(() => {
+    const snd = canvas?.sounds ?? null;
+    return (
+      narrations.length > 0 ||
+      Boolean(snd?.ambience?.path) ||
+      Object.keys(snd?.music ?? {}).length > 0
+    );
+  }, [canvas, narrations]);
+  const [needsTap, setNeedsTap] = useState(() => !audioUnlocked());
+  useEffect(() => {
+    if (!needsTap) return;
+    const t = window.setInterval(() => { if (audioUnlocked()) setNeedsTap(false); }, 500);
+    return () => window.clearInterval(t);
+  }, [needsTap]);
 
 
   // Reaching a loop's start time freezes the journey into that loop.
@@ -525,6 +578,15 @@ const GamePlayPage = () => {
 
   return (
     <div ref={rootRef} className="min-h-screen w-full bg-[#0b0a16] text-foreground">
+      {needsTap && hasSound && (
+        <button
+          type="button"
+          onClick={() => { unlockAudio(); setNeedsTap(false); }}
+          className="fixed bottom-4 right-4 z-50 rounded-full border border-primary/50 bg-primary/15 px-4 py-2 text-xs font-semibold text-primary backdrop-blur"
+        >
+          Tap for sound
+        </button>
+      )}
       {waiting && (
         <div className="mx-4 mt-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm text-foreground">
           <div className="text-xs font-semibold uppercase tracking-wider text-primary">{myGroup?.name}</div>

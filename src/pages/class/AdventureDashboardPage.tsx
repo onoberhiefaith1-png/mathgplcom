@@ -14,6 +14,10 @@ import { normalizeCanvas, timeBarOf, sceneTimeSeconds, checkpointAt, checkpoints
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import { loopRegionFor } from "@/lib/games/loopRuntime";
 import { useVideoAdventureRun, DEFAULT_LP_DURATION_SECONDS, DEFAULT_REQUIRED_PCT } from "@/hooks/useVideoAdventureRun";
+import { useNarrationPlayback } from "@/lib/games/narration";
+import { useAdventureAudio } from "@/lib/games/adventureAudio";
+import { unlockAudio } from "@/lib/games/audio";
+import { narrationsOf } from "@/lib/games/types";
 import { LearningPointTimeBars } from "@/components/adventures/LearningPointTimeBars";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
@@ -254,6 +258,26 @@ const AdventureDashboardPage = () => {
     void runtime.actions.endChallenge(ch.scene_id, challengeMet ? "completed" : "expired");
   }, [isVideo, runtime.activeChallenge, runtime.expired, challengeMet, runtime.actions]);
 
+  // Sound: the teacher's dashboard is the live game screen, so it plays the
+  // adventure's ambience, the active Learning Point's music and its narration.
+  const narrations = useMemo(() => narrationsOf(canvas), [canvas]);
+  const narrationRuntime = useNarrationPlayback(
+    narrations,
+    isVideo && runtime.started,
+    runtime.run?.started_at ?? "idle",
+  );
+  const gameAudio = useAdventureAudio(canvas, stageScene?.id ?? null, runtime.started);
+
+  const stageAudioRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = activeScene?.id ?? null;
+    if (!runtime.started) { stageAudioRef.current = null; return; }
+    if (!id || stageAudioRef.current === id) return;
+    stageAudioRef.current = id;
+    narrationRuntime.onLoopStart(activeScene);
+    gameAudio.effect("loop_start");
+  }, [runtime.started, activeScene, narrationRuntime, gameAudio]);
+
   const onVideoTime = useCallback(
     (t: number) => {
       if (!isVideo) return;
@@ -263,6 +287,7 @@ const AdventureDashboardPage = () => {
         lastPublishRef.current = nowMs;
         void runtime.actions.publish({ playhead: t });
       }
+      narrationRuntime.onTime(t);
       // A finished Learning Point plays out its own lap, then hands back.
       if (exitingSceneId) {
         const end = exitingScene?.loopEnd ?? 0;
@@ -282,15 +307,32 @@ const AdventureDashboardPage = () => {
         requiredPct: DEFAULT_REQUIRED_PCT,
       });
     },
-    [isVideo, runtime.actions, runtime.activeChallenge, exitingSceneId, exitingScene, learningPoints, clearedSceneIds],
+    [
+      isVideo,
+      runtime.actions,
+      runtime.activeChallenge,
+      exitingSceneId,
+      exitingScene,
+      learningPoints,
+      clearedSceneIds,
+      narrationRuntime,
+    ],
   );
 
+  /**
+   * Restart Game replays the story: it resets the teacher's timeline and the
+   * challenge rows only. Student marks and scores are never touched.
+   */
   const startGame = useCallback(() => {
+    if (runtime.started && !window.confirm("Restart the story from the beginning? Student progress and scores are kept.")) {
+      return;
+    }
+    unlockAudio();
     setClearedSceneIds(new Set());
     setExitingSceneId(null);
     videoRef.current?.seek(0);
     void runtime.actions.startGame();
-  }, [runtime.actions]);
+  }, [runtime.actions, runtime.started]);
 
   // The video sits on its first frame until Start Game is pressed.
   useEffect(() => {
