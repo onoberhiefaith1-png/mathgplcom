@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPreset } from "@/lib/games/progressPresets";
-import { checkpointAt, checkpointsOf, normalizeCanvas, type GameRow, type Scene } from "@/lib/games/types";
+import { checkpointAt, checkpointsOf, normalizeCanvas, timeBarOf, type GameRow, type Scene } from "@/lib/games/types";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import type { GameBoard } from "@/lib/games/gameQuestions";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
