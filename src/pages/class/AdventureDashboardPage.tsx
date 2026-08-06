@@ -207,6 +207,120 @@ const AdventureDashboardPage = () => {
     return { label, segments };
   }, [timeBar.elementId, sync.elements, reservedTimeBar]);
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Video Adventure — the live, teacher-led game.
+  //
+  // The Game and the Time Bars are separate: `Start Game` runs the video, and a
+  // Learning Point's Time Bar only exists while the video sits inside it.
+  // Static Adventure is untouched by everything below.
+  // ───────────────────────────────────────────────────────────────────────────
+  const isVideo = mode === "video";
+  const learningPoints = useMemo<Scene[]>(
+    () => (canvas && isVideo ? checkpointsOf(canvas) : []),
+    [canvas, isVideo],
+  );
+  const runtime = useVideoAdventureRun(classId, gameId, true);
+  const activeScene = useMemo(
+    () => learningPoints.find((s) => s.id === runtime.activeChallenge?.scene_id) ?? null,
+    [learningPoints, runtime.activeChallenge],
+  );
+  const exitingScene = useMemo(
+    () => learningPoints.find((s) => s.id === exitingSceneId) ?? null,
+    [learningPoints, exitingSceneId],
+  );
+  const stageScene = activeScene ?? exitingScene;
+
+  /** Required mark reached for the Learning Point currently on screen. */
+  const challengeMet = useMemo(() => {
+    const ch = runtime.activeChallenge;
+    if (!ch || !activeScene) return false;
+    const ids = new Set((activeScene.elements ?? []).map((e) => e.id));
+    const bars = patchedBarSummaries.filter(
+      (b) => ids.has(b.id) && b.id !== timeBar.elementId && b.id !== reservedTimeBar?.el.id,
+    );
+    if (bars.length === 0) return false;
+    return bars.every((b) => {
+      const target = Math.max(1, Math.round((b.required * ch.required_pct) / 100));
+      return b.achieved >= target;
+    });
+  }, [runtime.activeChallenge, activeScene, patchedBarSummaries, timeBar.elementId, reservedTimeBar]);
+
+  /** A challenge ends on the required mark, or when its own timer runs out. */
+  useEffect(() => {
+    const ch = runtime.activeChallenge;
+    if (!isVideo || !ch) return;
+    if (!challengeMet && !runtime.expired) return;
+    setExitingSceneId(ch.scene_id);
+    void runtime.actions.endChallenge(ch.scene_id, challengeMet ? "completed" : "expired");
+  }, [isVideo, runtime.activeChallenge, runtime.expired, challengeMet, runtime.actions]);
+
+  const onVideoTime = useCallback(
+    (t: number) => {
+      if (!isVideo) return;
+      // Publish the master playhead about once a second — students follow it.
+      const nowMs = Date.now();
+      if (nowMs - lastPublishRef.current > 900) {
+        lastPublishRef.current = nowMs;
+        void runtime.actions.publish({ playhead: t });
+      }
+      // A finished Learning Point plays out its own lap, then hands back.
+      if (exitingSceneId) {
+        const end = exitingScene?.loopEnd ?? 0;
+        if (t >= end - 0.05) {
+          setClearedSceneIds((prev) => new Set(prev).add(exitingSceneId));
+          setExitingSceneId(null);
+        }
+        return;
+      }
+      if (runtime.activeChallenge) return;
+      const hit = checkpointAt(learningPoints, t);
+      if (!hit || clearedSceneIds.has(hit.id)) return;
+      const bar = timeBarOf(hit.elements);
+      void runtime.actions.openChallenge(hit.id, {
+        progressElementId: bar?.id ?? null,
+        durationSeconds: sceneTimeSeconds(hit) || DEFAULT_LP_DURATION_SECONDS,
+        requiredPct: DEFAULT_REQUIRED_PCT,
+      });
+    },
+    [isVideo, runtime.actions, runtime.activeChallenge, exitingSceneId, exitingScene, learningPoints, clearedSceneIds],
+  );
+
+  const startGame = useCallback(() => {
+    setClearedSceneIds(new Set());
+    setExitingSceneId(null);
+    videoRef.current?.seek(0);
+    void runtime.actions.startGame();
+  }, [runtime.actions]);
+
+  // The video sits on its first frame until Start Game is pressed.
+  useEffect(() => {
+    if (!isVideo || runtime.started) return;
+    videoRef.current?.seek(0);
+    videoRef.current?.pause();
+  }, [isVideo, runtime.started]);
+
+  /**
+   * Objects on screen during a Video Adventure: only the Learning Point that is
+   * active (or finishing its lap). Outside a Learning Point the canvas is clean.
+   */
+  const videoElements = useMemo(() => {
+    if (!stageScene) return [];
+    const ids = new Set((stageScene.elements ?? []).map((e) => e.id));
+    const timeBarId = timeBarOf(stageScene.elements)?.id ?? null;
+    const ch = runtime.activeChallenge;
+    return canvasElements
+      .filter((el) => ids.has(el.id))
+      // Completed: the bars disappear at once, the reward finishes travelling.
+      .filter((el) => !(exitingSceneId && el.kind === "progress_bar"))
+      .map((el) => {
+        if (!ch || !timeBarId || el.id !== timeBarId || el.kind !== "progress_bar" || !el.progress) return el;
+        const segs = Math.max(1, Number(el.progress.segments) || 10);
+        const total = Math.max(1, ch.duration_seconds * 1000);
+        const lit = Math.round((runtime.remainingMs / total) * segs);
+        return { ...el, progress: { ...el.progress, currentMarks: lit, totalMarks: segs } };
+      });
+  }, [stageScene, canvasElements, exitingSceneId, runtime.activeChallenge, runtime.remainingMs]);
+
 
   useEffect(() => {
     (async () => {
