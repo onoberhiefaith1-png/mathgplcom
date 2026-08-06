@@ -258,6 +258,26 @@ const AdventureDashboardPage = () => {
     void runtime.actions.endChallenge(ch.scene_id, challengeMet ? "completed" : "expired");
   }, [isVideo, runtime.activeChallenge, runtime.expired, challengeMet, runtime.actions]);
 
+  // Sound: the teacher's dashboard is the live game screen, so it plays the
+  // adventure's ambience, the active Learning Point's music and its narration.
+  const narrations = useMemo(() => narrationsOf(canvas), [canvas]);
+  const narrationRuntime = useNarrationPlayback(
+    narrations,
+    isVideo && runtime.started,
+    runtime.run?.started_at ?? "idle",
+  );
+  const gameAudio = useAdventureAudio(canvas, stageScene?.id ?? null, runtime.started);
+
+  const stageAudioRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = activeScene?.id ?? null;
+    if (!runtime.started) { stageAudioRef.current = null; return; }
+    if (!id || stageAudioRef.current === id) return;
+    stageAudioRef.current = id;
+    narrationRuntime.onLoopStart(activeScene);
+    gameAudio.effect("loop_start");
+  }, [runtime.started, activeScene, narrationRuntime, gameAudio]);
+
   const onVideoTime = useCallback(
     (t: number) => {
       if (!isVideo) return;
@@ -298,26 +318,6 @@ const AdventureDashboardPage = () => {
       narrationRuntime,
     ],
   );
-
-  // Sound: the teacher's dashboard is the live game screen, so it plays the
-  // adventure's ambience, the active Learning Point's music and its narration.
-  const narrations = useMemo(() => narrationsOf(canvas), [canvas]);
-  const narrationRuntime = useNarrationPlayback(
-    narrations,
-    isVideo && runtime.started,
-    runtime.run?.started_at ?? "idle",
-  );
-  const gameAudio = useAdventureAudio(canvas, stageScene?.id ?? null, runtime.started);
-
-  const stageAudioRef = useRef<string | null>(null);
-  useEffect(() => {
-    const id = activeScene?.id ?? null;
-    if (!runtime.started) { stageAudioRef.current = null; return; }
-    if (!id || stageAudioRef.current === id) return;
-    stageAudioRef.current = id;
-    narrationRuntime.onLoopStart(activeScene);
-    gameAudio.effect("loop_start");
-  }, [runtime.started, activeScene, narrationRuntime, gameAudio]);
 
   /**
    * Restart Game replays the story: it resets the teacher's timeline and the
