@@ -457,7 +457,7 @@ const AdventureDashboardPage = () => {
               <MetaField label="Total Marks" value={String(boards.reduce((a, b) => a + b.totalMarks, 0))} />
             </div>
           </div>
-          {patchedBarSummaries.length > 0 && (
+          {patchedBarSummaries.length > 0 && (!isVideo || Boolean(runtime.activeChallenge)) && (
             <div className="mx-auto mb-3 flex w-full max-w-[1500px] flex-wrap gap-2">
               {patchedBarSummaries.map((b) => (
                 <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs backdrop-blur">
@@ -553,7 +553,33 @@ const AdventureDashboardPage = () => {
           )}
 
 
-          {gameId && (
+          {gameId && isVideo && (
+            <div className="mx-auto mb-3 flex w-full max-w-[1500px] flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={startGame}
+                className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/15 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/25"
+              >
+                <Play className="h-4 w-4" /> {runtime.started ? "Restart Game" : "Start Game"}
+              </button>
+              {!runtime.started && (
+                <span className="text-xs text-muted-foreground">
+                  The adventure is waiting at 0:00. Students cannot open questions until you start.
+                </span>
+              )}
+              <div className="w-full">
+                <LearningPointTimeBars
+                  learningPoints={learningPoints}
+                  challengeFor={runtime.challengeFor}
+                  activeChallenge={runtime.activeChallenge}
+                  remainingMs={runtime.remainingMs}
+                  onSetDuration={(sceneId, seconds) => void runtime.actions.setDuration(sceneId, seconds)}
+                  onSetRequiredPct={(sceneId, pct) => void runtime.actions.setRequiredPct(sceneId, pct)}
+                />
+              </div>
+            </div>
+          )}
+          {gameId && !isVideo && (
             <div className="mx-auto mb-3 w-full max-w-[1500px]">
               <TimeBarControl gameId={gameId} barLabel={timeBarMeta.label} segments={timeBarMeta.segments} />
             </div>
@@ -568,6 +594,26 @@ const AdventureDashboardPage = () => {
               style={fullscreen === "game" ? undefined : { width: panelOpen ? "70%" : "100%" }}
             >
               <div className={fullscreen === "game" ? "relative w-full max-w-[1800px]" : "relative"}>
+                {isVideo && canvas?.video && (
+                  <div className="relative w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: "16 / 9" }}>
+                    <VideoBackgroundLayer
+                      ref={videoRef}
+                      video={canvas.video}
+                      playing={runtime.started}
+                      loop={loopRegionFor(activeScene, false)}
+                      onTime={onVideoTime}
+                    />
+                    <div className="pointer-events-none absolute inset-0">
+                      <GameCanvas elements={videoElements} selectedId={null} editable={false} fill transparent />
+                    </div>
+                    {activeScene && (
+                      <div className="absolute left-3 top-3 z-40 rounded-full border border-primary/40 bg-background/80 px-3 py-1 text-xs font-semibold text-primary backdrop-blur">
+                        {activeScene.title || "Learning Point"}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!isVideo && (
                 <GameCanvas
                   elements={canvasElements}
                   selectedId={selectedRewardId}
