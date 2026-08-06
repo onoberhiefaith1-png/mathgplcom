@@ -520,7 +520,7 @@ const GamePlayPage = () => {
 
   // Gameplay effects.
   useEffect(() => { if (transfer.won) gameAudio.effect("goal"); }, [transfer.won, gameAudio]);
-  useEffect(() => { if (timeBar.expired) gameAudio.effect("time_up"); }, [timeBar.expired, gameAudio]);
+  useEffect(() => { if (timeExpired) gameAudio.effect("time_up"); }, [timeExpired, gameAudio]);
   useEffect(() => { if (awardedIds.length > 0) gameAudio.effect("reward"); }, [awardedIds, gameAudio]);
 
   // Browsers need one gesture before any sound may start.
