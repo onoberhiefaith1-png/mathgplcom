@@ -433,6 +433,9 @@ const GamePlayPage = () => {
     if (videoBg && teacherLed) {
       const open = teacherRun.activeChallenge?.scene_id === activeStage.id;
       if (!open) return mine.filter((e) => e.kind !== "progress_bar" && e.kind !== "reward");
+      // This student already met the required mark for this point (a replay of
+      // the story): nothing opens, they keep watching with the class.
+      if (myPointMet) return mine.filter((e) => e.kind !== "progress_bar");
     }
     return mine;
   }, [
@@ -444,7 +447,9 @@ const GamePlayPage = () => {
     exitingCpId,
     teacherLed,
     teacherRun.activeChallenge,
+    myPointMet,
   ]);
+
 
   /**
    * Learning Point state, resolved by the shared runtime rules
