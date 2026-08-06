@@ -21,6 +21,7 @@ import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
 import { loopRegionFor, loopStateOf, type LoopState } from "@/lib/games/loopRuntime";
 import { useNarrationPlayback } from "@/lib/games/narration";
+import { useVideoAdventureRun } from "@/hooks/useVideoAdventureRun";
 import { narrationsOf } from "@/lib/games/types";
 
 
@@ -172,6 +173,19 @@ const GamePlayPage = () => {
   // It owns every object inside it; only the FINAL stage opens the Gallery.
   const canvas = useMemo(() => (game ? normalizeCanvas(game.canvas) : null), [game]);
   const videoBg = canvas?.video ?? null;
+
+  // Video Adventure: the teacher's dashboard owns the timeline. The student's
+  // video is a follower — it cannot play until the teacher starts the game, and
+  // it re-aligns whenever it drifts from the published playhead.
+  const teacherRun = useVideoAdventureRun(classId, gameId, false);
+  const teacherLed = Boolean(videoBg);
+  const teacherStarted = teacherLed ? teacherRun.started : true;
+  useEffect(() => {
+    if (!teacherLed || !teacherRun.started) return;
+    const target = Number(teacherRun.run?.playhead_seconds) || 0;
+    const here = videoRef.current?.currentTime() ?? 0;
+    if (Math.abs(here - target) > 1.5) videoRef.current?.seek(target);
+  }, [teacherLed, teacherRun.started, teacherRun.run?.playhead_seconds]);
   const stages = useMemo(() => (canvas ? stagesOf(canvas) : []), [canvas]);
   const [stageIdx, setStageIdx] = useState(0);
   const activeStage: Scene | null = videoBg
@@ -538,7 +552,7 @@ const GamePlayPage = () => {
                 <VideoBackgroundLayer
                   ref={videoRef}
                   video={videoBg}
-                  playing={!frozen && !cpFailed && (!transfer.transferring || !!videoBg)}
+                  playing={teacherStarted && !frozen && !cpFailed && (!transfer.transferring || !!videoBg)}
                   loop={loopRegionFor(activeCp, Boolean(exitingCpId))}
 
 
@@ -606,7 +620,13 @@ const GamePlayPage = () => {
             )}
 
             <div className="pointer-events-none absolute inset-0 z-30">
-              {!frozen && !transfer.transferring && playableBars.map((bar) => {
+              {teacherLed && !teacherStarted && (
+                <p className="rounded-md border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
+                  Waiting for your teacher to start the adventure.
+                </p>
+              )}
+              {(!teacherLed || Boolean(teacherRun.activeChallenge)) &&
+                !frozen && !transfer.transferring && playableBars.map((bar) => {
 
                 const aspect = getPreset(bar.progress?.presetId)?.aspect ?? 0.5;
                 return (

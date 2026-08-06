@@ -3,14 +3,18 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, Sparkles, ChevronRight, ChevronLeft, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, ChevronRight, ChevronLeft, Maximize2, Minimize2, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { AssessmentStatusPanel } from "@/components/dashboards/AssessmentStatusPanel";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
-import { normalizeCanvas, timeBarOf, sceneTimeSeconds, type GameRow } from "@/lib/games/types";
+import { normalizeCanvas, timeBarOf, sceneTimeSeconds, checkpointAt, checkpointsOf, type GameRow, type Scene } from "@/lib/games/types";
+import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
+import { loopRegionFor } from "@/lib/games/loopRuntime";
+import { useVideoAdventureRun, DEFAULT_LP_DURATION_SECONDS, DEFAULT_REQUIRED_PCT } from "@/hooks/useVideoAdventureRun";
+import { LearningPointTimeBars } from "@/components/adventures/LearningPointTimeBars";
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
@@ -36,6 +40,11 @@ const AdventureDashboardPage = () => {
   const [panelOpen, setPanelOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState<"none" | "game" | "panel">("none");
   const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null);
+  // Video Adventure only — the dashboard is the live game screen.
+  const videoRef = useRef<VideoBackgroundHandle | null>(null);
+  const [exitingSceneId, setExitingSceneId] = useState<string | null>(null);
+  const [clearedSceneIds, setClearedSceneIds] = useState<Set<string>>(() => new Set());
+  const lastPublishRef = useRef(0);
 
   useEffect(() => {
     if (fullscreen === "none") return;
@@ -198,6 +207,120 @@ const AdventureDashboardPage = () => {
     return { label, segments };
   }, [timeBar.elementId, sync.elements, reservedTimeBar]);
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Video Adventure — the live, teacher-led game.
+  //
+  // The Game and the Time Bars are separate: `Start Game` runs the video, and a
+  // Learning Point's Time Bar only exists while the video sits inside it.
+  // Static Adventure is untouched by everything below.
+  // ───────────────────────────────────────────────────────────────────────────
+  const isVideo = mode === "video";
+  const learningPoints = useMemo<Scene[]>(
+    () => (canvas && isVideo ? checkpointsOf(canvas) : []),
+    [canvas, isVideo],
+  );
+  const runtime = useVideoAdventureRun(classId, gameId, true);
+  const activeScene = useMemo(
+    () => learningPoints.find((s) => s.id === runtime.activeChallenge?.scene_id) ?? null,
+    [learningPoints, runtime.activeChallenge],
+  );
+  const exitingScene = useMemo(
+    () => learningPoints.find((s) => s.id === exitingSceneId) ?? null,
+    [learningPoints, exitingSceneId],
+  );
+  const stageScene = activeScene ?? exitingScene;
+
+  /** Required mark reached for the Learning Point currently on screen. */
+  const challengeMet = useMemo(() => {
+    const ch = runtime.activeChallenge;
+    if (!ch || !activeScene) return false;
+    const ids = new Set((activeScene.elements ?? []).map((e) => e.id));
+    const bars = patchedBarSummaries.filter(
+      (b) => ids.has(b.id) && b.id !== timeBar.elementId && b.id !== reservedTimeBar?.el.id,
+    );
+    if (bars.length === 0) return false;
+    return bars.every((b) => {
+      const target = Math.max(1, Math.round((b.required * ch.required_pct) / 100));
+      return b.achieved >= target;
+    });
+  }, [runtime.activeChallenge, activeScene, patchedBarSummaries, timeBar.elementId, reservedTimeBar]);
+
+  /** A challenge ends on the required mark, or when its own timer runs out. */
+  useEffect(() => {
+    const ch = runtime.activeChallenge;
+    if (!isVideo || !ch) return;
+    if (!challengeMet && !runtime.expired) return;
+    setExitingSceneId(ch.scene_id);
+    void runtime.actions.endChallenge(ch.scene_id, challengeMet ? "completed" : "expired");
+  }, [isVideo, runtime.activeChallenge, runtime.expired, challengeMet, runtime.actions]);
+
+  const onVideoTime = useCallback(
+    (t: number) => {
+      if (!isVideo) return;
+      // Publish the master playhead about once a second — students follow it.
+      const nowMs = Date.now();
+      if (nowMs - lastPublishRef.current > 900) {
+        lastPublishRef.current = nowMs;
+        void runtime.actions.publish({ playhead: t });
+      }
+      // A finished Learning Point plays out its own lap, then hands back.
+      if (exitingSceneId) {
+        const end = exitingScene?.loopEnd ?? 0;
+        if (t >= end - 0.05) {
+          setClearedSceneIds((prev) => new Set(prev).add(exitingSceneId));
+          setExitingSceneId(null);
+        }
+        return;
+      }
+      if (runtime.activeChallenge) return;
+      const hit = checkpointAt(learningPoints, t);
+      if (!hit || clearedSceneIds.has(hit.id)) return;
+      const bar = timeBarOf(hit.elements);
+      void runtime.actions.openChallenge(hit.id, {
+        progressElementId: bar?.id ?? null,
+        durationSeconds: sceneTimeSeconds(hit) || DEFAULT_LP_DURATION_SECONDS,
+        requiredPct: DEFAULT_REQUIRED_PCT,
+      });
+    },
+    [isVideo, runtime.actions, runtime.activeChallenge, exitingSceneId, exitingScene, learningPoints, clearedSceneIds],
+  );
+
+  const startGame = useCallback(() => {
+    setClearedSceneIds(new Set());
+    setExitingSceneId(null);
+    videoRef.current?.seek(0);
+    void runtime.actions.startGame();
+  }, [runtime.actions]);
+
+  // The video sits on its first frame until Start Game is pressed.
+  useEffect(() => {
+    if (!isVideo || runtime.started) return;
+    videoRef.current?.seek(0);
+    videoRef.current?.pause();
+  }, [isVideo, runtime.started]);
+
+  /**
+   * Objects on screen during a Video Adventure: only the Learning Point that is
+   * active (or finishing its lap). Outside a Learning Point the canvas is clean.
+   */
+  const videoElements = useMemo(() => {
+    if (!stageScene) return [];
+    const ids = new Set((stageScene.elements ?? []).map((e) => e.id));
+    const timeBarId = timeBarOf(stageScene.elements)?.id ?? null;
+    const ch = runtime.activeChallenge;
+    return canvasElements
+      .filter((el) => ids.has(el.id))
+      // Completed: the bars disappear at once, the reward finishes travelling.
+      .filter((el) => !(exitingSceneId && el.kind === "progress_bar"))
+      .map((el) => {
+        if (!ch || !timeBarId || el.id !== timeBarId || el.kind !== "progress_bar" || !el.progress) return el;
+        const segs = Math.max(1, Number(el.progress.segments) || 10);
+        const total = Math.max(1, ch.duration_seconds * 1000);
+        const lit = Math.round((runtime.remainingMs / total) * segs);
+        return { ...el, progress: { ...el.progress, currentMarks: lit, totalMarks: segs } };
+      });
+  }, [stageScene, canvasElements, exitingSceneId, runtime.activeChallenge, runtime.remainingMs]);
+
 
   useEffect(() => {
     (async () => {
@@ -334,7 +457,7 @@ const AdventureDashboardPage = () => {
               <MetaField label="Total Marks" value={String(boards.reduce((a, b) => a + b.totalMarks, 0))} />
             </div>
           </div>
-          {patchedBarSummaries.length > 0 && (
+          {patchedBarSummaries.length > 0 && (!isVideo || Boolean(runtime.activeChallenge)) && (
             <div className="mx-auto mb-3 flex w-full max-w-[1500px] flex-wrap gap-2">
               {patchedBarSummaries.map((b) => (
                 <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs backdrop-blur">
@@ -430,7 +553,33 @@ const AdventureDashboardPage = () => {
           )}
 
 
-          {gameId && (
+          {gameId && isVideo && (
+            <div className="mx-auto mb-3 flex w-full max-w-[1500px] flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={startGame}
+                className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/15 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/25"
+              >
+                <Play className="h-4 w-4" /> {runtime.started ? "Restart Game" : "Start Game"}
+              </button>
+              {!runtime.started && (
+                <span className="text-xs text-muted-foreground">
+                  The adventure is waiting at 0:00. Students cannot open questions until you start.
+                </span>
+              )}
+              <div className="w-full">
+                <LearningPointTimeBars
+                  learningPoints={learningPoints}
+                  challengeFor={runtime.challengeFor}
+                  activeChallenge={runtime.activeChallenge}
+                  remainingMs={runtime.remainingMs}
+                  onSetDuration={(sceneId, seconds) => void runtime.actions.setDuration(sceneId, seconds)}
+                  onSetRequiredPct={(sceneId, pct) => void runtime.actions.setRequiredPct(sceneId, pct)}
+                />
+              </div>
+            </div>
+          )}
+          {gameId && !isVideo && (
             <div className="mx-auto mb-3 w-full max-w-[1500px]">
               <TimeBarControl gameId={gameId} barLabel={timeBarMeta.label} segments={timeBarMeta.segments} />
             </div>
@@ -445,6 +594,26 @@ const AdventureDashboardPage = () => {
               style={fullscreen === "game" ? undefined : { width: panelOpen ? "70%" : "100%" }}
             >
               <div className={fullscreen === "game" ? "relative w-full max-w-[1800px]" : "relative"}>
+                {isVideo && canvas?.video && (
+                  <div className="relative w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: "16 / 9" }}>
+                    <VideoBackgroundLayer
+                      ref={videoRef}
+                      video={canvas.video}
+                      playing={runtime.started}
+                      loop={loopRegionFor(activeScene, false)}
+                      onTime={onVideoTime}
+                    />
+                    <div className="pointer-events-none absolute inset-0">
+                      <GameCanvas elements={videoElements} selectedId={null} editable={false} fill transparent />
+                    </div>
+                    {activeScene && (
+                      <div className="absolute left-3 top-3 z-40 rounded-full border border-primary/40 bg-background/80 px-3 py-1 text-xs font-semibold text-primary backdrop-blur">
+                        {activeScene.title || "Learning Point"}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!isVideo && (
                 <GameCanvas
                   elements={canvasElements}
                   selectedId={selectedRewardId}
@@ -463,6 +632,7 @@ const AdventureDashboardPage = () => {
                   }}
                   heightUnits={sync.heightUnits}
                 />
+                )}
                 {timeUp && (
                   <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-background/70 backdrop-blur-sm">
                     <div className="rounded-2xl border border-destructive/50 bg-background px-8 py-5 text-center shadow-2xl">
