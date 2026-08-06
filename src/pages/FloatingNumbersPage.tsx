@@ -1203,6 +1203,14 @@ const FloatingNumbersPage = () => {
             >
               <Shuffle className="h-3.5 w-3.5" /> Shuffle
             </button>
+            <button
+              onClick={resetAll}
+              disabled={loading || lines.every((l) => l.fillers.length === 0 && l.containers.length === 0)}
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-red-300/60 hover:bg-red-50 disabled:opacity-40"
+              style={{ color: "hsl(0 60% 45%)" }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </button>
           </div>
         </div>
 
