@@ -10,15 +10,12 @@ import { compileQuestionSections } from "@/lib/assessments/createAssessment";
 import {
   normalizeCanvas,
   adventureModeOf,
-  checkpointsMissingTime,
-  questionBarsOf,
-  VIDEO_TIME_REQUIRED_MESSAGE,
   type CanvasElement,
   type GameRow,
 } from "@/lib/games/types";
 import {
   BAR_OCCUPIED_MESSAGE,
-  checkpointLabel,
+  collectLinkableBars,
   loadBarAssignments,
   unassignBar,
   type BarAssignment,
@@ -40,7 +37,7 @@ interface Props {
 
 type Step = "game" | "bar" | "config";
 type BarChoice = { sceneTitle: string; el: CanvasElement };
-type BarGroup = { sceneId: string; label: string; bars: BarChoice[] };
+type BarGroup = { sceneId: string; label: string; hasTime: boolean; bars: BarChoice[] };
 
 export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, noteTitle, questions, onLinked }: Props) {
   const [step, setStep] = useState<Step>("game");
@@ -48,6 +45,7 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
   const [games, setGames] = useState<GameRow[]>([]);
   const [gameId, setGameId] = useState<string>("");
   const [barGroups, setBarGroups] = useState<BarGroup[]>([]);
+  const [isVideo, setIsVideo] = useState(false);
   const [assignments, setAssignments] = useState<Record<string, BarAssignment>>({});
   const [unassigning, setUnassigning] = useState<string | null>(null);
   const [chosenBar, setChosenBar] = useState<BarChoice | null>(null);
@@ -68,7 +66,7 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
 
   useEffect(() => {
     if (!open) return;
-    setGameId(""); setBarGroups([]); setAssignments({}); setChosenBar(null); setStep("game"); setLoading(true);
+    setGameId(""); setBarGroups([]); setIsVideo(false); setAssignments({}); setChosenBar(null); setStep("game"); setLoading(true);
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
@@ -96,24 +94,24 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
 
   const pickGame = async (g: GameRow) => {
     const canvas = normalizeCanvas(g.canvas);
-    // A Video Adventure paces its story with the Time Progress Bar, so every
-    // Learning Point needs a duration before it can go out to a class.
-    if (adventureModeOf(canvas) === "video" && checkpointsMissingTime(canvas).length > 0) {
-      toast({ title: "Set a time for every Learning Point", description: VIDEO_TIME_REQUIRED_MESSAGE });
-      return;
-    }
     setGameId(g.id);
-    // The Time Progress Bar of every Learning Point is reserved by the engine
-    // and never carries questions, so it is not listed at all.
-    const groups: BarGroup[] = canvas.scenes.map((s, i) => ({
-      sceneId: s.id,
-      label: checkpointLabel(canvas, s, i),
-      bars: questionBarsOf(s.elements).map((el) => ({ sceneTitle: s.title, el })),
-    })).filter((grp) => grp.bars.length > 0);
-    setBarGroups(groups);
+    setIsVideo(adventureModeOf(canvas) === "video");
+    // Progress Bars live INSIDE Learning Points, so we walk every Learning Point
+    // in play order and collect its bars. The reserved Time Progress Bar of each
+    // Learning Point is skipped — it never carries questions. Groups with no
+    // linkable bar are still listed so the structure stays visible.
+    setBarGroups(
+      collectLinkableBars(canvas).map((grp) => ({
+        sceneId: grp.sceneId,
+        label: grp.label,
+        hasTime: grp.hasTime,
+        bars: grp.bars.map((el) => ({ sceneTitle: grp.label, el })),
+      })),
+    );
     setAssignments(await loadBarAssignments(classId, g.id));
     setStep("bar");
   };
+
 
   const pickBar = (b: BarChoice) => {
     const taken = assignments[b.el.id];
@@ -145,6 +143,16 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
   };
 
   const chosenGame = useMemo(() => games.find((g) => g.id === gameId), [games, gameId]);
+  const noun = isVideo ? "Learning Point" : "Scene";
+  const totalLinkable = useMemo(() => barGroups.reduce((n, g) => n + g.bars.length, 0), [barGroups]);
+  const missingBarLabels = useMemo(
+    () => barGroups.filter((g) => g.bars.length === 0).map((g) => g.label).join(", "),
+    [barGroups],
+  );
+  const noTimeLabels = useMemo(
+    () => (isVideo ? barGroups.filter((g) => !g.hasTime).map((g) => g.label).join(", ") : ""),
+    [barGroups, isVideo],
+  );
   const segments = Math.max(1, Number(chosenBar?.el.progress?.segments) || 10);
   const grandTotal = totalMarks * studentCount;
   const requiredScore = Math.max(1, Math.round(grandTotal * (goalPct / 100)));
@@ -305,14 +313,32 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
         ) : step === "bar" ? (
           <>
             <div className="mb-2 text-xs text-muted-foreground">Game: <span className="font-medium text-foreground">{chosenGame?.title}</span></div>
-            {barGroups.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">This game has no Question Progress Bars yet. The first bar of every Learning Point is reserved as the Time Progress Bar — add another Progress Bar in the editor.</div>
+            {totalLinkable === 0 ? (
+              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                {barGroups.length === 0
+                  ? `This adventure has no ${noun}s yet — add one in the editor.`
+                  : `Every ${noun} only has its reserved Time Progress Bar. Add a second Progress Bar in ${missingBarLabels || `each ${noun}`} to link a Lesson Note.`}
+              </div>
             ) : (
               <div className="max-h-80 space-y-3 overflow-y-auto">
+                {noTimeLabels && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-foreground">
+                    No time set yet for {noTimeLabels}. You can link Lesson Notes now — a duration is only required before publishing.
+                  </div>
+                )}
                 {barGroups.map((grp) => (
                   <div key={grp.sceneId}>
-                    <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">{grp.label}</div>
+                    <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <span>{grp.label}</span>
+                      {!grp.hasTime && <span className="text-amber-600 normal-case">No time set</span>}
+                    </div>
+                    {grp.bars.length === 0 ? (
+                      <div className="rounded-md border border-dashed border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
+                        Only the reserved Time Progress Bar here — add another Progress Bar in the editor to link a Lesson Note.
+                      </div>
+                    ) : (
                     <ul className="space-y-1.5">
+
                       {grp.bars.map((b, i) => {
                         const segs = Math.max(1, Number(b.el.progress?.segments) || 10);
                         const taken = assignments[b.el.id];
@@ -355,6 +381,8 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
                         );
                       })}
                     </ul>
+                    )}
+
                   </div>
                 ))}
               </div>
