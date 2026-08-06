@@ -576,6 +576,9 @@ export const TIME_DURATION_OPTIONS: { seconds: number; label: string }[] = [
   { seconds: 1800, label: "30 minutes" },
 ];
 
+/** Selectable Required Mark values for a Learning Point challenge. */
+export const REQUIRED_MARK_OPTIONS: number[] = [40, 50, 60, 80, 100];
+
 export const VIDEO_TIME_REQUIRED_MESSAGE =
   "A Video Adventure requires a Time Progress Bar for each Learning Point. Please set a duration before publishing your adventure.";
 
