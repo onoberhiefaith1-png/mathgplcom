@@ -180,12 +180,30 @@ const GamePlayPage = () => {
   const teacherRun = useVideoAdventureRun(classId, gameId, false);
   const teacherLed = Boolean(videoBg);
   const teacherStarted = teacherLed ? teacherRun.started : true;
+  const teacherSceneId = teacherLed ? teacherRun.run?.active_scene_id ?? null : null;
+  // Continuous follow of the teacher's playhead.
   useEffect(() => {
     if (!teacherLed || !teacherRun.started) return;
     const target = Number(teacherRun.run?.playhead_seconds) || 0;
     const here = videoRef.current?.currentTime() ?? 0;
-    if (Math.abs(here - target) > 1.5) videoRef.current?.seek(target);
+    if (Math.abs(here - target) > 1) videoRef.current?.seek(target);
   }, [teacherLed, teacherRun.started, teacherRun.run?.playhead_seconds]);
+  // The teacher's active Learning Point is the student's active Learning Point.
+  useEffect(() => {
+    if (!teacherLed) return;
+    setActiveCpId(teacherSceneId);
+    setCpFailed(false);
+  }, [teacherLed, teacherSceneId]);
+  // Cleared challenges come from the teacher's run, never from local timing.
+  useEffect(() => {
+    if (!teacherLed) return;
+    setDoneCps(new Set(teacherRun.challenges.filter((c) => c.ended_at).map((c) => c.scene_id)));
+  }, [teacherLed, teacherRun.challenges]);
+  // A challenge that ends closes every student's solving panel at once.
+  useEffect(() => {
+    if (!teacherLed) return;
+    if (!teacherRun.activeChallenge) setOpenBarId(null);
+  }, [teacherLed, teacherRun.activeChallenge]);
   const stages = useMemo(() => (canvas ? stagesOf(canvas) : []), [canvas]);
   const [stageIdx, setStageIdx] = useState(0);
   const activeStage: Scene | null = videoBg
@@ -406,11 +424,14 @@ const GamePlayPage = () => {
 
 
   // Reaching a loop's start time freezes the journey into that loop.
+  // Video Adventure: the teacher owns this entirely — the student only reports
+  // narration timing and never activates or clears a Learning Point locally.
   const onVideoTime = useCallback(
     (t: number) => {
       setVideoTime(t);
       videoTimeRef.current = t;
       narrationRuntime.onTime(t);
+      if (teacherLed) return;
       // A cleared loop plays out its final seconds, then everything unmounts.
       if (exitingCpId) {
         const leaving = checkpoints.find((c) => c.id === exitingCpId);
@@ -430,17 +451,22 @@ const GamePlayPage = () => {
         setCpSecondsLeft(hit.timerEnabled ? hit.timeLimit ?? 300 : null);
       }
     },
-    [activeCpId, exitingCpId, checkpoints, doneCps, narrationRuntime],
+    [teacherLed, activeCpId, exitingCpId, checkpoints, doneCps, narrationRuntime],
   );
 
-
-  // Per-stage countdown.
+  // Per-stage countdown (static adventure only; teacher-led runs show the
+  // teacher's challenge clock).
   useEffect(() => {
+    if (teacherLed) return;
     if (!activeCp || cpSecondsLeft == null || cpFailed) return;
     if (cpSecondsLeft <= 0) { setCpFailed(true); return; }
     const t = window.setTimeout(() => setCpSecondsLeft((v) => (v == null ? v : v - 1)), 1000);
     return () => window.clearTimeout(t);
-  }, [activeCp, cpSecondsLeft, cpFailed]);
+  }, [teacherLed, activeCp, cpSecondsLeft, cpFailed]);
+
+  const challengeSecondsLeft = teacherLed
+    ? (teacherRun.activeChallenge ? Math.ceil(teacherRun.remainingMs / 1000) : null)
+    : cpSecondsLeft;
 
   /**
    * Stage complete with nothing left to transfer (no reward linked, or the
@@ -452,10 +478,11 @@ const GamePlayPage = () => {
     [staged, sync.barSummaries, stageIds],
   );
   useEffect(() => {
+    if (teacherLed) return;
     if (!stageDone || finalStage || transfer.transferring) return;
     const t = window.setTimeout(() => advanceStage(), 1400);
     return () => window.clearTimeout(t);
-  }, [stageDone, finalStage, transfer.transferring, advanceStage]);
+  }, [teacherLed, stageDone, finalStage, transfer.transferring, advanceStage]);
 
   /** Turn back — replay the previous loop's section of the journey. */
   const turnBack = useCallback(() => {
@@ -552,7 +579,11 @@ const GamePlayPage = () => {
                 <VideoBackgroundLayer
                   ref={videoRef}
                   video={videoBg}
-                  playing={teacherStarted && !frozen && !cpFailed && (!transfer.transferring || !!videoBg)}
+                  playing={
+                    teacherLed
+                      ? teacherStarted && Boolean(teacherRun.run?.playing)
+                      : !frozen && !cpFailed
+                  }
                   loop={loopRegionFor(activeCp, Boolean(exitingCpId))}
 
 
@@ -580,15 +611,15 @@ const GamePlayPage = () => {
                 {activeCp && (
                   <div className="absolute left-3 top-3 z-40 flex items-center gap-2 rounded-full border border-primary/40 bg-background/80 px-3 py-1 text-xs backdrop-blur">
                     <span className="font-semibold text-primary">{activeCp.title}</span>
-                    {cpSecondsLeft != null && (
+                    {challengeSecondsLeft != null && (
                       <span className="tabular-nums text-muted-foreground">
-                        {Math.floor(Math.max(0, cpSecondsLeft) / 60)}:
-                        {String(Math.max(0, cpSecondsLeft) % 60).padStart(2, "0")}
+                        {Math.floor(Math.max(0, challengeSecondsLeft) / 60)}:
+                        {String(Math.max(0, challengeSecondsLeft) % 60).padStart(2, "0")}
                       </span>
                     )}
                   </div>
                 )}
-                {checkpoints.length > 0 && (
+                {!teacherLed && checkpoints.length > 0 && (
                   <button
                     type="button"
                     onClick={turnBack}
@@ -597,7 +628,7 @@ const GamePlayPage = () => {
                     Turn Back
                   </button>
                 )}
-                {cpFailed && (
+                {!teacherLed && cpFailed && (
                   <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                     <div className="rounded-xl border border-destructive/40 bg-background/90 px-8 py-5 text-center shadow-2xl">
                       <div className="text-lg font-bold text-destructive">Game Over</div>
@@ -652,24 +683,38 @@ const GamePlayPage = () => {
                 Your teacher hasn't linked questions to this game's progress bars yet.
               </div>
             )}
-            {transfer.transferring && (
+            {/* Video Adventure: clearing a Learning Point is not the end of the
+                story, so no completion message interrupts the video. Only the
+                final Learning Point may announce anything. */}
+            {transfer.transferring && (!videoBg || finalStage) && (
               <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
                   <div className="text-sm font-semibold text-primary">
-                    {staged && !finalStage ? (videoBg ? "Loop cleared!" : "Scene cleared!") : "Adventure complete!"}
+                    {staged && !finalStage ? "Scene cleared!" : "Adventure complete!"}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     {staged && !finalStage
-                      ? videoBg
-                        ? "Reward stored — the journey continues…"
-                        : "Reward stored — loading the next scene…"
+                      ? "Reward stored — loading the next scene…"
                       : "Sending your reward to the Gallery…"}
                   </div>
                 </div>
               </div>
             )}
-            {!transfer.transferring && (!staged || finalStage) && transfer.goalReached && transfer.blockedReason && !timeUp && (
-
+            {/* No Gallery linked is never an error: the adventure simply ends. */}
+            {videoBg && !transfer.transferring && finalStage && transfer.goalReached && transfer.blockedReason && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
+                  <div className="text-sm font-semibold text-primary">Adventure complete!</div>
+                  <Link
+                    to={`/student/class/${classId}`}
+                    className="mt-3 inline-flex rounded-md border border-primary/50 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                  >
+                    Return to Class
+                  </Link>
+                </div>
+              </div>
+            )}
+            {!videoBg && !transfer.transferring && (!staged || finalStage) && transfer.goalReached && transfer.blockedReason && !timeUp && (
               <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="rounded-xl border border-primary/40 bg-background/90 px-6 py-4 text-center shadow-2xl">
                   <div className="text-sm font-semibold text-primary">Goal reached!</div>
@@ -685,7 +730,7 @@ const GamePlayPage = () => {
             )}
 
 
-            {timeUp && (
+            {timeUp && !videoBg && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                 <div className="rounded-xl border border-destructive/40 bg-background/90 px-8 py-5 text-center shadow-2xl">
                   <div className="text-lg font-bold text-destructive">Time Up</div>
