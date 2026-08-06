@@ -11,11 +11,18 @@ import {
   normalizeCanvas,
   adventureModeOf,
   checkpointsMissingTime,
-  isTimeBar,
+  questionBarsOf,
   VIDEO_TIME_REQUIRED_MESSAGE,
   type CanvasElement,
   type GameRow,
 } from "@/lib/games/types";
+import {
+  BAR_OCCUPIED_MESSAGE,
+  checkpointLabel,
+  loadBarAssignments,
+  unassignBar,
+  type BarAssignment,
+} from "@/lib/adventures/barLinks";
 import { useClassMemberIds } from "@/hooks/useClassMemberIds";
 import { ensureAssignment } from "@/lib/assignments/instances";
 
@@ -33,6 +40,7 @@ interface Props {
 
 type Step = "game" | "bar" | "config";
 type BarChoice = { sceneTitle: string; el: CanvasElement };
+type BarGroup = { sceneId: string; label: string; bars: BarChoice[] };
 
 export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, noteTitle, questions, onLinked }: Props) {
   const [step, setStep] = useState<Step>("game");
