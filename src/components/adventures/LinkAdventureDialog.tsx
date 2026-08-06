@@ -143,6 +143,16 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
   };
 
   const chosenGame = useMemo(() => games.find((g) => g.id === gameId), [games, gameId]);
+  const noun = isVideo ? "Learning Point" : "Scene";
+  const totalLinkable = useMemo(() => barGroups.reduce((n, g) => n + g.bars.length, 0), [barGroups]);
+  const missingBarLabels = useMemo(
+    () => barGroups.filter((g) => g.bars.length === 0).map((g) => g.label).join(", "),
+    [barGroups],
+  );
+  const noTimeLabels = useMemo(
+    () => (isVideo ? barGroups.filter((g) => !g.hasTime).map((g) => g.label).join(", ") : ""),
+    [barGroups, isVideo],
+  );
   const segments = Math.max(1, Number(chosenBar?.el.progress?.segments) || 10);
   const grandTotal = totalMarks * studentCount;
   const requiredScore = Math.max(1, Math.round(grandTotal * (goalPct / 100)));
