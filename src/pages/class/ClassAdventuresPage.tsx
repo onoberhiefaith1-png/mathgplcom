@@ -329,6 +329,9 @@ const ClassAdventuresPage = () => {
                           >
                             <div className="min-w-0">
                               <span className="font-medium">{l.game_title}</span>
+                              {l.checkpoint_label && (
+                                <span className="text-muted-foreground"> · {l.checkpoint_label}</span>
+                              )}
                               <span className="text-muted-foreground"> · {l.bar_label}</span>
                               <span className="text-muted-foreground"> · {labelForSection(l.section_id, g.questions)}</span>
                               {marks > 0 && (
@@ -338,10 +341,11 @@ const ClassAdventuresPage = () => {
                             <button
                               type="button"
                               onClick={() => removeLink(l)}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive"
-                              aria-label="Remove link"
+                              className="inline-flex shrink-0 items-center gap-1 rounded border border-border/60 px-2 py-0.5 text-[11px] hover:bg-destructive/10 hover:text-destructive"
+                              aria-label="Unassign lesson note"
                             >
                               {busy === l.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                              Unassign
                             </button>
                           </li>
                         );
