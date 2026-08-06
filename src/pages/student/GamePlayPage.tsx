@@ -329,7 +329,7 @@ const GamePlayPage = () => {
     gameId,
     barSummaries: stageBars,
     barOwner: groups.barOwner,
-    timeExpired: timeBar.expired,
+    timeExpired,
     galleryPath: `/student/class/${classId}/gallery`,
     rewardElements: rewardRefs,
     stageRewardIds: staged ? stageIds : null,
@@ -340,7 +340,7 @@ const GamePlayPage = () => {
   });
 
   // Time beat the goal (Part 7): expired with no valid, in-time win.
-  const timeUp = timeBar.expired && !transfer.won;
+  const timeUp = timeExpired && !transfer.won;
   const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
 
   // Group outcome — a race winner (Adventure) or the encouraging message shown
@@ -356,7 +356,7 @@ const GamePlayPage = () => {
     sceneId: activeStage?.id ?? null,
     groups: groups.groups,
     statsByBar,
-    timeExpired: timeBar.expired,
+    timeExpired,
   });
   const myGroup = myGroupId ? groups.groups.find((g) => g.id === myGroupId) ?? null : null;
   const waiting = !!myGroup && outcome.waitingGroupIds.has(myGroup.id);
@@ -364,24 +364,28 @@ const GamePlayPage = () => {
   // A waiting group watches the rest of the story; its board stays locked.
   const frozen = timeUp || waiting || (transfer.won && (!staged || finalStage));
 
-  // Step 2 — stop the clock the moment the game is actually over.
+  // Step 2 — stop the clock the moment the game is actually over. Teacher-led
+  // runs never touch the clock from a student device.
   const pausedForWinRef = useRef(false);
   useEffect(() => {
+    if (teacherLed) return;
     if (!transfer.won || (staged && !finalStage)) return;
     if (pausedForWinRef.current) return;
     if (!timeBar.running) return;
     pausedForWinRef.current = true;
     void timeBar.actions.pause().catch(() => { pausedForWinRef.current = false; });
-  }, [transfer.won, staged, finalStage, timeBar.running, timeBar.actions]);
+  }, [teacherLed, transfer.won, staged, finalStage, timeBar.running, timeBar.actions]);
 
   const mirroredElements = useMemo(() => {
-    const timeBarId = timeBar.elementId;
+    const timeBarId = teacherLed ? stageTimeBarId : timeBar.elementId;
+    const noTime = teacherLed ? false : timeBar.noTime;
+    const litFor = teacherLed ? stageTimeLit : timeBar.slotsLit;
     return sync.elements
       // A reward that already lives in the Gallery no longer exists here.
       .filter((el) => !(el.kind === "reward" && transfer.transferredIds.has(el.id)))
       // Duration "None": the countdown is disabled, so the Time Bar is not
       // drawn at all and students play for as long as they need.
-      .filter((el) => !(timeBar.noTime && timeBarId && el.id === timeBarId))
+      .filter((el) => !(noTime && timeBarId && el.id === timeBarId))
       .map((el) => {
         if (el.kind === "reward" && transfer.departing.has(el.id)) {
           const off = transfer.exitOffsets.get(el.id);
@@ -391,13 +395,26 @@ const GamePlayPage = () => {
         if (el.kind !== "progress_bar" || !el.progress) return el;
         if (timeBarId && el.id === timeBarId) {
           const segs = Math.max(1, Number(el.progress.segments) || 10);
-          return { ...el, progress: { ...el.progress, currentMarks: timeBar.slotsLit(segs), totalMarks: segs } };
+          return { ...el, progress: { ...el.progress, currentMarks: litFor(segs), totalMarks: segs } };
         }
         const snap = mirror?.[el.id];
         if (!snap) return el;
         return { ...el, progress: { ...el.progress, currentMarks: snap.current, totalMarks: snap.required } };
       });
-  }, [sync.elements, mirror, timeBar.elementId, timeBar.noTime, timeBar.slotsLit, transfer.departing, transfer.exitOffsets, transfer.transferredIds]);
+  }, [
+    sync.elements,
+    mirror,
+    teacherLed,
+    stageTimeBarId,
+    stageTimeLit,
+    timeBar.elementId,
+    timeBar.noTime,
+    timeBar.slotsLit,
+    transfer.departing,
+    transfer.exitOffsets,
+    transfer.transferredIds,
+  ]);
+
 
   /**
    * Only the current stage exists on screen: reward, progress bar, time bar,
