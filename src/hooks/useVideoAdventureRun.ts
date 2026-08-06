@@ -297,6 +297,17 @@ export function useVideoAdventureRun(
     ? Math.max(0, activeChallenge.duration_seconds * 1000 - elapsedOf(activeChallenge))
     : 0;
 
+  // Single source of truth for the clock of one Learning Point.
+  const remainingMsFor = useCallback(
+    (sceneId: string | null | undefined) => {
+      if (!sceneId) return null;
+      const row = challenges.find((c) => c.scene_id === sceneId) ?? null;
+      if (!row || !row.started_at) return null;
+      return Math.max(0, row.duration_seconds * 1000 - elapsedOf(row));
+    },
+    [challenges],
+  );
+
   return {
     loading,
     run,
@@ -305,6 +316,8 @@ export function useVideoAdventureRun(
     activeChallenge,
     challengeFor,
     remainingMs,
+    remainingMsFor,
+
     expired: Boolean(activeChallenge) && remainingMs <= 0,
     refresh,
     actions: {
