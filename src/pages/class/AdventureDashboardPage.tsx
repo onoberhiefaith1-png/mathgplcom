@@ -329,11 +329,13 @@ const AdventureDashboardPage = () => {
       return;
     }
     unlockAudio();
-    setClearedSceneIds(new Set());
     setExitingSceneId(null);
     videoRef.current?.seek(0);
-    void runtime.actions.startGame().then(() => timeBar.refresh()).catch(() => {});
-  }, [runtime.actions, runtime.started, timeBar.refresh]);
+    void runtime.actions
+      .startGame()
+      .then(() => { timeBar.refresh(); groups.refresh(); })
+      .catch(() => {});
+  }, [runtime.actions, runtime.started, timeBar.refresh, groups.refresh]);
 
 
   // The video sits on its first frame until Start Game is pressed.
