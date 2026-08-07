@@ -192,7 +192,8 @@ const AdventureDashboardPage = () => {
   const stageScene = activeScene ?? exitingScene;
 
   /** Group Mode turns each Learning Point into a timed competition. */
-  const groupMode = groups.groups.length > 0;
+  const groupMode = gameMode === "group" && groups.groups.length > 0;
+
 
   /**
    * Live status of one Learning Point. Nothing is remembered between runs: the
