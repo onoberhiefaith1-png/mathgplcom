@@ -7,6 +7,7 @@
 // and only exists while the video sits inside that point.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { resetGroupJudgements } from "@/lib/adventures/groups";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 export const DEFAULT_LP_DURATION_SECONDS = 600;
