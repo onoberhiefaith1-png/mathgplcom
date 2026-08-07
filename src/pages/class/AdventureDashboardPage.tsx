@@ -24,6 +24,8 @@ import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { GroupLeaderboard } from "@/components/adventures/GroupLeaderboard";
 import { computeGroupStandings, fillByGroupOf, type MasterBar } from "@/lib/adventures/groupStandings";
+import { buildGroupScoreboardBars, groupIdOfBarElementId } from "@/lib/adventures/groupBars";
+import { moveGroupBar } from "@/lib/adventures/groups";
 import { getGameMode, type GameMode } from "@/lib/adventures/gameMode";
 
 import { useGameTimeBar, ensureTimeBar } from "@/hooks/useGameTimeBar";
@@ -34,6 +36,12 @@ import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { TimeBarControl } from "@/components/adventures/TimeBarControl";
 
 type ClassNameRow = { name: string | null };
+
+/** m:ss for the two independent clocks (Game Time and Loop Time). */
+const fmtClock = (seconds: number): string => {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
 
 const AdventureDashboardPage = () => {
   const { classId, gameId } = useParams<{ classId: string; gameId: string }>();
@@ -49,6 +57,18 @@ const AdventureDashboardPage = () => {
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const [exitingSceneId, setExitingSceneId] = useState<string | null>(null);
   const lastPublishRef = useRef(0);
+  /**
+   * Game Time — the master clock of the whole Video Adventure. It is the video's
+   * own forward timeline and belongs to no Progress Bar. Loop Time (the
+   * countdown of the Learning Point on screen) lives on the challenge row and is
+   * completely independent of this.
+   */
+  const [gameTime, setGameTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  /** Restart Game is in flight: the loop is released so the video can reach 0:00. */
+  const [restarting, setRestarting] = useState(false);
+  /** Teacher is arranging the team scoreboard bars on the stage. */
+  const [arrangeTeamBars, setArrangeTeamBars] = useState(false);
 
   useEffect(() => {
     if (fullscreen === "none") return;
@@ -336,6 +356,7 @@ const AdventureDashboardPage = () => {
   const onVideoTime = useCallback(
     (t: number) => {
       if (!isVideo) return;
+      setGameTime(t);
       // Publish the master playhead about once a second — students follow it.
       const nowMs = Date.now();
       if (nowMs - lastPublishRef.current > 900) {
@@ -343,6 +364,11 @@ const AdventureDashboardPage = () => {
         void runtime.actions.publish({ playhead: t });
       }
       narrationRuntime.onTime(t);
+      // A restart is winding the video back to 0:00 — open nothing yet.
+      if (restarting) {
+        if (t <= 0.4) setRestarting(false);
+        return;
+      }
       // A finished Learning Point plays out its own lap, then hands back.
       if (exitingSceneId) {
         const end = exitingScene?.loopEnd ?? 0;
@@ -370,13 +396,15 @@ const AdventureDashboardPage = () => {
       learningPoints,
       pointSatisfied,
       narrationRuntime,
+      restarting,
     ],
   );
 
   /**
-   * Restart Game replays the story: video to 00:00, teacher timeline reset,
-   * every loop state and loop timer cleared. It never writes to student
-   * progress, gallery or award tables — marks and scores carry over untouched.
+   * Restart Game replays the story from Game Time 00:00: the video rewinds to
+   * the very beginning (never to the current loop), the teacher timeline resets
+   * and every loop state and Loop Time clock is cleared. It never writes to
+   * student progress, gallery or award tables — marks and scores carry over.
    */
   const startGame = useCallback(() => {
     if (runtime.started && !window.confirm("Restart the story from the beginning? Student progress and scores are kept.")) {
@@ -384,11 +412,19 @@ const AdventureDashboardPage = () => {
     }
     unlockAudio();
     setExitingSceneId(null);
-    videoRef.current?.seek(0);
+    // Release the loop region first, otherwise the active loop snaps the
+    // playhead straight back to its own start.
+    setRestarting(true);
+    setGameTime(0);
     void runtime.actions
       .startGame()
-      .then(() => { timeBar.refresh(); groups.refresh(); })
-      .catch(() => {});
+      .then(() => {
+        videoRef.current?.seek(0);
+        videoRef.current?.play();
+        timeBar.refresh();
+        groups.refresh();
+      })
+      .catch(() => setRestarting(false));
   }, [runtime.actions, runtime.started, timeBar.refresh, groups.refresh]);
 
 
@@ -420,6 +456,41 @@ const AdventureDashboardPage = () => {
         return { ...el, progress: { ...el.progress, currentMarks: lit, totalMarks: segs } };
       });
   }, [stageScene, canvasElements, exitingSceneId, runtime.activeChallenge, runtime.remainingMs]);
+
+  /**
+   * Group Competition — one duplicate of the master bar per team, purely as a
+   * visual scoreboard on the teacher's stage. Every duplicate carries the same
+   * questions and rules; only its fill differs, because it shows that team's own
+   * live progress. Teachers may drag and resize them freely.
+   */
+  const teamBarElements = useMemo(() => {
+    if (!groupMode || !masterBar) return [];
+    const master = canvasElements.find((el) => el.id === masterBar.id) ?? null;
+    return buildGroupScoreboardBars(
+      master,
+      boardStandings.map((s) => ({ group: s.group, fill: fillByGroup.get(s.group.id) ?? 0 })),
+    );
+  }, [groupMode, masterBar, canvasElements, boardStandings, fillByGroup]);
+
+  /** Persist a dragged team bar so its place on the stage is remembered. */
+  const onStageMove = useCallback(
+    (id: string, x: number, y: number) => {
+      const groupId = groupIdOfBarElementId(id);
+      if (!groupId) return;
+      void moveGroupBar(groupId, x, y).then(() => groups.refresh()).catch(() => {});
+    },
+    [groups.refresh],
+  );
+
+  const videoStageElements = useMemo(
+    () => (runtime.activeChallenge && !exitingSceneId ? [...videoElements, ...teamBarElements] : videoElements),
+    [videoElements, teamBarElements, runtime.activeChallenge, exitingSceneId],
+  );
+
+  const staticStageElements = useMemo(
+    () => [...canvasElements, ...teamBarElements],
+    [canvasElements, teamBarElements],
+  );
 
 
   useEffect(() => {
@@ -667,6 +738,19 @@ const AdventureDashboardPage = () => {
                   The adventure is waiting at 0:00. Students cannot open questions until you start.
                 </span>
               )}
+              {groupMode && teamBarElements.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setArrangeTeamBars((v) => !v)}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                    arrangeTeamBars
+                      ? "border-primary/60 bg-primary/20 text-primary"
+                      : "border-border bg-card text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {arrangeTeamBars ? "Done arranging" : "Arrange team bars"}
+                </button>
+              )}
               <div className="w-full">
                 <LearningPointTimeBars
                   learningPoints={learningPoints}
@@ -700,22 +784,41 @@ const AdventureDashboardPage = () => {
                       ref={videoRef}
                       video={canvas.video}
                       playing={runtime.started}
-                      loop={loopRegionFor(activeScene, false)}
+                      loop={restarting ? null : loopRegionFor(activeScene, false)}
                       onTime={onVideoTime}
+                      onLoaded={({ duration }) => setVideoDuration(duration)}
                     />
-                    <div className="pointer-events-none absolute inset-0">
-                      <GameCanvas elements={videoElements} selectedId={null} editable={false} fill transparent />
+                    <div className={arrangeTeamBars ? "absolute inset-0" : "pointer-events-none absolute inset-0"}>
+                      <GameCanvas
+                        elements={videoStageElements}
+                        selectedId={null}
+                        editable={arrangeTeamBars}
+                        onMove={arrangeTeamBars ? onStageMove : undefined}
+                        fill
+                        transparent
+                      />
                     </div>
                     {activeScene && (
                       <div className="absolute left-3 top-3 z-40 rounded-full border border-primary/40 bg-background/80 px-3 py-1 text-xs font-semibold text-primary backdrop-blur">
                         {activeScene.title || "Learning Point"}
                       </div>
                     )}
+                    {/* Game Time is the story clock; Loop Time is the Learning Point countdown. */}
+                    <div className="absolute right-3 top-3 z-40 flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-semibold tabular-nums backdrop-blur">
+                      <span className="text-muted-foreground">Game Time</span>
+                      <span>{fmtClock(gameTime)}{videoDuration ? ` / ${fmtClock(videoDuration)}` : ""}</span>
+                      {runtime.activeChallenge && (
+                        <>
+                          <span className="text-muted-foreground">· Loop Time</span>
+                          <span className="text-primary">{fmtClock(runtime.remainingMs / 1000)}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
                 {!isVideo && (
                 <GameCanvas
-                  elements={canvasElements}
+                  elements={staticStageElements}
                   selectedId={selectedRewardId}
                   editable
                   onSelect={(id) => {
@@ -723,7 +826,7 @@ const AdventureDashboardPage = () => {
                     const el = canvasElements.find((e) => e.id === id);
                     setSelectedRewardId(el?.kind === "reward" ? id : null);
                   }}
-                  onMove={undefined}
+                  onMove={onStageMove}
 
                   heightUnits={sync.heightUnits}
                 />

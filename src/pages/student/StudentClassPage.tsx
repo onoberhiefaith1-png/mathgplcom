@@ -7,6 +7,7 @@ import { joinClassPresence } from "@/lib/realtime/classPresence";
 import { listClassGames, type ClassGameRow } from "@/lib/games/classGames";
 import { prefetchGame } from "@/lib/games/prefetch";
 import { getClassLevels } from "@/lib/classes/contentHierarchy";
+import { sectionCardStyle, type SectionThemeKey } from "@/lib/theme/sectionThemes";
 
 
 type ClassRow = { id: string; name: string };
@@ -25,30 +26,32 @@ type AssignmentGroup = {
 };
 
 
-// A reusable workspace tile — fixed header, scrollable inner list, consistent
-// height so the 2×2 grid stays balanced regardless of list length.
+// A reusable workspace tile — premium themed surface (same design language as
+// the teacher workspace), fixed header, scrollable inner list, consistent
+// height so the grid stays balanced regardless of list length.
 const Tile = ({
   icon,
   label,
   count,
   children,
-  accent,
+  theme,
 }: {
   icon: React.ReactNode;
   label: string;
   count?: number;
   children: React.ReactNode;
-  accent: string;
+  theme: SectionThemeKey;
 }) => (
   <section
-    className={`rounded-2xl border ${accent} p-5 backdrop-blur flex flex-col min-h-[16rem]`}
+    className="flex min-h-[16rem] flex-col rounded-2xl border border-section-ink/15 p-5 text-section-ink"
+    style={sectionCardStyle(theme)}
   >
     <div className="mb-3 flex items-center justify-between">
-      <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-section-ink/70">
         {icon} {label}
       </div>
       {typeof count === "number" && (
-        <span className="rounded-full bg-muted/40 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+        <span className="rounded-full bg-section-ink/10 px-2 py-0.5 text-[10px] tabular-nums text-section-ink/70">
           {count}
         </span>
       )}
@@ -301,20 +304,20 @@ const StudentClassPage = () => {
             icon={<BookOpen className="h-3.5 w-3.5" />}
             label="Class Notes"
             count={notes.length}
-            accent="border-border bg-card/40"
+            theme="lessonNotes"
           >
             {noteLevels.length > 0 ? (
               <Link
                 to={`/student/class/${classId}/lesson-notes`}
-                className="flex h-full flex-col justify-center rounded-xl border border-border bg-background/30 p-4 transition hover:border-primary/40"
+                className="flex h-full flex-col justify-center rounded-xl border border-section-ink/20 bg-white/10 p-4 transition hover:border-section-ink/45"
               >
                 <div className="text-base font-semibold">Browse lesson notes</div>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-xs text-section-ink/70">
                   Organised by your teacher — tap to explore.
                 </p>
               </Link>
             ) : notes.length === 0 ? (
-              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-section-ink/25 p-4 text-center text-xs text-section-ink/70">
                 No lesson note selected.
               </div>
             ) : (
@@ -323,10 +326,10 @@ const StudentClassPage = () => {
                   <li key={n.id}>
                     <Link
                       to={`/lesson-notes/${n.id}`}
-                      className="block rounded-xl border border-border bg-background/40 p-3 transition hover:border-primary/40"
+                      className="block rounded-xl border border-section-ink/20 bg-white/10 p-3 transition hover:border-section-ink/45"
                     >
                       <div className="truncate text-sm font-semibold">{n.title}</div>
-                      <div className="mt-0.5 text-[11px] text-muted-foreground">Read-only</div>
+                      <div className="mt-0.5 text-[11px] text-section-ink/70">Read-only</div>
                     </Link>
                   </li>
                 ))}
@@ -338,14 +341,14 @@ const StudentClassPage = () => {
           <Tile
             icon={<Sparkles className="h-3.5 w-3.5" />}
             label="SmartBoard"
-            accent="border-violet-300/40 bg-gradient-to-br from-violet-400/15 to-violet-600/5"
+            theme="smartboard"
           >
             <Link
               to={`/student/class/${classId}/smartboard`}
-              className="flex h-full flex-col justify-center rounded-xl border border-violet-300/30 bg-background/30 p-4 text-left transition hover:border-violet-400/60"
+              className="flex h-full flex-col justify-center rounded-xl border border-section-ink/20 bg-white/10 p-4 text-left transition hover:border-section-ink/20"
             >
               <div className="text-base font-semibold">Open SmartBoard</div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-section-ink/70">
                 Follow what your teacher is showing in real time.
               </p>
             </Link>
@@ -355,10 +358,10 @@ const StudentClassPage = () => {
             icon={<ClipboardList className="h-3.5 w-3.5" />}
             label="Assignments"
             count={assignments.length}
-            accent="border-border bg-card/40"
+            theme="assignments"
           >
             {assignments.length === 0 ? (
-              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-section-ink/25 p-4 text-center text-xs text-section-ink/70">
                 No assignments yet.
               </div>
             ) : (
@@ -370,18 +373,18 @@ const StudentClassPage = () => {
                     <li key={a.notebookId}>
                       <Link
                         to={`/student/class/${classId}/assignment/${a.notebookId}`}
-                        className="block rounded-xl border border-border bg-background/40 p-3 transition hover:border-primary/40"
+                        className="block rounded-xl border border-section-ink/20 bg-white/10 p-3 transition hover:border-section-ink/45"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="truncate text-sm font-semibold">{a.title}</div>
                             {a.subtopic && (
-                              <div className="truncate text-[11px] text-muted-foreground">{a.subtopic}</div>
+                              <div className="truncate text-[11px] text-section-ink/70">{a.subtopic}</div>
                             )}
                           </div>
                           {allDone && <Check className="h-4 w-4 shrink-0" style={{ color: "hsl(142 70% 45%)" }} />}
                         </div>
-                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
+                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-section-ink/70 tabular-nums">
                           <span>{a.questionCount} question{a.questionCount === 1 ? "" : "s"}</span>
                           <span>{a.totalScore} / {a.totalMarks} {a.scoreLabel}</span>
                           <span>Assigned {fmt(a.assignedAt)}</span>
@@ -399,10 +402,10 @@ const StudentClassPage = () => {
             icon={<Gamepad2 className="h-3.5 w-3.5" />}
             label="Adventures"
             count={games.length}
-            accent="border-emerald-300/40 bg-gradient-to-br from-emerald-400/15 to-emerald-600/5"
+            theme="adventure"
           >
             {games.length === 0 ? (
-              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-section-ink/25 p-4 text-center text-xs text-section-ink/70">
                 No adventures yet.
               </div>
             ) : (
@@ -411,10 +414,10 @@ const StudentClassPage = () => {
                   <li key={g.id}>
                     <Link
                       to={`/student/class/${classId}/games/${g.id}/play`}
-                      className="block rounded-xl border border-emerald-300/30 bg-background/30 p-3 transition hover:border-emerald-400/60"
+                      className="block rounded-xl border border-section-ink/20 bg-white/10 p-3 transition hover:border-section-ink/20"
                     >
                       <div className="truncate text-sm font-semibold">{g.title}</div>
-                      <div className="mt-0.5 text-[11px] text-muted-foreground">Tap to play</div>
+                      <div className="mt-0.5 text-[11px] text-section-ink/70">Tap to play</div>
                     </Link>
                   </li>
                 ))}
@@ -425,14 +428,14 @@ const StudentClassPage = () => {
           <Tile
             icon={<GraduationCap className="h-3.5 w-3.5" />}
             label="Courses"
-            accent="border-indigo-300/40 bg-gradient-to-br from-indigo-400/15 to-indigo-600/5"
+            theme="courses"
           >
             <Link
               to={`/student/class/${classId}/courses`}
-              className="flex h-full flex-col justify-center rounded-xl border border-indigo-300/30 bg-background/30 p-4 text-left transition hover:border-indigo-400/60"
+              className="flex h-full flex-col justify-center rounded-xl border border-section-ink/20 bg-white/10 p-4 text-left transition hover:border-section-ink/20"
             >
               <div className="text-base font-semibold">My courses</div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-section-ink/70">
                 The learning pathway your teacher prepared.
               </p>
             </Link>
@@ -441,11 +444,11 @@ const StudentClassPage = () => {
           <Tile
             icon={<ImageIcon className="h-3.5 w-3.5" />}
             label="Gallery"
-            accent="border-amber-300/40 bg-gradient-to-br from-amber-400/15 to-amber-600/5"
+            theme="gallery"
           >
             <Link
               to={`/student/class/${classId}/gallery`}
-              className="flex h-full items-center justify-center rounded-xl border border-amber-300/30 bg-background/30 p-4 text-center text-sm font-semibold transition hover:border-amber-400/60"
+              className="flex h-full items-center justify-center rounded-xl border border-section-ink/20 bg-white/10 p-4 text-center text-sm font-semibold transition hover:border-section-ink/20"
             >
               Open class gallery
             </Link>
@@ -454,14 +457,14 @@ const StudentClassPage = () => {
           <Tile
             icon={<BarChart3 className="h-3.5 w-3.5" />}
             label="Report"
-            accent="border-sky-300/40 bg-gradient-to-br from-sky-400/15 to-sky-600/5"
+            theme="reports"
           >
             <Link
               to={`/student/class/${classId}/report`}
-              className="flex h-full flex-col justify-center rounded-xl border border-sky-300/30 bg-background/30 p-4 text-left transition hover:border-sky-400/60"
+              className="flex h-full flex-col justify-center rounded-xl border border-section-ink/20 bg-white/10 p-4 text-left transition hover:border-section-ink/20"
             >
               <div className="text-base font-semibold">My progress report</div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-section-ink/70">
                 One bar for every assignment and adventure, from 0% to 100%.
               </p>
             </Link>

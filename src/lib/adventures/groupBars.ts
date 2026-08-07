@@ -154,3 +154,70 @@ export const hasRoomForGroupBar = (
   groups: AdventureGroup[],
   sourceElementId: string | null,
 ): boolean => (sourceElementId ? nextGroupBarPosition(game, groups, sourceElementId) !== null : false);
+
+// ───────────────────────────────────────────────────────────────────────────
+// Scoreboard duplicates.
+//
+// Group Competition duplicates the master Progress Bar ONCE PER TEAM as a
+// purely visual scoreboard: same Learning Point, same questions, same rules —
+// only the fill differs, because each duplicate shows one team's live progress.
+// The duplicates are never written into the shared Adventure canvas; they are
+// rebuilt here on every render, and their position/scale/colour live on the
+// team's own row so the teacher can arrange them freely.
+// ───────────────────────────────────────────────────────────────────────────
+
+export type GroupBarFill = {
+  group: AdventureGroup;
+  /** 0…1 of the team's required mark. */
+  fill: number;
+};
+
+/** Default layout for a team bar that the teacher has not placed yet. */
+const defaultGroupSlot = (master: CanvasElement, index: number, count: number) => {
+  const w = Math.max(0.02, Number(master.scale) || 0.2);
+  const span = Math.min(0.94, (w + BAR_GAP) * count);
+  const startX = Math.max(w / 2 + 0.02, 0.5 - span / 2 + w / 2);
+  return {
+    x: Math.min(1 - w / 2 - 0.02, startX + index * (w + BAR_GAP)),
+    y: Math.min(0.94, (Number(master.y) || 0.5) + 0.18),
+  };
+};
+
+/**
+ * One display bar per team, cloned from the master bar and filled from that
+ * team's standing.
+ */
+export const buildGroupScoreboardBars = (
+  master: CanvasElement | null,
+  fills: GroupBarFill[],
+): CanvasElement[] => {
+  if (!master || master.kind !== "progress_bar" || fills.length === 0) return [];
+  const segments = Math.max(1, Number(master.progress?.segments) || 10);
+  return fills.map(({ group, fill }, i) => {
+    const slot = defaultGroupSlot(master, i, fills.length);
+    const lit = Math.max(0, Math.min(segments, Math.round(fill * segments)));
+    return {
+      ...master,
+      id: groupBarElementId(group.id),
+      label: group.name,
+      x: group.position_x ?? slot.x,
+      y: group.position_y ?? slot.y,
+      scale: group.style_scale ?? master.scale,
+      progress: master.progress
+        ? {
+            ...master.progress,
+            segments,
+            currentMarks: lit,
+            totalMarks: segments,
+            ...(group.style_preset_id ? { presetId: group.style_preset_id } : {}),
+            ...(group.style_color ? { fillStyle: "plain" as const, plainColor: group.style_color } : {}),
+          }
+        : master.progress,
+    } as CanvasElement;
+  });
+};
+
+/** `grpbar-<id>` → group id. */
+export const groupIdOfBarElementId = (elementId: string): string | null =>
+  isGroupBarElementId(elementId) ? elementId.slice(GROUP_BAR_PREFIX.length) : null;
+

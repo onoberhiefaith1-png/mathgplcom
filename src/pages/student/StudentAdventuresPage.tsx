@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "@/lib/router-compat";
 import { listAdventureNotes, type ClassAdventureNoteRow } from "@/lib/adventures/classAdventures";
+import { sectionCardStyle } from "@/lib/theme/sectionThemes";
 
 const StudentAdventuresPage = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -32,16 +33,20 @@ const StudentAdventuresPage = () => {
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map((r) => (
-            <li key={r.id} className="rounded-md border border-border bg-card p-3">
+            <li
+              key={r.id}
+              className="rounded-2xl border border-section-ink/15 p-4 text-section-ink"
+              style={sectionCardStyle("adventure")}
+            >
               <Link
                 to={`/student/class/${classId}/assignment/${r.notebook_id}`}
                 className="block"
               >
                 <div className="font-medium">
                   {r.notebook?.title ?? "Untitled note"}
-                  {r.section?.title ? <span className="text-muted-foreground"> · {r.section.title}</span> : null}
+                  {r.section?.title ? <span className="text-section-ink/70"> · {r.section.title}</span> : null}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-section-ink/70">
                   {r.notebook?.subject ?? ""} {r.notebook?.subtopic ? `· ${r.notebook.subtopic}` : ""}
                   {r.due_at ? ` · due ${new Date(r.due_at).toLocaleString()}` : ""}
                 </div>
