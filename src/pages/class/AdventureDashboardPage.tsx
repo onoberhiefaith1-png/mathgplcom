@@ -812,26 +812,19 @@ const AdventureDashboardPage = () => {
                   </div>
                 </div>
                 <AssessmentStatusPanel rows={sync.rows} onViewStudent={onViewStudent} />
-                {classId && gameId && (
+                {classId && gameId && groupMode && (
                   <div className="mt-6 border-t border-border pt-4">
-                    {outcome.winner && (
-                      <div className="mb-3 rounded-xl border border-primary/40 bg-primary/10 p-3 text-sm font-semibold text-primary">
-                        {outcome.winner.name} finished first and takes the reward.
-                      </div>
-                    )}
-                    <GroupsPanel
-                      classId={classId}
-                      gameId={gameId}
-                      game={game}
-                      members={sync.members}
-                      bars={patchedBarSummaries}
-                      ctx={groups}
-                      statsByBar={statsByBar}
-                      reservedBarIds={timeBar.elementId ? new Set([timeBar.elementId]) : undefined}
-                      winnerGroupId={outcome.winner?.id ?? null}
+                    <GroupLeaderboard
+                      standings={boardStandings}
+                      masterLabel={masterBar?.label ?? null}
+                      winnerName={outcome.winner?.name ?? null}
                     />
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Teams are created and edited on the Adventure page under Game Mode.
+                    </p>
                   </div>
                 )}
+
               </aside>
             ) : (
               <button
