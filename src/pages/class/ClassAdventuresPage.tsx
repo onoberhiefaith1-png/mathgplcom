@@ -15,6 +15,8 @@ import { LinkAdventureDialog, type LinkAdventureQuestion } from "@/components/ad
 import { compileQuestionSection } from "@/lib/assessments/createAssessment";
 import { normalizeCanvas } from "@/lib/games/types";
 import { checkpointLabel, unassignBar } from "@/lib/adventures/barLinks";
+import { GroupSetupPanel } from "@/components/adventures/GroupSetupPanel";
+
 
 type BarLink = {
   id: string;
