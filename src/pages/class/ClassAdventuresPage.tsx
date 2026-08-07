@@ -354,6 +354,16 @@ const ClassAdventuresPage = () => {
                   )}
                 </div>
 
+                {primaryGameId && classId && (
+                  <div className="mb-4">
+                    <GroupSetupPanel
+                      classId={classId}
+                      gameId={primaryGameId}
+                      masterBarId={g.links[0]?.progress_element_id ?? null}
+                    />
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
@@ -371,6 +381,7 @@ const ClassAdventuresPage = () => {
                     </Link>
                   )}
                 </div>
+
               </section>
             );
           })
