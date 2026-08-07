@@ -22,9 +22,10 @@ import { LearningPointTimeBars } from "@/components/adventures/LearningPointTime
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
-import { GroupsPanel } from "@/components/adventures/GroupsPanel";
-import { withGroupBars, isGroupBarElementId } from "@/lib/adventures/groupBars";
-import { moveGroupBar } from "@/lib/adventures/groups";
+import { GroupLeaderboard } from "@/components/adventures/GroupLeaderboard";
+import { computeGroupStandings, fillByGroupOf, type MasterBar } from "@/lib/adventures/groupStandings";
+import { getGameMode, type GameMode } from "@/lib/adventures/gameMode";
+
 import { useGameTimeBar, ensureTimeBar } from "@/hooks/useGameTimeBar";
 import { useGroupOutcome } from "@/hooks/useGroupOutcome";
 import { adventureModeOf } from "@/lib/games/types";
