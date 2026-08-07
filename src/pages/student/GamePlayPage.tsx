@@ -16,7 +16,7 @@ import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { useGroupOutcome } from "@/hooks/useGroupOutcome";
-import { withGroupBars } from "@/lib/adventures/groupBars";
+import { computeGroupStandings, fillByGroupOf, type MasterBar } from "@/lib/adventures/groupStandings";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
 import { loopRegionFor, loopStateOf, type LoopState } from "@/lib/games/loopRuntime";
