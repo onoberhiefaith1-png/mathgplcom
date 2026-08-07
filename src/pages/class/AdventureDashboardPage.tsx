@@ -291,15 +291,14 @@ const AdventureDashboardPage = () => {
       // A finished Learning Point plays out its own lap, then hands back.
       if (exitingSceneId) {
         const end = exitingScene?.loopEnd ?? 0;
-        if (t >= end - 0.05) {
-          setClearedSceneIds((prev) => new Set(prev).add(exitingSceneId));
-          setExitingSceneId(null);
-        }
+        if (t >= end - 0.05) setExitingSceneId(null);
         return;
       }
       if (runtime.activeChallenge) return;
       const hit = checkpointAt(learningPoints, t);
-      if (!hit || clearedSceneIds.has(hit.id)) return;
+      // No cached completion: a point only stays shut while it is still
+      // satisfied by the CURRENT class, scores and required mark.
+      if (!hit || pointSatisfied(hit.id)) return;
       const bar = timeBarOf(hit.elements);
       void runtime.actions.openChallenge(hit.id, {
         progressElementId: bar?.id ?? null,
@@ -314,7 +313,7 @@ const AdventureDashboardPage = () => {
       exitingSceneId,
       exitingScene,
       learningPoints,
-      clearedSceneIds,
+      pointSatisfied,
       narrationRuntime,
     ],
   );
