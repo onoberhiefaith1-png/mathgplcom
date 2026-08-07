@@ -37,6 +37,12 @@ import { TimeBarControl } from "@/components/adventures/TimeBarControl";
 
 type ClassNameRow = { name: string | null };
 
+/** m:ss for the two independent clocks (Game Time and Loop Time). */
+const fmtClock = (seconds: number): string => {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+
 const AdventureDashboardPage = () => {
   const { classId, gameId } = useParams<{ classId: string; gameId: string }>();
   const navigate = useNavigate();
