@@ -1,0 +1,1 @@
+ALTER TABLE public.class_games ADD COLUMN IF NOT EXISTS game_mode text NOT NULL DEFAULT 'individual';

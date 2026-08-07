@@ -1027,6 +1027,7 @@ export type Database = {
           class_id: string
           created_at: string
           game_id: string
+          game_mode: string
           group_completion_message: string | null
           id: string
           winner_group_id: string | null
@@ -1035,6 +1036,7 @@ export type Database = {
           class_id: string
           created_at?: string
           game_id: string
+          game_mode?: string
           group_completion_message?: string | null
           id?: string
           winner_group_id?: string | null
@@ -1043,6 +1045,7 @@ export type Database = {
           class_id?: string
           created_at?: string
           game_id?: string
+          game_mode?: string
           group_completion_message?: string | null
           id?: string
           winner_group_id?: string | null
