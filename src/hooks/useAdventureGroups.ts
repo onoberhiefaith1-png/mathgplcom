@@ -61,11 +61,14 @@ export function useAdventureGroups(
     return m;
   }, [members, gameId]);
 
+  // Only legacy duplicated bars are "owned" by a group. In the scoreboard model
+  // every group shares the one master bar, so nothing is owned.
   const barOwner = useMemo(() => {
     const m = new Map<string, string>();
-    for (const g of groups) m.set(g.progress_element_id, g.id);
+    for (const g of groups) if (g.source_element_id) m.set(g.progress_element_id, g.id);
     return m;
   }, [groups]);
+
 
   const studentsByGroup = useMemo(() => {
     const m = new Map<string, Set<string>>();
