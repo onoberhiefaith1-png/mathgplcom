@@ -124,18 +124,6 @@ const AdventureDashboardPage = () => {
   const canvas = useMemo(() => (game ? normalizeCanvas(game.canvas) : null), [game]);
   const mode = canvas ? adventureModeOf(canvas) : "static";
 
-  // The dashboard is the single writer of competition outcomes.
-  const outcome = useGroupOutcome({
-    classId,
-    gameId,
-    mode: mode === "video" ? "video" : "static",
-    sceneId: canvas?.activeSceneId ?? null,
-    groups: groups.groups,
-    statsByBar,
-    timeExpired: timeBar.expired,
-    authoritative: true,
-    onChanged: groups.refresh,
-  });
 
   // Part 1/6 — the first bar to reach its target sends its reward to that
   // group's Gallery; nothing transfers once the Time Bar has expired.
