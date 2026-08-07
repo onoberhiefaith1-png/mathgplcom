@@ -350,6 +350,7 @@ const AdventureDashboardPage = () => {
   const onVideoTime = useCallback(
     (t: number) => {
       if (!isVideo) return;
+      setGameTime(t);
       // Publish the master playhead about once a second — students follow it.
       const nowMs = Date.now();
       if (nowMs - lastPublishRef.current > 900) {
@@ -357,6 +358,11 @@ const AdventureDashboardPage = () => {
         void runtime.actions.publish({ playhead: t });
       }
       narrationRuntime.onTime(t);
+      // A restart is winding the video back to 0:00 — open nothing yet.
+      if (restarting) {
+        if (t <= 0.4) setRestarting(false);
+        return;
+      }
       // A finished Learning Point plays out its own lap, then hands back.
       if (exitingSceneId) {
         const end = exitingScene?.loopEnd ?? 0;
