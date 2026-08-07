@@ -22,9 +22,10 @@ import { LearningPointTimeBars } from "@/components/adventures/LearningPointTime
 import { loadClassGameBoards, type GameBoard } from "@/lib/games/gameQuestions";
 import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
-import { GroupsPanel } from "@/components/adventures/GroupsPanel";
-import { withGroupBars, isGroupBarElementId } from "@/lib/adventures/groupBars";
-import { moveGroupBar } from "@/lib/adventures/groups";
+import { GroupLeaderboard } from "@/components/adventures/GroupLeaderboard";
+import { computeGroupStandings, fillByGroupOf, type MasterBar } from "@/lib/adventures/groupStandings";
+import { getGameMode, type GameMode } from "@/lib/adventures/gameMode";
+
 import { useGameTimeBar, ensureTimeBar } from "@/hooks/useGameTimeBar";
 import { useGroupOutcome } from "@/hooks/useGroupOutcome";
 import { adventureModeOf } from "@/lib/games/types";
@@ -63,60 +64,29 @@ const AdventureDashboardPage = () => {
 
   const groups = useAdventureGroups(classId, gameId);
 
-  // Duplicated group bars are rebuilt from the original bar at render time, so
-  // they inherit every setting of the original and never touch the Adventure.
-  const gameWithGroups = useMemo(() => withGroupBars(game, groups.groups), [game, groups.groups]);
-
-  // Bar scope: group-owned bars count only their group's students; whole-class
-  // bars count only students not in any group.
-  const barScope = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const g of groups.groups) {
-      map.set(g.progress_element_id, groups.studentsByGroup.get(g.id) ?? new Set());
-    }
-    return map;
-  }, [groups.groups, groups.studentsByGroup]);
+  // Groups no longer own gameplay objects: the stage always shows the one
+  // master Progress Bar, and each team's progress is computed live from the
+  // students assigned to it (Group Competition Board).
+  const [gameMode, setGameMode] = useState<GameMode>("individual");
+  useEffect(() => {
+    if (!classId || !gameId) return;
+    let cancelled = false;
+    void getGameMode(classId, gameId).then((m) => { if (!cancelled) setGameMode(m); });
+    return () => { cancelled = true; };
+  }, [classId, gameId]);
 
   const sync = useAdventureSync({
     classId,
     gameId,
-    game: gameWithGroups,
+    game,
     boards,
     onGameUpdated: handleGameUpdated,
-    barScope,
   });
   const refreshAdventureSync = sync.refresh;
 
-  // For every whole-class bar, restrict scope to students not in any group.
-  const wholeClassSet = useMemo(() => {
-    const s = new Set<string>();
-    for (const uid of sync.memberIds) if (!groups.studentGroup.has(uid)) s.add(uid);
-    return s;
-  }, [sync.memberIds, groups.studentGroup]);
+  const patchedBarSummaries = sync.barSummaries;
 
-  // Bars without a group entry are re-scoped to the whole class locally.
-  const patchedBarSummaries = useMemo(() => {
-    return sync.barSummaries.map((b) => {
-      if (groups.barOwner.has(b.id)) return b;
-      const students = wholeClassSet.size;
-      const grand = (b.total || 0) * students;
-      const required = Math.max(1, Math.round(grand * (b.goalPct / 100)));
-      const raw = sync.scoresByAssessment[b.assessmentId] ?? {};
-      let ach = 0;
-      for (const [sid, sc] of Object.entries(raw)) if (wholeClassSet.has(sid)) ach += sc ?? 0;
-      const per = required / Math.max(1, b.segments);
-      return {
-        ...b,
-        students,
-        grand,
-        required,
-        achieved: Math.min(required, ach),
-        perSlot: Number.isInteger(per) ? String(per) : per.toFixed(1),
-      };
-    });
-  }, [sync.barSummaries, groups.barOwner, wholeClassSet, sync.scoresByAssessment]);
 
-  const statsByBar = useMemo(() => new Map(patchedBarSummaries.map((b) => [b.id, b])), [patchedBarSummaries]);
 
   const timeBar = useGameTimeBar(gameId);
 
@@ -222,7 +192,8 @@ const AdventureDashboardPage = () => {
   const stageScene = activeScene ?? exitingScene;
 
   /** Group Mode turns each Learning Point into a timed competition. */
-  const groupMode = groups.groups.length > 0;
+  const groupMode = gameMode === "group" && groups.groups.length > 0;
+
 
   /**
    * Live status of one Learning Point. Nothing is remembered between runs: the
@@ -255,6 +226,46 @@ const AdventureDashboardPage = () => {
     [activeScene, pointSatisfied],
   );
 
+  /**
+   * The master Progress Bar of the moment — the single definition every team
+   * competes on. Video Adventure: the Learning Point's own learning bar.
+   */
+  const masterBar = useMemo<MasterBar | null>(() => {
+    const reservedId = stageScene ? timeBarOf(stageScene.elements)?.id ?? null : null;
+    const pool = isVideo && stageScene
+      ? patchedBarSummaries.filter((b) => (stageScene.elements ?? []).some((e) => e.id === b.id))
+      : patchedBarSummaries;
+    const bar = pool.find((b) => b.id !== reservedId && b.id !== timeBar.elementId) ?? null;
+    if (!bar) return null;
+    return {
+      id: bar.id,
+      label: bar.label,
+      assessmentId: bar.assessmentId,
+      total: bar.total,
+      goalPct: bar.goalPct,
+      segments: bar.segments,
+    };
+  }, [isVideo, stageScene, patchedBarSummaries, timeBar.elementId]);
+
+  const requiredPct = isVideo
+    ? runtime.challengeFor(stageScene?.id)?.required_pct ?? DEFAULT_REQUIRED_PCT
+    : 100;
+
+  const standings = useMemo(
+    () =>
+      computeGroupStandings({
+        groups: groups.groups,
+        studentsByGroup: groups.studentsByGroup,
+        master: masterBar,
+        scores: sync.scoresByAssessment,
+        requiredPct,
+        mode: isVideo ? "video" : "static",
+        winnerGroupId: null,
+      }),
+    [groups.groups, groups.studentsByGroup, masterBar, sync.scoresByAssessment, requiredPct, isVideo],
+  );
+  const fillByGroup = useMemo(() => fillByGroupOf(standings), [standings]);
+
   // The dashboard is the single writer of competition outcomes. In a Video
   // Adventure the verdict is taken when the Learning Point's own clock expires.
   const outcome = useGroupOutcome({
@@ -262,13 +273,30 @@ const AdventureDashboardPage = () => {
     gameId,
     mode: isVideo ? "video" : "static",
     sceneId: isVideo ? runtime.activeChallenge?.scene_id ?? null : canvas?.activeSceneId ?? null,
-    groups: groups.groups,
-    statsByBar,
+    groups: groupMode ? groups.groups : [],
+    fillByGroup,
     timeExpired: isVideo ? runtime.expired : timeBar.expired,
     authoritative: true,
     runKey: runtime.run?.started_at ?? null,
     onChanged: groups.refresh,
   });
+
+  /** Standings shown on the board, including the decided race winner. */
+  const boardStandings = useMemo(
+    () =>
+      computeGroupStandings({
+        groups: groups.groups,
+        studentsByGroup: groups.studentsByGroup,
+        master: masterBar,
+        scores: sync.scoresByAssessment,
+        requiredPct,
+        mode: isVideo ? "video" : "static",
+        winnerGroupId: outcome.winner?.id ?? null,
+      }),
+    [groups.groups, groups.studentsByGroup, masterBar, sync.scoresByAssessment, requiredPct, isVideo, outcome.winner],
+  );
+
+
 
   /**
    * A challenge ends when its timer runs out. Without groups it may also end
@@ -695,13 +723,8 @@ const AdventureDashboardPage = () => {
                     const el = canvasElements.find((e) => e.id === id);
                     setSelectedRewardId(el?.kind === "reward" ? id : null);
                   }}
-                  onMove={(id, x, y) => {
-                    // Only duplicated group bars are movable; position only.
-                    if (!isGroupBarElementId(id)) return;
-                    const g = groups.groups.find((gr) => gr.progress_element_id === id);
-                    if (!g) return;
-                    void moveGroupBar(g.id, x, y).then(() => groups.refresh());
-                  }}
+                  onMove={undefined}
+
                   heightUnits={sync.heightUnits}
                 />
                 )}
@@ -789,26 +812,19 @@ const AdventureDashboardPage = () => {
                   </div>
                 </div>
                 <AssessmentStatusPanel rows={sync.rows} onViewStudent={onViewStudent} />
-                {classId && gameId && (
+                {classId && gameId && groupMode && (
                   <div className="mt-6 border-t border-border pt-4">
-                    {outcome.winner && (
-                      <div className="mb-3 rounded-xl border border-primary/40 bg-primary/10 p-3 text-sm font-semibold text-primary">
-                        {outcome.winner.name} finished first and takes the reward.
-                      </div>
-                    )}
-                    <GroupsPanel
-                      classId={classId}
-                      gameId={gameId}
-                      game={game}
-                      members={sync.members}
-                      bars={patchedBarSummaries}
-                      ctx={groups}
-                      statsByBar={statsByBar}
-                      reservedBarIds={timeBar.elementId ? new Set([timeBar.elementId]) : undefined}
-                      winnerGroupId={outcome.winner?.id ?? null}
+                    <GroupLeaderboard
+                      standings={boardStandings}
+                      masterLabel={masterBar?.label ?? null}
+                      winnerName={outcome.winner?.name ?? null}
                     />
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Teams are created and edited on the Adventure page under Game Mode.
+                    </p>
                   </div>
                 )}
+
               </aside>
             ) : (
               <button

@@ -16,7 +16,7 @@ import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { useGroupOutcome } from "@/hooks/useGroupOutcome";
-import { withGroupBars } from "@/lib/adventures/groupBars";
+import { computeGroupStandings, fillByGroupOf, type MasterBar } from "@/lib/adventures/groupStandings";
 import { useRewardTransfer } from "@/hooks/useRewardTransfer";
 import { isFinalStage, stageComplete, stageElementIds, stagesOf } from "@/lib/games/stages";
 import { loopRegionFor, loopStateOf, type LoopState } from "@/lib/games/loopRuntime";
@@ -83,28 +83,17 @@ const GamePlayPage = () => {
 
   const groups = useAdventureGroups(classId, gameId);
 
-  // Every group's duplicated bar is rebuilt from the original bar, so students
-  // watch all the competing bars race on the same stage.
-  const gameWithGroups = useMemo(() => withGroupBars(game, groups.groups), [game, groups.groups]);
-
-  // Part 4 — a student's marks only raise their own group's bar.
-  const barScope = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const g of groups.groups) {
-      map.set(g.progress_element_id, groups.studentsByGroup.get(g.id) ?? new Set<string>());
-    }
-    return map;
-  }, [groups.groups, groups.studentsByGroup]);
-
+  // Nothing is duplicated on the stage: all teams compete on the one master
+  // Progress Bar, so the student sees the authored Adventure exactly as built.
   const sync = useAdventureSync({
     classId,
     gameId,
-    game: gameWithGroups,
+    game,
     boards,
     currentUserId: me,
     onGameUpdated: handleGameUpdated,
-    barScope,
   });
+
 
 
   useEffect(() => {
@@ -270,39 +259,51 @@ const GamePlayPage = () => {
   /** The group this student competes with, if Group Mode is on. */
   const myGroupIdEarly = me ? groups.studentGroup.get(me) ?? null : null;
 
+  /** The master Progress Bar of this stage — every team competes on it. */
+  const masterBar = useMemo<MasterBar | null>(() => {
+    const bar = stageBars.find((b) => b.id !== stageTimeBarId && !groups.barOwner.has(b.id)) ?? null;
+    if (!bar) return null;
+    return {
+      id: bar.id,
+      label: bar.label,
+      assessmentId: bar.assessmentId,
+      total: bar.total,
+      goalPct: bar.goalPct,
+      segments: bar.segments,
+    };
+  }, [stageBars, stageTimeBarId, groups.barOwner]);
+
+  const requiredPct = stageChallenge?.required_pct ?? 100;
+
+  /** Live standings — each team's own students against the master bar. */
+  const standings = useMemo(
+    () =>
+      computeGroupStandings({
+        groups: groups.groups,
+        studentsByGroup: groups.studentsByGroup,
+        master: masterBar,
+        scores: sync.scoresByAssessment,
+        requiredPct,
+        mode: videoBg ? "video" : "static",
+      }),
+    [groups.groups, groups.studentsByGroup, masterBar, sync.scoresByAssessment, requiredPct, videoBg],
+  );
+  const fillByGroup = useMemo(() => fillByGroupOf(standings), [standings]);
+
   /**
    * Restart Game replays the story and keeps every mark, so when the video
    * reaches a Learning Point the student is measured against EXISTING progress:
-   * their own score on a whole-class bar, or their group's collective score on
-   * the group's bar. Already at or above the required mark → no bar, no timer,
-   * no questions: they simply keep watching the synchronized video.
+   * their own score on a whole-class bar, or their team's collective score.
+   * Already at or above the required mark → no bar, no timer, no questions:
+   * they simply keep watching the synchronized video.
    */
   const myPointMet = useMemo(() => {
-    if (!teacherLed || !stageChallenge || !me) return false;
-    const bars = stageBars.filter((b) => {
-      if (b.id === stageTimeBarId) return false;
-      const owner = groups.barOwner.get(b.id) ?? null;
-      return myGroupIdEarly ? owner === myGroupIdEarly : !owner;
-    });
-    if (bars.length === 0) return false;
-    return bars.every((b) => {
-      if (myGroupIdEarly) {
-        const target = Math.max(1, Math.round((b.required * stageChallenge.required_pct) / 100));
-        return b.achieved >= target;
-      }
-      const target = Math.max(1, Math.round((b.total * stageChallenge.required_pct) / 100));
-      return (sync.scoresByAssessment[b.assessmentId]?.[me] ?? 0) >= target;
-    });
-  }, [
-    teacherLed,
-    stageChallenge,
-    me,
-    stageBars,
-    stageTimeBarId,
-    groups.barOwner,
-    myGroupIdEarly,
-    sync.scoresByAssessment,
-  ]);
+    if (!teacherLed || !stageChallenge || !me || !masterBar) return false;
+    if (myGroupIdEarly) return (fillByGroup.get(myGroupIdEarly) ?? 0) >= 1;
+    const target = Math.max(1, Math.round((masterBar.total * stageChallenge.required_pct) / 100));
+    return (sync.scoresByAssessment[masterBar.assessmentId]?.[me] ?? 0) >= target;
+  }, [teacherLed, stageChallenge, me, masterBar, myGroupIdEarly, fillByGroup, sync.scoresByAssessment]);
+
   // Already passed: never reopen the question panel for this student.
   useEffect(() => {
     if (myPointMet) setOpenBarId(null);
@@ -382,18 +383,15 @@ const GamePlayPage = () => {
   const myGroupId = myGroupIdEarly;
 
   // Group outcome — a race winner (Adventure) or the encouraging message shown
-  // to a group that did not reach the Learning Point target (Video Adventure).
-  const statsByBar = useMemo(
-    () => new Map(sync.barSummaries.map((b) => [b.id, b])),
-    [sync.barSummaries],
-  );
+  // to a team that did not reach the Learning Point target (Video Adventure).
   const outcome = useGroupOutcome({
     classId,
     gameId,
     mode: videoBg ? "video" : "static",
     sceneId: activeStage?.id ?? null,
     groups: groups.groups,
-    statsByBar,
+    fillByGroup,
+
     timeExpired,
     runKey: teacherRun.run?.started_at ?? null,
   });
