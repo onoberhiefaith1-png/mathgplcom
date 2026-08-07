@@ -83,28 +83,17 @@ const GamePlayPage = () => {
 
   const groups = useAdventureGroups(classId, gameId);
 
-  // Every group's duplicated bar is rebuilt from the original bar, so students
-  // watch all the competing bars race on the same stage.
-  const gameWithGroups = useMemo(() => withGroupBars(game, groups.groups), [game, groups.groups]);
-
-  // Part 4 — a student's marks only raise their own group's bar.
-  const barScope = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const g of groups.groups) {
-      map.set(g.progress_element_id, groups.studentsByGroup.get(g.id) ?? new Set<string>());
-    }
-    return map;
-  }, [groups.groups, groups.studentsByGroup]);
-
+  // Nothing is duplicated on the stage: all teams compete on the one master
+  // Progress Bar, so the student sees the authored Adventure exactly as built.
   const sync = useAdventureSync({
     classId,
     gameId,
-    game: gameWithGroups,
+    game,
     boards,
     currentUserId: me,
     onGameUpdated: handleGameUpdated,
-    barScope,
   });
+
 
 
   useEffect(() => {
