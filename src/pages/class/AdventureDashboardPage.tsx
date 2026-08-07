@@ -226,6 +226,46 @@ const AdventureDashboardPage = () => {
     [activeScene, pointSatisfied],
   );
 
+  /**
+   * The master Progress Bar of the moment — the single definition every team
+   * competes on. Video Adventure: the Learning Point's own learning bar.
+   */
+  const masterBar = useMemo<MasterBar | null>(() => {
+    const reservedId = stageScene ? timeBarOf(stageScene.elements)?.id ?? null : null;
+    const pool = isVideo && stageScene
+      ? patchedBarSummaries.filter((b) => (stageScene.elements ?? []).some((e) => e.id === b.id))
+      : patchedBarSummaries;
+    const bar = pool.find((b) => b.id !== reservedId && b.id !== timeBar.elementId) ?? null;
+    if (!bar) return null;
+    return {
+      id: bar.id,
+      label: bar.label,
+      assessmentId: bar.assessmentId,
+      total: bar.total,
+      goalPct: bar.goalPct,
+      segments: bar.segments,
+    };
+  }, [isVideo, stageScene, patchedBarSummaries, timeBar.elementId]);
+
+  const requiredPct = isVideo
+    ? runtime.challengeFor(stageScene?.id)?.required_pct ?? DEFAULT_REQUIRED_PCT
+    : 100;
+
+  const standings = useMemo(
+    () =>
+      computeGroupStandings({
+        groups: groups.groups,
+        studentsByGroup: groups.studentsByGroup,
+        master: masterBar,
+        scores: sync.scoresByAssessment,
+        requiredPct,
+        mode: isVideo ? "video" : "static",
+        winnerGroupId: null,
+      }),
+    [groups.groups, groups.studentsByGroup, masterBar, sync.scoresByAssessment, requiredPct, isVideo],
+  );
+  const fillByGroup = useMemo(() => fillByGroupOf(standings), [standings]);
+
   // The dashboard is the single writer of competition outcomes. In a Video
   // Adventure the verdict is taken when the Learning Point's own clock expires.
   const outcome = useGroupOutcome({
@@ -233,13 +273,30 @@ const AdventureDashboardPage = () => {
     gameId,
     mode: isVideo ? "video" : "static",
     sceneId: isVideo ? runtime.activeChallenge?.scene_id ?? null : canvas?.activeSceneId ?? null,
-    groups: groups.groups,
-    statsByBar,
+    groups: groupMode ? groups.groups : [],
+    fillByGroup,
     timeExpired: isVideo ? runtime.expired : timeBar.expired,
     authoritative: true,
     runKey: runtime.run?.started_at ?? null,
     onChanged: groups.refresh,
   });
+
+  /** Standings shown on the board, including the decided race winner. */
+  const boardStandings = useMemo(
+    () =>
+      computeGroupStandings({
+        groups: groups.groups,
+        studentsByGroup: groups.studentsByGroup,
+        master: masterBar,
+        scores: sync.scoresByAssessment,
+        requiredPct,
+        mode: isVideo ? "video" : "static",
+        winnerGroupId: outcome.winner?.id ?? null,
+      }),
+    [groups.groups, groups.studentsByGroup, masterBar, sync.scoresByAssessment, requiredPct, isVideo, outcome.winner],
+  );
+
+
 
   /**
    * A challenge ends when its timer runs out. Without groups it may also end
