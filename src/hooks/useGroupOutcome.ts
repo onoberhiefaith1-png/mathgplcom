@@ -35,7 +35,8 @@ export function useGroupOutcome(params: {
   /** Active Learning Point (Video Adventure only). */
   sceneId?: string | null;
   groups: AdventureGroup[];
-  statsByBar: Map<string, AdventureBarSummary>;
+  /** groupId → 0…1 progress against this Learning Point's required mark. */
+  fillByGroup: Map<string, number>;
   timeExpired: boolean;
   /** Only the teacher dashboard should write outcomes. */
   authoritative?: boolean;
@@ -43,7 +44,7 @@ export function useGroupOutcome(params: {
   runKey?: string | null;
   onChanged?: () => void;
 }): GroupOutcome {
-  const { classId, gameId, mode, sceneId, groups, statsByBar, timeExpired, authoritative, runKey, onChanged } = params;
+  const { classId, gameId, mode, sceneId, groups, fillByGroup, timeExpired, authoritative, runKey, onChanged } = params;
   const [message, setMessage] = useState(DEFAULT_GROUP_COMPLETION_MESSAGE);
   const winnerWrittenRef = useRef<string | null>(null);
   const judgedSceneRef = useRef<string | null>(null);
@@ -61,11 +62,7 @@ export function useGroupOutcome(params: {
     return () => { cancelled = true; };
   }, [classId, gameId]);
 
-  const fillByBar = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const [id, b] of statsByBar) m.set(id, b.required > 0 ? b.achieved / b.required : 0);
-    return m;
-  }, [statsByBar]);
+
 
   const winner = useMemo(
     () => (mode === "static" ? raceWinner(groups, fillByBar) : null),
