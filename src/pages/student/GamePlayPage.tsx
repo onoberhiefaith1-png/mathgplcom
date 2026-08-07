@@ -259,39 +259,51 @@ const GamePlayPage = () => {
   /** The group this student competes with, if Group Mode is on. */
   const myGroupIdEarly = me ? groups.studentGroup.get(me) ?? null : null;
 
+  /** The master Progress Bar of this stage — every team competes on it. */
+  const masterBar = useMemo<MasterBar | null>(() => {
+    const bar = stageBars.find((b) => b.id !== stageTimeBarId && !groups.barOwner.has(b.id)) ?? null;
+    if (!bar) return null;
+    return {
+      id: bar.id,
+      label: bar.label,
+      assessmentId: bar.assessmentId,
+      total: bar.total,
+      goalPct: bar.goalPct,
+      segments: bar.segments,
+    };
+  }, [stageBars, stageTimeBarId, groups.barOwner]);
+
+  const requiredPct = stageChallenge?.required_pct ?? 100;
+
+  /** Live standings — each team's own students against the master bar. */
+  const standings = useMemo(
+    () =>
+      computeGroupStandings({
+        groups: groups.groups,
+        studentsByGroup: groups.studentsByGroup,
+        master: masterBar,
+        scores: sync.scoresByAssessment,
+        requiredPct,
+        mode: videoBg ? "video" : "static",
+      }),
+    [groups.groups, groups.studentsByGroup, masterBar, sync.scoresByAssessment, requiredPct, videoBg],
+  );
+  const fillByGroup = useMemo(() => fillByGroupOf(standings), [standings]);
+
   /**
    * Restart Game replays the story and keeps every mark, so when the video
    * reaches a Learning Point the student is measured against EXISTING progress:
-   * their own score on a whole-class bar, or their group's collective score on
-   * the group's bar. Already at or above the required mark → no bar, no timer,
-   * no questions: they simply keep watching the synchronized video.
+   * their own score on a whole-class bar, or their team's collective score.
+   * Already at or above the required mark → no bar, no timer, no questions:
+   * they simply keep watching the synchronized video.
    */
   const myPointMet = useMemo(() => {
-    if (!teacherLed || !stageChallenge || !me) return false;
-    const bars = stageBars.filter((b) => {
-      if (b.id === stageTimeBarId) return false;
-      const owner = groups.barOwner.get(b.id) ?? null;
-      return myGroupIdEarly ? owner === myGroupIdEarly : !owner;
-    });
-    if (bars.length === 0) return false;
-    return bars.every((b) => {
-      if (myGroupIdEarly) {
-        const target = Math.max(1, Math.round((b.required * stageChallenge.required_pct) / 100));
-        return b.achieved >= target;
-      }
-      const target = Math.max(1, Math.round((b.total * stageChallenge.required_pct) / 100));
-      return (sync.scoresByAssessment[b.assessmentId]?.[me] ?? 0) >= target;
-    });
-  }, [
-    teacherLed,
-    stageChallenge,
-    me,
-    stageBars,
-    stageTimeBarId,
-    groups.barOwner,
-    myGroupIdEarly,
-    sync.scoresByAssessment,
-  ]);
+    if (!teacherLed || !stageChallenge || !me || !masterBar) return false;
+    if (myGroupIdEarly) return (fillByGroup.get(myGroupIdEarly) ?? 0) >= 1;
+    const target = Math.max(1, Math.round((masterBar.total * stageChallenge.required_pct) / 100));
+    return (sync.scoresByAssessment[masterBar.assessmentId]?.[me] ?? 0) >= target;
+  }, [teacherLed, stageChallenge, me, masterBar, myGroupIdEarly, fillByGroup, sync.scoresByAssessment]);
+
   // Already passed: never reopen the question panel for this student.
   useEffect(() => {
     if (myPointMet) setOpenBarId(null);
