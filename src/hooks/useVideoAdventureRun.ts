@@ -7,6 +7,7 @@
 // and only exists while the video sits inside that point.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { resetGroupJudgements } from "@/lib/adventures/groups";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 export const DEFAULT_LP_DURATION_SECONDS = 600;
@@ -203,6 +204,8 @@ export function useVideoAdventureRun(
       .from("game_time_bars" as never)
       .update({ started_at: null, paused_at: null, accumulated_paused_ms: 0 } as never)
       .eq("game_id", gameId);
+    // No group carries a verdict from the previous run into the replay.
+    await resetGroupJudgements(classId, gameId);
     await patchRun({
       started_at: new Date().toISOString(),
       playing: true,

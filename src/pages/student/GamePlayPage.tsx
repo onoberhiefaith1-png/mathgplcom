@@ -267,21 +267,42 @@ const GamePlayPage = () => {
   /** The one clock: teacher-led runs read it from the challenge row. */
   const timeExpired = teacherLed ? challengeExpired : timeBar.expired;
 
+  /** The group this student competes with, if Group Mode is on. */
+  const myGroupIdEarly = me ? groups.studentGroup.get(me) ?? null : null;
+
   /**
    * Restart Game replays the story and keeps every mark, so when the video
-   * reaches a Learning Point each student is measured against their EXISTING
-   * score. Already at or above the required mark → no bar, no timer, no
-   * questions: they simply keep watching the synchronized video.
+   * reaches a Learning Point the student is measured against EXISTING progress:
+   * their own score on a whole-class bar, or their group's collective score on
+   * the group's bar. Already at or above the required mark → no bar, no timer,
+   * no questions: they simply keep watching the synchronized video.
    */
   const myPointMet = useMemo(() => {
     if (!teacherLed || !stageChallenge || !me) return false;
-    const bars = stageBars.filter((b) => b.id !== stageTimeBarId);
+    const bars = stageBars.filter((b) => {
+      if (b.id === stageTimeBarId) return false;
+      const owner = groups.barOwner.get(b.id) ?? null;
+      return myGroupIdEarly ? owner === myGroupIdEarly : !owner;
+    });
     if (bars.length === 0) return false;
     return bars.every((b) => {
+      if (myGroupIdEarly) {
+        const target = Math.max(1, Math.round((b.required * stageChallenge.required_pct) / 100));
+        return b.achieved >= target;
+      }
       const target = Math.max(1, Math.round((b.total * stageChallenge.required_pct) / 100));
       return (sync.scoresByAssessment[b.assessmentId]?.[me] ?? 0) >= target;
     });
-  }, [teacherLed, stageChallenge, me, stageBars, stageTimeBarId, sync.scoresByAssessment]);
+  }, [
+    teacherLed,
+    stageChallenge,
+    me,
+    stageBars,
+    stageTimeBarId,
+    groups.barOwner,
+    myGroupIdEarly,
+    sync.scoresByAssessment,
+  ]);
   // Already passed: never reopen the question panel for this student.
   useEffect(() => {
     if (myPointMet) setOpenBarId(null);
@@ -358,7 +379,7 @@ const GamePlayPage = () => {
 
   // Time beat the goal (Part 7): expired with no valid, in-time win.
   const timeUp = timeExpired && !transfer.won;
-  const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
+  const myGroupId = myGroupIdEarly;
 
   // Group outcome — a race winner (Adventure) or the encouraging message shown
   // to a group that did not reach the Learning Point target (Video Adventure).
@@ -374,6 +395,7 @@ const GamePlayPage = () => {
     groups: groups.groups,
     statsByBar,
     timeExpired,
+    runKey: teacherRun.run?.started_at ?? null,
   });
   const myGroup = myGroupId ? groups.groups.find((g) => g.id === myGroupId) ?? null : null;
   const waiting = !!myGroup && outcome.waitingGroupIds.has(myGroup.id);

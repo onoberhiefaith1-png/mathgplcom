@@ -47,7 +47,6 @@ const AdventureDashboardPage = () => {
   // Video Adventure only — the dashboard is the live game screen.
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const [exitingSceneId, setExitingSceneId] = useState<string | null>(null);
-  const [clearedSceneIds, setClearedSceneIds] = useState<Set<string>>(() => new Set());
   const lastPublishRef = useRef(0);
 
   useEffect(() => {
@@ -124,18 +123,6 @@ const AdventureDashboardPage = () => {
   const canvas = useMemo(() => (game ? normalizeCanvas(game.canvas) : null), [game]);
   const mode = canvas ? adventureModeOf(canvas) : "static";
 
-  // The dashboard is the single writer of competition outcomes.
-  const outcome = useGroupOutcome({
-    classId,
-    gameId,
-    mode: mode === "video" ? "video" : "static",
-    sceneId: canvas?.activeSceneId ?? null,
-    groups: groups.groups,
-    statsByBar,
-    timeExpired: timeBar.expired,
-    authoritative: true,
-    onChanged: groups.refresh,
-  });
 
   // Part 1/6 — the first bar to reach its target sends its reward to that
   // group's Gallery; nothing transfers once the Time Bar has expired.
@@ -234,29 +221,69 @@ const AdventureDashboardPage = () => {
   );
   const stageScene = activeScene ?? exitingScene;
 
-  /** Required mark reached for the Learning Point currently on screen. */
-  const challengeMet = useMemo(() => {
-    const ch = runtime.activeChallenge;
-    if (!ch || !activeScene) return false;
-    const ids = new Set((activeScene.elements ?? []).map((e) => e.id));
-    const bars = patchedBarSummaries.filter(
-      (b) => ids.has(b.id) && b.id !== timeBar.elementId && b.id !== reservedTimeBar?.el.id,
-    );
-    if (bars.length === 0) return false;
-    return bars.every((b) => {
-      const target = Math.max(1, Math.round((b.required * ch.required_pct) / 100));
-      return b.achieved >= target;
-    });
-  }, [runtime.activeChallenge, activeScene, patchedBarSummaries, timeBar.elementId, reservedTimeBar]);
+  /** Group Mode turns each Learning Point into a timed competition. */
+  const groupMode = groups.groups.length > 0;
 
-  /** A challenge ends on the required mark, or when its own timer runs out. */
+  /**
+   * Live status of one Learning Point. Nothing is remembered between runs: the
+   * grand total, the required mark and the achievement are recomputed from the
+   * students currently enrolled and their current scores, so adding or removing
+   * students, or changing the required mark, reopens or closes a point at once.
+   */
+  const pointSatisfied = useCallback(
+    (sceneId: string): boolean => {
+      const scene = learningPoints.find((s) => s.id === sceneId);
+      if (!scene) return false;
+      const ids = new Set((scene.elements ?? []).map((e) => e.id));
+      const reservedId = timeBarOf(scene.elements)?.id ?? null;
+      const pct = runtime.challengeFor(sceneId)?.required_pct ?? DEFAULT_REQUIRED_PCT;
+      const bars = patchedBarSummaries.filter(
+        (b) => ids.has(b.id) && b.id !== reservedId && b.id !== timeBar.elementId,
+      );
+      if (bars.length === 0) return false;
+      return bars.every((b) => {
+        const target = Math.max(1, Math.round((b.required * pct) / 100));
+        return b.achieved >= target;
+      });
+    },
+    [learningPoints, patchedBarSummaries, runtime, timeBar.elementId],
+  );
+
+  /** Required mark reached for the Learning Point currently on screen. */
+  const challengeMet = useMemo(
+    () => (activeScene ? pointSatisfied(activeScene.id) : false),
+    [activeScene, pointSatisfied],
+  );
+
+  // The dashboard is the single writer of competition outcomes. In a Video
+  // Adventure the verdict is taken when the Learning Point's own clock expires.
+  const outcome = useGroupOutcome({
+    classId,
+    gameId,
+    mode: isVideo ? "video" : "static",
+    sceneId: isVideo ? runtime.activeChallenge?.scene_id ?? null : canvas?.activeSceneId ?? null,
+    groups: groups.groups,
+    statsByBar,
+    timeExpired: isVideo ? runtime.expired : timeBar.expired,
+    authoritative: true,
+    runKey: runtime.run?.started_at ?? null,
+    onChanged: groups.refresh,
+  });
+
+  /**
+   * A challenge ends when its timer runs out. Without groups it may also end
+   * early on the required mark; in Group Mode the full time always runs so a
+   * group that fills its bar early simply waits and the competition is judged
+   * for everyone at zero.
+   */
   useEffect(() => {
     const ch = runtime.activeChallenge;
     if (!isVideo || !ch) return;
-    if (!challengeMet && !runtime.expired) return;
+    const early = challengeMet && !groupMode;
+    if (!early && !runtime.expired) return;
     setExitingSceneId(ch.scene_id);
     void runtime.actions.endChallenge(ch.scene_id, challengeMet ? "completed" : "expired");
-  }, [isVideo, runtime.activeChallenge, runtime.expired, challengeMet, runtime.actions]);
+  }, [isVideo, groupMode, runtime.activeChallenge, runtime.expired, challengeMet, runtime.actions]);
 
   // Sound: the teacher's dashboard is the live game screen, so it plays the
   // adventure's ambience, the active Learning Point's music and its narration.
@@ -291,15 +318,14 @@ const AdventureDashboardPage = () => {
       // A finished Learning Point plays out its own lap, then hands back.
       if (exitingSceneId) {
         const end = exitingScene?.loopEnd ?? 0;
-        if (t >= end - 0.05) {
-          setClearedSceneIds((prev) => new Set(prev).add(exitingSceneId));
-          setExitingSceneId(null);
-        }
+        if (t >= end - 0.05) setExitingSceneId(null);
         return;
       }
       if (runtime.activeChallenge) return;
       const hit = checkpointAt(learningPoints, t);
-      if (!hit || clearedSceneIds.has(hit.id)) return;
+      // No cached completion: a point only stays shut while it is still
+      // satisfied by the CURRENT class, scores and required mark.
+      if (!hit || pointSatisfied(hit.id)) return;
       const bar = timeBarOf(hit.elements);
       void runtime.actions.openChallenge(hit.id, {
         progressElementId: bar?.id ?? null,
@@ -314,7 +340,7 @@ const AdventureDashboardPage = () => {
       exitingSceneId,
       exitingScene,
       learningPoints,
-      clearedSceneIds,
+      pointSatisfied,
       narrationRuntime,
     ],
   );
@@ -329,11 +355,13 @@ const AdventureDashboardPage = () => {
       return;
     }
     unlockAudio();
-    setClearedSceneIds(new Set());
     setExitingSceneId(null);
     videoRef.current?.seek(0);
-    void runtime.actions.startGame().then(() => timeBar.refresh()).catch(() => {});
-  }, [runtime.actions, runtime.started, timeBar.refresh]);
+    void runtime.actions
+      .startGame()
+      .then(() => { timeBar.refresh(); groups.refresh(); })
+      .catch(() => {});
+  }, [runtime.actions, runtime.started, timeBar.refresh, groups.refresh]);
 
 
   // The video sits on its first frame until Start Game is pressed.

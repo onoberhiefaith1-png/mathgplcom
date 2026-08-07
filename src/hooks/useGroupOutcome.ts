@@ -39,12 +39,20 @@ export function useGroupOutcome(params: {
   timeExpired: boolean;
   /** Only the teacher dashboard should write outcomes. */
   authoritative?: boolean;
+  /** Changes on Restart Game so every Learning Point is judged again. */
+  runKey?: string | null;
   onChanged?: () => void;
 }): GroupOutcome {
-  const { classId, gameId, mode, sceneId, groups, statsByBar, timeExpired, authoritative, onChanged } = params;
+  const { classId, gameId, mode, sceneId, groups, statsByBar, timeExpired, authoritative, runKey, onChanged } = params;
   const [message, setMessage] = useState(DEFAULT_GROUP_COMPLETION_MESSAGE);
   const winnerWrittenRef = useRef<string | null>(null);
   const judgedSceneRef = useRef<string | null>(null);
+
+  // A replay judges from live data: forget what the previous run decided.
+  useEffect(() => {
+    winnerWrittenRef.current = null;
+    judgedSceneRef.current = null;
+  }, [runKey]);
 
   useEffect(() => {
     if (!classId || !gameId) return;
