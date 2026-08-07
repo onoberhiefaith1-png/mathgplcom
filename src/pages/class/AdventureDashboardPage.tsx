@@ -738,6 +738,19 @@ const AdventureDashboardPage = () => {
                   The adventure is waiting at 0:00. Students cannot open questions until you start.
                 </span>
               )}
+              {groupMode && teamBarElements.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setArrangeTeamBars((v) => !v)}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                    arrangeTeamBars
+                      ? "border-primary/60 bg-primary/20 text-primary"
+                      : "border-border bg-card text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {arrangeTeamBars ? "Done arranging" : "Arrange team bars"}
+                </button>
+              )}
               <div className="w-full">
                 <LearningPointTimeBars
                   learningPoints={learningPoints}
