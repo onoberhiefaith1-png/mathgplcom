@@ -64,60 +64,29 @@ const AdventureDashboardPage = () => {
 
   const groups = useAdventureGroups(classId, gameId);
 
-  // Duplicated group bars are rebuilt from the original bar at render time, so
-  // they inherit every setting of the original and never touch the Adventure.
-  const gameWithGroups = useMemo(() => withGroupBars(game, groups.groups), [game, groups.groups]);
-
-  // Bar scope: group-owned bars count only their group's students; whole-class
-  // bars count only students not in any group.
-  const barScope = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const g of groups.groups) {
-      map.set(g.progress_element_id, groups.studentsByGroup.get(g.id) ?? new Set());
-    }
-    return map;
-  }, [groups.groups, groups.studentsByGroup]);
+  // Groups no longer own gameplay objects: the stage always shows the one
+  // master Progress Bar, and each team's progress is computed live from the
+  // students assigned to it (Group Competition Board).
+  const [gameMode, setGameMode] = useState<GameMode>("individual");
+  useEffect(() => {
+    if (!classId || !gameId) return;
+    let cancelled = false;
+    void getGameMode(classId, gameId).then((m) => { if (!cancelled) setGameMode(m); });
+    return () => { cancelled = true; };
+  }, [classId, gameId]);
 
   const sync = useAdventureSync({
     classId,
     gameId,
-    game: gameWithGroups,
+    game,
     boards,
     onGameUpdated: handleGameUpdated,
-    barScope,
   });
   const refreshAdventureSync = sync.refresh;
 
-  // For every whole-class bar, restrict scope to students not in any group.
-  const wholeClassSet = useMemo(() => {
-    const s = new Set<string>();
-    for (const uid of sync.memberIds) if (!groups.studentGroup.has(uid)) s.add(uid);
-    return s;
-  }, [sync.memberIds, groups.studentGroup]);
+  const patchedBarSummaries = sync.barSummaries;
 
-  // Bars without a group entry are re-scoped to the whole class locally.
-  const patchedBarSummaries = useMemo(() => {
-    return sync.barSummaries.map((b) => {
-      if (groups.barOwner.has(b.id)) return b;
-      const students = wholeClassSet.size;
-      const grand = (b.total || 0) * students;
-      const required = Math.max(1, Math.round(grand * (b.goalPct / 100)));
-      const raw = sync.scoresByAssessment[b.assessmentId] ?? {};
-      let ach = 0;
-      for (const [sid, sc] of Object.entries(raw)) if (wholeClassSet.has(sid)) ach += sc ?? 0;
-      const per = required / Math.max(1, b.segments);
-      return {
-        ...b,
-        students,
-        grand,
-        required,
-        achieved: Math.min(required, ach),
-        perSlot: Number.isInteger(per) ? String(per) : per.toFixed(1),
-      };
-    });
-  }, [sync.barSummaries, groups.barOwner, wholeClassSet, sync.scoresByAssessment]);
 
-  const statsByBar = useMemo(() => new Map(patchedBarSummaries.map((b) => [b.id, b])), [patchedBarSummaries]);
 
   const timeBar = useGameTimeBar(gameId);
 
