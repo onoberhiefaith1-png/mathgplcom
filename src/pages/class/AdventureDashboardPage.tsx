@@ -51,6 +51,18 @@ const AdventureDashboardPage = () => {
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const [exitingSceneId, setExitingSceneId] = useState<string | null>(null);
   const lastPublishRef = useRef(0);
+  /**
+   * Game Time — the master clock of the whole Video Adventure. It is the video's
+   * own forward timeline and belongs to no Progress Bar. Loop Time (the
+   * countdown of the Learning Point on screen) lives on the challenge row and is
+   * completely independent of this.
+   */
+  const [gameTime, setGameTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  /** Restart Game is in flight: the loop is released so the video can reach 0:00. */
+  const [restarting, setRestarting] = useState(false);
+  /** Teacher is arranging the team scoreboard bars on the stage. */
+  const [arrangeTeamBars, setArrangeTeamBars] = useState(false);
 
   useEffect(() => {
     if (fullscreen === "none") return;
