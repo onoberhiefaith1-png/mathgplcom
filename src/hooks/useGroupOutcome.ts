@@ -16,7 +16,7 @@ import {
   type AdventureGroup,
 } from "@/lib/adventures/groups";
 import { evaluateCheckpoint, raceWinner } from "@/lib/adventures/groupCompetition";
-import type { AdventureBarSummary } from "./useAdventureSync";
+
 
 export type GroupOutcome = {
   /** Adventure only — the group that finished first, if any. */
