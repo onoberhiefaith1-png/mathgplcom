@@ -24,6 +24,8 @@ import { useAdventureSync } from "@/hooks/useAdventureSync";
 import { useAdventureGroups } from "@/hooks/useAdventureGroups";
 import { GroupLeaderboard } from "@/components/adventures/GroupLeaderboard";
 import { computeGroupStandings, fillByGroupOf, type MasterBar } from "@/lib/adventures/groupStandings";
+import { buildGroupScoreboardBars, groupIdOfBarElementId } from "@/lib/adventures/groupBars";
+import { moveGroupBar } from "@/lib/adventures/groups";
 import { getGameMode, type GameMode } from "@/lib/adventures/gameMode";
 
 import { useGameTimeBar, ensureTimeBar } from "@/hooks/useGameTimeBar";
