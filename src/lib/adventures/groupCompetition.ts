@@ -88,7 +88,7 @@ export async function addGroup(params: {
   if (groups.length >= MAX_GROUPS) return { ok: false, reason: "max_groups" };
   const master = primaryBarId(groups, params.sourceBarId);
   if (!master) return { ok: false, reason: "no_bar" };
-  const name = params.name?.trim() || nextGroupName(groups);
+  const name = uniqueGroupName(groups, params.name ?? "");
   const first = groups.length === 0;
 
   const group = await createGroup(classId, gameId, name, master, {
