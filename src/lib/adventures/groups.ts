@@ -254,3 +254,21 @@ export async function recordRaceWinner(classId: string, gameId: string, groupId:
     .eq("game_id", gameId);
   if (error) throw error;
 }
+
+/**
+ * Restart Game — clear every judgement from the previous run so the replay
+ * decides each Learning Point from live data. Student marks live in
+ * `game_progress` and are never touched here.
+ */
+export async function resetGroupJudgements(classId: string, gameId: string): Promise<void> {
+  await supabase
+    .from("adventure_groups" as never)
+    .update({ qualified: true, eliminated_at_scene_id: null, completed_at: null } as never)
+    .eq("class_id", classId)
+    .eq("game_id", gameId);
+  await supabase
+    .from("class_games" as never)
+    .update({ winner_group_id: null } as never)
+    .eq("class_id", classId)
+    .eq("game_id", gameId);
+}
