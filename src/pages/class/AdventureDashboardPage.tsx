@@ -435,6 +435,41 @@ const AdventureDashboardPage = () => {
       });
   }, [stageScene, canvasElements, exitingSceneId, runtime.activeChallenge, runtime.remainingMs]);
 
+  /**
+   * Group Competition — one duplicate of the master bar per team, purely as a
+   * visual scoreboard on the teacher's stage. Every duplicate carries the same
+   * questions and rules; only its fill differs, because it shows that team's own
+   * live progress. Teachers may drag and resize them freely.
+   */
+  const teamBarElements = useMemo(() => {
+    if (!groupMode || !masterBar) return [];
+    const master = canvasElements.find((el) => el.id === masterBar.id) ?? null;
+    return buildGroupScoreboardBars(
+      master,
+      boardStandings.map((s) => ({ group: s.group, fill: fillByGroup.get(s.group.id) ?? 0 })),
+    );
+  }, [groupMode, masterBar, canvasElements, boardStandings, fillByGroup]);
+
+  /** Persist a dragged team bar so its place on the stage is remembered. */
+  const onStageMove = useCallback(
+    (id: string, x: number, y: number) => {
+      const groupId = groupIdOfBarElementId(id);
+      if (!groupId) return;
+      void moveGroupBar(groupId, x, y).then(() => groups.refresh()).catch(() => {});
+    },
+    [groups.refresh],
+  );
+
+  const videoStageElements = useMemo(
+    () => (runtime.activeChallenge && !exitingSceneId ? [...videoElements, ...teamBarElements] : videoElements),
+    [videoElements, teamBarElements, runtime.activeChallenge, exitingSceneId],
+  );
+
+  const staticStageElements = useMemo(
+    () => [...canvasElements, ...teamBarElements],
+    [canvasElements, teamBarElements],
+  );
+
 
   useEffect(() => {
     (async () => {
