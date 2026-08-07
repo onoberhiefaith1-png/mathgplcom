@@ -390,13 +390,15 @@ const AdventureDashboardPage = () => {
       learningPoints,
       pointSatisfied,
       narrationRuntime,
+      restarting,
     ],
   );
 
   /**
-   * Restart Game replays the story: video to 00:00, teacher timeline reset,
-   * every loop state and loop timer cleared. It never writes to student
-   * progress, gallery or award tables — marks and scores carry over untouched.
+   * Restart Game replays the story from Game Time 00:00: the video rewinds to
+   * the very beginning (never to the current loop), the teacher timeline resets
+   * and every loop state and Loop Time clock is cleared. It never writes to
+   * student progress, gallery or award tables — marks and scores carry over.
    */
   const startGame = useCallback(() => {
     if (runtime.started && !window.confirm("Restart the story from the beginning? Student progress and scores are kept.")) {
@@ -404,11 +406,19 @@ const AdventureDashboardPage = () => {
     }
     unlockAudio();
     setExitingSceneId(null);
-    videoRef.current?.seek(0);
+    // Release the loop region first, otherwise the active loop snaps the
+    // playhead straight back to its own start.
+    setRestarting(true);
+    setGameTime(0);
     void runtime.actions
       .startGame()
-      .then(() => { timeBar.refresh(); groups.refresh(); })
-      .catch(() => {});
+      .then(() => {
+        videoRef.current?.seek(0);
+        videoRef.current?.play();
+        timeBar.refresh();
+        groups.refresh();
+      })
+      .catch(() => setRestarting(false));
   }, [runtime.actions, runtime.started, timeBar.refresh, groups.refresh]);
 
 
