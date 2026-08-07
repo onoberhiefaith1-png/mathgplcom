@@ -383,18 +383,15 @@ const GamePlayPage = () => {
   const myGroupId = myGroupIdEarly;
 
   // Group outcome — a race winner (Adventure) or the encouraging message shown
-  // to a group that did not reach the Learning Point target (Video Adventure).
-  const statsByBar = useMemo(
-    () => new Map(sync.barSummaries.map((b) => [b.id, b])),
-    [sync.barSummaries],
-  );
+  // to a team that did not reach the Learning Point target (Video Adventure).
   const outcome = useGroupOutcome({
     classId,
     gameId,
     mode: videoBg ? "video" : "static",
     sceneId: activeStage?.id ?? null,
     groups: groups.groups,
-    statsByBar,
+    fillByGroup,
+
     timeExpired,
     runKey: teacherRun.run?.started_at ?? null,
   });
