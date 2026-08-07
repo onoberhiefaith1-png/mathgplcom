@@ -379,7 +379,7 @@ const GamePlayPage = () => {
 
   // Time beat the goal (Part 7): expired with no valid, in-time win.
   const timeUp = timeExpired && !transfer.won;
-  const myGroupId = me ? groups.studentGroup.get(me) ?? null : null;
+  const myGroupId = myGroupIdEarly;
 
   // Group outcome — a race winner (Adventure) or the encouraging message shown
   // to a group that did not reach the Learning Point target (Video Adventure).
@@ -395,6 +395,7 @@ const GamePlayPage = () => {
     groups: groups.groups,
     statsByBar,
     timeExpired,
+    runKey: teacherRun.run?.started_at ?? null,
   });
   const myGroup = myGroupId ? groups.groups.find((g) => g.id === myGroupId) ?? null : null;
   const waiting = !!myGroup && outcome.waitingGroupIds.has(myGroup.id);
