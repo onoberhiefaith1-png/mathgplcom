@@ -765,22 +765,41 @@ const AdventureDashboardPage = () => {
                       ref={videoRef}
                       video={canvas.video}
                       playing={runtime.started}
-                      loop={loopRegionFor(activeScene, false)}
+                      loop={restarting ? null : loopRegionFor(activeScene, false)}
                       onTime={onVideoTime}
+                      onLoaded={({ duration }) => setVideoDuration(duration)}
                     />
-                    <div className="pointer-events-none absolute inset-0">
-                      <GameCanvas elements={videoElements} selectedId={null} editable={false} fill transparent />
+                    <div className={arrangeTeamBars ? "absolute inset-0" : "pointer-events-none absolute inset-0"}>
+                      <GameCanvas
+                        elements={videoStageElements}
+                        selectedId={null}
+                        editable={arrangeTeamBars}
+                        onMove={arrangeTeamBars ? onStageMove : undefined}
+                        fill
+                        transparent
+                      />
                     </div>
                     {activeScene && (
                       <div className="absolute left-3 top-3 z-40 rounded-full border border-primary/40 bg-background/80 px-3 py-1 text-xs font-semibold text-primary backdrop-blur">
                         {activeScene.title || "Learning Point"}
                       </div>
                     )}
+                    {/* Game Time is the story clock; Loop Time is the Learning Point countdown. */}
+                    <div className="absolute right-3 top-3 z-40 flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-semibold tabular-nums backdrop-blur">
+                      <span className="text-muted-foreground">Game Time</span>
+                      <span>{fmtClock(gameTime)}{videoDuration ? ` / ${fmtClock(videoDuration)}` : ""}</span>
+                      {runtime.activeChallenge && (
+                        <>
+                          <span className="text-muted-foreground">· Loop Time</span>
+                          <span className="text-primary">{fmtClock(runtime.remainingMs / 1000)}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
                 {!isVideo && (
                 <GameCanvas
-                  elements={canvasElements}
+                  elements={staticStageElements}
                   selectedId={selectedRewardId}
                   editable
                   onSelect={(id) => {
@@ -788,7 +807,7 @@ const AdventureDashboardPage = () => {
                     const el = canvasElements.find((e) => e.id === id);
                     setSelectedRewardId(el?.kind === "reward" ? id : null);
                   }}
-                  onMove={undefined}
+                  onMove={onStageMove}
 
                   heightUnits={sync.heightUnits}
                 />
