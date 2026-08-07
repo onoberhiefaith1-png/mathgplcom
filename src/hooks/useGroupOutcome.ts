@@ -65,8 +65,8 @@ export function useGroupOutcome(params: {
 
 
   const winner = useMemo(
-    () => (mode === "static" ? raceWinner(groups, fillByBar) : null),
-    [mode, groups, fillByBar],
+    () => (mode === "static" ? raceWinner(groups, fillByGroup) : null),
+    [mode, groups, fillByGroup],
   );
 
   // Adventure — remember the winner so the dashboard and students agree.
@@ -85,10 +85,10 @@ export function useGroupOutcome(params: {
     const scene = sceneId ?? "";
     if (!scene || judgedSceneRef.current === scene || groups.length === 0) return;
     judgedSceneRef.current = scene;
-    void evaluateCheckpoint({ sceneId: scene, groups, fillByBar })
+    void evaluateCheckpoint({ sceneId: scene, groups, fillByGroup })
       .then(() => onChanged?.())
       .catch(() => { judgedSceneRef.current = null; });
-  }, [authoritative, mode, timeExpired, sceneId, groups, fillByBar, onChanged]);
+  }, [authoritative, mode, timeExpired, sceneId, groups, fillByGroup, onChanged]);
 
   const waitingGroupIds = useMemo(
     () => new Set(groups.filter((g) => !g.qualified).map((g) => g.id)),
