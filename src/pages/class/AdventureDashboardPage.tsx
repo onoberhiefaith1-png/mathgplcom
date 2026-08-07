@@ -47,7 +47,6 @@ const AdventureDashboardPage = () => {
   // Video Adventure only — the dashboard is the live game screen.
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const [exitingSceneId, setExitingSceneId] = useState<string | null>(null);
-  const [clearedSceneIds, setClearedSceneIds] = useState<Set<string>>(() => new Set());
   const lastPublishRef = useRef(0);
 
   useEffect(() => {
