@@ -20,8 +20,30 @@ import { sceneElements } from "./groupBars";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-export const nextGroupName = (groups: AdventureGroup[]): string =>
-  `Group ${LETTERS[groups.length] ?? String(groups.length + 1)}`;
+/**
+ * First unused team name. Names are unique per class+game in the database, so
+ * the suggestion skips letters already taken (e.g. after deleting Group B).
+ */
+export const nextGroupName = (groups: AdventureGroup[]): string => {
+  const used = new Set(groups.map((g) => g.name.trim().toLowerCase()));
+  for (const l of LETTERS) {
+    const candidate = `Group ${l}`;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  return `Group ${groups.length + 1}`;
+};
+
+/** A name nobody else in this class+game is using. */
+export const uniqueGroupName = (groups: AdventureGroup[], wanted: string): string => {
+  const used = new Set(groups.map((g) => g.name.trim().toLowerCase()));
+  const base = wanted.trim() || nextGroupName(groups);
+  if (!used.has(base.toLowerCase())) return base;
+  for (let i = 2; i < 100; i += 1) {
+    const candidate = `${base} ${i}`;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  return `${base} ${Date.now()}`;
+};
 
 /** The master bar every group competes on. */
 export const primaryBarId = (groups: AdventureGroup[], fallback: string | null): string | null => {
