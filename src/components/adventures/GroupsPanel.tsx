@@ -210,13 +210,19 @@ export function GroupsPanel({ classId, gameId, game, members, bars, ctx, statsBy
           <GroupCard
             key={g.id}
             title={g.name}
-            subtitle={g.is_primary ? "Original Progress Bar" : "Duplicated Progress Bar — draggable"}
+            subtitle={
+              g.is_primary
+                ? "Original Progress Bar — read-only template"
+                : "Duplicated Progress Bar — draggable"
+            }
             studentRows={rows}
             stats={stats}
             groups={ctx.groups}
             currentGroupId={g.id}
-            onRename={() => doRename(g)}
-            onDelete={ctx.groups.length > 1 ? () => doDelete(g) : undefined}
+            // The original bar is the template every duplicate inherits from,
+            // so its name and appearance cannot be edited here.
+            onRename={g.is_primary ? undefined : () => doRename(g)}
+            onDelete={!g.is_primary && ctx.groups.length > 1 ? () => doDelete(g) : undefined}
             onMoveStudent={moveStudent}
             group={g}
             onRestyle={g.is_primary ? undefined : (style) => restyle(g, style)}
