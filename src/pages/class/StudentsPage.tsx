@@ -7,9 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
+import { fetchWorkspaceStudents } from "@/lib/accounts/workspace";
 
 type Pending = { id: string; requester_id: string; created_at: string; display_name: string | null };
 type Member = { id: string; user_id: string; joined_at: string; display_name: string | null };
+type RosterStudent = { userId: string; displayName: string; mathgplId: string | null };
 
 const StudentsPage = () => {
   const { classId } = useParams();
@@ -19,12 +21,17 @@ const StudentsPage = () => {
   const [pending, setPending] = useState<Pending[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [studentId, setStudentId] = useState("");
+  // The class belongs to exactly one workspace; only that workspace's students
+  // may be added, so a school roster and a personal roster never mix.
+  const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
     if (!classId) return;
-    const { data: cls } = await supabase.from("classes").select("name").eq("id", classId).single();
+    const { data: cls } = await supabase.from("classes").select("name, org_id").eq("id", classId).single();
     if (cls) setClassName(cls.name);
+    const orgId = (cls as { org_id: string | null } | null)?.org_id ?? null;
+    setRoster(orgId ? await fetchWorkspaceStudents(orgId) : []);
 
     const { data: reqRows } = await supabase
       .from("class_join_requests")
@@ -89,6 +96,20 @@ const StudentsPage = () => {
 
   const removeMember = async (m: Member) => {
     await supabase.from("class_members").delete().eq("id", m.id);
+    load();
+  };
+
+  const available = roster.filter((s) => !members.some((m) => m.user_id === s.userId));
+
+  const addFromWorkspace = async (student: RosterStudent) => {
+    const { error } = await supabase
+      .from("class_members")
+      .insert({ class_id: classId!, user_id: student.userId });
+    if (error && !error.message.includes("duplicate")) {
+      toast({ title: "Could not add student", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `${student.displayName} added` });
     load();
   };
 
@@ -165,6 +186,34 @@ const StudentsPage = () => {
                   <div className="text-sm">{m.display_name ?? m.user_id.slice(0, 8)}</div>
                   <button onClick={() => removeMember(m)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent">
                     Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Students in this workspace
+          </h2>
+          {available.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              Everyone in this workspace is already in the class.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {available.map((s) => (
+                <li key={s.userId} className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-4 py-3">
+                  <div className="text-sm">
+                    {s.displayName}
+                    {s.mathgplId ? <span className="ml-2 text-xs text-muted-foreground">{s.mathgplId}</span> : null}
+                  </div>
+                  <button
+                    onClick={() => addFromWorkspace(s)}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+                  >
+                    Add to class
                   </button>
                 </li>
               ))}

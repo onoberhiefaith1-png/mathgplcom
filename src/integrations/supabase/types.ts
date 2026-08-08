@@ -1276,6 +1276,7 @@ export type Database = {
           id: string
           lesson_note_levels: string[]
           name: string
+          org_id: string | null
           owner_id: string
           school: string | null
           smartboard_visibility: string
@@ -1290,6 +1291,7 @@ export type Database = {
           id?: string
           lesson_note_levels?: string[]
           name: string
+          org_id?: string | null
           owner_id: string
           school?: string | null
           smartboard_visibility?: string
@@ -1304,13 +1306,22 @@ export type Database = {
           id?: string
           lesson_note_levels?: string[]
           name?: string
+          org_id?: string | null
           owner_id?: string
           school?: string | null
           smartboard_visibility?: string
           updated_at?: string
           workspace?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "classes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       community_downloads: {
         Row: {
@@ -2729,6 +2740,7 @@ export type Database = {
           country: string | null
           created_at: string
           id: string
+          invite_code: string | null
           kind: string
           name: string
           owner_user_id: string | null
@@ -2736,12 +2748,14 @@ export type Database = {
           school_type: string | null
           status: string
           updated_at: string
+          visibility: string
           website: string | null
         }
         Insert: {
           country?: string | null
           created_at?: string
           id?: string
+          invite_code?: string | null
           kind: string
           name: string
           owner_user_id?: string | null
@@ -2749,12 +2763,14 @@ export type Database = {
           school_type?: string | null
           status?: string
           updated_at?: string
+          visibility?: string
           website?: string | null
         }
         Update: {
           country?: string | null
           created_at?: string
           id?: string
+          invite_code?: string | null
           kind?: string
           name?: string
           owner_user_id?: string | null
@@ -2762,6 +2778,7 @@ export type Database = {
           school_type?: string | null
           status?: string
           updated_at?: string
+          visibility?: string
           website?: string | null
         }
         Relationships: [
@@ -2983,6 +3000,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_org_id: string | null
           children_count: number | null
           country: string | null
           created_at: string
@@ -3003,6 +3021,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          active_org_id?: string | null
           children_count?: number | null
           country?: string | null
           created_at?: string
@@ -3023,6 +3042,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          active_org_id?: string | null
           children_count?: number | null
           country?: string | null
           created_at?: string
@@ -3042,7 +3062,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_active_org_id_fkey"
+            columns: ["active_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       report_task_results: {
         Row: {
@@ -3709,6 +3737,7 @@ export type Database = {
         Returns: string
       }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
+      can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
       current_org_id: { Args: never; Returns: string }
       current_role_name: {
         Args: never
@@ -3726,6 +3755,7 @@ export type Database = {
         Returns: undefined
       }
       generate_mathgpl_id: { Args: never; Returns: string }
+      generate_org_invite_code: { Args: never; Returns: string }
       generate_session_code: { Args: never; Returns: string }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {
@@ -3766,6 +3796,7 @@ export type Database = {
         Returns: boolean
       }
       is_org_owner: { Args: { _org_id: string }; Returns: boolean }
+      is_workspace_member: { Args: { _org_id: string }; Returns: boolean }
       lookup_class_by_code: {
         Args: { code: string }
         Returns: {
@@ -3791,6 +3822,18 @@ export type Database = {
           title: string
         }[]
       }
+      my_workspaces: {
+        Args: never
+        Returns: {
+          is_owner: boolean
+          kind: string
+          name: string
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          visibility: string
+        }[]
+      }
       notebook_shared_to_member: {
         Args: { _notebook_id: string }
         Returns: boolean
@@ -3798,7 +3841,17 @@ export type Database = {
       org_of: { Args: { _user_id: string }; Returns: string }
       owner_can_access_user: { Args: { _user_id: string }; Returns: boolean }
       owns_org: { Args: { _org_id: string }; Returns: boolean }
+      set_active_workspace: { Args: { _org_id: string }; Returns: string }
       shares_class_with: { Args: { _other: string }; Returns: boolean }
+      workspace_students: {
+        Args: { _org_id: string }
+        Returns: {
+          display_name: string
+          mathgpl_student_id: string
+          status: string
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       app_role:

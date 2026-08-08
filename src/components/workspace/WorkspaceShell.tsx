@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "@/lib/router-compat";
 import { ArrowLeft, Maximize, Minimize, Settings as SettingsIcon } from "lucide-react";
 import WorkspaceCard, { type WorkspaceTile } from "./WorkspaceCard";
+import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 
 export type WorkspaceId = "teaching-hub" | "live" | "community";
 
@@ -75,7 +76,8 @@ const WorkspaceShell = ({
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
+          <WorkspaceSwitcher compact />
           <Link
             to={SETTINGS_PATH}
             aria-label="Settings"

@@ -3,6 +3,8 @@ import { useNavigate } from "@/lib/router-compat";
 import { Search } from "lucide-react";
 import { searchCurriculum } from "@/data/curriculum";
 import AccountMenu from "@/components/academy/AccountMenu";
+import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
+
 
 
 const AcademyTopBar = () => {
@@ -90,7 +92,10 @@ const AcademyTopBar = () => {
         )}
       </div>
 
-      <AccountMenu />
+      <div className="pointer-events-auto flex items-center gap-2">
+        <WorkspaceSwitcher />
+        <AccountMenu />
+      </div>
     </header>
   );
 };
