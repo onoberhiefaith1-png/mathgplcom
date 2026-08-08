@@ -18,7 +18,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "mathgplcom"
+const SITE_NAME = "MathGPL"
 const ROOT_DOMAIN = "mathgpl.com"
 
 // Sample data for preview mode ONLY (not used in actual email sending).
