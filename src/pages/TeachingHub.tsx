@@ -1,6 +1,8 @@
 import { BookOpen, Sparkles, Users, Compass, GraduationCap } from "lucide-react";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
+import WorkspaceInvitations from "@/components/accounts/WorkspaceInvitations";
+import WorkspaceVisibilityCard from "@/components/accounts/WorkspaceVisibilityCard";
 import type { WorkspaceTile } from "@/components/workspace/WorkspaceCard";
 
 const tiles: WorkspaceTile[] = [
@@ -43,6 +45,13 @@ const tiles: WorkspaceTile[] = [
   },
 ];
 
-const TeachingHub = () => <WorkspaceShell active="teaching-hub" tiles={tiles} />;
+const TeachingHub = () => (
+  <WorkspaceShell active="teaching-hub" tiles={tiles}>
+    <div className="mt-8 space-y-4">
+      <WorkspaceInvitations />
+      <WorkspaceVisibilityCard />
+    </div>
+  </WorkspaceShell>
+);
 
 export default TeachingHub;
