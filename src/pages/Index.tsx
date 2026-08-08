@@ -6,9 +6,14 @@ import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventure
 import LevelNavPanel from "@/components/academy/LevelNavPanel";
 import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton";
 import { useAccount } from "@/lib/accounts/useAccount";
+import { useWorkspace } from "@/lib/accounts/useWorkspace";
 
 const Index = () => {
   const { role } = useAccount();
+  const { isPersonal, workspaces } = useWorkspace();
+  // The building belongs to the workspace you are in: your own when personal,
+  // otherwise the one owned by the workspace you are visiting.
+  const visiting = workspaces.length > 0 && !isPersonal;
   // Students never teach — their primary entry point is joining a teacher's class.
   const isStudent = role === "student";
 
@@ -33,8 +38,8 @@ const Index = () => {
   return (
     <>
       <AcademyTopBar />
-      <RotatingAdventureScene />
-      <HomepageSettingsButton />
+      <RotatingAdventureScene configMode={visiting ? "school-readonly" : "self"} />
+      {!visiting && <HomepageSettingsButton />}
       <LevelNavPanel />
       <Link
         to="/backgrounds"
