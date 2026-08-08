@@ -161,14 +161,25 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
     if (!userId) return;
     setSubmitting(true);
     try {
-      const { data: cls, error: lookupErr } = await supabase
-        .rpc("lookup_class_by_code", { code })
+      // The code identifies the class; the relationship grants entry. A code
+      // for a private workspace the student has no relationship with is not a
+      // way in.
+      const { data: gate, error: lookupErr } = await supabase
+        .rpc("class_join_gate", { code })
         .maybeSingle();
-      if (lookupErr || !cls) {
+      if (lookupErr || !gate) {
         toast({ title: "Class not found", description: "Check the code or link and try again.", variant: "destructive" });
         return;
       }
-      const classId = (cls as { id: string }).id;
+      const { id: classId, allowed } = gate as { id: string; allowed: boolean };
+      if (!allowed) {
+        toast({
+          title: "Ask your teacher to add you",
+          description: "This class belongs to a private workspace, so the teacher or school has to invite you.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       const { data: existingMember } = await supabase
         .from("class_members")

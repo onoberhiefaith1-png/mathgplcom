@@ -72,7 +72,16 @@ export function useHomepageConfig(options?: { mode?: "self" | "school-readonly" 
     let alive = true;
     void (async () => {
       if (mode === "school-readonly") {
-        const { data } = await supabase.rpc("get_org_homepage_config");
+        // Prefer the workspace the viewer is currently in; fall back to the
+        // organisation that owns them.
+        const { data: profileRow } = await supabase
+          .from("profiles")
+          .select("active_org_id")
+          .maybeSingle();
+        const activeOrgId = (profileRow as { active_org_id?: string | null } | null)?.active_org_id ?? null;
+        const { data } = activeOrgId
+          ? await supabase.rpc("get_workspace_homepage_config", { _org_id: activeOrgId })
+          : await supabase.rpc("get_org_homepage_config");
         if (!alive) return;
         const remote = (data ?? null) as HomepageConfig | null;
         if (remote && typeof remote === "object") setConfig(remote);
