@@ -12,12 +12,12 @@ import { EmailChangeEmail } from '@/lib/email-templates/email-change'
 import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirm your email',
-  invite: "You've been invited",
-  magiclink: 'Your login link',
-  recovery: 'Reset your password',
-  email_change: 'Confirm your new email',
-  reauthentication: 'Your verification code',
+  signup: 'Welcome to MathGPL — Confirm Your Account',
+  invite: "You've been invited to MathGPL",
+  magiclink: 'Your MathGPL login link',
+  recovery: 'Reset Your MathGPL Password',
+  email_change: 'Confirm your new MathGPL email address',
+  reauthentication: 'Your MathGPL verification code',
 }
 
 // Template mapping
@@ -31,10 +31,27 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "mathgplcom"
+const SITE_NAME = "MathGPL"
 const SENDER_DOMAIN = "notify.mathgpl.com"
 const ROOT_DOMAIN = "mathgpl.com"
 const FROM_DOMAIN = "mathgpl.com"
+
+/**
+ * The person's own name when the account carries one, so every account email
+ * can open with "Hello Amara," instead of a generic greeting.
+ */
+function displayName(data: any): string | undefined {
+  const meta = data?.user?.user_metadata ?? data?.user_metadata ?? {}
+  const candidates = [
+    meta.full_name,
+    meta.display_name,
+    meta.name,
+    [meta.first_name, meta.last_name].filter(Boolean).join(' '),
+  ]
+  const found = candidates.map((v) => (typeof v === 'string' ? v.trim() : '')).find(Boolean)
+  return found || undefined
+}
+
 
 function redactEmail(email: string | null | undefined): string {
   if (!email) return '***'
