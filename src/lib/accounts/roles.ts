@@ -129,3 +129,26 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   parent: "Parent",
   student: "Student",
 };
+
+/**
+ * Navigation is a function of role *and* the active workspace, not role alone.
+ *
+ * A teacher inside a school keeps Teaching Hub but gains no school
+ * administration; a school workspace keeps administration, supervision and
+ * reports; platform administration never shows teacher authoring tools.
+ */
+export const navFor = (role: AppRole | null, workspaceKind?: string): NavItem[] => {
+  const items = ROLE_NAV[role ?? "teacher"];
+  if (!workspaceKind) return items;
+
+  // Visiting a school workspace as a teacher: no school administration.
+  if (role === "teacher" && workspaceKind === "school") {
+    return items.filter((item) => !item.to.startsWith("/school"));
+  }
+  // Own personal workspace: nothing school-scoped applies.
+  if (role === "school" && workspaceKind !== "school") {
+    return items.filter((item) => !item.to.startsWith("/school"));
+  }
+  return items;
+};
+

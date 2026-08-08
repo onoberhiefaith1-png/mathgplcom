@@ -1,6 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import TeacherManagementPanel from "@/components/accounts/TeacherManagementPanel";
 import RoleShell from "@/components/accounts/RoleShell";
+import CommunityTeacherSearch from "@/components/accounts/CommunityTeacherSearch";
+import { useWorkspace } from "@/lib/accounts/useWorkspace";
+
+const SchoolTeachers = () => {
+  const { active } = useWorkspace();
+  return (
+    <RoleShell title="Account">
+      <div className="space-y-6">
+        <TeacherManagementPanel mode="school" />
+        <CommunityTeacherSearch orgId={active?.kind === "school" ? active.orgId : null} />
+      </div>
+    </RoleShell>
+  );
+};
 
 export const Route = createFileRoute("/school/teachers/")({
   head: () => ({
@@ -14,9 +28,5 @@ export const Route = createFileRoute("/school/teachers/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: () => (
-    <RoleShell title="Account">
-      <TeacherManagementPanel mode="school" />
-    </RoleShell>
-  ),
+  component: SchoolTeachers,
 });

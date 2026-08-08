@@ -1,16 +1,20 @@
 import type { ReactNode } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { ROLE_LABEL, ROLE_NAV } from "@/lib/accounts/roles";
+import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import { ROLE_LABEL, navFor } from "@/lib/accounts/roles";
+import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 
 /**
- * Shared chrome for the role dashboards. The menu is built from ROLE_NAV, so
- * each account type only ever sees its own navigation.
+ * Shared chrome for the role dashboards. The menu is built from the role *and*
+ * the active workspace, so a teacher inside a school never sees school
+ * administration, and a visited workspace is clearly marked view only.
  */
 const RoleShell = ({ title, children }: { title: string; children: ReactNode }) => {
   const { role } = useAccount();
-  const nav = role ? ROLE_NAV[role] : [];
+  const { kind, viewOnly, active } = useWorkspace();
+  const nav = navFor(role, kind);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
@@ -19,10 +23,20 @@ const RoleShell = ({ title, children }: { title: string; children: ReactNode }) 
           <ArrowLeft className="h-4 w-4" /> Home
         </Link>
         <h1 className="text-lg font-semibold tracking-wide">{title}</h1>
-        <span className="w-32 text-right text-xs uppercase tracking-[0.25em] text-muted-foreground">
-          {role ? ROLE_LABEL[role] : ""}
-        </span>
+        <div className="flex w-auto items-center justify-end gap-2">
+          <WorkspaceSwitcher compact />
+          <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+            {role ? ROLE_LABEL[role] : ""}
+          </span>
+        </div>
       </header>
+
+      {viewOnly && (
+        <div className="mx-auto mb-4 flex w-full max-w-6xl items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-xs text-muted-foreground">
+          <Eye className="h-3.5 w-3.5" />
+          View only — you are visiting {active?.name ?? "this workspace"}. Nothing here can be edited.
+        </div>
+      )}
 
       <main className="mx-auto w-full max-w-6xl px-6 pb-16">
         <nav className="mb-8 flex flex-wrap gap-2">
