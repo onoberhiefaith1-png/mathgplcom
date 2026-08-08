@@ -28,24 +28,29 @@ const ROOT_DOMAIN = "mathgpl.com"
 // even if the project's domain has changed since the template was scaffolded.
 const SAMPLE_PROJECT_URL = "https://mathgplcom.lovable.app"
 const SAMPLE_EMAIL = "user@example.test"
+const SAMPLE_NAME = 'Amara'
 const SAMPLE_DATA: Record<string, object> = {
   signup: {
     siteName: SITE_NAME,
     siteUrl: SAMPLE_PROJECT_URL,
     recipient: SAMPLE_EMAIL,
+    userName: SAMPLE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
   },
   magiclink: {
     siteName: SITE_NAME,
+    userName: SAMPLE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
   },
   recovery: {
     siteName: SITE_NAME,
+    userName: SAMPLE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
   },
   invite: {
     siteName: SITE_NAME,
     siteUrl: SAMPLE_PROJECT_URL,
+    userName: SAMPLE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
   },
   email_change: {
@@ -53,8 +58,10 @@ const SAMPLE_DATA: Record<string, object> = {
     oldEmail: SAMPLE_EMAIL,
     email: SAMPLE_EMAIL,
     newEmail: SAMPLE_EMAIL,
+    userName: SAMPLE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
   },
+
   reauthentication: {
     token: '123456',
   },
