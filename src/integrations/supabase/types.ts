@@ -3738,6 +3738,15 @@ export type Database = {
       }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
+      class_join_gate: {
+        Args: { code: string }
+        Returns: {
+          allowed: boolean
+          id: string
+          name: string
+          org_id: string
+        }[]
+      }
       current_org_id: { Args: never; Returns: string }
       current_role_name: {
         Args: never
@@ -3780,6 +3789,10 @@ export type Database = {
           id: string
           join_code: string
         }[]
+      }
+      get_workspace_homepage_config: {
+        Args: { _org_id: string }
+        Returns: Json
       }
       has_capability: { Args: { _capability: string }; Returns: boolean }
       has_role: {
