@@ -1,69 +1,46 @@
 import * as React from 'react'
-
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Html,
-  Preview,
-  Text,
-} from '@react-email/components'
+import { Button, Heading, Text } from '@react-email/components'
+import { EmailShell, greeting, styles } from './brand'
 
 interface RecoveryEmailProps {
-  siteName: string
+  siteName?: string
+  userName?: string
   confirmationUrl: string
 }
 
-export const RecoveryEmail = ({
-  siteName,
-  confirmationUrl,
-}: RecoveryEmailProps) => (
-  <Html lang="en" dir="ltr">
-    <Head />
-    <Preview>Reset your password for {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Reset your password</Heading>
-        <Text style={text}>
-          We received a request to reset your password for {siteName}. Click
-          the button below to choose a new password.
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Reset Password
-        </Button>
-        <Text style={footer}>
-          If you didn't request a password reset, you can safely ignore this
-          email. Your password will not be changed.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
+export const RecoveryEmail = ({ userName, confirmationUrl }: RecoveryEmailProps) => (
+  <EmailShell preview="Reset your MathGPL password">
+    <Heading style={styles.h1}>Reset your MathGPL password</Heading>
+    <Text style={styles.text}>{greeting(userName)}</Text>
+    <Text style={styles.text}>
+      We received a request to reset the password for your MathGPL account.
+    </Text>
+    <Text style={styles.text}>
+      If you made this request, use the button below to create a new password.
+    </Text>
+    <Button style={styles.button} href={confirmationUrl}>
+      Reset My Password
+    </Button>
+    <Text style={styles.fallback}>
+      If the button does not work, copy and paste this address into your browser:
+      <br />
+      {confirmationUrl}
+    </Text>
+    <Text style={styles.small}>
+      For your security, this link expires shortly and can only be used for this password-reset
+      request. We never include your password in an email.
+    </Text>
+    <Text style={styles.small}>
+      If you did not request a password reset, you can safely ignore this email — your password
+      will remain unchanged. If these emails keep arriving unexpectedly, please contact MathGPL
+      Support.
+    </Text>
+    <Text style={styles.text}>
+      Best regards,
+      <br />
+      The MathGPL Team
+    </Text>
+  </EmailShell>
 )
 
 export default RecoveryEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
-}
-const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
-}
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
