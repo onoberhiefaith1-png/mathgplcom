@@ -147,6 +147,8 @@ import { Route as LiveSessionsSessionIdIndexRouteImport } from './routes/live/se
 import { Route as LiveSessionsCreateIndexRouteImport } from './routes/live/sessions/create/index'
 import { Route as LiveSmartCardsCardIdIndexRouteImport } from './routes/live/smart-cards/$cardId/index'
 import { Route as LiveWorkspaceClassIdIndexRouteImport } from './routes/live/workspace/$classId/index'
+import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as SmartboardNotebookIdPreviewIndexRouteImport } from './routes/smartboard/$notebookId/preview/index'
 import { Route as StudentClassClassIdIndexRouteImport } from './routes/student/class/$classId/index'
@@ -936,6 +938,16 @@ const LiveWorkspaceClassIdIndexRoute =
     path: '/workspace/$classId/',
     getParentRoute: () => LiveRouteRoute,
   } as any)
+const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
+  id: '/lovable/email/auth/preview',
+  path: '/lovable/email/auth/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
+  id: '/lovable/email/auth/webhook',
+  path: '/lovable/email/auth/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -1426,6 +1438,8 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
@@ -1620,6 +1634,8 @@ export interface FileRoutesByTo {
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
   '/year/$n': typeof YearNIndexRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/adventure/games/$gameId': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory': typeof AssetsCategorySubcategoryIndexRoute
@@ -1825,6 +1841,8 @@ export interface FileRoutesById {
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
@@ -2031,6 +2049,8 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
     | '/year/$n/'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
@@ -2225,6 +2245,8 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes'
     | '/teaching-hub/settings'
     | '/year/$n'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/adventure/games/$gameId'
     | '/assets/$category/$subcategory'
@@ -2429,6 +2451,8 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
     | '/year/$n/'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
@@ -2598,6 +2622,8 @@ export interface RootRouteChildren {
   NotebookScanCodeIndexRoute: typeof NotebookScanCodeIndexRoute
   SubjectsSubjectIndexRoute: typeof SubjectsSubjectIndexRoute
   YearNIndexRoute: typeof YearNIndexRoute
+  LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
+  LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   AssetsCategorySubcategoryIndexRoute: typeof AssetsCategorySubcategoryIndexRoute
   AssetsInteractiveQuestionProgressIndexRoute: typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -3612,6 +3638,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveWorkspaceClassIdIndexRouteImport
       parentRoute: typeof LiveRouteRoute
     }
+    '/lovable/email/auth/preview': {
+      id: '/lovable/email/auth/preview'
+      path: '/lovable/email/auth/preview'
+      fullPath: '/lovable/email/auth/preview'
+      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/auth/webhook': {
+      id: '/lovable/email/auth/webhook'
+      path: '/lovable/email/auth/webhook'
+      fullPath: '/lovable/email/auth/webhook'
+      preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -4473,6 +4513,8 @@ const rootRouteChildren: RootRouteChildren = {
   NotebookScanCodeIndexRoute: NotebookScanCodeIndexRoute,
   SubjectsSubjectIndexRoute: SubjectsSubjectIndexRoute,
   YearNIndexRoute: YearNIndexRoute,
+  LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
+  LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   AssetsCategorySubcategoryIndexRoute: AssetsCategorySubcategoryIndexRoute,
   AssetsInteractiveQuestionProgressIndexRoute:
