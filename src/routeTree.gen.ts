@@ -147,6 +147,7 @@ import { Route as LiveSessionsSessionIdIndexRouteImport } from './routes/live/se
 import { Route as LiveSessionsCreateIndexRouteImport } from './routes/live/sessions/create/index'
 import { Route as LiveSmartCardsCardIdIndexRouteImport } from './routes/live/smart-cards/$cardId/index'
 import { Route as LiveWorkspaceClassIdIndexRouteImport } from './routes/live/workspace/$classId/index'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as SmartboardNotebookIdPreviewIndexRouteImport } from './routes/smartboard/$notebookId/preview/index'
 import { Route as StudentClassClassIdIndexRouteImport } from './routes/student/class/$classId/index'
 import { Route as SubjectsSubjectTopicIndexRouteImport } from './routes/subjects/$subject/$topic/index'
@@ -935,6 +936,12 @@ const LiveWorkspaceClassIdIndexRoute =
     path: '/workspace/$classId/',
     getParentRoute: () => LiveRouteRoute,
   } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const SmartboardNotebookIdPreviewIndexRoute =
   SmartboardNotebookIdPreviewIndexRouteImport.update({
     id: '/$notebookId/preview/',
@@ -1419,6 +1426,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -1612,6 +1620,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
   '/year/$n': typeof YearNIndexRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/adventure/games/$gameId': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -1816,6 +1825,7 @@ export interface FileRoutesById {
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2021,6 +2031,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
     | '/year/$n/'
+    | '/lovable/email/queue/process'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -2214,6 +2225,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes'
     | '/teaching-hub/settings'
     | '/year/$n'
+    | '/lovable/email/queue/process'
     | '/adventure/games/$gameId'
     | '/assets/$category/$subcategory'
     | '/assets/interactive/question-progress'
@@ -2417,6 +2429,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
     | '/year/$n/'
+    | '/lovable/email/queue/process'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -2585,6 +2598,7 @@ export interface RootRouteChildren {
   NotebookScanCodeIndexRoute: typeof NotebookScanCodeIndexRoute
   SubjectsSubjectIndexRoute: typeof SubjectsSubjectIndexRoute
   YearNIndexRoute: typeof YearNIndexRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   AssetsCategorySubcategoryIndexRoute: typeof AssetsCategorySubcategoryIndexRoute
   AssetsInteractiveQuestionProgressIndexRoute: typeof AssetsInteractiveQuestionProgressIndexRoute
   CSlugGameIndexRoute: typeof CSlugGameIndexRoute
@@ -3598,6 +3612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveWorkspaceClassIdIndexRouteImport
       parentRoute: typeof LiveRouteRoute
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/smartboard/$notebookId/preview/': {
       id: '/smartboard/$notebookId/preview/'
       path: '/$notebookId/preview'
@@ -4452,6 +4473,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotebookScanCodeIndexRoute: NotebookScanCodeIndexRoute,
   SubjectsSubjectIndexRoute: SubjectsSubjectIndexRoute,
   YearNIndexRoute: YearNIndexRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   AssetsCategorySubcategoryIndexRoute: AssetsCategorySubcategoryIndexRoute,
   AssetsInteractiveQuestionProgressIndexRoute:
     AssetsInteractiveQuestionProgressIndexRoute,
