@@ -3802,6 +3802,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      invite_teacher_by_user: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: string
+      }
       is_class_member: { Args: { _class_id: string }; Returns: boolean }
       is_class_owner: { Args: { _class_id: string }; Returns: boolean }
       is_community_published: {
@@ -3835,6 +3839,16 @@ export type Database = {
           title: string
         }[]
       }
+      my_pending_invitations: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          invited_by_name: string
+          org_id: string
+          org_name: string
+        }[]
+      }
       my_workspaces: {
         Args: never
         Returns: {
@@ -3854,7 +3868,24 @@ export type Database = {
       org_of: { Args: { _user_id: string }; Returns: string }
       owner_can_access_user: { Args: { _user_id: string }; Returns: boolean }
       owns_org: { Args: { _org_id: string }; Returns: boolean }
+      respond_to_teacher_invitation: {
+        Args: { _accept: boolean; _invitation_id: string }
+        Returns: string
+      }
+      search_public_teachers: {
+        Args: { _q: string }
+        Returns: {
+          display_name: string
+          org_id: string
+          org_name: string
+          user_id: string
+        }[]
+      }
       set_active_workspace: { Args: { _org_id: string }; Returns: string }
+      set_workspace_visibility: {
+        Args: { _org_id: string; _visibility: string }
+        Returns: string
+      }
       shares_class_with: { Args: { _other: string }; Returns: boolean }
       workspace_students: {
         Args: { _org_id: string }
