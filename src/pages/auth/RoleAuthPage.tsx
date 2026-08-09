@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { AUTH_ROLES, COUNTRIES, detectTimeZone, type AuthRoleKey } from "@/lib/accounts/authForms";
+import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
 
 type Mode = "signin" | "signup" | "forgot";
 
@@ -47,6 +48,8 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   const [terms, setTerms] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const set = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }));
 
