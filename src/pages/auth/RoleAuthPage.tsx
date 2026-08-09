@@ -37,6 +37,10 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, ready } = useAuth();
+  const signIn = useServerFn(signInWithMathgplId);
+  const lookupId = useServerFn(mathgplIdForUser);
+  const [issuedId, setIssuedId] = useState<string | null>(null);
+
 
   const [mode, setMode] = useState<Mode>("signin");
   const [busy, setBusy] = useState(false);
