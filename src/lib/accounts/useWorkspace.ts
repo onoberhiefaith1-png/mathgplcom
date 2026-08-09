@@ -7,6 +7,8 @@ import {
   type WorkspaceKind,
 } from "./workspace";
 import { useAccount } from "./useAccount";
+import { clearWorkspaceScopeCache } from "./workspaceScope";
+
 
 /**
  * The active workspace context every surface reads: which workspace the person
