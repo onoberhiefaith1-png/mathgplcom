@@ -79,6 +79,17 @@ const Index = () => {
         <GraduationCap className="h-4 w-4" />
         Teaching Hub
       </Link>
+      {isPlatformOwner && (
+        <Link
+          to="/admin"
+          aria-label="Open Platform Console"
+          className="fixed bottom-50 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-400/60 bg-background/70 px-4 py-2 text-sm font-medium text-amber-100 shadow-[0_0_24px_hsl(45_90%_60%/0.35)] backdrop-blur transition hover:bg-amber-500/25"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Platform Console
+        </Link>
+      )}
+
 
     </>
   );
