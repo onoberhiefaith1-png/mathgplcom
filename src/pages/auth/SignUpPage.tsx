@@ -149,7 +149,7 @@ const SignUpPage = () => {
         metadata.school_name = values.school_name.trim();
       }
 
-      const { error } = await supabase.auth.signUp({
+      const { data: created, error } = await supabase.auth.signUp({
         email,
         password: values.password,
         options: {
@@ -163,8 +163,16 @@ const SignUpPage = () => {
         }
         throw error;
       }
+      // The database issues the permanent MathGPL ID at signup — show it here.
+      if (created.user?.id) {
+        try {
+          const { mathgplId } = await lookupId({ data: { userId: created.user.id } });
+          setIssuedId(mathgplId);
+        } catch { /* the confirmation email still carries the ID */ }
+      }
       cooldown.start();
       setStep(4);
+
     } catch (error) {
       toast({ title: "Could not create account", description: (error as Error).message, variant: "destructive" });
     } finally {
