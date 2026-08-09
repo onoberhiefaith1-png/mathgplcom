@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
 import { isDevWorkspaceHost } from "@/lib/env/devWorkspace";
 
 
@@ -35,6 +36,8 @@ const LoginPage = () => {
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
   // Development-only shortcut. Resolved after mount so the server-rendered
   // markup and the first client render always match.
   const [devHost, setDevHost] = useState(false);
