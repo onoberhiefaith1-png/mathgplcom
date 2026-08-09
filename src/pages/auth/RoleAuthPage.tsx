@@ -99,19 +99,25 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       }
 
       if (mode === "signin") {
-        const email = z.string().trim().email("Enter a valid email address").parse(values.email);
         try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
         setUnverified(false);
-        const { error } = await supabase.auth.signInWithPassword({ email, password: values.password });
-        if (error) {
-          if (/email not confirmed|not confirmed/i.test(error.message)) {
-            setUnverified(true);
-            throw new Error("Please confirm your email address before signing in.");
-          }
-          throw error;
+        try {
+          const session = await signIn({
+            data: { mathgplId: (values.mathgpl_id ?? "").trim(), password: values.password },
+          });
+          const { error } = await supabase.auth.setSession({
+            access_token: session.accessToken,
+            refresh_token: session.refreshToken,
+          });
+          if (error) throw error;
+        } catch (error) {
+          const message = (error as Error).message ?? "Could not sign in";
+          if (/not confirmed/i.test(message)) setUnverified(true);
+          throw new Error(message);
         }
         return;
       }
+
 
       // Sign up
       const parsed = baseSchema.safeParse(values);
