@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { Eye, EyeOff, KeyRound, Loader2, Mail, Save, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Loader2, Mail, Save, ShieldCheck, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
+import ShareCodeCard from "@/components/connections/ShareCodeCard";
+import GoLiveToggle from "@/components/connections/GoLiveToggle";
+import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useMathgplId } from "@/lib/accounts/useMathgplId";
+import { useConnectionCounts } from "@/lib/connections/useConnections";
 
 const FIELD = "bg-white text-slate-900 placeholder:text-slate-400";
 
