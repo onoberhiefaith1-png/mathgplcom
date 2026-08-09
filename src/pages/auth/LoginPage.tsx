@@ -242,6 +242,7 @@ const LoginPage = () => {
             </div>
           )}
 
+          <Button type="submit" disabled={busy} className="min-h-[48px] w-full bg-amber-400 text-slate-900 hover:bg-amber-300">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
             {forgot ? "Send reset link" : "Log in"}
           </Button>
