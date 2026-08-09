@@ -3023,6 +3023,30 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_building_default: {
+        Row: {
+          background: Json | null
+          created_at: string
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          background?: Json | null
+          created_at?: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          background?: Json | null
+          created_at?: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       platform_email_senders: {
         Row: {
           created_at: string
@@ -3181,6 +3205,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          accepts_requests: boolean
           active_org_id: string | null
           children_count: number | null
           country: string | null
@@ -3203,6 +3228,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          accepts_requests?: boolean
           active_org_id?: string | null
           children_count?: number | null
           country?: string | null
@@ -3225,6 +3251,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          accepts_requests?: boolean
           active_org_id?: string | null
           children_count?: number | null
           country?: string | null
@@ -3972,6 +3999,7 @@ export type Database = {
       discover_accounts: {
         Args: { _q?: string; _role: Database["public"]["Enums"]["app_role"] }
         Returns: {
+          accepts_requests: boolean
           activity: number
           connection_status: string
           display_name: string
@@ -3983,6 +4011,7 @@ export type Database = {
       discover_schools: {
         Args: { _q?: string }
         Returns: {
+          accepts_requests: boolean
           activity: number
           connection_status: string
           mathgpl_id: string
@@ -4214,8 +4243,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      set_accepts_requests: { Args: { _accept: boolean }; Returns: boolean }
       set_active_workspace: { Args: { _org_id: string }; Returns: string }
       set_go_live: { Args: { _live: boolean }; Returns: boolean }
+      set_platform_building_default: {
+        Args: { _background: Json }
+        Returns: Json
+      }
       set_workspace_visibility: {
         Args: { _org_id: string; _visibility: string }
         Returns: string
