@@ -1,6 +1,8 @@
 // CRUD for saved games.
 import { supabase } from "@/integrations/supabase/client";
 import { GameCanvas, GameRow, makeScene } from "./types";
+import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
+
 
 const emptyCanvas = (): GameCanvas => {
   const scene = makeScene(0);
