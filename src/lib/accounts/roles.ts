@@ -90,7 +90,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   school: [
     { to: "/school", label: "Dashboard" },
     { to: "/school/teachers", label: "Teachers" },
-    { to: "/school?tab=students", label: "Students" },
+    { to: "/school/students", label: "Students" },
     { to: "/school?tab=reports", label: "Reports" },
     { to: "/school?tab=analytics", label: "Analytics" },
     { to: "/school?tab=accounts", label: "Accounts" },
