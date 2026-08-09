@@ -24,6 +24,7 @@ export type Database = {
           prefix: string
           role: Database["public"]["Enums"]["app_role"]
           seq: number
+          share_code: string
           user_id: string
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           prefix: string
           role: Database["public"]["Enums"]["app_role"]
           seq: number
+          share_code?: string
           user_id: string
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           prefix?: string
           role?: Database["public"]["Enums"]["app_role"]
           seq?: number
+          share_code?: string
           user_id?: string
         }
         Relationships: [
@@ -3141,6 +3144,7 @@ export type Database = {
           first_name: string | null
           full_name: string | null
           homepage_config: Json
+          is_live: boolean
           last_name: string | null
           marketing_opt_in: boolean
           mathgpl_student_id: string | null
@@ -3162,6 +3166,7 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           homepage_config?: Json
+          is_live?: boolean
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
@@ -3183,6 +3188,7 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           homepage_config?: Json
+          is_live?: boolean
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
@@ -3930,6 +3936,7 @@ export type Database = {
       generate_mathgpl_id: { Args: never; Returns: string }
       generate_org_invite_code: { Args: never; Returns: string }
       generate_session_code: { Args: never; Returns: string }
+      generate_share_code: { Args: never; Returns: string }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {
         Args: { _class_id: string }
@@ -4030,6 +4037,7 @@ export type Database = {
           org_name: string
         }[]
       }
+      my_share_code: { Args: never; Returns: string }
       my_workspaces: {
         Args: never
         Returns: {
@@ -4057,6 +4065,16 @@ export type Database = {
           read_ct: number
         }[]
       }
+      regenerate_my_share_code: { Args: never; Returns: string }
+      resolve_share_code: {
+        Args: { _code: string }
+        Returns: {
+          display_name: string
+          mathgpl_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
       respond_to_teacher_invitation: {
         Args: { _accept: boolean; _invitation_id: string }
         Returns: string
@@ -4072,6 +4090,7 @@ export type Database = {
         }[]
       }
       set_active_workspace: { Args: { _org_id: string }; Returns: string }
+      set_go_live: { Args: { _live: boolean }; Returns: boolean }
       set_workspace_visibility: {
         Args: { _org_id: string; _visibility: string }
         Returns: string
