@@ -1,11 +1,11 @@
 // The original MathGPL building, expressed as a fixed list of artwork slots.
 // Geometry (position, curve, perspective, radius, overlap, rotation) lives in the
 // scene and never changes — a slot only ever swaps the artwork it paints.
-import algebraIsland from "@/assets/adventure/algebra-island.png.asset.json";
-import calculusIsland from "@/assets/adventure/calculus-island.png.asset.json";
-import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
-import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
-import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
+import ring0 from "@/assets/adventure/mathgpl-ring-0.png.asset.json";
+import ring2 from "@/assets/adventure/mathgpl-ring-2.png.asset.json";
+import ring4 from "@/assets/adventure/mathgpl-ring-4.png.asset.json";
+import ring6 from "@/assets/adventure/mathgpl-ring-6.png.asset.json";
+import ring7 from "@/assets/adventure/mathgpl-ring-7.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
 
@@ -23,14 +23,14 @@ export interface BuildingSlot {
 
 /** Outer city ring — 8 curved segments, clockwise from the front. */
 export const RING_SLOTS: BuildingSlot[] = [
-  { id: "ring-0", label: "Ring 1 · Algebra", group: "ring", defaultUrl: algebraIsland.url, route: "/subjects/algebra" },
+  { id: "ring-0", label: "Ring 1 · Algebra", group: "ring", defaultUrl: ring0.url, route: "/subjects/algebra" },
   { id: "ring-1", label: "Ring 2 · MathGPL hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
-  { id: "ring-2", label: "Ring 3 · Geometry", group: "ring", defaultUrl: geometryIsland.url, route: "/subjects/geometry" },
+  { id: "ring-2", label: "Ring 3 · Geometry", group: "ring", defaultUrl: ring2.url, route: "/subjects/geometry" },
   { id: "ring-3", label: "Ring 4 · MathGPL hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
-  { id: "ring-4", label: "Ring 5 · Trigonometry", group: "ring", defaultUrl: trigonometryIsland.url, route: "/subjects/trigonometry" },
+  { id: "ring-4", label: "Ring 5 · Trigonometry", group: "ring", defaultUrl: ring4.url, route: "/subjects/trigonometry" },
   { id: "ring-5", label: "Ring 6 · MathGPL hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
-  { id: "ring-6", label: "Ring 7 · Statistics", group: "ring", defaultUrl: statisticsIsland.url, route: "/subjects/statistics" },
-  { id: "ring-7", label: "Ring 8 · Calculus", group: "ring", defaultUrl: calculusIsland.url, route: "/subjects/calculus" },
+  { id: "ring-6", label: "Ring 7 · Statistics", group: "ring", defaultUrl: ring6.url, route: "/subjects/statistics" },
+  { id: "ring-7", label: "Ring 8 · Calculus", group: "ring", defaultUrl: ring7.url, route: "/subjects/calculus" },
 ];
 
 /** Inner dome core — 8 artwork positions tiled around the palace core. */

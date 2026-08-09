@@ -30,7 +30,8 @@ const CredentialEntryDialog = ({
     setError(null);
     try {
       await beginImpersonationWithCredentials({ ...target, email, password });
-      window.location.assign(target.home);
+      // Every workspace opens on its building first — the dashboard is entered from there.
+      window.location.assign("/");
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);

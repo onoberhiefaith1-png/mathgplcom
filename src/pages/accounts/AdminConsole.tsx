@@ -131,7 +131,8 @@ const AdminConsole = () => {
         role: entry.role,
         home: entry.home,
       });
-      window.location.assign(entry.home);
+      // Every workspace opens on its building first — the dashboard is entered from there.
+      window.location.assign("/");
     } catch (e) {
       toast({ title: "Could not enter workspace", description: (e as Error).message, variant: "destructive" });
     } finally {

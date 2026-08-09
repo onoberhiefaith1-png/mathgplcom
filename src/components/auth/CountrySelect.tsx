@@ -53,18 +53,22 @@ export function CountrySelect({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[--radix-popover-trigger-width] p-0"
+        className="w-[--radix-popover-trigger-width] border-slate-300 bg-white p-0 text-slate-900"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <Command>
-          <CommandInput placeholder="Search countries…" />
-          <CommandList className="max-h-64">
-            <CommandEmpty>No country found.</CommandEmpty>
-            <CommandGroup>
+        <Command className="bg-white text-slate-900 [&_[cmdk-input-wrapper]]:border-slate-200">
+          <CommandInput
+            placeholder="Search countries…"
+            className="text-slate-900 placeholder:text-slate-400"
+          />
+          <CommandList className="max-h-64 bg-white">
+            <CommandEmpty className="text-slate-500">No country found.</CommandEmpty>
+            <CommandGroup className="bg-white">
               {COUNTRIES.map((country) => (
                 <CommandItem
                   key={country}
                   value={country}
+                  className="text-slate-900 data-[selected=true]:bg-slate-100 data-[selected=true]:text-slate-900"
                   onSelect={() => {
                     onChange(country);
                     setOpen(false);
@@ -72,7 +76,7 @@ export function CountrySelect({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 text-slate-900",
                       value === country ? "opacity-100" : "opacity-0",
                     )}
                   />
