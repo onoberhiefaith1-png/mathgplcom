@@ -4255,6 +4255,39 @@ export type Database = {
       }
       revoke_connection: { Args: { _connection_id: string }; Returns: string }
       school_acronym: { Args: { _name: string }; Returns: string }
+      school_member_classes: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: {
+          assignments: number
+          id: string
+          name: string
+          students: number
+        }[]
+      }
+      school_member_overview: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: {
+          adventures: number
+          assignments: number
+          avg_progress: number
+          classes: number
+          display_name: string
+          lesson_notes: number
+          mathgpl_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          students: number
+        }[]
+      }
+      school_teachers: {
+        Args: { _org_id: string }
+        Returns: {
+          display_name: string
+          mathgpl_id: string
+          status: string
+          user_id: string
+        }[]
+      }
       search_public_teachers: {
         Args: { _q: string }
         Returns: {
