@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { COUNTRIES, detectTimeZone } from "@/lib/accounts/authForms";
+import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/accounts/roles";
 
 const ROLE_ICON: Record<SignupRole, typeof Building2> = {
