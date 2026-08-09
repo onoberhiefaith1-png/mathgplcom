@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import DashboardShell from "@/components/accounts/DashboardShell";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
+import { useMathgplId } from "@/lib/accounts/useMathgplId";
+
 import StatCard from "@/components/accounts/StatCard";
 import AccountPreviewSheet from "@/components/accounts/AccountPreviewSheet";
 import AddAccountDialog from "@/components/accounts/AddAccountDialog";
