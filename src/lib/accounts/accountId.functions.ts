@@ -16,8 +16,20 @@ const GENERIC = "Incorrect MathGPL ID or password.";
 /** ADM/000001 · TCH/000001 · STU/000001 · PAR/000001 · SC/OX/000001 */
 const ID_PATTERN = /^(ADM|TCH|STU|PAR|SC)\/(?:[A-Z0-9]{2,6}\/)?\d{4,9}$/;
 
+/**
+ * People type letter O for zero and I/L for one. The number part of a MathGPL
+ * ID is always digits, so those look-alikes are corrected before lookup.
+ */
+const normaliseId = (value: string) => {
+  const clean = value.toUpperCase().replace(/\s+/g, "");
+  const parts = clean.split("/");
+  const last = parts.pop();
+  if (!last) return clean;
+  return [...parts, last.replace(/O/g, "0").replace(/[IL]/g, "1")].join("/");
+};
+
 const credentials = z.object({
-  mathgplId: z.string().trim().max(40).transform((v) => v.toUpperCase().replace(/\s+/g, "")),
+  mathgplId: z.string().trim().max(40).transform(normaliseId),
   password: z.string().min(1).max(128),
 });
 
