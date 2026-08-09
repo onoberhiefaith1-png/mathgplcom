@@ -93,12 +93,20 @@ const AccountMenu = () => {
                 </Link>
               ))}
               <Link
+                to="/account"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground transition hover:bg-primary/15"
+              >
+                <ShieldCheck className="h-4 w-4" /> My account
+              </Link>
+              <Link
                 to="/home"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground transition hover:bg-primary/15"
               >
                 <LayoutDashboard className="h-4 w-4" /> My dashboard
               </Link>
+
               <button
                 type="button"
                 onClick={signOut}
