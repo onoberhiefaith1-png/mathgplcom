@@ -112,6 +112,43 @@ const MyAccountPage = () => {
           </div>
         )}
 
+        <ShareCodeCard />
+        <GoLiveToggle />
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <Users className="h-4 w-4 text-slate-500" /> Connections
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Schools, teachers, students and parents you work with — and the requests waiting for you.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              to="/requests"
+              className="inline-flex min-h-[44px] items-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white"
+            >
+              Requests{counts.pendingIncoming > 0 ? ` (${counts.pendingIncoming})` : ""}
+            </Link>
+            <Link
+              to="/community/discover"
+              className="inline-flex min-h-[44px] items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700"
+            >
+              Community of Practice
+            </Link>
+            <ConnectByCodeDialog
+              trigger={
+                <button
+                  type="button"
+                  className="inline-flex min-h-[44px] items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700"
+                >
+                  Connect with a code
+                </button>
+              }
+            />
+          </div>
+        </section>
+
+
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
             <Mail className="h-4 w-4 text-slate-500" /> Email address
