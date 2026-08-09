@@ -29,6 +29,7 @@ const MyAccountPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { mathgplId, typeLabel, loading } = useMathgplId();
+  const { counts } = useConnectionCounts();
 
   const [email, setEmail] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
