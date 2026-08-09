@@ -3944,6 +3944,7 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: string
       }
+      account_activity_score: { Args: { _user_id: string }; Returns: number }
       account_role_of: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -3967,6 +3968,30 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      discover_accounts: {
+        Args: { _q?: string; _role: Database["public"]["Enums"]["app_role"] }
+        Returns: {
+          activity: number
+          connection_status: string
+          display_name: string
+          mathgpl_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
+      discover_schools: {
+        Args: { _q?: string }
+        Returns: {
+          activity: number
+          connection_status: string
+          mathgpl_id: string
+          name: string
+          org_id: string
+          owner_user_id: string
+          students: number
+          teachers: number
+        }[]
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
