@@ -37,6 +37,11 @@ export function useWorkspace() {
       if (orgId === activeOrgId) return;
       await setActiveWorkspace(orgId);
       await queryClient.invalidateQueries();
+      // MathGPL is the school: entering a workspace always opens its building
+      // first, never a dashboard deep inside it.
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        window.location.assign("/");
+      }
     },
     [activeOrgId, queryClient],
   );
