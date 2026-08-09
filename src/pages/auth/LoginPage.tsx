@@ -212,7 +212,36 @@ const LoginPage = () => {
             </div>
           )}
 
-          <Button type="submit" disabled={busy} className="min-h-[48px] w-full bg-amber-400 text-slate-900 hover:bg-amber-300">
+          {!forgot && unverified && (
+            <div className="rounded-2xl border border-amber-300/35 bg-amber-300/10 p-4 text-left">
+              <p className="text-sm text-amber-100">
+                Please confirm your email address before signing in.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={resending}
+                onClick={async () => {
+                  setResending(true);
+                  const result = await resendConfirmationEmail(email);
+                  setResending(false);
+                  toast(
+                    result.ok
+                      ? {
+                          title: "Confirmation email sent",
+                          description: `We've sent a new confirmation link to ${email.trim()}.`,
+                        }
+                      : { title: "Not sent", description: result.message, variant: "destructive" },
+                  );
+                }}
+                className="mt-3 min-h-[44px] w-full border-amber-300/40 bg-white/5 text-amber-100 hover:bg-amber-300/20"
+              >
+                {resending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Resend confirmation email
+              </Button>
+            </div>
+          )}
+
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
             {forgot ? "Send reset link" : "Log in"}
           </Button>
