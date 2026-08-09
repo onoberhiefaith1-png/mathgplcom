@@ -7,9 +7,20 @@ export type AccountState = {
   role: AppRole | null;
   orgId: string | null;
   capabilities: Capability[];
+  /** Every role granted to this account, not just the active one. */
+  roles: AppRole[];
+  /** True when the account owns the platform, whatever role it is viewing as. */
+  isPlatformOwner: boolean;
 };
 
-const EMPTY: AccountState = { userId: null, role: null, orgId: null, capabilities: [] };
+const EMPTY: AccountState = {
+  userId: null,
+  role: null,
+  orgId: null,
+  capabilities: [],
+  roles: [],
+  isPlatformOwner: false,
+};
 
 /**
  * Resolves the signed-in account: its role, the organization that owns it and
@@ -39,7 +50,20 @@ export async function loadAccount(requestedRole?: string): Promise<AccountState>
     capabilities = ((caps ?? []) as { capability: string }[]).map((c) => c.capability as Capability);
   }
 
-  return { userId: user.id, role, orgId, capabilities };
+  const { data: roleRows } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id);
+  const roles = ((roleRows ?? []) as { role: string }[]).map((r) => r.role as AppRole);
+
+  return {
+    userId: user.id,
+    role,
+    orgId,
+    capabilities,
+    roles,
+    isPlatformOwner: roles.includes("platform_owner"),
+  };
 }
 
 export function useAccount() {
