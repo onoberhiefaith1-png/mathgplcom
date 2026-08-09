@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Button, Heading, Text } from '@react-email/components'
-import { EmailShell, greeting, styles } from './brand'
+import { EmailShell, FallbackLink, greeting, styles } from './brand'
 
 interface RecoveryEmailProps {
   siteName?: string
@@ -21,11 +21,7 @@ export const RecoveryEmail = ({ userName, confirmationUrl }: RecoveryEmailProps)
     <Button style={styles.button} href={confirmationUrl}>
       Reset My Password
     </Button>
-    <Text style={styles.fallback}>
-      If the button does not work, copy and paste this address into your browser:
-      <br />
-      {confirmationUrl}
-    </Text>
+    <FallbackLink url={confirmationUrl} />
     <Text style={styles.small}>
       For your security, this link expires shortly and can only be used for this password-reset
       request. We never include your password in an email.

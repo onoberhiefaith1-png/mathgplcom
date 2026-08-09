@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Button, Heading, Text } from '@react-email/components'
-import { EmailShell, greeting, styles } from './brand'
+import { EmailShell, FallbackLink, greeting, styles } from './brand'
 
 interface MagicLinkEmailProps {
   siteName?: string
@@ -19,11 +19,7 @@ export const MagicLinkEmail = ({ userName, confirmationUrl }: MagicLinkEmailProp
     <Button style={styles.button} href={confirmationUrl}>
       Sign In To MathGPL
     </Button>
-    <Text style={styles.fallback}>
-      If the button does not work, copy and paste this address into your browser:
-      <br />
-      {confirmationUrl}
-    </Text>
+    <FallbackLink url={confirmationUrl} />
     <Text style={styles.small}>
       If you did not request this link, you can safely ignore this email.
     </Text>

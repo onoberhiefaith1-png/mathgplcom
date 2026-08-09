@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { AUTH_ROLES, COUNTRIES, detectTimeZone, type AuthRoleKey } from "@/lib/accounts/authForms";
-import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
+import { AUTH_ROLES, detectTimeZone, type AuthRoleKey } from "@/lib/accounts/authForms";
+import { CountrySelect } from "@/components/auth/CountrySelect";
+import { useResendCooldown } from "@/lib/auth/useResendCooldown";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 type Mode = "signin" | "signup" | "forgot";
 
@@ -49,9 +51,12 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   const [marketing, setMarketing] = useState(false);
   const [remember, setRemember] = useState(true);
   const [unverified, setUnverified] = useState(false);
-  const [resending, setResending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const set = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }));
+
+  const cooldown = useResendCooldown(values.email);
 
   const rawNext = searchParams.get("next") ?? searchParams.get("redirect") ?? "";
   const safeNext = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "";
@@ -146,6 +151,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         options: { emailRedirectTo: `${window.location.origin}/auth/verified`, data: metadata },
       });
       if (error) throw error;
+      cooldown.start();
       setUnverified(true);
       setMode("signin");
       toast({
@@ -220,7 +226,25 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
           {mode !== "forgot" && (
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required minLength={mode === "signup" ? 8 : 6} value={values.password} onChange={(e) => set("password", e.target.value)} className={AUTH_FIELD} />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={mode === "signup" ? 8 : 6}
+                  value={values.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  className={`${AUTH_FIELD} pr-11`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-slate-500 hover:text-slate-800"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           )}
 
@@ -228,20 +252,34 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm">Confirm password</Label>
-                <Input id="confirm" type="password" required value={values.confirm} onChange={(e) => set("confirm", e.target.value)} className={AUTH_FIELD} />
+                <div className="relative">
+                  <Input
+                    id="confirm"
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    value={values.confirm}
+                    onChange={(e) => set("confirm", e.target.value)}
+                    className={`${AUTH_FIELD} pr-11`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-slate-500 hover:text-slate-800"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="country">Country</Label>
-                  <select
+                  <CountrySelect
                     id="country"
                     value={values.country}
-                    onChange={(e) => set("country", e.target.value)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  >
-                    <option value="">Select…</option>
-                    {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                    onChange={(v) => set("country", v)}
+                    placeholder="Select…"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="time_zone">Time zone</Label>
@@ -309,12 +347,10 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={resending}
+                disabled={cooldown.sending || !cooldown.ready}
                 className="mt-2 w-full"
                 onClick={async () => {
-                  setResending(true);
-                  const result = await resendConfirmationEmail(values.email);
-                  setResending(false);
+                  const result = await cooldown.resend();
                   toast(
                     result.ok
                       ? {
@@ -325,7 +361,10 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
                   );
                 }}
               >
-                Resend confirmation email
+                {cooldown.sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {cooldown.ready
+                  ? "Resend confirmation email"
+                  : `Resend available in ${cooldown.seconds} second${cooldown.seconds === 1 ? "" : "s"}`}
               </Button>
             </div>
           )}

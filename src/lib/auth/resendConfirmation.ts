@@ -24,6 +24,16 @@ function lastSentAt(email: string): number {
   }
 }
 
+/**
+ * Records that a confirmation email has just gone out for this address, so the
+ * cooldown also covers the very first email sent by signing up. The stamp lives
+ * in the browser's own storage, which survives a refresh and is shared by every
+ * open tab, so the countdown cannot be skipped by reloading the page.
+ */
+export function markConfirmationSent(email: string) {
+  markSent(email.trim());
+}
+
 function markSent(email: string) {
   try {
     localStorage.setItem(`${KEY}:${email.toLowerCase()}`, String(Date.now()));

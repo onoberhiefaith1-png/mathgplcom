@@ -23,8 +23,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { COUNTRIES, detectTimeZone } from "@/lib/accounts/authForms";
-import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
+import { detectTimeZone } from "@/lib/accounts/authForms";
+import { CountrySelect } from "@/components/auth/CountrySelect";
+import { useResendCooldown } from "@/lib/auth/useResendCooldown";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/accounts/roles";
 
 const ROLE_ICON: Record<SignupRole, typeof Building2> = {
@@ -35,7 +36,8 @@ const ROLE_ICON: Record<SignupRole, typeof Building2> = {
 };
 
 const detailsSchema = z.object({
-  full_name: z.string().trim().min(2, "Enter your full name").max(120),
+  first_name: z.string().trim().min(1, "First name is required").max(60),
+  last_name: z.string().trim().min(1, "Last name is required").max(60),
   country: z.string().trim().min(1, "Select your country"),
   email: z.string().trim().email("Enter a valid email address").max(255),
   confirm_email: z.string().trim().email("Confirm your email address").max(255),
@@ -60,12 +62,13 @@ const SignUpPage = () => {
   const [step, setStep] = useState<Step>(1);
   const [role, setRole] = useState<SignupRole | null>(null);
   const [busy, setBusy] = useState(false);
-  const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [values, setValues] = useState({
-    full_name: "",
+    first_name: "",
+    last_name: "",
     country: "",
     email: "",
     confirm_email: "",
@@ -79,6 +82,8 @@ const SignUpPage = () => {
   const [marketing, setMarketing] = useState(false);
 
   const set = (k: keyof typeof values, v: string) => setValues((p) => ({ ...p, [k]: v }));
+
+  const cooldown = useResendCooldown(values.email);
 
   useEffect(() => {
     if (!ready || !user || step === 4) return;
@@ -125,12 +130,14 @@ const SignUpPage = () => {
     try {
       validateDetails();
       const email = values.email.trim();
-      const parts = values.full_name.trim().split(/\s+/);
+      const firstName = values.first_name.trim();
+      const lastName = values.last_name.trim();
       const metadata: Record<string, string | boolean> = {
         account_role: role,
-        full_name: values.full_name.trim(),
-        first_name: parts[0] ?? "",
-        last_name: parts.slice(1).join(" "),
+        full_name: `${firstName} ${lastName}`.trim(),
+        display_name: `${firstName} ${lastName}`.trim(),
+        first_name: firstName,
+        last_name: lastName,
         country: values.country,
         time_zone: detectTimeZone(),
         marketing_opt_in: marketing,
@@ -156,6 +163,7 @@ const SignUpPage = () => {
         }
         throw error;
       }
+      cooldown.start();
       setStep(4);
     } catch (error) {
       toast({ title: "Could not create account", description: (error as Error).message, variant: "destructive" });
@@ -223,9 +231,13 @@ const SignUpPage = () => {
             </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="full_name" className="text-white/80">Full name</Label>
-                <Input id="full_name" value={values.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={120} className={`${AUTH_FIELD}`} />
+              <div className="space-y-1.5">
+                <Label htmlFor="first_name" className="text-white/80">First name</Label>
+                <Input id="first_name" value={values.first_name} onChange={(e) => set("first_name", e.target.value)} maxLength={60} className={`${AUTH_FIELD}`} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="last_name" className="text-white/80">Last name</Label>
+                <Input id="last_name" value={values.last_name} onChange={(e) => set("last_name", e.target.value)} maxLength={60} className={`${AUTH_FIELD}`} />
               </div>
 
               {role === "school" && (
@@ -237,15 +249,7 @@ const SignUpPage = () => {
 
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="country" className="text-white/80">Country</Label>
-                <select
-                  id="country"
-                  value={values.country}
-                  onChange={(e) => set("country", e.target.value)}
-                  className={`${AUTH_FIELD} w-full rounded-md border px-3 text-sm`}
-                >
-                  <option value="">Select your country</option>
-                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <CountrySelect id="country" value={values.country} onChange={(v) => set("country", v)} />
               </div>
 
               {role === "student" && (
@@ -290,14 +294,25 @@ const SignUpPage = () => {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm_password" className="text-white/80">Confirm password</Label>
-                <Input
-                  id="confirm_password"
-                  type={showPassword ? "text" : "password"}
-                  value={values.confirm_password}
-                  onChange={(e) => set("confirm_password", e.target.value)}
-                  maxLength={128}
-                  className={`${AUTH_FIELD}`}
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm_password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={values.confirm_password}
+                    onChange={(e) => set("confirm_password", e.target.value)}
+                    maxLength={128}
+                    className={`${AUTH_FIELD} pr-11`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-slate-500 hover:text-slate-800"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -367,11 +382,9 @@ const SignUpPage = () => {
             <Button
               type="button"
               variant="outline"
-              disabled={resending}
+              disabled={cooldown.sending || !cooldown.ready}
               onClick={async () => {
-                setResending(true);
-                const result = await resendConfirmationEmail(values.email);
-                setResending(false);
+                const result = await cooldown.resend();
                 if (result.ok) {
                   setResent(true);
                   toast({
@@ -382,12 +395,14 @@ const SignUpPage = () => {
                   toast({ title: "Not sent", description: result.message, variant: "destructive" });
                 }
               }}
-              className="mt-6 min-h-[48px] w-full border-white/25 bg-white/5 text-white hover:bg-white/15"
+              className="mt-6 min-h-[48px] w-full border-white/25 bg-white/5 text-white hover:bg-white/15 disabled:opacity-70"
             >
-              {resending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Didn't receive the email? Resend confirmation email
+              {cooldown.sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {cooldown.ready
+                ? "Didn't receive the email? Resend confirmation email"
+                : `Resend available in ${cooldown.seconds} second${cooldown.seconds === 1 ? "" : "s"}`}
             </Button>
-            {resent && (
+            {resent && cooldown.seconds > 0 && (
               <p className="mt-2 text-xs text-emerald-300">
                 A new confirmation email is on its way.
               </p>

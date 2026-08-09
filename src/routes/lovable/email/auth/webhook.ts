@@ -37,19 +37,21 @@ const ROOT_DOMAIN = "mathgpl.com"
 const FROM_DOMAIN = "mathgpl.com"
 
 /**
- * The person's own name when the account carries one, so every account email
- * can open with "Hello Amara," instead of a generic greeting.
+ * The person's first name when the account carries one, so every account email
+ * opens with "Hello Faith," rather than a generic greeting or a full name.
  */
 function displayName(data: any): string | undefined {
   const meta = data?.user?.user_metadata ?? data?.user_metadata ?? {}
   const candidates = [
+    meta.first_name,
+    meta.given_name,
     meta.full_name,
     meta.display_name,
     meta.name,
-    [meta.first_name, meta.last_name].filter(Boolean).join(' '),
   ]
   const found = candidates.map((v) => (typeof v === 'string' ? v.trim() : '')).find(Boolean)
-  return found || undefined
+  // Greetings use the first name only ("Hello Faith,").
+  return found ? found.split(/\s+/)[0] : undefined
 }
 
 
