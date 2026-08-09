@@ -116,13 +116,36 @@ export const ACCOUNT_MENU: { key: AuthRoleKey; label: string }[] = [
   { key: "student", label: "Student Account" },
 ];
 
-export const COUNTRIES = [
-  "Nigeria", "Ghana", "Kenya", "South Africa", "United Kingdom", "Ireland",
-  "United States", "Canada", "Australia", "New Zealand", "India", "Pakistan",
-  "United Arab Emirates", "Saudi Arabia", "Egypt", "Germany", "France",
-  "Netherlands", "Spain", "Italy", "Portugal", "Brazil", "Mexico",
-  "Singapore", "Malaysia", "Philippines", "Indonesia", "Japan", "China", "Other",
-];
+/**
+ * Every country and territory the platform's own internationalisation data
+ * knows about, in English, sorted A→Z. Deliberately not a hand-typed list:
+ * it is derived from the ISO 3166-1 region codes so it can never fall behind.
+ */
+const NON_COUNTRY_CODES = new Set(["EU", "EZ", "UN", "QO", "ZZ", "XA", "XB"]);
+
+function buildCountryList(): string[] {
+  try {
+    const names = new Intl.DisplayNames(["en"], { type: "region", fallback: "none" });
+    const found = new Set<string>();
+    for (let a = 65; a <= 90; a += 1) {
+      for (let b = 65; b <= 90; b += 1) {
+        const code = String.fromCharCode(a, b);
+        if (NON_COUNTRY_CODES.has(code)) continue;
+        const name = names.of(code);
+        if (name && name !== code) found.add(name);
+      }
+    }
+    if (found.size > 100) {
+      return Array.from(found).sort((x, y) => x.localeCompare(y, "en"));
+    }
+  } catch {
+    /* fall through to the minimal list below */
+  }
+  return ["Nigeria", "United Kingdom", "United States", "Other"];
+}
+
+export const COUNTRIES = buildCountryList();
+
 
 export function detectTimeZone(): string {
   try {
