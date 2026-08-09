@@ -3,8 +3,10 @@ import { Link, useNavigate, useSearchParams } from "@/lib/router-compat";
 import { z } from "zod";
 import { Eye, EyeOff, GraduationCap, Loader2, LogIn, Wrench } from "lucide-react";
 
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+import { signInWithMathgplId } from "@/lib/accounts/accountId.functions";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AUTH_FIELD } from "@/lib/accounts/authField";
