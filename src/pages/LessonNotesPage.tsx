@@ -59,13 +59,14 @@ const LessonNotesPage = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("notebooks")
-      .select("id,title,teacher,class_name,session,subject,subtopic,color_index,cover_config,checkout_link_id")
-      // Lesson Notes is the working area: notebooks stored inside a class are
-      // independent copies and never clutter the shelf.
-      .eq("storage_scope", "workspace")
-      .order("updated_at", { ascending: false });
+    const { data, error } = await scopedByWorkspace(
+      supabase
+        .from("notebooks")
+        .select("id,title,teacher,class_name,session,subject,subtopic,color_index,cover_config,checkout_link_id")
+        // Lesson Notes is the working area: notebooks stored inside a class are
+        // independent copies and never clutter the shelf.
+        .eq("storage_scope", "workspace"),
+    ).then((q) => q.order("updated_at", { ascending: false }));
     if (error) {
       toast({ title: "Could not load notebooks", description: error.message, variant: "destructive" });
     } else {
@@ -73,6 +74,7 @@ const LessonNotesPage = () => {
     }
     setLoading(false);
   };
+
 
   useEffect(() => { load(); }, []);
 
