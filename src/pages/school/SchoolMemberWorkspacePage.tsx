@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, BookOpen, Eye, Flag, GraduationCap, Loader2, NotebookPen, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, Eye, Flag, Globe2, GraduationCap, Loader2, NotebookPen, Users } from "lucide-react";
 
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
+import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { fetchMemberClasses, fetchMemberOverview } from "@/lib/accounts/schoolDirectory";
 
@@ -11,7 +12,9 @@ import { fetchMemberClasses, fetchMemberOverview } from "@/lib/accounts/schoolDi
  *
  * This is observation, not impersonation: the administrator stays signed in as
  * the school, every read is school-scoped in SQL, and no authoring, submitting
- * or building control is rendered at all.
+ * or building control is rendered at all. The page opens the way the member's
+ * own workspace opens — the school's rotating building first, then their work
+ * inside this school.
  */
 const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "teacher" | "student" }) => {
   const { active } = useWorkspace();
@@ -34,14 +37,14 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
   const stats = person
     ? [
         { label: "Classes", value: person.classes, icon: Users },
-        kind === "teacher"
-          ? { label: "Students taught", value: person.students, icon: GraduationCap }
-          : { label: "Average progress", value: `${person.avgProgress}%`, icon: Flag },
+        ...(kind === "teacher"
+          ? [{ label: "Students taught", value: person.students, icon: GraduationCap }]
+          : []),
         { label: "Lesson notes", value: person.lessonNotes, icon: NotebookPen },
         { label: "Assignments", value: person.assignments, icon: BookOpen },
         { label: "Adventures", value: person.adventures, icon: Flag },
         { label: "Average progress", value: `${person.avgProgress}%`, icon: Flag },
-      ].slice(0, 5)
+      ]
     : [];
 
   return (
@@ -77,7 +80,21 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
           </p>
         ) : (
           <>
-            <section className="rounded-2xl border border-border bg-card/60 p-6">
+            {/* The workspace opens on the school's building, exactly as the
+                member sees it — and it cannot be customised from here. */}
+            <section className="overflow-hidden rounded-2xl border border-border bg-card/40">
+              {/* The scene renders full-viewport by design; this frame crops it
+                  into the page without letting it take over the layout. */}
+              <div className="relative h-[300px] w-full overflow-hidden [&>main]:!absolute [&>main]:!inset-0 [&>main]:!h-full [&>main]:!w-full">
+                <RotatingAdventureScene interactive={false} configMode="school-readonly" />
+              </div>
+              <p className="border-t border-border/60 px-5 py-3 text-xs text-muted-foreground">
+                This school&rsquo;s building and background — what {person.displayName} sees when they enter this school
+                workspace. Building settings stay with the school.
+              </p>
+            </section>
+
+            <section className="mt-4 rounded-2xl border border-border bg-card/60 p-6">
               <h1 className="text-2xl font-semibold">{person.displayName}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {kind === "teacher" ? "Teacher ID" : "Student ID"}: {person.mathgplId ?? "—"} · school status{" "}
@@ -85,7 +102,8 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
               </p>
               <p className="mt-3 max-w-2xl text-xs text-muted-foreground">
                 This is {person.displayName}&rsquo;s own workspace inside this school — their classes, work and records.
-                It is not a generic dashboard, and it is not the school&rsquo;s own workspace.
+                It is not a generic dashboard, and it is not the school&rsquo;s own workspace. They own it: only they can
+                create or change anything in it.
               </p>
             </section>
 
@@ -103,8 +121,13 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
 
             <section className="mt-6 rounded-2xl border border-border bg-card/60 p-6">
               <h2 className="text-lg font-semibold">
-                {kind === "teacher" ? "Classes in this school" : "Classes this student belongs to"}
+                {kind === "teacher" ? "Teaching Hub in this school" : "Learning in this school"}
               </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {kind === "teacher"
+                  ? "Everything this teacher has created inside this school: classes, lesson notes, adventures and assignments. Work they made in another workspace never appears here."
+                  : "Everything this student is doing inside this school: their classes, assignments, adventures and Smartboard work."}
+              </p>
               {classes.isLoading ? (
                 <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading classes…
@@ -127,6 +150,16 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
               <p className="mt-4 text-xs text-muted-foreground">
                 Reports for these classes roll up into the school report. A student in several classes is still one
                 student in the school&rsquo;s count.
+              </p>
+            </section>
+
+            <section className="mt-4 rounded-2xl border border-border bg-card/60 p-6">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Globe2 className="h-4 w-4 text-sky-300" /> MathGPL Community
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {person.displayName} keeps one Community presence across every workspace. Anything they choose to share
+                there is theirs to publish or withdraw — the school can see it, never change it.
               </p>
             </section>
           </>
