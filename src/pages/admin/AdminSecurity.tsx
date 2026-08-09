@@ -3,12 +3,14 @@ import { useNavigate } from "@/lib/router-compat";
 import { Eye, EyeOff, KeyRound, Loader2, Mail, Save, ShieldCheck } from "lucide-react";
 
 import DashboardShell from "@/components/accounts/DashboardShell";
+import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useMathgplId } from "@/lib/accounts/useMathgplId";
 
 const FIELD = "bg-white text-slate-900 placeholder:text-slate-400";
 
@@ -23,6 +25,7 @@ const AdminSecurity = () => {
   const { user, ready } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { mathgplId, typeLabel } = useMathgplId();
 
   const [email, setEmail] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
