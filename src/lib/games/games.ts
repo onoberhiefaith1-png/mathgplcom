@@ -27,13 +27,15 @@ export const getGame = async (id: string): Promise<GameRow> => {
 };
 
 export const listGames = async (): Promise<GameRow[]> => {
-  const { data, error } = await supabase
-    .from("games")
-    .select("*")
-    .order("updated_at", { ascending: false });
+  // Adventures live in the workspace they were built in.
+  const orgId = await activeSchoolOrgId();
+  let query = supabase.from("games").select("*");
+  query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
+  const { data, error } = await query.order("updated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as GameRow[];
 };
+
 
 export const saveGameCanvas = async (id: string, canvas: GameCanvas): Promise<void> => {
   const { error } = await supabase
