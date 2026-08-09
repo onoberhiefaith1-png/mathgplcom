@@ -31,6 +31,8 @@ import { detectTimeZone } from "@/lib/accounts/authForms";
 import { CountrySelect } from "@/components/auth/CountrySelect";
 import { useResendCooldown } from "@/lib/auth/useResendCooldown";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/accounts/roles";
+import { isExistingAccountSignup } from "@/lib/auth/existingAccount";
+
 
 const ROLE_ICON: Record<SignupRole, typeof Building2> = {
   school: Building2,
@@ -49,7 +51,7 @@ const detailsSchema = z.object({
   confirm_password: z.string(),
 });
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 /**
  * Create Account.
@@ -165,10 +167,19 @@ const SignUpPage = () => {
         },
       });
       if (error) {
-        if (/already registered/i.test(error.message)) {
-          throw new Error("That email address already has an account. Please log in instead.");
+        if (/already registered|already exists/i.test(error.message)) {
+          setExistingEmail(email);
+          setStep(5);
+          return;
         }
         throw error;
+      }
+      // An address that already has an account gets a success response with no
+      // email sent at all — never show the "check your inbox" screen for it.
+      if (isExistingAccountSignup(created.user)) {
+        setExistingEmail(email);
+        setStep(5);
+        return;
       }
       // The database issues the permanent MathGPL ID at signup — show it here.
       if (created.user?.id) {
@@ -179,6 +190,7 @@ const SignUpPage = () => {
       }
       cooldown.start();
       setStep(4);
+
 
     } catch (error) {
       toast({ title: "Could not create account", description: (error as Error).message, variant: "destructive" });
