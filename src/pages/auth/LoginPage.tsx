@@ -74,16 +74,15 @@ const LoginPage = () => {
     e.preventDefault();
     setBusy(true);
     try {
-      const parsedEmail = z.string().trim().email("Enter a valid email address").max(255).parse(email);
-
       if (forgot) {
+        const parsedEmail = z.string().trim().email("Enter a valid email address").max(255).parse(email);
         const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail, {
           redirectTo: `${window.location.origin}/auth/reset-password`,
         });
         if (error) throw error;
         toast({
           title: "Check your email",
-          description: "We sent you a link to create a new password.",
+          description: "We sent your MathGPL ID and a link to create a new password.",
         });
         setForgot(false);
         return;
@@ -91,22 +90,19 @@ const LoginPage = () => {
 
       try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
       setUnverified(false);
-      const { error } = await supabase.auth.signInWithPassword({ email: parsedEmail, password });
-      if (error) {
-        if (/email not confirmed|not confirmed/i.test(error.message)) {
-          setUnverified(true);
-          throw new Error("Please confirm your email address before signing in.");
-        }
-        if (/invalid login credentials/i.test(error.message)) {
-          throw new Error("Incorrect email or password.");
-        }
-        throw error;
-      }
+      const session = await signIn({ data: { mathgplId, password } });
+      const { error } = await supabase.auth.setSession({
+        access_token: session.accessToken,
+        refresh_token: session.refreshToken,
+      });
+      if (error) throw error;
       // The session listener redirects; nothing else to do here.
     } catch (error) {
+      const message = (error as Error).message ?? "Could not sign in";
+      if (/not confirmed/i.test(message)) setUnverified(true);
       toast({
         title: forgot ? "Could not send reset link" : "Could not sign in",
-        description: (error as Error).message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -114,19 +110,7 @@ const LoginPage = () => {
     }
   };
 
-  const google = async () => {
-    setBusy(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-      if (result.error) throw new Error(result.error.message ?? "Google sign-in failed");
-    } catch (error) {
-      toast({ title: "Google sign-in failed", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setBusy(false);
-    }
-  };
+
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_20%_20%,hsl(220_60%_22%),hsl(224_65%_10%)_60%)] px-5 py-14">
