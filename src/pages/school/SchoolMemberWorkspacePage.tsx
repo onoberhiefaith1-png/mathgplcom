@@ -37,14 +37,14 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
   const stats = person
     ? [
         { label: "Classes", value: person.classes, icon: Users },
-        kind === "teacher"
-          ? { label: "Students taught", value: person.students, icon: GraduationCap }
-          : { label: "Average progress", value: `${person.avgProgress}%`, icon: Flag },
+        ...(kind === "teacher"
+          ? [{ label: "Students taught", value: person.students, icon: GraduationCap }]
+          : []),
         { label: "Lesson notes", value: person.lessonNotes, icon: NotebookPen },
         { label: "Assignments", value: person.assignments, icon: BookOpen },
         { label: "Adventures", value: person.adventures, icon: Flag },
         { label: "Average progress", value: `${person.avgProgress}%`, icon: Flag },
-      ].slice(0, 5)
+      ]
     : [];
 
   return (
@@ -83,7 +83,9 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
             {/* The workspace opens on the school's building, exactly as the
                 member sees it — and it cannot be customised from here. */}
             <section className="overflow-hidden rounded-2xl border border-border bg-card/40">
-              <div className="relative h-[280px] w-full">
+              {/* The scene renders full-viewport by design; this frame crops it
+                  into the page without letting it take over the layout. */}
+              <div className="relative h-[300px] w-full overflow-hidden [&>main]:!absolute [&>main]:!inset-0 [&>main]:!h-full [&>main]:!w-full">
                 <RotatingAdventureScene interactive={false} configMode="school-readonly" />
               </div>
               <p className="border-t border-border/60 px-5 py-3 text-xs text-muted-foreground">
