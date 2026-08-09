@@ -60,6 +60,8 @@ const SignUpPage = () => {
   const [step, setStep] = useState<Step>(1);
   const [role, setRole] = useState<SignupRole | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [values, setValues] = useState({
