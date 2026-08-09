@@ -374,16 +374,12 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
           </Button>
         </form>
 
-        {mode !== "forgot" && (
-          <>
-            <div className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
-            </div>
-            <Button variant="outline" className="w-full" onClick={google} disabled={busy}>
-              Continue with Google
-            </Button>
-          </>
+        {mode === "signin" && (
+          <p className="mt-4 rounded-xl border border-border bg-muted/30 p-3 text-center text-xs text-muted-foreground">
+            Sign in with the MathGPL ID sent to you when your account was created.
+          </p>
         )}
+
 
         <div className="mt-4 flex flex-col items-center gap-2 text-sm">
           {config.allowSignup && (
