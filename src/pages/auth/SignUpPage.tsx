@@ -31,6 +31,8 @@ import { detectTimeZone } from "@/lib/accounts/authForms";
 import { CountrySelect } from "@/components/auth/CountrySelect";
 import { useResendCooldown } from "@/lib/auth/useResendCooldown";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/accounts/roles";
+import { isExistingAccountSignup } from "@/lib/auth/existingAccount";
+
 
 const ROLE_ICON: Record<SignupRole, typeof Building2> = {
   school: Building2,
@@ -49,7 +51,7 @@ const detailsSchema = z.object({
   confirm_password: z.string(),
 });
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 /**
  * Create Account.
@@ -70,6 +72,8 @@ const SignUpPage = () => {
   const [role, setRole] = useState<SignupRole | null>(null);
   const [busy, setBusy] = useState(false);
   const [resent, setResent] = useState(false);
+  const [existingEmail, setExistingEmail] = useState<string | null>(null);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -165,10 +169,19 @@ const SignUpPage = () => {
         },
       });
       if (error) {
-        if (/already registered/i.test(error.message)) {
-          throw new Error("That email address already has an account. Please log in instead.");
+        if (/already registered|already exists/i.test(error.message)) {
+          setExistingEmail(email);
+          setStep(5);
+          return;
         }
         throw error;
+      }
+      // An address that already has an account gets a success response with no
+      // email sent at all — never show the "check your inbox" screen for it.
+      if (isExistingAccountSignup(created.user)) {
+        setExistingEmail(email);
+        setStep(5);
+        return;
       }
       // The database issues the permanent MathGPL ID at signup — show it here.
       if (created.user?.id) {
@@ -179,6 +192,7 @@ const SignUpPage = () => {
       }
       cooldown.start();
       setStep(4);
+
 
     } catch (error) {
       toast({ title: "Could not create account", description: (error as Error).message, variant: "destructive" });
@@ -401,8 +415,10 @@ const SignUpPage = () => {
               link to <span className="font-medium text-white">{values.email}</span>.
             </p>
             <p className="mt-3 text-xs text-white/45">
-              Nothing in your inbox after a minute? Check your spam folder.
+              It comes from MathGPL at notify.mathgpl.com. Nothing in your inbox after a minute?
+              Check your spam or promotions folder.
             </p>
+
 
 
             <Button
@@ -442,6 +458,47 @@ const SignUpPage = () => {
             </Link>
           </div>
         )}
+
+        {step === 5 && (
+          <div className="py-4 text-center">
+            <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-300 ring-1 ring-amber-300/30">
+              <UserRound className="h-8 w-8" />
+            </span>
+            <h1 className="mt-6 text-2xl font-semibold text-white">
+              An account already exists for this email address
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-white/70">
+              <span className="font-medium text-white">{existingEmail}</span> is already registered
+              with MathGPL, so no new confirmation email was sent. Log in with that address, or reset
+              your password if you no longer remember it.
+            </p>
+
+            <Link
+              to="/login"
+              className="mt-6 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-amber-400 px-6 text-base font-semibold text-slate-900 transition hover:bg-amber-300"
+            >
+              Log in
+            </Link>
+            <p className="mt-3 text-xs text-white/50">
+              Forgotten your password? Choose <span className="text-white/75">Forgot password</span> on
+              the login page.
+            </p>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setExistingEmail(null);
+                setValues((p) => ({ ...p, email: "", confirm_email: "" }));
+                setStep(2);
+              }}
+              className="mt-5 min-h-[48px] w-full border-white/25 bg-white/5 text-white hover:bg-white/15"
+            >
+              Use a different email address
+            </Button>
+          </div>
+        )}
+
       </section>
     </main>
   );

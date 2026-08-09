@@ -17,6 +17,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { AUTH_ROLES, detectTimeZone, type AuthRoleKey } from "@/lib/accounts/authForms";
 import { CountrySelect } from "@/components/auth/CountrySelect";
 import { useResendCooldown } from "@/lib/auth/useResendCooldown";
+import { isExistingAccountSignup } from "@/lib/auth/existingAccount";
+
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 type Mode = "signin" | "signup" | "forgot";
@@ -164,7 +166,29 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         password: values.password,
         options: { emailRedirectTo: `${window.location.origin}/auth/verified`, data: metadata },
       });
-      if (error) throw error;
+      if (error) {
+        if (/already registered|already exists/i.test(error.message)) {
+          setMode("signin");
+          setUnverified(false);
+          toast({
+            title: "An account already exists",
+            description: `${values.email.trim()} is already registered — log in below, or use Forgot password.`,
+          });
+          return;
+        }
+        throw error;
+      }
+      // An already-registered address gets a success response with no email
+      // sent, so never tell the person to check their inbox.
+      if (isExistingAccountSignup(created.user)) {
+        setMode("signin");
+        setUnverified(false);
+        toast({
+          title: "An account already exists",
+          description: `${values.email.trim()} is already registered — log in below, or use Forgot password.`,
+        });
+        return;
+      }
       // The permanent MathGPL ID is issued by the database at signup — show it
       // immediately, and it is repeated in the confirmation email.
       if (created.user?.id) {
@@ -180,6 +204,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         title: "Account created successfully",
         description: `Please check ${values.email.trim()} to confirm your MathGPL account.`,
       });
+
 
     } catch (err) {
       toast({ title: "Authentication error", description: (err as Error).message, variant: "destructive" });
