@@ -42,6 +42,8 @@ const LoginPage = () => {
   const [devHost, setDevHost] = useState(false);
   useEffect(() => setDevHost(isDevWorkspaceHost()), []);
 
+  const cooldown = useResendCooldown(email);
+
 
   const rawNext = searchParams.get("next") ?? searchParams.get("redirect") ?? "";
   const safeNext = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "";
