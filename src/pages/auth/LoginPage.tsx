@@ -30,7 +30,10 @@ const LoginPage = () => {
   const [searchParams] = useSearchParams();
   const { user, ready } = useAuth();
 
+  const signIn = useServerFn(signInWithMathgplId);
+  const [mathgplId, setMathgplId] = useState("");
   const [email, setEmail] = useState("");
+
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
