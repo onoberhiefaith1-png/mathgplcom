@@ -4,6 +4,8 @@ import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithMathgplId, mathgplIdForUser } from "@/lib/accounts/accountId.functions";
+import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
+
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
