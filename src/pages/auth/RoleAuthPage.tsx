@@ -218,10 +218,28 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
             </>
           )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email address</Label>
-            <Input id="email" type="email" required value={values.email} onChange={(e) => set("email", e.target.value)} maxLength={255} className={AUTH_FIELD} />
-          </div>
+          {mode === "signin" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="mathgpl_id">MathGPL ID</Label>
+              <Input
+                id="mathgpl_id"
+                required
+                autoCapitalize="characters"
+                autoComplete="username"
+                placeholder={`${roleKey === "school" ? "SC/OX" : roleKey === "teacher" ? "TCH" : roleKey === "parent" ? "PAR" : "STU"}/000001`}
+                value={values.mathgpl_id ?? ""}
+                onChange={(e) => set("mathgpl_id", e.target.value.toUpperCase())}
+                maxLength={40}
+                className={`${AUTH_FIELD} font-mono tracking-wide`}
+              />
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email address</Label>
+              <Input id="email" type="email" required value={values.email} onChange={(e) => set("email", e.target.value)} maxLength={255} className={AUTH_FIELD} />
+            </div>
+          )}
+
 
           {mode !== "forgot" && (
             <div className="space-y-1.5">
