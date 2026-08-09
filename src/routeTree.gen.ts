@@ -47,6 +47,7 @@ import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
+import { Route as RequestsIndexRouteImport } from './routes/requests/index'
 import { Route as SchoolIndexRouteImport } from './routes/school/index'
 import { Route as SignupIndexRouteImport } from './routes/signup/index'
 import { Route as SmartboardIndexRouteImport } from './routes/smartboard/index'
@@ -68,6 +69,7 @@ import { Route as CommunityBackgroundsIndexRouteImport } from './routes/communit
 import { Route as CommunityBuildingIndexRouteImport } from './routes/community/building/index'
 import { Route as CommunityBuildingsIndexRouteImport } from './routes/community/buildings/index'
 import { Route as CommunityClassesIndexRouteImport } from './routes/community/classes/index'
+import { Route as CommunityDiscoverIndexRouteImport } from './routes/community/discover/index'
 import { Route as CommunityLessonNotesIndexRouteImport } from './routes/community/lesson-notes/index'
 import { Route as CommunityLiveIndexRouteImport } from './routes/community/live/index'
 import { Route as CommunityTeachingHubIndexRouteImport } from './routes/community/teaching-hub/index'
@@ -405,6 +407,11 @@ const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
   path: '/privacy/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RequestsIndexRoute = RequestsIndexRouteImport.update({
+  id: '/requests/',
+  path: '/requests/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SchoolIndexRoute = SchoolIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -509,6 +516,11 @@ const CommunityBuildingsIndexRoute = CommunityBuildingsIndexRouteImport.update({
 const CommunityClassesIndexRoute = CommunityClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityDiscoverIndexRoute = CommunityDiscoverIndexRouteImport.update({
+  id: '/discover/',
+  path: '/discover/',
   getParentRoute: () => CommunityRouteRoute,
 } as any)
 const CommunityLessonNotesIndexRoute =
@@ -1384,6 +1396,7 @@ export interface FileRoutesByFullPath {
   '/login/': typeof LoginIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
+  '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
   '/signup/': typeof SignupIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
@@ -1405,6 +1418,7 @@ export interface FileRoutesByFullPath {
   '/community/building/': typeof CommunityBuildingIndexRoute
   '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
+  '/community/discover/': typeof CommunityDiscoverIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
   '/community/live/': typeof CommunityLiveIndexRoute
   '/community/teaching-hub/': typeof CommunityTeachingHubIndexRoute
@@ -1581,6 +1595,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginIndexRoute
   '/mathboard': typeof MathboardIndexRoute
   '/privacy': typeof PrivacyIndexRoute
+  '/requests': typeof RequestsIndexRoute
   '/school': typeof SchoolIndexRoute
   '/signup': typeof SignupIndexRoute
   '/smartboard': typeof SmartboardIndexRoute
@@ -1602,6 +1617,7 @@ export interface FileRoutesByTo {
   '/community/building': typeof CommunityBuildingIndexRoute
   '/community/buildings': typeof CommunityBuildingsIndexRoute
   '/community/classes': typeof CommunityClassesIndexRoute
+  '/community/discover': typeof CommunityDiscoverIndexRoute
   '/community/lesson-notes': typeof CommunityLessonNotesIndexRoute
   '/community/live': typeof CommunityLiveIndexRoute
   '/community/teaching-hub': typeof CommunityTeachingHubIndexRoute
@@ -1789,6 +1805,7 @@ export interface FileRoutesById {
   '/login/': typeof LoginIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
+  '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
   '/signup/': typeof SignupIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
@@ -1810,6 +1827,7 @@ export interface FileRoutesById {
   '/community/building/': typeof CommunityBuildingIndexRoute
   '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
+  '/community/discover/': typeof CommunityDiscoverIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
   '/community/live/': typeof CommunityLiveIndexRoute
   '/community/teaching-hub/': typeof CommunityTeachingHubIndexRoute
@@ -1998,6 +2016,7 @@ export interface FileRouteTypes {
     | '/login/'
     | '/mathboard/'
     | '/privacy/'
+    | '/requests/'
     | '/school/'
     | '/signup/'
     | '/smartboard/'
@@ -2019,6 +2038,7 @@ export interface FileRouteTypes {
     | '/community/building/'
     | '/community/buildings/'
     | '/community/classes/'
+    | '/community/discover/'
     | '/community/lesson-notes/'
     | '/community/live/'
     | '/community/teaching-hub/'
@@ -2195,6 +2215,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mathboard'
     | '/privacy'
+    | '/requests'
     | '/school'
     | '/signup'
     | '/smartboard'
@@ -2216,6 +2237,7 @@ export interface FileRouteTypes {
     | '/community/building'
     | '/community/buildings'
     | '/community/classes'
+    | '/community/discover'
     | '/community/lesson-notes'
     | '/community/live'
     | '/community/teaching-hub'
@@ -2402,6 +2424,7 @@ export interface FileRouteTypes {
     | '/login/'
     | '/mathboard/'
     | '/privacy/'
+    | '/requests/'
     | '/school/'
     | '/signup/'
     | '/smartboard/'
@@ -2423,6 +2446,7 @@ export interface FileRouteTypes {
     | '/community/building/'
     | '/community/buildings/'
     | '/community/classes/'
+    | '/community/discover/'
     | '/community/lesson-notes/'
     | '/community/live/'
     | '/community/teaching-hub/'
@@ -2603,6 +2627,7 @@ export interface RootRouteChildren {
   LoginIndexRoute: typeof LoginIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
   PrivacyIndexRoute: typeof PrivacyIndexRoute
+  RequestsIndexRoute: typeof RequestsIndexRoute
   SignupIndexRoute: typeof SignupIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
@@ -2951,6 +2976,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/requests/': {
+      id: '/requests/'
+      path: '/requests'
+      fullPath: '/requests/'
+      preLoaderRoute: typeof RequestsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/school/': {
       id: '/school/'
       path: '/'
@@ -3096,6 +3128,13 @@ declare module '@tanstack/react-router' {
       path: '/classes'
       fullPath: '/community/classes/'
       preLoaderRoute: typeof CommunityClassesIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/discover/': {
+      id: '/community/discover/'
+      path: '/discover'
+      fullPath: '/community/discover/'
+      preLoaderRoute: typeof CommunityDiscoverIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
     '/community/lesson-notes/': {
@@ -4175,6 +4214,7 @@ interface CommunityRouteRouteChildren {
   CommunityBuildingIndexRoute: typeof CommunityBuildingIndexRoute
   CommunityBuildingsIndexRoute: typeof CommunityBuildingsIndexRoute
   CommunityClassesIndexRoute: typeof CommunityClassesIndexRoute
+  CommunityDiscoverIndexRoute: typeof CommunityDiscoverIndexRoute
   CommunityLessonNotesIndexRoute: typeof CommunityLessonNotesIndexRoute
   CommunityLiveIndexRoute: typeof CommunityLiveIndexRoute
   CommunityTeachingHubIndexRoute: typeof CommunityTeachingHubIndexRoute
@@ -4190,6 +4230,7 @@ const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
   CommunityBuildingIndexRoute: CommunityBuildingIndexRoute,
   CommunityBuildingsIndexRoute: CommunityBuildingsIndexRoute,
   CommunityClassesIndexRoute: CommunityClassesIndexRoute,
+  CommunityDiscoverIndexRoute: CommunityDiscoverIndexRoute,
   CommunityLessonNotesIndexRoute: CommunityLessonNotesIndexRoute,
   CommunityLiveIndexRoute: CommunityLiveIndexRoute,
   CommunityTeachingHubIndexRoute: CommunityTeachingHubIndexRoute,
@@ -4502,6 +4543,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginIndexRoute: LoginIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
   PrivacyIndexRoute: PrivacyIndexRoute,
+  RequestsIndexRoute: RequestsIndexRoute,
   SignupIndexRoute: SignupIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,

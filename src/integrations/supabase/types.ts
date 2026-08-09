@@ -24,6 +24,7 @@ export type Database = {
           prefix: string
           role: Database["public"]["Enums"]["app_role"]
           seq: number
+          share_code: string
           user_id: string
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           prefix: string
           role: Database["public"]["Enums"]["app_role"]
           seq: number
+          share_code?: string
           user_id: string
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           prefix?: string
           role?: Database["public"]["Enums"]["app_role"]
           seq?: number
+          share_code?: string
           user_id?: string
         }
         Relationships: [
@@ -1555,6 +1558,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      connections: {
+        Row: {
+          created_at: string
+          from_user_id: string
+          id: string
+          message: string | null
+          org_id: string | null
+          relation: Database["public"]["Enums"]["connection_relation"]
+          responded_at: string | null
+          status: string
+          to_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          from_user_id: string
+          id?: string
+          message?: string | null
+          org_id?: string | null
+          relation: Database["public"]["Enums"]["connection_relation"]
+          responded_at?: string | null
+          status?: string
+          to_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          from_user_id?: string
+          id?: string
+          message?: string | null
+          org_id?: string | null
+          relation?: Database["public"]["Enums"]["connection_relation"]
+          responded_at?: string | null
+          status?: string
+          to_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       course_blocks: {
         Row: {
@@ -3141,6 +3191,7 @@ export type Database = {
           first_name: string | null
           full_name: string | null
           homepage_config: Json
+          is_live: boolean
           last_name: string | null
           marketing_opt_in: boolean
           mathgpl_student_id: string | null
@@ -3162,6 +3213,7 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           homepage_config?: Json
+          is_live?: boolean
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
@@ -3183,6 +3235,7 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           homepage_config?: Json
+          is_live?: boolean
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
@@ -3891,6 +3944,11 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: string
       }
+      account_activity_score: { Args: { _user_id: string }; Returns: number }
+      account_role_of: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
       class_join_gate: {
@@ -3911,6 +3969,30 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      discover_accounts: {
+        Args: { _q?: string; _role: Database["public"]["Enums"]["app_role"] }
+        Returns: {
+          activity: number
+          connection_status: string
+          display_name: string
+          mathgpl_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
+      discover_schools: {
+        Args: { _q?: string }
+        Returns: {
+          activity: number
+          connection_status: string
+          mathgpl_id: string
+          name: string
+          org_id: string
+          owner_user_id: string
+          students: number
+          teachers: number
+        }[]
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -3930,6 +4012,7 @@ export type Database = {
       generate_mathgpl_id: { Args: never; Returns: string }
       generate_org_invite_code: { Args: never; Returns: string }
       generate_session_code: { Args: never; Returns: string }
+      generate_share_code: { Args: never; Returns: string }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {
         Args: { _class_id: string }
@@ -3976,6 +4059,14 @@ export type Database = {
         Args: { _kind: string; _source_id: string }
         Returns: boolean
       }
+      is_connected: {
+        Args: {
+          _a: string
+          _b: string
+          _relation: Database["public"]["Enums"]["connection_relation"]
+        }
+        Returns: boolean
+      }
       is_org_owner: { Args: { _org_id: string }; Returns: boolean }
       is_workspace_member: { Args: { _org_id: string }; Returns: boolean }
       issue_account_id: {
@@ -4020,6 +4111,34 @@ export type Database = {
         }
         Returns: number
       }
+      my_connection_counts: {
+        Args: never
+        Returns: {
+          children: number
+          parents: number
+          pending_incoming: number
+          schools: number
+          students: number
+          teachers: number
+        }[]
+      }
+      my_connections: {
+        Args: { _status?: string }
+        Returns: {
+          counterpart_mathgpl_id: string
+          counterpart_name: string
+          counterpart_role: Database["public"]["Enums"]["app_role"]
+          counterpart_user_id: string
+          created_at: string
+          direction: string
+          id: string
+          message: string
+          org_id: string
+          org_name: string
+          relation: Database["public"]["Enums"]["connection_relation"]
+          status: string
+        }[]
+      }
       my_pending_invitations: {
         Args: never
         Returns: {
@@ -4030,6 +4149,7 @@ export type Database = {
           org_name: string
         }[]
       }
+      my_share_code: { Args: never; Returns: string }
       my_workspaces: {
         Args: never
         Returns: {
@@ -4057,10 +4177,33 @@ export type Database = {
           read_ct: number
         }[]
       }
+      regenerate_my_share_code: { Args: never; Returns: string }
+      request_connection: {
+        Args: {
+          _message?: string
+          _relation: Database["public"]["Enums"]["connection_relation"]
+          _target_user_id: string
+        }
+        Returns: string
+      }
+      resolve_share_code: {
+        Args: { _code: string }
+        Returns: {
+          display_name: string
+          mathgpl_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
+      respond_to_connection: {
+        Args: { _accept: boolean; _connection_id: string }
+        Returns: string
+      }
       respond_to_teacher_invitation: {
         Args: { _accept: boolean; _invitation_id: string }
         Returns: string
       }
+      revoke_connection: { Args: { _connection_id: string }; Returns: string }
       school_acronym: { Args: { _name: string }; Returns: string }
       search_public_teachers: {
         Args: { _q: string }
@@ -4072,6 +4215,7 @@ export type Database = {
         }[]
       }
       set_active_workspace: { Args: { _org_id: string }; Returns: string }
+      set_go_live: { Args: { _live: boolean }; Returns: boolean }
       set_workspace_visibility: {
         Args: { _org_id: string; _visibility: string }
         Returns: string
@@ -4096,6 +4240,13 @@ export type Database = {
         | "parent"
         | "student"
       block_kind: "problem" | "solution" | "reasoning" | "text"
+      connection_relation:
+        | "school_teacher"
+        | "school_student"
+        | "teacher_student"
+        | "parent_child"
+        | "parent_teacher"
+        | "parent_school"
       section_kind:
         | "introduction"
         | "explanation"
@@ -4240,6 +4391,14 @@ export const Constants = {
         "student",
       ],
       block_kind: ["problem", "solution", "reasoning", "text"],
+      connection_relation: [
+        "school_teacher",
+        "school_student",
+        "teacher_student",
+        "parent_child",
+        "parent_teacher",
+        "parent_school",
+      ],
       section_kind: [
         "introduction",
         "explanation",
