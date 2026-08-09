@@ -4010,6 +4010,7 @@ export type Database = {
           title: string
         }[]
       }
+      mathgpl_id_for_email: { Args: { _email: string }; Returns: string }
       move_to_dlq: {
         Args: {
           dlq_name: string
