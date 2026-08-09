@@ -300,6 +300,36 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
             </label>
           )}
 
+          {mode === "signin" && unverified && (
+            <div className="rounded-xl border border-primary/35 bg-primary/10 p-3 text-left">
+              <p className="text-xs text-foreground">
+                Please confirm your email address before signing in.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={resending}
+                className="mt-2 w-full"
+                onClick={async () => {
+                  setResending(true);
+                  const result = await resendConfirmationEmail(values.email);
+                  setResending(false);
+                  toast(
+                    result.ok
+                      ? {
+                          title: "Confirmation email sent",
+                          description: `We've sent a new confirmation link to ${values.email.trim()}.`,
+                        }
+                      : { title: "Not sent", description: result.message, variant: "destructive" },
+                  );
+                }}
+              >
+                Resend confirmation email
+              </Button>
+            </div>
+          )}
+
           <Button type="submit" className="w-full" disabled={busy}>
             {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
           </Button>
