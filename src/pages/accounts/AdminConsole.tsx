@@ -63,6 +63,8 @@ const AdminConsole = () => {
   const [tab, setTab] = useState<TabKey>("schools");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const { mathgplId: adminId, typeLabel: adminType } = useMathgplId();
+
   const [busyId, setBusyId] = useState<string | null>(null);
   const [credentialTarget, setCredentialTarget] = useState<CredentialTarget | null>(null);
   const [settingUp, setSettingUp] = useState(false);
