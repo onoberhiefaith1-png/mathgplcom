@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
+import { useResendCooldown } from "@/lib/auth/useResendCooldown";
 import { isDevWorkspaceHost } from "@/lib/env/devWorkspace";
 
 
@@ -37,7 +37,6 @@ const LoginPage = () => {
   const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState(false);
   const [unverified, setUnverified] = useState(false);
-  const [resending, setResending] = useState(false);
   // Development-only shortcut. Resolved after mount so the server-rendered
   // markup and the first client render always match.
   const [devHost, setDevHost] = useState(false);
@@ -220,11 +219,9 @@ const LoginPage = () => {
               <Button
                 type="button"
                 variant="outline"
-                disabled={resending}
+                disabled={cooldown.sending || !cooldown.ready}
                 onClick={async () => {
-                  setResending(true);
-                  const result = await resendConfirmationEmail(email);
-                  setResending(false);
+                  const result = await cooldown.resend();
                   toast(
                     result.ok
                       ? {
@@ -236,8 +233,10 @@ const LoginPage = () => {
                 }}
                 className="mt-3 min-h-[44px] w-full border-amber-300/40 bg-white/5 text-amber-100 hover:bg-amber-300/20"
               >
-                {resending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Resend confirmation email
+                {cooldown.sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {cooldown.ready
+                  ? "Resend confirmation email"
+                  : `Resend available in ${cooldown.seconds} second${cooldown.seconds === 1 ? "" : "s"}`}
               </Button>
             </div>
           )}
