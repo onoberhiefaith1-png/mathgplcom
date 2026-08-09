@@ -63,7 +63,10 @@ const SignUpPage = () => {
   const navigate = useNavigate();
   const { user, ready } = useAuth();
 
+  const lookupId = useServerFn(mathgplIdForUser);
+  const [issuedId, setIssuedId] = useState<string | null>(null);
   const [step, setStep] = useState<Step>(1);
+
   const [role, setRole] = useState<SignupRole | null>(null);
   const [busy, setBusy] = useState(false);
   const [resent, setResent] = useState(false);
