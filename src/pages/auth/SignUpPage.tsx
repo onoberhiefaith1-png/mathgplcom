@@ -15,7 +15,11 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { mathgplIdForUser } from "@/lib/accounts/accountId.functions";
+import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AUTH_FIELD } from "@/lib/accounts/authField";
@@ -59,7 +63,10 @@ const SignUpPage = () => {
   const navigate = useNavigate();
   const { user, ready } = useAuth();
 
+  const lookupId = useServerFn(mathgplIdForUser);
+  const [issuedId, setIssuedId] = useState<string | null>(null);
   const [step, setStep] = useState<Step>(1);
+
   const [role, setRole] = useState<SignupRole | null>(null);
   const [busy, setBusy] = useState(false);
   const [resent, setResent] = useState(false);
@@ -149,7 +156,7 @@ const SignUpPage = () => {
         metadata.school_name = values.school_name.trim();
       }
 
-      const { error } = await supabase.auth.signUp({
+      const { data: created, error } = await supabase.auth.signUp({
         email,
         password: values.password,
         options: {
@@ -163,8 +170,16 @@ const SignUpPage = () => {
         }
         throw error;
       }
+      // The database issues the permanent MathGPL ID at signup — show it here.
+      if (created.user?.id) {
+        try {
+          const { mathgplId } = await lookupId({ data: { userId: created.user.id } });
+          setIssuedId(mathgplId);
+        } catch { /* the confirmation email still carries the ID */ }
+      }
       cooldown.start();
       setStep(4);
+
     } catch (error) {
       toast({ title: "Could not create account", description: (error as Error).message, variant: "destructive" });
     } finally {
@@ -371,13 +386,24 @@ const SignUpPage = () => {
               <MailCheck className="h-8 w-8" />
             </span>
             <h1 className="mt-6 text-2xl font-semibold text-white">Account created successfully</h1>
-            <p className="mt-3 text-sm leading-relaxed text-white/70">
+
+            {issuedId && (
+              <div className="mt-5 text-left">
+                <MathgplIdCard
+                  mathgplId={issuedId}
+                  note="This is your login from now on. We've emailed it with your confirmation link."
+                />
+              </div>
+            )}
+
+            <p className="mt-4 text-sm leading-relaxed text-white/70">
               Please check your email to confirm your MathGPL account. We've sent the confirmation
               link to <span className="font-medium text-white">{values.email}</span>.
             </p>
             <p className="mt-3 text-xs text-white/45">
               Nothing in your inbox after a minute? Check your spam folder.
             </p>
+
 
             <Button
               type="button"

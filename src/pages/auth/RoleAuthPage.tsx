@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "@/lib/router-compat";
 import { z } from "zod";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+import { signInWithMathgplId, mathgplIdForUser } from "@/lib/accounts/accountId.functions";
+import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
+
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AUTH_FIELD } from "@/lib/accounts/authField";
@@ -35,6 +39,10 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, ready } = useAuth();
+  const signIn = useServerFn(signInWithMathgplId);
+  const lookupId = useServerFn(mathgplIdForUser);
+  const [issuedId, setIssuedId] = useState<string | null>(null);
+
 
   const [mode, setMode] = useState<Mode>("signin");
   const [busy, setBusy] = useState(false);
@@ -99,19 +107,25 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       }
 
       if (mode === "signin") {
-        const email = z.string().trim().email("Enter a valid email address").parse(values.email);
         try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
         setUnverified(false);
-        const { error } = await supabase.auth.signInWithPassword({ email, password: values.password });
-        if (error) {
-          if (/email not confirmed|not confirmed/i.test(error.message)) {
-            setUnverified(true);
-            throw new Error("Please confirm your email address before signing in.");
-          }
-          throw error;
+        try {
+          const session = await signIn({
+            data: { mathgplId: (values.mathgpl_id ?? "").trim(), password: values.password },
+          });
+          const { error } = await supabase.auth.setSession({
+            access_token: session.accessToken,
+            refresh_token: session.refreshToken,
+          });
+          if (error) throw error;
+        } catch (error) {
+          const message = (error as Error).message ?? "Could not sign in";
+          if (/not confirmed/i.test(message)) setUnverified(true);
+          throw new Error(message);
         }
         return;
       }
+
 
       // Sign up
       const parsed = baseSchema.safeParse(values);
@@ -145,12 +159,20 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       }
       if (values.school_name?.trim()) metadata.organization_name = values.school_name.trim();
 
-      const { error } = await supabase.auth.signUp({
+      const { data: created, error } = await supabase.auth.signUp({
         email: values.email.trim(),
         password: values.password,
         options: { emailRedirectTo: `${window.location.origin}/auth/verified`, data: metadata },
       });
       if (error) throw error;
+      // The permanent MathGPL ID is issued by the database at signup — show it
+      // immediately, and it is repeated in the confirmation email.
+      if (created.user?.id) {
+        try {
+          const { mathgplId } = await lookupId({ data: { userId: created.user.id } });
+          setIssuedId(mathgplId);
+        } catch { /* the email still carries the ID */ }
+      }
       cooldown.start();
       setUnverified(true);
       setMode("signin");
@@ -158,6 +180,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         title: "Account created successfully",
         description: `Please check ${values.email.trim()} to confirm your MathGPL account.`,
       });
+
     } catch (err) {
       toast({ title: "Authentication error", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -165,14 +188,6 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
     }
   };
 
-  const google = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/auth/${roleKey}`,
-    });
-    if (result.error) {
-      toast({ title: "Google sign-in failed", description: result.error.message, variant: "destructive" });
-    }
-  };
 
   return (
     <main className="cinematic-sky flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-foreground">
@@ -202,7 +217,17 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         </div>
 
 
+        {issuedId && (
+          <div className="mt-5">
+            <MathgplIdCard
+              mathgplId={issuedId}
+              note="This is your login. We've also emailed it with your confirmation link."
+            />
+          </div>
+        )}
+
         <form className="mt-6 space-y-3" onSubmit={submit}>
+
           {mode === "signup" && (
             <>
               <div className="grid grid-cols-2 gap-2">
@@ -218,10 +243,28 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
             </>
           )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email address</Label>
-            <Input id="email" type="email" required value={values.email} onChange={(e) => set("email", e.target.value)} maxLength={255} className={AUTH_FIELD} />
-          </div>
+          {mode === "signin" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="mathgpl_id">MathGPL ID</Label>
+              <Input
+                id="mathgpl_id"
+                required
+                autoCapitalize="characters"
+                autoComplete="username"
+                placeholder={`${roleKey === "school" ? "SC/OX" : roleKey === "teacher" ? "TCH" : roleKey === "parent" ? "PAR" : "STU"}/000001`}
+                value={values.mathgpl_id ?? ""}
+                onChange={(e) => set("mathgpl_id", e.target.value.toUpperCase())}
+                maxLength={40}
+                className={`${AUTH_FIELD} font-mono tracking-wide`}
+              />
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email address</Label>
+              <Input id="email" type="email" required value={values.email} onChange={(e) => set("email", e.target.value)} maxLength={255} className={AUTH_FIELD} />
+            </div>
+          )}
+
 
           {mode !== "forgot" && (
             <div className="space-y-1.5">
@@ -374,16 +417,12 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
           </Button>
         </form>
 
-        {mode !== "forgot" && (
-          <>
-            <div className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
-            </div>
-            <Button variant="outline" className="w-full" onClick={google} disabled={busy}>
-              Continue with Google
-            </Button>
-          </>
+        {mode === "signin" && (
+          <p className="mt-4 rounded-xl border border-border bg-muted/30 p-3 text-center text-xs text-muted-foreground">
+            Sign in with the MathGPL ID sent to you when your account was created.
+          </p>
         )}
+
 
         <div className="mt-4 flex flex-col items-center gap-2 text-sm">
           {config.allowSignup && (

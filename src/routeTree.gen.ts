@@ -22,6 +22,7 @@ import { Route as SchoolRouteRouteImport } from './routes/school/route'
 import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
+import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
 import { Route as ApiCourseBackgroundRouteImport } from './routes/api/course-background'
@@ -277,6 +278,11 @@ const StudentRouteRoute = StudentRouteRouteImport.update({
 const TeachingHubRouteRoute = TeachingHubRouteRouteImport.update({
   id: '/teaching-hub',
   path: '/teaching-hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountIndexRoute = AccountIndexRouteImport.update({
+  id: '/account/',
+  path: '/account/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -1362,6 +1368,7 @@ export interface FileRoutesByFullPath {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
   '/assets/': typeof AssetsIndexRoute
@@ -1558,6 +1565,7 @@ export interface FileRoutesByTo {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/account': typeof AccountIndexRoute
   '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
   '/assets': typeof AssetsIndexRoute
@@ -1765,6 +1773,7 @@ export interface FileRoutesById {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
   '/assets/': typeof AssetsIndexRoute
@@ -1973,6 +1982,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/account/'
     | '/admin/'
     | '/adventure/'
     | '/assets/'
@@ -2169,6 +2179,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/account'
     | '/admin'
     | '/adventure'
     | '/assets'
@@ -2375,6 +2386,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/account/'
     | '/admin/'
     | '/adventure/'
     | '/assets/'
@@ -2582,6 +2594,7 @@ export interface RootRouteChildren {
   AuthStudentRoute: typeof AuthStudentRoute
   AuthTeacherRoute: typeof AuthTeacherRoute
   AuthVerifiedRoute: typeof AuthVerifiedRoute
+  AccountIndexRoute: typeof AccountIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   BackgroundsIndexRoute: typeof BackgroundsIndexRoute
@@ -2761,6 +2774,13 @@ declare module '@tanstack/react-router' {
       path: '/teaching-hub'
       fullPath: '/teaching-hub'
       preLoaderRoute: typeof TeachingHubRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/': {
+      id: '/account/'
+      path: '/account'
+      fullPath: '/account/'
+      preLoaderRoute: typeof AccountIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -4473,6 +4493,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthStudentRoute: AuthStudentRoute,
   AuthTeacherRoute: AuthTeacherRoute,
   AuthVerifiedRoute: AuthVerifiedRoute,
+  AccountIndexRoute: AccountIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   BackgroundsIndexRoute: BackgroundsIndexRoute,

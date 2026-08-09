@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ChevronDown, LogOut, LayoutDashboard, Users } from "lucide-react";
+import { ChevronDown, LogOut, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -54,11 +54,13 @@ const AccountMenu = () => {
     navigate("/", { replace: true });
   };
 
-  // Teachers and students never see an Account button.
+  // Every signed-in person needs one place to see their MathGPL ID, so the
+  // button itself is universal — only the management links are role-specific.
   const signedIn = ready && Boolean(user);
-  if (signedIn && (isLoading || role === "teacher" || role === "student")) return null;
+  if (signedIn && isLoading) return null;
 
   const links = signedIn ? (ROLE_LINKS[role ?? ""] ?? []) : [];
+
 
   return (
     <div ref={ref} className="pointer-events-auto relative ml-auto">
@@ -91,12 +93,20 @@ const AccountMenu = () => {
                 </Link>
               ))}
               <Link
+                to="/account"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground transition hover:bg-primary/15"
+              >
+                <ShieldCheck className="h-4 w-4" /> My account
+              </Link>
+              <Link
                 to="/home"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground transition hover:bg-primary/15"
               >
                 <LayoutDashboard className="h-4 w-4" /> My dashboard
               </Link>
+
               <button
                 type="button"
                 onClick={signOut}

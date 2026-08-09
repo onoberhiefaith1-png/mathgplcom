@@ -3,8 +3,10 @@ import { Link, useNavigate, useSearchParams } from "@/lib/router-compat";
 import { z } from "zod";
 import { Eye, EyeOff, GraduationCap, Loader2, LogIn, Wrench } from "lucide-react";
 
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+import { signInWithMathgplId } from "@/lib/accounts/accountId.functions";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AUTH_FIELD } from "@/lib/accounts/authField";
@@ -30,7 +32,10 @@ const LoginPage = () => {
   const [searchParams] = useSearchParams();
   const { user, ready } = useAuth();
 
+  const signIn = useServerFn(signInWithMathgplId);
+  const [mathgplId, setMathgplId] = useState("");
   const [email, setEmail] = useState("");
+
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
@@ -74,16 +79,15 @@ const LoginPage = () => {
     e.preventDefault();
     setBusy(true);
     try {
-      const parsedEmail = z.string().trim().email("Enter a valid email address").max(255).parse(email);
-
       if (forgot) {
+        const parsedEmail = z.string().trim().email("Enter a valid email address").max(255).parse(email);
         const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail, {
           redirectTo: `${window.location.origin}/auth/reset-password`,
         });
         if (error) throw error;
         toast({
           title: "Check your email",
-          description: "We sent you a link to create a new password.",
+          description: "We sent your MathGPL ID and a link to create a new password.",
         });
         setForgot(false);
         return;
@@ -91,22 +95,19 @@ const LoginPage = () => {
 
       try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
       setUnverified(false);
-      const { error } = await supabase.auth.signInWithPassword({ email: parsedEmail, password });
-      if (error) {
-        if (/email not confirmed|not confirmed/i.test(error.message)) {
-          setUnverified(true);
-          throw new Error("Please confirm your email address before signing in.");
-        }
-        if (/invalid login credentials/i.test(error.message)) {
-          throw new Error("Incorrect email or password.");
-        }
-        throw error;
-      }
+      const session = await signIn({ data: { mathgplId, password } });
+      const { error } = await supabase.auth.setSession({
+        access_token: session.accessToken,
+        refresh_token: session.refreshToken,
+      });
+      if (error) throw error;
       // The session listener redirects; nothing else to do here.
     } catch (error) {
+      const message = (error as Error).message ?? "Could not sign in";
+      if (/not confirmed/i.test(message)) setUnverified(true);
       toast({
         title: forgot ? "Could not send reset link" : "Could not sign in",
-        description: (error as Error).message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -114,19 +115,7 @@ const LoginPage = () => {
     }
   };
 
-  const google = async () => {
-    setBusy(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-      if (result.error) throw new Error(result.error.message ?? "Google sign-in failed");
-    } catch (error) {
-      toast({ title: "Google sign-in failed", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setBusy(false);
-    }
-  };
+
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_20%_20%,hsl(220_60%_22%),hsl(224_65%_10%)_60%)] px-5 py-14">
@@ -148,28 +137,48 @@ const LoginPage = () => {
 
 
         <h1 className="mt-5 text-2xl font-semibold text-white">
-          {forgot ? "Reset your password" : "Log in"}
+          {forgot ? "Recover your account" : "Log in"}
         </h1>
         <p className="mt-2 text-sm text-white/60">
           {forgot
-            ? "Enter your email address and we'll send you a link to set a new password."
-            : "One login for schools, teachers, parents and students."}
+            ? "Enter your email address and we'll send you your MathGPL ID with a link to set a new password."
+            : "Sign in with your MathGPL ID — schools, teachers, parents and students."}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-white/80">Email address</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              maxLength={255}
-              className={`${AUTH_FIELD}`}
-            />
-          </div>
+          {forgot ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-white/80">Email address</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                maxLength={255}
+                className={`${AUTH_FIELD}`}
+              />
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="mathgpl-id" className="text-white/80">MathGPL ID</Label>
+              <Input
+                id="mathgpl-id"
+                type="text"
+                inputMode="text"
+                autoCapitalize="characters"
+                autoComplete="username"
+                placeholder="TCH/000001"
+                value={mathgplId}
+                onChange={(e) => setMathgplId(e.target.value.toUpperCase())}
+                required
+                maxLength={40}
+                className={`${AUTH_FIELD} font-mono tracking-wide`}
+              />
+            </div>
+          )}
+
 
           {!forgot && (
             <div className="space-y-1.5">
@@ -208,20 +217,31 @@ const LoginPage = () => {
                 onClick={() => setForgot(true)}
                 className="text-sm font-medium text-amber-300 hover:text-amber-200"
               >
-                Forgot password?
+                Forgot ID or password?
               </button>
+
             </div>
           )}
 
           {!forgot && unverified && (
             <div className="rounded-2xl border border-amber-300/35 bg-amber-300/10 p-4 text-left">
               <p className="text-sm text-amber-100">
-                Please confirm your email address before signing in.
+                Please confirm your email address before signing in. Enter it below to get a new
+                confirmation link.
               </p>
+              <Input
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                maxLength={255}
+                className={`${AUTH_FIELD} mt-3`}
+              />
               <Button
                 type="button"
                 variant="outline"
-                disabled={cooldown.sending || !cooldown.ready}
+                disabled={cooldown.sending || !cooldown.ready || !email.trim()}
                 onClick={async () => {
                   const result = await cooldown.resend();
                   toast(
@@ -243,6 +263,7 @@ const LoginPage = () => {
             </div>
           )}
 
+
           <Button type="submit" disabled={busy} className="min-h-[48px] w-full bg-amber-400 text-slate-900 hover:bg-amber-300">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
             {forgot ? "Send reset link" : "Log in"}
@@ -250,21 +271,12 @@ const LoginPage = () => {
         </form>
 
         {!forgot && (
-          <>
-            <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-white/35">
-              <span className="h-px flex-1 bg-white/15" /> or <span className="h-px flex-1 bg-white/15" />
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={google}
-              disabled={busy}
-              className="min-h-[48px] w-full border-white/25 bg-white/5 text-white hover:bg-white/15"
-            >
-              Continue with Google
-            </Button>
-          </>
+          <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center text-xs text-white/55">
+            Your MathGPL ID was sent to you when your account was created. Lost it? Use
+            “Forgot ID or password?” and we'll email it with a reset link.
+          </p>
         )}
+
 
         <p className="mt-6 text-center text-sm text-white/60">
           {forgot ? (

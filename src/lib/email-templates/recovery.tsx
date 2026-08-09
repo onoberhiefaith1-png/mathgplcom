@@ -5,19 +5,53 @@ import { EmailShell, FallbackLink, greeting, styles } from './brand'
 interface RecoveryEmailProps {
   siteName?: string
   userName?: string
+  mathgplId?: string | null
   confirmationUrl: string
 }
 
-export const RecoveryEmail = ({ userName, confirmationUrl }: RecoveryEmailProps) => (
-  <EmailShell preview="Reset your MathGPL password">
+const idBox: React.CSSProperties = {
+  margin: '18px 0',
+  padding: '16px 18px',
+  border: '1px solid #e2e8f0',
+  borderRadius: '14px',
+  backgroundColor: '#f8fafc',
+}
+
+const idLabel: React.CSSProperties = {
+  margin: 0,
+  fontSize: '11px',
+  letterSpacing: '2px',
+  textTransform: 'uppercase',
+  color: '#64748b',
+}
+
+const idValue: React.CSSProperties = {
+  margin: '6px 0 0',
+  fontFamily: 'Menlo, Consolas, monospace',
+  fontSize: '22px',
+  fontWeight: 700,
+  letterSpacing: '2px',
+  color: '#0f172a',
+}
+
+export const RecoveryEmail = ({ userName, mathgplId, confirmationUrl }: RecoveryEmailProps) => (
+  <EmailShell preview="Your MathGPL ID and a link to reset your password">
     <Heading style={styles.h1}>Reset your MathGPL password</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
     <Text style={styles.text}>
-      We received a request to reset the password for your MathGPL account.
+      We received a request to recover access to your MathGPL account.
     </Text>
+    {mathgplId ? (
+      <div style={idBox}>
+        <Text style={idLabel}>Your MathGPL ID</Text>
+        <Text style={idValue}>{mathgplId}</Text>
+        <Text style={styles.small}>Use this ID with your password to log in.</Text>
+      </div>
+    ) : null}
     <Text style={styles.text}>
       If you made this request, use the button below to create a new password.
     </Text>
+
     <Button style={styles.button} href={confirmationUrl}>
       Reset My Password
     </Button>
