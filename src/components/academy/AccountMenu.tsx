@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ChevronDown, LogOut, LayoutDashboard, Users } from "lucide-react";
+import { ChevronDown, LogOut, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 
