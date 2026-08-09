@@ -146,7 +146,12 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         options: { emailRedirectTo: `${window.location.origin}${target}`, data: metadata },
       });
       if (error) throw error;
-      toast({ title: "Check your email", description: "Confirm your address to finish creating your account." });
+      setUnverified(true);
+      setMode("signin");
+      toast({
+        title: "Account created successfully",
+        description: `Please check ${values.email.trim()} to confirm your MathGPL account.`,
+      });
     } catch (err) {
       toast({ title: "Authentication error", description: (err as Error).message, variant: "destructive" });
     } finally {
