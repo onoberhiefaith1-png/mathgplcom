@@ -50,6 +50,8 @@ export type DiscoveredAccount = {
   role: AppRole | null;
   activity: number;
   connectionStatus: ConnectionStatus | null;
+  /** False when the account has switched new connection requests off. */
+  acceptsRequests: boolean;
   /** Schools only. */
   orgId?: string;
   teachers?: number;
@@ -75,6 +77,28 @@ const RELATION_LABEL: Record<Relation, string> = {
 };
 
 export const relationLabel = (relation: Relation) => RELATION_LABEL[relation] ?? "Connection";
+
+/**
+ * The wording of the request button. A relationship has a meaning, so the
+ * button says what actually happens rather than a single generic phrase.
+ */
+export const requestActionLabel = (mine: AppRole | null, theirs: AppRole | null): string => {
+  if (theirs === "school") {
+    if (mine === "teacher") return "Request to work with school";
+    if (mine === "student") return "Request to join school";
+    if (mine === "parent") return "Connect to school";
+  }
+  if (theirs === "teacher") {
+    if (mine === "school") return "Invite teacher";
+    if (mine === "parent") return "Connect to teacher";
+  }
+  if (theirs === "student") {
+    if (mine === "school") return "Invite student";
+    if (mine === "parent") return "Connect to my child";
+  }
+  if (theirs === "parent") return "Connect to parent";
+  return "Request to connect";
+};
 
 /**
  * The one relationship two account types can have. Account type decides the
@@ -112,14 +136,28 @@ export async function setGoLive(live: boolean): Promise<boolean> {
   return Boolean(data);
 }
 
-export async function fetchGoLive(userId: string): Promise<boolean> {
+/**
+ * Accepting requests is a *separate* setting from Go Live: an account may be
+ * discoverable while refusing new requests, or stay private and still be
+ * reachable by Share Code. The database refuses the request either way.
+ */
+export async function setAcceptsRequests(accept: boolean): Promise<boolean> {
+  const { data, error } = await supabase.rpc("set_accepts_requests", { _accept: accept });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export type Visibility = { live: boolean; acceptsRequests: boolean };
+
+export async function fetchVisibility(userId: string): Promise<Visibility> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("is_live")
+    .select("is_live, accepts_requests")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return Boolean((data as { is_live?: boolean } | null)?.is_live);
+  const row = data as { is_live?: boolean; accepts_requests?: boolean } | null;
+  return { live: Boolean(row?.is_live), acceptsRequests: row?.accepts_requests !== false };
 }
 
 /** A share code identifies an account for a request. It can never sign anybody in. */
@@ -232,6 +270,7 @@ export async function discoverSchools(query: string): Promise<DiscoveredAccount[
     students: number;
     activity: number;
     connection_status: string | null;
+    accepts_requests?: boolean;
   }[]).map((row) => ({
     orgId: row.org_id,
     userId: row.owner_user_id,
@@ -242,12 +281,13 @@ export async function discoverSchools(query: string): Promise<DiscoveredAccount[
     students: row.students,
     activity: row.activity,
     connectionStatus: (row.connection_status as ConnectionStatus | null) ?? null,
+    acceptsRequests: row.accepts_requests !== false,
   }));
 }
 
-/** Community discovery: teachers and students, and only while they are live. */
+/** Community discovery: teachers, students and parents, only while they are live. */
 export async function discoverAccounts(
-  role: "teacher" | "student",
+  role: "teacher" | "student" | "parent",
   query: string,
 ): Promise<DiscoveredAccount[]> {
   const { data, error } = await supabase.rpc("discover_accounts", { _role: role, _q: query });
@@ -259,6 +299,7 @@ export async function discoverAccounts(
     role: string | null;
     activity: number;
     connection_status: string | null;
+    accepts_requests?: boolean;
   }[]).map((row) => ({
     userId: row.user_id,
     displayName: row.display_name,
@@ -266,5 +307,6 @@ export async function discoverAccounts(
     role: (row.role as AppRole | null) ?? null,
     activity: row.activity,
     connectionStatus: (row.connection_status as ConnectionStatus | null) ?? null,
+    acceptsRequests: row.accepts_requests !== false,
   }));
 }
