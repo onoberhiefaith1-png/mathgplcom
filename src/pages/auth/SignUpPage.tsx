@@ -72,6 +72,8 @@ const SignUpPage = () => {
   const [role, setRole] = useState<SignupRole | null>(null);
   const [busy, setBusy] = useState(false);
   const [resent, setResent] = useState(false);
+  const [existingEmail, setExistingEmail] = useState<string | null>(null);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
