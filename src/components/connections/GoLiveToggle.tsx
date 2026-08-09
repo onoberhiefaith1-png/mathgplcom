@@ -62,10 +62,7 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
           </h2>
           <p className="mt-1 max-w-xl text-sm text-slate-600">
             {blurb ??
-              "While you are live, other MathGPL accounts can discover you in the Community of Practice. Your private workspace stays private."}
-          </p>
-          <p className={`mt-2 text-sm font-semibold ${status.tone}`}>
-            {status.label} <span className="font-normal text-slate-500">· {status.note}</span>
+              "Going Live is discovery only: schools, teachers and students can find you in the MathGPL Community. It never joins you to a school, a class or anybody's workspace."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -79,6 +76,43 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
           <span className="text-sm font-medium text-slate-700">{live ? "Live" : "Off"}</span>
         </div>
       </div>
+
+      {/* One unmistakable state, in the two colours people already expect. */}
+      <button
+        type="button"
+        onClick={() => onSwitch(!live)}
+        disabled={loading || saving}
+        aria-pressed={live}
+        className={`mt-4 flex w-full flex-wrap items-center gap-3 rounded-2xl border-2 p-4 text-left transition ${
+          live
+            ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100"
+            : "border-rose-200 bg-rose-50 hover:bg-rose-100"
+        }`}
+      >
+        <span
+          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold uppercase tracking-[0.18em] ${
+            live ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+          }`}
+        >
+          <span className={`h-2.5 w-2.5 rounded-full ${live ? "bg-white" : "bg-white/80"}`} />
+          {live ? "Live" : "Off"}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold text-slate-900">
+            {live ? "You are Live" : "Go Live"}
+          </span>
+          <span className="mt-0.5 block text-sm text-slate-700">
+            {live
+              ? "Your profile is now discoverable by schools, teachers, or students through Community. Going Live does not automatically connect you to anyone."
+              : "You are not discoverable. Nobody can find you in Community — your code still works if you hand it out."}
+          </span>
+        </span>
+      </button>
+
+      <p className={`mt-3 text-sm font-semibold ${status.tone}`}>
+        {status.label} <span className="font-normal text-slate-500">· {status.note}</span>
+      </p>
+
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div className="min-w-0">
