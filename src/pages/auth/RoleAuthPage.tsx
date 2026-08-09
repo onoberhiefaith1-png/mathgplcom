@@ -17,6 +17,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { AUTH_ROLES, detectTimeZone, type AuthRoleKey } from "@/lib/accounts/authForms";
 import { CountrySelect } from "@/components/auth/CountrySelect";
 import { useResendCooldown } from "@/lib/auth/useResendCooldown";
+import { isExistingAccountSignup } from "@/lib/auth/existingAccount";
+
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 type Mode = "signin" | "signup" | "forgot";
