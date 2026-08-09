@@ -10,6 +10,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAccount } from "@/lib/accounts/useAccount";
+import { useWorkspace } from "@/lib/accounts/useWorkspace";
 
 const OPTIONS = [
   {
@@ -34,11 +35,16 @@ const OPTIONS = [
 
 /** Gear on the Homepage opening the three independent customization workflows. */
 const HomepageSettingsButton = () => {
-  const { userId } = useAccount();
+  const { userId, role } = useAccount();
+  const { workspaces, isPersonal } = useWorkspace();
   const [open, setOpen] = useState(false);
 
   // Signed-out visitors always see the default homepage.
   if (!userId) return null;
+  // Students never own a building, and a member visiting a school workspace
+  // sees the building its owner set — only the owner can change it.
+  if (role === "student") return null;
+  if (workspaces.length > 0 && !isPersonal) return null;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
