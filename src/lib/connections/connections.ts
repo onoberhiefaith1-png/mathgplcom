@@ -148,7 +148,7 @@ export async function requestConnection(
   const { data, error } = await supabase.rpc("request_connection", {
     _target_user_id: targetUserId,
     _relation: relation,
-    _message: message ?? null,
+    _message: message?.trim() || undefined,
   });
   if (error) throw error;
   return data as string;
