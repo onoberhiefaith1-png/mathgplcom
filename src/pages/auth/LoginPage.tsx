@@ -226,12 +226,22 @@ const LoginPage = () => {
           {!forgot && unverified && (
             <div className="rounded-2xl border border-amber-300/35 bg-amber-300/10 p-4 text-left">
               <p className="text-sm text-amber-100">
-                Please confirm your email address before signing in.
+                Please confirm your email address before signing in. Enter it below to get a new
+                confirmation link.
               </p>
+              <Input
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                maxLength={255}
+                className={`${AUTH_FIELD} mt-3`}
+              />
               <Button
                 type="button"
                 variant="outline"
-                disabled={cooldown.sending || !cooldown.ready}
+                disabled={cooldown.sending || !cooldown.ready || !email.trim()}
                 onClick={async () => {
                   const result = await cooldown.resend();
                   toast(
@@ -252,6 +262,7 @@ const LoginPage = () => {
               </Button>
             </div>
           )}
+
 
           <Button type="submit" disabled={busy} className="min-h-[48px] w-full bg-amber-400 text-slate-900 hover:bg-amber-300">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
