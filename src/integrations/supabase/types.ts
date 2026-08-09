@@ -2559,6 +2559,7 @@ export type Database = {
           canvas: Json
           created_at: string
           id: string
+          org_id: string | null
           owner_id: string
           subtopic: string | null
           thumbnail_path: string | null
@@ -2570,6 +2571,7 @@ export type Database = {
           canvas?: Json
           created_at?: string
           id?: string
+          org_id?: string | null
           owner_id: string
           subtopic?: string | null
           thumbnail_path?: string | null
@@ -2581,6 +2583,7 @@ export type Database = {
           canvas?: Json
           created_at?: string
           id?: string
+          org_id?: string | null
           owner_id?: string
           subtopic?: string | null
           thumbnail_path?: string | null
@@ -2588,7 +2591,15 @@ export type Database = {
           topic?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "games_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       learning_assignments: {
         Row: {
@@ -2850,6 +2861,7 @@ export type Database = {
           created_at: string
           document_json: Json | null
           id: string
+          org_id: string | null
           origin_notebook_id: string | null
           owner_id: string
           page_extra_mm: number
@@ -2874,6 +2886,7 @@ export type Database = {
           created_at?: string
           document_json?: Json | null
           id?: string
+          org_id?: string | null
           origin_notebook_id?: string | null
           owner_id: string
           page_extra_mm?: number
@@ -2898,6 +2911,7 @@ export type Database = {
           created_at?: string
           document_json?: Json | null
           id?: string
+          org_id?: string | null
           origin_notebook_id?: string | null
           owner_id?: string
           page_extra_mm?: number
@@ -2914,7 +2928,15 @@ export type Database = {
           updated_at?: string
           zoom?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notebooks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organizations: {
         Row: {
