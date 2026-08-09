@@ -87,23 +87,6 @@ export function CountrySelect({
           </CommandList>
         </Command>
       </PopoverContent>
-                    onChange(country);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === country ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                  {country}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
     </Popover>
   );
 }
