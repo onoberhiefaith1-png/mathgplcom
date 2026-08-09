@@ -15,7 +15,13 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { ROLE_LABEL } from "@/lib/accounts/roles";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { relationFor, relationLabel, resolveShareCode, type ResolvedAccount } from "@/lib/connections/connections";
+import {
+  matchedCodeLabel,
+  relationFor,
+  relationLabel,
+  resolveAccountCode,
+  type ResolvedCode,
+} from "@/lib/connections/connections";
 import { useConnectionActions } from "@/lib/connections/useConnections";
 
 /**
