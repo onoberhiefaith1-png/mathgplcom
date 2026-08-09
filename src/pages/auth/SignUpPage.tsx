@@ -415,8 +415,10 @@ const SignUpPage = () => {
               link to <span className="font-medium text-white">{values.email}</span>.
             </p>
             <p className="mt-3 text-xs text-white/45">
-              Nothing in your inbox after a minute? Check your spam folder.
+              It comes from MathGPL at notify.mathgpl.com. Nothing in your inbox after a minute?
+              Check your spam or promotions folder.
             </p>
+
 
 
             <Button
