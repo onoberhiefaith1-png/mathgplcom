@@ -37,7 +37,7 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
   const [looking, setLooking] = useState(false);
-  const [found, setFound] = useState<ResolvedAccount | null>(null);
+  const [found, setFound] = useState<ResolvedCode | null>(null);
 
   const relation = relationFor(role, found?.role ?? null);
 
@@ -50,13 +50,14 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
     setLooking(true);
     setFound(null);
     try {
-      const account = await resolveShareCode(code);
+      const account = await resolveAccountCode(code);
       if (!account) {
         toast({
           title: "No account found",
-          description: "Check the Share Code and try again.",
+          description: "Check the School Code, MathGPL ID or Share Code and try again.",
           variant: "destructive",
         });
+
         return;
       }
       setFound(account);
