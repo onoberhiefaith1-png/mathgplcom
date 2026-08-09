@@ -54,11 +54,13 @@ const AccountMenu = () => {
     navigate("/", { replace: true });
   };
 
-  // Teachers and students never see an Account button.
+  // Every signed-in person needs one place to see their MathGPL ID, so the
+  // button itself is universal — only the management links are role-specific.
   const signedIn = ready && Boolean(user);
-  if (signedIn && (isLoading || role === "teacher" || role === "student")) return null;
+  if (signedIn && isLoading) return null;
 
   const links = signedIn ? (ROLE_LINKS[role ?? ""] ?? []) : [];
+
 
   return (
     <div ref={ref} className="pointer-events-auto relative ml-auto">
