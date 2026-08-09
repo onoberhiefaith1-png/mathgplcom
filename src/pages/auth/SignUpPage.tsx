@@ -371,13 +371,24 @@ const SignUpPage = () => {
               <MailCheck className="h-8 w-8" />
             </span>
             <h1 className="mt-6 text-2xl font-semibold text-white">Account created successfully</h1>
-            <p className="mt-3 text-sm leading-relaxed text-white/70">
+
+            {issuedId && (
+              <div className="mt-5 text-left">
+                <MathgplIdCard
+                  mathgplId={issuedId}
+                  note="This is your login from now on. We've emailed it with your confirmation link."
+                />
+              </div>
+            )}
+
+            <p className="mt-4 text-sm leading-relaxed text-white/70">
               Please check your email to confirm your MathGPL account. We've sent the confirmation
               link to <span className="font-medium text-white">{values.email}</span>.
             </p>
             <p className="mt-3 text-xs text-white/45">
               Nothing in your inbox after a minute? Check your spam folder.
             </p>
+
 
             <Button
               type="button"
