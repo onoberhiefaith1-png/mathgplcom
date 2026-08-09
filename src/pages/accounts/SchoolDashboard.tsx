@@ -1,37 +1,35 @@
-import DashboardShell from "@/components/accounts/DashboardShell";
-import SectionCard from "@/components/ui/SectionCard";
-import type { SectionThemeKey } from "@/lib/theme/sectionThemes";
-import { Users, GraduationCap, BookOpen, BarChart3, CreditCard, Settings, Shield } from "lucide-react";
+import SchoolShell from "@/components/accounts/SchoolShell";
 
-const cards = [
-  { to: "/teaching-hub", label: "Teaching Hub", icon: BookOpen, theme: "lessonNotes", blurb: "Lesson notes, SmartBoard and classes." },
-  { to: "/teaching-hub/classes", label: "Classes", icon: Users, theme: "classes", blurb: "Every class in this school." },
-  { to: "/school/teachers", label: "Teachers", icon: GraduationCap, theme: "students", blurb: "Add, invite, suspend or remove your teachers." },
-  { to: "/school?tab=students", label: "Students", icon: Users, theme: "students", blurb: "Students owned by this school." },
-  { to: "/school?tab=reports", label: "Reports & Analytics", icon: BarChart3, theme: "reports", blurb: "School-wide progress." },
-  { to: "/school?tab=accounts", label: "Accounts", icon: Shield, theme: "assessment", blurb: "Invitations, permissions, suspensions." },
-  { to: "/school?tab=billing", label: "Billing", icon: CreditCard, theme: "rewards", blurb: "Licences, subscription and AI quota." },
-  { to: "/teaching-hub/settings", label: "Settings", icon: Settings, theme: "settings", blurb: "School preferences." },
-];
-
+/**
+ * The School Administrative Workspace.
+ *
+ * It oversees the school: the actual teachers and students connected to it,
+ * their individual school workspaces (view only), and the school-wide record.
+ * There is no Teaching Hub here — authoring belongs to a teacher account.
+ */
 const SchoolDashboard = () => (
-  <DashboardShell
-    title="School"
-    subtitle="Your institution's workspace. This school only ever sees the teachers and students it owns."
+  <SchoolShell
+    title="School Command Centre"
+    subtitle="Oversee the teachers and students connected to this school. Open any person to observe their own school workspace — the school never creates accounts and never edits another account's work."
   >
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {cards.map(({ to, label, icon: Icon, blurb, theme }) => (
-        <SectionCard
-          key={label}
-          theme={theme as SectionThemeKey}
-          to={to}
-          icon={Icon}
-          label={label}
-          description={blurb}
-        />
-      ))}
-    </div>
-  </DashboardShell>
+    <section className="rounded-2xl border border-border bg-card/60 p-6">
+      <h2 className="text-lg font-semibold">School Report</h2>
+      <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+        The School Report combines the academic records of this school&rsquo;s teachers and students into one picture of
+        school performance. It is not one teacher&rsquo;s report and not one student&rsquo;s report.
+      </p>
+      <pre className="mt-4 overflow-x-auto rounded-xl border border-border bg-background/40 p-4 text-xs text-muted-foreground">
+{`School Report
+   ↓  All teachers
+   ↓  Their classes
+   ↓  All unique school students
+   ↓  Individual performance`}
+      </pre>
+      <p className="mt-3 text-xs text-muted-foreground">
+        A student in five classes is still one student in the school&rsquo;s unique student count.
+      </p>
+    </section>
+  </SchoolShell>
 );
 
 export default SchoolDashboard;

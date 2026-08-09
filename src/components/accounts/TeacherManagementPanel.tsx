@@ -127,16 +127,21 @@ const TeacherManagementPanel = ({ mode }: { mode: Mode }) => {
           <h2 className="text-lg font-semibold">Teachers</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "school"
-              ? "Every teacher you add owns an independent workspace: their own classes, students, lesson notes and reports."
+              ? "Teachers connected to this school. Each owns an independent MathGPL account and joins by accepting a request."
               : "Connect the teachers who teach your children. Each teacher keeps their own independent workspace."}
           </p>
         </div>
-        <Button onClick={() => setOpen((v) => !v)} className="gap-2">
-          <Plus className="h-4 w-4" /> Add Teacher
-        </Button>
+        {/* A school never creates teacher accounts: teachers own independent
+            MathGPL accounts and join a school by accepting a request. Only the
+            parent flow connects an existing teacher here. */}
+        {mode === "parent" && (
+          <Button onClick={() => setOpen((v) => !v)} className="gap-2">
+            <Plus className="h-4 w-4" /> Add Teacher
+          </Button>
+        )}
       </div>
 
-      {open && (
+      {open && mode === "parent" && (
         <form
           className="mt-5 grid gap-3 rounded-xl border border-border bg-background/40 p-4 sm:grid-cols-2"
           onSubmit={(e) => {
@@ -144,38 +149,6 @@ const TeacherManagementPanel = ({ mode }: { mode: Mode }) => {
             addTeacher.mutate();
           }}
         >
-          {mode === "school" && (
-            <div className="sm:col-span-2 flex gap-2">
-              {(["invite", "password"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMethod(m)}
-                  className={`rounded-full px-3 py-1 text-xs transition ${
-                    method === m
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {m === "invite" ? "Invite by email" : "Set a temporary password"}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {mode === "school" && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="firstName">First name</Label>
-                <Input id="firstName" value={form.firstName} onChange={(e) => set("firstName", e.target.value)} maxLength={60} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="lastName">Last name</Label>
-                <Input id="lastName" value={form.lastName} onChange={(e) => set("lastName", e.target.value)} maxLength={60} />
-              </div>
-            </>
-          )}
-
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="teacherEmail">Teacher email</Label>
             <Input
@@ -188,25 +161,12 @@ const TeacherManagementPanel = ({ mode }: { mode: Mode }) => {
             />
           </div>
 
-          {mode === "school" && method === "password" && (
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="tempPassword">Temporary password</Label>
-              <Input
-                id="tempPassword"
-                type="text"
-                required
-                minLength={8}
-                value={form.password}
-                onChange={(e) => set("password", e.target.value)}
-              />
-            </div>
-          )}
-
           <div className="sm:col-span-2">
             <Button type="submit" disabled={addTeacher.isPending} className="gap-2">
               {addTeacher.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              {mode === "parent" ? "Connect teacher" : method === "invite" ? "Send invitation" : "Create teacher"}
+              Connect teacher
             </Button>
+
           </div>
         </form>
       )}

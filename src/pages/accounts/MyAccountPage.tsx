@@ -13,8 +13,10 @@ import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useAccount } from "@/lib/accounts/useAccount";
 import { useMathgplId } from "@/lib/accounts/useMathgplId";
 import { useConnectionCounts } from "@/lib/connections/useConnections";
+
 
 const FIELD = "bg-white text-slate-900 placeholder:text-slate-400";
 
@@ -31,6 +33,9 @@ const MyAccountPage = () => {
   const navigate = useNavigate();
   const { mathgplId, typeLabel, loading } = useMathgplId();
   const { counts } = useConnectionCounts();
+  const { roles } = useAccount();
+  const isSchool = roles.includes("school");
+
 
   const [email, setEmail] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
@@ -118,10 +123,11 @@ const MyAccountPage = () => {
           </div>
         )}
 
-        <ShareCodeCard />
-        {/* Schools also hand out a School Code — the direct route to join them. */}
-        <SchoolCodeCard />
+{/* A school hands out one code only: its School Code. Personal Share Codes
+            belong to individual people, never to an institution. */}
+        {isSchool ? <SchoolCodeCard /> : <ShareCodeCard />}
         <GoLiveToggle />
+
 
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
