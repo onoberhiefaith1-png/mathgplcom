@@ -143,7 +143,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       const { error } = await supabase.auth.signUp({
         email: values.email.trim(),
         password: values.password,
-        options: { emailRedirectTo: `${window.location.origin}${target}`, data: metadata },
+        options: { emailRedirectTo: `${window.location.origin}/auth/verified`, data: metadata },
       });
       if (error) throw error;
       setUnverified(true);
