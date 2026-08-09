@@ -86,10 +86,12 @@ const LoginPage = () => {
       }
 
       try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
+      setUnverified(false);
       const { error } = await supabase.auth.signInWithPassword({ email: parsedEmail, password });
       if (error) {
-        if (/email not confirmed/i.test(error.message)) {
-          throw new Error("Please verify your email address first — check your inbox for the verification link.");
+        if (/email not confirmed|not confirmed/i.test(error.message)) {
+          setUnverified(true);
+          throw new Error("Please confirm your email address before signing in.");
         }
         if (/invalid login credentials/i.test(error.message)) {
           throw new Error("Incorrect email or password.");
