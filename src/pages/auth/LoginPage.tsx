@@ -250,21 +250,12 @@ const LoginPage = () => {
         </form>
 
         {!forgot && (
-          <>
-            <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-white/35">
-              <span className="h-px flex-1 bg-white/15" /> or <span className="h-px flex-1 bg-white/15" />
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={google}
-              disabled={busy}
-              className="min-h-[48px] w-full border-white/25 bg-white/5 text-white hover:bg-white/15"
-            >
-              Continue with Google
-            </Button>
-          </>
+          <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center text-xs text-white/55">
+            Your MathGPL ID was sent to you when your account was created. Lost it? Use
+            “Forgot ID or password?” and we'll email it with a reset link.
+          </p>
         )}
+
 
         <p className="mt-6 text-center text-sm text-white/60">
           {forgot ? (
