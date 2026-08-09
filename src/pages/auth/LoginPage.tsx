@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
 import { isDevWorkspaceHost } from "@/lib/env/devWorkspace";
 
 
@@ -35,6 +36,8 @@ const LoginPage = () => {
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
   // Development-only shortcut. Resolved after mount so the server-rendered
   // markup and the first client render always match.
   const [devHost, setDevHost] = useState(false);
@@ -86,10 +89,12 @@ const LoginPage = () => {
       }
 
       try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
+      setUnverified(false);
       const { error } = await supabase.auth.signInWithPassword({ email: parsedEmail, password });
       if (error) {
-        if (/email not confirmed/i.test(error.message)) {
-          throw new Error("Please verify your email address first — check your inbox for the verification link.");
+        if (/email not confirmed|not confirmed/i.test(error.message)) {
+          setUnverified(true);
+          throw new Error("Please confirm your email address before signing in.");
         }
         if (/invalid login credentials/i.test(error.message)) {
           throw new Error("Incorrect email or password.");
@@ -204,6 +209,36 @@ const LoginPage = () => {
               >
                 Forgot password?
               </button>
+            </div>
+          )}
+
+          {!forgot && unverified && (
+            <div className="rounded-2xl border border-amber-300/35 bg-amber-300/10 p-4 text-left">
+              <p className="text-sm text-amber-100">
+                Please confirm your email address before signing in.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={resending}
+                onClick={async () => {
+                  setResending(true);
+                  const result = await resendConfirmationEmail(email);
+                  setResending(false);
+                  toast(
+                    result.ok
+                      ? {
+                          title: "Confirmation email sent",
+                          description: `We've sent a new confirmation link to ${email.trim()}.`,
+                        }
+                      : { title: "Not sent", description: result.message, variant: "destructive" },
+                  );
+                }}
+                className="mt-3 min-h-[44px] w-full border-amber-300/40 bg-white/5 text-amber-100 hover:bg-amber-300/20"
+              >
+                {resending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Resend confirmation email
+              </Button>
             </div>
           )}
 

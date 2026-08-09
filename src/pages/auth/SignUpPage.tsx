@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { COUNTRIES, detectTimeZone } from "@/lib/accounts/authForms";
+import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/accounts/roles";
 
 const ROLE_ICON: Record<SignupRole, typeof Building2> = {
@@ -59,6 +60,8 @@ const SignUpPage = () => {
   const [step, setStep] = useState<Step>(1);
   const [role, setRole] = useState<SignupRole | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [values, setValues] = useState({
@@ -352,17 +355,47 @@ const SignUpPage = () => {
             <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-300/30">
               <MailCheck className="h-8 w-8" />
             </span>
-            <h1 className="mt-6 text-2xl font-semibold text-white">Verify your email</h1>
+            <h1 className="mt-6 text-2xl font-semibold text-white">Account created successfully</h1>
             <p className="mt-3 text-sm leading-relaxed text-white/70">
-              We've sent a verification link to <span className="font-medium text-white">{values.email}</span>.
-              Open it to activate your account, then log in.
+              Please check your email to confirm your MathGPL account. We've sent the confirmation
+              link to <span className="font-medium text-white">{values.email}</span>.
             </p>
             <p className="mt-3 text-xs text-white/45">
               Nothing in your inbox after a minute? Check your spam folder.
             </p>
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={resending}
+              onClick={async () => {
+                setResending(true);
+                const result = await resendConfirmationEmail(values.email);
+                setResending(false);
+                if (result.ok) {
+                  setResent(true);
+                  toast({
+                    title: "Confirmation email sent",
+                    description: `We've sent another confirmation link to ${values.email.trim()}.`,
+                  });
+                } else {
+                  toast({ title: "Not sent", description: result.message, variant: "destructive" });
+                }
+              }}
+              className="mt-6 min-h-[48px] w-full border-white/25 bg-white/5 text-white hover:bg-white/15"
+            >
+              {resending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Didn't receive the email? Resend confirmation email
+            </Button>
+            {resent && (
+              <p className="mt-2 text-xs text-emerald-300">
+                A new confirmation email is on its way.
+              </p>
+            )}
+
             <Link
               to="/login"
-              className="mt-7 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-amber-400 px-6 text-base font-semibold text-slate-900 transition hover:bg-amber-300"
+              className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-amber-400 px-6 text-base font-semibold text-slate-900 transition hover:bg-amber-300"
             >
               Go to login
             </Link>

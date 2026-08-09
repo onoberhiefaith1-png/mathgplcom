@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { AUTH_ROLES, COUNTRIES, detectTimeZone, type AuthRoleKey } from "@/lib/accounts/authForms";
+import { resendConfirmationEmail } from "@/lib/auth/resendConfirmation";
 
 type Mode = "signin" | "signup" | "forgot";
 
@@ -47,6 +48,8 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   const [terms, setTerms] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const set = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }));
 
@@ -93,8 +96,15 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       if (mode === "signin") {
         const email = z.string().trim().email("Enter a valid email address").parse(values.email);
         try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
+        setUnverified(false);
         const { error } = await supabase.auth.signInWithPassword({ email, password: values.password });
-        if (error) throw error;
+        if (error) {
+          if (/email not confirmed|not confirmed/i.test(error.message)) {
+            setUnverified(true);
+            throw new Error("Please confirm your email address before signing in.");
+          }
+          throw error;
+        }
         return;
       }
 
@@ -133,10 +143,15 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       const { error } = await supabase.auth.signUp({
         email: values.email.trim(),
         password: values.password,
-        options: { emailRedirectTo: `${window.location.origin}${target}`, data: metadata },
+        options: { emailRedirectTo: `${window.location.origin}/auth/verified`, data: metadata },
       });
       if (error) throw error;
-      toast({ title: "Check your email", description: "Confirm your address to finish creating your account." });
+      setUnverified(true);
+      setMode("signin");
+      toast({
+        title: "Account created successfully",
+        description: `Please check ${values.email.trim()} to confirm your MathGPL account.`,
+      });
     } catch (err) {
       toast({ title: "Authentication error", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -283,6 +298,36 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
               <Checkbox checked={remember} onCheckedChange={(v) => setRemember(v === true)} />
               <span>Remember me on this device</span>
             </label>
+          )}
+
+          {mode === "signin" && unverified && (
+            <div className="rounded-xl border border-primary/35 bg-primary/10 p-3 text-left">
+              <p className="text-xs text-foreground">
+                Please confirm your email address before signing in.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={resending}
+                className="mt-2 w-full"
+                onClick={async () => {
+                  setResending(true);
+                  const result = await resendConfirmationEmail(values.email);
+                  setResending(false);
+                  toast(
+                    result.ok
+                      ? {
+                          title: "Confirmation email sent",
+                          description: `We've sent a new confirmation link to ${values.email.trim()}.`,
+                        }
+                      : { title: "Not sent", description: result.message, variant: "destructive" },
+                  );
+                }}
+              >
+                Resend confirmation email
+              </Button>
+            </div>
           )}
 
           <Button type="submit" className="w-full" disabled={busy}>
