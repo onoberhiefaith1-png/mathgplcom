@@ -127,16 +127,21 @@ const TeacherManagementPanel = ({ mode }: { mode: Mode }) => {
           <h2 className="text-lg font-semibold">Teachers</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "school"
-              ? "Every teacher you add owns an independent workspace: their own classes, students, lesson notes and reports."
+              ? "Teachers connected to this school. Each owns an independent MathGPL account and joins by accepting a request."
               : "Connect the teachers who teach your children. Each teacher keeps their own independent workspace."}
           </p>
         </div>
-        <Button onClick={() => setOpen((v) => !v)} className="gap-2">
-          <Plus className="h-4 w-4" /> Add Teacher
-        </Button>
+        {/* A school never creates teacher accounts: teachers own independent
+            MathGPL accounts and join a school by accepting a request. Only the
+            parent flow connects an existing teacher here. */}
+        {mode === "parent" && (
+          <Button onClick={() => setOpen((v) => !v)} className="gap-2">
+            <Plus className="h-4 w-4" /> Add Teacher
+          </Button>
+        )}
       </div>
 
-      {open && (
+      {open && mode === "parent" && (
         <form
           className="mt-5 grid gap-3 rounded-xl border border-border bg-background/40 p-4 sm:grid-cols-2"
           onSubmit={(e) => {
