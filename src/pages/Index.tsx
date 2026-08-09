@@ -9,13 +9,15 @@ import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 
 const Index = () => {
-  const { role } = useAccount();
+  const { role, isPlatformOwner } = useAccount();
   const { isPersonal, workspaces } = useWorkspace();
   // The building belongs to the workspace you are in: your own when personal,
   // otherwise the one owned by the workspace you are visiting.
   const visiting = workspaces.length > 0 && !isPersonal;
   // Students never teach — their primary entry point is joining a teacher's class.
-  const isStudent = role === "student";
+  // The platform owner keeps the full homepage even while viewing as a student.
+  const isStudent = role === "student" && !isPlatformOwner;
+
 
   // The student Academy page is view-only: the school's background + rotating
   // building, and one way in. No search, account menu, settings or tools.
