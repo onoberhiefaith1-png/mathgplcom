@@ -7,12 +7,13 @@ import {
   discoverSchools,
   fetchConnectionCounts,
   fetchConnections,
-  fetchGoLive,
+  fetchVisibility,
   fetchMyShareCode,
   regenerateMyShareCode,
   requestConnection,
   respondToConnection,
   revokeConnection,
+  setAcceptsRequests,
   setGoLive,
   type ConnectionStatus,
   type Relation,
@@ -43,7 +44,12 @@ export const useShareCode = () => {
   };
 };
 
-/** Go Live controls Community discoverability only. */
+/**
+ * Go Live and Accept requests — two independent settings.
+ *
+ * Live answers "can people find me?". Accept requests answers "can people ask
+ * to connect with me?". Either can be on without the other.
+ */
 export const useGoLive = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -51,22 +57,31 @@ export const useGoLive = () => {
   const query = useQuery({
     queryKey: ["go-live", user?.id ?? "anon"],
     enabled: Boolean(user?.id),
-    queryFn: () => fetchGoLive(user!.id),
+    queryFn: () => fetchVisibility(user!.id),
   });
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["go-live"] });
+    queryClient.invalidateQueries({ queryKey: ["discover"] });
+  };
 
   const update = useMutation({
     mutationFn: (live: boolean) => setGoLive(live),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["go-live"] });
-      queryClient.invalidateQueries({ queryKey: ["discover"] });
-    },
+    onSuccess: refresh,
+  });
+
+  const requests = useMutation({
+    mutationFn: (accept: boolean) => setAcceptsRequests(accept),
+    onSuccess: refresh,
   });
 
   return {
-    live: Boolean(query.data),
+    live: Boolean(query.data?.live),
+    acceptsRequests: query.data?.acceptsRequests !== false,
     loading: query.isLoading,
     setLive: update.mutateAsync,
-    saving: update.isPending,
+    setAcceptsRequests: requests.mutateAsync,
+    saving: update.isPending || requests.isPending,
   };
 };
 
@@ -137,7 +152,7 @@ export const useConnectionActions = () => {
   };
 };
 
-export const useDiscover = (category: "school" | "teacher" | "student", query: string) =>
+export const useDiscover = (category: "school" | "teacher" | "student" | "parent", query: string) =>
   useQuery({
     queryKey: ["discover", category, query],
     queryFn: () => (category === "school" ? discoverSchools(query) : discoverAccounts(category, query)),

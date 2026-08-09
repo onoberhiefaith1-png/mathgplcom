@@ -1,18 +1,57 @@
-import { Loader2, Radio } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Radio, ShieldCheck } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useGoLive } from "@/lib/connections/useConnections";
 
 /**
- * Go Live.
+ * Go Live and Accept requests.
  *
- * Live decides one thing only: whether this account can be *found* in the
- * Community of Practice. It never exposes an email address, a password or any
- * private account information, and private connection by Share Code keeps
- * working whether Live is on or off.
+ * Going Live decides one thing only: whether this account can be *found* in
+ * the Community of Practice. It never opens the private workspace, and never
+ * exposes an email address, a password or any private account information.
+ *
+ * Accepting requests is a separate setting, so an account can be discoverable
+ * while refusing new requests — or stay private and still be reachable by
+ * Share Code.
  */
 export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
-  const { live, loading, setLive, saving } = useGoLive();
+  const { live, acceptsRequests, loading, setLive, setAcceptsRequests, saving } = useGoLive();
+  const [explaining, setExplaining] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+
+  const status = !live
+    ? acceptsRequests
+      ? { label: "Private", tone: "text-slate-600", note: "Not discoverable. Share Code still works." }
+      : { label: "Private · requests off", tone: "text-slate-600", note: "Not discoverable, and no new requests." }
+    : acceptsRequests
+      ? { label: "Live · accepting requests", tone: "text-emerald-600", note: "Discoverable in the Community." }
+      : { label: "Live · requests off", tone: "text-amber-600", note: "Discoverable, but nobody can ask to connect." };
+
+  /** Turning Live ON always explains itself first; turning it off is one click. */
+  const onSwitch = (next: boolean) => {
+    if (next) {
+      setAgreed(false);
+      setExplaining(true);
+      return;
+    }
+    void setLive(false);
+  };
+
+  const confirm = async () => {
+    await setLive(true);
+    setExplaining(false);
+  };
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -23,7 +62,10 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
           </h2>
           <p className="mt-1 max-w-xl text-sm text-slate-600">
             {blurb ??
-              "While you are live, other MathGPL accounts can discover you in the Community of Practice and send you a connection request. Turn it off and you disappear from discovery."}
+              "While you are live, other MathGPL accounts can discover you in the Community of Practice. Your private workspace stays private."}
+          </p>
+          <p className={`mt-2 text-sm font-semibold ${status.tone}`}>
+            {status.label} <span className="font-normal text-slate-500">· {status.note}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -31,12 +73,85 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
           <Switch
             checked={live}
             disabled={loading || saving}
-            onCheckedChange={(value) => void setLive(Boolean(value))}
+            onCheckedChange={(value) => onSwitch(Boolean(value))}
             aria-label="Go live in the MathGPL Community"
           />
           <span className="text-sm font-medium text-slate-700">{live ? "Live" : "Off"}</span>
         </div>
       </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900">Accept connection requests</p>
+          <p className="mt-0.5 max-w-xl text-sm text-slate-600">
+            On by default. Turn it off and nobody can send you a new request — you can still send requests to
+            other accounts yourself.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={acceptsRequests}
+            disabled={loading || saving}
+            onCheckedChange={(value) => void setAcceptsRequests(Boolean(value))}
+            aria-label="Accept connection requests"
+          />
+          <span className="text-sm font-medium text-slate-700">{acceptsRequests ? "On" : "Off"}</span>
+        </div>
+      </div>
+
+      <Dialog open={explaining} onOpenChange={setExplaining}>
+        <DialogContent className="max-w-lg bg-white text-slate-900">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-900">
+              <ShieldCheck className="h-5 w-5 text-amber-500" /> Go live with MathGPL
+            </DialogTitle>
+            <DialogDescription className="text-slate-600">When you go live:</DialogDescription>
+          </DialogHeader>
+
+          <ul className="space-y-2 text-sm text-slate-700">
+            <li>• Your account becomes discoverable in the MathGPL Community.</li>
+            <li>• Other accounts may find your public profile.</li>
+            <li>• People may send you connection requests while you allow them.</li>
+            <li>• Your private workspace stays private.</li>
+            <li>• Your password and private details are never exposed.</li>
+            <li>• Only the information you make public can be seen by others.</li>
+            <li>• Going live does not let anyone enter your workspace.</li>
+          </ul>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <span className="text-sm font-medium text-slate-800">Accept connection requests</span>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={acceptsRequests}
+                disabled={saving}
+                onCheckedChange={(value) => void setAcceptsRequests(Boolean(value))}
+                aria-label="Accept connection requests"
+              />
+              <span className="text-sm text-slate-700">{acceptsRequests ? "On" : "Off"}</span>
+            </div>
+          </div>
+
+          <label className="flex items-start gap-3 text-sm text-slate-800">
+            <Checkbox
+              checked={agreed}
+              onCheckedChange={(value) => setAgreed(Boolean(value))}
+              aria-label="I understand and agree"
+              className="mt-0.5"
+            />
+            I understand and agree
+          </label>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExplaining(false)} className="min-h-[44px]">
+              Cancel
+            </Button>
+            <Button onClick={() => void confirm()} disabled={!agreed || saving} className="min-h-[44px]">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Radio className="mr-2 h-4 w-4" />}
+              Go live
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };
