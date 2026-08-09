@@ -4178,6 +4178,14 @@ export type Database = {
           org_name: string
         }[]
       }
+      my_school_code: {
+        Args: never
+        Returns: {
+          code: string
+          name: string
+          org_id: string
+        }[]
+      }
       my_share_code: { Args: never; Returns: string }
       my_workspaces: {
         Args: never
@@ -4207,6 +4215,7 @@ export type Database = {
         }[]
       }
       regenerate_my_share_code: { Args: never; Returns: string }
+      regenerate_school_code: { Args: { _org_id: string }; Returns: string }
       request_connection: {
         Args: {
           _message?: string
@@ -4214,6 +4223,18 @@ export type Database = {
           _target_user_id: string
         }
         Returns: string
+      }
+      resolve_account_code: {
+        Args: { _code: string }
+        Returns: {
+          display_name: string
+          matched: string
+          mathgpl_id: string
+          org_id: string
+          org_name: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
       }
       resolve_share_code: {
         Args: { _code: string }

@@ -7,9 +7,11 @@ import {
   discoverSchools,
   fetchConnectionCounts,
   fetchConnections,
+  fetchMySchoolCode,
   fetchVisibility,
   fetchMyShareCode,
   regenerateMyShareCode,
+  regenerateSchoolCode,
   requestConnection,
   respondToConnection,
   revokeConnection,
@@ -157,3 +159,31 @@ export const useDiscover = (category: "school" | "teacher" | "student" | "parent
     queryKey: ["discover", category, query],
     queryFn: () => (category === "school" ? discoverSchools(query) : discoverAccounts(category, query)),
   });
+
+/**
+ * The signed-in school's own School Code — the direct route a teacher or
+ * student uses to ask to join, alongside Community discovery.
+ */
+export const useSchoolCode = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["school-code", user?.id ?? "anon"],
+    enabled: Boolean(user?.id),
+    staleTime: 10 * 60_000,
+    queryFn: fetchMySchoolCode,
+  });
+
+  const regenerate = useMutation({
+    mutationFn: (orgId: string) => regenerateSchoolCode(orgId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["school-code"] }),
+  });
+
+  return {
+    school: query.data ?? null,
+    loading: query.isLoading,
+    regenerate: regenerate.mutateAsync,
+    regenerating: regenerate.isPending,
+  };
+};

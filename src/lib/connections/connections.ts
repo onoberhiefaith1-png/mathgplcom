@@ -310,3 +310,75 @@ export async function discoverAccounts(
     acceptsRequests: row.accepts_requests !== false,
   }));
 }
+
+/* ------------------------------------------------------------------ *
+ * Codes — the second route into a relationship.
+ *
+ * Discovery (Go Live) is one way to find an account; a code is the other. A
+ * code identifies an account so a request can be sent to it. It is never a
+ * password, it never signs anybody in and resolving one establishes nothing.
+ * ------------------------------------------------------------------ */
+
+export type SchoolCode = { orgId: string; name: string; code: string };
+
+/** The signed-in school's own School Code. Null for every other account type. */
+export async function fetchMySchoolCode(): Promise<SchoolCode | null> {
+  const { data, error } = await supabase.rpc("my_school_code");
+  if (error) throw error;
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { org_id: string; name: string; code: string }
+    | undefined;
+  if (!row?.code) return null;
+  return { orgId: row.org_id, name: row.name ?? "My school", code: row.code };
+}
+
+export async function regenerateSchoolCode(orgId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("regenerate_school_code", { _org_id: orgId });
+  if (error) throw error;
+  return (data as string | null) ?? null;
+}
+
+export type ResolvedCode = ResolvedAccount & {
+  /** Present when the code belonged to a school. */
+  orgId: string | null;
+  orgName: string | null;
+  matched: "school_code" | "mathgpl_id" | "share_code";
+};
+
+/**
+ * One lookup for every code a person may be handed: a School Code, a permanent
+ * MathGPL ID (TCH/…, STU/…, SC/…, PAR/…) or a personal Share Code. Only the
+ * name, account type and permanent ID come back, so the sender can confirm who
+ * they are contacting before a request exists.
+ */
+export async function resolveAccountCode(code: string): Promise<ResolvedCode | null> {
+  const cleaned = code.trim().toUpperCase().replace(/\s+/g, "");
+  if (!cleaned) return null;
+  const { data, error } = await supabase.rpc("resolve_account_code", { _code: cleaned });
+  if (error) throw error;
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | {
+        user_id: string;
+        mathgpl_id: string | null;
+        role: string;
+        display_name: string;
+        org_id: string | null;
+        org_name: string | null;
+        matched: string;
+      }
+    | undefined;
+  if (!row) return null;
+  return {
+    userId: row.user_id,
+    mathgplId: row.mathgpl_id ?? "",
+    role: row.role as AppRole,
+    displayName: row.display_name,
+    orgId: row.org_id,
+    orgName: row.org_name,
+    matched: (row.matched as ResolvedCode["matched"]) ?? "share_code",
+  };
+}
+
+/** How the code was recognised, in words the sender understands. */
+export const matchedCodeLabel = (matched: ResolvedCode["matched"]): string =>
+  matched === "school_code" ? "School Code" : matched === "mathgpl_id" ? "MathGPL ID" : "Share Code";

@@ -15,7 +15,13 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { ROLE_LABEL } from "@/lib/accounts/roles";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { relationFor, relationLabel, resolveShareCode, type ResolvedAccount } from "@/lib/connections/connections";
+import {
+  matchedCodeLabel,
+  relationFor,
+  relationLabel,
+  resolveAccountCode,
+  type ResolvedCode,
+} from "@/lib/connections/connections";
 import { useConnectionActions } from "@/lib/connections/useConnections";
 
 /**
@@ -31,7 +37,7 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
   const [looking, setLooking] = useState(false);
-  const [found, setFound] = useState<ResolvedAccount | null>(null);
+  const [found, setFound] = useState<ResolvedCode | null>(null);
 
   const relation = relationFor(role, found?.role ?? null);
 
@@ -44,13 +50,14 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
     setLooking(true);
     setFound(null);
     try {
-      const account = await resolveShareCode(code);
+      const account = await resolveAccountCode(code);
       if (!account) {
         toast({
           title: "No account found",
-          description: "Check the Share Code and try again.",
+          description: "Check the School Code, MathGPL ID or Share Code and try again.",
           variant: "destructive",
         });
+
         return;
       }
       setFound(account);
@@ -93,21 +100,22 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Connect with a Share Code</DialogTitle>
+          <DialogTitle>Connect with a code</DialogTitle>
           <DialogDescription>
-            Enter the Share Code you were given. Never share a password — only Share Codes.
+            Enter a School Code, a MathGPL ID (TCH/…, STU/…, SC/…, PAR/…) or a personal Share Code.
+            Never share a password — only codes. We show you who it belongs to before anything is sent.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="share-code">Share Code</Label>
+            <Label htmlFor="share-code">School Code, MathGPL ID or Share Code</Label>
             <Input
               id="share-code"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="ABC123XYZ"
-              maxLength={16}
+              placeholder="TCH/000001"
+              maxLength={24}
               className="bg-white font-mono tracking-[0.2em] text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -121,8 +129,11 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="font-semibold text-slate-900">{found.displayName}</p>
               <p className="mt-0.5 text-sm text-slate-600">
-                {ROLE_LABEL[found.role]} · <span className="font-mono">{found.mathgplId}</span>
+                {ROLE_LABEL[found.role]}
+                {found.mathgplId ? <> · <span className="font-mono">{found.mathgplId}</span></> : null}
+                {" "}· matched by {matchedCodeLabel(found.matched)}
               </p>
+
               {relation ? (
                 <>
                   <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-500">

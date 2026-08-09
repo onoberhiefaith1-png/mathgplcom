@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
 import ShareCodeCard from "@/components/connections/ShareCodeCard";
+import SchoolCodeCard from "@/components/connections/SchoolCodeCard";
 import GoLiveToggle from "@/components/connections/GoLiveToggle";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -118,7 +119,10 @@ const MyAccountPage = () => {
         )}
 
         <ShareCodeCard />
+        {/* Schools also hand out a School Code — the direct route to join them. */}
+        <SchoolCodeCard />
         <GoLiveToggle />
+
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
