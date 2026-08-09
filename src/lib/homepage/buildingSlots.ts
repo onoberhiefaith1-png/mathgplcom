@@ -1,11 +1,11 @@
 // The original MathGPL building, expressed as a fixed list of artwork slots.
 // Geometry (position, curve, perspective, radius, overlap, rotation) lives in the
 // scene and never changes — a slot only ever swaps the artwork it paints.
-import algebraIsland from "@/assets/adventure/algebra-island.png.asset.json";
-import calculusIsland from "@/assets/adventure/calculus-island.png.asset.json";
-import geometryIsland from "@/assets/adventure/geometry-island.png.asset.json";
-import statisticsIsland from "@/assets/adventure/statistics-island.png.asset.json";
-import trigonometryIsland from "@/assets/adventure/trigonometry-island.png.asset.json";
+import ring0 from "@/assets/adventure/mathgpl-ring-0.png.asset.json";
+import ring2 from "@/assets/adventure/mathgpl-ring-2.png.asset.json";
+import ring4 from "@/assets/adventure/mathgpl-ring-4.png.asset.json";
+import ring6 from "@/assets/adventure/mathgpl-ring-6.png.asset.json";
+import ring7 from "@/assets/adventure/mathgpl-ring-7.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
 
