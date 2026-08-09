@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
+
 
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
@@ -59,13 +61,18 @@ const LessonNotesPage = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    // A lesson note belongs to the workspace it was made in: the shelf shows
+    // the active workspace's notes only, never another school's or the
+    // person's personal work while they are inside a school.
+    const orgId = await activeSchoolOrgId();
+    let query = supabase
       .from("notebooks")
       .select("id,title,teacher,class_name,session,subject,subtopic,color_index,cover_config,checkout_link_id")
       // Lesson Notes is the working area: notebooks stored inside a class are
       // independent copies and never clutter the shelf.
-      .eq("storage_scope", "workspace")
-      .order("updated_at", { ascending: false });
+      .eq("storage_scope", "workspace");
+    query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
+    const { data, error } = await query.order("updated_at", { ascending: false });
     if (error) {
       toast({ title: "Could not load notebooks", description: error.message, variant: "destructive" });
     } else {
@@ -73,6 +80,8 @@ const LessonNotesPage = () => {
     }
     setLoading(false);
   };
+
+
 
   useEffect(() => { load(); }, []);
 

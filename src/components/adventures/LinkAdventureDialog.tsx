@@ -22,6 +22,7 @@ import {
 } from "@/lib/adventures/barLinks";
 import { useClassMemberIds } from "@/hooks/useClassMemberIds";
 import { ensureAssignment } from "@/lib/assignments/instances";
+import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
 
 export type LinkAdventureQuestion = { sectionId: string; label: string; marks: number; questionKey?: string | null };
 
@@ -70,10 +71,15 @@ export function LinkAdventureDialog({ open, onOpenChange, classId, notebookId, n
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
+      // Only adventures built in the active workspace can be linked here.
+      const orgId = await activeSchoolOrgId();
+      let gamesQuery = supabase.from("games").select("*").eq("owner_id", uid ?? "");
+      gamesQuery = orgId ? gamesQuery.eq("org_id", orgId) : gamesQuery.is("org_id", null);
       const [{ data: gs }, { data: nb }] = await Promise.all([
-        supabase.from("games").select("*").eq("owner_id", uid ?? "").order("updated_at", { ascending: false }),
+        gamesQuery.order("updated_at", { ascending: false }),
         supabase.from("notebooks").select("score_label").eq("id", notebookId).maybeSingle(),
       ]);
+
       setGames((gs ?? []) as unknown as GameRow[]);
       const nbLabel = ((nb as any)?.score_label ?? "").toString().trim() || "Marks";
       setScoreLabel(nbLabel);

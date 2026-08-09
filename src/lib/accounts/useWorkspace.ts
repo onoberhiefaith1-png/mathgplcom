@@ -7,6 +7,8 @@ import {
   type WorkspaceKind,
 } from "./workspace";
 import { useAccount } from "./useAccount";
+import { clearWorkspaceScopeCache } from "./workspaceScope";
+
 
 /**
  * The active workspace context every surface reads: which workspace the person
@@ -36,7 +38,9 @@ export function useWorkspace() {
     async (orgId: string) => {
       if (orgId === activeOrgId) return;
       await setActiveWorkspace(orgId);
+      clearWorkspaceScopeCache();
       await queryClient.invalidateQueries();
+
       // MathGPL is the school: entering a workspace always opens its building
       // first, never a dashboard deep inside it.
       if (typeof window !== "undefined" && window.location.pathname !== "/") {

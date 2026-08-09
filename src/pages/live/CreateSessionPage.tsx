@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { LiveSession, SessionVisibility, createSession } from "@/lib/live/sessions";
 import BroadcastEditor from "@/components/live/BroadcastEditor";
 import { BroadcastEntry, newBroadcastEntry } from "@/lib/live/broadcast";
+import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
 
 
 type NotebookOption = { id: string; label: string };
@@ -74,12 +75,15 @@ const CreateSessionPage = () => {
         navigate("/auth?redirect=/live/sessions/create");
         return;
       }
-      const { data } = await supabase
+      // Only the active workspace's notes can be taught in a session.
+      const orgId = await activeSchoolOrgId();
+      let notesQuery = supabase
         .from("notebooks")
         .select("id, title, subject, subtopic")
-        .eq("owner_id", userData.user.id)
-        .order("updated_at", { ascending: false })
-        .limit(100);
+        .eq("owner_id", userData.user.id);
+      notesQuery = orgId ? notesQuery.eq("org_id", orgId) : notesQuery.is("org_id", null);
+      const { data } = await notesQuery.order("updated_at", { ascending: false }).limit(100);
+
       setNotebooks(
         ((data ?? []) as { id: string; title: string | null; subject: string; subtopic: string }[]).map((n) => ({
           id: n.id,

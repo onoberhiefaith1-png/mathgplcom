@@ -9,6 +9,7 @@ import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/Noteb
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye, PlayCircle, Check } from "lucide-react";
 import { loadApprovedAt } from "@/lib/smartboard/presentationPlan";
+import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
 
 interface NotebookRow extends NotebookCoverData {
   id: string;
@@ -29,10 +30,14 @@ export const SmartboardShelf = () => {
         navigate("/auth", { replace: true });
         return;
       }
-      const { data, error } = await supabase
+      // The shelf shows the notes of the workspace being worked in.
+      const orgId = await activeSchoolOrgId();
+      let query = supabase
         .from("notebooks")
-        .select("id,title,teacher,class_name,session,subject,color_index")
-        .order("updated_at", { ascending: false });
+        .select("id,title,teacher,class_name,session,subject,color_index");
+      query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
+      const { data, error } = await query.order("updated_at", { ascending: false });
+
       if (error) {
         toast({ title: "Could not load notebooks", description: error.message, variant: "destructive" });
       } else {
