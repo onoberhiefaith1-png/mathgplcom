@@ -208,8 +208,9 @@ const LoginPage = () => {
                 onClick={() => setForgot(true)}
                 className="text-sm font-medium text-amber-300 hover:text-amber-200"
               >
-                Forgot password?
+                Forgot ID or password?
               </button>
+
             </div>
           )}
 
