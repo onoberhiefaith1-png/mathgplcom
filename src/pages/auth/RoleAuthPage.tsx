@@ -215,7 +215,17 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         </div>
 
 
+        {issuedId && (
+          <div className="mt-5">
+            <MathgplIdCard
+              mathgplId={issuedId}
+              note="This is your login. We've also emailed it with your confirmation link."
+            />
+          </div>
+        )}
+
         <form className="mt-6 space-y-3" onSubmit={submit}>
+
           {mode === "signup" && (
             <>
               <div className="grid grid-cols-2 gap-2">
