@@ -93,8 +93,15 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       if (mode === "signin") {
         const email = z.string().trim().email("Enter a valid email address").parse(values.email);
         try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
+        setUnverified(false);
         const { error } = await supabase.auth.signInWithPassword({ email, password: values.password });
-        if (error) throw error;
+        if (error) {
+          if (/email not confirmed|not confirmed/i.test(error.message)) {
+            setUnverified(true);
+            throw new Error("Please confirm your email address before signing in.");
+          }
+          throw error;
+        }
         return;
       }
 
