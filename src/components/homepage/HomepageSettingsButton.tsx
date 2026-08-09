@@ -35,7 +35,7 @@ const OPTIONS = [
 
 /** Gear on the Homepage opening the three independent customization workflows. */
 const HomepageSettingsButton = () => {
-  const { userId, role } = useAccount();
+  const { userId, role, isPlatformOwner } = useAccount();
   const { workspaces, isPersonal } = useWorkspace();
   const [open, setOpen] = useState(false);
 
@@ -43,8 +43,8 @@ const HomepageSettingsButton = () => {
   if (!userId) return null;
   // Students never own a building, and a member visiting a school workspace
   // sees the building its owner set — only the owner can change it.
-  if (role === "student") return null;
-  if (workspaces.length > 0 && !isPersonal) return null;
+  if (role === "student" && !isPlatformOwner) return null;
+  if (workspaces.length > 0 && !isPersonal && !isPlatformOwner) return null;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
