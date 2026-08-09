@@ -103,7 +103,17 @@ const AdminSecurity = () => {
         </Button>
       }
     >
+      {mathgplId ? (
+        <div className="mb-6 max-w-md">
+          <MathgplIdCard
+            mathgplId={mathgplId}
+            typeLabel={typeLabel}
+            note="This is your login. Sign in with this ID and your password."
+          />
+        </div>
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-2">
+
         <section className="rounded-2xl border border-dash-border bg-dash-surface p-6 text-dash-surface-foreground shadow-sm">
           <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em]">
             <Mail className="h-4 w-4" /> Administrator email
