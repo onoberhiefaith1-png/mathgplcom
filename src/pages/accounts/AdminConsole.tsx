@@ -20,6 +20,9 @@ import {
   Plus,
 } from "lucide-react";
 import DashboardShell from "@/components/accounts/DashboardShell";
+import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
+import { useMathgplId } from "@/lib/accounts/useMathgplId";
+
 import StatCard from "@/components/accounts/StatCard";
 import AccountPreviewSheet from "@/components/accounts/AccountPreviewSheet";
 import AddAccountDialog from "@/components/accounts/AddAccountDialog";
@@ -62,6 +65,8 @@ const AdminConsole = () => {
   const [tab, setTab] = useState<TabKey>("schools");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const { mathgplId: adminId, typeLabel: adminType } = useMathgplId();
+
   const [busyId, setBusyId] = useState<string | null>(null);
   const [credentialTarget, setCredentialTarget] = useState<CredentialTarget | null>(null);
   const [settingUp, setSettingUp] = useState(false);
@@ -221,6 +226,15 @@ const AdminConsole = () => {
       }
 
     >
+      {adminId ? (
+        <div className="mb-6 max-w-md">
+          <MathgplIdCard
+            mathgplId={adminId}
+            typeLabel={adminType}
+            note="Your administrator login — sign in with this ID and your password."
+          />
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         {overview.map((o) => (
           <StatCard
