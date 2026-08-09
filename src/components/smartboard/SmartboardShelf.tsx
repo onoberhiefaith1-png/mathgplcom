@@ -9,6 +9,7 @@ import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/Noteb
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye, PlayCircle, Check } from "lucide-react";
 import { loadApprovedAt } from "@/lib/smartboard/presentationPlan";
+import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
 
 interface NotebookRow extends NotebookCoverData {
   id: string;

@@ -22,6 +22,7 @@ import {
 } from "@/lib/adventures/barLinks";
 import { useClassMemberIds } from "@/hooks/useClassMemberIds";
 import { ensureAssignment } from "@/lib/assignments/instances";
+import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
 
 export type LinkAdventureQuestion = { sectionId: string; label: string; marks: number; questionKey?: string | null };
 

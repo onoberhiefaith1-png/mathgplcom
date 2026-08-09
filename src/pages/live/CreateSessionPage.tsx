@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { LiveSession, SessionVisibility, createSession } from "@/lib/live/sessions";
 import BroadcastEditor from "@/components/live/BroadcastEditor";
 import { BroadcastEntry, newBroadcastEntry } from "@/lib/live/broadcast";
+import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
 
 
 type NotebookOption = { id: string; label: string };
