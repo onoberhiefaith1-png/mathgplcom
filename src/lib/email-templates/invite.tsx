@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Button, Heading, Text } from '@react-email/components'
-import { EmailShell, greeting, styles } from './brand'
+import { EmailShell, FallbackLink, greeting, styles } from './brand'
 
 interface InviteEmailProps {
   siteName?: string
@@ -21,11 +21,7 @@ export const InviteEmail = ({ userName, confirmationUrl }: InviteEmailProps) => 
     <Button style={styles.button} href={confirmationUrl}>
       Accept Invitation
     </Button>
-    <Text style={styles.fallback}>
-      If the button does not work, copy and paste this address into your browser:
-      <br />
-      {confirmationUrl}
-    </Text>
+    <FallbackLink url={confirmationUrl} />
     <Text style={styles.small}>
       If you were not expecting this invitation, you can safely ignore this email.
     </Text>

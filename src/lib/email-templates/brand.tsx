@@ -69,6 +69,11 @@ export const styles = {
     margin: '0 0 24px',
   },
   link: { color: BRAND.navy, textDecoration: 'underline' },
+  fallbackLink: {
+    color: BRAND.navy,
+    textDecoration: 'underline',
+    wordBreak: 'break-all' as const,
+  },
   hr: { borderColor: BRAND.hairline, margin: '28px 0 16px' },
   footer: { fontSize: '12px', color: BRAND.muted, lineHeight: '1.7', margin: '0 0 6px' },
   code: {
@@ -80,11 +85,28 @@ export const styles = {
   },
 }
 
-/** "Hello Amara," when we know the name, otherwise a neutral greeting. */
+/**
+ * "Hello Faith," — the person's first name only, never the full name.
+ * Falls back to a neutral greeting when no name is known.
+ */
 export function greeting(name?: string | null) {
-  const clean = (name ?? '').trim()
-  return clean ? `Hello ${clean},` : 'Hello there,'
+  const first = (name ?? '').trim().split(/\s+/)[0] ?? ''
+  return first ? `Hello ${first},` : 'Hello there,'
 }
+
+/**
+ * The real confirmation address, shown as a genuinely clickable link so a
+ * blocked button never leaves the recipient stranded.
+ */
+export const FallbackLink = ({ url }: { url: string }) => (
+  <Text style={styles.fallback}>
+    If the button does not work, copy and paste this address into your browser:
+    <br />
+    <Link href={url} style={styles.fallbackLink}>
+      {url}
+    </Link>
+  </Text>
+)
 
 export const EmailShell = ({
   preview,
