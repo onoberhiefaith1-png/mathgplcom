@@ -157,12 +157,20 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       }
       if (values.school_name?.trim()) metadata.organization_name = values.school_name.trim();
 
-      const { error } = await supabase.auth.signUp({
+      const { data: created, error } = await supabase.auth.signUp({
         email: values.email.trim(),
         password: values.password,
         options: { emailRedirectTo: `${window.location.origin}/auth/verified`, data: metadata },
       });
       if (error) throw error;
+      // The permanent MathGPL ID is issued by the database at signup — show it
+      // immediately, and it is repeated in the confirmation email.
+      if (created.user?.id) {
+        try {
+          const { mathgplId } = await lookupId({ data: { userId: created.user.id } });
+          setIssuedId(mathgplId);
+        } catch { /* the email still carries the ID */ }
+      }
       cooldown.start();
       setUnverified(true);
       setMode("signin");
@@ -170,6 +178,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         title: "Account created successfully",
         description: `Please check ${values.email.trim()} to confirm your MathGPL account.`,
       });
+
     } catch (err) {
       toast({ title: "Authentication error", description: (err as Error).message, variant: "destructive" });
     } finally {
