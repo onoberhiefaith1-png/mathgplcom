@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_ids: {
+        Row: {
+          acronym: string | null
+          created_at: string
+          id: string
+          mathgpl_id: string
+          org_id: string | null
+          prefix: string
+          role: Database["public"]["Enums"]["app_role"]
+          seq: number
+          user_id: string
+        }
+        Insert: {
+          acronym?: string | null
+          created_at?: string
+          id?: string
+          mathgpl_id: string
+          org_id?: string | null
+          prefix: string
+          role: Database["public"]["Enums"]["app_role"]
+          seq: number
+          user_id: string
+        }
+        Update: {
+          acronym?: string | null
+          created_at?: string
+          id?: string
+          mathgpl_id?: string
+          org_id?: string | null
+          prefix?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          seq?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_ids_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_memberships: {
         Row: {
           created_at: string
@@ -3934,6 +3978,13 @@ export type Database = {
       }
       is_org_owner: { Args: { _org_id: string }; Returns: boolean }
       is_workspace_member: { Args: { _org_id: string }; Returns: boolean }
+      issue_account_id: {
+        Args: {
+          _role?: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: string
+      }
       lookup_class_by_code: {
         Args: { code: string }
         Returns: {
@@ -4009,6 +4060,7 @@ export type Database = {
         Args: { _accept: boolean; _invitation_id: string }
         Returns: string
       }
+      school_acronym: { Args: { _name: string }; Returns: string }
       search_public_teachers: {
         Args: { _q: string }
         Returns: {
