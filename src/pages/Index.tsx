@@ -1,5 +1,5 @@
 import { Link } from "@/lib/router-compat";
-import { GraduationCap, Globe2, Image, Package, Users } from "lucide-react";
+import { GraduationCap, Globe2, Image, Package, ShieldCheck, Users } from "lucide-react";
 
 import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
