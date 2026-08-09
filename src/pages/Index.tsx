@@ -1,5 +1,5 @@
 import { Link } from "@/lib/router-compat";
-import { GraduationCap, Globe2, Image, Package, Users } from "lucide-react";
+import { GraduationCap, Globe2, Image, Package, ShieldCheck, Users } from "lucide-react";
 
 import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
@@ -9,14 +9,16 @@ import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 
 const Index = () => {
-  const { role, isPlatformOwner } = useAccount();
+  const { role, roles, isPlatformOwner } = useAccount();
   const { isPersonal, workspaces } = useWorkspace();
   // The building belongs to the workspace you are in: your own when personal,
   // otherwise the one owned by the workspace you are visiting.
   const visiting = workspaces.length > 0 && !isPersonal;
+  // Anything other than a plain student account keeps the full homepage: the
+  // owner, school admins and teachers must never be locked into the student view.
+  const elevated = isPlatformOwner || roles.some((r) => r !== "student");
   // Students never teach — their primary entry point is joining a teacher's class.
-  // The platform owner keeps the full homepage even while viewing as a student.
-  const isStudent = role === "student" && !isPlatformOwner;
+  const isStudent = role === "student" && !elevated;
 
 
   // The student Academy page is view-only: the school's background + rotating
@@ -36,6 +38,7 @@ const Index = () => {
       </>
     );
   }
+
 
   return (
     <>
@@ -76,6 +79,17 @@ const Index = () => {
         <GraduationCap className="h-4 w-4" />
         Teaching Hub
       </Link>
+      {isPlatformOwner && (
+        <Link
+          to="/admin"
+          aria-label="Open Platform Console"
+          className="fixed bottom-50 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-400/60 bg-background/70 px-4 py-2 text-sm font-medium text-amber-100 shadow-[0_0_24px_hsl(45_90%_60%/0.35)] backdrop-blur transition hover:bg-amber-500/25"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Platform Console
+        </Link>
+      )}
+
 
     </>
   );
