@@ -165,14 +165,6 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
     }
   };
 
-  const google = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/auth/${roleKey}`,
-    });
-    if (result.error) {
-      toast({ title: "Google sign-in failed", description: result.error.message, variant: "destructive" });
-    }
-  };
 
   return (
     <main className="cinematic-sky flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-foreground">
