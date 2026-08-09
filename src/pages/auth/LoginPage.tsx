@@ -148,28 +148,48 @@ const LoginPage = () => {
 
 
         <h1 className="mt-5 text-2xl font-semibold text-white">
-          {forgot ? "Reset your password" : "Log in"}
+          {forgot ? "Recover your account" : "Log in"}
         </h1>
         <p className="mt-2 text-sm text-white/60">
           {forgot
-            ? "Enter your email address and we'll send you a link to set a new password."
-            : "One login for schools, teachers, parents and students."}
+            ? "Enter your email address and we'll send you your MathGPL ID with a link to set a new password."
+            : "Sign in with your MathGPL ID — schools, teachers, parents and students."}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-white/80">Email address</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              maxLength={255}
-              className={`${AUTH_FIELD}`}
-            />
-          </div>
+          {forgot ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-white/80">Email address</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                maxLength={255}
+                className={`${AUTH_FIELD}`}
+              />
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="mathgpl-id" className="text-white/80">MathGPL ID</Label>
+              <Input
+                id="mathgpl-id"
+                type="text"
+                inputMode="text"
+                autoCapitalize="characters"
+                autoComplete="username"
+                placeholder="TCH/000001"
+                value={mathgplId}
+                onChange={(e) => setMathgplId(e.target.value.toUpperCase())}
+                required
+                maxLength={40}
+                className={`${AUTH_FIELD} font-mono tracking-wide`}
+              />
+            </div>
+          )}
+
 
           {!forgot && (
             <div className="space-y-1.5">
