@@ -218,19 +218,28 @@ const LoginPage = () => {
           )}
 
           {!forgot && (
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-sm text-white/70">
                 <Checkbox checked={remember} onCheckedChange={(v) => setRemember(Boolean(v))} />
                 Remember me
               </label>
-              <button
-                type="button"
-                onClick={() => setForgot(true)}
-                className="text-sm font-medium text-amber-300 hover:text-amber-200"
-              >
-                Forgot ID or password?
-              </button>
-
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRecover("id")}
+                  className="text-sm font-medium text-amber-300 hover:text-amber-200"
+                >
+                  Forgot MathGPL ID?
+                </button>
+                <span aria-hidden className="text-white/25">|</span>
+                <button
+                  type="button"
+                  onClick={() => setRecover("password")}
+                  className="text-sm font-medium text-amber-300 hover:text-amber-200"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
           )}
 
