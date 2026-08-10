@@ -26,7 +26,7 @@ const DashboardHero = ({ blurb, mode = "self" }: { blurb?: string; mode?: "self"
   useEffect(() => {
     let alive = true;
     const ref = config.background ?? null;
-    setKind(ref?.type === "video" ? "video" : "image");
+    setKind(ref?.mediaType === "video" ? "video" : "image");
     void resolveMediaUrl(ref).then((resolved) => {
       if (alive) setUrl(resolved);
     });
