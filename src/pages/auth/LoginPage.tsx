@@ -5,7 +5,7 @@ import { Eye, EyeOff, GraduationCap, Loader2, LogIn, Wrench } from "lucide-react
 
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { signInWithMathgplId } from "@/lib/accounts/accountId.functions";
+import { signInWithMathgplId, sendMathgplIdReminder } from "@/lib/accounts/accountId.functions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ const LoginPage = () => {
   const { user, ready } = useAuth();
 
   const signIn = useServerFn(signInWithMathgplId);
+  const sendIdReminder = useServerFn(sendMathgplIdReminder);
   const [mathgplId, setMathgplId] = useState("");
   const [email, setEmail] = useState("");
 
@@ -40,7 +41,10 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [forgot, setForgot] = useState(false);
+  // Two separate recovery paths: the ID is looked up and emailed, the password
+  // is reset through a link. Neither ever changes the MathGPL ID.
+  const [recover, setRecover] = useState<null | "id" | "password">(null);
+  const forgot = recover !== null;
   const [unverified, setUnverified] = useState(false);
   // Development-only shortcut. Resolved after mount so the server-rendered
   // markup and the first client render always match.
@@ -79,17 +83,25 @@ const LoginPage = () => {
     e.preventDefault();
     setBusy(true);
     try {
-      if (forgot) {
+      if (recover) {
         const parsedEmail = z.string().trim().email("Enter a valid email address").max(255).parse(email);
-        const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail, {
-          redirectTo: `${window.location.origin}/auth/reset-password`,
-        });
-        if (error) throw error;
-        toast({
-          title: "Check your email",
-          description: "We sent your MathGPL ID and a link to create a new password.",
-        });
-        setForgot(false);
+        if (recover === "id") {
+          await sendIdReminder({ data: { email: parsedEmail } });
+          toast({
+            title: "Check your email",
+            description: `If ${parsedEmail} belongs to a MathGPL account, we've sent its MathGPL ID.`,
+          });
+        } else {
+          const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail, {
+            redirectTo: `${window.location.origin}/auth/reset-password`,
+          });
+          if (error) throw error;
+          toast({
+            title: "Check your email",
+            description: "We sent your MathGPL ID and a link to create a new password.",
+          });
+        }
+        setRecover(null);
         return;
       }
 
@@ -106,7 +118,11 @@ const LoginPage = () => {
       const message = (error as Error).message ?? "Could not sign in";
       if (/not confirmed/i.test(message)) setUnverified(true);
       toast({
-        title: forgot ? "Could not send reset link" : "Could not sign in",
+        title: recover === "id"
+          ? "Could not send your MathGPL ID"
+          : recover === "password"
+            ? "Could not send reset link"
+            : "Could not sign in",
         description: message,
         variant: "destructive",
       });
@@ -137,12 +153,14 @@ const LoginPage = () => {
 
 
         <h1 className="mt-5 text-2xl font-semibold text-white">
-          {forgot ? "Recover your account" : "Log in"}
+          {recover === "id" ? "Recover your MathGPL ID" : recover === "password" ? "Reset your password" : "Log in"}
         </h1>
         <p className="mt-2 text-sm text-white/60">
-          {forgot
-            ? "Enter your email address and we'll send you your MathGPL ID with a link to set a new password."
-            : "Sign in with your MathGPL ID — schools, teachers, parents and students."}
+          {recover === "id"
+            ? "Enter your registered email address and we'll email you your MathGPL ID. Your ID never changes."
+            : recover === "password"
+              ? "Enter your registered email address and we'll send a link to set a new password. Your MathGPL ID stays the same."
+              : "Sign in with your MathGPL ID — schools, teachers, parents and students."}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
@@ -162,7 +180,7 @@ const LoginPage = () => {
             </div>
           ) : (
             <div className="space-y-1.5">
-              <Label htmlFor="mathgpl-id" className="text-white/80">MathGPL ID</Label>
+              <Label htmlFor="mathgpl-id" className="text-white/80">User ID (MathGPL ID)</Label>
               <Input
                 id="mathgpl-id"
                 type="text"
@@ -207,19 +225,28 @@ const LoginPage = () => {
           )}
 
           {!forgot && (
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-sm text-white/70">
                 <Checkbox checked={remember} onCheckedChange={(v) => setRemember(Boolean(v))} />
                 Remember me
               </label>
-              <button
-                type="button"
-                onClick={() => setForgot(true)}
-                className="text-sm font-medium text-amber-300 hover:text-amber-200"
-              >
-                Forgot ID or password?
-              </button>
-
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRecover("id")}
+                  className="text-sm font-medium text-amber-300 hover:text-amber-200"
+                >
+                  Forgot MathGPL ID?
+                </button>
+                <span aria-hidden className="text-white/25">|</span>
+                <button
+                  type="button"
+                  onClick={() => setRecover("password")}
+                  className="text-sm font-medium text-amber-300 hover:text-amber-200"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
           )}
 
@@ -266,21 +293,21 @@ const LoginPage = () => {
 
           <Button type="submit" disabled={busy} className="min-h-[48px] w-full bg-amber-400 text-slate-900 hover:bg-amber-300">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
-            {forgot ? "Send reset link" : "Log in"}
+            {recover === "id" ? "Email me my MathGPL ID" : recover === "password" ? "Send reset link" : "Log in"}
           </Button>
         </form>
 
         {!forgot && (
           <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center text-xs text-white/55">
-            Your MathGPL ID was sent to you when your account was created. Lost it? Use
-            “Forgot ID or password?” and we'll email it with a reset link.
+            Your MathGPL ID was emailed to you when your account was created. Lost it? Use
+            “Forgot MathGPL ID?” and we'll email it to your registered address.
           </p>
         )}
 
 
         <p className="mt-6 text-center text-sm text-white/60">
           {forgot ? (
-            <button type="button" onClick={() => setForgot(false)} className="font-medium text-amber-300 hover:text-amber-200">
+            <button type="button" onClick={() => setRecover(null)} className="font-medium text-amber-300 hover:text-amber-200">
               Back to login
             </button>
           ) : (

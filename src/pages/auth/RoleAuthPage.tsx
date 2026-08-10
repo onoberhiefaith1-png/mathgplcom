@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, Link } from "@/lib/router-compat";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { signInWithMathgplId, mathgplIdForUser } from "@/lib/accounts/accountId.functions";
+import { signInWithMathgplId, mathgplIdForUser, sendMathgplIdReminder } from "@/lib/accounts/accountId.functions";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
 
 
@@ -21,7 +21,7 @@ import { isExistingAccountSignup } from "@/lib/auth/existingAccount";
 
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-type Mode = "signin" | "signup" | "forgot";
+type Mode = "signin" | "signup" | "forgot" | "forgot_id";
 
 const RETURN_KEY = "mathgpl:returnTo";
 
@@ -42,6 +42,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   const [searchParams] = useSearchParams();
   const { user, ready } = useAuth();
   const signIn = useServerFn(signInWithMathgplId);
+  const sendIdReminder = useServerFn(sendMathgplIdReminder);
   const lookupId = useServerFn(mathgplIdForUser);
   const [issuedId, setIssuedId] = useState<string | null>(null);
 
@@ -97,6 +98,17 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
     e.preventDefault();
     setBusy(true);
     try {
+      if (mode === "forgot_id") {
+        const email = z.string().trim().email().parse(values.email);
+        await sendIdReminder({ data: { email } });
+        toast({
+          title: "Check your email",
+          description: `If ${email} belongs to a MathGPL account, we've sent its MathGPL ID.`,
+        });
+        setMode("signin");
+        return;
+      }
+
       if (mode === "forgot") {
         const email = z.string().trim().email().parse(values.email);
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -270,7 +282,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
 
           {mode === "signin" ? (
             <div className="space-y-1.5">
-              <Label htmlFor="mathgpl_id">MathGPL ID</Label>
+              <Label htmlFor="mathgpl_id">User ID (MathGPL ID)</Label>
               <Input
                 id="mathgpl_id"
                 required
@@ -291,7 +303,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
           )}
 
 
-          {mode !== "forgot" && (
+          {mode !== "forgot" && mode !== "forgot_id" && (
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -438,7 +450,13 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
           )}
 
           <Button type="submit" className="w-full" disabled={busy}>
-            {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
+            {mode === "signin"
+              ? "Sign in"
+              : mode === "signup"
+                ? "Create account"
+                : mode === "forgot_id"
+                  ? "Email me my MathGPL ID"
+                  : "Send reset link"}
           </Button>
         </form>
 
@@ -459,13 +477,22 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
               {mode === "signup" ? "Already registered? Sign in" : "Need an account? Create one"}
             </button>
           )}
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setMode(mode === "forgot" ? "signin" : "forgot")}
-          >
-            {mode === "forgot" ? "Back to sign in" : "Forgot your password?"}
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setMode(mode === "forgot_id" ? "signin" : "forgot_id")}
+            >
+              {mode === "forgot_id" ? "Back to sign in" : "Forgot your MathGPL ID?"}
+            </button>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setMode(mode === "forgot" ? "signin" : "forgot")}
+            >
+              {mode === "forgot" ? "Back to sign in" : "Forgot your password?"}
+            </button>
+          </div>
         </div>
       </div>
 
