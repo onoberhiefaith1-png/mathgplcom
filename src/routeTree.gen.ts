@@ -113,6 +113,7 @@ import { Route as StudentClassesIndexRouteImport } from './routes/student/classe
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
 import { Route as TeachingHubClassesIndexRouteImport } from './routes/teaching-hub/classes/index'
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
+import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
 import { Route as AssetsCategorySubcategoryIndexRouteImport } from './routes/assets/$category/$subcategory/index'
@@ -747,6 +748,12 @@ const TeachingHubSettingsIndexRoute =
   TeachingHubSettingsIndexRouteImport.update({
     id: '/settings/',
     path: '/settings/',
+    getParentRoute: () => TeachingHubRouteRoute,
+  } as any)
+const TeachingHubStudentsIndexRoute =
+  TeachingHubStudentsIndexRouteImport.update({
+    id: '/students/',
+    path: '/students/',
     getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const YearNIndexRoute = YearNIndexRouteImport.update({
@@ -1486,6 +1493,7 @@ export interface FileRoutesByFullPath {
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
+  '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -1688,6 +1696,7 @@ export interface FileRoutesByTo {
   '/subjects/$subject': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
+  '/teaching-hub/students': typeof TeachingHubStudentsIndexRoute
   '/year/$n': typeof YearNIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -1902,6 +1911,7 @@ export interface FileRoutesById {
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
+  '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -2117,6 +2127,7 @@ export interface FileRouteTypes {
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
+    | '/teaching-hub/students/'
     | '/year/$n/'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -2319,6 +2330,7 @@ export interface FileRouteTypes {
     | '/subjects/$subject'
     | '/teaching-hub/classes'
     | '/teaching-hub/settings'
+    | '/teaching-hub/students'
     | '/year/$n'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -2532,6 +2544,7 @@ export interface FileRouteTypes {
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
+    | '/teaching-hub/students/'
     | '/year/$n/'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -3482,6 +3495,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/teaching-hub/settings/'
       preLoaderRoute: typeof TeachingHubSettingsIndexRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
+    }
+    '/teaching-hub/students/': {
+      id: '/teaching-hub/students/'
+      path: '/students'
+      fullPath: '/teaching-hub/students/'
+      preLoaderRoute: typeof TeachingHubStudentsIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
     '/year/$n/': {
@@ -4534,6 +4554,7 @@ interface TeachingHubRouteRouteChildren {
   TeachingHubIndexRoute: typeof TeachingHubIndexRoute
   TeachingHubClassesIndexRoute: typeof TeachingHubClassesIndexRoute
   TeachingHubSettingsIndexRoute: typeof TeachingHubSettingsIndexRoute
+  TeachingHubStudentsIndexRoute: typeof TeachingHubStudentsIndexRoute
   TeachingHubClassesClassIdIndexRoute: typeof TeachingHubClassesClassIdIndexRoute
   TeachingHubClassesCreateIndexRoute: typeof TeachingHubClassesCreateIndexRoute
   TeachingHubSettingsArchiveIndexRoute: typeof TeachingHubSettingsArchiveIndexRoute
@@ -4557,6 +4578,7 @@ const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
   TeachingHubIndexRoute: TeachingHubIndexRoute,
   TeachingHubClassesIndexRoute: TeachingHubClassesIndexRoute,
   TeachingHubSettingsIndexRoute: TeachingHubSettingsIndexRoute,
+  TeachingHubStudentsIndexRoute: TeachingHubStudentsIndexRoute,
   TeachingHubClassesClassIdIndexRoute: TeachingHubClassesClassIdIndexRoute,
   TeachingHubClassesCreateIndexRoute: TeachingHubClassesCreateIndexRoute,
   TeachingHubSettingsArchiveIndexRoute: TeachingHubSettingsArchiveIndexRoute,
