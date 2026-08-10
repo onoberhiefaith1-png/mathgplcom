@@ -64,6 +64,14 @@
   --color-dash-navy: hsl(var(--dash-navy));
   --color-dash-gold: hsl(var(--dash-gold));
 
+  /* Workspace shell palette */
+  --color-ws-canvas: hsl(var(--ws-canvas));
+  --color-ws-panel: hsl(var(--ws-panel));
+  --color-ws-border: hsl(var(--ws-border));
+  --color-ws-gold: hsl(var(--ws-gold));
+  --color-ws-violet: hsl(var(--ws-violet));
+
+
 
   /* Animations ported from tailwind.config.ts */
   --animate-accordion-down: accordion-down 0.2s ease-out;
