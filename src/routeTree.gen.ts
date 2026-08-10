@@ -51,6 +51,7 @@ import { Route as RequestsIndexRouteImport } from './routes/requests/index'
 import { Route as SchoolIndexRouteImport } from './routes/school/index'
 import { Route as SignupIndexRouteImport } from './routes/signup/index'
 import { Route as SmartboardIndexRouteImport } from './routes/smartboard/index'
+import { Route as StudentIndexRouteImport } from './routes/student/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -429,6 +430,11 @@ const SmartboardIndexRoute = SmartboardIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => SmartboardRouteRoute,
+} as any)
+const StudentIndexRoute = StudentIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => StudentRouteRoute,
 } as any)
 const TeachingHubIndexRoute = TeachingHubIndexRouteImport.update({
   id: '/',
@@ -1418,6 +1424,7 @@ export interface FileRoutesByFullPath {
   '/school/': typeof SchoolIndexRoute
   '/signup/': typeof SignupIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
+  '/student/': typeof StudentIndexRoute
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -1590,7 +1597,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
-  '/student': typeof StudentRouteRouteWithChildren
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -1620,6 +1626,7 @@ export interface FileRoutesByTo {
   '/school': typeof SchoolIndexRoute
   '/signup': typeof SignupIndexRoute
   '/smartboard': typeof SmartboardIndexRoute
+  '/student': typeof StudentIndexRoute
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -1833,6 +1840,7 @@ export interface FileRoutesById {
   '/school/': typeof SchoolIndexRoute
   '/signup/': typeof SignupIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
+  '/student/': typeof StudentIndexRoute
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -2047,6 +2055,7 @@ export interface FileRouteTypes {
     | '/school/'
     | '/signup/'
     | '/smartboard/'
+    | '/student/'
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
@@ -2219,7 +2228,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/class'
-    | '/student'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -2249,6 +2257,7 @@ export interface FileRouteTypes {
     | '/school'
     | '/signup'
     | '/smartboard'
+    | '/student'
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
@@ -2461,6 +2470,7 @@ export interface FileRouteTypes {
     | '/school/'
     | '/signup/'
     | '/smartboard/'
+    | '/student/'
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
@@ -3039,6 +3049,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/smartboard/'
       preLoaderRoute: typeof SmartboardIndexRouteImport
       parentRoute: typeof SmartboardRouteRoute
+    }
+    '/student/': {
+      id: '/student/'
+      path: '/'
+      fullPath: '/student/'
+      preLoaderRoute: typeof StudentIndexRouteImport
+      parentRoute: typeof StudentRouteRoute
     }
     '/teaching-hub/': {
       id: '/teaching-hub/'
@@ -4463,6 +4480,7 @@ const SmartboardRouteRouteWithChildren = SmartboardRouteRoute._addFileChildren(
 )
 
 interface StudentRouteRouteChildren {
+  StudentIndexRoute: typeof StudentIndexRoute
   StudentClassesIndexRoute: typeof StudentClassesIndexRoute
   StudentClassClassIdIndexRoute: typeof StudentClassClassIdIndexRoute
   StudentClassClassIdAdventuresIndexRoute: typeof StudentClassClassIdAdventuresIndexRoute
@@ -4481,6 +4499,7 @@ interface StudentRouteRouteChildren {
 }
 
 const StudentRouteRouteChildren: StudentRouteRouteChildren = {
+  StudentIndexRoute: StudentIndexRoute,
   StudentClassesIndexRoute: StudentClassesIndexRoute,
   StudentClassClassIdIndexRoute: StudentClassClassIdIndexRoute,
   StudentClassClassIdAdventuresIndexRoute:
