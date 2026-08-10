@@ -3229,6 +3229,7 @@ export type Database = {
         Row: {
           accepts_requests: boolean
           active_org_id: string | null
+          avatar_url: string | null
           children_count: number | null
           country: string | null
           created_at: string
@@ -3252,6 +3253,7 @@ export type Database = {
         Insert: {
           accepts_requests?: boolean
           active_org_id?: string | null
+          avatar_url?: string | null
           children_count?: number | null
           country?: string | null
           created_at?: string
@@ -3275,6 +3277,7 @@ export type Database = {
         Update: {
           accepts_requests?: boolean
           active_org_id?: string | null
+          avatar_url?: string | null
           children_count?: number | null
           country?: string | null
           created_at?: string

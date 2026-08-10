@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
+import AvatarUploader from "@/components/accounts/AvatarUploader";
 import ShareCodeCard from "@/components/connections/ShareCodeCard";
 import SchoolCodeCard from "@/components/connections/SchoolCodeCard";
 import GoLiveToggle from "@/components/connections/GoLiveToggle";
@@ -122,6 +123,9 @@ const MyAccountPage = () => {
             No MathGPL ID is attached to this account yet.
           </div>
         )}
+
+        <AvatarUploader />
+
 
 {/* A school hands out one code only: its School Code. Personal Share Codes
             belong to individual people, never to an institution. */}
