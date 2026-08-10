@@ -123,6 +123,9 @@ const MyAccountPage = () => {
           </div>
         )}
 
+        <AvatarUploader />
+
+
 {/* A school hands out one code only: its School Code. Personal Share Codes
             belong to individual people, never to an institution. */}
         {isSchool ? <SchoolCodeCard /> : <ShareCodeCard />}
