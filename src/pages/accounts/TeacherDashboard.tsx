@@ -38,9 +38,10 @@ const TeacherDashboard = () => {
   const { workspaces, activeOrgId, switchTo } = useWorkspace();
   const schedule = useUpcomingSessions();
   const { counts } = useConnectionCounts();
-  const { connections } = useConnections("accepted");
+  const { data: accepted } = useConnections("accepted");
   const schools = workspaces.filter((w) => w.kind === "school" && !w.isOwner);
-  const students = (connections ?? []).filter((c) => c.counterpartRole === "student");
+  const students = (accepted ?? []).filter((c) => c.counterpartRole === "student");
+
 
   const rail = (
     <>
