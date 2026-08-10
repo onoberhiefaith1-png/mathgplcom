@@ -114,6 +114,7 @@ import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$sub
 import { Route as TeachingHubClassesIndexRouteImport } from './routes/teaching-hub/classes/index'
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
 import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
+import { Route as TeachingHubStudentsUserIdRouteImport } from './routes/teaching-hub/students/$userId'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
 import { Route as AssetsCategorySubcategoryIndexRouteImport } from './routes/assets/$category/$subcategory/index'
@@ -754,6 +755,12 @@ const TeachingHubStudentsIndexRoute =
   TeachingHubStudentsIndexRouteImport.update({
     id: '/students/',
     path: '/students/',
+    getParentRoute: () => TeachingHubRouteRoute,
+  } as any)
+const TeachingHubStudentsUserIdRoute =
+  TeachingHubStudentsUserIdRouteImport.update({
+    id: '/students/$userId',
+    path: '/students/$userId',
     getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const YearNIndexRoute = YearNIndexRouteImport.update({
@@ -1437,6 +1444,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/school/students/$userId': typeof SchoolStudentsUserIdRoute
   '/school/teachers/$userId': typeof SchoolTeachersUserIdRoute
+  '/teaching-hub/students/$userId': typeof TeachingHubStudentsUserIdRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
@@ -1640,6 +1648,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/school/students/$userId': typeof SchoolStudentsUserIdRoute
   '/school/teachers/$userId': typeof SchoolTeachersUserIdRoute
+  '/teaching-hub/students/$userId': typeof TeachingHubStudentsUserIdRoute
   '/admin/email': typeof AdminEmailIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
   '/adventure/games': typeof AdventureGamesIndexRoute
@@ -1855,6 +1864,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/school/students/$userId': typeof SchoolStudentsUserIdRoute
   '/school/teachers/$userId': typeof SchoolTeachersUserIdRoute
+  '/teaching-hub/students/$userId': typeof TeachingHubStudentsUserIdRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
@@ -2071,6 +2081,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/school/students/$userId'
     | '/school/teachers/$userId'
+    | '/teaching-hub/students/$userId'
     | '/admin/email/'
     | '/admin/security/'
     | '/adventure/games/'
@@ -2274,6 +2285,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/school/students/$userId'
     | '/school/teachers/$userId'
+    | '/teaching-hub/students/$userId'
     | '/admin/email'
     | '/admin/security'
     | '/adventure/games'
@@ -2488,6 +2500,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/school/students/$userId'
     | '/school/teachers/$userId'
+    | '/teaching-hub/students/$userId'
     | '/admin/email/'
     | '/admin/security/'
     | '/adventure/games/'
@@ -3502,6 +3515,13 @@ declare module '@tanstack/react-router' {
       path: '/students'
       fullPath: '/teaching-hub/students/'
       preLoaderRoute: typeof TeachingHubStudentsIndexRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
+    }
+    '/teaching-hub/students/$userId': {
+      id: '/teaching-hub/students/$userId'
+      path: '/students/$userId'
+      fullPath: '/teaching-hub/students/$userId'
+      preLoaderRoute: typeof TeachingHubStudentsUserIdRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
     '/year/$n/': {
@@ -4552,6 +4572,7 @@ const StudentRouteRouteWithChildren = StudentRouteRoute._addFileChildren(
 
 interface TeachingHubRouteRouteChildren {
   TeachingHubIndexRoute: typeof TeachingHubIndexRoute
+  TeachingHubStudentsUserIdRoute: typeof TeachingHubStudentsUserIdRoute
   TeachingHubClassesIndexRoute: typeof TeachingHubClassesIndexRoute
   TeachingHubSettingsIndexRoute: typeof TeachingHubSettingsIndexRoute
   TeachingHubStudentsIndexRoute: typeof TeachingHubStudentsIndexRoute
@@ -4576,6 +4597,7 @@ interface TeachingHubRouteRouteChildren {
 
 const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
   TeachingHubIndexRoute: TeachingHubIndexRoute,
+  TeachingHubStudentsUserIdRoute: TeachingHubStudentsUserIdRoute,
   TeachingHubClassesIndexRoute: TeachingHubClassesIndexRoute,
   TeachingHubSettingsIndexRoute: TeachingHubSettingsIndexRoute,
   TeachingHubStudentsIndexRoute: TeachingHubStudentsIndexRoute,
