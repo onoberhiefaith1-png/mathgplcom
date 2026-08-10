@@ -82,17 +82,25 @@ const LoginPage = () => {
     e.preventDefault();
     setBusy(true);
     try {
-      if (forgot) {
+      if (recover) {
         const parsedEmail = z.string().trim().email("Enter a valid email address").max(255).parse(email);
-        const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail, {
-          redirectTo: `${window.location.origin}/auth/reset-password`,
-        });
-        if (error) throw error;
-        toast({
-          title: "Check your email",
-          description: "We sent your MathGPL ID and a link to create a new password.",
-        });
-        setForgot(false);
+        if (recover === "id") {
+          await sendIdReminder({ data: { email: parsedEmail } });
+          toast({
+            title: "Check your email",
+            description: `If ${parsedEmail} belongs to a MathGPL account, we've sent its MathGPL ID.`,
+          });
+        } else {
+          const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail, {
+            redirectTo: `${window.location.origin}/auth/reset-password`,
+          });
+          if (error) throw error;
+          toast({
+            title: "Check your email",
+            description: "We sent your MathGPL ID and a link to create a new password.",
+          });
+        }
+        setRecover(null);
         return;
       }
 
