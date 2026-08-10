@@ -40,7 +40,10 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [forgot, setForgot] = useState(false);
+  // Two separate recovery paths: the ID is looked up and emailed, the password
+  // is reset through a link. Neither ever changes the MathGPL ID.
+  const [recover, setRecover] = useState<null | "id" | "password">(null);
+  const forgot = recover !== null;
   const [unverified, setUnverified] = useState(false);
   // Development-only shortcut. Resolved after mount so the server-rendered
   // markup and the first client render always match.
