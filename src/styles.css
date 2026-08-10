@@ -213,7 +213,21 @@
   --gradient-dash-canvas: radial-gradient(1200px 600px at 12% -10%, hsl(var(--dash-navy) / 0.95), transparent 60%),
     linear-gradient(160deg, hsl(224 54% 12%) 0%, hsl(232 46% 16%) 48%, hsl(244 40% 12%) 100%);
   --shadow-dash: 0 18px 44px -22px hsl(224 60% 6% / 0.65), 0 2px 8px -2px hsl(224 60% 6% / 0.35);
+
+  /* Workspace shell: deep night canvas, gold crest, violet magic accents.
+     The shell is intentionally dark in both themes — it is the entrance to the
+     building, not a document surface. */
+  --ws-canvas: 258 44% 7%;
+  --ws-panel: 258 38% 10%;
+  --ws-border: 262 30% 24%;
+  --ws-gold: 41 92% 62%;
+  --ws-violet: 268 78% 68%;
+  --gradient-ws-canvas: radial-gradient(1100px 520px at 8% -12%, hsl(var(--ws-violet) / 0.22), transparent 62%),
+    radial-gradient(900px 460px at 96% 0%, hsl(var(--ws-gold) / 0.12), transparent 60%),
+    linear-gradient(165deg, hsl(258 46% 8%) 0%, hsl(262 40% 10%) 52%, hsl(250 44% 7%) 100%);
+  --shadow-ws: 0 24px 60px -30px hsl(258 60% 3% / 0.85), 0 2px 10px -4px hsl(258 60% 3% / 0.55);
 }
+
 
 
 .dark {
