@@ -5,7 +5,7 @@ import { Eye, EyeOff, GraduationCap, Loader2, LogIn, Wrench } from "lucide-react
 
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { signInWithMathgplId } from "@/lib/accounts/accountId.functions";
+import { signInWithMathgplId, sendMathgplIdReminder } from "@/lib/accounts/accountId.functions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ const LoginPage = () => {
   const { user, ready } = useAuth();
 
   const signIn = useServerFn(signInWithMathgplId);
+  const sendIdReminder = useServerFn(sendMathgplIdReminder);
   const [mathgplId, setMathgplId] = useState("");
   const [email, setEmail] = useState("");
 
@@ -117,7 +118,11 @@ const LoginPage = () => {
       const message = (error as Error).message ?? "Could not sign in";
       if (/not confirmed/i.test(message)) setUnverified(true);
       toast({
-        title: forgot ? "Could not send reset link" : "Could not sign in",
+        title: recover === "id"
+          ? "Could not send your MathGPL ID"
+          : recover === "password"
+            ? "Could not send reset link"
+            : "Could not sign in",
         description: message,
         variant: "destructive",
       });
@@ -148,12 +153,14 @@ const LoginPage = () => {
 
 
         <h1 className="mt-5 text-2xl font-semibold text-white">
-          {forgot ? "Recover your account" : "Log in"}
+          {recover === "id" ? "Recover your MathGPL ID" : recover === "password" ? "Reset your password" : "Log in"}
         </h1>
         <p className="mt-2 text-sm text-white/60">
-          {forgot
-            ? "Enter your email address and we'll send you your MathGPL ID with a link to set a new password."
-            : "Sign in with your MathGPL ID — schools, teachers, parents and students."}
+          {recover === "id"
+            ? "Enter your registered email address and we'll email you your MathGPL ID. Your ID never changes."
+            : recover === "password"
+              ? "Enter your registered email address and we'll send a link to set a new password. Your MathGPL ID stays the same."
+              : "Sign in with your MathGPL ID — schools, teachers, parents and students."}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
@@ -173,7 +180,7 @@ const LoginPage = () => {
             </div>
           ) : (
             <div className="space-y-1.5">
-              <Label htmlFor="mathgpl-id" className="text-white/80">MathGPL ID</Label>
+              <Label htmlFor="mathgpl-id" className="text-white/80">User ID (MathGPL ID)</Label>
               <Input
                 id="mathgpl-id"
                 type="text"
@@ -286,14 +293,14 @@ const LoginPage = () => {
 
           <Button type="submit" disabled={busy} className="min-h-[48px] w-full bg-amber-400 text-slate-900 hover:bg-amber-300">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
-            {forgot ? "Send reset link" : "Log in"}
+            {recover === "id" ? "Email me my MathGPL ID" : recover === "password" ? "Send reset link" : "Log in"}
           </Button>
         </form>
 
         {!forgot && (
           <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center text-xs text-white/55">
-            Your MathGPL ID was sent to you when your account was created. Lost it? Use
-            “Forgot ID or password?” and we'll email it with a reset link.
+            Your MathGPL ID was emailed to you when your account was created. Lost it? Use
+            “Forgot MathGPL ID?” and we'll email it to your registered address.
           </p>
         )}
 
