@@ -55,7 +55,7 @@ const TEACHER: WorkspaceNavGroup[] = [
     title: "My Connections",
     items: [
       { to: "/requests?view=schools", label: "My Schools", icon: Building2 },
-      { to: "/requests?view=students", label: "My Students", icon: Users },
+      { to: "/teaching-hub/students", label: "My Students", icon: Users },
       { to: "/requests?view=parents", label: "Parents", icon: Users },
     ],
   },
