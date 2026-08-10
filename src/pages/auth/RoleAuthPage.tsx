@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, Link } from "@/lib/router-compat";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { signInWithMathgplId, mathgplIdForUser } from "@/lib/accounts/accountId.functions";
+import { signInWithMathgplId, mathgplIdForUser, sendMathgplIdReminder } from "@/lib/accounts/accountId.functions";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
 
 
