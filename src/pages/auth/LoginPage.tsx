@@ -291,7 +291,7 @@ const LoginPage = () => {
 
         <p className="mt-6 text-center text-sm text-white/60">
           {forgot ? (
-            <button type="button" onClick={() => setForgot(false)} className="font-medium text-amber-300 hover:text-amber-200">
+            <button type="button" onClick={() => setRecover(null)} className="font-medium text-amber-300 hover:text-amber-200">
               Back to login
             </button>
           ) : (
