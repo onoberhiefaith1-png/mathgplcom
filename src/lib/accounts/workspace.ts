@@ -70,9 +70,16 @@ export async function setActiveWorkspace(orgId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Human label for a workspace chip. */
+/**
+ * Human label for a workspace chip.
+ *
+ * A person's own environment is their Personal Workspace; a school they are
+ * connected to is the Shared Workspace created by that connection, named after
+ * the school.
+ */
 export const workspaceLabel = (workspace: Workspace): string =>
-  workspace.isOwner ? "Personal" : workspace.name;
+  workspace.isOwner ? "Personal Workspace" : workspace.name;
+
 
 /** Students belonging to a workspace — never mixes school and personal rosters. */
 export async function fetchWorkspaceStudents(orgId: string): Promise<
