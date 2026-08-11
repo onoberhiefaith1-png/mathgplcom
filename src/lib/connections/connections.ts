@@ -291,7 +291,7 @@ export async function requestConnection(
     _relation: relation,
     _message: message?.trim() || undefined,
   });
-  if (error) throw error;
+  if (error) throw new Error(connectionError(error));
   return data as string;
 }
 
@@ -300,13 +300,13 @@ export async function respondToConnection(connectionId: string, accept: boolean)
     _connection_id: connectionId,
     _accept: accept,
   });
-  if (error) throw error;
+  if (error) throw new Error(connectionError(error));
   return data as string;
 }
 
 export async function revokeConnection(connectionId: string): Promise<string> {
   const { data, error } = await supabase.rpc("revoke_connection", { _connection_id: connectionId });
-  if (error) throw error;
+  if (error) throw new Error(connectionError(error));
   return data as string;
 }
 
