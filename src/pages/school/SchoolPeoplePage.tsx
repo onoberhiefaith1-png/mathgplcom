@@ -84,7 +84,7 @@ const SchoolPeoplePage = ({ kind }: { kind: Kind }) => {
       subtitle={copy.subtitle}
       nav={false}
       backTo="/school"
-      backLabel="School Command Centre"
+      backLabel="School Console"
     >
       {!orgId ? (
         <p className="rounded-2xl border border-border bg-card/50 p-6 text-sm text-muted-foreground">

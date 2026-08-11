@@ -17,7 +17,7 @@ import type { LucideIcon } from "lucide-react";
 type Item = { to: string; label: string; blurb: string; icon: LucideIcon };
 
 /**
- * The School Command Centre navigation.
+ * The School Console navigation.
  *
  * Large, clearly labelled controls rather than cramped pills: an administrator
  * should be able to see, in words, what each part of the school does.

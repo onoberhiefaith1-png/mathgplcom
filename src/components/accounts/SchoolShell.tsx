@@ -34,7 +34,7 @@ const SchoolShell = ({
       <Link to={backTo} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
-      <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">School Command Centre</span>
+      <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">School Console</span>
       <WorkspaceSwitcher compact />
     </header>
 
