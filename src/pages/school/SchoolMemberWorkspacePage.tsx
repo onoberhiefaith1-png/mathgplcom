@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, BookOpen, Eye, Flag, Globe2, GraduationCap, Loader2, NotebookPen, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, Building2, Eye, Flag, Globe2, GraduationCap, Loader2, NotebookPen, Users } from "lucide-react";
 
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
