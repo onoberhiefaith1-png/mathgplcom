@@ -118,7 +118,12 @@ export const GoLiveExplainDialog = ({
         </label>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="min-h-[44px] border-slate-300 bg-slate-900 text-white hover:bg-slate-800 hover:text-white"
+          >
+
             Cancel
           </Button>
           <Button onClick={() => void confirm()} disabled={!agreed || saving} className="min-h-[44px]">
