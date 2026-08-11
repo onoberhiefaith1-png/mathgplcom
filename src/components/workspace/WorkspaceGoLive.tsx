@@ -3,7 +3,9 @@ import { Radio } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import GoLiveExplainDialog from "@/components/connections/GoLiveExplainDialog";
-import { useGoLive } from "@/lib/connections/useConnections";
+import { toast } from "@/hooks/use-toast";
+import { goLiveError, useGoLive } from "@/lib/connections/useConnections";
+
 
 /**
  * Go Live, where it belongs: at the foot of the workspace navigation.
@@ -25,20 +27,25 @@ const WorkspaceGoLive = () => {
         : "Discoverable · requests off"
       : "Private · Share Code still works";
 
-  const toggle = () => {
+  const toggle = async () => {
     if (loading || saving) return;
     if (live) {
-      void setLive(false);
+      try {
+        await setLive(false);
+      } catch (error) {
+        toast({ title: "Could not turn Go Live off", description: goLiveError(error), variant: "destructive" });
+      }
       return;
     }
     setExplaining(true);
   };
 
+
   return (
     <div className="rounded-2xl border border-ws-border/70 bg-ws-panel/70 p-3">
       <button
         type="button"
-        onClick={toggle}
+        onClick={() => void toggle()}
         disabled={loading || saving}
         aria-pressed={live}
         aria-label="Go Live in the MathGPL Community"

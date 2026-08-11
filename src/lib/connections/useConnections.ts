@@ -46,12 +46,23 @@ export const useShareCode = () => {
   };
 };
 
+/** Turns a failed Go Live save into a sentence a person can act on. */
+export const goLiveError = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/profile_missing/.test(message))
+    return "Your account profile could not be found. Sign out and sign in again, then try once more.";
+  if (/not_authenticated|JWT|401/.test(message))
+    return "Your session has expired. Sign in again and try once more.";
+  return message || "Something went wrong. Please try again.";
+};
+
 /**
  * Go Live and Accept requests — two independent settings.
  *
  * Live answers "can people find me?". Accept requests answers "can people ask
  * to connect with me?". Either can be on without the other.
  */
+
 export const useGoLive = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();

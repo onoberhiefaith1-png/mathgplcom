@@ -12,7 +12,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { useGoLive } from "@/lib/connections/useConnections";
+import { toast } from "@/hooks/use-toast";
+import { goLiveError, useGoLive } from "@/lib/connections/useConnections";
+
 
 /**
  * One explanation of Go Live, wherever it is offered.
@@ -33,10 +35,23 @@ export const GoLiveExplainDialog = ({
   const [agreed, setAgreed] = useState(false);
 
   const confirm = async () => {
-    await setLive(true);
-    setAgreed(false);
-    onOpenChange(false);
+    try {
+      await setLive(true);
+      setAgreed(false);
+      onOpenChange(false);
+      toast({
+        title: "You are Live",
+        description: "Your public profile can now be found in the MathGPL Community.",
+      });
+    } catch (error) {
+      toast({
+        title: "Could not go Live",
+        description: goLiveError(error),
+        variant: "destructive",
+      });
+    }
   };
+
 
   return (
     <Dialog
@@ -76,7 +91,16 @@ export const GoLiveExplainDialog = ({
             <Switch
               checked={acceptsRequests}
               disabled={saving}
-              onCheckedChange={(value) => void setAcceptsRequests(Boolean(value))}
+              onCheckedChange={(value) => {
+                void setAcceptsRequests(Boolean(value)).catch((error) =>
+                  toast({
+                    title: "Could not save that setting",
+                    description: goLiveError(error),
+                    variant: "destructive",
+                  }),
+                );
+              }}
+
               aria-label="Accept connection requests"
             />
             <span className="text-sm text-slate-700">{acceptsRequests ? "On" : "Off"}</span>
@@ -94,7 +118,12 @@ export const GoLiveExplainDialog = ({
         </label>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="min-h-[44px] border-slate-300 bg-slate-900 text-white hover:bg-slate-800 hover:text-white"
+          >
+
             Cancel
           </Button>
           <Button onClick={() => void confirm()} disabled={!agreed || saving} className="min-h-[44px]">

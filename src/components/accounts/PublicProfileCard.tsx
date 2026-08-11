@@ -61,7 +61,8 @@ const PublicProfileCard = () => {
 
       <div className="mt-4 space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="registered-name">Registered name</Label>
+          <Label htmlFor="registered-name" className="text-slate-800">Registered name</Label>
+
           <Input
             id="registered-name"
             value={displayName}
@@ -75,7 +76,7 @@ const PublicProfileCard = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="username">Username</Label>
+          <Label htmlFor="username" className="text-slate-800">Username</Label>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[200px] flex-1">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
