@@ -86,6 +86,96 @@ const RELATION_LABEL: Record<Relation, string> = {
 export const relationLabel = (relation: Relation) => RELATION_LABEL[relation] ?? "Connection";
 
 /**
+ * The database refuses a request with a short code word. A person needs a
+ * sentence, so every refusal is translated here once.
+ */
+export const connectionError = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/unknown_account/.test(message))
+    return "That account isn't set up for connections yet. Ask them to sign in once, then try again.";
+  if (/account_not_accepting_requests/.test(message))
+    return "This account isn't accepting new connection requests at the moment.";
+  if (/relation_not_valid_for_these_accounts/.test(message))
+    return "These two account types can't be connected directly.";
+  if (/invalid_target/.test(message)) return "That's your own account.";
+  if (/school_workspace_not_found/.test(message))
+    return "That school hasn't finished setting up its workspace yet.";
+  if (/request_not_found|connection_not_found/.test(message))
+    return "That request has already been answered.";
+  if (/not_authenticated|JWT|401/.test(message))
+    return "Your session has expired. Sign in again and try once more.";
+  return message || "Something went wrong. Please try again.";
+};
+
+/**
+ * What the recipient reads in their inbox. A request has a meaning, so the row
+ * says who asked and what they asked for — never a bare relationship name.
+ */
+export const requestSentence = (connection: {
+  relation: Relation;
+  direction: "incoming" | "outgoing";
+  counterpartName: string;
+  counterpartUsername: string | null;
+  counterpartRole: AppRole | null;
+  orgName: string | null;
+}): string => {
+  const who = connection.counterpartUsername
+    ? `@${connection.counterpartUsername}`
+    : connection.counterpartName;
+  const school = connection.orgName ?? connection.counterpartName;
+
+  if (connection.direction === "outgoing") {
+    switch (connection.relation) {
+      case "school_teacher":
+        return connection.counterpartRole === "teacher"
+          ? `You invited ${who} to join ${school}.`
+          : `You asked to work with ${school}.`;
+      case "school_student":
+        return connection.counterpartRole === "student"
+          ? `You invited ${who} to join ${school}.`
+          : `You asked to join ${school}.`;
+      case "teacher_student":
+        return `You asked to connect with ${who} as teacher and student.`;
+      case "parent_child":
+        return `You asked to be linked to ${who} as a parent.`;
+      case "parent_teacher":
+        return `You asked to connect with ${who} as parent and teacher.`;
+      case "parent_school":
+        return `You asked to connect with ${school} as a parent.`;
+      default:
+        return `You requested to connect with ${who}.`;
+    }
+  }
+
+  switch (connection.relation) {
+    case "school_teacher":
+      return connection.counterpartRole === "school"
+        ? `${school} has invited you to join their school workspace.`
+        : `${who} has asked to work with your school.`;
+    case "school_student":
+      return connection.counterpartRole === "school"
+        ? `${school} has invited you to join their school.`
+        : `${who} has asked to join your school.`;
+    case "teacher_student":
+      return connection.counterpartRole === "teacher"
+        ? `${who} has asked to work with you as your teacher.`
+        : `${who} has asked you to be their teacher.`;
+    case "parent_child":
+      return connection.counterpartRole === "parent"
+        ? `${who} has asked to be linked to your account as a parent.`
+        : `${who} has asked you to be linked as their parent.`;
+    case "parent_teacher":
+      return `${who} has requested to connect with you as parent and teacher.`;
+    case "parent_school":
+      return connection.counterpartRole === "school"
+        ? `${school} has requested to connect with you as a parent.`
+        : `${who} has requested to connect with your school as a parent.`;
+    default:
+      return `${who} has requested to connect with you.`;
+  }
+};
+
+/**
  * The wording of the request button. A relationship has a meaning, so the
  * button says what actually happens rather than a single generic phrase.
  */
@@ -201,7 +291,7 @@ export async function requestConnection(
     _relation: relation,
     _message: message?.trim() || undefined,
   });
-  if (error) throw error;
+  if (error) throw new Error(connectionError(error));
   return data as string;
 }
 
@@ -210,13 +300,13 @@ export async function respondToConnection(connectionId: string, accept: boolean)
     _connection_id: connectionId,
     _accept: accept,
   });
-  if (error) throw error;
+  if (error) throw new Error(connectionError(error));
   return data as string;
 }
 
 export async function revokeConnection(connectionId: string): Promise<string> {
   const { data, error } = await supabase.rpc("revoke_connection", { _connection_id: connectionId });
-  if (error) throw error;
+  if (error) throw new Error(connectionError(error));
   return data as string;
 }
 

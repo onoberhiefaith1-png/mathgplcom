@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { ROLE_LABEL, type AppRole } from "@/lib/accounts/roles";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
-import { relationLabel, type Connection, type ConnectionStatus } from "@/lib/connections/connections";
+import {
+  relationLabel,
+  requestSentence,
+  type Connection,
+  type ConnectionStatus,
+} from "@/lib/connections/connections";
 import { useConnectionActions, useConnections } from "@/lib/connections/useConnections";
 
 type TabKey = "incoming" | "outgoing" | "accepted" | "rejected";
@@ -105,6 +110,9 @@ const Row = ({
             </>
           )}
         </p>
+        {(tab === "incoming" || tab === "outgoing") && (
+          <p className="mt-2 text-sm text-slate-800">{requestSentence(connection)}</p>
+        )}
         <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
           {relationLabel(connection.relation)}
           {connection.orgName ? ` · ${connection.orgName}` : ""}
@@ -129,7 +137,7 @@ const Row = ({
               Accept
             </Button>
             <Button variant="outline" onClick={() => void answer(false)} disabled={responding} className="min-h-[44px]">
-              <X className="mr-2 h-4 w-4" /> Reject
+              <X className="mr-2 h-4 w-4" /> Decline
             </Button>
           </>
         )}

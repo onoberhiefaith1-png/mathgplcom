@@ -17,7 +17,12 @@ import { toast } from "@/hooks/use-toast";
 import { ROLE_LABEL } from "@/lib/accounts/roles";
 import { useAccount } from "@/lib/accounts/useAccount";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
-import { relationFor, requestActionLabel, type DiscoveredAccount } from "@/lib/connections/connections";
+import {
+  connectionError,
+  relationFor,
+  requestActionLabel,
+  type DiscoveredAccount,
+} from "@/lib/connections/connections";
 import { useConnectionActions, useDiscover } from "@/lib/connections/useConnections";
 
 type Category = "school" | "teacher" | "student" | "parent";
@@ -44,14 +49,14 @@ const Card = ({ account }: { account: DiscoveredAccount }) => {
     if (!relation) return;
     try {
       await send({ userId: account.userId, relation });
-      toast({ title: "Request sent", description: `${account.displayName} decides whether to accept.` });
+      toast({
+        title: "Request sent",
+        description: `${account.displayName} now has your request in their Requests inbox.`,
+      });
     } catch (error) {
-      const message = (error as Error).message;
       toast({
         title: "Could not send request",
-        description: /not_accepting_requests/.test(message)
-          ? "This account is not accepting new connection requests."
-          : message,
+        description: connectionError(error),
         variant: "destructive",
       });
     }
