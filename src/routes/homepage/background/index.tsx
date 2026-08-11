@@ -18,5 +18,9 @@ export const Route = createFileRoute("/homepage/background/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: HomepageBackgroundPage,
+  component: () => (
+    <BuildingEditGuard>
+      <HomepageBackgroundPage />
+    </BuildingEditGuard>
+  ),
 });
