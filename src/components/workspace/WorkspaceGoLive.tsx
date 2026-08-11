@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Radio } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
-import { Switch } from "@/components/ui/switch";
 import GoLiveExplainDialog from "@/components/connections/GoLiveExplainDialog";
 import { useGoLive } from "@/lib/connections/useConnections";
 
