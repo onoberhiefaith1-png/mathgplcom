@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import BuildingEditGuard from "@/components/homepage/BuildingEditGuard";
 import HomepageBackgroundPage from "@/pages/homepage/HomepageBackgroundPage";
 
 const title = "Change your MathGPL homepage background";
