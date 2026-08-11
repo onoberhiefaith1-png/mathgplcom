@@ -69,7 +69,7 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
           <Switch
             checked={live}
             disabled={loading || saving}
-            onCheckedChange={(value) => onSwitch(Boolean(value))}
+            onCheckedChange={(value) => void onSwitch(Boolean(value))}
             aria-label="Go live in the MathGPL Community"
           />
           <span className="text-sm font-medium text-slate-700">{live ? "Live" : "Off"}</span>
@@ -79,7 +79,7 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
       {/* One unmistakable state, in the two colours people already expect. */}
       <button
         type="button"
-        onClick={() => onSwitch(!live)}
+        onClick={() => void onSwitch(!live)}
         disabled={loading || saving}
         aria-pressed={live}
         className={`mt-4 flex w-full flex-wrap items-center gap-3 rounded-2xl border-2 p-4 text-left transition ${
@@ -125,7 +125,7 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
           <Switch
             checked={acceptsRequests}
             disabled={loading || saving}
-            onCheckedChange={(value) => void setAcceptsRequests(Boolean(value))}
+            onCheckedChange={(value) => void onAcceptRequests(Boolean(value))}
             aria-label="Accept connection requests"
           />
           <span className="text-sm font-medium text-slate-700">{acceptsRequests ? "On" : "Off"}</span>
