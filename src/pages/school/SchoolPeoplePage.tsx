@@ -13,11 +13,12 @@ const COPY: Record<Kind, { title: string; subtitle: string; empty: string; find:
   teachers: {
     title: "Teachers in This School",
     subtitle:
-      "Only teachers actually connected to this school appear here. Open a teacher to observe their own school workspace — the school never creates teacher accounts.",
+      "Only teachers actually connected to this school appear here. Open a teacher to see their connection and their Shared Workspace — never their Personal Workspace. The school never creates teacher accounts.",
     empty: "No teachers connected to this school yet.",
     find: "Find a Teacher",
     idLabel: "Teacher ID",
   },
+
   students: {
     title: "Students in This School",
     subtitle:
