@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@/lib/router-compat";
 import { ArrowLeft, BookOpen, Building2, Eye, Flag, Globe2, GraduationCap, Loader2, NotebookPen, Users } from "lucide-react";
 
+import PersonAvatar from "@/components/accounts/PersonAvatar";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
@@ -82,11 +83,17 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
         ) : (
           <>
             <section className="rounded-2xl border border-border bg-card/60 p-6">
-              <h1 className="text-2xl font-semibold">{person.displayName}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {kind === "teacher" ? "Teacher ID" : "Student ID"}: {person.mathgplId ?? "—"} · school status{" "}
-                {person.status}
-              </p>
+              <div className="flex items-center gap-4">
+                <PersonAvatar name={person.displayName} avatarPath={person.avatarUrl} size={56} />
+                <div className="min-w-0">
+                  <h1 className="truncate text-2xl font-semibold">{person.displayName}</h1>
+                  <p className="truncate text-sm text-muted-foreground">
+                    {person.username ? `@${person.username}` : `${kind === "teacher" ? "Teacher" : "Student"} account`}
+                    {" · school status "}
+                    {person.status}
+                  </p>
+                </div>
+              </div>
               <p className="mt-3 max-w-2xl text-xs text-muted-foreground">
                 {person.displayName} is connected to {active?.name ?? "this school"}. That connection created this
                 Shared Workspace: the school&rsquo;s Building plus{" "}

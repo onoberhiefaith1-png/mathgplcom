@@ -43,7 +43,8 @@ const WorkspaceLayout = ({
   const [navOpen, setNavOpen] = useState(false);
   const [term, setTerm] = useState("");
 
-  const groups = navGroupsFor(role, kind);
+  const shared = Boolean(active && !active.isOwner && active.kind === "school" && role === "teacher");
+  const groups = navGroupsFor(role, kind, { shared });
   const path = location.pathname ?? "";
 
   const search = (event: React.FormEvent) => {
@@ -63,7 +64,7 @@ const WorkspaceLayout = ({
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold tracking-wide text-foreground">MathGPL</span>
           <span className="block truncate text-[10px] uppercase tracking-[0.24em] text-ws-gold/80">
-            {active && !active.isOwner ? active.name : "Personal workspace"}
+            {active && !active.isOwner ? `Shared workspace · ${active.name}` : "Personal workspace"}
           </span>
         </span>
       </Link>
@@ -201,6 +202,13 @@ const WorkspaceLayout = ({
           {viewOnly && (
             <div className="border-b border-ws-gold/30 bg-ws-gold/10 px-4 py-2 text-xs text-ws-gold sm:px-6">
               View only — you are visiting {active?.name ?? "this workspace"}. Nothing here can be edited.
+            </div>
+          )}
+
+          {shared && !viewOnly && (
+            <div className="border-b border-ws-violet/30 bg-ws-violet/10 px-4 py-2 text-xs text-ws-violet sm:px-6">
+              Shared Workspace — {active?.name ?? "this school"} · {displayName || "you"}. Your teaching here belongs to
+              this school; your Personal Workspace stays separate. The Building belongs to the school.
             </div>
           )}
 

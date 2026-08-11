@@ -62,7 +62,13 @@ export async function fetchSchoolStudents(orgId: string): Promise<SchoolPerson[]
 }
 
 export type MemberOverview = {
+  /** Registered first + last name, never an email address. */
   displayName: string;
+  firstName: string | null;
+  lastName: string | null;
+  /** Public identity. */
+  username: string | null;
+  avatarUrl: string | null;
   mathgplId: string | null;
   role: AppRole;
   status: string;
@@ -81,6 +87,10 @@ export async function fetchMemberOverview(orgId: string, userId: string): Promis
   if (!row) return null;
   return {
     displayName: String(row.display_name ?? "Member"),
+    firstName: (row.first_name as string | null) ?? null,
+    lastName: (row.last_name as string | null) ?? null,
+    username: (row.username as string | null) ?? null,
+    avatarUrl: (row.avatar_url as string | null) ?? null,
     mathgplId: (row.mathgpl_id as string | null) ?? null,
     role: (row.role as AppRole) ?? "teacher",
     status: String(row.status ?? "active"),

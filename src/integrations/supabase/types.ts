@@ -4299,14 +4299,18 @@ export type Database = {
         Returns: {
           adventures: number
           assignments: number
+          avatar_url: string
           avg_progress: number
           classes: number
           display_name: string
+          first_name: string
+          last_name: string
           lesson_notes: number
           mathgpl_id: string
           role: Database["public"]["Enums"]["app_role"]
           status: string
           students: number
+          username: string
         }[]
       }
       school_teachers: {

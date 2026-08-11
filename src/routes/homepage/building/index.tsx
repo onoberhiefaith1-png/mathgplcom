@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import BuildingEditGuard from "@/components/homepage/BuildingEditGuard";
 import HomepageBuildingPage from "@/pages/homepage/HomepageBuildingPage";
 
 const title = "Edit the MathGPL building artwork";
@@ -17,5 +18,9 @@ export const Route = createFileRoute("/homepage/building/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: HomepageBuildingPage,
+  component: () => (
+    <BuildingEditGuard>
+      <HomepageBuildingPage />
+    </BuildingEditGuard>
+  ),
 });
