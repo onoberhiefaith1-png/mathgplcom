@@ -109,18 +109,7 @@ const SchoolPeoplePage = ({ kind }: { kind: Kind }) => {
                   className="flex flex-col rounded-2xl border border-border bg-card/60 p-5 shadow-sm"
                 >
                   <div className="flex items-center gap-3">
-                    {person.avatarUrl ? (
-                      <img
-                        src={person.avatarUrl}
-                        alt={`${person.displayName} profile picture`}
-                        className="h-11 w-11 rounded-xl object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                        <Icon className="h-5 w-5" />
-                      </span>
-                    )}
+                    <PersonAvatar name={person.displayName} avatarPath={person.avatarUrl} />
                     <div className="min-w-0">
                       <h2 className="truncate text-base font-semibold">{person.displayName}</h2>
                       <p className="truncate text-xs text-muted-foreground">
@@ -142,7 +131,7 @@ const SchoolPeoplePage = ({ kind }: { kind: Kind }) => {
                     params={{ userId: person.userId }}
                     className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
                   >
-                    {kind === "teachers" ? "Open teacher" : "Open student"}
+                    Open Shared Workspace
                   </Link>
                 </article>
               ))}
