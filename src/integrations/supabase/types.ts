@@ -4032,9 +4032,9 @@ export type Database = {
           activity: number
           connection_status: string
           display_name: string
-          mathgpl_id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          username: string
         }[]
       }
       discover_schools: {
@@ -4043,12 +4043,12 @@ export type Database = {
           accepts_requests: boolean
           activity: number
           connection_status: string
-          mathgpl_id: string
           name: string
           org_id: string
           owner_user_id: string
           students: number
           teachers: number
+          username: string
         }[]
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
@@ -4183,10 +4183,10 @@ export type Database = {
       my_connections: {
         Args: { _status?: string }
         Returns: {
-          counterpart_mathgpl_id: string
           counterpart_name: string
           counterpart_role: Database["public"]["Enums"]["app_role"]
           counterpart_user_id: string
+          counterpart_username: string
           created_at: string
           direction: string
           id: string
@@ -4256,22 +4256,23 @@ export type Database = {
       resolve_account_code: {
         Args: { _code: string }
         Returns: {
+          accepts_requests: boolean
           display_name: string
           matched: string
-          mathgpl_id: string
           org_id: string
           org_name: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          username: string
         }[]
       }
       resolve_share_code: {
         Args: { _code: string }
         Returns: {
           display_name: string
-          mathgpl_id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          username: string
         }[]
       }
       respond_to_connection: {
