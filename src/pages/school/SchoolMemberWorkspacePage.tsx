@@ -54,7 +54,7 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
           <ArrowLeft className="h-4 w-4" /> Back to {kind === "teacher" ? "teachers" : "students"}
         </Link>
         <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-          {kind === "teacher" ? "Teacher School Workspace" : "Student School Workspace"}
+          Shared Workspace · {active?.name ?? "School"}
         </span>
         <WorkspaceSwitcher compact />
       </header>
@@ -62,50 +62,60 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
       <main className="mx-auto w-full max-w-5xl px-6 pb-16">
         <div className="mb-5 flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
           <Eye className="h-3.5 w-3.5" />
-          Viewing {person?.displayName ?? "this member"}&rsquo;s school workspace — view only. Nothing here can be
-          edited, submitted or created.
+          Shared Workspace — {active?.name ?? "this school"} · {person?.displayName ?? "this member"}. This is not their
+          Personal Workspace. Teaching content here is view only; the Building belongs to the school.
         </div>
 
         {!orgId ? (
           <p className="rounded-2xl border border-border bg-card/50 p-6 text-sm text-muted-foreground">
-            Switch to your school workspace to observe its members.
+            Switch to your school to open its Shared Workspaces.
           </p>
         ) : overview.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Opening workspace…
+            <Loader2 className="h-4 w-4 animate-spin" /> Opening shared workspace…
           </p>
         ) : !person ? (
           <p className="rounded-2xl border border-border bg-card/50 p-6 text-sm text-muted-foreground">
-            This person is not a member of your school.
+            This person is not connected to your school.
           </p>
         ) : (
           <>
-            {/* The workspace opens on the school's building, exactly as the
-                member sees it — and it cannot be customised from here. */}
-            <section className="overflow-hidden rounded-2xl border border-border bg-card/40">
-              {/* The scene renders full-viewport by design; this frame crops it
-                  into the page without letting it take over the layout. */}
-              <div className="relative h-[300px] w-full overflow-hidden [&>main]:!absolute [&>main]:!inset-0 [&>main]:!h-full [&>main]:!w-full">
-                <RotatingAdventureScene interactive={false} configMode="school-readonly" />
-              </div>
-              <p className="border-t border-border/60 px-5 py-3 text-xs text-muted-foreground">
-                This school&rsquo;s building and background — what {person.displayName} sees when they enter this school
-                workspace. Building settings stay with the school.
-              </p>
-            </section>
-
-            <section className="mt-4 rounded-2xl border border-border bg-card/60 p-6">
+            <section className="rounded-2xl border border-border bg-card/60 p-6">
               <h1 className="text-2xl font-semibold">{person.displayName}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {kind === "teacher" ? "Teacher ID" : "Student ID"}: {person.mathgplId ?? "—"} · school status{" "}
                 {person.status}
               </p>
               <p className="mt-3 max-w-2xl text-xs text-muted-foreground">
-                This is {person.displayName}&rsquo;s own workspace inside this school — their classes, work and records.
-                It is not a generic dashboard, and it is not the school&rsquo;s own workspace. They own it: only they can
-                create or change anything in it.
+                {person.displayName} is connected to {active?.name ?? "this school"}. That connection created this
+                Shared Workspace: the school&rsquo;s Building plus{" "}
+                {kind === "teacher" ? "their Teaching Hub inside this school" : "their learning inside this school"}.
+                Their Personal Workspace is separate and stays private to them.
               </p>
             </section>
+
+            {/* The shared workspace opens on the school's building, exactly as
+                the member sees it — and only the school may change it. */}
+            <section className="mt-4 overflow-hidden rounded-2xl border border-border bg-card/40">
+              {/* The scene renders full-viewport by design; this frame crops it
+                  into the page without letting it take over the layout. */}
+              <div className="relative h-[300px] w-full overflow-hidden [&>main]:!absolute [&>main]:!inset-0 [&>main]:!h-full [&>main]:!w-full">
+                <RotatingAdventureScene interactive={false} configMode="school-readonly" />
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-5 py-3">
+                <p className="text-xs text-muted-foreground">
+                  The school&rsquo;s Building and background — what {person.displayName} sees inside this Shared
+                  Workspace. The school controls it; the teacher cannot change it.
+                </p>
+                <Link
+                  to="/homepage/building"
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                >
+                  <Building2 className="h-4 w-4" /> Edit Building
+                </Link>
+              </div>
+            </section>
+
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {stats.map(({ label, value, icon: Icon }) => (
