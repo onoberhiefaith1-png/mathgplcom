@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import BuildingEditGuard from "@/components/homepage/BuildingEditGuard";
 import HomepageBuildingPage from "@/pages/homepage/HomepageBuildingPage";
 
 const title = "Edit the MathGPL building artwork";
