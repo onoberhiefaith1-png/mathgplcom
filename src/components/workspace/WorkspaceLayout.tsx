@@ -43,7 +43,8 @@ const WorkspaceLayout = ({
   const [navOpen, setNavOpen] = useState(false);
   const [term, setTerm] = useState("");
 
-  const groups = navGroupsFor(role, kind);
+  const shared = Boolean(active && !active.isOwner && active.kind === "school" && role === "teacher");
+  const groups = navGroupsFor(role, kind, { shared });
   const path = location.pathname ?? "";
 
   const search = (event: React.FormEvent) => {
