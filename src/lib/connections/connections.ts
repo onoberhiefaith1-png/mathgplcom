@@ -17,7 +17,10 @@ export type Relation =
   | "teacher_student"
   | "parent_child"
   | "parent_teacher"
-  | "parent_school";
+  | "parent_school"
+  | "teacher_teacher"
+  | "student_student"
+  | "school_school";
 
 export type ConnectionStatus = "pending" | "accepted" | "rejected" | "revoked";
 
@@ -28,7 +31,8 @@ export type Connection = {
   direction: "incoming" | "outgoing";
   counterpartUserId: string;
   counterpartName: string;
-  counterpartMathgplId: string | null;
+  /** Public username — the private MathGPL ID is never shown for other people. */
+  counterpartUsername: string | null;
   counterpartRole: AppRole | null;
   orgId: string | null;
   orgName: string | null;
@@ -38,7 +42,7 @@ export type Connection = {
 
 export type ResolvedAccount = {
   userId: string;
-  mathgplId: string;
+  username: string;
   role: AppRole;
   displayName: string;
 };
@@ -46,7 +50,7 @@ export type ResolvedAccount = {
 export type DiscoveredAccount = {
   userId: string;
   displayName: string;
-  mathgplId: string | null;
+  username: string | null;
   role: AppRole | null;
   activity: number;
   connectionStatus: ConnectionStatus | null;
@@ -74,6 +78,9 @@ const RELATION_LABEL: Record<Relation, string> = {
   parent_child: "Parent and child",
   parent_teacher: "Parent and teacher",
   parent_school: "Parent and school",
+  teacher_teacher: "Teachers",
+  student_student: "Students",
+  school_school: "Schools",
 };
 
 export const relationLabel = (relation: Relation) => RELATION_LABEL[relation] ?? "Connection";
@@ -107,6 +114,12 @@ export const requestActionLabel = (mine: AppRole | null, theirs: AppRole | null)
 export const relationFor = (mine: AppRole | null, theirs: AppRole | null): Relation | null => {
   const pair = new Set([mine, theirs]);
   const both = (a: AppRole, b: AppRole) => pair.has(a) && pair.has(b) && mine !== theirs;
+  if (mine && mine === theirs) {
+    if (mine === "teacher") return "teacher_teacher";
+    if (mine === "student") return "student_student";
+    if (mine === "school") return "school_school";
+    return null;
+  }
   if (both("school", "teacher")) return "school_teacher";
   if (both("school", "student")) return "school_student";
   if (both("teacher", "student")) return "teacher_student";
@@ -167,12 +180,12 @@ export async function resolveShareCode(code: string): Promise<ResolvedAccount | 
   const { data, error } = await supabase.rpc("resolve_share_code", { _code: cleaned });
   if (error) throw error;
   const row = (Array.isArray(data) ? data[0] : data) as
-    | { user_id: string; mathgpl_id: string; role: string; display_name: string }
+    | { user_id: string; username: string; role: string; display_name: string }
     | undefined;
   if (!row) return null;
   return {
     userId: row.user_id,
-    mathgplId: row.mathgpl_id,
+    username: row.username,
     role: row.role as AppRole,
     displayName: row.display_name,
   };
@@ -214,7 +227,7 @@ type ConnectionRow = {
   direction: string;
   counterpart_user_id: string;
   counterpart_name: string;
-  counterpart_mathgpl_id: string | null;
+  counterpart_username: string | null;
   counterpart_role: string | null;
   org_id: string | null;
   org_name: string | null;
@@ -229,7 +242,7 @@ const toConnection = (row: ConnectionRow): Connection => ({
   direction: row.direction === "outgoing" ? "outgoing" : "incoming",
   counterpartUserId: row.counterpart_user_id,
   counterpartName: row.counterpart_name ?? "MathGPL account",
-  counterpartMathgplId: row.counterpart_mathgpl_id,
+  counterpartUsername: row.counterpart_username,
   counterpartRole: (row.counterpart_role as AppRole | null) ?? null,
   orgId: row.org_id,
   orgName: row.org_name,
@@ -265,7 +278,7 @@ export async function discoverSchools(query: string): Promise<DiscoveredAccount[
     org_id: string;
     owner_user_id: string;
     name: string;
-    mathgpl_id: string | null;
+    username: string | null;
     teachers: number;
     students: number;
     activity: number;
@@ -275,7 +288,7 @@ export async function discoverSchools(query: string): Promise<DiscoveredAccount[
     orgId: row.org_id,
     userId: row.owner_user_id,
     displayName: row.name,
-    mathgplId: row.mathgpl_id,
+    username: row.username,
     role: "school" as AppRole,
     teachers: row.teachers,
     students: row.students,
@@ -295,7 +308,7 @@ export async function discoverAccounts(
   return ((data ?? []) as {
     user_id: string;
     display_name: string;
-    mathgpl_id: string | null;
+    username: string | null;
     role: string | null;
     activity: number;
     connection_status: string | null;
@@ -303,7 +316,7 @@ export async function discoverAccounts(
   }[]).map((row) => ({
     userId: row.user_id,
     displayName: row.display_name,
-    mathgplId: row.mathgpl_id,
+    username: row.username,
     role: (row.role as AppRole | null) ?? null,
     activity: row.activity,
     connectionStatus: (row.connection_status as ConnectionStatus | null) ?? null,
@@ -343,6 +356,8 @@ export type ResolvedCode = ResolvedAccount & {
   orgId: string | null;
   orgName: string | null;
   matched: "school_code" | "mathgpl_id" | "share_code";
+  /** False when the account has switched new connection requests off. */
+  acceptsRequests: boolean;
 };
 
 /**
@@ -359,23 +374,25 @@ export async function resolveAccountCode(code: string): Promise<ResolvedCode | n
   const row = (Array.isArray(data) ? data[0] : data) as
     | {
         user_id: string;
-        mathgpl_id: string | null;
+        username: string | null;
         role: string;
         display_name: string;
         org_id: string | null;
         org_name: string | null;
         matched: string;
+        accepts_requests?: boolean;
       }
     | undefined;
   if (!row) return null;
   return {
     userId: row.user_id,
-    mathgplId: row.mathgpl_id ?? "",
+    username: row.username ?? "mathgpl",
     role: row.role as AppRole,
     displayName: row.display_name,
     orgId: row.org_id,
     orgName: row.org_name,
     matched: (row.matched as ResolvedCode["matched"]) ?? "share_code",
+    acceptsRequests: row.accepts_requests !== false,
   };
 }
 
