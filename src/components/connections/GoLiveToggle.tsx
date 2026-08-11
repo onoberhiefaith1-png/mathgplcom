@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Loader2, Radio } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
+import { toast } from "@/hooks/use-toast";
 import GoLiveExplainDialog from "@/components/connections/GoLiveExplainDialog";
-import { useGoLive } from "@/lib/connections/useConnections";
+import { goLiveError, useGoLive } from "@/lib/connections/useConnections";
+
 
 /**
  * Go Live and Accept requests.
@@ -29,13 +31,26 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
       : { label: "Live · requests off", tone: "text-amber-600", note: "Discoverable, but nobody can ask to connect." };
 
   /** Turning Live ON always explains itself first; turning it off is one click. */
-  const onSwitch = (next: boolean) => {
+  const onSwitch = async (next: boolean) => {
     if (next) {
       setExplaining(true);
       return;
     }
-    void setLive(false);
+    try {
+      await setLive(false);
+    } catch (error) {
+      toast({ title: "Could not turn Go Live off", description: goLiveError(error), variant: "destructive" });
+    }
   };
+
+  const onAcceptRequests = async (next: boolean) => {
+    try {
+      await setAcceptsRequests(next);
+    } catch (error) {
+      toast({ title: "Could not save that setting", description: goLiveError(error), variant: "destructive" });
+    }
+  };
+
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
