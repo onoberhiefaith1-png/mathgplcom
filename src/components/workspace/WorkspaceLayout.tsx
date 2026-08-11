@@ -205,6 +205,13 @@ const WorkspaceLayout = ({
             </div>
           )}
 
+          {shared && !viewOnly && (
+            <div className="border-b border-ws-violet/30 bg-ws-violet/10 px-4 py-2 text-xs text-ws-violet sm:px-6">
+              Shared Workspace — {active?.name ?? "this school"} · {displayName || "you"}. Your teaching here belongs to
+              this school; your Personal Workspace stays separate. The Building belongs to the school.
+            </div>
+          )}
+
           <div className="mx-auto grid w-full max-w-[1500px] grid-cols-1 gap-6 px-4 py-6 sm:px-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
             <main className="min-w-0 space-y-6">{children}</main>
             {rail && <aside className="min-w-0 space-y-4">{rail}</aside>}
