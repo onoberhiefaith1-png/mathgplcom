@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { ROLE_LABEL } from "@/lib/accounts/roles";
 import { useAccount } from "@/lib/accounts/useAccount";
 import {
+  connectionError,
   matchedCodeLabel,
   relationFor,
   relationLabel,
@@ -74,12 +75,12 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
       await send({ userId: found.userId, relation });
       toast({
         title: "Request sent",
-        description: `${found.displayName} decides whether to accept. You'll see it under Requests.`,
+        description: `${found.displayName} now has your request in their Requests inbox. Yours is under Outgoing.`,
       });
       setOpen(false);
       reset();
     } catch (error) {
-      toast({ title: "Could not send request", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Could not send request", description: connectionError(error), variant: "destructive" });
     }
   };
 
