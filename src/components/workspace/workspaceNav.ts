@@ -121,15 +121,46 @@ const PARENT: WorkspaceNavGroup[] = [
 ];
 
 /**
+ * A connected teacher inside a school operates the Shared Workspace: they teach
+ * there, but the Building belongs to the school, so no building editing and no
+ * school administration appears for them.
+ */
+const SHARED_TEACHER: WorkspaceNavGroup[] = [
+  {
+    title: "Shared Workspace",
+    items: [
+      HOME,
+      { to: "/teaching-hub", label: "Teaching Hub", icon: LayoutDashboard },
+      { to: "/lesson-notes", label: "Lesson Notes", icon: BookOpen },
+      { to: "/smartboard", label: "SmartBoard", icon: Sparkles },
+      { to: "/teaching-hub/classes", label: "Classes", icon: Users },
+      { to: "/adventure", label: "Adventure", icon: Compass },
+      { to: "/course-builder", label: "Skill Builder", icon: GraduationCap },
+      { to: "/live", label: "MathGPL Live", icon: Radio },
+    ],
+  },
+  COMMUNITY,
+  {
+    title: "Account",
+    items: [{ to: "/account", label: "Account & Go Live", icon: UserCircle }],
+  },
+];
+
+/**
  * Navigation is grouped by what the person actually does, and it follows the
  * role *and* the workspace: a teacher inside a school never gains school
  * administration, and a school workspace never shows a Teaching Hub.
  */
-export const navGroupsFor = (role: AppRole | null, workspaceKind?: string): WorkspaceNavGroup[] => {
+export const navGroupsFor = (
+  role: AppRole | null,
+  workspaceKind?: string,
+  options?: { shared?: boolean },
+): WorkspaceNavGroup[] => {
   if (role === "student") return STUDENT;
   if (role === "parent") return PARENT;
   if (role === "school" && workspaceKind === "school") return SCHOOL;
   if (role === "school") return [{ title: "School Console", items: [HOME] }, COMMUNITY, ACCOUNT];
+  if (options?.shared) return SHARED_TEACHER;
   return TEACHER;
 
 };
