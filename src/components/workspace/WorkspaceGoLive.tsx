@@ -49,8 +49,18 @@ const WorkspaceGoLive = () => {
           <Radio className={`h-4 w-4 shrink-0 ${live ? "text-ws-gold" : "text-muted-foreground"}`} />
           <span className="truncate text-sm font-medium text-foreground">Go Live</span>
         </span>
-        {/* Presentational: the whole card is the button. */}
-        <Switch checked={live} disabled={loading || saving} tabIndex={-1} className="pointer-events-none shrink-0" />
+        {/* Presentational track: the whole card is the button. */}
+        <span
+          aria-hidden
+          className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${
+            live ? "border-ws-gold bg-ws-gold/80" : "border-ws-border bg-ws-panel"
+          }`}
+        >
+          <span
+            className={`h-5 w-5 rounded-full bg-background shadow transition ${live ? "translate-x-5" : "translate-x-0.5"}`}
+          />
+        </span>
+
       </button>
       <p className="mt-2 text-[11px] leading-snug text-muted-foreground">{state}</p>
       <Link to="/account" className="mt-2 inline-block text-[11px] text-ws-gold hover:underline">
