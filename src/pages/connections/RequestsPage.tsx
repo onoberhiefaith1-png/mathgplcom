@@ -57,11 +57,11 @@ const isView = (value: string | null): value is ViewKey =>
   value !== null && Object.prototype.hasOwnProperty.call(VIEWS, value);
 
 /** Where this account can be looked at inside Community discovery. */
-const discoverHref = (role: AppRole | null, mathgplId: string | null) => {
+const discoverHref = (role: AppRole | null, username: string | null) => {
   const category =
     role === "school" || role === "teacher" || role === "student" || role === "parent" ? role : null;
   if (!category) return null;
-  return `/community/discover?category=${category}${mathgplId ? `&q=${encodeURIComponent(mathgplId)}` : ""}`;
+  return `/community/discover?category=${category}${username ? `&q=${encodeURIComponent(username)}` : ""}`;
 };
 
 const Row = ({
@@ -72,7 +72,7 @@ const Row = ({
   tab: TabKey;
 }) => {
   const { respond, responding, withdraw, withdrawing } = useConnectionActions();
-  const profileHref = discoverHref(connection.counterpartRole, connection.counterpartMathgplId);
+  const profileHref = discoverHref(connection.counterpartRole, connection.counterpartUsername);
 
   const answer = async (accept: boolean) => {
     try {
@@ -98,10 +98,10 @@ const Row = ({
         <p className="truncate font-semibold text-slate-900">{connection.counterpartName}</p>
         <p className="mt-0.5 text-sm text-slate-600">
           {connection.counterpartRole ? ROLE_LABEL[connection.counterpartRole] : "Account"}
-          {connection.counterpartMathgplId && (
+          {connection.counterpartUsername && (
             <>
               {" · "}
-              <span className="font-mono">{connection.counterpartMathgplId}</span>
+              <span className="font-medium text-slate-700">@{connection.counterpartUsername}</span>
             </>
           )}
         </p>

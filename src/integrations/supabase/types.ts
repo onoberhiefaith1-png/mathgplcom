@@ -3249,6 +3249,7 @@ export type Database = {
           time_zone: string | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           accepts_requests?: boolean
@@ -3273,6 +3274,7 @@ export type Database = {
           time_zone?: string | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           accepts_requests?: boolean
@@ -3297,6 +3299,7 @@ export type Database = {
           time_zone?: string | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: [
           {
@@ -4017,6 +4020,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      default_username: { Args: { _name: string }; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -4028,9 +4032,9 @@ export type Database = {
           activity: number
           connection_status: string
           display_name: string
-          mathgpl_id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          username: string
         }[]
       }
       discover_schools: {
@@ -4039,12 +4043,12 @@ export type Database = {
           accepts_requests: boolean
           activity: number
           connection_status: string
-          mathgpl_id: string
           name: string
           org_id: string
           owner_user_id: string
           students: number
           teachers: number
+          username: string
         }[]
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
@@ -4179,10 +4183,10 @@ export type Database = {
       my_connections: {
         Args: { _status?: string }
         Returns: {
-          counterpart_mathgpl_id: string
           counterpart_name: string
           counterpart_role: Database["public"]["Enums"]["app_role"]
           counterpart_user_id: string
+          counterpart_username: string
           created_at: string
           direction: string
           id: string
@@ -4252,22 +4256,23 @@ export type Database = {
       resolve_account_code: {
         Args: { _code: string }
         Returns: {
+          accepts_requests: boolean
           display_name: string
           matched: string
-          mathgpl_id: string
           org_id: string
           org_name: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          username: string
         }[]
       }
       resolve_share_code: {
         Args: { _code: string }
         Returns: {
           display_name: string
-          mathgpl_id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          username: string
         }[]
       }
       respond_to_connection: {
@@ -4325,6 +4330,7 @@ export type Database = {
       set_accepts_requests: { Args: { _accept: boolean }; Returns: boolean }
       set_active_workspace: { Args: { _org_id: string }; Returns: string }
       set_go_live: { Args: { _live: boolean }; Returns: boolean }
+      set_my_username: { Args: { _username: string }; Returns: string }
       set_platform_building_default: {
         Args: { _background: Json }
         Returns: Json
@@ -4334,6 +4340,7 @@ export type Database = {
         Returns: string
       }
       shares_class_with: { Args: { _other: string }; Returns: boolean }
+      username_is_valid: { Args: { _username: string }; Returns: boolean }
       workspace_students: {
         Args: { _org_id: string }
         Returns: {
@@ -4360,6 +4367,9 @@ export type Database = {
         | "parent_child"
         | "parent_teacher"
         | "parent_school"
+        | "teacher_teacher"
+        | "student_student"
+        | "school_school"
       section_kind:
         | "introduction"
         | "explanation"
@@ -4511,6 +4521,9 @@ export const Constants = {
         "parent_child",
         "parent_teacher",
         "parent_school",
+        "teacher_teacher",
+        "student_student",
+        "school_school",
       ],
       section_kind: [
         "introduction",

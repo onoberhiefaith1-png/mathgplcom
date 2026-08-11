@@ -36,8 +36,8 @@ const Card = ({ account }: { account: DiscoveredAccount }) => {
   const { role } = useAccount();
   const { send, sending } = useConnectionActions();
   const relation = relationFor(role, account.role ?? null);
-  // Student and parent cards deliberately carry less: name, account type,
-  // MathGPL ID. Nothing about their school, family or email is public.
+  // Student and parent cards deliberately carry less: name, account type and
+  // public username. Nothing about their school, family or email is public.
   const guarded = account.role === "student" || account.role === "parent";
 
   const connect = async () => {
@@ -62,10 +62,10 @@ const Card = ({ account }: { account: DiscoveredAccount }) => {
       <p className="truncate text-base font-semibold text-slate-900">{account.displayName}</p>
       <p className="mt-0.5 text-sm text-slate-600">
         {account.role ? ROLE_LABEL[account.role] : "Account"}
-        {account.mathgplId && (
+        {account.username && (
           <>
             {" · "}
-            <span className="font-mono">{account.mathgplId}</span>
+            <span className="font-medium text-slate-700">@{account.username}</span>
           </>
         )}
       </p>

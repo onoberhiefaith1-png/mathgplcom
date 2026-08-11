@@ -66,7 +66,7 @@ const TeacherStudentWorkspacePage = ({ userId }: { userId: string }) => {
 
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
         <h2 className="text-lg font-semibold">{student?.counterpartName ?? "Student"}</h2>
-        <p className="mt-1 font-mono text-xs text-muted-foreground">{student?.counterpartMathgplId ?? "—"}</p>
+        <p className="mt-1 font-mono text-xs text-muted-foreground">{student?.counterpartUsername ? `@${student.counterpartUsername}` : "—"}</p>
         <p className="mt-3 max-w-2xl text-xs text-muted-foreground">
           This workspace belongs to the student. You see only the classes you own that they have joined.
         </p>
