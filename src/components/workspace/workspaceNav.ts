@@ -65,19 +65,21 @@ const TEACHER: WorkspaceNavGroup[] = [
 
 const SCHOOL: WorkspaceNavGroup[] = [
   {
-    title: "Administration",
+    title: "School Console",
     items: [
       HOME,
       { to: "/school", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/homepage/building", label: "Building", icon: Building2 },
       { to: "/school/teachers", label: "Teachers", icon: GraduationCap },
       { to: "/school/students", label: "Students", icon: Users },
       { to: "/school?tab=reports", label: "Reports", icon: BarChart3 },
-      { to: "/school?tab=accounts", label: "Accounts", icon: Building2 },
+      { to: "/account", label: "Account", icon: UserCircle },
     ],
   },
   COMMUNITY,
   ACCOUNT,
 ];
+
 
 const STUDENT: WorkspaceNavGroup[] = [
   {
