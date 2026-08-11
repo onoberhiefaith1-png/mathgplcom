@@ -129,6 +129,7 @@ export const navGroupsFor = (role: AppRole | null, workspaceKind?: string): Work
   if (role === "student") return STUDENT;
   if (role === "parent") return PARENT;
   if (role === "school" && workspaceKind === "school") return SCHOOL;
-  if (role === "school") return [{ title: "Administration", items: [HOME] }, COMMUNITY, ACCOUNT];
+  if (role === "school") return [{ title: "School Console", items: [HOME] }, COMMUNITY, ACCOUNT];
   return TEACHER;
+
 };
