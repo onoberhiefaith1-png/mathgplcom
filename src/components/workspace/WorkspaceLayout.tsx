@@ -64,7 +64,7 @@ const WorkspaceLayout = ({
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold tracking-wide text-foreground">MathGPL</span>
           <span className="block truncate text-[10px] uppercase tracking-[0.24em] text-ws-gold/80">
-            {active && !active.isOwner ? active.name : "Personal workspace"}
+            {active && !active.isOwner ? `Shared workspace · ${active.name}` : "Personal workspace"}
           </span>
         </span>
       </Link>
