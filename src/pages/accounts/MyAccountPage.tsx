@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
 import AvatarUploader from "@/components/accounts/AvatarUploader";
+import PublicProfileCard from "@/components/accounts/PublicProfileCard";
 import ShareCodeCard from "@/components/connections/ShareCodeCard";
 import SchoolCodeCard from "@/components/connections/SchoolCodeCard";
 import GoLiveToggle from "@/components/connections/GoLiveToggle";
@@ -125,6 +126,7 @@ const MyAccountPage = () => {
         )}
 
         <AvatarUploader />
+        <PublicProfileCard />
 
 
 {/* A school hands out one code only: its School Code. Personal Share Codes

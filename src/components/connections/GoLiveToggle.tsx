@@ -1,17 +1,8 @@
 import { useState } from "react";
-import { Loader2, Radio, ShieldCheck } from "lucide-react";
+import { Loader2, Radio } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import GoLiveExplainDialog from "@/components/connections/GoLiveExplainDialog";
 import { useGoLive } from "@/lib/connections/useConnections";
 
 /**
@@ -28,7 +19,6 @@ import { useGoLive } from "@/lib/connections/useConnections";
 export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
   const { live, acceptsRequests, loading, setLive, setAcceptsRequests, saving } = useGoLive();
   const [explaining, setExplaining] = useState(false);
-  const [agreed, setAgreed] = useState(false);
 
   const status = !live
     ? acceptsRequests
@@ -41,16 +31,10 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
   /** Turning Live ON always explains itself first; turning it off is one click. */
   const onSwitch = (next: boolean) => {
     if (next) {
-      setAgreed(false);
       setExplaining(true);
       return;
     }
     void setLive(false);
-  };
-
-  const confirm = async () => {
-    await setLive(true);
-    setExplaining(false);
   };
 
   return (
@@ -133,59 +117,8 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
         </div>
       </div>
 
-      <Dialog open={explaining} onOpenChange={setExplaining}>
-        <DialogContent className="max-w-lg bg-white text-slate-900">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-900">
-              <ShieldCheck className="h-5 w-5 text-amber-500" /> Go live with MathGPL
-            </DialogTitle>
-            <DialogDescription className="text-slate-600">When you go live:</DialogDescription>
-          </DialogHeader>
+      <GoLiveExplainDialog open={explaining} onOpenChange={setExplaining} />
 
-          <ul className="space-y-2 text-sm text-slate-700">
-            <li>• Your account becomes discoverable in the MathGPL Community.</li>
-            <li>• Other accounts may find your public profile.</li>
-            <li>• People may send you connection requests while you allow them.</li>
-            <li>• Your private workspace stays private.</li>
-            <li>• Your password and private details are never exposed.</li>
-            <li>• Only the information you make public can be seen by others.</li>
-            <li>• Going live does not let anyone enter your workspace.</li>
-          </ul>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <span className="text-sm font-medium text-slate-800">Accept connection requests</span>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={acceptsRequests}
-                disabled={saving}
-                onCheckedChange={(value) => void setAcceptsRequests(Boolean(value))}
-                aria-label="Accept connection requests"
-              />
-              <span className="text-sm text-slate-700">{acceptsRequests ? "On" : "Off"}</span>
-            </div>
-          </div>
-
-          <label className="flex items-start gap-3 text-sm text-slate-800">
-            <Checkbox
-              checked={agreed}
-              onCheckedChange={(value) => setAgreed(Boolean(value))}
-              aria-label="I understand and agree"
-              className="mt-0.5"
-            />
-            I understand and agree
-          </label>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setExplaining(false)} className="min-h-[44px]">
-              Cancel
-            </Button>
-            <Button onClick={() => void confirm()} disabled={!agreed || saving} className="min-h-[44px]">
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Radio className="mr-2 h-4 w-4" />}
-              Go live
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 };
