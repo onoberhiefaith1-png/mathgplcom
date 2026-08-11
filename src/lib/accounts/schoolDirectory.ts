@@ -52,8 +52,12 @@ export async function fetchSchoolStudents(orgId: string): Promise<SchoolPerson[]
   ).map((r) => ({
     userId: r.user_id,
     displayName: r.display_name ?? "Student",
+    username: null,
+    avatarUrl: null,
+    connectionStatus: null,
     mathgplId: r.mathgpl_student_id,
     status: r.status ?? "active",
+
   }));
 }
 
