@@ -102,7 +102,7 @@ const TeacherDashboard = () => {
                 >
                   <span className="block truncate text-sm">{student.counterpartName}</span>
                   <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                    {student.counterpartMathgplId ?? "—"}
+                    {student.counterpartUsername ? `@${student.counterpartUsername}` : "—"}
                   </span>
                 </Link>
               </li>

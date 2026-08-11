@@ -129,12 +129,15 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="font-semibold text-slate-900">{found.displayName}</p>
               <p className="mt-0.5 text-sm text-slate-600">
-                {ROLE_LABEL[found.role]}
-                {found.mathgplId ? <> · <span className="font-mono">{found.mathgplId}</span></> : null}
+                @{found.username} · {ROLE_LABEL[found.role]}
                 {" "}· matched by {matchedCodeLabel(found.matched)}
               </p>
 
-              {relation ? (
+              {!found.acceptsRequests ? (
+                <p className="mt-2 text-sm text-slate-600">
+                  This account is not accepting new connection requests at the moment.
+                </p>
+              ) : relation ? (
                 <>
                   <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-500">
                     {relationLabel(relation)}

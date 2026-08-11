@@ -31,7 +31,7 @@ const TeacherStudentsPage = () => {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{student.counterpartName}</span>
                     <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                      {student.counterpartMathgplId ?? "—"}
+                      {student.counterpartUsername ? `@${student.counterpartUsername}` : "—"}
                     </span>
                   </span>
                 </Link>
