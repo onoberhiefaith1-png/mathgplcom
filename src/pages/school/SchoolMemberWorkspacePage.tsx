@@ -8,14 +8,15 @@ import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { fetchMemberClasses, fetchMemberOverview } from "@/lib/accounts/schoolDirectory";
 
 /**
- * One member's school workspace, seen by the school administrator.
+ * One member's Shared Workspace, seen by the school administrator.
  *
- * This is observation, not impersonation: the administrator stays signed in as
- * the school, every read is school-scoped in SQL, and no authoring, submitting
- * or building control is rendered at all. The page opens the way the member's
- * own workspace opens — the school's rotating building first, then their work
- * inside this school.
+ * The Shared Workspace is created by the school–member connection: it belongs
+ * to the school relationship, not to the member's Personal Workspace. The
+ * school edits the Building and views everything; the member operates the
+ * teaching. This page is observation, not impersonation: the administrator
+ * stays signed in as the school and every read is school-scoped in SQL.
  */
+
 const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "teacher" | "student" }) => {
   const { active } = useWorkspace();
   const orgId = active?.kind === "school" ? active.orgId : null;
