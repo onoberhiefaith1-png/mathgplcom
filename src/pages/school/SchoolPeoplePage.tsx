@@ -108,28 +108,44 @@ const SchoolPeoplePage = ({ kind }: { kind: Kind }) => {
                   className="flex flex-col rounded-2xl border border-border bg-card/60 p-5 shadow-sm"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                      <Icon className="h-5 w-5" />
-                    </span>
+                    {person.avatarUrl ? (
+                      <img
+                        src={person.avatarUrl}
+                        alt={`${person.displayName} profile picture`}
+                        className="h-11 w-11 rounded-xl object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                    )}
                     <div className="min-w-0">
                       <h2 className="truncate text-base font-semibold">{person.displayName}</h2>
                       <p className="truncate text-xs text-muted-foreground">
-                        {copy.idLabel}: {person.mathgplId ?? "—"}
+                        {person.username ? `@${person.username}` : `${copy.idLabel}: ${person.mathgplId ?? "—"}`}
                       </p>
                     </div>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
                     School status: <span className="font-medium text-foreground">{person.status}</span>
+                    {person.connectionStatus ? (
+                      <>
+                        {" · connection: "}
+                        <span className="font-medium text-foreground">{person.connectionStatus}</span>
+                      </>
+                    ) : null}
                   </p>
                   <Link
                     to={kind === "teachers" ? "/school/teachers/$userId" : "/school/students/$userId"}
                     params={{ userId: person.userId }}
                     className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
                   >
-                    Open Workspace
+                    {kind === "teachers" ? "Open teacher" : "Open student"}
                   </Link>
                 </article>
               ))}
+
             </div>
           )}
           {connectActions}
