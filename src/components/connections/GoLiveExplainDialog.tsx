@@ -91,7 +91,16 @@ export const GoLiveExplainDialog = ({
             <Switch
               checked={acceptsRequests}
               disabled={saving}
-              onCheckedChange={(value) => void setAcceptsRequests(Boolean(value))}
+              onCheckedChange={(value) => {
+                void setAcceptsRequests(Boolean(value)).catch((error) =>
+                  toast({
+                    title: "Could not save that setting",
+                    description: goLiveError(error),
+                    variant: "destructive",
+                  }),
+                );
+              }}
+
               aria-label="Accept connection requests"
             />
             <span className="text-sm text-slate-700">{acceptsRequests ? "On" : "Off"}</span>

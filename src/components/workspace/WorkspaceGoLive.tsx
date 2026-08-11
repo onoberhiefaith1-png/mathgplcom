@@ -45,7 +45,7 @@ const WorkspaceGoLive = () => {
     <div className="rounded-2xl border border-ws-border/70 bg-ws-panel/70 p-3">
       <button
         type="button"
-        onClick={toggle}
+        onClick={() => void toggle()}
         disabled={loading || saving}
         aria-pressed={live}
         aria-label="Go Live in the MathGPL Community"
