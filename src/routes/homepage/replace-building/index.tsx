@@ -18,5 +18,9 @@ export const Route = createFileRoute("/homepage/replace-building/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: HomepageReplaceBuildingPage,
+  component: () => (
+    <BuildingEditGuard>
+      <HomepageReplaceBuildingPage />
+    </BuildingEditGuard>
+  ),
 });
