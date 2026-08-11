@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { GraduationCap, Loader2, Search, Users } from "lucide-react";
 
+import PersonAvatar from "@/components/accounts/PersonAvatar";
 import SchoolShell from "@/components/accounts/SchoolShell";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
