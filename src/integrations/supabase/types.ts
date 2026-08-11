@@ -4312,10 +4312,13 @@ export type Database = {
       school_teachers: {
         Args: { _org_id: string }
         Returns: {
+          avatar_url: string
+          connection_status: string
           display_name: string
           mathgpl_id: string
           status: string
           user_id: string
+          username: string
         }[]
       }
       search_public_teachers: {

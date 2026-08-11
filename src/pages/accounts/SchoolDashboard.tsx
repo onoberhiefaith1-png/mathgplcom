@@ -61,7 +61,7 @@ const SchoolDashboard = () => {
 
   return (
     <WorkspaceLayout
-      title={active?.name ?? "School Command Centre"}
+      title={active?.name ?? "School Console"}
       subtitle="School administration"
       rail={rail}
     >

@@ -11,22 +11,38 @@ import type { AppRole } from "./roles";
 export type SchoolPerson = {
   userId: string;
   displayName: string;
+  /** Public identity. Never an email address. */
+  username: string | null;
+  avatarUrl: string | null;
   mathgplId: string | null;
   status: string;
+  connectionStatus: string | null;
 };
 
 export async function fetchSchoolTeachers(orgId: string): Promise<SchoolPerson[]> {
   const { data, error } = await supabase.rpc("school_teachers", { _org_id: orgId });
   if (error) throw error;
-  return ((data ?? []) as { user_id: string; display_name: string; mathgpl_id: string | null; status: string }[]).map(
-    (r) => ({
-      userId: r.user_id,
-      displayName: r.display_name ?? "Teacher",
-      mathgplId: r.mathgpl_id,
-      status: r.status ?? "active",
-    }),
-  );
+  return (
+    (data ?? []) as {
+      user_id: string;
+      display_name: string;
+      username: string | null;
+      avatar_url: string | null;
+      mathgpl_id: string | null;
+      status: string;
+      connection_status: string | null;
+    }[]
+  ).map((r) => ({
+    userId: r.user_id,
+    displayName: r.display_name ?? "Teacher",
+    username: r.username ?? null,
+    avatarUrl: r.avatar_url ?? null,
+    mathgplId: r.mathgpl_id,
+    status: r.status ?? "active",
+    connectionStatus: r.connection_status ?? "connected",
+  }));
 }
+
 
 export async function fetchSchoolStudents(orgId: string): Promise<SchoolPerson[]> {
   const { data, error } = await supabase.rpc("workspace_students", { _org_id: orgId });
@@ -36,8 +52,12 @@ export async function fetchSchoolStudents(orgId: string): Promise<SchoolPerson[]
   ).map((r) => ({
     userId: r.user_id,
     displayName: r.display_name ?? "Student",
+    username: null,
+    avatarUrl: null,
+    connectionStatus: null,
     mathgplId: r.mathgpl_student_id,
     status: r.status ?? "active",
+
   }));
 }
 

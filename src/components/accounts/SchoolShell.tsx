@@ -5,14 +5,15 @@ import SchoolCommandNav from "@/components/accounts/SchoolCommandNav";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 
 /**
- * Chrome for the School Administrative Workspace — a command centre, not a
- * teaching surface: the rotating building lives at home, the administration
- * lives here, and there is never a Teaching Hub in this navigation.
+ * Chrome for the School Console — an administrative console, not a teaching
+ * surface: the rotating building lives at home, the administration lives here,
+ * and there is never a Teaching Hub in a school account's navigation.
  *
  * Directory pages (Teachers, Students) set `nav={false}`: those pages are
  * about the real people connected to the school, so the people come first and
- * the command cards stay on the dashboard.
+ * the console cards stay on the dashboard.
  */
+
 const SchoolShell = ({
   title,
   subtitle,
@@ -33,7 +34,7 @@ const SchoolShell = ({
       <Link to={backTo} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
-      <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">School Command Centre</span>
+      <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">School Console</span>
       <WorkspaceSwitcher compact />
     </header>
 

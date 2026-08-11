@@ -68,9 +68,10 @@ const WorkspaceSwitcher = ({ compact }: { compact?: boolean }) => {
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate text-foreground">{workspaceLabel(workspace)}</span>
                   <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {workspace.isOwner ? "My MathGPL" : workspace.kind}
+                    {workspace.isOwner ? "My MathGPL" : "Shared workspace"}
                     {workspace.status !== "active" ? " · suspended" : ""}
                   </span>
+
                 </span>
                 {workspace.orgId === activeOrgId && <Check className="h-4 w-4 text-primary" />}
               </button>
