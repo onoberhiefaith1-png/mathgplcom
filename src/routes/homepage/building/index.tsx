@@ -18,5 +18,9 @@ export const Route = createFileRoute("/homepage/building/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: HomepageBuildingPage,
+  component: () => (
+    <BuildingEditGuard>
+      <HomepageBuildingPage />
+    </BuildingEditGuard>
+  ),
 });
