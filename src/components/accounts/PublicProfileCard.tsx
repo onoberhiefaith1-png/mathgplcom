@@ -22,7 +22,7 @@ import { useConnectionCounts, useGoLive } from "@/lib/connections/useConnections
  */
 const PublicProfileCard = () => {
   const { role } = useAccount();
-  const { displayName, avatarUrl } = useProfileSummary();
+  const { displayName } = useProfileSummary();
   const { username, loading, save, saving } = useUsername();
   const { counts } = useConnectionCounts();
   const { live } = useGoLive();
@@ -100,7 +100,7 @@ const PublicProfileCard = () => {
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs uppercase tracking-[0.18em] text-slate-500">How others see you</p>
           <div className="mt-3 flex items-center gap-3">
-            <AccountAvatar url={avatarUrl} name={displayName} size={44} />
+            <AccountAvatar size={44} />
             <div className="min-w-0">
               <p className="truncate text-base font-semibold text-slate-900">@{username ?? "…"}</p>
               <p className="text-sm text-slate-600">{role ? ROLE_LABEL[role] : "Account"}</p>
