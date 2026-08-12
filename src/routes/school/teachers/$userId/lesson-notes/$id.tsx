@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import SharedNoteViewPage from "@/pages/school/shared/SharedNoteViewPage";
 
-export const Route = createFileRoute("/school/teachers/$userId/lesson-notes/$noteId")({
+export const Route = createFileRoute("/school/teachers/$userId/lesson-notes/$id")({
   head: () => ({
     meta: [
       { title: "Lesson note — shared workspace — MathGPL" },

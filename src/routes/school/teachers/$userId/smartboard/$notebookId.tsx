@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import SharedSmartboardMirrorPage from "@/pages/school/shared/SharedSmartboardMirrorPage";
 
-export const Route = createFileRoute("/school/teachers/$userId/smartboard/$classId")({
+export const Route = createFileRoute("/school/teachers/$userId/smartboard/$notebookId")({
   head: () => ({
     meta: [
       { title: "Watch class board — MathGPL" },
