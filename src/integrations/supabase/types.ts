@@ -4537,6 +4537,7 @@ export type Database = {
           included_credits: number | null
           locked_profit_rate: number
           org_id: string | null
+          payment_state: string
           period_end: string | null
           period_start: string
           plan: string
@@ -4565,6 +4566,7 @@ export type Database = {
           included_credits?: number | null
           locked_profit_rate?: number
           org_id?: string | null
+          payment_state?: string
           period_end?: string | null
           period_start?: string
           plan?: string
@@ -4593,6 +4595,7 @@ export type Database = {
           included_credits?: number | null
           locked_profit_rate?: number
           org_id?: string | null
+          payment_state?: string
           period_end?: string | null
           period_start?: string
           plan?: string
@@ -5266,6 +5269,29 @@ export type Database = {
       org_of: { Args: { _user_id: string }; Returns: string }
       owner_can_access_user: { Args: { _user_id: string }; Returns: boolean }
       owns_org: { Args: { _org_id: string }; Returns: boolean }
+      paddle_activate_paid_plan: {
+        Args: {
+          _amount?: number
+          _customer_id?: string
+          _period_end?: string
+          _plan_key: string
+          _provider_sub_id: string
+          _user_id: string
+        }
+        Returns: string
+      }
+      paddle_cancel_at_period_end: {
+        Args: { _period_end?: string; _provider_sub_id: string }
+        Returns: undefined
+      }
+      paddle_schedule_plan_change: {
+        Args: { _plan_key: string; _provider_sub_id: string }
+        Returns: undefined
+      }
+      paddle_set_payment_state: {
+        Args: { _provider_sub_id: string; _state: string }
+        Returns: undefined
+      }
       parent_child_breakdown: {
         Args: { _child_user_id: string }
         Returns: {

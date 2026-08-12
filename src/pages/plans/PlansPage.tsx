@@ -1,18 +1,18 @@
 import { useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import PaymentTestModeBanner from "@/components/PaymentTestModeBanner";
 import { credits, money } from "@/lib/costs/categories";
 import { useAccount } from "@/lib/accounts/useAccount";
-import {
-  fetchMyPlan,
-  fetchPublishedPlans,
-  requestUpgrade,
-  startFreeSubscription,
-} from "@/lib/plans/plans.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { priceKeyForPlan } from "@/lib/paddle";
+import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
+import { fetchMyPlan, fetchPublishedPlans, startFreeSubscription } from "@/lib/plans/plans.functions";
+
 
 type Audience = "teacher" | "school" | "parent";
 
@@ -54,21 +54,36 @@ export default function PlansPage() {
     onSettled: () => setPending(null),
   });
 
-  const upgrade = useMutation({
-    mutationFn: (planKey: string) => requestUpgrade({ data: { planKey } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-plan"] });
-      toast.success("Upgrade noted. Checkout opens as soon as payments are connected.");
-    },
-    onError: (e: Error) => toast.error(e.message),
-    onSettled: () => setPending(null),
-  });
+  const { openCheckout } = usePaddleCheckout();
+
+  /** Paid plans go through checkout; the webhook activates them once paid. */
+  const startCheckout = async (planKey: string) => {
+    setPending(planKey);
+    try {
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
+      if (!user) throw new Error("Please sign in first.");
+      await openCheckout({
+        priceId: priceKeyForPlan(planKey),
+        customerEmail: user.email ?? undefined,
+        customData: { userId: user.id },
+        successUrl: `${window.location.origin}/plans?checkout=success`,
+      });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPending(null);
+    }
+  };
+
 
   const rows = useMemo(() => plans.data?.plans ?? [], [plans.data?.plans]);
 
   return (
-    <main className="cinematic-sky min-h-screen p-6 text-foreground">
-      <div className="mx-auto max-w-6xl">
+    <main className="cinematic-sky min-h-screen text-foreground">
+      <PaymentTestModeBanner />
+      <div className="mx-auto max-w-6xl p-6">
+
         <p className="text-xs uppercase tracking-[0.4em] text-primary">MathGPL</p>
         <h1 className="mt-2 text-3xl font-semibold">Your plan</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
@@ -108,12 +123,27 @@ export default function PlansPage() {
             </div>
             {current.scheduledPlanId ? (
               <p className="mt-3 text-xs text-muted-foreground">
-                Scheduled change: <span className="font-semibold">{current.scheduledPlanId}</span> — it starts once the
-                payment is confirmed.
+                Scheduled change: <span className="font-semibold">{current.scheduledPlanId}</span> — it starts at your
+                next renewal.
+              </p>
+            ) : null}
+            {current.cancelAt ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Cancelled — you keep everything until {new Date(current.cancelAt).toLocaleDateString()}.
+              </p>
+            ) : null}
+            {current.paymentState === "past_due" ? (
+              <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-200">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Your last payment did not go through. Your plan features stay open, but credit spending is paused
+                  until the payment succeeds.
+                </span>
               </p>
             ) : null}
           </div>
         ) : null}
+
 
         {!audience && !isLoading ? (
           <div className="mt-8 rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
@@ -204,11 +234,9 @@ export default function PlansPage() {
                       <Button
                         className="w-full"
                         disabled={pending === plan.key}
-                        onClick={() => {
-                          setPending(plan.key);
-                          upgrade.mutate(plan.key);
-                        }}
+                        onClick={() => void startCheckout(plan.key)}
                       >
+
                         {pending === plan.key ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
