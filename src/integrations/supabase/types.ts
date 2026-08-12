@@ -5106,6 +5106,7 @@ export type Database = {
             Returns: string
           }
       redeem_promo_code: { Args: { _code: string }; Returns: string }
+      redeem_staff_code: { Args: { _code: string }; Returns: string }
       regenerate_my_share_code: { Args: never; Returns: string }
       regenerate_school_code: { Args: { _org_id: string }; Returns: string }
       request_connection: {
