@@ -13,13 +13,21 @@
 export type ViewAsScope = {
   /** The person whose material is being viewed. */
   ownerId: string;
-  /** The school workspace the material belongs to. */
-  orgId: string;
+  /** The workspace the material belongs to; null is the personal workspace. */
+  orgId: string | null;
   /** Display name, used in the lock message. */
   personName: string | null;
   /** Route prefix every in-app navigation is folded back into. */
   basePath: string;
+  /** Who is looking — only changes the wording of the identity strip. */
+  viewer?: "school" | "teacher";
+  /**
+   * When set, only these classes are in the viewer's context. A teacher sees a
+   * student through the classes they teach, never the student's other schools.
+   */
+  classIds?: string[] | null;
 };
+
 
 let current: ViewAsScope | null = null;
 const listeners = new Set<() => void>();
