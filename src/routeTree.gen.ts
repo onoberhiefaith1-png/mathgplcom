@@ -125,6 +125,7 @@ import { Route as StudentJoinIndexRouteImport } from './routes/student/join/inde
 import { Route as StudentSkillBuilderIndexRouteImport } from './routes/student/skill-builder/index'
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
 import { Route as TeachingHubClassesIndexRouteImport } from './routes/teaching-hub/classes/index'
+import { Route as TeachingHubPricingIndexRouteImport } from './routes/teaching-hub/pricing/index'
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
 import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
@@ -853,6 +854,11 @@ const SubjectsSubjectIndexRoute = SubjectsSubjectIndexRouteImport.update({
 const TeachingHubClassesIndexRoute = TeachingHubClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
+  getParentRoute: () => TeachingHubRouteRoute,
+} as any)
+const TeachingHubPricingIndexRoute = TeachingHubPricingIndexRouteImport.update({
+  id: '/pricing/',
+  path: '/pricing/',
   getParentRoute: () => TeachingHubRouteRoute,
 } as any)
 const TeachingHubSettingsIndexRoute =
@@ -1802,6 +1808,7 @@ export interface FileRoutesByFullPath {
   '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
+  '/teaching-hub/pricing/': typeof TeachingHubPricingIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
@@ -2049,6 +2056,7 @@ export interface FileRoutesByTo {
   '/student/skill-builder': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
+  '/teaching-hub/pricing': typeof TeachingHubPricingIndexRoute
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students': typeof TeachingHubStudentsIndexRoute
   '/year/$n': typeof YearNIndexRoute
@@ -2308,6 +2316,7 @@ export interface FileRoutesById {
   '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
+  '/teaching-hub/pricing/': typeof TeachingHubPricingIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
@@ -2568,6 +2577,7 @@ export interface FileRouteTypes {
     | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
+    | '/teaching-hub/pricing/'
     | '/teaching-hub/settings/'
     | '/teaching-hub/students/'
     | '/year/$n/'
@@ -2815,6 +2825,7 @@ export interface FileRouteTypes {
     | '/student/skill-builder'
     | '/subjects/$subject'
     | '/teaching-hub/classes'
+    | '/teaching-hub/pricing'
     | '/teaching-hub/settings'
     | '/teaching-hub/students'
     | '/year/$n'
@@ -3073,6 +3084,7 @@ export interface FileRouteTypes {
     | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
+    | '/teaching-hub/pricing/'
     | '/teaching-hub/settings/'
     | '/teaching-hub/students/'
     | '/year/$n/'
@@ -4145,6 +4157,13 @@ declare module '@tanstack/react-router' {
       path: '/classes'
       fullPath: '/teaching-hub/classes/'
       preLoaderRoute: typeof TeachingHubClassesIndexRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
+    }
+    '/teaching-hub/pricing/': {
+      id: '/teaching-hub/pricing/'
+      path: '/pricing'
+      fullPath: '/teaching-hub/pricing/'
+      preLoaderRoute: typeof TeachingHubPricingIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/settings/': {
@@ -5505,6 +5524,7 @@ const StudentRouteRouteWithChildren = StudentRouteRoute._addFileChildren(
 interface TeachingHubRouteRouteChildren {
   TeachingHubIndexRoute: typeof TeachingHubIndexRoute
   TeachingHubClassesIndexRoute: typeof TeachingHubClassesIndexRoute
+  TeachingHubPricingIndexRoute: typeof TeachingHubPricingIndexRoute
   TeachingHubSettingsIndexRoute: typeof TeachingHubSettingsIndexRoute
   TeachingHubStudentsIndexRoute: typeof TeachingHubStudentsIndexRoute
   TeachingHubClassesClassIdIndexRoute: typeof TeachingHubClassesClassIdIndexRoute
@@ -5536,6 +5556,7 @@ interface TeachingHubRouteRouteChildren {
 const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
   TeachingHubIndexRoute: TeachingHubIndexRoute,
   TeachingHubClassesIndexRoute: TeachingHubClassesIndexRoute,
+  TeachingHubPricingIndexRoute: TeachingHubPricingIndexRoute,
   TeachingHubSettingsIndexRoute: TeachingHubSettingsIndexRoute,
   TeachingHubStudentsIndexRoute: TeachingHubStudentsIndexRoute,
   TeachingHubClassesClassIdIndexRoute: TeachingHubClassesClassIdIndexRoute,
