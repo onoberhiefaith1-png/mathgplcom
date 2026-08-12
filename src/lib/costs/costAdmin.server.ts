@@ -528,22 +528,27 @@ export type CreditInventory = {
   consumed: number;
   remaining: number;
   spend: number;
+  /** What the consumed credits actually cost, at the rate recorded on each event. */
+  consumedCost: number;
   averageUnitCost: number;
 };
 
 /**
  * Credits the platform owns. Purchases are entered by the administrator (they
  * are real invoices); consumption is read from metered usage, never typed.
+ * Money figures come from the rate stored on each record, never from today's
+ * global rate — history is never repriced.
  */
 export async function creditInventory(): Promise<CreditInventory> {
   const db = await admin();
-  const [{ data: purchases }, { data: totals }] = await Promise.all([
+  const [{ data: purchases }, { data: totals }, { data: events }] = await Promise.all([
     db
       .from("credit_purchases")
       .select("id, credits, unit_cost, currency, purchased_at, note")
       .order("purchased_at", { ascending: false })
       .limit(200),
     db.from("cost_unit_totals").select("cost_credits"),
+    db.from("usage_events").select("actual_cost").limit(50_000),
   ]);
 
   const rows: CreditPurchase[] = (purchases ?? []).map((p) => ({
@@ -558,6 +563,7 @@ export async function creditInventory(): Promise<CreditInventory> {
   const purchased = rows.reduce((s, r) => s + r.credits, 0);
   const spend = rows.reduce((s, r) => s + r.credits * r.unitCost, 0);
   const consumed = (totals ?? []).reduce((s, t) => s + Number(t.cost_credits ?? 0), 0);
+  const consumedCost = (events ?? []).reduce((s, e) => s + Number(e.actual_cost ?? 0), 0);
 
   return {
     purchases: rows,
@@ -565,9 +571,65 @@ export async function creditInventory(): Promise<CreditInventory> {
     consumed,
     remaining: purchased - consumed,
     spend,
+    consumedCost,
     averageUnitCost: purchased > 0 ? spend / purchased : 0,
   };
 }
+
+export type LockedRatePeriod = {
+  costPrice: number;
+  profitPercentage: number;
+  sellPrice: number;
+  credits: number;
+  recordedCost: number;
+  firstAt: string;
+  lastAt: string;
+  events: number;
+};
+
+/**
+ * The rate periods that usage was actually recorded under. Each row is grouped
+ * by the cost/profit snapshot stored on the events themselves, so changing the
+ * current economics can never move a figure here.
+ */
+export async function lockedRatePeriods(): Promise<LockedRatePeriod[]> {
+  const db = await admin();
+  const { data } = await db
+    .from("usage_events")
+    .select("occurred_at, cost_credits, actual_cost, credit_price, profit_rate")
+    .order("occurred_at", { ascending: true })
+    .limit(50_000);
+
+  const map = new Map<string, LockedRatePeriod>();
+  for (const e of data ?? []) {
+    const costPrice = Number(e.credit_price ?? 0);
+    const profitPercentage = Number(e.profit_rate ?? 0);
+    const key = `${costPrice}|${profitPercentage}`;
+    const at = e.occurred_at as string;
+    const current =
+      map.get(key) ??
+      ({
+        costPrice,
+        profitPercentage,
+        sellPrice: costPrice * (1 + profitPercentage / 100),
+        credits: 0,
+        recordedCost: 0,
+        firstAt: at,
+        lastAt: at,
+        events: 0,
+      } satisfies LockedRatePeriod);
+
+    current.credits += Number(e.cost_credits ?? 0);
+    current.recordedCost += Number(e.actual_cost ?? 0);
+    current.events += 1;
+    if (at < current.firstAt) current.firstAt = at;
+    if (at > current.lastAt) current.lastAt = at;
+    map.set(key, current);
+  }
+
+  return [...map.values()].sort((a, b) => (a.firstAt < b.firstAt ? 1 : -1));
+}
+
 
 export async function addCreditPurchase(input: {
   credits: number;
