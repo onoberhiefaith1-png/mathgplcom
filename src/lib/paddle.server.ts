@@ -8,10 +8,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 
 export type PaddleEnv = "sandbox" | "live";
 
-const BASE: Record<PaddleEnv, string> = {
-  sandbox: "https://sandbox-api.paddle.com",
-  live: "https://api.paddle.com",
-};
+const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev/paddle";
 
 function apiKey(env: PaddleEnv) {
   const key = env === "live" ? process.env["PADDLE_LIVE_API_KEY"] : process.env["PADDLE_SANDBOX_API_KEY"];
@@ -19,13 +16,18 @@ function apiKey(env: PaddleEnv) {
   return key;
 }
 
-/** Authenticated call against the provider's REST API. */
+/** Authenticated call against the provider's REST API, routed via the gateway. */
 export async function paddleFetch(env: PaddleEnv, path: string, init: RequestInit = {}) {
-  const res = await fetch(`${BASE[env]}${path}`, {
+  const connectionApiKey = apiKey(env);
+  const lovableApiKey = process.env["LOVABLE_API_KEY"];
+  if (!lovableApiKey) throw new Error("Missing LOVABLE_API_KEY");
+
+  const res = await fetch(`${GATEWAY_BASE_URL}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${apiKey(env)}`,
       "Content-Type": "application/json",
+      "X-Connection-Api-Key": connectionApiKey,
+      "Lovable-API-Key": lovableApiKey,
       ...(init.headers ?? {}),
     },
   });
@@ -34,6 +36,7 @@ export async function paddleFetch(env: PaddleEnv, path: string, init: RequestIni
   }
   return res;
 }
+
 
 function webhookSecret(env: PaddleEnv) {
   const secret =
