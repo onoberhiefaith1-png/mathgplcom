@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, CreditCard, Loader2, Sparkles, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,17 @@ import PaymentTestModeBanner from "@/components/PaymentTestModeBanner";
 import { credits, money } from "@/lib/costs/categories";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { supabase } from "@/integrations/supabase/client";
-import { priceKeyForPlan } from "@/lib/paddle";
+import { getPaddleEnvironment, priceKeyForPlan } from "@/lib/paddle";
 import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
-import { fetchMyPlan, fetchPublishedPlans, startFreeSubscription } from "@/lib/plans/plans.functions";
+import {
+  cancelPaidPlanFn,
+  changePaidPlanFn,
+  fetchCreditOptions,
+  fetchMyPlan,
+  fetchPublishedPlans,
+  openBillingPortalFn,
+  startFreeSubscription,
+} from "@/lib/plans/plans.functions";
 
 
 type Audience = "teacher" | "school" | "parent";
@@ -34,6 +42,7 @@ export default function PlansPage() {
   const { role, isLoading } = useAccount();
   const audience = role ? AUDIENCE_FOR_ROLE[role] ?? null : null;
   const [pending, setPending] = useState<string | null>(null);
+  const environment = getPaddleEnvironment();
 
   const plans = useQuery({
     queryKey: ["published-plans", audience],
@@ -43,6 +52,12 @@ export default function PlansPage() {
 
   const mine = useQuery({ queryKey: ["my-plan"], queryFn: () => fetchMyPlan({}) });
   const current = mine.data?.subscription ?? null;
+
+  const creditOptions = useQuery({
+    queryKey: ["credit-options"],
+    queryFn: () => fetchCreditOptions({}),
+    enabled: !!audience,
+  });
 
   const startFree = useMutation({
     mutationFn: (planKey: string) => startFreeSubscription({ data: { planKey } }),
@@ -54,17 +69,51 @@ export default function PlansPage() {
     onSettled: () => setPending(null),
   });
 
+  const changePlan = useMutation({
+    mutationFn: (planKey: string) => changePaidPlanFn({ data: { planKey, environment } }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["my-plan"] });
+      toast.success(
+        result.direction === "downgrade"
+          ? "Your new plan starts at your next renewal — you keep this month's allowance."
+          : "Your plan has been changed and the new credits are on their way.",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setPending(null),
+  });
+
+  const cancelPlan = useMutation({
+    mutationFn: () => cancelPaidPlanFn({ data: { environment } }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["my-plan"] });
+      toast.success(
+        result.cancelAt
+          ? `Cancelled. You keep everything until ${new Date(result.cancelAt).toLocaleDateString()}.`
+          : "Cancelled. You keep everything until the end of your paid period.",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setPending(null),
+  });
+
+  const billingPortal = useMutation({
+    mutationFn: () => openBillingPortalFn({ data: { environment } }),
+    onSuccess: ({ url }) => window.open(url, "_blank", "noopener"),
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setPending(null),
+  });
+
   const { openCheckout } = usePaddleCheckout();
 
-  /** Paid plans go through checkout; the webhook activates them once paid. */
-  const startCheckout = async (planKey: string) => {
-    setPending(planKey);
+  const checkout = async (priceKey: string, tag: string) => {
+    setPending(tag);
     try {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (!user) throw new Error("Please sign in first.");
       await openCheckout({
-        priceId: priceKeyForPlan(planKey),
+        priceId: priceKey,
         customerEmail: user.email ?? undefined,
         customData: { userId: user.id },
         successUrl: `${window.location.origin}/plans?checkout=success`,
@@ -76,8 +125,24 @@ export default function PlansPage() {
     }
   };
 
+  /**
+   * A first paid plan goes through checkout. Someone already paying has their
+   * existing subscription changed instead, so they are never billed twice.
+   */
+  const choosePaidPlan = (planKey: string) => {
+    const paying = !!current && current.price > 0;
+    if (paying) {
+      setPending(planKey);
+      changePlan.mutate(planKey);
+      return;
+    }
+    void checkout(priceKeyForPlan(planKey), planKey);
+  };
 
+  const wallet = creditOptions.data?.wallet;
+  const packs = creditOptions.data?.packs ?? [];
   const rows = useMemo(() => plans.data?.plans ?? [], [plans.data?.plans]);
+
 
   return (
     <main className="cinematic-sky min-h-screen text-foreground">
