@@ -28,7 +28,15 @@ export const credentialsSchema = z.object({
 
 export const emailSchema = z.object({ email: z.string().trim().email().max(255) });
 
-export const userIdSchema = z.object({ userId: z.string().uuid() });
+/**
+ * The account type is only ever one of the four public choices — an
+ * administrator can never be self-assigned from a sign-up form.
+ */
+export const userIdSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["school", "teacher", "parent", "student"]).nullish(),
+});
+
 
 // Best-effort brake on guessing, per worker instance.
 const attempts = new Map<string, { n: number; until: number }>();

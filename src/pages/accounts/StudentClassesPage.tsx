@@ -3,6 +3,8 @@ import { Link, useNavigate } from "@/lib/router-compat";
 import { Loader2, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import JoinClassPanel from "@/components/class/JoinClassPanel";
+import { useViewAs } from "@/lib/accounts/viewAs";
+import { viewOwnerId } from "@/lib/accounts/workspaceScope";
 
 type JoinedClass = { id: string; name: string };
 
@@ -12,6 +14,9 @@ type JoinedClass = { id: string; name: string };
  */
 const StudentClassesPage = () => {
   const navigate = useNavigate();
+  // A school administrator may be viewing this student's own page, so the
+  // classes shown belong to the student being viewed, never to the viewer.
+  const { viewOnly: viewing } = useViewAs();
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState<JoinedClass[]>([]);
 
@@ -24,7 +29,7 @@ const StudentClassesPage = () => {
     const { data: memberships } = await supabase
       .from("class_members")
       .select("class_id, classes:class_id(id, name)")
-      .eq("user_id", userData.user.id);
+      .eq("user_id", viewOwnerId(userData.user.id));
 
     setClasses(
       ((memberships ?? []) as { classes: JoinedClass | null }[])
@@ -55,7 +60,9 @@ const StudentClassesPage = () => {
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {classes.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground sm:col-span-2">
-              You have not joined a class yet. Use the join code from your teacher below.
+              {viewing
+                ? "This student has not joined a class yet."
+                : "You have not joined a class yet. Use the join code from your teacher below."}
             </div>
           ) : (
             classes.map((c) => (
@@ -73,10 +80,12 @@ const StudentClassesPage = () => {
         </section>
 
 
-        <section className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Join a class</h2>
-          <JoinClassPanel />
-        </section>
+        {!viewing && (
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Join a class</h2>
+            <JoinClassPanel />
+          </section>
+        )}
       </main>
     </div>
   );

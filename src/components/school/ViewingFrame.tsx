@@ -11,14 +11,24 @@ import { Link } from "@/lib/router-compat";
 import { ViewAsProvider } from "@/lib/accounts/viewAs";
 import { useSharedMember } from "@/lib/accounts/useSharedMember";
 
-const ViewingFrame = ({ userId, children }: { userId: string; children: ReactNode }) => {
+const ViewingFrame = ({
+  userId,
+  kind = "teacher",
+  children,
+}: {
+  userId: string;
+  /** Whose workspace is being viewed — a teacher's or a student's. */
+  kind?: "teacher" | "student";
+  children: ReactNode;
+}) => {
+  const section = kind === "student" ? "students" : "teachers";
   const { orgId, person, overview } = useSharedMember(userId);
 
   if (!orgId) {
     return (
       <main className="mx-auto max-w-2xl p-8">
         <p className="rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
-          Switch to your school to open its Shared Workspaces.
+          Switch to your school to open its workspaces.
         </p>
       </main>
     );
@@ -32,7 +42,7 @@ const ViewingFrame = ({ userId, children }: { userId: string; children: ReactNod
     );
   }
 
-  const name = person?.displayName ?? "this teacher";
+  const name = person?.displayName ?? (kind === "student" ? "this student" : "this teacher");
 
   return (
     <div className="min-h-screen">
@@ -42,17 +52,17 @@ const ViewingFrame = ({ userId, children }: { userId: string; children: ReactNod
           Viewing <strong className="font-semibold">{name}</strong>&rsquo;s workspace — view only. Only {name} can edit.
         </span>
         <Link
-          to={`/school/teachers/${userId}`}
+          to={`/school/${section}/${userId}`}
           className="rounded-full border border-amber-300/40 px-3 py-1 text-amber-100 hover:bg-amber-400/20"
         >
-          Shared workspace
+          {kind === "student" ? "Student workspace" : "Shared workspace"}
         </Link>
       </div>
       <ViewAsProvider
         ownerId={userId}
         orgId={orgId}
         personName={person?.displayName ?? null}
-        basePath={`/school/teachers/${userId}`}
+        basePath={`/school/${section}/${userId}`}
       >
         {children}
       </ViewAsProvider>

@@ -73,10 +73,11 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
  *
  * An account that somehow has no ID yet (older row, administrator-created,
  * interrupted trigger) is issued one here against the same user record — never
- * a second account.
+ * a second account. The account type chosen at registration decides the ID, so
+ * a student is never given a teacher ID.
  */
 export const mathgplIdForUser = createServerFn({ method: "POST" })
-  .inputValidator((data: { userId: string }) => userIdSchema.parse(data))
+  .inputValidator((data: { userId: string; role?: string | null }) => userIdSchema.parse(data))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
@@ -86,9 +87,13 @@ export const mathgplIdForUser = createServerFn({ method: "POST" })
       .maybeSingle();
     if (row?.mathgpl_id) return { mathgplId: row.mathgpl_id };
 
-    const { data: issued } = await supabaseAdmin.rpc("issue_account_id", { _user_id: data.userId });
+    const { data: issued } = await supabaseAdmin.rpc("issue_account_id", {
+      _user_id: data.userId,
+      ...(data.role ? { _role: data.role } : {}),
+    });
     return { mathgplId: (issued as string | null) ?? null };
   });
+
 
 /**
  * Forgot MathGPL ID.

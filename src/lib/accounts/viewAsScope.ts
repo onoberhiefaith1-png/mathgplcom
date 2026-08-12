@@ -67,6 +67,11 @@ export function mapViewAsPath(pathname: string, base: string): string {
     return base;
   }
   if (first === "adventure") return `${base}/adventure`;
+  // A student's own pages: /student/classes and /student/class/:id.
+  if (first === "student") {
+    if (second === "class" && seg[2]) return `${base}/classes/${seg[2]}`;
+    return base;
+  }
   if (first === "course-builder") return `${base}/skill-builder`;
 
   // Anything else has no read-only mirror — stay on the hub.
