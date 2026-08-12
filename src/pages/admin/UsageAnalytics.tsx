@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@/lib/router-compat";
 import { Loader2, Search, Users } from "lucide-react";
 
-import DashboardShell from "@/components/accounts/DashboardShell";
+import EmbeddableShell from "@/components/admin/EmbeddableShell";
 import PlatformUsageImport from "@/components/admin/PlatformUsageImport";
 import UsageCreditsChart from "@/components/admin/UsageCreditsChart";
 
@@ -50,7 +50,7 @@ const Card = ({ label, value, hint }: { label: string; value: string; hint?: str
 const compact = (n: number) =>
   new Intl.NumberFormat("en-GB", { notation: "compact", maximumFractionDigits: 2 }).format(n ?? 0);
 
-export default function UsageAnalytics() {
+export default function UsageAnalytics({ embedded }: { embedded?: boolean } = {}) {
   const range = useRange();
   const qc = useQueryClient();
   const [mode, setMode] = useState<"all" | "users">("all");
@@ -102,12 +102,12 @@ export default function UsageAnalytics() {
   const selected = accounts.data?.rows.find((a) => a.costUnitId === costUnitId);
 
   return (
-    <DashboardShell
+    <EmbeddableShell embedded={embedded}
       title="Usage Analytics"
       subtitle="Live measurement of Database, Network, Storage, Compute, Realtime and AI usage, metered by MathGPL itself."
       actions={
         <Link
-          to="/admin/cost-revenue"
+          to="/admin/usage-revenue"
           className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface transition hover:bg-dash-surface/20"
         >
           Usage &amp; revenue
@@ -349,6 +349,6 @@ export default function UsageAnalytics() {
         <PlatformUsageImport costUnitId={costUnitId} />
       </div>
 
-    </DashboardShell>
+    </EmbeddableShell>
   );
 }

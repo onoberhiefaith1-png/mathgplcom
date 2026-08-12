@@ -4,7 +4,7 @@ import { Link } from "@/lib/router-compat";
 import { Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import DashboardShell from "@/components/accounts/DashboardShell";
+import EmbeddableShell from "@/components/admin/EmbeddableShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CATEGORY_LABEL, RANGES, credits, money, type CostCategory, type RangeKey } from "@/lib/costs/categories";
@@ -46,7 +46,7 @@ const Card = ({ label, value, hint, tone }: { label: string; value: string; hint
   </div>
 );
 
-export default function CostRevenueAnalysis() {
+export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [rangeKey, setRangeKey] = useState<RangeKey>("30d");
   const [customFrom, setCustomFrom] = useState(isoDay(new Date(Date.now() - 30 * 86_400_000)));
@@ -134,12 +134,12 @@ export default function CostRevenueAnalysis() {
   const selectedAccount = accounts.data?.rows.find((a) => a.costUnitId === costUnitId);
 
   return (
-    <DashboardShell
+    <EmbeddableShell embedded={embedded}
       title="Usage & Revenue Analysis"
       subtitle="Credits are the accounting unit. Every row is a real metered event with the credits consumed, the Percentage Profit locked to it, the credits charged and what was collected — money is only shown as the equivalent."
       actions={
         <Link
-          to="/admin/usage-analytics"
+          to="/admin/usage-revenue"
           className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface transition hover:bg-dash-surface/20"
         >
           Usage analytics
@@ -523,6 +523,6 @@ export default function CostRevenueAnalysis() {
           </div>
         </section>
       </div>
-    </DashboardShell>
+    </EmbeddableShell>
   );
 }

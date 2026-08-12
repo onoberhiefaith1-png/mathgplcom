@@ -1,6 +1,6 @@
 import { Download, FileSpreadsheet } from "lucide-react";
 
-import DashboardShell from "@/components/accounts/DashboardShell";
+import EmbeddableShell from "@/components/admin/EmbeddableShell";
 import { Button } from "@/components/ui/button";
 
 const FILE = "/MathGPL_Master_Cost_and_Expense_Catalogue.xlsx";
@@ -26,9 +26,9 @@ const DRIVERS = [
   ["Infrastructure-based", "Realtime and presence, live sessions, server invocations, database, CDN, email"],
 ];
 
-export default function BillingCosts() {
+export default function BillingCosts({ embedded }: { embedded?: boolean } = {}) {
   return (
-    <DashboardShell title="Billing & Costs" subtitle="Cost audit of the platform as built — the foundation for subscription design">
+    <EmbeddableShell embedded={embedded} title="Billing & Costs" subtitle="Cost audit of the platform as built — the foundation for subscription design">
       <div className="space-y-6">
         <section className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -72,6 +72,6 @@ export default function BillingCosts() {
           </ul>
         </section>
       </div>
-    </DashboardShell>
+    </EmbeddableShell>
   );
 }
