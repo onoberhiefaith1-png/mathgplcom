@@ -54,15 +54,28 @@ export default function PlansPage() {
     onSettled: () => setPending(null),
   });
 
-  const upgrade = useMutation({
-    mutationFn: (planKey: string) => requestUpgrade({ data: { planKey } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-plan"] });
-      toast.success("Upgrade noted. Checkout opens as soon as payments are connected.");
-    },
-    onError: (e: Error) => toast.error(e.message),
-    onSettled: () => setPending(null),
-  });
+  const { openCheckout } = usePaddleCheckout();
+
+  /** Paid plans go through checkout; the webhook activates them once paid. */
+  const startCheckout = async (planKey: string) => {
+    setPending(planKey);
+    try {
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
+      if (!user) throw new Error("Please sign in first.");
+      await openCheckout({
+        priceId: priceKeyForPlan(planKey),
+        customerEmail: user.email ?? undefined,
+        customData: { userId: user.id },
+        successUrl: `${window.location.origin}/plans?checkout=success`,
+      });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPending(null);
+    }
+  };
+
 
   const rows = useMemo(() => plans.data?.plans ?? [], [plans.data?.plans]);
 
