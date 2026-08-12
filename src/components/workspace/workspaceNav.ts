@@ -122,7 +122,6 @@ const PARENT: WorkspaceNavGroup[] = [
       { to: "/family", label: "My Children", icon: Users },
       { to: "/requests?view=schools", label: "School Connections", icon: Building2 },
       { to: "/family/teachers", label: "Teacher Connections", icon: GraduationCap },
-      { to: "/requests", label: "Requests", icon: Inbox },
     ],
   },
   COMMUNITY,

@@ -15,7 +15,6 @@ import ChildProgressCard from "@/components/family/ChildProgressCard";
 import ConnectedList from "@/components/family/ConnectedList";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import ConnectChildDialog from "@/components/family/ConnectChildDialog";
-import { GoLiveToggle } from "@/components/connections/GoLiveToggle";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router-compat";
 import { useProfileSummary } from "@/lib/accounts/useProfileSummary";
@@ -119,9 +118,6 @@ const FamilyDashboard = () => {
         )}
       </RailCard>
 
-      <RailCard title="Go Live">
-        <GoLiveToggle blurb="Going live lets schools and teachers find your parent account in the Community. Your children's work is never exposed." />
-      </RailCard>
     </>
   );
 
