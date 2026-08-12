@@ -22,7 +22,7 @@ const labelOf = (bucket: string, granularity: "hour" | "day") => {
 const creditText = (n: number) =>
   new Intl.NumberFormat("en-GB", { maximumFractionDigits: n < 10 ? 2 : 1 }).format(n ?? 0);
 
-type Row = { bucket: string; label: string; total: number } & Record<string, number | string>;
+type Row = { bucket: string; label: string; total: number; [key: string]: number | string };
 
 /**
  * Slim stacked daily bars in credits, matching the platform usage meter.
