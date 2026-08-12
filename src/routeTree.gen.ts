@@ -46,6 +46,7 @@ import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/inde
 import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
+import { Route as PlansIndexRouteImport } from './routes/plans/index'
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
 import { Route as RequestsIndexRouteImport } from './routes/requests/index'
 import { Route as SchoolIndexRouteImport } from './routes/school/index'
@@ -442,6 +443,11 @@ const LoginIndexRoute = LoginIndexRouteImport.update({
 const MathboardIndexRoute = MathboardIndexRouteImport.update({
   id: '/mathboard/',
   path: '/mathboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlansIndexRoute = PlansIndexRouteImport.update({
+  id: '/plans/',
+  path: '/plans/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
@@ -1680,6 +1686,7 @@ export interface FileRoutesByFullPath {
   '/live/': typeof LiveIndexRoute
   '/login/': typeof LoginIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
   '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
@@ -1920,6 +1927,7 @@ export interface FileRoutesByTo {
   '/live': typeof LiveIndexRoute
   '/login': typeof LoginIndexRoute
   '/mathboard': typeof MathboardIndexRoute
+  '/plans': typeof PlansIndexRoute
   '/privacy': typeof PrivacyIndexRoute
   '/requests': typeof RequestsIndexRoute
   '/school': typeof SchoolIndexRoute
@@ -2172,6 +2180,7 @@ export interface FileRoutesById {
   '/live/': typeof LiveIndexRoute
   '/login/': typeof LoginIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
   '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
@@ -2425,6 +2434,7 @@ export interface FileRouteTypes {
     | '/live/'
     | '/login/'
     | '/mathboard/'
+    | '/plans/'
     | '/privacy/'
     | '/requests/'
     | '/school/'
@@ -2665,6 +2675,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/login'
     | '/mathboard'
+    | '/plans'
     | '/privacy'
     | '/requests'
     | '/school'
@@ -2916,6 +2927,7 @@ export interface FileRouteTypes {
     | '/live/'
     | '/login/'
     | '/mathboard/'
+    | '/plans/'
     | '/privacy/'
     | '/requests/'
     | '/school/'
@@ -3161,6 +3173,7 @@ export interface RootRouteChildren {
   JoinIndexRoute: typeof JoinIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
+  PlansIndexRoute: typeof PlansIndexRoute
   PrivacyIndexRoute: typeof PrivacyIndexRoute
   RequestsIndexRoute: typeof RequestsIndexRoute
   SignupIndexRoute: typeof SignupIndexRoute
@@ -3502,6 +3515,13 @@ declare module '@tanstack/react-router' {
       path: '/mathboard'
       fullPath: '/mathboard/'
       preLoaderRoute: typeof MathboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plans/': {
+      id: '/plans/'
+      path: '/plans'
+      fullPath: '/plans/'
+      preLoaderRoute: typeof PlansIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy/': {
@@ -5475,6 +5495,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinIndexRoute: JoinIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
+  PlansIndexRoute: PlansIndexRoute,
   PrivacyIndexRoute: PrivacyIndexRoute,
   RequestsIndexRoute: RequestsIndexRoute,
   SignupIndexRoute: SignupIndexRoute,
