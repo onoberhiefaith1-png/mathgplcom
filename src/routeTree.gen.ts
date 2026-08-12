@@ -40,6 +40,7 @@ import { Route as BackgroundsIndexRouteImport } from './routes/backgrounds/index
 import { Route as CommunityIndexRouteImport } from './routes/community/index'
 import { Route as CourseBuilderIndexRouteImport } from './routes/course-builder/index'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
+import { Route as GHandleRouteImport } from './routes/g/$handle'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
@@ -419,6 +420,11 @@ const FamilyIndexRoute = FamilyIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => FamilyRouteRoute,
+} as any)
+const GHandleRoute = GHandleRouteImport.update({
+  id: '/g/$handle',
+  path: '/g/$handle',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const HomeIndexRoute = HomeIndexRouteImport.update({
   id: '/home/',
@@ -1702,6 +1708,7 @@ export interface FileRoutesByFullPath {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/g/$handle': typeof GHandleRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -1948,6 +1955,7 @@ export interface FileRoutesByTo {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/g/$handle': typeof GHandleRoute
   '/account': typeof AccountIndexRoute
   '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
@@ -2206,6 +2214,7 @@ export interface FileRoutesById {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/g/$handle': typeof GHandleRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -2465,6 +2474,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/g/$handle'
     | '/account/'
     | '/admin/'
     | '/adventure/'
@@ -2711,6 +2721,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/g/$handle'
     | '/account'
     | '/admin'
     | '/adventure'
@@ -2968,6 +2979,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/g/$handle'
     | '/account/'
     | '/admin/'
     | '/adventure/'
@@ -3226,6 +3238,7 @@ export interface RootRouteChildren {
   AuthStudentRoute: typeof AuthStudentRoute
   AuthTeacherRoute: typeof AuthTeacherRoute
   AuthVerifiedRoute: typeof AuthVerifiedRoute
+  GHandleRoute: typeof GHandleRoute
   AccountIndexRoute: typeof AccountIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
@@ -3538,6 +3551,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/family/'
       preLoaderRoute: typeof FamilyIndexRouteImport
       parentRoute: typeof FamilyRouteRoute
+    }
+    '/g/$handle': {
+      id: '/g/$handle'
+      path: '/g/$handle'
+      fullPath: '/g/$handle'
+      preLoaderRoute: typeof GHandleRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/home/': {
       id: '/home/'
@@ -5590,6 +5610,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthStudentRoute: AuthStudentRoute,
   AuthTeacherRoute: AuthTeacherRoute,
   AuthVerifiedRoute: AuthVerifiedRoute,
+  GHandleRoute: GHandleRoute,
   AccountIndexRoute: AccountIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
