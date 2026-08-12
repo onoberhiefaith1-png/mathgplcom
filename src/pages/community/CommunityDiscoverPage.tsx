@@ -19,8 +19,10 @@ import { useAccount } from "@/lib/accounts/useAccount";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import {
   connectionError,
+  noRelationReason,
   relationFor,
   requestActionLabel,
+
   type DiscoveredAccount,
 } from "@/lib/connections/connections";
 import { useConnectionActions, useDiscover } from "@/lib/connections/useConnections";
