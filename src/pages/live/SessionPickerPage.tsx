@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { LiveSession, formatStartsAt, hydrateSession } from "@/lib/live/sessions";
+import { LiveSession, SESSION_COLUMNS, formatStartsAt, hydrateSession } from "@/lib/live/sessions";
 
 /**
  * Gallery and Reports are session-scoped, so the Live dashboard sends the

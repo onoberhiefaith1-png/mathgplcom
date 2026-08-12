@@ -10,7 +10,7 @@ import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
 import {
   LiveSession, formatCountdownLong, formatStartsAt, hydrateSession, scheduleLabel,
-  scheduleStateOf, scheduleTone, updateSessionBroadcasts,
+  scheduleStateOf, scheduleTone, updateSessionBroadcasts, SESSION_COLUMNS, fetchSessionCode,
 } from "@/lib/live/sessions";
 import { useNowTick } from "@/lib/live/useCountdown";
 import BroadcastEditor from "@/components/live/BroadcastEditor";
@@ -68,7 +68,7 @@ const SessionDashboardPage = () => {
         navigate(redirect, { replace: true });
         return;
       }
-      setSession(row);
+      setSession({ ...row, session_code: await fetchSessionCode(row.id) });
       setBroadcasts(row.broadcasts);
       setLoading(false);
 

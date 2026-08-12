@@ -7,7 +7,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import {
   LiveSession, formatCountdownClock, formatCountdownLong, formatStartsAt, hydrateSession,
-  scheduleLabel, scheduleStateOf, scheduleTone,
+  scheduleLabel, scheduleStateOf, scheduleTone, SESSION_COLUMNS,
 } from "@/lib/live/sessions";
 import { useNowTick } from "@/lib/live/useCountdown";
 import BroadcastPanel from "@/components/live/BroadcastPanel";
