@@ -137,3 +137,36 @@ export async function withUsageMeter<T>(
     void flush(ctx, elapsed).catch(() => {});
   }
 }
+
+/** The user id inside a bearer token. Accounting only — the handler still verifies it. */
+function subjectOf(request: Request): string | null {
+  const header = request.headers.get("Authorization") ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  const part = token.split(".")[1];
+  if (!part) return null;
+  try {
+    const json = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof json?.sub === "string" ? json.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Meters a whole edge function with one line at the top of the file:
+ *   meterFunction("notebook-ai");
+ * It wraps whatever handler the function later hands to Deno.serve, so the
+ * function's own code is untouched and its behaviour is unchanged.
+ */
+export function meterFunction(feature: string) {
+  const serve = Deno.serve.bind(Deno) as (...args: any[]) => any;
+  (Deno as any).serve = (...args: any[]) => {
+    const index = args.findIndex((a) => typeof a === "function");
+    if (index < 0) return serve(...args);
+    const handler = args[index];
+    args[index] = (request: Request, info: unknown) =>
+      withUsageMeter(subjectOf(request), feature, () => handler(request, info));
+    return serve(...args);
+  };
+}
+
