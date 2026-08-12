@@ -2,6 +2,7 @@
 // `course-media/<uid>/…` so storage RLS keeps each teacher inside their own
 // folder. The bucket is private, so display URLs are signed.
 import { supabase } from "@/integrations/supabase/client";
+import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
 
 const BUCKET = "course-media";
 
@@ -13,6 +14,7 @@ export const uploadCourseMedia = async (courseId: string, file: File): Promise<s
   const path = `${uid}/${courseId}/${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
   if (error) throw error;
+  meterClientUsage("storage.gb_month", bytesToGb(file.size), "course-media", "GB");
   return path;
 };
 
