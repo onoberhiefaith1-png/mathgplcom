@@ -206,8 +206,69 @@ export default function PlansPage() {
                 </span>
               </p>
             ) : null}
+            {current.price > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pending === "portal"}
+                  onClick={() => {
+                    setPending("portal");
+                    billingPortal.mutate();
+                  }}
+                >
+                  {pending === "portal" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                  Update payment details
+                </Button>
+                {!current.cancelAt ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending === "cancel"}
+                    onClick={() => {
+                      setPending("cancel");
+                      cancelPlan.mutate();
+                    }}
+                  >
+                    {pending === "cancel" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Cancel plan
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
+
+        {audience && packs.length ? (
+          <div className="mt-6 rounded-2xl border border-border bg-card/60 p-5 backdrop-blur">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              <Wallet className="h-3.5 w-3.5" /> Buy credits
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Top up any time. Credits last a year from the day you buy them
+              {wallet ? <> — you have {credits(wallet.balance)} available right now.</> : "."}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {packs.map((pack) => (
+                <div key={pack.priceKey} className="rounded-xl border border-border bg-background/40 p-4">
+                  <div className="text-lg font-semibold">{credits(pack.credits)}</div>
+                  <div className="text-sm text-muted-foreground">{money(pack.price, pack.currency)}</div>
+                  <Button
+                    className="mt-3 w-full"
+                    size="sm"
+                    variant="secondary"
+                    disabled={pending === pack.priceKey}
+                    onClick={() => void checkout(pack.priceKey, pack.priceKey)}
+                  >
+                    {pending === pack.priceKey ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Buy
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
 
 
         {!audience && !isLoading ? (
