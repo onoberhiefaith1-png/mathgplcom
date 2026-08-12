@@ -29,7 +29,9 @@ import {
   fetchCostOverview,
   fetchCostUnitDetail,
   fetchPriceBook,
+  fetchPricingHistory,
   fetchProfitReport,
+
   reconcileCosts,
   saveProfitPercentage,
   saveResourcePrice,
