@@ -231,7 +231,7 @@ export default function CostRevenueAnalysis() {
               {selectedAccount ? `${selectedAccount.name} — ${selectedAccount.code}. ` : ""}
               The Percentage Profit below was locked when the period started, so a later global change never alters it.
             </p>
-            {(subscription.data?.detail.subscriptions ?? []).length === 0 ? (
+            {(subscription.data?.detail?.subscriptions ?? []).length === 0 ? (
               <p className="mt-3 text-xs text-dash-surface/60">
                 No subscription recorded. Usage is charged at the percentage in force when each event was metered.
               </p>
@@ -250,7 +250,7 @@ export default function CostRevenueAnalysis() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(subscription.data?.detail.subscriptions ?? []).map((s) => (
+                    {(subscription.data?.detail?.subscriptions ?? []).map((s) => (
                       <tr key={s.id} className="border-t border-dash-surface/10">
                         <td className="px-3 py-2 text-dash-surface">{s.plan}</td>
                         <td className="px-3 py-2 capitalize text-dash-surface/75">{s.status}</td>
