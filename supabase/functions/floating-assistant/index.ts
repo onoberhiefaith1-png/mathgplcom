@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("floating-assistant");
 // Floating Numbers AI Assistant — tool-calling chat that drives the
 // Floating Numbers workspace and acts as the teacher's mathematical
 // co-author across the Lesson Note Generator + Floating Number system.
