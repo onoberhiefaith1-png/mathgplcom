@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("floating-reason");
 // Edge function: floating-reason
 // Runs the Reasoning + Verification pipeline server-side. Returns the law
 // trace, proposed chips, and a verification report. The server re-runs the
