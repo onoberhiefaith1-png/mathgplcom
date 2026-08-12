@@ -19,23 +19,28 @@ export type UsagePoint = {
   bucket: string;
   cost: Record<CostCategory, number>;
   quantity: Record<CostCategory, number>;
+  credits: Record<CostCategory, number>;
   total: number;
+  totalCredits: number;
 };
 
 export type UsageAnalytics = {
   currency: string;
   granularity: "hour" | "day";
+  creditRate: number;
   series: UsagePoint[];
   byCategory: {
     category: CostCategory;
     cost: number;
     charge: number;
     quantity: number;
+    credits: number;
     events: number;
   }[];
-  totals: { cost: number; charge: number; paid: number; events: number };
+  totals: { cost: number; charge: number; paid: number; events: number; credits: number };
   aiTotals: { inputTokens: number; outputTokens: number; images: number; audioMinutes: number; cost: number };
 };
+
 
 type EventRow = {
   id: string;
@@ -80,43 +85,92 @@ async function readEvents(from: string, to: string, costUnitId?: string, categor
 const bucketOf = (iso: string, granularity: "hour" | "day") =>
   granularity === "hour" ? `${iso.slice(0, 13)}:00` : iso.slice(0, 10);
 
+/** Every bucket in the window, so a quiet day still holds its place on the axis. */
+function allBuckets(from: string, to: string, granularity: "hour" | "day") {
+  const step = granularity === "hour" ? 3_600_000 : 86_400_000;
+  const start = new Date(from).getTime();
+  const end = new Date(to).getTime();
+  const out: string[] = [];
+  for (let t = start; t <= end && out.length < 400; t += step) {
+    out.push(bucketOf(new Date(t).toISOString(), granularity));
+  }
+  const last = bucketOf(new Date(end).toISOString(), granularity);
+  if (out[out.length - 1] !== last) out.push(last);
+  return [...new Set(out)];
+}
+
+/** Price of one platform credit, from the versioned price book. */
+async function creditRateOf() {
+  const db = await admin();
+  const { data } = await db
+    .from("resource_prices")
+    .select("unit_price")
+    .like("metric", "%.credits")
+    .not("unit_price", "is", null)
+    .order("effective_from", { ascending: false })
+    .limit(1);
+  const rate = Number(data?.[0]?.unit_price ?? 0);
+  return rate > 0 ? rate : 0.3;
+}
+
 export async function usageAnalytics(from: string, to: string, costUnitId?: string): Promise<UsageAnalytics> {
   const db = await admin();
-  const [{ data: settings }, events] = await Promise.all([
+  const [{ data: settings }, events, creditRate] = await Promise.all([
     db.from("platform_cost_settings").select("currency").eq("id", 1).maybeSingle(),
     readEvents(from, to, costUnitId),
+    creditRateOf(),
   ]);
 
   const spanHours = (new Date(to).getTime() - new Date(from).getTime()) / 3_600_000;
   const granularity: "hour" | "day" = spanHours <= 48 ? "hour" : "day";
 
-  const byBucket = new Map<string, UsagePoint>();
-  const byCategory = new Map<CostCategory, { cost: number; charge: number; quantity: number; events: number }>();
+  const emptyPoint = (bucket: string): UsagePoint => ({
+    bucket,
+    cost: zero(),
+    quantity: zero(),
+    credits: zero(),
+    total: 0,
+    totalCredits: 0,
+  });
+
+  const byBucket = new Map<string, UsagePoint>(allBuckets(from, to, granularity).map((b) => [b, emptyPoint(b)]));
+  const byCategory = new Map<
+    CostCategory,
+    { cost: number; charge: number; quantity: number; credits: number; events: number }
+  >();
   const ai = { inputTokens: 0, outputTokens: 0, images: 0, audioMinutes: 0, cost: 0 };
   let cost = 0;
   let charge = 0;
   let paid = 0;
+  let credits = 0;
 
   for (const e of events) {
     const category = e.category as CostCategory;
     const c = Number(e.actual_cost ?? 0);
+    // Credit-metered platform usage carries credits directly; priced metrics are
+    // converted at the credit rate so the whole chart reads in one unit.
+    const eventCredits = e.metric?.endsWith(".credits") ? Number(e.quantity ?? 0) : c / creditRate;
     const bucket = bucketOf(e.occurred_at, granularity);
-    const point = byBucket.get(bucket) ?? { bucket, cost: zero(), quantity: zero(), total: 0 };
+    const point = byBucket.get(bucket) ?? emptyPoint(bucket);
     point.cost[category] += c;
     point.quantity[category] += Number(e.quantity ?? 0);
+    point.credits[category] += eventCredits;
     point.total += c;
+    point.totalCredits += eventCredits;
     byBucket.set(bucket, point);
 
-    const agg = byCategory.get(category) ?? { cost: 0, charge: 0, quantity: 0, events: 0 };
+    const agg = byCategory.get(category) ?? { cost: 0, charge: 0, quantity: 0, credits: 0, events: 0 };
     agg.cost += c;
     agg.charge += Number(e.customer_charge ?? 0);
     agg.quantity += Number(e.quantity ?? 0);
+    agg.credits += eventCredits;
     agg.events += 1;
     byCategory.set(category, agg);
 
     cost += c;
     charge += Number(e.customer_charge ?? 0);
     paid += Number(e.amount_paid ?? 0);
+    credits += eventCredits;
 
     if (category === "ai") {
       ai.cost += c;
@@ -131,18 +185,21 @@ export async function usageAnalytics(from: string, to: string, costUnitId?: stri
   return {
     currency: settings?.currency ?? "GBP",
     granularity,
+    creditRate,
     series: [...byBucket.values()].sort((a, b) => a.bucket.localeCompare(b.bucket)),
     byCategory: COST_CATEGORIES.map((category) => ({
       category,
       cost: byCategory.get(category)?.cost ?? 0,
       charge: byCategory.get(category)?.charge ?? 0,
       quantity: byCategory.get(category)?.quantity ?? 0,
+      credits: byCategory.get(category)?.credits ?? 0,
       events: byCategory.get(category)?.events ?? 0,
     })),
-    totals: { cost, charge, paid, events: events.length },
+    totals: { cost, charge, paid, events: events.length, credits },
     aiTotals: ai,
   };
 }
+
 
 export type LedgerRow = {
   id: string;
