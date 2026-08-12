@@ -267,7 +267,7 @@ export default function PlanDashboard() {
             Platform
           </Link>
           <Link
-            to="/admin/cost-analytics"
+            to="/admin/credits"
             className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface transition hover:bg-dash-surface/20"
           >
             Pricing engine

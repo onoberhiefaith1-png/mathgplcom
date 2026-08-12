@@ -107,7 +107,7 @@ export default function UsageAnalytics({ embedded }: { embedded?: boolean } = {}
       subtitle="Live measurement of Database, Network, Storage, Compute, Realtime and AI usage, metered by MathGPL itself."
       actions={
         <Link
-          to="/admin/cost-revenue"
+          to="/admin/usage-revenue"
           className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface transition hover:bg-dash-surface/20"
         >
           Usage &amp; revenue

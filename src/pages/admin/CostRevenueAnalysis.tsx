@@ -139,7 +139,7 @@ export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean }
       subtitle="Credits are the accounting unit. Every row is a real metered event with the credits consumed, the Percentage Profit locked to it, the credits charged and what was collected — money is only shown as the equivalent."
       actions={
         <Link
-          to="/admin/usage-analytics"
+          to="/admin/usage-revenue"
           className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface transition hover:bg-dash-surface/20"
         >
           Usage analytics
