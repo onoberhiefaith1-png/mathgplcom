@@ -17,10 +17,8 @@ export type Relation =
   | "teacher_student"
   | "parent_child"
   | "parent_teacher"
-  | "parent_school"
-  | "teacher_teacher"
-  | "student_student"
-  | "school_school";
+  | "parent_school";
+
 
 export type ConnectionStatus = "pending" | "accepted" | "rejected" | "revoked";
 
@@ -78,10 +76,8 @@ const RELATION_LABEL: Record<Relation, string> = {
   parent_child: "Parent and child",
   parent_teacher: "Parent and teacher",
   parent_school: "Parent and school",
-  teacher_teacher: "Teachers",
-  student_student: "Students",
-  school_school: "Schools",
 };
+
 
 export const relationLabel = (relation: Relation) => RELATION_LABEL[relation] ?? "Connection";
 
@@ -204,12 +200,9 @@ export const requestActionLabel = (mine: AppRole | null, theirs: AppRole | null)
 export const relationFor = (mine: AppRole | null, theirs: AppRole | null): Relation | null => {
   const pair = new Set([mine, theirs]);
   const both = (a: AppRole, b: AppRole) => pair.has(a) && pair.has(b) && mine !== theirs;
-  if (mine && mine === theirs) {
-    if (mine === "teacher") return "teacher_teacher";
-    if (mine === "student") return "student_student";
-    if (mine === "school") return "school_school";
-    return null;
-  }
+  // Two accounts of the same type are never connected: a school is not another
+  // school's workspace, and a teacher is not another teacher's student.
+  if (mine && mine === theirs) return null;
   if (both("school", "teacher")) return "school_teacher";
   if (both("school", "student")) return "school_student";
   if (both("teacher", "student")) return "teacher_student";
@@ -218,6 +211,22 @@ export const relationFor = (mine: AppRole | null, theirs: AppRole | null): Relat
   if (both("parent", "school")) return "parent_school";
   return null;
 };
+
+/**
+ * Why two accounts cannot be connected — a sentence, never a code word.
+ *
+ * MathGPL links a school with its teachers and students, and a teacher with
+ * their students. Nothing else is a relationship.
+ */
+export const noRelationReason = (mine: AppRole | null, theirs: AppRole | null): string => {
+  if (mine && mine === theirs) {
+    const plural =
+      mine === "school" ? "Schools" : mine === "teacher" ? "Teachers" : mine === "student" ? "Students" : "These accounts";
+    return `${plural} do not connect to each other. MathGPL links a school with its teachers and students, and a teacher with their students.`;
+  }
+  return "There is no direct connection between these account types.";
+};
+
 
 /** My permanent Share Code — an invitation code, never a password. */
 export async function fetchMyShareCode(): Promise<string | null> {

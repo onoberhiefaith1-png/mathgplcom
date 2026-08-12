@@ -19,8 +19,10 @@ import { useAccount } from "@/lib/accounts/useAccount";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import {
   connectionError,
+  noRelationReason,
   relationFor,
   requestActionLabel,
+
   type DiscoveredAccount,
 } from "@/lib/connections/connections";
 import { useConnectionActions, useDiscover } from "@/lib/connections/useConnections";
@@ -96,8 +98,9 @@ const Card = ({ account }: { account: DiscoveredAccount }) => {
             {requestActionLabel(role, account.role ?? null)}
           </Button>
         ) : (
-          <span className="text-sm text-slate-500">No direct connection between these account types.</span>
+          <span className="text-sm text-slate-500">{noRelationReason(role, account.role ?? null)}</span>
         )}
+
       </div>
     </li>
   );
