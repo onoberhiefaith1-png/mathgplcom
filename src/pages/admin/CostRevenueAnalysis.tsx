@@ -73,6 +73,12 @@ export default function CostRevenueAnalysis() {
     queryFn: () => fetchAccountOptions({ data: { from, to } }),
   });
   const promos = useQuery({ queryKey: ["promo-codes"], queryFn: () => fetchPromoCodes({}) });
+  const subscription = useQuery({
+    queryKey: ["cost-unit-subscriptions", costUnitId, from, to],
+    queryFn: () => fetchCostUnitDetail({ data: { from, to, costUnitId: costUnitId! } }),
+    enabled: !!costUnitId,
+  });
+
 
   const grant = useMutation({
     mutationFn: (input: { costUnitId: string; amount: number }) =>
