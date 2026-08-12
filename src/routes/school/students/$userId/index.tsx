@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import SchoolMemberWorkspacePage from "@/pages/school/SchoolMemberWorkspacePage";
 
-export const Route = createFileRoute("/school/students/$userId")({
+export const Route = createFileRoute("/school/students/$userId/")({
   head: () => ({
     meta: [
       { title: "Student school workspace — MathGPL" },
