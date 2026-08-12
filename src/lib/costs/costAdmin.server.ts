@@ -690,9 +690,13 @@ export async function setCurrencyPricing(input: {
       .from("platform_cost_settings")
       .update({ credit_rate: input.creditValue, updated_at: new Date().toISOString() })
       .eq("id", 1);
+    const { syncCatalogQuietly } = await import("@/lib/payments/catalogSync.server");
+    await syncCatalogQuietly("sandbox");
+    await syncCatalogQuietly("live");
   }
   return currencyPricing();
 }
+
 
 export type AdminPlan = {
   id: string;
