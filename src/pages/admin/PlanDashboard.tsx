@@ -477,9 +477,10 @@ function PlanCard({
       {/* Derived preview */}
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {[
-          ["Customer price", money(derived.total, plan.currency)],
-          ["Credit sell price", money(derived.sell, plan.currency)],
-          ["Included credits", credits(derived.credits)],
+          ["Customer price · derived", money(derived.total, plan.currency)],
+          ["Credit sell price · derived", money(derived.sell, plan.currency)],
+          ["Included credits · derived", credits(derived.credits)],
+
         ].map(([k, v]) => (
           <div key={k} className="rounded-xl border border-dash-surface/15 bg-dash-surface/5 p-3">
             <div className={label}>{k}</div>
