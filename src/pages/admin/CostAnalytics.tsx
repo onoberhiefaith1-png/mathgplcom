@@ -69,9 +69,7 @@ export default function CostAnalytics() {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [openUnit, setOpenUnit] = useState<string | null>(null);
-  const [profitDraft, setProfitDraft] = useState<string>("");
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
-  const [rateDraft, setRateDraft] = useState({ currency: "GBP", creditValue: "" });
 
   const args = { from: range.from, to: range.to };
 
@@ -84,8 +82,6 @@ export default function CostAnalytics() {
     queryFn: () => fetchProfitReport({ data: { ...args, query } }),
   });
   const prices = useQuery({ queryKey: ["cost-prices"], queryFn: () => fetchPriceBook({}) });
-  const pricing = useQuery({ queryKey: ["pricing-history"], queryFn: () => fetchPricingHistory({}) });
-  const rates = useQuery({ queryKey: ["currency-rates"], queryFn: () => fetchCurrencyRates({}) });
 
   const detail = useQuery({
     queryKey: ["cost-unit", openUnit, args],
@@ -94,28 +90,6 @@ export default function CostAnalytics() {
   });
 
   const currency = overview.data?.currency ?? "GBP";
-
-  const saveProfit = useMutation({
-    mutationFn: (value: number) => saveProfitPercentage({ data: { value } }),
-    onSuccess: () => {
-      toast.success("Percentage Profit updated. It applies to new subscriptions and renewals only.");
-      void qc.invalidateQueries({ queryKey: ["cost-overview"] });
-      void qc.invalidateQueries({ queryKey: ["pricing-history"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-
-  const saveRate = useMutation({
-    mutationFn: (input: { currency: string; creditValue: number }) => saveCurrencyRate({ data: input }),
-    onSuccess: () => {
-      toast.success("Credit buy rate saved. Past transactions keep the rate they were recorded at.");
-      setRateDraft({ currency: "GBP", creditValue: "" });
-      void qc.invalidateQueries({ queryKey: ["currency-rates"] });
-      void qc.invalidateQueries({ queryKey: ["cost-overview"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const savePrice = useMutation({
     mutationFn: (input: { metric: string; unitPrice: number | null }) => saveResourcePrice({ data: input }),
@@ -264,112 +238,10 @@ export default function CostAnalytics() {
 
         <CreditEconomyPanel />
 
-        {/* Profit rate + price book */}
-        <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">Percentage Profit</h2>
-            <p className="mt-2 text-xs leading-relaxed text-dash-surface/65">
-              Changing this affects new subscriptions and renewals only. Every active subscription keeps the percentage
-              locked when it started, and past ledger rows are never repriced.
-            </p>
+        <GlobalCreditEconomics locked={overview.data?.lockedSubscriptions ?? []} />
 
-            <div className="mt-4 flex items-center gap-2">
-              <Input
-                inputMode="decimal"
-                value={profitDraft || String(overview.data?.profitPercentage ?? "")}
-                onChange={(e) => setProfitDraft(e.target.value)}
-                className="h-9 w-24"
-              />
-              <span className="text-sm text-dash-surface/70">%</span>
-              <Button
-                size="sm"
-                onClick={() => {
-                  const value = Number(profitDraft || overview.data?.profitPercentage);
-                  if (!Number.isFinite(value)) return toast.error("Enter a number.");
-                  saveProfit.mutate(value);
-                }}
-                disabled={saveProfit.isPending}
-              >
-                <Save className="mr-1.5 h-3.5 w-3.5" /> Save
-              </Button>
-            </div>
-            <div className="mt-4 space-y-1 border-t border-dash-surface/10 pt-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface/55">Locked rates in force</p>
-              {(overview.data?.lockedSubscriptions ?? []).length === 0 ? (
-                <p className="text-xs text-dash-surface/55">No paid subscriptions yet.</p>
-              ) : (
-                (overview.data?.lockedSubscriptions ?? []).map((l) => (
-                  <p key={l.rate} className="text-xs text-dash-surface/70">
-                    {l.rate}% — {l.count} subscription{l.count === 1 ? "" : "s"}
-                  </p>
-                ))
-              )}
-            </div>
-
-            <div className="mt-4 space-y-1 border-t border-dash-surface/10 pt-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface/55">Pricing history</p>
-              {(pricing.data?.rows ?? []).length === 0 ? (
-                <p className="text-xs text-dash-surface/55">No percentage change recorded yet.</p>
-              ) : (
-                (pricing.data?.rows ?? []).map((v) => (
-                  <p key={v.id} className="text-xs text-dash-surface/70">
-                    <span className={v.current ? "text-dash-gold" : ""}>{v.profitPercentage}%</span>{" "}
-                    from {new Date(v.effectiveFrom).toLocaleDateString("en-GB")}
-                    {v.current ? " — current" : ""}
-                  </p>
-                ))
-              )}
-            </div>
-
-            <div className="mt-4 space-y-2 border-t border-dash-surface/10 pt-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface/55">
-                Credit buy rate
-              </p>
-              <p className="text-xs leading-relaxed text-dash-surface/65">
-                Credits are the accounting unit. This is only what one credit is worth in real money, used for the
-                secondary monetary view. Insert-only, so past transactions keep their own rate.
-              </p>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={rateDraft.currency}
-                  onChange={(e) => setRateDraft({ ...rateDraft, currency: e.target.value.toUpperCase() })}
-                  className="h-9 w-20"
-                  placeholder="GBP"
-                />
-                <Input
-                  inputMode="decimal"
-                  value={rateDraft.creditValue}
-                  onChange={(e) => setRateDraft({ ...rateDraft, creditValue: e.target.value })}
-                  className="h-9 w-24"
-                  placeholder="0.30"
-                />
-                <Button
-                  size="sm"
-                  disabled={!rateDraft.currency || !rateDraft.creditValue || saveRate.isPending}
-                  onClick={() =>
-                    saveRate.mutate({ currency: rateDraft.currency, creditValue: Number(rateDraft.creditValue) })
-                  }
-                >
-                  <Save className="mr-1.5 h-3.5 w-3.5" /> Save
-                </Button>
-              </div>
-              {(rates.data?.rows ?? []).length === 0 ? (
-                <p className="text-xs text-dash-surface/55">No rate recorded yet.</p>
-              ) : (
-                (rates.data?.rows ?? []).map((r) => (
-                  <p key={r.id} className="text-xs text-dash-surface/70">
-                    <span className={r.current ? "text-dash-gold" : ""}>
-                      1 credit = {money(r.creditValue, r.currency)}
-                    </span>{" "}
-                    from {new Date(r.effectiveFrom).toLocaleDateString("en-GB")}
-                    {r.current ? " — current" : ""}
-                  </p>
-                ))
-              )}
-            </div>
-
-          </div>
-
+        {/* Price book */}
+        <section>
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
             <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">Price book</h2>
             <p className="mt-2 text-xs text-dash-surface/65">
