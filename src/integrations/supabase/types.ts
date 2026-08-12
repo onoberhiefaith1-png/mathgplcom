@@ -1615,6 +1615,85 @@ export type Database = {
           },
         ]
       }
+      cost_unit_totals: {
+        Row: {
+          actual_cost: number
+          category: Database["public"]["Enums"]["cost_category"]
+          cost_unit_id: string
+          customer_charge: number
+          day: string
+          id: string
+          profit: number
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          actual_cost?: number
+          category: Database["public"]["Enums"]["cost_category"]
+          cost_unit_id: string
+          customer_charge?: number
+          day: string
+          id?: string
+          profit?: number
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          actual_cost?: number
+          category?: Database["public"]["Enums"]["cost_category"]
+          cost_unit_id?: string
+          customer_charge?: number
+          day?: string
+          id?: string
+          profit?: number
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_unit_totals_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_units: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          org_id: string | null
+          owner_kind: string
+          user_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          owner_kind: string
+          user_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          owner_kind?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_units_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_blocks: {
         Row: {
           config: Json
@@ -3089,6 +3168,27 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_cost_settings: {
+        Row: {
+          currency: string
+          id: number
+          profit_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          currency?: string
+          id?: number
+          profit_percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          currency?: string
+          id?: number
+          profit_percentage?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       platform_email_senders: {
         Row: {
           created_at: string
@@ -3380,6 +3480,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      resource_prices: {
+        Row: {
+          category: Database["public"]["Enums"]["cost_category"]
+          created_at: string
+          currency: string
+          effective_from: string
+          id: string
+          metric: string
+          note: string | null
+          unit: string
+          unit_price: number | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["cost_category"]
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          id?: string
+          metric: string
+          note?: string | null
+          unit: string
+          unit_price?: number | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["cost_category"]
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          id?: string
+          metric?: string
+          note?: string | null
+          unit?: string
+          unit_price?: number | null
+        }
+        Relationships: []
       }
       role_capabilities: {
         Row: {
@@ -3773,6 +3909,69 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          cost_unit_id: string
+          created_at: string
+          id: string
+          locked_profit_rate: number
+          org_id: string | null
+          period_end: string | null
+          period_start: string
+          plan: string
+          provider: string | null
+          provider_subscription_id: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cost_unit_id: string
+          created_at?: string
+          id?: string
+          locked_profit_rate?: number
+          org_id?: string | null
+          period_end?: string | null
+          period_start?: string
+          plan?: string
+          provider?: string | null
+          provider_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cost_unit_id?: string
+          created_at?: string
+          id?: string
+          locked_profit_rate?: number
+          org_id?: string | null
+          period_end?: string | null
+          period_start?: string
+          plan?: string
+          provider?: string | null
+          provider_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -3846,6 +4045,71 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_events: {
+        Row: {
+          actor_user_id: string | null
+          actual_cost: number
+          category: Database["public"]["Enums"]["cost_category"]
+          cost_unit_id: string
+          customer_charge: number
+          feature: string | null
+          id: string
+          metric: string
+          model: string | null
+          occurred_at: string
+          profit: number
+          profit_rate: number
+          quantity: number
+          reconciled: boolean
+          unit: string
+          unit_price: number | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          actual_cost?: number
+          category: Database["public"]["Enums"]["cost_category"]
+          cost_unit_id: string
+          customer_charge?: number
+          feature?: string | null
+          id?: string
+          metric: string
+          model?: string | null
+          occurred_at?: string
+          profit?: number
+          profit_rate?: number
+          quantity?: number
+          reconciled?: boolean
+          unit?: string
+          unit_price?: number | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          actual_cost?: number
+          category?: Database["public"]["Enums"]["cost_category"]
+          cost_unit_id?: string
+          customer_charge?: number
+          feature?: string | null
+          id?: string
+          metric?: string
+          model?: string | null
+          occurred_at?: string
+          profit?: number
+          profit_rate?: number
+          quantity?: number
+          reconciled?: boolean
+          unit?: string
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_events_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
             referencedColumns: ["id"]
           },
         ]
@@ -4087,6 +4351,8 @@ export type Database = {
         Args: { _class_id: string; _game_id: string }
         Returns: undefined
       }
+      ensure_user_cost_unit: { Args: { _user_id: string }; Returns: string }
+      ensure_workspace_cost_unit: { Args: { _org_id: string }; Returns: string }
       generate_mathgpl_id: { Args: never; Returns: string }
       generate_org_invite_code: { Args: never; Returns: string }
       generate_session_code: { Args: never; Returns: string }
@@ -4313,6 +4579,21 @@ export type Database = {
           read_ct: number
         }[]
       }
+      reconcile_usage_costs: { Args: { _since?: string }; Returns: number }
+      record_usage_event: {
+        Args: {
+          _category: Database["public"]["Enums"]["cost_category"]
+          _feature?: string
+          _metric: string
+          _model?: string
+          _occurred_at?: string
+          _org_id: string
+          _quantity: number
+          _unit?: string
+          _user_id: string
+        }
+        Returns: string
+      }
       regenerate_my_share_code: { Args: never; Returns: string }
       regenerate_school_code: { Args: { _org_id: string }; Returns: string }
       request_connection: {
@@ -4344,6 +4625,10 @@ export type Database = {
           user_id: string
           username: string
         }[]
+      }
+      resolve_cost_unit: {
+        Args: { _org_id?: string; _user_id: string }
+        Returns: string
       }
       resolve_share_code: {
         Args: { _code: string }
@@ -4460,6 +4745,13 @@ export type Database = {
         | "teacher_teacher"
         | "student_student"
         | "school_school"
+      cost_category:
+        | "database"
+        | "network"
+        | "storage"
+        | "compute"
+        | "realtime"
+        | "ai"
       section_kind:
         | "introduction"
         | "explanation"
@@ -4614,6 +4906,14 @@ export const Constants = {
         "teacher_teacher",
         "student_student",
         "school_school",
+      ],
+      cost_category: [
+        "database",
+        "network",
+        "storage",
+        "compute",
+        "realtime",
+        "ai",
       ],
       section_kind: [
         "introduction",
