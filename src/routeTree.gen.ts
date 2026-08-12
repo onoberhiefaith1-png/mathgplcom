@@ -55,6 +55,7 @@ import { Route as StudentIndexRouteImport } from './routes/student/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/index'
 import { Route as AdminEmailIndexRouteImport } from './routes/admin/email/index'
 import { Route as AdminSecurityIndexRouteImport } from './routes/admin/security/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
@@ -483,6 +484,11 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   id: '/.lovable/oauth/consent',
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminBillingIndexRoute = AdminBillingIndexRouteImport.update({
+  id: '/billing/',
+  path: '/billing/',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminEmailIndexRoute = AdminEmailIndexRouteImport.update({
   id: '/email/',
@@ -1658,6 +1664,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
@@ -1893,6 +1900,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/email': typeof AdminEmailIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
   '/adventure/games': typeof AdventureGamesIndexRoute
@@ -2140,6 +2148,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
@@ -2388,6 +2397,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/admin/billing/'
     | '/admin/email/'
     | '/admin/security/'
     | '/adventure/games/'
@@ -2623,6 +2633,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/admin/billing'
     | '/admin/email'
     | '/admin/security'
     | '/adventure/games'
@@ -2869,6 +2880,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/admin/billing/'
     | '/admin/email/'
     | '/admin/security/'
     | '/adventure/games/'
@@ -3505,6 +3517,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.lovable/oauth/consent'
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/billing/': {
+      id: '/admin/billing/'
+      path: '/billing'
+      fullPath: '/admin/billing/'
+      preLoaderRoute: typeof AdminBillingIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/email/': {
       id: '/admin/email/'
@@ -4897,12 +4916,14 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminBillingIndexRoute: typeof AdminBillingIndexRoute
   AdminEmailIndexRoute: typeof AdminEmailIndexRoute
   AdminSecurityIndexRoute: typeof AdminSecurityIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
+  AdminBillingIndexRoute: AdminBillingIndexRoute,
   AdminEmailIndexRoute: AdminEmailIndexRoute,
   AdminSecurityIndexRoute: AdminSecurityIndexRoute,
 }
