@@ -25,11 +25,31 @@ export type LiveSession = {
 
 };
 
+/**
+ * Column list for every session read. `session_code` is deliberately excluded:
+ * the join code is private to the owner and is fetched through
+ * `my_session_code`, so public/audience reads can never leak it.
+ */
+export const SESSION_COLUMNS =
+  "id, owner_id, class_id, notebook_id, title, description, starts_at, duration_minutes, time_zone, visibility, status, created_at, updated_at, broadcasts, ask_participant_name";
+
+/** Owner-only read of a session's private join code. */
+export const fetchSessionCode = async (sessionId: string): Promise<string> => {
+  const { data } = await supabase.rpc("my_session_code", { _session_id: sessionId });
+  return typeof data === "string" ? data : "";
+};
+
+export const fetchSessionCodes = async (ids: string[]): Promise<Record<string, string>> => {
+  const pairs = await Promise.all(ids.map(async (id) => [id, await fetchSessionCode(id)] as const));
+  return Object.fromEntries(pairs);
+};
+
 /** Rows come back with `broadcasts` as raw jsonb — normalise on read. */
 export const hydrateSession = (row: Record<string, unknown>): LiveSession => ({
   ...(row as unknown as LiveSession),
   broadcasts: parseBroadcasts(row.broadcasts),
   ask_participant_name: Boolean(row.ask_participant_name),
+  session_code: typeof row.session_code === "string" ? row.session_code : "",
 });
 
 
