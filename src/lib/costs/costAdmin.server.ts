@@ -447,3 +447,61 @@ export async function reconcile(sinceDays = 90) {
   return Number(data ?? 0);
 }
 
+
+export type CurrencyRate = {
+  id: string;
+  currency: string;
+  creditValue: number;
+  effectiveFrom: string;
+  note: string | null;
+  current: boolean;
+};
+
+/**
+ * Buy rate per currency: what one credit is worth in real money. Insert-only,
+ * so a transaction priced at £0.30 keeps that rate when the rate later moves.
+ */
+export async function currencyRates(): Promise<CurrencyRate[]> {
+  const db = await admin();
+  const { data } = await db
+    .from("currency_rates")
+    .select("id, currency, credit_value, effective_from, note")
+    .order("effective_from", { ascending: false })
+    .limit(300);
+
+  const now = Date.now();
+  const currentSeen = new Set<string>();
+  return (data ?? []).map((r) => {
+    const currency = r.currency as string;
+    const effectiveFrom = r.effective_from as string;
+    const isCurrent = !currentSeen.has(currency) && new Date(effectiveFrom).getTime() <= now;
+    if (isCurrent) currentSeen.add(currency);
+    return {
+      id: r.id as string,
+      currency,
+      creditValue: Number(r.credit_value ?? 0),
+      effectiveFrom,
+      note: (r.note as string) ?? null,
+      current: isCurrent,
+    };
+  });
+}
+
+/** A rate change is a new version; historical events keep their own snapshot. */
+export async function setCurrencyRate(currency: string, creditValue: number, userId?: string) {
+  const db = await admin();
+  const code = currency.trim().toUpperCase().slice(0, 6);
+  await db.from("currency_rates").insert({
+    currency: code,
+    credit_value: creditValue,
+    effective_from: new Date().toISOString(),
+    created_by: userId ?? null,
+  });
+  if (code === "GBP") {
+    await db
+      .from("platform_cost_settings")
+      .update({ credit_rate: creditValue, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+  }
+  return currencyRates();
+}

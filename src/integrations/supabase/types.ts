@@ -1620,11 +1620,14 @@ export type Database = {
           actual_cost: number
           amount_paid: number
           category: Database["public"]["Enums"]["cost_category"]
+          charge_credits: number
+          cost_credits: number
           cost_unit_id: string
           customer_charge: number
           day: string
           financial_result: number
           id: string
+          paid_credits: number
           profit: number
           quantity: number
           updated_at: string
@@ -1633,11 +1636,14 @@ export type Database = {
           actual_cost?: number
           amount_paid?: number
           category: Database["public"]["Enums"]["cost_category"]
+          charge_credits?: number
+          cost_credits?: number
           cost_unit_id: string
           customer_charge?: number
           day: string
           financial_result?: number
           id?: string
+          paid_credits?: number
           profit?: number
           quantity?: number
           updated_at?: string
@@ -1646,11 +1652,14 @@ export type Database = {
           actual_cost?: number
           amount_paid?: number
           category?: Database["public"]["Enums"]["cost_category"]
+          charge_credits?: number
+          cost_credits?: number
           cost_unit_id?: string
           customer_charge?: number
           day?: string
           financial_result?: number
           id?: string
+          paid_credits?: number
           profit?: number
           quantity?: number
           updated_at?: string
@@ -1985,6 +1994,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      currency_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credit_value: number
+          currency: string
+          effective_from: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credit_value: number
+          currency: string
+          effective_from?: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credit_value?: number
+          currency?: string
+          effective_from?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: []
       }
       custom_assets: {
         Row: {
@@ -4267,7 +4306,10 @@ export type Database = {
           actual_cost: number
           amount_paid: number
           category: Database["public"]["Enums"]["cost_category"]
+          charge_credits: number
+          cost_credits: number
           cost_unit_id: string
+          credit_price: number | null
           customer_charge: number
           discount_percentage: number
           feature: string | null
@@ -4277,6 +4319,7 @@ export type Database = {
           metric: string
           model: string | null
           occurred_at: string
+          paid_credits: number
           payment_status: string
           profit: number
           profit_rate: number
@@ -4293,7 +4336,10 @@ export type Database = {
           actual_cost?: number
           amount_paid?: number
           category: Database["public"]["Enums"]["cost_category"]
+          charge_credits?: number
+          cost_credits?: number
           cost_unit_id: string
+          credit_price?: number | null
           customer_charge?: number
           discount_percentage?: number
           feature?: string | null
@@ -4303,6 +4349,7 @@ export type Database = {
           metric: string
           model?: string | null
           occurred_at?: string
+          paid_credits?: number
           payment_status?: string
           profit?: number
           profit_rate?: number
@@ -4319,7 +4366,10 @@ export type Database = {
           actual_cost?: number
           amount_paid?: number
           category?: Database["public"]["Enums"]["cost_category"]
+          charge_credits?: number
+          cost_credits?: number
           cost_unit_id?: string
+          credit_price?: number | null
           customer_charge?: number
           discount_percentage?: number
           feature?: string | null
@@ -4329,6 +4379,7 @@ export type Database = {
           metric?: string
           model?: string | null
           occurred_at?: string
+          paid_credits?: number
           payment_status?: string
           profit?: number
           profit_rate?: number
@@ -4551,6 +4602,10 @@ export type Database = {
           name: string
           org_id: string
         }[]
+      }
+      credit_value_at: {
+        Args: { _at?: string; _currency?: string }
+        Returns: number
       }
       current_org_id: { Args: never; Returns: string }
       current_role_name: {

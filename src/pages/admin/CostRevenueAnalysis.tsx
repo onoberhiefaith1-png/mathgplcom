@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import DashboardShell from "@/components/accounts/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CATEGORY_LABEL, RANGES, money, type CostCategory, type RangeKey } from "@/lib/costs/categories";
+import { CATEGORY_LABEL, RANGES, credits, money, type CostCategory, type RangeKey } from "@/lib/costs/categories";
 import { fetchCostUnitDetail } from "@/lib/costs/costs.functions";
 import {
 
@@ -136,7 +136,7 @@ export default function CostRevenueAnalysis() {
   return (
     <DashboardShell
       title="Usage & Revenue Analysis"
-      subtitle="Every metered event with its stored actual cost, Percentage Profit, customer charge and payment result. Each row keeps the percentage locked to that customer's subscription — changing the global percentage never rewrites history."
+      subtitle="Credits are the accounting unit. Every row is a real metered event with the credits consumed, the Percentage Profit locked to it, the credits charged and what was collected — money is only shown as the equivalent."
       actions={
         <Link
           to="/admin/usage-analytics"
@@ -190,22 +190,30 @@ export default function CostRevenueAnalysis() {
 
         {/* Financial summary */}
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <Card label="Actual cost" value={money(summary?.cost ?? 0, currency)} />
-          <Card label="Expected charge" value={money(summary?.charge ?? 0, currency)} />
-          <Card label="Collected" value={money(summary?.paid ?? 0, currency)} />
-          <Card label="Expected profit" value={money(summary?.expectedProfit ?? 0, currency)} hint="Charge − cost, before payment" />
+          <Card label="Actual cost" value={credits(summary?.costCredits ?? 0)} hint={money(summary?.cost ?? 0, currency)} />
+          <Card
+            label="Expected charge"
+            value={credits(summary?.chargeCredits ?? 0)}
+            hint={`${money(summary?.charge ?? 0, currency)} · cost + profit`}
+          />
+          <Card label="Collected" value={credits(summary?.paidCredits ?? 0)} hint={money(summary?.paid ?? 0, currency)} />
+          <Card
+            label="Expected profit"
+            value={credits(summary?.expectedProfitCredits ?? 0)}
+            hint={`${money(summary?.expectedProfit ?? 0, currency)} · before payment`}
+          />
 
           <Card
             label="Financial result"
-            value={money(summary?.result ?? 0, currency)}
-            tone={(summary?.result ?? 0) >= 0 ? "good" : "bad"}
-            hint="Collected − cost, unpaid shown as exposure"
+            value={credits(summary?.resultCredits ?? 0)}
+            tone={(summary?.resultCredits ?? 0) >= 0 ? "good" : "bad"}
+            hint={`Collected − cost · ${money(summary?.result ?? 0, currency)}`}
           />
           <Card
-            label="Unpaid exposure"
-            value={money(summary?.unpaidExposure ?? 0, currency)}
-            tone={(summary?.unpaidExposure ?? 0) > 0 ? "bad" : undefined}
-            hint={`Free subsidy ${money(summary?.freeSubsidy ?? 0, currency)}`}
+            label="Unpaid / exposure"
+            value={credits(summary?.unpaidExposureCredits ?? 0)}
+            tone={(summary?.unpaidExposureCredits ?? 0) > 0 ? "bad" : undefined}
+            hint={`Never counted as profit · ${money(summary?.unpaidExposure ?? 0, currency)}`}
           />
         </section>
 
@@ -310,11 +318,11 @@ export default function CostRevenueAnalysis() {
                   <th className="px-3 py-2">Account</th>
                   <th className="px-3 py-2">Activity</th>
                   <th className="px-3 py-2">Category</th>
-                  <th className="px-3 py-2 text-right">Cost</th>
+                  <th className="px-3 py-2 text-right">Cost (credits)</th>
                   <th className="px-3 py-2 text-right">Percentage Profit</th>
-                  <th className="px-3 py-2 text-right">Charge</th>
+                  <th className="px-3 py-2 text-right">Charge (credits)</th>
                   <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2 text-right">Result</th>
+                  <th className="px-3 py-2 text-right">Result (credits)</th>
                 </tr>
               </thead>
               <tbody>
@@ -328,9 +336,9 @@ export default function CostRevenueAnalysis() {
                     <td className="px-3 py-2 text-dash-surface">{r.owner}</td>
                     <td className="px-3 py-2 text-dash-surface/80">{r.resource}</td>
                     <td className="px-3 py-2 text-dash-surface/60">{CATEGORY_LABEL[r.category as CostCategory]}</td>
-                    <td className="px-3 py-2 text-right text-dash-surface/80">{money(r.cost, currency)}</td>
+                    <td className="px-3 py-2 text-right text-dash-surface/80">{credits(r.costCredits, false)}</td>
                     <td className="px-3 py-2 text-right text-dash-surface/80">{r.profitRate}%</td>
-                    <td className="px-3 py-2 text-right text-dash-surface">{money(r.charge, currency)}</td>
+                    <td className="px-3 py-2 text-right text-dash-surface">{credits(r.profitCredits, false)}</td>
                     <td className="px-3 py-2">
                       <span
                         className={`rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${
@@ -340,8 +348,13 @@ export default function CostRevenueAnalysis() {
                         {r.status}
                       </span>
                     </td>
-                    <td className={`px-3 py-2 text-right font-medium ${r.result >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
-                      {money(r.result, currency)}
+                    <td
+                      className={`px-3 py-2 text-right font-medium ${
+                        r.resultCredits >= 0 ? "text-emerald-300" : "text-rose-300"
+                      }`}
+                    >
+                      {r.resultCredits >= 0 ? "+" : ""}
+                      {credits(r.resultCredits, false)}
                     </td>
                   </tr>
                 ))}
@@ -364,15 +377,25 @@ export default function CostRevenueAnalysis() {
                 <p>Metric: <span className="text-dash-surface">{detail.metric}</span></p>
                 <p>Quantity: <span className="text-dash-surface">{detail.quantity} {detail.unit}</span></p>
                 <p>Model: <span className="text-dash-surface">{detail.model ?? "—"}</span></p>
-                <p>Actual cost: <span className="text-dash-surface">{money(detail.cost, currency)}</span></p>
-                <p>Percentage Profit: <span className="text-dash-surface">{detail.profitRate}%</span> (locked to their subscription)</p>
-                <p>Profit at that percentage: <span className="text-dash-surface">{money(detail.profitAmount, currency)}</span></p>
-                <p>Expected charge: <span className="text-dash-surface">{money(detail.charge, currency)}</span></p>
-                <p>Collected: <span className="text-dash-surface">{money(detail.amountPaid, currency)}</span></p>
+                <p>Actual cost: <span className="text-dash-surface">{credits(detail.costCredits)}</span></p>
+                <p>Percentage Profit: <span className="text-dash-surface">{detail.profitRate}%</span> (locked to this transaction)</p>
+                <p>Charge (profit component): <span className="text-dash-surface">{credits(detail.profitCredits)}</span></p>
+                <p>Customer total: <span className="text-dash-surface">{credits(detail.chargeCredits)}</span></p>
+                <p>Collected: <span className="text-dash-surface">{credits(detail.paidCredits)}</span></p>
                 <p>Discount: <span className="text-dash-surface">{detail.discount}%</span> {detail.promoCode ?? ""}</p>
                 <p>Status: <span className="capitalize text-dash-surface">{detail.status}</span></p>
-                <p>Unpaid exposure: <span className="text-dash-surface">{money(Math.max(detail.charge - detail.amountPaid, 0), currency)}</span></p>
-                <p>Result: <span className={detail.result >= 0 ? "text-emerald-300" : "text-rose-300"}>{money(detail.result, currency)}</span></p>
+                <p>Unpaid exposure: <span className="text-dash-surface">{credits(Math.max(detail.chargeCredits - detail.paidCredits, 0))}</span></p>
+                <p>
+                  Result:{" "}
+                  <span className={detail.resultCredits >= 0 ? "text-emerald-300" : "text-rose-300"}>
+                    {detail.resultCredits >= 0 ? "+" : ""}
+                    {credits(detail.resultCredits)}
+                  </span>
+                </p>
+                <p>
+                  Monetary equivalent: <span className="text-dash-surface">{money(detail.cost, currency)}</span> cost at{" "}
+                  {money(detail.creditPrice, currency)} / credit
+                </p>
 
               </div>
             </div>

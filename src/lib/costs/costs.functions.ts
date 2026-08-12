@@ -75,6 +75,26 @@ export const saveProfitPercentage = createServerFn({ method: "POST" })
   });
 
 
+/** Buy rate per currency: the monetary value of one credit. */
+export const fetchCurrencyRates = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await costs.currencyRates() };
+  });
+
+export const saveCurrencyRate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({ currency: z.string().min(3).max(6), creditValue: z.number().min(0).max(1_000_000) })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await costs.setCurrencyRate(data.currency, data.creditValue, context.userId) };
+  });
+
 /** Reprice historical events after a price-book correction. */
 export const reconcileCosts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
