@@ -38,12 +38,28 @@ const WelcomePage = () => (
         >
           <LogIn className="h-5 w-5" /> Login
         </Link>
+        <Link
+          to="/plans"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-white/25 bg-transparent px-6 text-base font-semibold text-white/85 transition hover:bg-white/10"
+        >
+          <Tag className="h-5 w-5" /> Plans &amp; Pricing
+        </Link>
       </div>
 
-      <p className="mt-8 text-xs text-white/45">
-        By continuing you agree to our{" "}
-        <Link to="/terms" className="underline hover:text-white/70">Terms of Service</Link> and{" "}
-        <Link to="/privacy" className="underline hover:text-white/70">Privacy Policy</Link>.
+      <p className="mt-6 text-xs leading-relaxed text-white/50">
+        See what every plan includes and what credits cost before you create an account — no sign-in needed.
+      </p>
+
+      <p className="mt-8 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-white/50">
+        <Link to="/plans" className="underline hover:text-white/80">Pricing</Link>
+        <Link to="/terms" className="underline hover:text-white/80">Terms of Service</Link>
+        <Link to="/privacy" className="underline hover:text-white/80">Privacy Policy</Link>
+        <Link to="/refund-policy" className="underline hover:text-white/80">Refund Policy</Link>
+        <Link to="/support" className="underline hover:text-white/80">Support</Link>
+      </p>
+
+      <p className="mt-4 text-[11px] leading-relaxed text-white/40">
+        MathGPL is operated by {SELLER_LEGAL_NAME}. {MERCHANT_OF_RECORD_STATEMENT}
       </p>
     </section>
   </main>
