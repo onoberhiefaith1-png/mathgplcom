@@ -5,6 +5,8 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { Loader2, Search, Users } from "lucide-react";
 
 import DashboardShell from "@/components/accounts/DashboardShell";
+import PlatformUsageImport from "@/components/admin/PlatformUsageImport";
+
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -337,7 +339,10 @@ export default function UsageAnalytics() {
             </div>
           </section>
         )}
+
+        <PlatformUsageImport costUnitId={costUnitId} />
       </div>
+
     </DashboardShell>
   );
 }
