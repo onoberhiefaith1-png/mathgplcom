@@ -34,7 +34,7 @@ const SessionsPage = () => {
     }
     const { data } = await supabase
       .from("sessions")
-      .select("*")
+      .select(SESSION_COLUMNS)
       .eq("owner_id", userData.user.id)
       .order("starts_at", { ascending: true, nullsFirst: false });
     setSessions(((data ?? []) as Record<string, unknown>[]).map(hydrateSession));

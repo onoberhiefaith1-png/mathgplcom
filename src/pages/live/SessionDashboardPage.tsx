@@ -50,7 +50,7 @@ const SessionDashboardPage = () => {
       }
       const { data, error } = await supabase
         .from("sessions")
-        .select("*")
+        .select(SESSION_COLUMNS)
         .eq("id", sessionId!)
         .maybeSingle();
       if (error || !data) {

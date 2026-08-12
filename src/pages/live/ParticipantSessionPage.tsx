@@ -41,7 +41,7 @@ const ParticipantSessionPage = () => {
       const user = userData.user ?? null;
       setSignedIn(Boolean(user));
 
-      const { data } = await supabase.from("sessions").select("*").eq("id", sessionId!).maybeSingle();
+      const { data } = await supabase.from("sessions").select(SESSION_COLUMNS).eq("id", sessionId!).maybeSingle();
       if (!data) {
         setNotFound(true);
         setLoading(false);

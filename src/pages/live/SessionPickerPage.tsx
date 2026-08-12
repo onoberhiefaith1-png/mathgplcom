@@ -32,7 +32,7 @@ const SessionPickerPage = ({
       }
       const { data } = await supabase
         .from("sessions")
-        .select("*")
+        .select(SESSION_COLUMNS)
         .eq("owner_id", userData.user.id)
         .order("starts_at", { ascending: false, nullsFirst: false });
       if (cancelled) return;
