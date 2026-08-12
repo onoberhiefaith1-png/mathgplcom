@@ -8,7 +8,9 @@ import DashboardShell from "@/components/accounts/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CATEGORY_LABEL, RANGES, money, type CostCategory, type RangeKey } from "@/lib/costs/categories";
+import { fetchCostUnitDetail } from "@/lib/costs/costs.functions";
 import {
+
   fetchAccountOptions,
   fetchPromoCodes,
   fetchRevenueLedger,
@@ -73,6 +75,12 @@ export default function CostRevenueAnalysis() {
     queryFn: () => fetchAccountOptions({ data: { from, to } }),
   });
   const promos = useQuery({ queryKey: ["promo-codes"], queryFn: () => fetchPromoCodes({}) });
+  const subscription = useQuery({
+    queryKey: ["cost-unit-subscriptions", costUnitId, from, to],
+    queryFn: () => fetchCostUnitDetail({ data: { from, to, costUnitId: costUnitId! } }),
+    enabled: !!costUnitId,
+  });
+
 
   const grant = useMutation({
     mutationFn: (input: { costUnitId: string; amount: number }) =>
@@ -128,7 +136,7 @@ export default function CostRevenueAnalysis() {
   return (
     <DashboardShell
       title="Usage & Revenue Analysis"
-      subtitle="Every metered event with its stored platform cost, margin, customer charge and payment result. Snapshots are historical — changing the global margin never rewrites them."
+      subtitle="Every metered event with its stored actual cost, Percentage Profit, customer charge and payment result. Each row keeps the percentage locked to that customer's subscription — changing the global percentage never rewrites history."
       actions={
         <Link
           to="/admin/usage-analytics"
@@ -182,10 +190,11 @@ export default function CostRevenueAnalysis() {
 
         {/* Financial summary */}
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <Card label="Platform cost" value={money(summary?.cost ?? 0, currency)} />
-          <Card label="Customer charge" value={money(summary?.charge ?? 0, currency)} />
+          <Card label="Actual cost" value={money(summary?.cost ?? 0, currency)} />
+          <Card label="Expected charge" value={money(summary?.charge ?? 0, currency)} />
           <Card label="Collected" value={money(summary?.paid ?? 0, currency)} />
-          <Card label="Expected margin" value={money(summary?.margin ?? 0, currency)} />
+          <Card label="Expected profit" value={money(summary?.expectedProfit ?? 0, currency)} hint="Charge − cost, before payment" />
+
           <Card
             label="Financial result"
             value={money(summary?.result ?? 0, currency)}
@@ -213,6 +222,56 @@ export default function CostRevenueAnalysis() {
             ))}
           </section>
         )}
+
+        {/* Locked subscription pricing for the selected account */}
+        {costUnitId && (
+          <section className="rounded-2xl border border-dash-gold/25 bg-dash-gold/5 p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-gold">Subscription pricing</h2>
+            <p className="mt-1 text-xs text-dash-surface/65">
+              {selectedAccount ? `${selectedAccount.name} — ${selectedAccount.code}. ` : ""}
+              The Percentage Profit below was locked when the period started, so a later global change never alters it.
+            </p>
+            {(subscription.data?.detail?.subscriptions ?? []).length === 0 ? (
+              <p className="mt-3 text-xs text-dash-surface/60">
+                No subscription recorded. Usage is charged at the percentage in force when each event was metered.
+              </p>
+            ) : (
+              <div className="mt-3 overflow-auto rounded-xl border border-dash-surface/10">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-dash-surface/10 text-dash-surface/70">
+                    <tr>
+                      <th className="px-3 py-2">Plan</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Period</th>
+                      <th className="px-3 py-2 text-right">Percentage Profit</th>
+                      <th className="px-3 py-2 text-right">Credit price</th>
+                      <th className="px-3 py-2 text-right">Discount</th>
+                      <th className="px-3 py-2 text-right">Price paid</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(subscription.data?.detail?.subscriptions ?? []).map((s) => (
+                      <tr key={s.id} className="border-t border-dash-surface/10">
+                        <td className="px-3 py-2 text-dash-surface">{s.plan}</td>
+                        <td className="px-3 py-2 capitalize text-dash-surface/75">{s.status}</td>
+                        <td className="px-3 py-2 text-dash-surface/70">
+                          {new Date(s.periodStart).toLocaleDateString("en-GB")} →{" "}
+                          {s.periodEnd ? new Date(s.periodEnd).toLocaleDateString("en-GB") : "open"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-dash-gold">{s.lockedRate}%</td>
+                        <td className="px-3 py-2 text-right text-dash-surface/75">{money(s.creditPrice, s.currency)}</td>
+                        <td className="px-3 py-2 text-right text-dash-surface/75">{s.discountPercentage}%</td>
+                        <td className="px-3 py-2 text-right text-dash-surface">{money(s.finalPrice, s.currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+
+
 
         {/* Ledger */}
         <section className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
@@ -252,7 +311,7 @@ export default function CostRevenueAnalysis() {
                   <th className="px-3 py-2">Activity</th>
                   <th className="px-3 py-2">Category</th>
                   <th className="px-3 py-2 text-right">Cost</th>
-                  <th className="px-3 py-2 text-right">Margin</th>
+                  <th className="px-3 py-2 text-right">Percentage Profit</th>
                   <th className="px-3 py-2 text-right">Charge</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2 text-right">Result</th>
@@ -270,7 +329,7 @@ export default function CostRevenueAnalysis() {
                     <td className="px-3 py-2 text-dash-surface/80">{r.resource}</td>
                     <td className="px-3 py-2 text-dash-surface/60">{CATEGORY_LABEL[r.category as CostCategory]}</td>
                     <td className="px-3 py-2 text-right text-dash-surface/80">{money(r.cost, currency)}</td>
-                    <td className="px-3 py-2 text-right text-dash-surface/80">{money(r.margin, currency)}</td>
+                    <td className="px-3 py-2 text-right text-dash-surface/80">{r.profitRate}%</td>
                     <td className="px-3 py-2 text-right text-dash-surface">{money(r.charge, currency)}</td>
                     <td className="px-3 py-2">
                       <span
@@ -305,13 +364,16 @@ export default function CostRevenueAnalysis() {
                 <p>Metric: <span className="text-dash-surface">{detail.metric}</span></p>
                 <p>Quantity: <span className="text-dash-surface">{detail.quantity} {detail.unit}</span></p>
                 <p>Model: <span className="text-dash-surface">{detail.model ?? "—"}</span></p>
-                <p>Platform cost: <span className="text-dash-surface">{money(detail.cost, currency)}</span></p>
-                <p>Margin: <span className="text-dash-surface">{money(detail.margin, currency)}</span></p>
-                <p>Charge: <span className="text-dash-surface">{money(detail.charge, currency)}</span></p>
+                <p>Actual cost: <span className="text-dash-surface">{money(detail.cost, currency)}</span></p>
+                <p>Percentage Profit: <span className="text-dash-surface">{detail.profitRate}%</span> (locked to their subscription)</p>
+                <p>Profit at that percentage: <span className="text-dash-surface">{money(detail.profitAmount, currency)}</span></p>
+                <p>Expected charge: <span className="text-dash-surface">{money(detail.charge, currency)}</span></p>
                 <p>Collected: <span className="text-dash-surface">{money(detail.amountPaid, currency)}</span></p>
                 <p>Discount: <span className="text-dash-surface">{detail.discount}%</span> {detail.promoCode ?? ""}</p>
                 <p>Status: <span className="capitalize text-dash-surface">{detail.status}</span></p>
+                <p>Unpaid exposure: <span className="text-dash-surface">{money(Math.max(detail.charge - detail.amountPaid, 0), currency)}</span></p>
                 <p>Result: <span className={detail.result >= 0 ? "text-emerald-300" : "text-rose-300"}>{money(detail.result, currency)}</span></p>
+
               </div>
             </div>
           )}

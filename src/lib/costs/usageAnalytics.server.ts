@@ -53,6 +53,7 @@ type EventRow = {
   unit: string | null;
   actual_cost: number | null;
   customer_charge: number | null;
+  profit_rate: number | null;
   amount_paid: number | null;
   financial_result: number | null;
   payment_status: string | null;
@@ -64,7 +65,8 @@ type EventRow = {
 };
 
 const EVENT_COLUMNS =
-  "id, occurred_at, cost_unit_id, actor_user_id, category, metric, quantity, unit, actual_cost, customer_charge, amount_paid, financial_result, payment_status, discount_percentage, promo_code, feature, model, resource_label";
+  "id, occurred_at, cost_unit_id, actor_user_id, category, metric, quantity, unit, actual_cost, customer_charge, profit_rate, amount_paid, financial_result, payment_status, discount_percentage, promo_code, feature, model, resource_label";
+
 
 async function readEvents(from: string, to: string, costUnitId?: string, category?: CostCategory, limit = 5000) {
   const db = await admin();
@@ -215,10 +217,13 @@ export type LedgerRow = {
   model: string | null;
   cost: number;
   charge: number;
-  margin: number;
+  /** Percentage Profit locked to the subscription that priced this event. */
+  profitRate: number;
+  profitAmount: number;
   amountPaid: number;
   discount: number;
   promoCode: string | null;
+
   status: string;
   result: number;
 };
@@ -295,7 +300,9 @@ function toLedgerRow(e: EventRow, owners: Map<string, { name: string; code: stri
     model: e.model,
     cost,
     charge,
-    margin: charge - cost,
+    profitRate: Number(e.profit_rate ?? 0),
+    profitAmount: charge - cost,
+
     amountPaid: Number(e.amount_paid ?? 0),
     discount: Number(e.discount_percentage ?? 0),
     promoCode: e.promo_code,
@@ -322,7 +329,7 @@ export type RevenueLedger = {
     cost: number;
     charge: number;
     paid: number;
-    margin: number;
+    expectedProfit: number;
     result: number;
     unpaidExposure: number;
     freeSubsidy: number;
@@ -353,13 +360,14 @@ export async function revenueLedger(
   }
 
   const byStatus = new Map<string, { status: string; events: number; charge: number; paid: number; result: number }>();
-  const summary = { cost: 0, charge: 0, paid: 0, margin: 0, result: 0, unpaidExposure: 0, freeSubsidy: 0 };
+  const summary = { cost: 0, charge: 0, paid: 0, expectedProfit: 0, result: 0, unpaidExposure: 0, freeSubsidy: 0 };
 
   for (const r of rows) {
     summary.cost += r.cost;
     summary.charge += r.charge;
     summary.paid += r.amountPaid;
-    summary.margin += r.margin;
+    summary.expectedProfit += r.profitAmount;
+
     summary.result += r.result;
     if (r.status === "unpaid") summary.unpaidExposure += r.charge;
     if (r.status === "free") summary.freeSubsidy += r.cost;

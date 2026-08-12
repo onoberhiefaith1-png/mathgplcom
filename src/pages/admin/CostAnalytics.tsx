@@ -29,7 +29,9 @@ import {
   fetchCostOverview,
   fetchCostUnitDetail,
   fetchPriceBook,
+  fetchPricingHistory,
   fetchProfitReport,
+
   reconcileCosts,
   saveProfitPercentage,
   saveResourcePrice,
@@ -81,6 +83,8 @@ export default function CostAnalytics() {
     queryFn: () => fetchProfitReport({ data: { ...args, query } }),
   });
   const prices = useQuery({ queryKey: ["cost-prices"], queryFn: () => fetchPriceBook({}) });
+  const pricing = useQuery({ queryKey: ["pricing-history"], queryFn: () => fetchPricingHistory({}) });
+
   const detail = useQuery({
     queryKey: ["cost-unit", openUnit, args],
     queryFn: () => fetchCostUnitDetail({ data: { ...args, costUnitId: openUnit! } }),
@@ -92,11 +96,13 @@ export default function CostAnalytics() {
   const saveProfit = useMutation({
     mutationFn: (value: number) => saveProfitPercentage({ data: { value } }),
     onSuccess: () => {
-      toast.success("Profit rate updated. Existing paid periods keep their locked rate.");
+      toast.success("Percentage Profit updated. It applies to new subscriptions and renewals only.");
       void qc.invalidateQueries({ queryKey: ["cost-overview"] });
+      void qc.invalidateQueries({ queryKey: ["pricing-history"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const savePrice = useMutation({
     mutationFn: (input: { metric: string; unitPrice: number | null }) => saveResourcePrice({ data: input }),
@@ -246,11 +252,12 @@ export default function CostAnalytics() {
         {/* Profit rate + price book */}
         <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">Profit rate</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">Percentage Profit</h2>
             <p className="mt-2 text-xs leading-relaxed text-dash-surface/65">
-              Applied to new usage and locked into a subscription when its paid period starts. Changing it never
-              re-rates a period already running.
+              Changing this affects new subscriptions and renewals only. Every active subscription keeps the percentage
+              locked when it started, and past ledger rows are never repriced.
             </p>
+
             <div className="mt-4 flex items-center gap-2">
               <Input
                 inputMode="decimal"
@@ -283,6 +290,22 @@ export default function CostAnalytics() {
                 ))
               )}
             </div>
+
+            <div className="mt-4 space-y-1 border-t border-dash-surface/10 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface/55">Pricing history</p>
+              {(pricing.data?.rows ?? []).length === 0 ? (
+                <p className="text-xs text-dash-surface/55">No percentage change recorded yet.</p>
+              ) : (
+                (pricing.data?.rows ?? []).map((v) => (
+                  <p key={v.id} className="text-xs text-dash-surface/70">
+                    <span className={v.current ? "text-dash-gold" : ""}>{v.profitPercentage}%</span>{" "}
+                    from {new Date(v.effectiveFrom).toLocaleDateString("en-GB")}
+                    {v.current ? " — current" : ""}
+                  </p>
+                ))
+              )}
+            </div>
+
           </div>
 
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
