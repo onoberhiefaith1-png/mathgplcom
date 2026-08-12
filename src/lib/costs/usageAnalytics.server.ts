@@ -19,23 +19,28 @@ export type UsagePoint = {
   bucket: string;
   cost: Record<CostCategory, number>;
   quantity: Record<CostCategory, number>;
+  credits: Record<CostCategory, number>;
   total: number;
+  totalCredits: number;
 };
 
 export type UsageAnalytics = {
   currency: string;
   granularity: "hour" | "day";
+  creditRate: number;
   series: UsagePoint[];
   byCategory: {
     category: CostCategory;
     cost: number;
     charge: number;
     quantity: number;
+    credits: number;
     events: number;
   }[];
-  totals: { cost: number; charge: number; paid: number; events: number };
+  totals: { cost: number; charge: number; paid: number; events: number; credits: number };
   aiTotals: { inputTokens: number; outputTokens: number; images: number; audioMinutes: number; cost: number };
 };
+
 
 type EventRow = {
   id: string;
