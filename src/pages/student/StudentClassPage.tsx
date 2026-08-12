@@ -8,6 +8,7 @@ import { joinClassPresence } from "@/lib/realtime/classPresence";
 import { listClassGames, type ClassGameRow } from "@/lib/games/classGames";
 import { prefetchGame } from "@/lib/games/prefetch";
 import { getClassLevels } from "@/lib/classes/contentHierarchy";
+import GatewayGate from "@/components/gateway/GatewayGate";
 import { sectionCardStyle, type SectionThemeKey } from "@/lib/theme/sectionThemes";
 
 
@@ -192,7 +193,7 @@ const StudentClassPage = () => {
 
       const { data: classRow } = await supabase
         .from("classes")
-        .select("id, name")
+        .select("id, name, owner_id")
         .eq("id", classId)
         .maybeSingle();
       if (!classRow) { navigate("/join"); return; }
