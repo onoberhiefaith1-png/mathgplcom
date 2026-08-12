@@ -59,6 +59,7 @@ import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/in
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
 import { Route as AdminEmailIndexRouteImport } from './routes/admin/email/index'
 import { Route as AdminSecurityIndexRouteImport } from './routes/admin/security/index'
+import { Route as AdminUsageAnalyticsIndexRouteImport } from './routes/admin/usage-analytics/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
@@ -506,6 +507,12 @@ const AdminSecurityIndexRoute = AdminSecurityIndexRouteImport.update({
   path: '/security/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminUsageAnalyticsIndexRoute =
+  AdminUsageAnalyticsIndexRouteImport.update({
+    id: '/usage-analytics/',
+    path: '/usage-analytics/',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
 const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
   id: '/games/',
   path: '/games/',
@@ -1674,6 +1681,7 @@ export interface FileRoutesByFullPath {
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
+  '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
   '/age/$range/': typeof AgeRangeIndexRoute
   '/assets/$category/': typeof AssetsCategoryIndexRoute
@@ -1911,6 +1919,7 @@ export interface FileRoutesByTo {
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
   '/admin/email': typeof AdminEmailIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
+  '/admin/usage-analytics': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games': typeof AdventureGamesIndexRoute
   '/age/$range': typeof AgeRangeIndexRoute
   '/assets/$category': typeof AssetsCategoryIndexRoute
@@ -2160,6 +2169,7 @@ export interface FileRoutesById {
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
+  '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
   '/age/$range/': typeof AgeRangeIndexRoute
   '/assets/$category/': typeof AssetsCategoryIndexRoute
@@ -2410,6 +2420,7 @@ export interface FileRouteTypes {
     | '/admin/cost-analytics/'
     | '/admin/email/'
     | '/admin/security/'
+    | '/admin/usage-analytics/'
     | '/adventure/games/'
     | '/age/$range/'
     | '/assets/$category/'
@@ -2647,6 +2658,7 @@ export interface FileRouteTypes {
     | '/admin/cost-analytics'
     | '/admin/email'
     | '/admin/security'
+    | '/admin/usage-analytics'
     | '/adventure/games'
     | '/age/$range'
     | '/assets/$category'
@@ -2895,6 +2907,7 @@ export interface FileRouteTypes {
     | '/admin/cost-analytics/'
     | '/admin/email/'
     | '/admin/security/'
+    | '/admin/usage-analytics/'
     | '/adventure/games/'
     | '/age/$range/'
     | '/assets/$category/'
@@ -3556,6 +3569,13 @@ declare module '@tanstack/react-router' {
       path: '/security'
       fullPath: '/admin/security/'
       preLoaderRoute: typeof AdminSecurityIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/usage-analytics/': {
+      id: '/admin/usage-analytics/'
+      path: '/usage-analytics'
+      fullPath: '/admin/usage-analytics/'
+      preLoaderRoute: typeof AdminUsageAnalyticsIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/adventure/games/': {
@@ -4939,6 +4959,7 @@ interface AdminRouteRouteChildren {
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
   AdminEmailIndexRoute: typeof AdminEmailIndexRoute
   AdminSecurityIndexRoute: typeof AdminSecurityIndexRoute
+  AdminUsageAnalyticsIndexRoute: typeof AdminUsageAnalyticsIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
@@ -4947,6 +4968,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
   AdminEmailIndexRoute: AdminEmailIndexRoute,
   AdminSecurityIndexRoute: AdminSecurityIndexRoute,
+  AdminUsageAnalyticsIndexRoute: AdminUsageAnalyticsIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
