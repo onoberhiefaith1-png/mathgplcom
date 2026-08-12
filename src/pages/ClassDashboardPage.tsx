@@ -8,6 +8,7 @@ import { sectionCardStyle, type SectionThemeKey } from "@/lib/theme/sectionTheme
 import { Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3, GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useViewAs } from "@/lib/accounts/viewAs";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
 import InviteByMathGPLId from "@/components/class/InviteByMathGPLId";
@@ -19,6 +20,8 @@ const ClassDashboardPage = () => {
   const { classId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  // A school reviewing a shared workspace is not the owner but may look.
+  const { viewOnly } = useViewAs();
   const [cls, setCls] = useState<ClassRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
@@ -30,7 +33,7 @@ const ClassDashboardPage = () => {
         navigate(`/auth?redirect=${classRoot()}/${classId}`);
         return;
       }
-      const redirect = await ensureClassOwner(classId!, userData.user.id);
+      const redirect = viewOnly ? null : await ensureClassOwner(classId!, userData.user.id);
       if (redirect) {
         navigate(redirect, { replace: true });
         return;
@@ -49,7 +52,7 @@ const ClassDashboardPage = () => {
       setCls({ ...data, join_code: (code as string | null) ?? "" });
       setLoading(false);
     })();
-  }, [classId, navigate, toast]);
+  }, [classId, navigate, toast, viewOnly]);
 
   const inviteLink = cls ? `${window.location.origin}/join/${cls.join_code}` : "";
   const copy = async (label: string, value: string) => {

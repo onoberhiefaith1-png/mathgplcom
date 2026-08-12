@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import CourseCard from "@/components/coursebuilder/CourseCard";
+import { useViewAs } from "@/lib/accounts/viewAs";
 import { createCourse, deleteCourse, duplicateCourse, listCourses, type CourseSummary } from "@/lib/courses/api";
 
 /** The Course Library: every course this teacher owns. */
@@ -30,6 +31,7 @@ const CourseBuilderLibrary = () => {
   }, []);
 
   const onCreate = async () => {
+    if (!allowEdit()) return;
     setCreating(true);
     try {
       const course = await createCourse("Untitled course");
@@ -41,6 +43,7 @@ const CourseBuilderLibrary = () => {
   };
 
   const onDuplicate = async (id: string) => {
+    if (!allowEdit()) return;
     try {
       await duplicateCourse(id);
       await refresh();
@@ -51,6 +54,7 @@ const CourseBuilderLibrary = () => {
   };
 
   const onDelete = async (course: CourseSummary) => {
+    if (!allowEdit()) return;
     if (!window.confirm(`Delete “${course.title}”? This cannot be undone.`)) return;
     try {
       await deleteCourse(course.id);
