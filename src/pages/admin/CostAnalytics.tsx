@@ -246,11 +246,12 @@ export default function CostAnalytics() {
         {/* Profit rate + price book */}
         <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">Profit rate</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">Percentage Profit</h2>
             <p className="mt-2 text-xs leading-relaxed text-dash-surface/65">
-              Applied to new usage and locked into a subscription when its paid period starts. Changing it never
-              re-rates a period already running.
+              Changing this affects new subscriptions and renewals only. Every active subscription keeps the percentage
+              locked when it started, and past ledger rows are never repriced.
             </p>
+
             <div className="mt-4 flex items-center gap-2">
               <Input
                 inputMode="decimal"
