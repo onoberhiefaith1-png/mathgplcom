@@ -6,6 +6,7 @@
  * signed link is created when the picture is displayed.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
 
 const BUCKET = "avatars";
 
