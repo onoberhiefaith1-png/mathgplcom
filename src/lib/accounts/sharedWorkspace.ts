@@ -184,7 +184,7 @@ export type SharedCourse = {
   topic: string | null;
   status: string | null;
   learningMode: string | null;
-  sections: { id: string; title: string; kind: string | null; blocks: number }[];
+  sections: { id: string; title: string; blocks: number }[];
 };
 
 export async function fetchSharedCourses(orgId: string, userId: string): Promise<SharedCourse[]> {
