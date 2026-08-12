@@ -52,13 +52,28 @@ export const saveResourcePrice = createServerFn({ method: "POST" })
     return { rows: await costs.setPrice(data.metric, data.unitPrice) };
   });
 
+/** Insert-only history of the global Percentage Profit. */
+export const fetchPricingHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await costs.pricingHistory() };
+  });
+
+/**
+ * Saving a new Percentage Profit records a new pricing version. It applies to
+ * new subscriptions and renewals only — active subscriptions keep the
+ * percentage locked when they started, and past events are never repriced.
+ */
 export const saveProfitPercentage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ value: z.number().min(0).max(500) }).parse(data))
+  .inputValidator((data) => z.object({ value: z.number().min(0).max(1000) }).parse(data))
   .handler(async ({ context, data }) => {
     await costs.assertPlatformAdmin(context.supabase, context.userId);
-    return { value: await costs.setProfitPercentage(data.value) };
+    const value = await costs.setProfitPercentage(data.value, context.userId);
+    return { value, rows: await costs.pricingHistory() };
   });
+
 
 /** Reprice historical events after a price-book correction. */
 export const reconcileCosts = createServerFn({ method: "POST" })

@@ -3443,6 +3443,33 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+          profit_percentage: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+          profit_percentage: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+          profit_percentage?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           accepts_requests: boolean
@@ -4083,12 +4110,17 @@ export type Database = {
         Row: {
           cost_unit_id: string
           created_at: string
+          credit_price: number
+          currency: string
+          discount_percentage: number
+          final_price: number
           id: string
           locked_profit_rate: number
           org_id: string | null
           period_end: string | null
           period_start: string
           plan: string
+          plan_id: string | null
           provider: string | null
           provider_subscription_id: string | null
           status: string
@@ -4098,12 +4130,17 @@ export type Database = {
         Insert: {
           cost_unit_id: string
           created_at?: string
+          credit_price?: number
+          currency?: string
+          discount_percentage?: number
+          final_price?: number
           id?: string
           locked_profit_rate?: number
           org_id?: string | null
           period_end?: string | null
           period_start?: string
           plan?: string
+          plan_id?: string | null
           provider?: string | null
           provider_subscription_id?: string | null
           status?: string
@@ -4113,12 +4150,17 @@ export type Database = {
         Update: {
           cost_unit_id?: string
           created_at?: string
+          credit_price?: number
+          currency?: string
+          discount_percentage?: number
+          final_price?: number
           id?: string
           locked_profit_rate?: number
           org_id?: string | null
           period_end?: string | null
           period_start?: string
           plan?: string
+          plan_id?: string | null
           provider?: string | null
           provider_subscription_id?: string | null
           status?: string
@@ -4793,6 +4835,7 @@ export type Database = {
           username: string
         }[]
       }
+      profit_percentage_at: { Args: { _at?: string }; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -4957,6 +5000,19 @@ export type Database = {
       signup_role_of: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      start_subscription_period: {
+        Args: {
+          _cost_unit_id: string
+          _credit_price?: number
+          _discount_percentage?: number
+          _final_price?: number
+          _period_end?: string
+          _period_start?: string
+          _plan: string
+          _plan_id?: string
+        }
+        Returns: string
       }
       username_is_valid: { Args: { _username: string }; Returns: boolean }
       workspace_students: {

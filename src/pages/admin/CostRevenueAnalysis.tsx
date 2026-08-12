@@ -128,7 +128,7 @@ export default function CostRevenueAnalysis() {
   return (
     <DashboardShell
       title="Usage & Revenue Analysis"
-      subtitle="Every metered event with its stored platform cost, margin, customer charge and payment result. Snapshots are historical — changing the global margin never rewrites them."
+      subtitle="Every metered event with its stored actual cost, Percentage Profit, customer charge and payment result. Each row keeps the percentage locked to that customer's subscription — changing the global percentage never rewrites history."
       actions={
         <Link
           to="/admin/usage-analytics"
@@ -182,10 +182,11 @@ export default function CostRevenueAnalysis() {
 
         {/* Financial summary */}
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <Card label="Platform cost" value={money(summary?.cost ?? 0, currency)} />
-          <Card label="Customer charge" value={money(summary?.charge ?? 0, currency)} />
+          <Card label="Actual cost" value={money(summary?.cost ?? 0, currency)} />
+          <Card label="Expected charge" value={money(summary?.charge ?? 0, currency)} />
           <Card label="Collected" value={money(summary?.paid ?? 0, currency)} />
-          <Card label="Expected margin" value={money(summary?.margin ?? 0, currency)} />
+          <Card label="Expected profit" value={money(summary?.expectedProfit ?? 0, currency)} hint="Charge − cost, before payment" />
+
           <Card
             label="Financial result"
             value={money(summary?.result ?? 0, currency)}
@@ -252,7 +253,7 @@ export default function CostRevenueAnalysis() {
                   <th className="px-3 py-2">Activity</th>
                   <th className="px-3 py-2">Category</th>
                   <th className="px-3 py-2 text-right">Cost</th>
-                  <th className="px-3 py-2 text-right">Margin</th>
+                  <th className="px-3 py-2 text-right">Percentage Profit</th>
                   <th className="px-3 py-2 text-right">Charge</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2 text-right">Result</th>
@@ -270,7 +271,7 @@ export default function CostRevenueAnalysis() {
                     <td className="px-3 py-2 text-dash-surface/80">{r.resource}</td>
                     <td className="px-3 py-2 text-dash-surface/60">{CATEGORY_LABEL[r.category as CostCategory]}</td>
                     <td className="px-3 py-2 text-right text-dash-surface/80">{money(r.cost, currency)}</td>
-                    <td className="px-3 py-2 text-right text-dash-surface/80">{money(r.margin, currency)}</td>
+                    <td className="px-3 py-2 text-right text-dash-surface/80">{r.profitRate}%</td>
                     <td className="px-3 py-2 text-right text-dash-surface">{money(r.charge, currency)}</td>
                     <td className="px-3 py-2">
                       <span
@@ -305,13 +306,16 @@ export default function CostRevenueAnalysis() {
                 <p>Metric: <span className="text-dash-surface">{detail.metric}</span></p>
                 <p>Quantity: <span className="text-dash-surface">{detail.quantity} {detail.unit}</span></p>
                 <p>Model: <span className="text-dash-surface">{detail.model ?? "—"}</span></p>
-                <p>Platform cost: <span className="text-dash-surface">{money(detail.cost, currency)}</span></p>
-                <p>Margin: <span className="text-dash-surface">{money(detail.margin, currency)}</span></p>
-                <p>Charge: <span className="text-dash-surface">{money(detail.charge, currency)}</span></p>
+                <p>Actual cost: <span className="text-dash-surface">{money(detail.cost, currency)}</span></p>
+                <p>Percentage Profit: <span className="text-dash-surface">{detail.profitRate}%</span> (locked to their subscription)</p>
+                <p>Profit at that percentage: <span className="text-dash-surface">{money(detail.profitAmount, currency)}</span></p>
+                <p>Expected charge: <span className="text-dash-surface">{money(detail.charge, currency)}</span></p>
                 <p>Collected: <span className="text-dash-surface">{money(detail.amountPaid, currency)}</span></p>
                 <p>Discount: <span className="text-dash-surface">{detail.discount}%</span> {detail.promoCode ?? ""}</p>
                 <p>Status: <span className="capitalize text-dash-surface">{detail.status}</span></p>
+                <p>Unpaid exposure: <span className="text-dash-surface">{money(Math.max(detail.charge - detail.amountPaid, 0), currency)}</span></p>
                 <p>Result: <span className={detail.result >= 0 ? "text-emerald-300" : "text-rose-300"}>{money(detail.result, currency)}</span></p>
+
               </div>
             </div>
           )}

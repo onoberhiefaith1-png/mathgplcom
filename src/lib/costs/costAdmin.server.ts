@@ -275,7 +275,9 @@ export async function costUnitDetail(costUnitId: string, from: string, to: strin
       .limit(100),
     db
       .from("subscriptions")
-      .select("id, plan, status, locked_profit_rate, period_start, period_end")
+      .select(
+        "id, plan, plan_id, status, locked_profit_rate, period_start, period_end, currency, credit_price, discount_percentage, final_price",
+      )
       .eq("cost_unit_id", costUnitId)
       .order("period_start", { ascending: false }),
   ]);
@@ -298,13 +300,20 @@ export async function costUnitDetail(costUnitId: string, from: string, to: strin
     subscriptions: (subscriptions ?? []).map((s) => ({
       id: s.id as string,
       plan: s.plan as string,
+      planId: (s.plan_id as string) ?? null,
       status: s.status as string,
+      /** Percentage Profit locked when this period started. */
       lockedRate: Number(s.locked_profit_rate ?? 0),
       periodStart: s.period_start as string,
       periodEnd: (s.period_end as string) ?? null,
+      currency: (s.currency as string) ?? "GBP",
+      creditPrice: Number(s.credit_price ?? 0),
+      discountPercentage: Number(s.discount_percentage ?? 0),
+      finalPrice: Number(s.final_price ?? 0),
     })),
   };
 }
+
 
 export type PriceRow = {
   id: string;
@@ -368,12 +377,58 @@ export async function setPrice(metric: string, unitPrice: number | null) {
   return priceBook();
 }
 
-export async function setProfitPercentage(value: number) {
+export type PricingVersion = {
+  id: string;
+  profitPercentage: number;
+  effectiveFrom: string;
+  note: string | null;
+  current: boolean;
+};
+
+/**
+ * Insert-only history of the global Percentage Profit. Old versions are never
+ * edited or deleted, so it stays clear why two customers hold different rates.
+ */
+export async function pricingHistory(): Promise<PricingVersion[]> {
+  const db = await admin();
+  const { data } = await db
+    .from("pricing_versions")
+    .select("id, profit_percentage, effective_from, note")
+    .order("effective_from", { ascending: false })
+    .limit(200);
+
+  const now = Date.now();
+  let currentSeen = false;
+  return (data ?? []).map((v) => {
+    const effectiveFrom = v.effective_from as string;
+    const isCurrent = !currentSeen && new Date(effectiveFrom).getTime() <= now;
+    if (isCurrent) currentSeen = true;
+    return {
+      id: v.id as string,
+      profitPercentage: Number(v.profit_percentage ?? 0),
+      effectiveFrom,
+      note: (v.note as string) ?? null,
+      current: isCurrent,
+    };
+  });
+}
+
+/**
+ * Changing the percentage records a new version and updates the live setting.
+ * Existing subscriptions keep the rate locked on their own row, so nothing
+ * historical is repriced — only new subscriptions and renewals read this.
+ */
+export async function setProfitPercentage(value: number, userId?: string) {
   const db = await admin();
   await db
     .from("platform_cost_settings")
     .update({ profit_percentage: value, updated_at: new Date().toISOString() })
     .eq("id", 1);
+  await db.from("pricing_versions").insert({
+    profit_percentage: value,
+    effective_from: new Date().toISOString(),
+    created_by: userId ?? null,
+  });
   return value;
 }
 
@@ -384,3 +439,4 @@ export async function reconcile(sinceDays = 90) {
   if (error) throw error;
   return Number(data ?? 0);
 }
+
