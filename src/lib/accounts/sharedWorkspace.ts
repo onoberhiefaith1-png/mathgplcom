@@ -201,7 +201,7 @@ export async function fetchSharedCourses(orgId: string, userId: string): Promise
   const ids = courses.map((c) => String(c.id));
   const { data: sectionRows } = await supabase
     .from("course_sections")
-    .select("id, course_id, title, kind, position")
+    .select("id, course_id, title, position")
     .in("course_id", ids)
     .order("position", { ascending: true });
   const sections = (sectionRows ?? []) as Record<string, unknown>[];
