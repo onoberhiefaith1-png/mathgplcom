@@ -11,6 +11,7 @@ import { Link } from "@/lib/router-compat";
 import { ViewAsProvider } from "@/lib/accounts/viewAs";
 import { useSharedMember } from "@/lib/accounts/useSharedMember";
 import { useTeacherStudentContext } from "@/lib/accounts/useTeacherStudentContext";
+import { useChildren } from "@/lib/family/useFamily";
 
 const ViewingFrame = ({
   userId,
@@ -21,24 +22,43 @@ const ViewingFrame = ({
   userId: string;
   /** Whose workspace is being viewed — a teacher's or a student's. */
   kind?: "teacher" | "student";
-  /** Who is looking: a school administrator or a teacher. */
-  viewer?: "school" | "teacher";
+  /** Who is looking: a school administrator, a teacher or a parent. */
+  viewer?: "school" | "teacher" | "parent";
   children: ReactNode;
 }) => {
   const section = kind === "student" ? "students" : "teachers";
-  const shared = useSharedMember(userId);
-  const teacher = useTeacherStudentContext(userId, viewer === "teacher");
-
+  const asParent = viewer === "parent";
   const asTeacher = viewer === "teacher";
-  const orgId = asTeacher ? teacher.orgId : shared.orgId;
-  const loading = asTeacher ? teacher.isLoading : shared.overview.isLoading;
-  const name =
-    (asTeacher ? teacher.name : shared.person?.displayName) ??
-    (kind === "student" ? "this student" : "this teacher");
-  const basePath = asTeacher ? `/teaching-hub/students/${userId}` : `/school/${section}/${userId}`;
-  const backTo = asTeacher ? "/teaching-hub/students" : basePath;
+  const shared = useSharedMember(asParent ? "" : userId);
+  const teacher = useTeacherStudentContext(userId, asTeacher);
+  // A parent follows the whole child: every school, every class, one total.
+  const family = useChildren();
+  const child = family.children.find((c) => c.childUserId === userId) ?? null;
 
-  if (!asTeacher && !shared.orgId) {
+  const orgId = asParent ? null : asTeacher ? teacher.orgId : shared.orgId;
+  const loading = asParent ? family.loading : asTeacher ? teacher.isLoading : shared.overview.isLoading;
+  const name =
+    (asParent ? child?.displayName : asTeacher ? teacher.name : shared.person?.displayName) ??
+    (kind === "student" ? "this student" : "this teacher");
+  const basePath = asParent
+    ? `/family/children/${userId}`
+    : asTeacher
+      ? `/teaching-hub/students/${userId}`
+      : `/school/${section}/${userId}`;
+  const backTo = asParent ? "/family" : asTeacher ? "/teaching-hub/students" : basePath;
+  const viewerLabel = asParent ? "Parent" : asTeacher ? "Teacher" : "School";
+
+  if (asParent && !loading && !child) {
+    return (
+      <main className="mx-auto max-w-2xl p-8">
+        <p className="rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
+          This child is not linked to your account.
+        </p>
+      </main>
+    );
+  }
+
+  if (!asParent && !asTeacher && !shared.orgId) {
     return (
       <main className="mx-auto max-w-2xl p-8">
         <p className="rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
@@ -62,19 +82,19 @@ const ViewingFrame = ({
         <span className="inline-flex items-center gap-2 text-amber-100">
           <Eye className="h-3.5 w-3.5" />
           Viewing {kind === "student" ? "Student" : "Teacher"} Workspace — Read Only ·{" "}
-          <strong className="font-semibold">{name}</strong> · Viewing as {asTeacher ? "Teacher" : "School"}
+          <strong className="font-semibold">{name}</strong> · Viewing as {viewerLabel}
         </span>
         <Link
           to={backTo}
           className="rounded-full border border-amber-300/40 px-3 py-1 text-amber-100 hover:bg-amber-400/20"
         >
-          {asTeacher ? "My students" : kind === "student" ? "Student workspace" : "Shared workspace"}
+          {asParent ? "My children" : asTeacher ? "My students" : kind === "student" ? "Student workspace" : "Shared workspace"}
         </Link>
       </div>
       <ViewAsProvider
         ownerId={userId}
         orgId={orgId}
-        personName={asTeacher ? teacher.name : shared.person?.displayName ?? null}
+        personName={asParent ? child?.displayName ?? null : asTeacher ? teacher.name : shared.person?.displayName ?? null}
         basePath={basePath}
         viewer={viewer}
         classIds={asTeacher ? teacher.classIds : null}
