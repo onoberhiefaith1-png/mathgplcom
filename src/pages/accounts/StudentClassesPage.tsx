@@ -16,7 +16,7 @@ const StudentClassesPage = () => {
   const navigate = useNavigate();
   // A school administrator may be viewing this student's own page, so the
   // classes shown belong to the student being viewed, never to the viewer.
-  const { viewing } = useViewAs();
+  const { viewOnly: viewing } = useViewAs();
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState<JoinedClass[]>([]);
 
