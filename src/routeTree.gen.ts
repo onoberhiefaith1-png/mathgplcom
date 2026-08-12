@@ -159,6 +159,8 @@ import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/em
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as SchoolTeachersUserIdIndexRouteImport } from './routes/school/teachers/$userId/index'
+import { Route as SchoolTeachersUserIdAdventureRouteImport } from './routes/school/teachers/$userId/adventure'
+import { Route as SchoolTeachersUserIdSkillBuilderRouteImport } from './routes/school/teachers/$userId/skill-builder'
 import { Route as SmartboardNotebookIdPreviewIndexRouteImport } from './routes/smartboard/$notebookId/preview/index'
 import { Route as StudentClassClassIdIndexRouteImport } from './routes/student/class/$classId/index'
 import { Route as SubjectsSubjectTopicIndexRouteImport } from './routes/subjects/$subject/$topic/index'
@@ -187,6 +189,8 @@ import { Route as LiveWorkspaceClassIdLessonNotesIndexRouteImport } from './rout
 import { Route as LiveWorkspaceClassIdReportIndexRouteImport } from './routes/live/workspace/$classId/report/index'
 import { Route as LiveWorkspaceClassIdSmartboardIndexRouteImport } from './routes/live/workspace/$classId/smartboard/index'
 import { Route as LiveWorkspaceClassIdStudentsIndexRouteImport } from './routes/live/workspace/$classId/students/index'
+import { Route as SchoolTeachersUserIdClassesIndexRouteImport } from './routes/school/teachers/$userId/classes/index'
+import { Route as SchoolTeachersUserIdClassesClassIdRouteImport } from './routes/school/teachers/$userId/classes/$classId'
 import { Route as SchoolTeachersUserIdLessonNotesIndexRouteImport } from './routes/school/teachers/$userId/lesson-notes/index'
 import { Route as SchoolTeachersUserIdLessonNotesNoteIdRouteImport } from './routes/school/teachers/$userId/lesson-notes/$noteId'
 import { Route as SchoolTeachersUserIdSmartboardIndexRouteImport } from './routes/school/teachers/$userId/smartboard/index'
@@ -1015,6 +1019,18 @@ const SchoolTeachersUserIdIndexRoute =
     path: '/teachers/$userId/',
     getParentRoute: () => SchoolRouteRoute,
   } as any)
+const SchoolTeachersUserIdAdventureRoute =
+  SchoolTeachersUserIdAdventureRouteImport.update({
+    id: '/teachers/$userId/adventure',
+    path: '/teachers/$userId/adventure',
+    getParentRoute: () => SchoolRouteRoute,
+  } as any)
+const SchoolTeachersUserIdSkillBuilderRoute =
+  SchoolTeachersUserIdSkillBuilderRouteImport.update({
+    id: '/teachers/$userId/skill-builder',
+    path: '/teachers/$userId/skill-builder',
+    getParentRoute: () => SchoolRouteRoute,
+  } as any)
 const SmartboardNotebookIdPreviewIndexRoute =
   SmartboardNotebookIdPreviewIndexRouteImport.update({
     id: '/$notebookId/preview/',
@@ -1182,6 +1198,18 @@ const LiveWorkspaceClassIdStudentsIndexRoute =
     id: '/workspace/$classId/students/',
     path: '/workspace/$classId/students/',
     getParentRoute: () => LiveRouteRoute,
+  } as any)
+const SchoolTeachersUserIdClassesIndexRoute =
+  SchoolTeachersUserIdClassesIndexRouteImport.update({
+    id: '/teachers/$userId/classes/',
+    path: '/teachers/$userId/classes/',
+    getParentRoute: () => SchoolRouteRoute,
+  } as any)
+const SchoolTeachersUserIdClassesClassIdRoute =
+  SchoolTeachersUserIdClassesClassIdRouteImport.update({
+    id: '/teachers/$userId/classes/$classId',
+    path: '/teachers/$userId/classes/$classId',
+    getParentRoute: () => SchoolRouteRoute,
   } as any)
 const SchoolTeachersUserIdLessonNotesIndexRoute =
   SchoolTeachersUserIdLessonNotesIndexRouteImport.update({
@@ -1534,6 +1562,8 @@ export interface FileRoutesByFullPath {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
+  '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -1581,6 +1611,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/classes/$classId/': typeof TeachingHubClassesClassIdIndexRoute
   '/teaching-hub/classes/create/': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
+  '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$noteId': typeof SchoolTeachersUserIdLessonNotesNoteIdRoute
   '/school/teachers/$userId/smartboard/$classId': typeof SchoolTeachersUserIdSmartboardClassIdRoute
   '/games/abacus/represent/$difficulty/': typeof GamesAbacusRepresentDifficultyIndexRoute
@@ -1605,6 +1636,7 @@ export interface FileRoutesByFullPath {
   '/live/workspace/$classId/report/': typeof LiveWorkspaceClassIdReportIndexRoute
   '/live/workspace/$classId/smartboard/': typeof LiveWorkspaceClassIdSmartboardIndexRoute
   '/live/workspace/$classId/students/': typeof LiveWorkspaceClassIdStudentsIndexRoute
+  '/school/teachers/$userId/classes/': typeof SchoolTeachersUserIdClassesIndexRoute
   '/school/teachers/$userId/lesson-notes/': typeof SchoolTeachersUserIdLessonNotesIndexRoute
   '/school/teachers/$userId/smartboard/': typeof SchoolTeachersUserIdSmartboardIndexRoute
   '/student/class/$classId/adventures/': typeof StudentClassClassIdAdventuresIndexRoute
@@ -1742,6 +1774,8 @@ export interface FileRoutesByTo {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
+  '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
   '/adventure/games/$gameId': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -1789,6 +1823,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/classes/$classId': typeof TeachingHubClassesClassIdIndexRoute
   '/teaching-hub/classes/create': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive': typeof TeachingHubSettingsArchiveIndexRoute
+  '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$noteId': typeof SchoolTeachersUserIdLessonNotesNoteIdRoute
   '/school/teachers/$userId/smartboard/$classId': typeof SchoolTeachersUserIdSmartboardClassIdRoute
   '/games/abacus/represent/$difficulty': typeof GamesAbacusRepresentDifficultyIndexRoute
@@ -1813,6 +1848,7 @@ export interface FileRoutesByTo {
   '/live/workspace/$classId/report': typeof LiveWorkspaceClassIdReportIndexRoute
   '/live/workspace/$classId/smartboard': typeof LiveWorkspaceClassIdSmartboardIndexRoute
   '/live/workspace/$classId/students': typeof LiveWorkspaceClassIdStudentsIndexRoute
+  '/school/teachers/$userId/classes': typeof SchoolTeachersUserIdClassesIndexRoute
   '/school/teachers/$userId/lesson-notes': typeof SchoolTeachersUserIdLessonNotesIndexRoute
   '/school/teachers/$userId/smartboard': typeof SchoolTeachersUserIdSmartboardIndexRoute
   '/student/class/$classId/adventures': typeof StudentClassClassIdAdventuresIndexRoute
@@ -1962,6 +1998,8 @@ export interface FileRoutesById {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
+  '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2009,6 +2047,7 @@ export interface FileRoutesById {
   '/teaching-hub/classes/$classId/': typeof TeachingHubClassesClassIdIndexRoute
   '/teaching-hub/classes/create/': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
+  '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$noteId': typeof SchoolTeachersUserIdLessonNotesNoteIdRoute
   '/school/teachers/$userId/smartboard/$classId': typeof SchoolTeachersUserIdSmartboardClassIdRoute
   '/games/abacus/represent/$difficulty/': typeof GamesAbacusRepresentDifficultyIndexRoute
@@ -2033,6 +2072,7 @@ export interface FileRoutesById {
   '/live/workspace/$classId/report/': typeof LiveWorkspaceClassIdReportIndexRoute
   '/live/workspace/$classId/smartboard/': typeof LiveWorkspaceClassIdSmartboardIndexRoute
   '/live/workspace/$classId/students/': typeof LiveWorkspaceClassIdStudentsIndexRoute
+  '/school/teachers/$userId/classes/': typeof SchoolTeachersUserIdClassesIndexRoute
   '/school/teachers/$userId/lesson-notes/': typeof SchoolTeachersUserIdLessonNotesIndexRoute
   '/school/teachers/$userId/smartboard/': typeof SchoolTeachersUserIdSmartboardIndexRoute
   '/student/class/$classId/adventures/': typeof StudentClassClassIdAdventuresIndexRoute
@@ -2183,6 +2223,8 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/school/teachers/$userId/adventure'
+    | '/school/teachers/$userId/skill-builder'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -2230,6 +2272,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId/'
     | '/teaching-hub/classes/create/'
     | '/teaching-hub/settings/archive/'
+    | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$noteId'
     | '/school/teachers/$userId/smartboard/$classId'
     | '/games/abacus/represent/$difficulty/'
@@ -2254,6 +2297,7 @@ export interface FileRouteTypes {
     | '/live/workspace/$classId/report/'
     | '/live/workspace/$classId/smartboard/'
     | '/live/workspace/$classId/students/'
+    | '/school/teachers/$userId/classes/'
     | '/school/teachers/$userId/lesson-notes/'
     | '/school/teachers/$userId/smartboard/'
     | '/student/class/$classId/adventures/'
@@ -2391,6 +2435,8 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/school/teachers/$userId/adventure'
+    | '/school/teachers/$userId/skill-builder'
     | '/adventure/games/$gameId'
     | '/assets/$category/$subcategory'
     | '/assets/interactive/question-progress'
@@ -2438,6 +2484,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId'
     | '/teaching-hub/classes/create'
     | '/teaching-hub/settings/archive'
+    | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$noteId'
     | '/school/teachers/$userId/smartboard/$classId'
     | '/games/abacus/represent/$difficulty'
@@ -2462,6 +2509,7 @@ export interface FileRouteTypes {
     | '/live/workspace/$classId/report'
     | '/live/workspace/$classId/smartboard'
     | '/live/workspace/$classId/students'
+    | '/school/teachers/$userId/classes'
     | '/school/teachers/$userId/lesson-notes'
     | '/school/teachers/$userId/smartboard'
     | '/student/class/$classId/adventures'
@@ -2610,6 +2658,8 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/school/teachers/$userId/adventure'
+    | '/school/teachers/$userId/skill-builder'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -2657,6 +2707,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId/'
     | '/teaching-hub/classes/create/'
     | '/teaching-hub/settings/archive/'
+    | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$noteId'
     | '/school/teachers/$userId/smartboard/$classId'
     | '/games/abacus/represent/$difficulty/'
@@ -2681,6 +2732,7 @@ export interface FileRouteTypes {
     | '/live/workspace/$classId/report/'
     | '/live/workspace/$classId/smartboard/'
     | '/live/workspace/$classId/students/'
+    | '/school/teachers/$userId/classes/'
     | '/school/teachers/$userId/lesson-notes/'
     | '/school/teachers/$userId/smartboard/'
     | '/student/class/$classId/adventures/'
@@ -3885,6 +3937,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SchoolTeachersUserIdIndexRouteImport
       parentRoute: typeof SchoolRouteRoute
     }
+    '/school/teachers/$userId/adventure': {
+      id: '/school/teachers/$userId/adventure'
+      path: '/teachers/$userId/adventure'
+      fullPath: '/school/teachers/$userId/adventure'
+      preLoaderRoute: typeof SchoolTeachersUserIdAdventureRouteImport
+      parentRoute: typeof SchoolRouteRoute
+    }
+    '/school/teachers/$userId/skill-builder': {
+      id: '/school/teachers/$userId/skill-builder'
+      path: '/teachers/$userId/skill-builder'
+      fullPath: '/school/teachers/$userId/skill-builder'
+      preLoaderRoute: typeof SchoolTeachersUserIdSkillBuilderRouteImport
+      parentRoute: typeof SchoolRouteRoute
+    }
     '/smartboard/$notebookId/preview/': {
       id: '/smartboard/$notebookId/preview/'
       path: '/$notebookId/preview'
@@ -4080,6 +4146,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/live/workspace/$classId/students/'
       preLoaderRoute: typeof LiveWorkspaceClassIdStudentsIndexRouteImport
       parentRoute: typeof LiveRouteRoute
+    }
+    '/school/teachers/$userId/classes/': {
+      id: '/school/teachers/$userId/classes/'
+      path: '/teachers/$userId/classes'
+      fullPath: '/school/teachers/$userId/classes/'
+      preLoaderRoute: typeof SchoolTeachersUserIdClassesIndexRouteImport
+      parentRoute: typeof SchoolRouteRoute
+    }
+    '/school/teachers/$userId/classes/$classId': {
+      id: '/school/teachers/$userId/classes/$classId'
+      path: '/teachers/$userId/classes/$classId'
+      fullPath: '/school/teachers/$userId/classes/$classId'
+      preLoaderRoute: typeof SchoolTeachersUserIdClassesClassIdRouteImport
+      parentRoute: typeof SchoolRouteRoute
     }
     '/school/teachers/$userId/lesson-notes/': {
       id: '/school/teachers/$userId/lesson-notes/'
@@ -4569,9 +4649,13 @@ interface SchoolRouteRouteChildren {
   SchoolStudentsUserIdRoute: typeof SchoolStudentsUserIdRoute
   SchoolStudentsIndexRoute: typeof SchoolStudentsIndexRoute
   SchoolTeachersIndexRoute: typeof SchoolTeachersIndexRoute
+  SchoolTeachersUserIdAdventureRoute: typeof SchoolTeachersUserIdAdventureRoute
+  SchoolTeachersUserIdSkillBuilderRoute: typeof SchoolTeachersUserIdSkillBuilderRoute
   SchoolTeachersUserIdIndexRoute: typeof SchoolTeachersUserIdIndexRoute
+  SchoolTeachersUserIdClassesClassIdRoute: typeof SchoolTeachersUserIdClassesClassIdRoute
   SchoolTeachersUserIdLessonNotesNoteIdRoute: typeof SchoolTeachersUserIdLessonNotesNoteIdRoute
   SchoolTeachersUserIdSmartboardClassIdRoute: typeof SchoolTeachersUserIdSmartboardClassIdRoute
+  SchoolTeachersUserIdClassesIndexRoute: typeof SchoolTeachersUserIdClassesIndexRoute
   SchoolTeachersUserIdLessonNotesIndexRoute: typeof SchoolTeachersUserIdLessonNotesIndexRoute
   SchoolTeachersUserIdSmartboardIndexRoute: typeof SchoolTeachersUserIdSmartboardIndexRoute
 }
@@ -4581,11 +4665,16 @@ const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolStudentsUserIdRoute: SchoolStudentsUserIdRoute,
   SchoolStudentsIndexRoute: SchoolStudentsIndexRoute,
   SchoolTeachersIndexRoute: SchoolTeachersIndexRoute,
+  SchoolTeachersUserIdAdventureRoute: SchoolTeachersUserIdAdventureRoute,
+  SchoolTeachersUserIdSkillBuilderRoute: SchoolTeachersUserIdSkillBuilderRoute,
   SchoolTeachersUserIdIndexRoute: SchoolTeachersUserIdIndexRoute,
+  SchoolTeachersUserIdClassesClassIdRoute:
+    SchoolTeachersUserIdClassesClassIdRoute,
   SchoolTeachersUserIdLessonNotesNoteIdRoute:
     SchoolTeachersUserIdLessonNotesNoteIdRoute,
   SchoolTeachersUserIdSmartboardClassIdRoute:
     SchoolTeachersUserIdSmartboardClassIdRoute,
+  SchoolTeachersUserIdClassesIndexRoute: SchoolTeachersUserIdClassesIndexRoute,
   SchoolTeachersUserIdLessonNotesIndexRoute:
     SchoolTeachersUserIdLessonNotesIndexRoute,
   SchoolTeachersUserIdSmartboardIndexRoute:
