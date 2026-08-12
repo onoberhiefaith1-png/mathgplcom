@@ -436,8 +436,12 @@ export async function setProfitPercentage(value: number, userId?: string) {
     effective_from: new Date().toISOString(),
     created_by: userId ?? null,
   });
+  const { syncCatalogQuietly } = await import("@/lib/payments/catalogSync.server");
+  await syncCatalogQuietly("sandbox");
+  await syncCatalogQuietly("live");
   return value;
 }
+
 
 export async function reconcile(sinceDays = 90) {
   const db = await admin();
