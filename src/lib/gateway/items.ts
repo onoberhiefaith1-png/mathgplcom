@@ -10,7 +10,8 @@ export type GatewayItem =
   | "adventure"
   | "gallery"
   | "reports"
-  | "courses";
+  | "course_video_link"
+  | "course_premium_video";
 
 export const GATEWAY_ITEMS: { id: GatewayItem; label: string; blurb: string }[] = [
   { id: "class_notes", label: "Class Notes", blurb: "The lesson notes shared with the class." },
@@ -19,8 +20,18 @@ export const GATEWAY_ITEMS: { id: GatewayItem; label: string; blurb: string }[] 
   { id: "adventure", label: "Adventure", blurb: "Adventure games and races." },
   { id: "gallery", label: "Gallery", blurb: "Awards, rewards and the class gallery." },
   { id: "reports", label: "Reports", blurb: "Progress and trend reports." },
-  { id: "courses", label: "Courses", blurb: "Courses and Skill Builder paths." },
+  {
+    id: "course_video_link",
+    label: "Courses — Video Link",
+    blurb: "Courses delivered through an external video link such as YouTube.",
+  },
+  {
+    id: "course_premium_video",
+    label: "Courses — Premium Video",
+    blurb: "Courses whose video is uploaded and hosted as premium content on the platform.",
+  },
 ];
+
 
 export const itemLabel = (id: string): string =>
   GATEWAY_ITEMS.find((item) => item.id === id)?.label ?? id;
