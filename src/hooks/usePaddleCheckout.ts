@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { getPaddlePriceId, initializePaddle } from "@/lib/paddle";
+import { getPaddleEnvironment, getPaddlePriceId, initializePaddle } from "@/lib/paddle";
+import { verifyCheckoutPrice } from "@/lib/plans/plans.functions";
 
 /** Opens the hosted checkout overlay for a plan price. */
 export function usePaddleCheckout() {
@@ -15,6 +16,15 @@ export function usePaddleCheckout() {
     setLoading(true);
     try {
       await initializePaddle();
+
+      // Never charge an amount that disagrees with the published plan.
+      const check = await verifyCheckoutPrice({
+        data: { priceId: options.priceId, environment: getPaddleEnvironment() },
+      });
+      if (!check.ok) {
+        throw new Error("This plan is being updated. Please try again shortly.");
+      }
+
       const paddlePriceId = await getPaddlePriceId(options.priceId);
 
       window.Paddle.Checkout.open({
