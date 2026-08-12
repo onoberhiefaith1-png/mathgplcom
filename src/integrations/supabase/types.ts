@@ -1618,10 +1618,12 @@ export type Database = {
       cost_unit_totals: {
         Row: {
           actual_cost: number
+          amount_paid: number
           category: Database["public"]["Enums"]["cost_category"]
           cost_unit_id: string
           customer_charge: number
           day: string
+          financial_result: number
           id: string
           profit: number
           quantity: number
@@ -1629,10 +1631,12 @@ export type Database = {
         }
         Insert: {
           actual_cost?: number
+          amount_paid?: number
           category: Database["public"]["Enums"]["cost_category"]
           cost_unit_id: string
           customer_charge?: number
           day: string
+          financial_result?: number
           id?: string
           profit?: number
           quantity?: number
@@ -1640,10 +1644,12 @@ export type Database = {
         }
         Update: {
           actual_cost?: number
+          amount_paid?: number
           category?: Database["public"]["Enums"]["cost_category"]
           cost_unit_id?: string
           customer_charge?: number
           day?: string
+          financial_result?: number
           id?: string
           profit?: number
           quantity?: number
@@ -1887,6 +1893,95 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_ledger: {
+        Row: {
+          amount: number
+          balance_after: number
+          cost_unit_id: string
+          created_at: string
+          id: string
+          kind: string
+          note: string | null
+          usage_event_id: string | null
+          wallet_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after?: number
+          cost_unit_id: string
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          usage_event_id?: string | null
+          wallet_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          cost_unit_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          usage_event_id?: string | null
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_ledger_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_ledger_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "credit_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_wallets: {
+        Row: {
+          balance: number
+          cost_unit_id: string
+          created_at: string
+          id: string
+          lifetime_purchased: number
+          lifetime_spent: number
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          cost_unit_id: string
+          created_at?: string
+          id?: string
+          lifetime_purchased?: number
+          lifetime_spent?: number
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          cost_unit_id?: string
+          created_at?: string
+          id?: string
+          lifetime_purchased?: number
+          lifetime_spent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_wallets_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: true
+            referencedRelation: "cost_units"
             referencedColumns: ["id"]
           },
         ]
@@ -3431,6 +3526,78 @@ export type Database = {
           },
         ]
       }
+      promo_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          discount_percentage: number
+          expires_at: string | null
+          id: string
+          kind: string
+          label: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          discount_percentage?: number
+          expires_at?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          discount_percentage?: number
+          expires_at?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+        }
+        Relationships: []
+      }
+      promo_redemptions: {
+        Row: {
+          active: boolean
+          code_id: string
+          cost_unit_id: string
+          id: string
+          redeemed_at: string
+        }
+        Insert: {
+          active?: boolean
+          code_id: string
+          cost_unit_id: string
+          id?: string
+          redeemed_at?: string
+        }
+        Update: {
+          active?: boolean
+          code_id?: string
+          cost_unit_id?: string
+          id?: string
+          redeemed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_redemptions_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_redemptions_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_task_results: {
         Row: {
           assignment_id: string
@@ -4053,54 +4220,72 @@ export type Database = {
         Row: {
           actor_user_id: string | null
           actual_cost: number
+          amount_paid: number
           category: Database["public"]["Enums"]["cost_category"]
           cost_unit_id: string
           customer_charge: number
+          discount_percentage: number
           feature: string | null
+          financial_result: number
           id: string
           metric: string
           model: string | null
           occurred_at: string
+          payment_status: string
           profit: number
           profit_rate: number
+          promo_code: string | null
           quantity: number
           reconciled: boolean
+          resource_label: string | null
           unit: string
           unit_price: number | null
         }
         Insert: {
           actor_user_id?: string | null
           actual_cost?: number
+          amount_paid?: number
           category: Database["public"]["Enums"]["cost_category"]
           cost_unit_id: string
           customer_charge?: number
+          discount_percentage?: number
           feature?: string | null
+          financial_result?: number
           id?: string
           metric: string
           model?: string | null
           occurred_at?: string
+          payment_status?: string
           profit?: number
           profit_rate?: number
+          promo_code?: string | null
           quantity?: number
           reconciled?: boolean
+          resource_label?: string | null
           unit?: string
           unit_price?: number | null
         }
         Update: {
           actor_user_id?: string | null
           actual_cost?: number
+          amount_paid?: number
           category?: Database["public"]["Enums"]["cost_category"]
           cost_unit_id?: string
           customer_charge?: number
+          discount_percentage?: number
           feature?: string | null
+          financial_result?: number
           id?: string
           metric?: string
           model?: string | null
           occurred_at?: string
+          payment_status?: string
           profit?: number
           profit_rate?: number
+          promo_code?: string | null
           quantity?: number
           reconciled?: boolean
+          resource_label?: string | null
           unit?: string
           unit_price?: number | null
         }
@@ -4288,7 +4473,20 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      adjust_credits: {
+        Args: {
+          _amount: number
+          _cost_unit_id: string
+          _kind: string
+          _note?: string
+        }
+        Returns: number
+      }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
+      can_afford_usage: {
+        Args: { _estimated?: number; _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
       class_join_gate: {
         Args: { code: string }
@@ -4351,6 +4549,7 @@ export type Database = {
         Args: { _class_id: string; _game_id: string }
         Returns: undefined
       }
+      ensure_credit_wallet: { Args: { _cost_unit_id: string }; Returns: string }
       ensure_user_cost_unit: { Args: { _user_id: string }; Returns: string }
       ensure_workspace_cost_unit: { Args: { _org_id: string }; Returns: string }
       generate_mathgpl_id: { Args: never; Returns: string }
@@ -4488,6 +4687,7 @@ export type Database = {
           status: string
         }[]
       }
+      my_credit_balance: { Args: never; Returns: number }
       my_pending_invitations: {
         Args: never
         Returns: {
@@ -4580,20 +4780,37 @@ export type Database = {
         }[]
       }
       reconcile_usage_costs: { Args: { _since?: string }; Returns: number }
-      record_usage_event: {
-        Args: {
-          _category: Database["public"]["Enums"]["cost_category"]
-          _feature?: string
-          _metric: string
-          _model?: string
-          _occurred_at?: string
-          _org_id: string
-          _quantity: number
-          _unit?: string
-          _user_id: string
-        }
-        Returns: string
-      }
+      record_usage_event:
+        | {
+            Args: {
+              _category: Database["public"]["Enums"]["cost_category"]
+              _feature?: string
+              _metric: string
+              _model?: string
+              _occurred_at?: string
+              _org_id: string
+              _quantity: number
+              _unit?: string
+              _user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _category: Database["public"]["Enums"]["cost_category"]
+              _feature?: string
+              _metric: string
+              _model?: string
+              _occurred_at?: string
+              _org_id: string
+              _quantity: number
+              _resource_label?: string
+              _unit?: string
+              _user_id: string
+            }
+            Returns: string
+          }
+      redeem_promo_code: { Args: { _code: string }; Returns: string }
       regenerate_my_share_code: { Args: never; Returns: string }
       regenerate_school_code: { Args: { _org_id: string }; Returns: string }
       request_connection: {
