@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("grade-assessment");
 // grade-assessment — server-authoritative line grading for the Assessment
 // Workspace. The correct answer (answer key) is NEVER sent to the client; the
 // student only submits an arrangement of the chips that were provided to them.

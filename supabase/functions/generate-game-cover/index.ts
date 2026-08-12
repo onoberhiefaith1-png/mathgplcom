@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("generate-game-cover");
 // Generates a unique fantasy cover image for a game via the Lovable AI Gateway,
 // stores it in the private game-assets bucket, and saves the path on the game row.
 import { createClient } from "npm:@supabase/supabase-js@2";

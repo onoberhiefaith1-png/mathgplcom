@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("geometry-edit");
 // geometry-edit — AI editor for a GeometryScene. Receives the current
 // scene + a teacher instruction (and optional reference images) and
 // returns the next scene. The teacher reviews + applies in the panel.

@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("relationship-ai");
 // relationship-ai — suggests mathematical relationships for a selection
 // in a GeometryScene. AI assists; the teacher reviews/edits/approves.
 

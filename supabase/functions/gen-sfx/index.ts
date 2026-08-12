@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("gen-sfx");
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
