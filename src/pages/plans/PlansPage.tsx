@@ -6,8 +6,11 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import PaymentTestModeBanner from "@/components/PaymentTestModeBanner";
+import SiteFooter from "@/components/common/SiteFooter";
+import PublicPricingPage, { PolicyLinks } from "./PublicPricingPage";
 import { credits, money } from "@/lib/costs/categories";
 import { useAccount } from "@/lib/accounts/useAccount";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { getPaddleEnvironment, priceKeyForPlan } from "@/lib/paddle";
 import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
@@ -22,6 +25,7 @@ import {
 } from "@/lib/plans/plans.functions";
 
 
+
 type Audience = "teacher" | "school" | "parent";
 
 const AUDIENCE_FOR_ROLE: Record<string, Audience | null> = {
@@ -34,10 +38,29 @@ const AUDIENCE_FOR_ROLE: Record<string, Audience | null> = {
 };
 
 /**
+ * Pricing is public. A visitor with no session gets the public pricing page;
+ * a signed-in member gets their own plan screen. Both read the same published
+ * plan versions and the same live credit sell price.
+ */
+export default function PlansPage() {
+  const { user, ready } = useAuth();
+
+  if (!ready) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading pricing…
+      </main>
+    );
+  }
+  if (!user) return <PublicPricingPage />;
+  return <MemberPlansPage />;
+}
+
+/**
  * The member's own plan screen. Students never see plans — their access comes
  * from the school or teacher they are connected to.
  */
-export default function PlansPage() {
+function MemberPlansPage() {
   const qc = useQueryClient();
   const { role, isLoading } = useAccount();
   const audience = role ? AUDIENCE_FOR_ROLE[role] ?? null : null;
@@ -266,6 +289,7 @@ export default function PlansPage() {
                 </div>
               ))}
             </div>
+            <PolicyLinks />
           </div>
         ) : null}
 
@@ -378,12 +402,22 @@ export default function PlansPage() {
           </div>
         ) : null}
 
+        <div className="mt-8 rounded-2xl border border-border bg-card/60 p-5 text-xs text-muted-foreground">
+          <p>
+            Our order process is conducted by our online reseller Paddle.com, which is the Merchant of Record for all our
+            orders and handles payment processing, payment support and applicable refunds. Please review the policies
+            below before purchasing.
+          </p>
+          <PolicyLinks />
+        </div>
+
         <p className="mt-8 text-xs text-muted-foreground">
           <Link to="/account" className="text-primary hover:underline">
             ← Back to your account
           </Link>
         </p>
       </div>
+      <SiteFooter />
     </main>
   );
 }
