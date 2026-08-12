@@ -76,10 +76,8 @@ const RELATION_LABEL: Record<Relation, string> = {
   parent_child: "Parent and child",
   parent_teacher: "Parent and teacher",
   parent_school: "Parent and school",
-  teacher_teacher: "Teachers",
-  student_student: "Students",
-  school_school: "Schools",
 };
+
 
 export const relationLabel = (relation: Relation) => RELATION_LABEL[relation] ?? "Connection";
 
