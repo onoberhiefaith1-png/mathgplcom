@@ -1959,36 +1959,56 @@ export type Database = {
       }
       credit_purchases: {
         Row: {
+          cost_unit_id: string | null
           created_at: string
           created_by: string | null
           credits: number
           currency: string
           id: string
           note: string | null
+          provider: string | null
+          provider_ref: string | null
           purchased_at: string
           unit_cost: number
+          user_id: string | null
         }
         Insert: {
+          cost_unit_id?: string | null
           created_at?: string
           created_by?: string | null
           credits: number
           currency?: string
           id?: string
           note?: string | null
+          provider?: string | null
+          provider_ref?: string | null
           purchased_at?: string
           unit_cost: number
+          user_id?: string | null
         }
         Update: {
+          cost_unit_id?: string | null
           created_at?: string
           created_by?: string | null
           credits?: number
           currency?: string
           id?: string
           note?: string | null
+          provider?: string | null
+          provider_ref?: string | null
           purchased_at?: string
           unit_cost?: number
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "credit_purchases_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       credit_wallets: {
         Row: {
@@ -3320,6 +3340,45 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_events: {
+        Row: {
+          created_at: string
+          environment: string
+          error: string | null
+          event_id: string
+          event_type: string
+          id: string
+          payload: Json | null
+          provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          environment?: string
+          error?: string | null
+          event_id: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          error?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_transactions: {
         Row: {
           amount: number
@@ -4545,6 +4604,7 @@ export type Database = {
           plan_version_id: string | null
           pricing_version_id: string | null
           provider: string | null
+          provider_customer_id: string | null
           provider_subscription_id: string | null
           region: string | null
           scheduled_plan_id: string | null
@@ -4574,6 +4634,7 @@ export type Database = {
           plan_version_id?: string | null
           pricing_version_id?: string | null
           provider?: string | null
+          provider_customer_id?: string | null
           provider_subscription_id?: string | null
           region?: string | null
           scheduled_plan_id?: string | null
@@ -4603,6 +4664,7 @@ export type Database = {
           plan_version_id?: string | null
           pricing_version_id?: string | null
           provider?: string | null
+          provider_customer_id?: string | null
           provider_subscription_id?: string | null
           region?: string | null
           scheduled_plan_id?: string | null
@@ -5086,6 +5148,7 @@ export type Database = {
       ensure_credit_wallet: { Args: { _cost_unit_id: string }; Returns: string }
       ensure_user_cost_unit: { Args: { _user_id: string }; Returns: string }
       ensure_workspace_cost_unit: { Args: { _org_id: string }; Returns: string }
+      expire_lapsed_subscriptions: { Args: never; Returns: number }
       generate_mathgpl_id: { Args: never; Returns: string }
       generate_org_invite_code: { Args: never; Returns: string }
       generate_session_code: { Args: never; Returns: string }
@@ -5280,9 +5343,23 @@ export type Database = {
         }
         Returns: string
       }
+      paddle_apply_plan_change: {
+        Args: { _plan_key: string; _provider_sub_id: string }
+        Returns: string
+      }
       paddle_cancel_at_period_end: {
         Args: { _period_end?: string; _provider_sub_id: string }
         Returns: undefined
+      }
+      paddle_record_topup: {
+        Args: {
+          _amount: number
+          _credits: number
+          _currency?: string
+          _provider_ref: string
+          _user_id: string
+        }
+        Returns: boolean
       }
       paddle_schedule_plan_change: {
         Args: { _plan_key: string; _provider_sub_id: string }
