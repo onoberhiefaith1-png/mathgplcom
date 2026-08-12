@@ -186,7 +186,7 @@ const SignUpPage = () => {
       // The database issues the permanent MathGPL ID at signup — show it here.
       if (created.user?.id) {
         try {
-          const { mathgplId } = await lookupId({ data: { userId: created.user.id } });
+          const { mathgplId } = await lookupId({ data: { userId: created.user.id, role } });
           setIssuedId(mathgplId);
         } catch { /* the confirmation email still carries the ID */ }
       }
