@@ -284,6 +284,22 @@ export default function CostAnalytics() {
                 ))
               )}
             </div>
+
+            <div className="mt-4 space-y-1 border-t border-dash-surface/10 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface/55">Pricing history</p>
+              {(pricing.data?.rows ?? []).length === 0 ? (
+                <p className="text-xs text-dash-surface/55">No percentage change recorded yet.</p>
+              ) : (
+                (pricing.data?.rows ?? []).map((v) => (
+                  <p key={v.id} className="text-xs text-dash-surface/70">
+                    <span className={v.current ? "text-dash-gold" : ""}>{v.profitPercentage}%</span>{" "}
+                    from {new Date(v.effectiveFrom).toLocaleDateString("en-GB")}
+                    {v.current ? " — current" : ""}
+                  </p>
+                ))
+              )}
+            </div>
+
           </div>
 
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
