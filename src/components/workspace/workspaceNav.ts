@@ -109,19 +109,29 @@ const STUDENT: WorkspaceNavGroup[] = [
   },
 ];
 
+/**
+ * A parent is a guardian and an observer. The Parent Console never borrows the
+ * teacher's tools: no lesson notes, no SmartBoard, no classes, no adventures.
+ */
 const PARENT: WorkspaceNavGroup[] = [
   {
-    title: "Family",
+    title: "Parent Console",
     items: [
       HOME,
+      { to: "/family", label: "Dashboard", icon: LayoutDashboard },
       { to: "/family", label: "My Children", icon: Users },
-      { to: "/family/teachers", label: "My Teachers", icon: GraduationCap },
-      { to: "/family?tab=progress", label: "Progress", icon: BarChart3 },
+      { to: "/requests?view=schools", label: "School Connections", icon: Building2 },
+      { to: "/family/teachers", label: "Teacher Connections", icon: GraduationCap },
+      { to: "/requests", label: "Requests", icon: Inbox },
     ],
   },
   COMMUNITY,
-  ACCOUNT,
+  {
+    title: "Account",
+    items: [{ to: "/account", label: "Account & Go Live", icon: UserCircle }],
+  },
 ];
+
 
 /**
  * A connected teacher inside a school operates the Shared Workspace: they teach
