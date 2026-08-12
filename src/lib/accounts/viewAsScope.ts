@@ -20,7 +20,7 @@ export type ViewAsScope = {
   /** Route prefix every in-app navigation is folded back into. */
   basePath: string;
   /** Who is looking — only changes the wording of the identity strip. */
-  viewer?: "school" | "teacher";
+  viewer?: "school" | "teacher" | "parent";
   /**
    * When set, only these classes are in the viewer's context. A teacher sees a
    * student through the classes they teach, never the student's other schools.
@@ -63,6 +63,7 @@ export function mapViewAsPath(pathname: string, base: string): string {
   if (
     pathname.startsWith("/school") ||
     pathname.startsWith("/teaching-hub/students") ||
+    pathname.startsWith("/family") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/login")
   ) {

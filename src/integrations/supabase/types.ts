@@ -1561,6 +1561,9 @@ export type Database = {
       }
       connections: {
         Row: {
+          child_confirmed_at: string | null
+          child_user_id: string | null
+          counterpart_accepted_at: string | null
           created_at: string
           from_user_id: string
           id: string
@@ -1573,6 +1576,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          child_confirmed_at?: string | null
+          child_user_id?: string | null
+          counterpart_accepted_at?: string | null
           created_at?: string
           from_user_id: string
           id?: string
@@ -1585,6 +1591,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          child_confirmed_at?: string | null
+          child_user_id?: string | null
+          counterpart_accepted_at?: string | null
           created_at?: string
           from_user_id?: string
           id?: string
@@ -4195,6 +4204,10 @@ export type Database = {
       my_connections: {
         Args: { _status?: string }
         Returns: {
+          child_confirmed_at: string
+          child_name: string
+          child_user_id: string
+          counterpart_accepted_at: string
           counterpart_name: string
           counterpart_role: Database["public"]["Enums"]["app_role"]
           counterpart_user_id: string
@@ -4247,6 +4260,27 @@ export type Database = {
       org_of: { Args: { _user_id: string }; Returns: string }
       owner_can_access_user: { Args: { _user_id: string }; Returns: boolean }
       owns_org: { Args: { _org_id: string }; Returns: boolean }
+      parent_child_breakdown: {
+        Args: { _child_user_id: string }
+        Returns: {
+          classes: number
+          kind: string
+          name: string
+          progress: number
+        }[]
+      }
+      parent_child_overview: {
+        Args: never
+        Returns: {
+          child_user_id: string
+          classes: number
+          display_name: string
+          progress: number
+          schools: number
+          teachers: number
+          username: string
+        }[]
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -4259,6 +4293,15 @@ export type Database = {
       regenerate_school_code: { Args: { _org_id: string }; Returns: string }
       request_connection: {
         Args: {
+          _message?: string
+          _relation: Database["public"]["Enums"]["connection_relation"]
+          _target_user_id: string
+        }
+        Returns: string
+      }
+      request_connection_for_child: {
+        Args: {
+          _child_user_id: string
           _message?: string
           _relation: Database["public"]["Enums"]["connection_relation"]
           _target_user_id: string
