@@ -96,11 +96,13 @@ export default function CostAnalytics() {
   const saveProfit = useMutation({
     mutationFn: (value: number) => saveProfitPercentage({ data: { value } }),
     onSuccess: () => {
-      toast.success("Profit rate updated. Existing paid periods keep their locked rate.");
+      toast.success("Percentage Profit updated. It applies to new subscriptions and renewals only.");
       void qc.invalidateQueries({ queryKey: ["cost-overview"] });
+      void qc.invalidateQueries({ queryKey: ["pricing-history"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const savePrice = useMutation({
     mutationFn: (input: { metric: string; unitPrice: number | null }) => saveResourcePrice({ data: input }),
