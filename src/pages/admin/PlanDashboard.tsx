@@ -190,12 +190,21 @@ export default function PlanDashboard() {
 
   const publish = useMutation({
     mutationFn: (planId: string) => publishPlanFn({ data: { planId } }),
-    onSuccess: () => {
+    onSuccess: (r) => {
       refresh();
+      qc.invalidateQueries({ queryKey: ["payment-catalog"] });
+      const failed = (r.sync ?? []).flatMap((s) => s.failed);
+      const missing = (r.sync ?? []).flatMap((s) => s.missing);
       toast.success("Published. New subscribers get this version; existing ones keep theirs.");
+      if (failed.length) {
+        toast.error("Published, but checkout still shows the old amount — press “Push prices to checkout”.");
+      } else if (missing.length) {
+        toast.warning(`Not yet created at checkout: ${[...new Set(missing)].join(", ")}`);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const discard = useMutation({
     mutationFn: (planId: string) => discardPlanDraftFn({ data: { planId } }),
