@@ -36,6 +36,12 @@ export type Connection = {
   orgName: string | null;
   message: string | null;
   createdAt: string;
+  /** Set when a parent raised this request on behalf of one of their children. */
+  childUserId: string | null;
+  childName: string | null;
+  /** Two-stage approval: the school or teacher, then the child. */
+  counterpartAcceptedAt: string | null;
+  childConfirmedAt: string | null;
 };
 
 export type ResolvedAccount = {
@@ -94,6 +100,8 @@ export const connectionError = (error: unknown): string => {
   if (/relation_not_valid_for_these_accounts/.test(message))
     return "These two account types can't be connected directly.";
   if (/invalid_target/.test(message)) return "That's your own account.";
+  if (/not_your_child/.test(message))
+    return "That child is not linked to your account yet. Connect to your child first.";
   if (/school_workspace_not_found/.test(message))
     return "That school hasn't finished setting up its workspace yet.";
   if (/request_not_found|connection_not_found/.test(message))
@@ -114,11 +122,25 @@ export const requestSentence = (connection: {
   counterpartUsername: string | null;
   counterpartRole: AppRole | null;
   orgName: string | null;
+  childName?: string | null;
+  childUserId?: string | null;
 }): string => {
   const who = connection.counterpartUsername
     ? `@${connection.counterpartUsername}`
     : connection.counterpartName;
   const school = connection.orgName ?? connection.counterpartName;
+  const child = connection.childName ?? "their child";
+
+  // A parent may ask on behalf of a child. Both the school or teacher and the
+  // child answer, so the sentence names the child every time.
+  if (connection.childUserId) {
+    const target = connection.relation === "parent_school" ? school : who;
+    if (connection.direction === "outgoing")
+      return `You asked ${target} to connect with ${child}.`;
+    return connection.counterpartRole === "parent"
+      ? `${who} asked to connect ${child} with you. ${child} also has to confirm.`
+      : `${who} is connecting ${child}. Your confirmation is needed.`;
+  }
 
   if (connection.direction === "outgoing") {
     switch (connection.relation) {
@@ -304,6 +326,28 @@ export async function requestConnection(
   return data as string;
 }
 
+/**
+ * A parent asking a school or teacher on behalf of one of their children.
+ *
+ * The parent starts it; the school or teacher accepts; then the child confirms.
+ * Nothing is live until both have said yes.
+ */
+export async function requestConnectionForChild(
+  childUserId: string,
+  targetUserId: string,
+  relation: Extract<Relation, "parent_school" | "parent_teacher">,
+  message?: string,
+): Promise<string> {
+  const { data, error } = await supabase.rpc("request_connection_for_child", {
+    _child_user_id: childUserId,
+    _target_user_id: targetUserId,
+    _relation: relation,
+    _message: message?.trim() || undefined,
+  });
+  if (error) throw new Error(connectionError(error));
+  return data as string;
+}
+
 export async function respondToConnection(connectionId: string, accept: boolean): Promise<string> {
   const { data, error } = await supabase.rpc("respond_to_connection", {
     _connection_id: connectionId,
@@ -332,6 +376,10 @@ type ConnectionRow = {
   org_name: string | null;
   message: string | null;
   created_at: string;
+  child_user_id?: string | null;
+  child_name?: string | null;
+  child_confirmed_at?: string | null;
+  counterpart_accepted_at?: string | null;
 };
 
 const toConnection = (row: ConnectionRow): Connection => ({
@@ -347,6 +395,10 @@ const toConnection = (row: ConnectionRow): Connection => ({
   orgName: row.org_name,
   message: row.message,
   createdAt: row.created_at,
+  childUserId: row.child_user_id ?? null,
+  childName: row.child_name ?? null,
+  childConfirmedAt: row.child_confirmed_at ?? null,
+  counterpartAcceptedAt: row.counterpart_accepted_at ?? null,
 });
 
 export async function fetchConnections(status: ConnectionStatus | "all"): Promise<Connection[]> {
