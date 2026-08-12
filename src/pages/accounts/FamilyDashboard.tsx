@@ -1,238 +1,250 @@
 import { useState } from "react";
+import {
+  BarChart3,
+  Building2,
+  GraduationCap,
+  Loader2,
+  Radio,
+  Sparkles,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
-import DashboardShell from "@/components/accounts/DashboardShell";
+import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
+import { EmptyNote, RailCard, StatCard } from "@/components/workspace/DashboardParts";
+import ChildProgressCard from "@/components/family/ChildProgressCard";
+import ConnectedList from "@/components/family/ConnectedList";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import ConnectChildDialog from "@/components/family/ConnectChildDialog";
 import { GoLiveToggle } from "@/components/connections/GoLiveToggle";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router-compat";
-import { useChildBreakdown, useChildren } from "@/lib/family/useFamily";
-import { useConnectionCounts } from "@/lib/connections/useConnections";
-import {
-  Building2,
-  ChevronDown,
-  ChevronRight,
-  GraduationCap,
-  Loader2,
-  Users,
-  BarChart3,
-} from "lucide-react";
+import { useProfileSummary } from "@/lib/accounts/useProfileSummary";
+import { useChildren, useFamilyActivity, useFamilyConnections } from "@/lib/family/useFamily";
 
-/** One figure with its label — the header row of the Parent Portal. */
-const Stat = ({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: string | number;
-}) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-    <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-      <Icon className="h-3.5 w-3.5" /> {label}
-    </p>
-    <p className="mt-2 text-3xl font-semibold text-slate-900">{value}</p>
-  </div>
-);
+const greeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+};
 
-const ProgressBar = ({ value }: { value: number }) => (
-  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
-  </div>
-);
-
-/**
- * One child. The parent sees the child's overall progress across every school,
- * and can open the breakdown per school and per teacher.
- */
-const ChildCard = ({
-  childUserId,
-  displayName,
-  username,
-  schools,
-  teachers,
-  classes,
-  progress,
-}: {
-  childUserId: string;
-  displayName: string;
-  username: string | null;
-  schools: number;
-  teachers: number;
-  classes: number;
-  progress: number;
-}) => {
-  const [open, setOpen] = useState(false);
-  const breakdown = useChildBreakdown(open ? childUserId : null);
-  const rows = breakdown.data ?? [];
-
-  return (
-    <li className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-lg font-semibold text-slate-900">{displayName}</p>
-          <p className="mt-0.5 text-sm text-slate-600">
-            {username ? `@${username} · ` : ""}
-            {schools} {schools === 1 ? "school" : "schools"} · {teachers}{" "}
-            {teachers === 1 ? "teacher" : "teachers"} · {classes} {classes === 1 ? "class" : "classes"}
-          </p>
-        </div>
-        <Button asChild variant="outline" className="min-h-[44px]">
-          <Link to={`/family/children/${childUserId}`}>View details</Link>
-        </Button>
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-center justify-between text-sm text-slate-700">
-          <span>Overall progress</span>
-          <span className="font-semibold text-slate-900">{progress}%</span>
-        </div>
-        <div className="mt-2">
-          <ProgressBar value={progress} />
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="mt-4 inline-flex min-h-[44px] items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-900"
-      >
-        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        Progress per school and teacher
-      </button>
-
-      {open && (
-        <div className="mt-2 space-y-2">
-          {breakdown.isLoading && (
-            <p className="inline-flex items-center gap-2 text-sm text-slate-600">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-            </p>
-          )}
-          {!breakdown.isLoading && rows.length === 0 && (
-            <p className="text-sm text-slate-600">No classes yet, so there is nothing to break down.</p>
-          )}
-          {rows.map((row) => (
-            <div
-              key={`${row.kind}-${row.name}`}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3"
-            >
-              <div className="flex items-center justify-between text-sm">
-                <span className="inline-flex items-center gap-2 font-medium text-slate-800">
-                  {row.kind === "school" ? (
-                    <Building2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <GraduationCap className="h-3.5 w-3.5" />
-                  )}
-                  {row.name}
-                </span>
-                <span className="font-semibold text-slate-900">{row.progress}%</span>
-              </div>
-              <p className="mt-1 text-xs text-slate-600">
-                {row.classes} {row.classes === 1 ? "class" : "classes"}
-              </p>
-              <div className="mt-2">
-                <ProgressBar value={row.progress} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </li>
-  );
+const ACTIVITY_LABEL: Record<string, string> = {
+  assignment: "completed an assignment",
+  adventure: "finished an adventure",
+  skill: "completed a skill pathway",
 };
 
 /**
- * The Parent Portal.
+ * The Parent Console.
  *
- * A parent is a guardian and an observer, never the student. Each child keeps
- * their own student account; the parent follows it, and can introduce a school
- * or a teacher — which the school or teacher accepts and the child confirms.
+ * A parent is a guardian and an observer, never a teacher: there are no lesson
+ * notes, no SmartBoard and no classes here. Each child keeps their own student
+ * account; the parent follows it, and can introduce a school or a teacher —
+ * which the school or teacher accepts and the child then confirms.
  */
 const FamilyDashboard = () => {
+  const { displayName } = useProfileSummary();
   const { children, loading } = useChildren();
-  const { counts } = useConnectionCounts();
+  const connections = useFamilyConnections();
+  const activity = useFamilyActivity();
+  const [connectOpen, setConnectOpen] = useState(false);
+
+  const rows = connections.data ?? [];
+  const schools = rows.filter((r) => r.kind === "school");
+  const teachers = rows.filter((r) => r.kind === "teacher");
 
   const average =
     children.length === 0
       ? 0
       : Math.round(children.reduce((sum, c) => sum + c.progress, 0) / children.length);
 
-  return (
-    <DashboardShell
-      title="Parent Portal"
-      subtitle="Follow your children's learning. Their accounts remain their own — you can look, never edit."
-      actions={
-        <>
+  const rail = (
+    <>
+      <RailCard title="Quick actions">
+        <div className="space-y-2">
           <ConnectByCodeDialog
             trigger={
-              <Button type="button" variant="outline" className="min-h-[44px]">
-                <Users className="mr-2 h-4 w-4" /> Connect to my child
+              <Button type="button" variant="outline" className="min-h-[44px] w-full justify-start">
+                <UserPlus className="mr-2 h-4 w-4" /> Add a child
               </Button>
             }
           />
-          <ConnectChildDialog />
-        </>
-      }
+          <ConnectChildDialog
+            trigger={
+              <Button type="button" variant="outline" className="min-h-[44px] w-full justify-start">
+                <Building2 className="mr-2 h-4 w-4" /> Connect to a school
+              </Button>
+            }
+          />
+          <ConnectChildDialog
+            trigger={
+              <Button type="button" variant="outline" className="min-h-[44px] w-full justify-start">
+                <GraduationCap className="mr-2 h-4 w-4" /> Connect to a teacher
+              </Button>
+            }
+          />
+          <Button asChild variant="outline" className="min-h-[44px] w-full justify-start">
+            <Link to="/requests">
+              <Sparkles className="mr-2 h-4 w-4" /> Requests &amp; invitations
+            </Link>
+          </Button>
+        </div>
+      </RailCard>
+
+      <RailCard title="Recent activity">
+        {activity.isLoading ? (
+          <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+          </p>
+        ) : (activity.data ?? []).length === 0 ? (
+          <EmptyNote>Nothing finished yet. Your children's completed work appears here.</EmptyNote>
+        ) : (
+          <ul className="space-y-2">
+            {(activity.data ?? []).map((item, index) => (
+              <li
+                key={`${item.childUserId}-${item.title}-${index}`}
+                className="rounded-xl border border-ws-border/60 bg-ws-canvas/40 p-3"
+              >
+                <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
+                <p className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 text-[11px] text-muted-foreground">
+                  <span className="truncate">
+                    {item.childName} {ACTIVITY_LABEL[item.kind]}
+                  </span>
+                  {item.happenedAt && (
+                    <span className="shrink-0">{new Date(item.happenedAt).toLocaleDateString()}</span>
+                  )}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </RailCard>
+
+      <RailCard title="Go Live">
+        <GoLiveToggle blurb="Going live lets schools and teachers find your parent account in the Community. Your children's work is never exposed." />
+      </RailCard>
+    </>
+  );
+
+  return (
+    <WorkspaceLayout
+      title="Parent Console"
+      subtitle="Follow your children's learning. Their accounts remain their own — you can look, never edit."
+      rail={rail}
     >
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat icon={Users} label="Children" value={children.length} />
-        <Stat icon={Building2} label="Schools" value={counts.schools} />
-        <Stat icon={GraduationCap} label="Teachers" value={counts.teachers} />
-        <Stat icon={BarChart3} label="Average progress" value={`${average}%`} />
+      <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-semibold text-foreground">
+              {greeting()}, {displayName || "there"}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Here's an overview of your children's learning progress.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-2xl border border-ws-border/70 bg-ws-canvas/40 px-4 py-2 text-right">
+            <span className="block text-[10px] uppercase tracking-[0.18em] text-ws-gold/80">My family</span>
+            <span className="block text-sm font-semibold text-foreground">
+              {children.length} {children.length === 1 ? "child" : "children"}
+            </span>
+          </span>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Children under your care" value={children.length} icon={Users} loading={loading} />
+        <StatCard label="Schools connected" value={schools.length} icon={Building2} loading={connections.isLoading} />
+        <StatCard
+          label="Teachers connected"
+          value={teachers.length}
+          icon={GraduationCap}
+          loading={connections.isLoading}
+          to="/family/teachers"
+        />
+        <StatCard
+          label="Average progress"
+          value={average}
+          suffix="%"
+          icon={BarChart3}
+          loading={loading}
+        />
       </div>
 
-      <section className="mt-8">
-        <h2 className="text-lg font-semibold text-dash-surface">My children</h2>
+      <section>
+        <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <h2 className="truncate text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">
+            My children
+          </h2>
+          <ConnectByCodeDialog
+            open={connectOpen}
+            onOpenChange={setConnectOpen}
+            trigger={
+              <Button type="button" variant="ghost" className="shrink-0 text-xs text-ws-gold hover:underline">
+                Add a child
+              </Button>
+            }
+          />
+        </div>
         {loading ? (
-          <p className="mt-3 inline-flex items-center gap-2 text-sm text-dash-surface/70">
+          <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading your family…
           </p>
         ) : children.length === 0 ? (
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="font-semibold text-slate-900">No children linked yet</p>
-            <p className="mt-1 text-sm text-slate-600">
-              Ask your child for their MathGPL ID or Share Code, then use “Connect to my child”. Your child
-              accepts the request from their own account.
-            </p>
-          </div>
+          <EmptyNote>
+            No children linked yet. Ask your child for their MathGPL ID or Share Code, then use “Add a child”.
+            Your child accepts the request from their own account.
+          </EmptyNote>
         ) : (
-          <ul className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {children.map((child) => (
-              <ChildCard key={child.childUserId} {...child} />
+              <ChildProgressCard key={child.childUserId} child={child} />
             ))}
           </ul>
         )}
       </section>
 
-      <section className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Connections</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Schools and teachers connected to your family. A request you send for a child needs the school or
-            teacher to accept, and then your child to confirm.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="min-h-[44px]">
-              <Link to="/requests?view=children">My children</Link>
-            </Button>
-            <Button asChild variant="outline" className="min-h-[44px]">
-              <Link to="/requests?view=schools">Schools</Link>
-            </Button>
-            <Button asChild variant="outline" className="min-h-[44px]">
-              <Link to="/requests?view=teachers">Teachers</Link>
-            </Button>
-            <Button asChild variant="outline" className="min-h-[44px]">
-              <Link to="/requests">Requests</Link>
-            </Button>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">
+            Schools connected
+          </h2>
+          <ConnectedList
+            kind="school"
+            rows={schools}
+            empty="No schools yet. Introduce a child to a school and the school accepts, then your child confirms."
+          />
+        </section>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <GoLiveToggle blurb="Going live lets schools and teachers find your parent account in the Community. Your children's work is never exposed." />
-        </div>
+        <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
+          <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <h2 className="truncate text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">
+              Teachers connected
+            </h2>
+            <Link to="/family/teachers" className="shrink-0 text-xs text-ws-gold hover:underline">
+              View all
+            </Link>
+          </div>
+          <ConnectedList
+            kind="teacher"
+            rows={teachers}
+            empty="No teachers yet. Introduce a child to a teacher and the teacher accepts, then your child confirms."
+          />
+        </section>
+      </div>
+
+      <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
+        <h2 className="mb-2 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">
+          <Radio className="h-4 w-4" /> Live sessions
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Join live sessions and connect with the teachers and schools that teach your children.
+        </p>
+        <Button asChild className="mt-3 min-h-[44px]">
+          <Link to="/live">Go Live now</Link>
+        </Button>
       </section>
-    </DashboardShell>
+    </WorkspaceLayout>
   );
 };
 
