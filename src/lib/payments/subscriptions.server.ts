@@ -110,7 +110,7 @@ export async function cancelPlan(input: { userId: string; env: PaddleEnv }) {
   const db = await admin();
   await db.rpc("paddle_cancel_at_period_end", {
     _provider_sub_id: current.providerSubscriptionId,
-    _period_end: body.data?.scheduled_change?.effective_at ?? null,
+    _period_end: body.data?.scheduled_change?.effective_at ?? undefined,
   });
 
   return { cancelAt: body.data?.scheduled_change?.effective_at ?? null };
