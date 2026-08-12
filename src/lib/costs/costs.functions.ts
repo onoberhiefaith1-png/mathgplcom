@@ -151,6 +151,15 @@ export const fetchCreditInventory = createServerFn({ method: "GET" })
     return { inventory: await costs.creditInventory() };
   });
 
+/** Rate periods usage was recorded under — read-only, never repriced. */
+export const fetchLockedRatePeriods = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await costs.lockedRatePeriods() };
+  });
+
+
 export const saveCreditPurchase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
