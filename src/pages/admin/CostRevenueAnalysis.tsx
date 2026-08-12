@@ -215,6 +215,56 @@ export default function CostRevenueAnalysis() {
           </section>
         )}
 
+        {/* Locked subscription pricing for the selected account */}
+        {costUnitId && (
+          <section className="rounded-2xl border border-dash-gold/25 bg-dash-gold/5 p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-gold">Subscription pricing</h2>
+            <p className="mt-1 text-xs text-dash-surface/65">
+              {selectedAccount ? `${selectedAccount.name} — ${selectedAccount.code}. ` : ""}
+              The Percentage Profit below was locked when the period started, so a later global change never alters it.
+            </p>
+            {(subscription.data?.detail.subscriptions ?? []).length === 0 ? (
+              <p className="mt-3 text-xs text-dash-surface/60">
+                No subscription recorded. Usage is charged at the percentage in force when each event was metered.
+              </p>
+            ) : (
+              <div className="mt-3 overflow-auto rounded-xl border border-dash-surface/10">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-dash-surface/10 text-dash-surface/70">
+                    <tr>
+                      <th className="px-3 py-2">Plan</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Period</th>
+                      <th className="px-3 py-2 text-right">Percentage Profit</th>
+                      <th className="px-3 py-2 text-right">Credit price</th>
+                      <th className="px-3 py-2 text-right">Discount</th>
+                      <th className="px-3 py-2 text-right">Price paid</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(subscription.data?.detail.subscriptions ?? []).map((s) => (
+                      <tr key={s.id} className="border-t border-dash-surface/10">
+                        <td className="px-3 py-2 text-dash-surface">{s.plan}</td>
+                        <td className="px-3 py-2 capitalize text-dash-surface/75">{s.status}</td>
+                        <td className="px-3 py-2 text-dash-surface/70">
+                          {new Date(s.periodStart).toLocaleDateString("en-GB")} →{" "}
+                          {s.periodEnd ? new Date(s.periodEnd).toLocaleDateString("en-GB") : "open"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-dash-gold">{s.lockedRate}%</td>
+                        <td className="px-3 py-2 text-right text-dash-surface/75">{money(s.creditPrice, s.currency)}</td>
+                        <td className="px-3 py-2 text-right text-dash-surface/75">{s.discountPercentage}%</td>
+                        <td className="px-3 py-2 text-right text-dash-surface">{money(s.finalPrice, s.currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+
+
+
         {/* Ledger */}
         <section className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
