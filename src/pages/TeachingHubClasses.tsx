@@ -7,6 +7,8 @@ import ShareMenu from "@/components/community/ShareMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import JoinClassPanel from "@/components/class/JoinClassPanel";
+import { viewOwnerId } from "@/lib/accounts/workspaceScope";
+import { useViewAs } from "@/lib/accounts/viewAs";
 import SectionCard from "@/components/ui/SectionCard";
 import { SECTION_CARD_CLASS, sectionCardStyle } from "@/lib/theme/sectionThemes";
 
@@ -16,6 +18,7 @@ type OwnedClass = { id: string; name: string; join_code: string };
 const TeachingHubClasses = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { allowEdit } = useViewAs();
   const [owned, setOwned] = useState<OwnedClass[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +28,8 @@ const TeachingHubClasses = () => {
       navigate("/auth?redirect=/teaching-hub/classes");
       return;
     }
-    const uid = userData.user.id;
+    // While a school views a teacher's workspace, show that teacher's classes.
+    const uid = viewOwnerId(userData.user.id);
 
     const { data: ownedRows } = await supabase
       .from("classes")
@@ -49,6 +53,7 @@ const TeachingHubClasses = () => {
   useEffect(() => { load(); }, [load]);
 
   const deleteClass = async (c: OwnedClass) => {
+    if (!allowEdit()) return;
     if (!window.confirm(`Delete "${c.name}"? This cannot be undone.`)) return;
     const { error } = await supabase.from("classes").delete().eq("id", c.id);
     if (error) {

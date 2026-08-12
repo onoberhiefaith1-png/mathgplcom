@@ -102,6 +102,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useViewAs } from "@/lib/accounts/viewAs";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import {
@@ -381,6 +382,9 @@ function DocumentEditorInner({
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+  // When a school looks through a teacher's workspace the page is identical;
+  // the paper simply refuses to change.
+  const { viewOnly, allowEdit } = useViewAs();
 
   /* ─── Note Extend / Note Shrink ────────────────────────────────────────
    * The sheet grows in fixed 50 mm slabs. Shrinking is clamped so the page
@@ -1115,6 +1119,7 @@ function DocumentEditorInner({
 
 
   const editor = useEditor({
+    editable: !viewOnly,
     extensions: [
       StarterKit.configure({ heading: false }),
       SectionHeading.configure({
@@ -1771,7 +1776,23 @@ function DocumentEditorInner({
   return (
     <AssetSelectionProvider>
     <AiEditBridgeProvider requestAiEdit={requestAiEdit}>
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full"
+      onClickCapture={(e) => {
+        if (!viewOnly) return;
+        e.preventDefault();
+        e.stopPropagation();
+        allowEdit();
+      }}
+      onKeyDownCapture={(e) => {
+        if (!viewOnly) return;
+        if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace" || e.key === "Delete") {
+          e.preventDefault();
+          e.stopPropagation();
+          allowEdit();
+        }
+      }}
+    >
 
 
       {/* Word-style ribbon — fixed to the viewport so the center handle is always reachable */}

@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
+import { activeSchoolOrgId, withOwnerView } from "@/lib/accounts/workspaceScope";
+import { useViewAs } from "@/lib/accounts/viewAs";
+
 
 
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,10 @@ const PAGE_SIZE = 20;
 
 const LessonNotesPage = () => {
   const navigate = useNavigate();
+  // Someone else's shelf can be opened read-only (school → teacher): the page
+  // is identical, only the authoring actions are refused.
+  const { allowEdit } = useViewAs();
+
   // Keep the MathGPL Live context when opening a note so Live-only tools
   // (Smart Card publishing) stay available.
   const livePrefix = useLocation().pathname.startsWith("/live") ? "/live" : "";
@@ -72,6 +78,8 @@ const LessonNotesPage = () => {
       // independent copies and never clutter the shelf.
       .eq("storage_scope", "workspace");
     query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
+    // When someone else's shelf is being viewed read-only, show their notes.
+    query = withOwnerView(query);
     const { data, error } = await query.order("updated_at", { ascending: false });
     if (error) {
       toast({ title: "Could not load notebooks", description: error.message, variant: "destructive" });
@@ -86,6 +94,7 @@ const LessonNotesPage = () => {
   useEffect(() => { load(); }, []);
 
   const create = async (v: CreateNotebookValues) => {
+    if (!allowEdit()) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const color_index = notebooks.length % 10;
@@ -111,6 +120,7 @@ const LessonNotesPage = () => {
   };
 
   const renameNotebook = async (nb: NotebookRow) => {
+    if (!allowEdit()) return;
     const next = window.prompt("Rename notebook (topic):", nb.title ?? "");
     if (next === null) return;
     const { error } = await supabase.from("notebooks").update({ title: next.trim() || null }).eq("id", nb.id);
@@ -119,6 +129,7 @@ const LessonNotesPage = () => {
   };
 
   const deleteNotebook = async (nb: NotebookRow) => {
+    if (!allowEdit()) return;
     if (!window.confirm(`Delete "${nb.title || nb.subject}"? This cannot be undone.`)) return;
     // A downloaded copy that no longer exists stops counting towards the
     // creator's active downloads.
@@ -129,6 +140,7 @@ const LessonNotesPage = () => {
   };
 
   const duplicate = async (nb: NotebookRow) => {
+    if (!allowEdit()) return;
     try {
       await duplicateNotebook(nb.id, { scope: "workspace", titleSuffix: " (copy)" });
       toast({ title: "Notebook duplicated" });
@@ -139,6 +151,7 @@ const LessonNotesPage = () => {
   };
 
   const saveCover = async (nb: NotebookRow, cfg: NotebookCoverConfig) => {
+    if (!allowEdit()) return;
     const { error } = await supabase
       .from("notebooks")
       .update({ cover_config: cfg as never })
@@ -150,6 +163,7 @@ const LessonNotesPage = () => {
     toast({ title: "Cover updated" });
     load();
   };
+
 
   const signOut = async () => {
     await supabase.auth.signOut();

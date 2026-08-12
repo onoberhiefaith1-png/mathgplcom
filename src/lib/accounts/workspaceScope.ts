@@ -10,6 +10,7 @@
  * workspace is recorded; the personal workspace is represented by NULL.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { currentViewAs } from "@/lib/accounts/viewAsScope";
 
 type Row = { org_id: string; kind: string; status: string };
 
@@ -18,7 +19,11 @@ const TTL = 30_000;
 
 /** The school workspace currently active, or null for the personal workspace. */
 export async function activeSchoolOrgId(): Promise<string | null> {
+  // Viewing someone else's Shared Workspace: their school container wins.
+  const viewing = currentViewAs();
+  if (viewing) return viewing.orgId;
   if (cache && Date.now() - cache.at < TTL) return cache.value;
+
 
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return null;
@@ -58,4 +63,20 @@ export async function scopedByWorkspace<T extends { eq: (c: string, v: string) =
   query: T,
 ): Promise<T> {
   return withWorkspaceScope(query, await activeSchoolOrgId());
+}
+
+/**
+ * The person whose material a page should show.
+ *
+ * Normally this is the signed-in user. While viewing someone else's Shared
+ * Workspace it is that person, so the lists render exactly what they own.
+ */
+export function viewOwnerId(signedInUserId: string): string {
+  return currentViewAs()?.ownerId ?? signedInUserId;
+}
+
+/** Restrict a select to the owner a page should show (see `viewOwnerId`). */
+export function withOwnerView<T extends { eq: (c: string, v: string) => T }>(query: T): T {
+  const viewing = currentViewAs();
+  return viewing ? query.eq("owner_id", viewing.ownerId) : query;
 }

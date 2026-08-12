@@ -192,9 +192,9 @@ import { Route as LiveWorkspaceClassIdStudentsIndexRouteImport } from './routes/
 import { Route as SchoolTeachersUserIdClassesIndexRouteImport } from './routes/school/teachers/$userId/classes/index'
 import { Route as SchoolTeachersUserIdClassesClassIdRouteImport } from './routes/school/teachers/$userId/classes/$classId'
 import { Route as SchoolTeachersUserIdLessonNotesIndexRouteImport } from './routes/school/teachers/$userId/lesson-notes/index'
-import { Route as SchoolTeachersUserIdLessonNotesNoteIdRouteImport } from './routes/school/teachers/$userId/lesson-notes/$noteId'
+import { Route as SchoolTeachersUserIdLessonNotesIdRouteImport } from './routes/school/teachers/$userId/lesson-notes/$id'
 import { Route as SchoolTeachersUserIdSmartboardIndexRouteImport } from './routes/school/teachers/$userId/smartboard/index'
-import { Route as SchoolTeachersUserIdSmartboardClassIdRouteImport } from './routes/school/teachers/$userId/smartboard/$classId'
+import { Route as SchoolTeachersUserIdSmartboardNotebookIdRouteImport } from './routes/school/teachers/$userId/smartboard/$notebookId'
 import { Route as StudentClassClassIdAdventuresIndexRouteImport } from './routes/student/class/$classId/adventures/index'
 import { Route as StudentClassClassIdCoursesIndexRouteImport } from './routes/student/class/$classId/courses/index'
 import { Route as StudentClassClassIdGalleryIndexRouteImport } from './routes/student/class/$classId/gallery/index'
@@ -1217,10 +1217,10 @@ const SchoolTeachersUserIdLessonNotesIndexRoute =
     path: '/teachers/$userId/lesson-notes/',
     getParentRoute: () => SchoolRouteRoute,
   } as any)
-const SchoolTeachersUserIdLessonNotesNoteIdRoute =
-  SchoolTeachersUserIdLessonNotesNoteIdRouteImport.update({
-    id: '/teachers/$userId/lesson-notes/$noteId',
-    path: '/teachers/$userId/lesson-notes/$noteId',
+const SchoolTeachersUserIdLessonNotesIdRoute =
+  SchoolTeachersUserIdLessonNotesIdRouteImport.update({
+    id: '/teachers/$userId/lesson-notes/$id',
+    path: '/teachers/$userId/lesson-notes/$id',
     getParentRoute: () => SchoolRouteRoute,
   } as any)
 const SchoolTeachersUserIdSmartboardIndexRoute =
@@ -1229,10 +1229,10 @@ const SchoolTeachersUserIdSmartboardIndexRoute =
     path: '/teachers/$userId/smartboard/',
     getParentRoute: () => SchoolRouteRoute,
   } as any)
-const SchoolTeachersUserIdSmartboardClassIdRoute =
-  SchoolTeachersUserIdSmartboardClassIdRouteImport.update({
-    id: '/teachers/$userId/smartboard/$classId',
-    path: '/teachers/$userId/smartboard/$classId',
+const SchoolTeachersUserIdSmartboardNotebookIdRoute =
+  SchoolTeachersUserIdSmartboardNotebookIdRouteImport.update({
+    id: '/teachers/$userId/smartboard/$notebookId',
+    path: '/teachers/$userId/smartboard/$notebookId',
     getParentRoute: () => SchoolRouteRoute,
   } as any)
 const StudentClassClassIdAdventuresIndexRoute =
@@ -1612,8 +1612,8 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/classes/create/': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
-  '/school/teachers/$userId/lesson-notes/$noteId': typeof SchoolTeachersUserIdLessonNotesNoteIdRoute
-  '/school/teachers/$userId/smartboard/$classId': typeof SchoolTeachersUserIdSmartboardClassIdRoute
+  '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
+  '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/games/abacus/represent/$difficulty/': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty/': typeof GamesDecimalsKindDifficultyIndexRoute
   '/games/fraction-challenge/addition/$difficulty/': typeof GamesFractionChallengeAdditionDifficultyIndexRoute
@@ -1824,8 +1824,8 @@ export interface FileRoutesByTo {
   '/teaching-hub/classes/create': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive': typeof TeachingHubSettingsArchiveIndexRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
-  '/school/teachers/$userId/lesson-notes/$noteId': typeof SchoolTeachersUserIdLessonNotesNoteIdRoute
-  '/school/teachers/$userId/smartboard/$classId': typeof SchoolTeachersUserIdSmartboardClassIdRoute
+  '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
+  '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/games/abacus/represent/$difficulty': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty': typeof GamesDecimalsKindDifficultyIndexRoute
   '/games/fraction-challenge/addition/$difficulty': typeof GamesFractionChallengeAdditionDifficultyIndexRoute
@@ -2048,8 +2048,8 @@ export interface FileRoutesById {
   '/teaching-hub/classes/create/': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
-  '/school/teachers/$userId/lesson-notes/$noteId': typeof SchoolTeachersUserIdLessonNotesNoteIdRoute
-  '/school/teachers/$userId/smartboard/$classId': typeof SchoolTeachersUserIdSmartboardClassIdRoute
+  '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
+  '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/games/abacus/represent/$difficulty/': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty/': typeof GamesDecimalsKindDifficultyIndexRoute
   '/games/fraction-challenge/addition/$difficulty/': typeof GamesFractionChallengeAdditionDifficultyIndexRoute
@@ -2273,8 +2273,8 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/create/'
     | '/teaching-hub/settings/archive/'
     | '/school/teachers/$userId/classes/$classId'
-    | '/school/teachers/$userId/lesson-notes/$noteId'
-    | '/school/teachers/$userId/smartboard/$classId'
+    | '/school/teachers/$userId/lesson-notes/$id'
+    | '/school/teachers/$userId/smartboard/$notebookId'
     | '/games/abacus/represent/$difficulty/'
     | '/games/decimals/$kind/$difficulty/'
     | '/games/fraction-challenge/addition/$difficulty/'
@@ -2485,8 +2485,8 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/create'
     | '/teaching-hub/settings/archive'
     | '/school/teachers/$userId/classes/$classId'
-    | '/school/teachers/$userId/lesson-notes/$noteId'
-    | '/school/teachers/$userId/smartboard/$classId'
+    | '/school/teachers/$userId/lesson-notes/$id'
+    | '/school/teachers/$userId/smartboard/$notebookId'
     | '/games/abacus/represent/$difficulty'
     | '/games/decimals/$kind/$difficulty'
     | '/games/fraction-challenge/addition/$difficulty'
@@ -2708,8 +2708,8 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/create/'
     | '/teaching-hub/settings/archive/'
     | '/school/teachers/$userId/classes/$classId'
-    | '/school/teachers/$userId/lesson-notes/$noteId'
-    | '/school/teachers/$userId/smartboard/$classId'
+    | '/school/teachers/$userId/lesson-notes/$id'
+    | '/school/teachers/$userId/smartboard/$notebookId'
     | '/games/abacus/represent/$difficulty/'
     | '/games/decimals/$kind/$difficulty/'
     | '/games/fraction-challenge/addition/$difficulty/'
@@ -4168,11 +4168,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SchoolTeachersUserIdLessonNotesIndexRouteImport
       parentRoute: typeof SchoolRouteRoute
     }
-    '/school/teachers/$userId/lesson-notes/$noteId': {
-      id: '/school/teachers/$userId/lesson-notes/$noteId'
-      path: '/teachers/$userId/lesson-notes/$noteId'
-      fullPath: '/school/teachers/$userId/lesson-notes/$noteId'
-      preLoaderRoute: typeof SchoolTeachersUserIdLessonNotesNoteIdRouteImport
+    '/school/teachers/$userId/lesson-notes/$id': {
+      id: '/school/teachers/$userId/lesson-notes/$id'
+      path: '/teachers/$userId/lesson-notes/$id'
+      fullPath: '/school/teachers/$userId/lesson-notes/$id'
+      preLoaderRoute: typeof SchoolTeachersUserIdLessonNotesIdRouteImport
       parentRoute: typeof SchoolRouteRoute
     }
     '/school/teachers/$userId/smartboard/': {
@@ -4182,11 +4182,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SchoolTeachersUserIdSmartboardIndexRouteImport
       parentRoute: typeof SchoolRouteRoute
     }
-    '/school/teachers/$userId/smartboard/$classId': {
-      id: '/school/teachers/$userId/smartboard/$classId'
-      path: '/teachers/$userId/smartboard/$classId'
-      fullPath: '/school/teachers/$userId/smartboard/$classId'
-      preLoaderRoute: typeof SchoolTeachersUserIdSmartboardClassIdRouteImport
+    '/school/teachers/$userId/smartboard/$notebookId': {
+      id: '/school/teachers/$userId/smartboard/$notebookId'
+      path: '/teachers/$userId/smartboard/$notebookId'
+      fullPath: '/school/teachers/$userId/smartboard/$notebookId'
+      preLoaderRoute: typeof SchoolTeachersUserIdSmartboardNotebookIdRouteImport
       parentRoute: typeof SchoolRouteRoute
     }
     '/student/class/$classId/adventures/': {
@@ -4653,8 +4653,8 @@ interface SchoolRouteRouteChildren {
   SchoolTeachersUserIdSkillBuilderRoute: typeof SchoolTeachersUserIdSkillBuilderRoute
   SchoolTeachersUserIdIndexRoute: typeof SchoolTeachersUserIdIndexRoute
   SchoolTeachersUserIdClassesClassIdRoute: typeof SchoolTeachersUserIdClassesClassIdRoute
-  SchoolTeachersUserIdLessonNotesNoteIdRoute: typeof SchoolTeachersUserIdLessonNotesNoteIdRoute
-  SchoolTeachersUserIdSmartboardClassIdRoute: typeof SchoolTeachersUserIdSmartboardClassIdRoute
+  SchoolTeachersUserIdLessonNotesIdRoute: typeof SchoolTeachersUserIdLessonNotesIdRoute
+  SchoolTeachersUserIdSmartboardNotebookIdRoute: typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   SchoolTeachersUserIdClassesIndexRoute: typeof SchoolTeachersUserIdClassesIndexRoute
   SchoolTeachersUserIdLessonNotesIndexRoute: typeof SchoolTeachersUserIdLessonNotesIndexRoute
   SchoolTeachersUserIdSmartboardIndexRoute: typeof SchoolTeachersUserIdSmartboardIndexRoute
@@ -4670,10 +4670,10 @@ const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolTeachersUserIdIndexRoute: SchoolTeachersUserIdIndexRoute,
   SchoolTeachersUserIdClassesClassIdRoute:
     SchoolTeachersUserIdClassesClassIdRoute,
-  SchoolTeachersUserIdLessonNotesNoteIdRoute:
-    SchoolTeachersUserIdLessonNotesNoteIdRoute,
-  SchoolTeachersUserIdSmartboardClassIdRoute:
-    SchoolTeachersUserIdSmartboardClassIdRoute,
+  SchoolTeachersUserIdLessonNotesIdRoute:
+    SchoolTeachersUserIdLessonNotesIdRoute,
+  SchoolTeachersUserIdSmartboardNotebookIdRoute:
+    SchoolTeachersUserIdSmartboardNotebookIdRoute,
   SchoolTeachersUserIdClassesIndexRoute: SchoolTeachersUserIdClassesIndexRoute,
   SchoolTeachersUserIdLessonNotesIndexRoute:
     SchoolTeachersUserIdLessonNotesIndexRoute,
