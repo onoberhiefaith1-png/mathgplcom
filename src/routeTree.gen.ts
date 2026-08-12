@@ -48,11 +48,13 @@ import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
 import { Route as PlansIndexRouteImport } from './routes/plans/index'
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
+import { Route as RefundPolicyIndexRouteImport } from './routes/refund-policy/index'
 import { Route as RequestsIndexRouteImport } from './routes/requests/index'
 import { Route as SchoolIndexRouteImport } from './routes/school/index'
 import { Route as SignupIndexRouteImport } from './routes/signup/index'
 import { Route as SmartboardIndexRouteImport } from './routes/smartboard/index'
 import { Route as StudentIndexRouteImport } from './routes/student/index'
+import { Route as SupportIndexRouteImport } from './routes/support/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -456,6 +458,11 @@ const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
   path: '/privacy/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RefundPolicyIndexRoute = RefundPolicyIndexRouteImport.update({
+  id: '/refund-policy/',
+  path: '/refund-policy/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RequestsIndexRoute = RequestsIndexRouteImport.update({
   id: '/requests/',
   path: '/requests/',
@@ -480,6 +487,11 @@ const StudentIndexRoute = StudentIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => StudentRouteRoute,
+} as any)
+const SupportIndexRoute = SupportIndexRouteImport.update({
+  id: '/support/',
+  path: '/support/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const TeachingHubIndexRoute = TeachingHubIndexRouteImport.update({
   id: '/',
@@ -1695,11 +1707,13 @@ export interface FileRoutesByFullPath {
   '/mathboard/': typeof MathboardIndexRoute
   '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
+  '/refund-policy/': typeof RefundPolicyIndexRoute
   '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
   '/signup/': typeof SignupIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
   '/student/': typeof StudentIndexRoute
+  '/support/': typeof SupportIndexRoute
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -1937,11 +1951,13 @@ export interface FileRoutesByTo {
   '/mathboard': typeof MathboardIndexRoute
   '/plans': typeof PlansIndexRoute
   '/privacy': typeof PrivacyIndexRoute
+  '/refund-policy': typeof RefundPolicyIndexRoute
   '/requests': typeof RequestsIndexRoute
   '/school': typeof SchoolIndexRoute
   '/signup': typeof SignupIndexRoute
   '/smartboard': typeof SmartboardIndexRoute
   '/student': typeof StudentIndexRoute
+  '/support': typeof SupportIndexRoute
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -2191,11 +2207,13 @@ export interface FileRoutesById {
   '/mathboard/': typeof MathboardIndexRoute
   '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
+  '/refund-policy/': typeof RefundPolicyIndexRoute
   '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
   '/signup/': typeof SignupIndexRoute
   '/smartboard/': typeof SmartboardIndexRoute
   '/student/': typeof StudentIndexRoute
+  '/support/': typeof SupportIndexRoute
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -2446,11 +2464,13 @@ export interface FileRouteTypes {
     | '/mathboard/'
     | '/plans/'
     | '/privacy/'
+    | '/refund-policy/'
     | '/requests/'
     | '/school/'
     | '/signup/'
     | '/smartboard/'
     | '/student/'
+    | '/support/'
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
@@ -2688,11 +2708,13 @@ export interface FileRouteTypes {
     | '/mathboard'
     | '/plans'
     | '/privacy'
+    | '/refund-policy'
     | '/requests'
     | '/school'
     | '/signup'
     | '/smartboard'
     | '/student'
+    | '/support'
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
@@ -2941,11 +2963,13 @@ export interface FileRouteTypes {
     | '/mathboard/'
     | '/plans/'
     | '/privacy/'
+    | '/refund-policy/'
     | '/requests/'
     | '/school/'
     | '/signup/'
     | '/smartboard/'
     | '/student/'
+    | '/support/'
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
@@ -3188,8 +3212,10 @@ export interface RootRouteChildren {
   MathboardIndexRoute: typeof MathboardIndexRoute
   PlansIndexRoute: typeof PlansIndexRoute
   PrivacyIndexRoute: typeof PrivacyIndexRoute
+  RefundPolicyIndexRoute: typeof RefundPolicyIndexRoute
   RequestsIndexRoute: typeof RequestsIndexRoute
   SignupIndexRoute: typeof SignupIndexRoute
+  SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   AgeRangeIndexRoute: typeof AgeRangeIndexRoute
@@ -3545,6 +3571,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/refund-policy/': {
+      id: '/refund-policy/'
+      path: '/refund-policy'
+      fullPath: '/refund-policy/'
+      preLoaderRoute: typeof RefundPolicyIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/requests/': {
       id: '/requests/'
       path: '/requests'
@@ -3579,6 +3612,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/student/'
       preLoaderRoute: typeof StudentIndexRouteImport
       parentRoute: typeof StudentRouteRoute
+    }
+    '/support/': {
+      id: '/support/'
+      path: '/support'
+      fullPath: '/support/'
+      preLoaderRoute: typeof SupportIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/teaching-hub/': {
       id: '/teaching-hub/'
@@ -5518,8 +5558,10 @@ const rootRouteChildren: RootRouteChildren = {
   MathboardIndexRoute: MathboardIndexRoute,
   PlansIndexRoute: PlansIndexRoute,
   PrivacyIndexRoute: PrivacyIndexRoute,
+  RefundPolicyIndexRoute: RefundPolicyIndexRoute,
   RequestsIndexRoute: RequestsIndexRoute,
   SignupIndexRoute: SignupIndexRoute,
+  SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   AgeRangeIndexRoute: AgeRangeIndexRoute,

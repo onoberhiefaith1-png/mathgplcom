@@ -5,6 +5,7 @@ import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import LevelNavPanel from "@/components/academy/LevelNavPanel";
 import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton";
+import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 
@@ -96,7 +97,7 @@ const Index = () => {
         </Link>
       )}
 
-
+      <LegalLinkStrip />
     </>
   );
 };

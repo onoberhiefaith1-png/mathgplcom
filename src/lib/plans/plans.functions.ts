@@ -19,6 +19,15 @@ export const fetchPublishedPlans = createServerFn({ method: "GET" })
     return { plans: await publishedPlans(data.audience) };
   });
 
+/**
+ * Pay-as-you-go packs for the public pricing page. Same table and same live
+ * credit sell price as the signed-in view — it simply carries no wallet.
+ */
+export const fetchPublicCreditPacks = createServerFn({ method: "GET" }).handler(async () => {
+  const { creditPacks } = await import("@/lib/credits/topups.server");
+  return { packs: await creditPacks() };
+});
+
 export const fetchMyPlan = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
