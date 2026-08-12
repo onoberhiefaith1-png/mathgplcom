@@ -81,6 +81,8 @@ export default function CostAnalytics() {
     queryFn: () => fetchProfitReport({ data: { ...args, query } }),
   });
   const prices = useQuery({ queryKey: ["cost-prices"], queryFn: () => fetchPriceBook({}) });
+  const pricing = useQuery({ queryKey: ["pricing-history"], queryFn: () => fetchPricingHistory({}) });
+
   const detail = useQuery({
     queryKey: ["cost-unit", openUnit, args],
     queryFn: () => fetchCostUnitDetail({ data: { ...args, costUnitId: openUnit! } }),
