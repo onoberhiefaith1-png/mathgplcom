@@ -14,8 +14,19 @@ import {
   Outlet as TSOutlet,
 } from "@tanstack/react-router";
 import { useMemo, useCallback, forwardRef, type ComponentProps, type ReactNode } from "react";
+import { currentViewAs, mapViewAsPath } from "@/lib/accounts/viewAsScope";
 
 // ---------- shared URL parsing ----------
+
+/**
+ * While a Shared Workspace is being viewed read-only, in-app navigation is
+ * folded back into the mirror so the viewer keeps seeing the other person's
+ * pages instead of their own.
+ */
+function scopePath(pathname: string): string {
+  const viewing = currentViewAs();
+  return viewing ? mapViewAsPath(pathname, viewing.basePath) : pathname;
+}
 
 function parseTo(to: string): { pathname: string; search?: Record<string, string>; hash?: string } {
   const [beforeHash, hashStr] = (to ?? "").split("#");
@@ -23,11 +34,12 @@ function parseTo(to: string): { pathname: string; search?: Record<string, string
   return {
     // react-router keeps the current path for search-only ("?a=1") and
     // hash-only ("#section") targets; TanStack's "." means current route.
-    pathname: pathname || ".",
+    pathname: pathname ? scopePath(pathname) : ".",
     search: searchStr ? Object.fromEntries(new URLSearchParams(searchStr)) : undefined,
     hash: hashStr || undefined,
   };
 }
+
 
 // ---------- useNavigate ----------
 
