@@ -1,18 +1,18 @@
 import { useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import PaymentTestModeBanner from "@/components/PaymentTestModeBanner";
 import { credits, money } from "@/lib/costs/categories";
 import { useAccount } from "@/lib/accounts/useAccount";
-import {
-  fetchMyPlan,
-  fetchPublishedPlans,
-  requestUpgrade,
-  startFreeSubscription,
-} from "@/lib/plans/plans.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { priceKeyForPlan } from "@/lib/paddle";
+import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
+import { fetchMyPlan, fetchPublishedPlans, startFreeSubscription } from "@/lib/plans/plans.functions";
+
 
 type Audience = "teacher" | "school" | "parent";
 
