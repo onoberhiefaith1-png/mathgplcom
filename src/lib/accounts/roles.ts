@@ -62,7 +62,7 @@ export const WORKSPACE_PATH: Record<AppRole, string> = {
   school: "/school",
   teacher: "/teaching-hub",
   parent: "/family",
-  student: "/student/classes",
+  student: "/student",
 };
 
 
