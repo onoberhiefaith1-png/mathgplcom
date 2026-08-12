@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, CreditCard, Loader2, Sparkles, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,17 @@ import PaymentTestModeBanner from "@/components/PaymentTestModeBanner";
 import { credits, money } from "@/lib/costs/categories";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { supabase } from "@/integrations/supabase/client";
-import { priceKeyForPlan } from "@/lib/paddle";
+import { getPaddleEnvironment, priceKeyForPlan } from "@/lib/paddle";
 import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
-import { fetchMyPlan, fetchPublishedPlans, startFreeSubscription } from "@/lib/plans/plans.functions";
+import {
+  cancelPaidPlanFn,
+  changePaidPlanFn,
+  fetchCreditOptions,
+  fetchMyPlan,
+  fetchPublishedPlans,
+  openBillingPortalFn,
+  startFreeSubscription,
+} from "@/lib/plans/plans.functions";
 
 
 type Audience = "teacher" | "school" | "parent";
@@ -34,6 +42,7 @@ export default function PlansPage() {
   const { role, isLoading } = useAccount();
   const audience = role ? AUDIENCE_FOR_ROLE[role] ?? null : null;
   const [pending, setPending] = useState<string | null>(null);
+  const environment = getPaddleEnvironment();
 
   const plans = useQuery({
     queryKey: ["published-plans", audience],
@@ -43,6 +52,12 @@ export default function PlansPage() {
 
   const mine = useQuery({ queryKey: ["my-plan"], queryFn: () => fetchMyPlan({}) });
   const current = mine.data?.subscription ?? null;
+
+  const creditOptions = useQuery({
+    queryKey: ["credit-options"],
+    queryFn: () => fetchCreditOptions({}),
+    enabled: !!audience,
+  });
 
   const startFree = useMutation({
     mutationFn: (planKey: string) => startFreeSubscription({ data: { planKey } }),
@@ -54,17 +69,51 @@ export default function PlansPage() {
     onSettled: () => setPending(null),
   });
 
+  const changePlan = useMutation({
+    mutationFn: (planKey: string) => changePaidPlanFn({ data: { planKey, environment } }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["my-plan"] });
+      toast.success(
+        result.direction === "downgrade"
+          ? "Your new plan starts at your next renewal — you keep this month's allowance."
+          : "Your plan has been changed and the new credits are on their way.",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setPending(null),
+  });
+
+  const cancelPlan = useMutation({
+    mutationFn: () => cancelPaidPlanFn({ data: { environment } }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["my-plan"] });
+      toast.success(
+        result.cancelAt
+          ? `Cancelled. You keep everything until ${new Date(result.cancelAt).toLocaleDateString()}.`
+          : "Cancelled. You keep everything until the end of your paid period.",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setPending(null),
+  });
+
+  const billingPortal = useMutation({
+    mutationFn: () => openBillingPortalFn({ data: { environment } }),
+    onSuccess: ({ url }) => window.open(url, "_blank", "noopener"),
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setPending(null),
+  });
+
   const { openCheckout } = usePaddleCheckout();
 
-  /** Paid plans go through checkout; the webhook activates them once paid. */
-  const startCheckout = async (planKey: string) => {
-    setPending(planKey);
+  const checkout = async (priceKey: string, tag: string) => {
+    setPending(tag);
     try {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (!user) throw new Error("Please sign in first.");
       await openCheckout({
-        priceId: priceKeyForPlan(planKey),
+        priceId: priceKey,
         customerEmail: user.email ?? undefined,
         customData: { userId: user.id },
         successUrl: `${window.location.origin}/plans?checkout=success`,
@@ -76,8 +125,24 @@ export default function PlansPage() {
     }
   };
 
+  /**
+   * A first paid plan goes through checkout. Someone already paying has their
+   * existing subscription changed instead, so they are never billed twice.
+   */
+  const choosePaidPlan = (planKey: string) => {
+    const paying = !!current && current.price > 0;
+    if (paying) {
+      setPending(planKey);
+      changePlan.mutate(planKey);
+      return;
+    }
+    void checkout(priceKeyForPlan(planKey), planKey);
+  };
 
+  const wallet = creditOptions.data?.wallet;
+  const packs = creditOptions.data?.packs ?? [];
   const rows = useMemo(() => plans.data?.plans ?? [], [plans.data?.plans]);
+
 
   return (
     <main className="cinematic-sky min-h-screen text-foreground">
@@ -141,8 +206,69 @@ export default function PlansPage() {
                 </span>
               </p>
             ) : null}
+            {current.price > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pending === "portal"}
+                  onClick={() => {
+                    setPending("portal");
+                    billingPortal.mutate();
+                  }}
+                >
+                  {pending === "portal" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                  Update payment details
+                </Button>
+                {!current.cancelAt ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending === "cancel"}
+                    onClick={() => {
+                      setPending("cancel");
+                      cancelPlan.mutate();
+                    }}
+                  >
+                    {pending === "cancel" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Cancel plan
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
+
+        {audience && packs.length ? (
+          <div className="mt-6 rounded-2xl border border-border bg-card/60 p-5 backdrop-blur">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              <Wallet className="h-3.5 w-3.5" /> Buy credits
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Top up any time. Credits last a year from the day you buy them
+              {wallet ? <> — you have {credits(wallet.balance)} available right now.</> : "."}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {packs.map((pack) => (
+                <div key={pack.externalId} className="rounded-xl border border-border bg-background/40 p-4">
+                  <div className="text-lg font-semibold">{credits(pack.credits)}</div>
+                  <div className="text-sm text-muted-foreground">{money(pack.price, pack.currency)}</div>
+                  <Button
+                    className="mt-3 w-full"
+                    size="sm"
+                    variant="secondary"
+                    disabled={pending === pack.externalId}
+                    onClick={() => void checkout(pack.externalId, pack.externalId)}
+                  >
+                    {pending === pack.externalId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Buy
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
 
 
         {!audience && !isLoading ? (
@@ -234,17 +360,17 @@ export default function PlansPage() {
                       <Button
                         className="w-full"
                         disabled={pending === plan.key}
-                        onClick={() => void startCheckout(plan.key)}
+                        onClick={() => choosePaidPlan(plan.key)}
                       >
-
                         {pending === plan.key ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
                           <Sparkles className="mr-2 h-4 w-4" />
                         )}
-                        Choose {plan.label}
+                        {current && current.price > 0 ? `Switch to ${plan.label}` : `Choose ${plan.label}`}
                       </Button>
                     )}
+
                   </div>
                 </div>
               );
