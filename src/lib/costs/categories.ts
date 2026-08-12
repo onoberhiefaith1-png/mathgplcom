@@ -76,3 +76,19 @@ export type RangeKey = (typeof RANGES)[number]["key"];
 
 export const money = (value: number, currency = "GBP") =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(value ?? 0);
+
+/**
+ * Credits are the platform's accounting unit; money is only ever the secondary
+ * equivalent. Small values keep enough precision to stay honest (0.0018).
+ */
+export const credits = (value: number, withUnit = true) => {
+  const v = Number.isFinite(value) ? value : 0;
+  const abs = Math.abs(v);
+  const digits = abs === 0 ? 2 : abs < 0.01 ? 4 : 2;
+  const text = new Intl.NumberFormat("en-GB", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(v);
+  return withUnit ? `${text} credits` : text;
+};
+
