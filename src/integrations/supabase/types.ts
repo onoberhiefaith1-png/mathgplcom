@@ -2977,6 +2977,149 @@ export type Database = {
           },
         ]
       }
+      gateway_entitlements: {
+        Row: {
+          content_access: Json | null
+          created_at: string
+          granted_items: string[]
+          id: string
+          owner_id: string
+          owner_kind: string
+          paid_amount: number | null
+          paid_currency: string | null
+          payment_provider: string | null
+          payment_reference: string | null
+          plan_id: string
+          source: string
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          content_access?: Json | null
+          created_at?: string
+          granted_items?: string[]
+          id?: string
+          owner_id: string
+          owner_kind: string
+          paid_amount?: number | null
+          paid_currency?: string | null
+          payment_provider?: string | null
+          payment_reference?: string | null
+          plan_id: string
+          source?: string
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          content_access?: Json | null
+          created_at?: string
+          granted_items?: string[]
+          id?: string
+          owner_id?: string
+          owner_kind?: string
+          paid_amount?: number | null
+          paid_currency?: string | null
+          payment_provider?: string | null
+          payment_reference?: string | null
+          plan_id?: string
+          source?: string
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_entitlements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "gateway_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gateway_payout_accounts: {
+        Row: {
+          created_at: string
+          external_account_id: string | null
+          id: string
+          owner_id: string
+          owner_kind: string
+          provider: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_account_id?: string | null
+          id?: string
+          owner_id: string
+          owner_kind: string
+          provider?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_account_id?: string | null
+          id?: string
+          owner_id?: string
+          owner_kind?: string
+          provider?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gateway_plans: {
+        Row: {
+          auto_grant_existing: boolean
+          created_at: string
+          currency: string
+          description: string
+          id: string
+          is_published: boolean
+          items: string[]
+          name: string
+          owner_id: string
+          owner_kind: string
+          price_amount: number | null
+          slot: string
+          updated_at: string
+        }
+        Insert: {
+          auto_grant_existing?: boolean
+          created_at?: string
+          currency?: string
+          description?: string
+          id?: string
+          is_published?: boolean
+          items?: string[]
+          name?: string
+          owner_id: string
+          owner_kind: string
+          price_amount?: number | null
+          slot: string
+          updated_at?: string
+        }
+        Update: {
+          auto_grant_existing?: boolean
+          created_at?: string
+          currency?: string
+          description?: string
+          id?: string
+          is_published?: boolean
+          items?: string[]
+          name?: string
+          owner_id?: string
+          owner_kind?: string
+          price_amount?: number | null
+          slot?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       learning_assignments: {
         Row: {
           archived_at: string | null
@@ -5231,6 +5374,48 @@ export type Database = {
       ensure_workspace_cost_unit: { Args: { _org_id: string }; Returns: string }
       expire_credit_grants: { Args: never; Returns: number }
       expire_lapsed_subscriptions: { Args: never; Returns: number }
+      gateway_by_handle: {
+        Args: { _handle: string }
+        Returns: {
+          currency: string
+          description: string
+          items: string[]
+          name: string
+          owner_id: string
+          owner_kind: string
+          owner_name: string
+          plan_id: string
+          price_amount: number
+          slot: string
+          username: string
+        }[]
+      }
+      gateway_choose_plan: {
+        Args: { _plan_id: string }
+        Returns: {
+          content_access: Json | null
+          created_at: string
+          granted_items: string[]
+          id: string
+          owner_id: string
+          owner_kind: string
+          paid_amount: number | null
+          paid_currency: string | null
+          payment_provider: string | null
+          payment_reference: string | null
+          plan_id: string
+          source: string
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gateway_entitlements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       generate_mathgpl_id: { Args: never; Returns: string }
       generate_org_invite_code: { Args: never; Returns: string }
       generate_session_code: { Args: never; Returns: string }

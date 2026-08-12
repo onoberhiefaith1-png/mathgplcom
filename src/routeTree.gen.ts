@@ -40,6 +40,7 @@ import { Route as BackgroundsIndexRouteImport } from './routes/backgrounds/index
 import { Route as CommunityIndexRouteImport } from './routes/community/index'
 import { Route as CourseBuilderIndexRouteImport } from './routes/course-builder/index'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
+import { Route as GHandleRouteImport } from './routes/g/$handle'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
@@ -114,6 +115,7 @@ import { Route as LiveLessonNotesIndexRouteImport } from './routes/live/lesson-n
 import { Route as LiveReportsIndexRouteImport } from './routes/live/reports/index'
 import { Route as LiveSessionsIndexRouteImport } from './routes/live/sessions/index'
 import { Route as NotebookScanCodeIndexRouteImport } from './routes/notebook-scan/$code/index'
+import { Route as SchoolPricingIndexRouteImport } from './routes/school/pricing/index'
 import { Route as SchoolStudentsIndexRouteImport } from './routes/school/students/index'
 import { Route as SchoolTeachersIndexRouteImport } from './routes/school/teachers/index'
 import { Route as SmartboardNotebookIdIndexRouteImport } from './routes/smartboard/$notebookId/index'
@@ -124,6 +126,7 @@ import { Route as StudentJoinIndexRouteImport } from './routes/student/join/inde
 import { Route as StudentSkillBuilderIndexRouteImport } from './routes/student/skill-builder/index'
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
 import { Route as TeachingHubClassesIndexRouteImport } from './routes/teaching-hub/classes/index'
+import { Route as TeachingHubPricingIndexRouteImport } from './routes/teaching-hub/pricing/index'
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
 import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
@@ -419,6 +422,11 @@ const FamilyIndexRoute = FamilyIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => FamilyRouteRoute,
+} as any)
+const GHandleRoute = GHandleRouteImport.update({
+  id: '/g/$handle',
+  path: '/g/$handle',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const HomeIndexRoute = HomeIndexRouteImport.update({
   id: '/home/',
@@ -797,6 +805,11 @@ const NotebookScanCodeIndexRoute = NotebookScanCodeIndexRouteImport.update({
   path: '/notebook-scan/$code/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SchoolPricingIndexRoute = SchoolPricingIndexRouteImport.update({
+  id: '/pricing/',
+  path: '/pricing/',
+  getParentRoute: () => SchoolRouteRoute,
+} as any)
 const SchoolStudentsIndexRoute = SchoolStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -847,6 +860,11 @@ const SubjectsSubjectIndexRoute = SubjectsSubjectIndexRouteImport.update({
 const TeachingHubClassesIndexRoute = TeachingHubClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
+  getParentRoute: () => TeachingHubRouteRoute,
+} as any)
+const TeachingHubPricingIndexRoute = TeachingHubPricingIndexRouteImport.update({
+  id: '/pricing/',
+  path: '/pricing/',
   getParentRoute: () => TeachingHubRouteRoute,
 } as any)
 const TeachingHubSettingsIndexRoute =
@@ -1702,6 +1720,7 @@ export interface FileRoutesByFullPath {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/g/$handle': typeof GHandleRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -1785,6 +1804,7 @@ export interface FileRoutesByFullPath {
   '/live/reports/': typeof LiveReportsIndexRoute
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
+  '/school/pricing/': typeof SchoolPricingIndexRoute
   '/school/students/': typeof SchoolStudentsIndexRoute
   '/school/teachers/': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
@@ -1795,6 +1815,7 @@ export interface FileRoutesByFullPath {
   '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
+  '/teaching-hub/pricing/': typeof TeachingHubPricingIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
@@ -1948,6 +1969,7 @@ export interface FileRoutesByTo {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/g/$handle': typeof GHandleRoute
   '/account': typeof AccountIndexRoute
   '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
@@ -2031,6 +2053,7 @@ export interface FileRoutesByTo {
   '/live/reports': typeof LiveReportsIndexRoute
   '/live/sessions': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code': typeof NotebookScanCodeIndexRoute
+  '/school/pricing': typeof SchoolPricingIndexRoute
   '/school/students': typeof SchoolStudentsIndexRoute
   '/school/teachers': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId': typeof SmartboardNotebookIdIndexRoute
@@ -2041,6 +2064,7 @@ export interface FileRoutesByTo {
   '/student/skill-builder': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
+  '/teaching-hub/pricing': typeof TeachingHubPricingIndexRoute
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students': typeof TeachingHubStudentsIndexRoute
   '/year/$n': typeof YearNIndexRoute
@@ -2206,6 +2230,7 @@ export interface FileRoutesById {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/g/$handle': typeof GHandleRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -2289,6 +2314,7 @@ export interface FileRoutesById {
   '/live/reports/': typeof LiveReportsIndexRoute
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
+  '/school/pricing/': typeof SchoolPricingIndexRoute
   '/school/students/': typeof SchoolStudentsIndexRoute
   '/school/teachers/': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
@@ -2299,6 +2325,7 @@ export interface FileRoutesById {
   '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
+  '/teaching-hub/pricing/': typeof TeachingHubPricingIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
@@ -2465,6 +2492,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/g/$handle'
     | '/account/'
     | '/admin/'
     | '/adventure/'
@@ -2548,6 +2576,7 @@ export interface FileRouteTypes {
     | '/live/reports/'
     | '/live/sessions/'
     | '/notebook-scan/$code/'
+    | '/school/pricing/'
     | '/school/students/'
     | '/school/teachers/'
     | '/smartboard/$notebookId/'
@@ -2558,6 +2587,7 @@ export interface FileRouteTypes {
     | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
+    | '/teaching-hub/pricing/'
     | '/teaching-hub/settings/'
     | '/teaching-hub/students/'
     | '/year/$n/'
@@ -2711,6 +2741,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/g/$handle'
     | '/account'
     | '/admin'
     | '/adventure'
@@ -2794,6 +2825,7 @@ export interface FileRouteTypes {
     | '/live/reports'
     | '/live/sessions'
     | '/notebook-scan/$code'
+    | '/school/pricing'
     | '/school/students'
     | '/school/teachers'
     | '/smartboard/$notebookId'
@@ -2804,6 +2836,7 @@ export interface FileRouteTypes {
     | '/student/skill-builder'
     | '/subjects/$subject'
     | '/teaching-hub/classes'
+    | '/teaching-hub/pricing'
     | '/teaching-hub/settings'
     | '/teaching-hub/students'
     | '/year/$n'
@@ -2968,6 +3001,7 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/g/$handle'
     | '/account/'
     | '/admin/'
     | '/adventure/'
@@ -3051,6 +3085,7 @@ export interface FileRouteTypes {
     | '/live/reports/'
     | '/live/sessions/'
     | '/notebook-scan/$code/'
+    | '/school/pricing/'
     | '/school/students/'
     | '/school/teachers/'
     | '/smartboard/$notebookId/'
@@ -3061,6 +3096,7 @@ export interface FileRouteTypes {
     | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
+    | '/teaching-hub/pricing/'
     | '/teaching-hub/settings/'
     | '/teaching-hub/students/'
     | '/year/$n/'
@@ -3226,6 +3262,7 @@ export interface RootRouteChildren {
   AuthStudentRoute: typeof AuthStudentRoute
   AuthTeacherRoute: typeof AuthTeacherRoute
   AuthVerifiedRoute: typeof AuthVerifiedRoute
+  GHandleRoute: typeof GHandleRoute
   AccountIndexRoute: typeof AccountIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
@@ -3538,6 +3575,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/family/'
       preLoaderRoute: typeof FamilyIndexRouteImport
       parentRoute: typeof FamilyRouteRoute
+    }
+    '/g/$handle': {
+      id: '/g/$handle'
+      path: '/g/$handle'
+      fullPath: '/g/$handle'
+      preLoaderRoute: typeof GHandleRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/home/': {
       id: '/home/'
@@ -4057,6 +4101,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotebookScanCodeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/school/pricing/': {
+      id: '/school/pricing/'
+      path: '/pricing'
+      fullPath: '/school/pricing/'
+      preLoaderRoute: typeof SchoolPricingIndexRouteImport
+      parentRoute: typeof SchoolRouteRoute
+    }
     '/school/students/': {
       id: '/school/students/'
       path: '/students'
@@ -4125,6 +4176,13 @@ declare module '@tanstack/react-router' {
       path: '/classes'
       fullPath: '/teaching-hub/classes/'
       preLoaderRoute: typeof TeachingHubClassesIndexRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
+    }
+    '/teaching-hub/pricing/': {
+      id: '/teaching-hub/pricing/'
+      path: '/pricing'
+      fullPath: '/teaching-hub/pricing/'
+      preLoaderRoute: typeof TeachingHubPricingIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/settings/': {
@@ -5352,6 +5410,7 @@ const LiveRouteRouteWithChildren = LiveRouteRoute._addFileChildren(
 
 interface SchoolRouteRouteChildren {
   SchoolIndexRoute: typeof SchoolIndexRoute
+  SchoolPricingIndexRoute: typeof SchoolPricingIndexRoute
   SchoolStudentsIndexRoute: typeof SchoolStudentsIndexRoute
   SchoolTeachersIndexRoute: typeof SchoolTeachersIndexRoute
   SchoolTeachersUserIdAdventureRoute: typeof SchoolTeachersUserIdAdventureRoute
@@ -5374,6 +5433,7 @@ interface SchoolRouteRouteChildren {
 
 const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolIndexRoute: SchoolIndexRoute,
+  SchoolPricingIndexRoute: SchoolPricingIndexRoute,
   SchoolStudentsIndexRoute: SchoolStudentsIndexRoute,
   SchoolTeachersIndexRoute: SchoolTeachersIndexRoute,
   SchoolTeachersUserIdAdventureRoute: SchoolTeachersUserIdAdventureRoute,
@@ -5485,6 +5545,7 @@ const StudentRouteRouteWithChildren = StudentRouteRoute._addFileChildren(
 interface TeachingHubRouteRouteChildren {
   TeachingHubIndexRoute: typeof TeachingHubIndexRoute
   TeachingHubClassesIndexRoute: typeof TeachingHubClassesIndexRoute
+  TeachingHubPricingIndexRoute: typeof TeachingHubPricingIndexRoute
   TeachingHubSettingsIndexRoute: typeof TeachingHubSettingsIndexRoute
   TeachingHubStudentsIndexRoute: typeof TeachingHubStudentsIndexRoute
   TeachingHubClassesClassIdIndexRoute: typeof TeachingHubClassesClassIdIndexRoute
@@ -5516,6 +5577,7 @@ interface TeachingHubRouteRouteChildren {
 const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
   TeachingHubIndexRoute: TeachingHubIndexRoute,
   TeachingHubClassesIndexRoute: TeachingHubClassesIndexRoute,
+  TeachingHubPricingIndexRoute: TeachingHubPricingIndexRoute,
   TeachingHubSettingsIndexRoute: TeachingHubSettingsIndexRoute,
   TeachingHubStudentsIndexRoute: TeachingHubStudentsIndexRoute,
   TeachingHubClassesClassIdIndexRoute: TeachingHubClassesClassIdIndexRoute,
@@ -5590,6 +5652,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthStudentRoute: AuthStudentRoute,
   AuthTeacherRoute: AuthTeacherRoute,
   AuthVerifiedRoute: AuthVerifiedRoute,
+  GHandleRoute: GHandleRoute,
   AccountIndexRoute: AccountIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
