@@ -13,6 +13,7 @@ async function admin() {
 
 export type CatalogRow = {
   kind: "plan" | "credits";
+  environment: PaddleEnv;
   externalId: string;
   label: string;
   expected: number;
@@ -21,6 +22,7 @@ export type CatalogRow = {
   inSync: boolean;
   missing: boolean;
 };
+
 
 type ProviderPrice = { id: string; unit_price?: { amount?: string; currency_code?: string } };
 
