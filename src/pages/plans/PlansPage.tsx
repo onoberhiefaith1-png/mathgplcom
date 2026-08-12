@@ -250,17 +250,17 @@ export default function PlansPage() {
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {packs.map((pack) => (
-                <div key={pack.priceKey} className="rounded-xl border border-border bg-background/40 p-4">
+                <div key={pack.externalId} className="rounded-xl border border-border bg-background/40 p-4">
                   <div className="text-lg font-semibold">{credits(pack.credits)}</div>
                   <div className="text-sm text-muted-foreground">{money(pack.price, pack.currency)}</div>
                   <Button
                     className="mt-3 w-full"
                     size="sm"
                     variant="secondary"
-                    disabled={pending === pack.priceKey}
-                    onClick={() => void checkout(pack.priceKey, pack.priceKey)}
+                    disabled={pending === pack.externalId}
+                    onClick={() => void checkout(pack.externalId, pack.externalId)}
                   >
-                    {pending === pack.priceKey ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {pending === pack.externalId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Buy
                   </Button>
                 </div>
