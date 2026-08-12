@@ -18,10 +18,13 @@ import { themeForIndex } from "@/lib/lessonnotes/themes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { saveBackToClass } from "@/lib/lessonnotes/notebookCopy";
+import { useViewAs } from "@/lib/accounts/viewAs";
 
 const NotebookEditorPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  // The same editor, frozen, when a school looks through a teacher's shelf.
+  const { viewOnly, allowEdit } = useViewAs();
   const {
     notebook, loading,
     saveDocumentJson, updatePaperSettings, saveZoom,
@@ -37,6 +40,7 @@ const NotebookEditorPage = () => {
   const zoomTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleZoomChange = (z: number) => {
     setZoom(z);
+    if (viewOnly) return;
     if (zoomTimer.current) clearTimeout(zoomTimer.current);
     zoomTimer.current = setTimeout(() => saveZoom(z), 400);
   };
@@ -54,6 +58,7 @@ const NotebookEditorPage = () => {
   const [savingBack, setSavingBack] = useState(false);
   const saveToClass = async () => {
     if (!id || !checkoutLinkId) return;
+    if (!allowEdit()) return;
     setSavingBack(true);
     try {
       await saveBackToClass(id, checkoutLinkId);
@@ -174,11 +179,11 @@ const NotebookEditorPage = () => {
           paperStyle={(notebook.paper_style as PaperStyle) || "plain"}
           zoom={zoom}
           onZoomChange={handleZoomChange}
-          onPaperSizeChange={(s) => updatePaperSettings({ paper_size: s })}
-          onPaperStyleChange={(s) => updatePaperSettings({ paper_style: s })}
-          onDocChange={saveDocumentJson}
+          onPaperSizeChange={(s) => { if (allowEdit()) updatePaperSettings({ paper_size: s }); }}
+          onPaperStyleChange={(s) => { if (allowEdit()) updatePaperSettings({ paper_style: s }); }}
+          onDocChange={(doc) => { if (!viewOnly) saveDocumentJson(doc); }}
           pageExtraMm={(notebook as { page_extra_mm?: number }).page_extra_mm ?? 0}
-          onPageExtraMmChange={(mm) => updatePaperSettings({ page_extra_mm: mm })}
+          onPageExtraMmChange={(mm) => { if (allowEdit()) updatePaperSettings({ page_extra_mm: mm }); }}
           notebookContext={{
             subject: notebook.subject,
             topic: notebook.title ?? "",

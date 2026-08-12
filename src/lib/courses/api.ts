@@ -1,6 +1,7 @@
 // Course Builder — all reads and writes. Owner-scoped by RLS; this module
 // never assumes more than the signed-in teacher's own courses.
 import { supabase } from "@/integrations/supabase/client";
+import { viewOwnerId } from "@/lib/accounts/workspaceScope";
 import {
   defaultBlockConfig,
   type BlockConfig,
@@ -22,7 +23,8 @@ export interface CourseSummary extends Course {
 
 export const listCourses = async (): Promise<CourseSummary[]> => {
   const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id ?? "";
+  // A school viewing a shared workspace reads that teacher's courses.
+  const uid = viewOwnerId(userData.user?.id ?? "");
   const { data, error } = await db
     .from("courses")
     .select("*")
