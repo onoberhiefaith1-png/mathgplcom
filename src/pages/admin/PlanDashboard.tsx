@@ -30,6 +30,80 @@ const chip =
 type Draft = { label: string; description: string; platform: string; credit: string; features: string };
 
 /**
+ * Live check that the payment provider is charging exactly the amounts the
+ * published plans and credit packs say. Publishing already pushes prices, so
+ * this is the safety net an administrator can read and re-run at any time.
+ */
+function CatalogPipeline() {
+  const qc = useQueryClient();
+  const status = useQuery({
+    queryKey: ["payment-catalog", "sandbox"],
+    queryFn: () => fetchPaymentCatalogStatus({ data: { environment: "sandbox" } }),
+  });
+  const sync = useMutation({
+    mutationFn: () => syncPaymentCatalogFn({ data: { environment: "sandbox" } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["payment-catalog"] });
+      toast.success(
+        r.updated.length ? `Updated ${r.updated.length} price(s) at the payment provider.` : "Everything already matches.",
+      );
+      if (r.missing.length) toast.warning(`Not yet created at the provider: ${r.missing.join(", ")}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rows = status.data?.rows ?? [];
+  const outOfSync = rows.filter((r) => !r.inSync).length;
+
+  return (
+    <section className={`${card} mt-4`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className={heading}>Pricing pipeline</h2>
+        <Button size="sm" variant="secondary" disabled={sync.isPending} onClick={() => sync.mutate()}>
+          {sync.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+          Push prices to checkout
+        </Button>
+      </div>
+      <p className="mt-2 text-xs text-dash-surface/60">
+        {status.isLoading
+          ? "Checking the payment provider…"
+          : outOfSync
+            ? `${outOfSync} price(s) differ from your published amounts.`
+            : "Checkout is charging exactly your published amounts."}
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className={label}>
+            <tr>
+              <th className="py-2">Item</th>
+              <th className="py-2">Published</th>
+              <th className="py-2">At checkout</th>
+              <th className="py-2">State</th>
+            </tr>
+          </thead>
+          <tbody className="text-dash-surface/85">
+            {rows.map((r) => (
+              <tr key={r.externalId} className="border-t border-dash-surface/10">
+                <td className="py-2">
+                  {r.label}
+                  <span className="ml-2 text-[11px] text-dash-surface/45">{r.externalId}</span>
+                </td>
+                <td className="py-2">{money(r.expected, r.currency)}</td>
+                <td className="py-2">{r.provider === null ? "—" : money(r.provider, r.currency)}</td>
+                <td className="py-2">
+                  <span className={chip}>{r.missing ? "Not created" : r.inSync ? "In sync" : "Needs push"}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+
+/**
  * Plan control centre. The administrator edits the money split; the included
  * credits are always derived from the live credit sell price. An edit stays a
  * draft until it is published as the next version, and subscriptions keep the
