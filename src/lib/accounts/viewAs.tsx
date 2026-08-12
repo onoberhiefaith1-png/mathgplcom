@@ -23,19 +23,26 @@ export const ViewAsProvider = ({
   orgId,
   personName,
   basePath,
+  viewer,
+  classIds,
   children,
 }: ViewAsScope & { children: ReactNode }) => {
+  const classKey = (classIds ?? []).join(",");
   const scope = useMemo<ViewAsScope>(
-    () => ({ ownerId, orgId, personName, basePath }),
-    [ownerId, orgId, personName, basePath],
+    () => ({ ownerId, orgId, personName, basePath, viewer, classIds: classIds ?? null }),
+    // classKey stands in for the array identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ownerId, orgId, personName, basePath, viewer, classKey],
   );
 
   // Set synchronously on first render so queries fired from child effects
   // already see the viewed workspace.
-  if (currentViewAs()?.ownerId !== ownerId || currentViewAs()?.orgId !== orgId) {
+  const live = currentViewAs();
+  if (live?.ownerId !== ownerId || live?.orgId !== orgId || (live?.classIds ?? []).join(",") !== classKey) {
     setViewAsScope(scope);
     clearWorkspaceScopeCache();
   }
+
 
   useEffect(() => {
     setViewAsScope(scope);
