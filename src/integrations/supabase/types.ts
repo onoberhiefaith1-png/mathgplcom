@@ -3265,18 +3265,21 @@ export type Database = {
       }
       platform_cost_settings: {
         Row: {
+          credit_rate: number
           currency: string
           id: number
           profit_percentage: number
           updated_at: string
         }
         Insert: {
+          credit_rate?: number
           currency?: string
           id?: number
           profit_percentage?: number
           updated_at?: string
         }
         Update: {
+          credit_rate?: number
           currency?: string
           id?: number
           profit_percentage?: number
@@ -4228,6 +4231,7 @@ export type Database = {
           feature: string | null
           financial_result: number
           id: string
+          import_day: string | null
           metric: string
           model: string | null
           occurred_at: string
@@ -4238,6 +4242,7 @@ export type Database = {
           quantity: number
           reconciled: boolean
           resource_label: string | null
+          source: string
           unit: string
           unit_price: number | null
         }
@@ -4252,6 +4257,7 @@ export type Database = {
           feature?: string | null
           financial_result?: number
           id?: string
+          import_day?: string | null
           metric: string
           model?: string | null
           occurred_at?: string
@@ -4262,6 +4268,7 @@ export type Database = {
           quantity?: number
           reconciled?: boolean
           resource_label?: string | null
+          source?: string
           unit?: string
           unit_price?: number | null
         }
@@ -4276,6 +4283,7 @@ export type Database = {
           feature?: string | null
           financial_result?: number
           id?: string
+          import_day?: string | null
           metric?: string
           model?: string | null
           occurred_at?: string
@@ -4286,6 +4294,7 @@ export type Database = {
           quantity?: number
           reconciled?: boolean
           resource_label?: string | null
+          source?: string
           unit?: string
           unit_price?: number | null
         }
@@ -4482,6 +4491,10 @@ export type Database = {
         }
         Returns: number
       }
+      apply_usage_payment: {
+        Args: { _amount: number; _cost_unit_id: string }
+        Returns: number
+      }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
       can_afford_usage: {
         Args: { _estimated?: number; _org_id: string; _user_id: string }
@@ -4591,6 +4604,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      import_platform_usage: {
+        Args: {
+          _cost_unit_id: string
+          _credit_rate?: number
+          _day: string
+          _rows: Json
+        }
+        Returns: number
       }
       invite_teacher_by_user: {
         Args: { _org_id: string; _user_id: string }
@@ -4778,6 +4800,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      recompute_cost_unit_day: {
+        Args: { _cost_unit_id: string; _day: string }
+        Returns: undefined
       }
       reconcile_usage_costs: { Args: { _since?: string }; Returns: number }
       record_usage_event:
