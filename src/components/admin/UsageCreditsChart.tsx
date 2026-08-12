@@ -43,7 +43,7 @@ export default function UsageCreditsChart({
   onIsolate?: (category: CostCategory | null) => void;
   height?: number;
 }) {
-  const shown = isolated ? [isolated] : COST_CATEGORIES;
+  const shown: readonly CostCategory[] = isolated ? [isolated] : COST_CATEGORIES;
 
   const rows = useMemo<Row[]>(
     () =>
@@ -51,8 +51,9 @@ export default function UsageCreditsChart({
         const row: Row = {
           bucket: p.bucket,
           label: labelOf(p.bucket, granularity),
-          total: shown.reduce((sum, c) => sum + (p.credits[c] ?? 0), 0),
+          total: shown.reduce<number>((sum, c) => sum + (p.credits[c] ?? 0), 0),
         };
+
         for (const c of COST_CATEGORIES) {
           row[c] = p.credits[c] ?? 0;
           row[`${c}__cost`] = p.cost[c] ?? 0;
