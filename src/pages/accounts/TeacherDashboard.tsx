@@ -17,6 +17,7 @@ const QUICK: { to: string; label: string }[] = [
   { to: "/adventure", label: "Adventure" },
   { to: "/course-builder", label: "Skill Builder" },
   { to: "/live", label: "MathGPL Live" },
+  { to: "/teaching-hub/pricing", label: "Pricing" },
 ];
 
 const when = (iso: string) =>

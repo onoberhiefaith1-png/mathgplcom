@@ -11,6 +11,7 @@ const QUICK: { to: string; label: string }[] = [
   { to: "/school/teachers", label: "Teachers" },
   { to: "/school/students", label: "Students" },
   { to: "/requests", label: "Requests" },
+  { to: "/school/pricing", label: "Pricing" },
   { to: "/community/discover", label: "Find teachers" },
   { to: "/account", label: "School Code & Go Live" },
 ];

@@ -12,6 +12,7 @@ import {
   Radio,
   Settings,
   Sparkles,
+  Tag,
   UserCircle,
   Users,
   type LucideIcon,
@@ -50,6 +51,7 @@ const TEACHER: WorkspaceNavGroup[] = [
       { to: "/adventure", label: "Adventure", icon: Compass },
       { to: "/course-builder", label: "Skill Builder", icon: GraduationCap },
       { to: "/live", label: "MathGPL Live", icon: Radio },
+      { to: "/teaching-hub/pricing", label: "Pricing", icon: Tag },
     ],
   },
   {
@@ -74,6 +76,7 @@ const SCHOOL: WorkspaceNavGroup[] = [
       { to: "/school/teachers", label: "Teachers", icon: GraduationCap },
       { to: "/school/students", label: "Students", icon: Users },
       { to: "/school?tab=reports", label: "Reports", icon: BarChart3 },
+      { to: "/school/pricing", label: "Pricing", icon: Tag },
       { to: "/account", label: "Account", icon: UserCircle },
     ],
   },
