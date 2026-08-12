@@ -236,6 +236,7 @@ export type MySubscription = {
   periodEnd: string | null;
   scheduledPlanId: string | null;
   cancelAt: string | null;
+  paymentState: "ok" | "past_due";
 };
 
 /** The caller's own subscription, read through their own session (RLS). */
@@ -243,7 +244,7 @@ export async function mySubscription(supabase: Client, userId: string): Promise<
   const { data } = await supabase
     .from("subscriptions")
     .select(
-      "plan, plan_id, status, final_price, currency, included_credits, locked_profit_rate, period_start, period_end, scheduled_plan_id, cancel_at, plan_version_id",
+      "plan, plan_id, status, final_price, currency, included_credits, locked_profit_rate, period_start, period_end, scheduled_plan_id, cancel_at, payment_state, plan_version_id",
     )
     .eq("user_id", userId)
     .eq("status", "active")
@@ -273,6 +274,7 @@ export async function mySubscription(supabase: Client, userId: string): Promise<
     periodEnd: (data.period_end as string) ?? null,
     scheduledPlanId: (data.scheduled_plan_id as string) ?? null,
     cancelAt: (data.cancel_at as string) ?? null,
+    paymentState: (data.payment_state as "ok" | "past_due") ?? "ok",
   };
 }
 
