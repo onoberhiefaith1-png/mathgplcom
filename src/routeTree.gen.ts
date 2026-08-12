@@ -115,6 +115,7 @@ import { Route as LiveLessonNotesIndexRouteImport } from './routes/live/lesson-n
 import { Route as LiveReportsIndexRouteImport } from './routes/live/reports/index'
 import { Route as LiveSessionsIndexRouteImport } from './routes/live/sessions/index'
 import { Route as NotebookScanCodeIndexRouteImport } from './routes/notebook-scan/$code/index'
+import { Route as SchoolPricingIndexRouteImport } from './routes/school/pricing/index'
 import { Route as SchoolStudentsIndexRouteImport } from './routes/school/students/index'
 import { Route as SchoolTeachersIndexRouteImport } from './routes/school/teachers/index'
 import { Route as SmartboardNotebookIdIndexRouteImport } from './routes/smartboard/$notebookId/index'
@@ -803,6 +804,11 @@ const NotebookScanCodeIndexRoute = NotebookScanCodeIndexRouteImport.update({
   id: '/notebook-scan/$code/',
   path: '/notebook-scan/$code/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SchoolPricingIndexRoute = SchoolPricingIndexRouteImport.update({
+  id: '/pricing/',
+  path: '/pricing/',
+  getParentRoute: () => SchoolRouteRoute,
 } as any)
 const SchoolStudentsIndexRoute = SchoolStudentsIndexRouteImport.update({
   id: '/students/',
@@ -1798,6 +1804,7 @@ export interface FileRoutesByFullPath {
   '/live/reports/': typeof LiveReportsIndexRoute
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
+  '/school/pricing/': typeof SchoolPricingIndexRoute
   '/school/students/': typeof SchoolStudentsIndexRoute
   '/school/teachers/': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
@@ -2046,6 +2053,7 @@ export interface FileRoutesByTo {
   '/live/reports': typeof LiveReportsIndexRoute
   '/live/sessions': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code': typeof NotebookScanCodeIndexRoute
+  '/school/pricing': typeof SchoolPricingIndexRoute
   '/school/students': typeof SchoolStudentsIndexRoute
   '/school/teachers': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId': typeof SmartboardNotebookIdIndexRoute
@@ -2306,6 +2314,7 @@ export interface FileRoutesById {
   '/live/reports/': typeof LiveReportsIndexRoute
   '/live/sessions/': typeof LiveSessionsIndexRoute
   '/notebook-scan/$code/': typeof NotebookScanCodeIndexRoute
+  '/school/pricing/': typeof SchoolPricingIndexRoute
   '/school/students/': typeof SchoolStudentsIndexRoute
   '/school/teachers/': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
@@ -2567,6 +2576,7 @@ export interface FileRouteTypes {
     | '/live/reports/'
     | '/live/sessions/'
     | '/notebook-scan/$code/'
+    | '/school/pricing/'
     | '/school/students/'
     | '/school/teachers/'
     | '/smartboard/$notebookId/'
@@ -2815,6 +2825,7 @@ export interface FileRouteTypes {
     | '/live/reports'
     | '/live/sessions'
     | '/notebook-scan/$code'
+    | '/school/pricing'
     | '/school/students'
     | '/school/teachers'
     | '/smartboard/$notebookId'
@@ -3074,6 +3085,7 @@ export interface FileRouteTypes {
     | '/live/reports/'
     | '/live/sessions/'
     | '/notebook-scan/$code/'
+    | '/school/pricing/'
     | '/school/students/'
     | '/school/teachers/'
     | '/smartboard/$notebookId/'
@@ -4088,6 +4100,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/notebook-scan/$code/'
       preLoaderRoute: typeof NotebookScanCodeIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/school/pricing/': {
+      id: '/school/pricing/'
+      path: '/pricing'
+      fullPath: '/school/pricing/'
+      preLoaderRoute: typeof SchoolPricingIndexRouteImport
+      parentRoute: typeof SchoolRouteRoute
     }
     '/school/students/': {
       id: '/school/students/'
@@ -5391,6 +5410,7 @@ const LiveRouteRouteWithChildren = LiveRouteRoute._addFileChildren(
 
 interface SchoolRouteRouteChildren {
   SchoolIndexRoute: typeof SchoolIndexRoute
+  SchoolPricingIndexRoute: typeof SchoolPricingIndexRoute
   SchoolStudentsIndexRoute: typeof SchoolStudentsIndexRoute
   SchoolTeachersIndexRoute: typeof SchoolTeachersIndexRoute
   SchoolTeachersUserIdAdventureRoute: typeof SchoolTeachersUserIdAdventureRoute
@@ -5413,6 +5433,7 @@ interface SchoolRouteRouteChildren {
 
 const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolIndexRoute: SchoolIndexRoute,
+  SchoolPricingIndexRoute: SchoolPricingIndexRoute,
   SchoolStudentsIndexRoute: SchoolStudentsIndexRoute,
   SchoolTeachersIndexRoute: SchoolTeachersIndexRoute,
   SchoolTeachersUserIdAdventureRoute: SchoolTeachersUserIdAdventureRoute,
