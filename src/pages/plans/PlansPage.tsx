@@ -299,17 +299,17 @@ export default function PlansPage() {
                       <Button
                         className="w-full"
                         disabled={pending === plan.key}
-                        onClick={() => void startCheckout(plan.key)}
+                        onClick={() => choosePaidPlan(plan.key)}
                       >
-
                         {pending === plan.key ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
                           <Sparkles className="mr-2 h-4 w-4" />
                         )}
-                        Choose {plan.label}
+                        {current && current.price > 0 ? `Switch to ${plan.label}` : `Choose ${plan.label}`}
                       </Button>
                     )}
+
                   </div>
                 </div>
               );
