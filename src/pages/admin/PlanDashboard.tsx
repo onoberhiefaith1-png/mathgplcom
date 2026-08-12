@@ -289,9 +289,12 @@ export default function PlanDashboard() {
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
-            ["Credit cost price", money(base?.costPrice ?? 0, base?.currency ?? "GBP")],
-            ["Profit percentage", `${base?.profitPercentage ?? 0}%`],
-            ["Credit sell price", money(base?.sellPrice ?? 0, base?.currency ?? "GBP")],
+            ["Credit cost price · input", money(base?.costPrice ?? 0, base?.currency ?? "GBP")],
+            ["Profit percentage · input", `${base?.profitPercentage ?? 0}%`],
+            [
+              "Credit sell price · derived",
+              `${money(base?.sellPrice ?? 0, base?.currency ?? "GBP")}  (exact ${(base?.sellPrice ?? 0).toFixed(4)})`,
+            ],
             ["Active subscriptions", String(overview?.activeCount ?? 0)],
             ["Monthly plan revenue", money(overview?.monthlyRevenue ?? 0)],
           ].map(([k, v]) => (
@@ -302,9 +305,11 @@ export default function PlanDashboard() {
           ))}
         </div>
         <p className="mt-3 text-xs text-dash-surface/60">
-          Credits allocated to subscribers so far: {credits(overview?.allocatedCredits ?? 0)}. Collected payments:{" "}
-          {money(overview?.collected ?? 0)}.
+          Credit cost price and profit percentage are the only editable inputs (set them in the pricing engine). Credit
+          sell price = cost × (1 + profit ÷ 100). Credits allocated to subscribers so far:{" "}
+          {credits(overview?.allocatedCredits ?? 0)}. Collected payments: {money(overview?.collected ?? 0)}.
         </p>
+
       </section>
 
       <CatalogPipeline />
