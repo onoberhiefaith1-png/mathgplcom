@@ -232,29 +232,31 @@ export default function UsageAnalytics() {
           <Card label="Usage events" value={compact(totals?.events ?? 0)} hint="Metered operations in range" />
         </section>
 
-        {/* Stacked usage graph */}
+        {/* Stacked usage graph — same shape as the platform credit meter */}
         <section className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">
-            Usage by category {analytics.data?.granularity === "hour" ? "(hourly)" : "(daily)"}
-          </h2>
-          <div className="mt-4 h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                <XAxis dataKey="bucket" stroke="rgba(255,255,255,0.55)" fontSize={11} />
-                <YAxis stroke="rgba(255,255,255,0.55)" fontSize={11} tickFormatter={(v) => money(Number(v), currency)} />
-                <Tooltip
-                  contentStyle={{ background: "#0b1220", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12 }}
-                  formatter={(v: number, name) => [money(Number(v), currency), CATEGORY_LABEL[name as CostCategory] ?? name]}
-                />
-                <Legend formatter={(v) => CATEGORY_LABEL[v as CostCategory] ?? v} />
-                {COST_CATEGORIES.map((c) => (
-                  <Bar key={c} dataKey={c} stackId="usage" fill={CATEGORY_COLOR[c]} radius={[2, 2, 0, 0]} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-3xl font-semibold text-dash-surface">
+                {creditText(totals?.credits ?? 0)} run credits
+              </p>
+              <p className="mt-1 text-sm text-dash-surface/60">
+                in {rangeLabel} · {analytics.data?.granularity === "hour" ? "hourly" : "daily"} ·{" "}
+                {money(totals?.cost ?? 0, currency)} platform cost
+              </p>
+            </div>
+            {analytics.isFetching && <Loader2 className="mt-1 h-4 w-4 animate-spin text-dash-surface/50" />}
+          </div>
+          <div className="mt-5">
+            <UsageCreditsChart
+              series={analytics.data?.series ?? []}
+              granularity={analytics.data?.granularity ?? "day"}
+              currency={currency}
+              isolated={openCategory}
+              onIsolate={setOpenCategory}
+            />
           </div>
         </section>
+
 
         {/* Category cards → drill-down */}
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
