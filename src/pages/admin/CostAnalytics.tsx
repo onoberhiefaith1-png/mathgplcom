@@ -265,6 +265,8 @@ export default function CostAnalytics() {
           </div>
         </section>
 
+        <CreditEconomyPanel />
+
         {/* Profit rate + price book */}
         <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
