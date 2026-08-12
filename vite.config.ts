@@ -16,5 +16,24 @@ export default defineConfig({
   vite: {
     // Preserved from the pre-migration vite.config.ts: the project's MCP plugin.
     plugins: [mcpPlugin()],
+    // These packages are reached through generated/dynamic TanStack Start entry points.
+    // Pre-bundle them up front so Vite does not invalidate hashed dependency URLs
+    // after the browser has already started loading the application.
+    optimizeDeps: {
+      include: [
+        "@supabase/supabase-js",
+        "@tanstack/react-router",
+        "@tanstack/router-core",
+        "@tanstack/router-core/isServer",
+        "@tanstack/router-core/ssr/client",
+        "@tanstack/router-core/ssr/server",
+        "@tanstack/history",
+        "h3-v2",
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "seroval",
+      ],
+    },
   },
 });
