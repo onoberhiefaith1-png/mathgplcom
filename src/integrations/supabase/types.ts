@@ -5308,6 +5308,7 @@ export type Database = {
         Returns: string
       }
       issue_account_id_for_email: { Args: { _email: string }; Returns: string }
+      join_org_with_invite: { Args: { _code: string }; Returns: string }
       lookup_class_by_code: {
         Args: { code: string }
         Returns: {
