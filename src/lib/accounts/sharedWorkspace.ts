@@ -229,7 +229,7 @@ export async function fetchSharedCourses(orgId: string, userId: string): Promise
       .map((s) => ({
         id: String(s.id),
         title: (s.title as string) || "Section",
-        kind: (s.kind as string | null) ?? null,
+        
         blocks: blockCounts.get(String(s.id)) ?? 0,
       })),
   }));
