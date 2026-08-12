@@ -207,6 +207,18 @@ export const openBillingPortalFn = createServerFn({ method: "POST" })
     return billingPortalUrl({ userId: context.userId, env: data.environment });
   });
 
+/**
+ * Guard used immediately before checkout opens: the amount the provider would
+ * charge must equal the published amount. Deliberately unauthenticated —
+ * it only reveals prices that are already public.
+ */
+export const verifyCheckoutPrice = createServerFn({ method: "GET" })
+  .inputValidator((data) => z.object({ priceId: z.string().min(2).max(80), environment: ENV }).parse(data))
+  .handler(async ({ data }) => {
+    const { verifyExternalPrice } = await import("@/lib/payments/catalogSync.server");
+    return verifyExternalPrice(data.environment, data.priceId);
+  });
+
 /** Administrator view of provider amounts against published amounts. */
 export const fetchPaymentCatalogStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -216,6 +228,7 @@ export const fetchPaymentCatalogStatus = createServerFn({ method: "GET" })
     const { catalogStatus } = await import("@/lib/payments/catalogSync.server");
     return { rows: await catalogStatus(data.environment) };
   });
+
 
 export const syncPaymentCatalogFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
