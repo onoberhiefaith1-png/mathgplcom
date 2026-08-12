@@ -2981,6 +2981,7 @@ export type Database = {
         Row: {
           content_access: Json | null
           created_at: string
+          current_period_end: string | null
           granted_items: string[]
           id: string
           owner_id: string
@@ -2992,12 +2993,16 @@ export type Database = {
           plan_id: string
           source: string
           status: string
+          stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           student_id: string
           updated_at: string
         }
         Insert: {
           content_access?: Json | null
           created_at?: string
+          current_period_end?: string | null
           granted_items?: string[]
           id?: string
           owner_id: string
@@ -3009,12 +3014,16 @@ export type Database = {
           plan_id: string
           source?: string
           status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           student_id: string
           updated_at?: string
         }
         Update: {
           content_access?: Json | null
           created_at?: string
+          current_period_end?: string | null
           granted_items?: string[]
           id?: string
           owner_id?: string
@@ -3026,6 +3035,9 @@ export type Database = {
           plan_id?: string
           source?: string
           status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           student_id?: string
           updated_at?: string
         }
@@ -3039,35 +3051,115 @@ export type Database = {
           },
         ]
       }
+      gateway_payments: {
+        Row: {
+          amount: number
+          billing_mode: string
+          created_at: string
+          currency: string
+          id: string
+          owner_id: string
+          owner_kind: string
+          plan_id: string | null
+          plan_name: string
+          status: string
+          stripe_account_id: string | null
+          stripe_checkout_session_id: string | null
+          stripe_invoice_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_subscription_id: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          billing_mode?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          owner_id: string
+          owner_kind: string
+          plan_id?: string | null
+          plan_name?: string
+          status?: string
+          stripe_account_id?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_subscription_id?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_mode?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          owner_id?: string
+          owner_kind?: string
+          plan_id?: string | null
+          plan_name?: string
+          status?: string
+          stripe_account_id?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_subscription_id?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_payments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "gateway_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gateway_payout_accounts: {
         Row: {
+          charges_enabled: boolean
           created_at: string
+          details_submitted: boolean
           external_account_id: string | null
           id: string
           owner_id: string
           owner_kind: string
+          payments_active: boolean
           provider: string | null
           status: string
+          stripe_account_id: string | null
           updated_at: string
         }
         Insert: {
+          charges_enabled?: boolean
           created_at?: string
+          details_submitted?: boolean
           external_account_id?: string | null
           id?: string
           owner_id: string
           owner_kind: string
+          payments_active?: boolean
           provider?: string | null
           status?: string
+          stripe_account_id?: string | null
           updated_at?: string
         }
         Update: {
+          charges_enabled?: boolean
           created_at?: string
+          details_submitted?: boolean
           external_account_id?: string | null
           id?: string
           owner_id?: string
           owner_kind?: string
+          payments_active?: boolean
           provider?: string | null
           status?: string
+          stripe_account_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -3075,6 +3167,7 @@ export type Database = {
       gateway_plans: {
         Row: {
           auto_grant_existing: boolean
+          billing_mode: string
           created_at: string
           currency: string
           description: string
@@ -3090,6 +3183,7 @@ export type Database = {
         }
         Insert: {
           auto_grant_existing?: boolean
+          billing_mode?: string
           created_at?: string
           currency?: string
           description?: string
@@ -3105,6 +3199,7 @@ export type Database = {
         }
         Update: {
           auto_grant_existing?: boolean
+          billing_mode?: string
           created_at?: string
           currency?: string
           description?: string
@@ -5395,6 +5490,7 @@ export type Database = {
         Returns: {
           content_access: Json | null
           created_at: string
+          current_period_end: string | null
           granted_items: string[]
           id: string
           owner_id: string
@@ -5406,6 +5502,9 @@ export type Database = {
           plan_id: string
           source: string
           status: string
+          stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           student_id: string
           updated_at: string
         }
