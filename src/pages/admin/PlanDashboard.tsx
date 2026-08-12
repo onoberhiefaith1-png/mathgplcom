@@ -190,6 +190,10 @@ export default function PlanDashboard() {
         </p>
       </section>
 
+      <CatalogPipeline />
+
+
+
       {grouped.map(({ audience, plans: list }) => (
         <section key={audience} className="mt-4">
           <h2 className={heading}>{AUDIENCE_LABEL[audience]} plans</h2>
