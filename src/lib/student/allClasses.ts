@@ -9,6 +9,8 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { activeSchoolOrgId, viewOwnerId } from "@/lib/accounts/workspaceScope";
+import { currentViewAs } from "@/lib/accounts/viewAsScope";
+
 import {
   getClassCourseSettings,
   listClassCourses,
