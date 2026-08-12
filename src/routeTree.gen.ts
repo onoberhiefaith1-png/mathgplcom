@@ -158,6 +158,7 @@ import { Route as LiveWorkspaceClassIdIndexRouteImport } from './routes/live/wor
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
+import { Route as SchoolTeachersUserIdIndexRouteImport } from './routes/school/teachers/$userId/index'
 import { Route as SmartboardNotebookIdPreviewIndexRouteImport } from './routes/smartboard/$notebookId/preview/index'
 import { Route as StudentClassClassIdIndexRouteImport } from './routes/student/class/$classId/index'
 import { Route as SubjectsSubjectTopicIndexRouteImport } from './routes/subjects/$subject/$topic/index'
@@ -1004,6 +1005,12 @@ const LovableEmailQueueProcessRoute =
     path: '/lovable/email/queue/process',
     getParentRoute: () => rootRouteImport,
   } as any)
+const SchoolTeachersUserIdIndexRoute =
+  SchoolTeachersUserIdIndexRouteImport.update({
+    id: '/teachers/$userId/',
+    path: '/teachers/$userId/',
+    getParentRoute: () => SchoolRouteRoute,
+  } as any)
 const SmartboardNotebookIdPreviewIndexRoute =
   SmartboardNotebookIdPreviewIndexRouteImport.update({
     id: '/$notebookId/preview/',
@@ -1539,6 +1546,7 @@ export interface FileRoutesByFullPath {
   '/live/sessions/create/': typeof LiveSessionsCreateIndexRoute
   '/live/smart-cards/$cardId/': typeof LiveSmartCardsCardIdIndexRoute
   '/live/workspace/$classId/': typeof LiveWorkspaceClassIdIndexRoute
+  '/school/teachers/$userId/': typeof SchoolTeachersUserIdIndexRoute
   '/smartboard/$notebookId/preview/': typeof SmartboardNotebookIdPreviewIndexRoute
   '/student/class/$classId/': typeof StudentClassClassIdIndexRoute
   '/subjects/$subject/$topic/': typeof SubjectsSubjectTopicIndexRoute
@@ -1742,6 +1750,7 @@ export interface FileRoutesByTo {
   '/live/sessions/create': typeof LiveSessionsCreateIndexRoute
   '/live/smart-cards/$cardId': typeof LiveSmartCardsCardIdIndexRoute
   '/live/workspace/$classId': typeof LiveWorkspaceClassIdIndexRoute
+  '/school/teachers/$userId': typeof SchoolTeachersUserIdIndexRoute
   '/smartboard/$notebookId/preview': typeof SmartboardNotebookIdPreviewIndexRoute
   '/student/class/$classId': typeof StudentClassClassIdIndexRoute
   '/subjects/$subject/$topic': typeof SubjectsSubjectTopicIndexRoute
@@ -1957,6 +1966,7 @@ export interface FileRoutesById {
   '/live/sessions/create/': typeof LiveSessionsCreateIndexRoute
   '/live/smart-cards/$cardId/': typeof LiveSmartCardsCardIdIndexRoute
   '/live/workspace/$classId/': typeof LiveWorkspaceClassIdIndexRoute
+  '/school/teachers/$userId/': typeof SchoolTeachersUserIdIndexRoute
   '/smartboard/$notebookId/preview/': typeof SmartboardNotebookIdPreviewIndexRoute
   '/student/class/$classId/': typeof StudentClassClassIdIndexRoute
   '/subjects/$subject/$topic/': typeof SubjectsSubjectTopicIndexRoute
@@ -2173,6 +2183,7 @@ export interface FileRouteTypes {
     | '/live/sessions/create/'
     | '/live/smart-cards/$cardId/'
     | '/live/workspace/$classId/'
+    | '/school/teachers/$userId/'
     | '/smartboard/$notebookId/preview/'
     | '/student/class/$classId/'
     | '/subjects/$subject/$topic/'
@@ -2376,6 +2387,7 @@ export interface FileRouteTypes {
     | '/live/sessions/create'
     | '/live/smart-cards/$cardId'
     | '/live/workspace/$classId'
+    | '/school/teachers/$userId'
     | '/smartboard/$notebookId/preview'
     | '/student/class/$classId'
     | '/subjects/$subject/$topic'
@@ -2590,6 +2602,7 @@ export interface FileRouteTypes {
     | '/live/sessions/create/'
     | '/live/smart-cards/$cardId/'
     | '/live/workspace/$classId/'
+    | '/school/teachers/$userId/'
     | '/smartboard/$notebookId/preview/'
     | '/student/class/$classId/'
     | '/subjects/$subject/$topic/'
@@ -3813,6 +3826,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/school/teachers/$userId/': {
+      id: '/school/teachers/$userId/'
+      path: '/teachers/$userId'
+      fullPath: '/school/teachers/$userId/'
+      preLoaderRoute: typeof SchoolTeachersUserIdIndexRouteImport
+      parentRoute: typeof SchoolRouteRoute
+    }
     '/smartboard/$notebookId/preview/': {
       id: '/smartboard/$notebookId/preview/'
       path: '/$notebookId/preview'
@@ -4469,6 +4489,7 @@ interface SchoolRouteRouteChildren {
   SchoolStudentsUserIdRoute: typeof SchoolStudentsUserIdRoute
   SchoolStudentsIndexRoute: typeof SchoolStudentsIndexRoute
   SchoolTeachersIndexRoute: typeof SchoolTeachersIndexRoute
+  SchoolTeachersUserIdIndexRoute: typeof SchoolTeachersUserIdIndexRoute
 }
 
 const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
@@ -4476,6 +4497,7 @@ const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolStudentsUserIdRoute: SchoolStudentsUserIdRoute,
   SchoolStudentsIndexRoute: SchoolStudentsIndexRoute,
   SchoolTeachersIndexRoute: SchoolTeachersIndexRoute,
+  SchoolTeachersUserIdIndexRoute: SchoolTeachersUserIdIndexRoute,
 }
 
 const SchoolRouteRouteWithChildren = SchoolRouteRoute._addFileChildren(
