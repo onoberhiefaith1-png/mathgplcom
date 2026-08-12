@@ -151,29 +151,37 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
         }
 
         // Account emails carry the person's permanent MathGPL ID — it is how
-        // they sign in, so signup and recovery emails must repeat it.
+        // they sign in, so signup and recovery emails must repeat it. A brand
+        // new account may not have been given its ID yet, so it is issued here
+        // from the account type chosen at registration.
         let mathgplId: string | null = null
         try {
           const url = import.meta.env['VITE_SUPABASE_URL']
           const serviceKey = process.env['SUPABASE_SERVICE_ROLE_KEY']
           if (url && serviceKey) {
-            const lookup = await fetch(`${url}/rest/v1/rpc/mathgpl_id_for_email`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                apikey: serviceKey,
-                Authorization: `Bearer ${serviceKey}`,
-              },
-              body: JSON.stringify({ _email: payload.data.email }),
-            })
-            if (lookup.ok) {
-              const value = await lookup.json()
-              if (typeof value === 'string' && value.length > 0) mathgplId = value
+            const callRpc = async (fn: string, body: Record<string, unknown>) => {
+              const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  apikey: serviceKey,
+                  Authorization: `Bearer ${serviceKey}`,
+                },
+                body: JSON.stringify(body),
+              })
+              if (!res.ok) return null
+              const value = await res.json()
+              return typeof value === 'string' && value.length > 0 ? value : null
+            }
+            mathgplId = await callRpc('mathgpl_id_for_email', { _email: payload.data.email })
+            if (!mathgplId) {
+              mathgplId = await callRpc('issue_account_id_for_email', { _email: payload.data.email })
             }
           }
         } catch (error) {
           console.warn('MathGPL ID lookup failed', { run_id })
         }
+
 
         // Build template props from payload.data (HookData structure)
         const templateProps = {
