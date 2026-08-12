@@ -289,6 +289,8 @@ async function aiGenerate(opts: {
   inheritedContext?: boolean;
   lessonContext?: LessonTeachingContext;
 }): Promise<string> {
+  const { hasCreditsForGeneration, INSUFFICIENT_CREDITS_MESSAGE } = await import("@/lib/costs/creditGuard");
+  if (!(await hasCreditsForGeneration())) throw new Error(INSUFFICIENT_CREDITS_MESSAGE);
   const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
     body: {
       mode: "generate",

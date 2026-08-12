@@ -57,8 +57,10 @@ import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/index'
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
+import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
 import { Route as AdminEmailIndexRouteImport } from './routes/admin/email/index'
 import { Route as AdminSecurityIndexRouteImport } from './routes/admin/security/index'
+import { Route as AdminUsageAnalyticsIndexRouteImport } from './routes/admin/usage-analytics/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
@@ -496,6 +498,11 @@ const AdminCostAnalyticsIndexRoute = AdminCostAnalyticsIndexRouteImport.update({
   path: '/cost-analytics/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminCostRevenueIndexRoute = AdminCostRevenueIndexRouteImport.update({
+  id: '/cost-revenue/',
+  path: '/cost-revenue/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminEmailIndexRoute = AdminEmailIndexRouteImport.update({
   id: '/email/',
   path: '/email/',
@@ -506,6 +513,12 @@ const AdminSecurityIndexRoute = AdminSecurityIndexRouteImport.update({
   path: '/security/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminUsageAnalyticsIndexRoute =
+  AdminUsageAnalyticsIndexRouteImport.update({
+    id: '/usage-analytics/',
+    path: '/usage-analytics/',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
 const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
   id: '/games/',
   path: '/games/',
@@ -1672,8 +1685,10 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
+  '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
+  '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
   '/age/$range/': typeof AgeRangeIndexRoute
   '/assets/$category/': typeof AssetsCategoryIndexRoute
@@ -1909,8 +1924,10 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
+  '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
   '/admin/email': typeof AdminEmailIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
+  '/admin/usage-analytics': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games': typeof AdventureGamesIndexRoute
   '/age/$range': typeof AgeRangeIndexRoute
   '/assets/$category': typeof AssetsCategoryIndexRoute
@@ -2158,8 +2175,10 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
+  '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
+  '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
   '/age/$range/': typeof AgeRangeIndexRoute
   '/assets/$category/': typeof AssetsCategoryIndexRoute
@@ -2408,8 +2427,10 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
+    | '/admin/cost-revenue/'
     | '/admin/email/'
     | '/admin/security/'
+    | '/admin/usage-analytics/'
     | '/adventure/games/'
     | '/age/$range/'
     | '/assets/$category/'
@@ -2645,8 +2666,10 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/admin/billing'
     | '/admin/cost-analytics'
+    | '/admin/cost-revenue'
     | '/admin/email'
     | '/admin/security'
+    | '/admin/usage-analytics'
     | '/adventure/games'
     | '/age/$range'
     | '/assets/$category'
@@ -2893,8 +2916,10 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
+    | '/admin/cost-revenue/'
     | '/admin/email/'
     | '/admin/security/'
+    | '/admin/usage-analytics/'
     | '/adventure/games/'
     | '/age/$range/'
     | '/assets/$category/'
@@ -3544,6 +3569,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCostAnalyticsIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/cost-revenue/': {
+      id: '/admin/cost-revenue/'
+      path: '/cost-revenue'
+      fullPath: '/admin/cost-revenue/'
+      preLoaderRoute: typeof AdminCostRevenueIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/email/': {
       id: '/admin/email/'
       path: '/email'
@@ -3556,6 +3588,13 @@ declare module '@tanstack/react-router' {
       path: '/security'
       fullPath: '/admin/security/'
       preLoaderRoute: typeof AdminSecurityIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/usage-analytics/': {
+      id: '/admin/usage-analytics/'
+      path: '/usage-analytics'
+      fullPath: '/admin/usage-analytics/'
+      preLoaderRoute: typeof AdminUsageAnalyticsIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/adventure/games/': {
@@ -4937,16 +4976,20 @@ interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminBillingIndexRoute: typeof AdminBillingIndexRoute
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
+  AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
   AdminEmailIndexRoute: typeof AdminEmailIndexRoute
   AdminSecurityIndexRoute: typeof AdminSecurityIndexRoute
+  AdminUsageAnalyticsIndexRoute: typeof AdminUsageAnalyticsIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminBillingIndexRoute: AdminBillingIndexRoute,
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
+  AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
   AdminEmailIndexRoute: AdminEmailIndexRoute,
   AdminSecurityIndexRoute: AdminSecurityIndexRoute,
+  AdminUsageAnalyticsIndexRoute: AdminUsageAnalyticsIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
