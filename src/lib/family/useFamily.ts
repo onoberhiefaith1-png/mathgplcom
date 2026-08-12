@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { requestConnectionForChild } from "@/lib/connections/connections";
-import { fetchChildBreakdown, fetchChildren } from "./family";
+import {
+  fetchChildBreakdown,
+  fetchChildren,
+  fetchFamilyActivity,
+  fetchFamilyConnections,
+} from "./family";
+
 
 /** The children linked to the signed-in parent. */
 export const useChildren = () => {
