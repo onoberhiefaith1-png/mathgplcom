@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   BarChart3,
   Building2,
@@ -48,7 +47,6 @@ const FamilyDashboard = () => {
   const { children, loading } = useChildren();
   const connections = useFamilyConnections();
   const activity = useFamilyActivity();
-  const [connectOpen, setConnectOpen] = useState(false);
 
   const rows = connections.data ?? [];
   const schools = rows.filter((r) => r.kind === "school");
@@ -177,8 +175,6 @@ const FamilyDashboard = () => {
             My children
           </h2>
           <ConnectByCodeDialog
-            open={connectOpen}
-            onOpenChange={setConnectOpen}
             trigger={
               <Button type="button" variant="ghost" className="shrink-0 text-xs text-ws-gold hover:underline">
                 Add a child
