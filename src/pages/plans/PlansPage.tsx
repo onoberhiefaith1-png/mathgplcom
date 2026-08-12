@@ -217,11 +217,9 @@ export default function PlansPage() {
                       <Button
                         className="w-full"
                         disabled={pending === plan.key}
-                        onClick={() => {
-                          setPending(plan.key);
-                          upgrade.mutate(plan.key);
-                        }}
+                        onClick={() => void startCheckout(plan.key)}
                       >
+
                         {pending === plan.key ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
