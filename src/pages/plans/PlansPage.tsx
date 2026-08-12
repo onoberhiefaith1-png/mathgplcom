@@ -123,12 +123,27 @@ export default function PlansPage() {
             </div>
             {current.scheduledPlanId ? (
               <p className="mt-3 text-xs text-muted-foreground">
-                Scheduled change: <span className="font-semibold">{current.scheduledPlanId}</span> — it starts once the
-                payment is confirmed.
+                Scheduled change: <span className="font-semibold">{current.scheduledPlanId}</span> — it starts at your
+                next renewal.
+              </p>
+            ) : null}
+            {current.cancelAt ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Cancelled — you keep everything until {new Date(current.cancelAt).toLocaleDateString()}.
+              </p>
+            ) : null}
+            {current.paymentState === "past_due" ? (
+              <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-200">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Your last payment did not go through. Your plan features stay open, but credit spending is paused
+                  until the payment succeeds.
+                </span>
               </p>
             ) : null}
           </div>
         ) : null}
+
 
         {!audience && !isLoading ? (
           <div className="mt-8 rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
