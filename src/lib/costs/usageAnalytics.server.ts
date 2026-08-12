@@ -62,10 +62,14 @@ type EventRow = {
   feature: string | null;
   model: string | null;
   resource_label: string | null;
+  cost_credits: number | null;
+  charge_credits: number | null;
+  paid_credits: number | null;
+  credit_price: number | null;
 };
 
 const EVENT_COLUMNS =
-  "id, occurred_at, cost_unit_id, actor_user_id, category, metric, quantity, unit, actual_cost, customer_charge, profit_rate, amount_paid, financial_result, payment_status, discount_percentage, promo_code, feature, model, resource_label";
+  "id, occurred_at, cost_unit_id, actor_user_id, category, metric, quantity, unit, actual_cost, customer_charge, profit_rate, amount_paid, financial_result, payment_status, discount_percentage, promo_code, feature, model, resource_label, cost_credits, charge_credits, paid_credits, credit_price";
 
 
 async function readEvents(from: string, to: string, costUnitId?: string, category?: CostCategory, limit = 5000) {
@@ -220,6 +224,13 @@ export type LedgerRow = {
   /** Percentage Profit locked to the subscription that priced this event. */
   profitRate: number;
   profitAmount: number;
+  /** Credits — the accounting unit. Money below is only the equivalent. */
+  costCredits: number;
+  chargeCredits: number;
+  profitCredits: number;
+  paidCredits: number;
+  resultCredits: number;
+  creditPrice: number;
   amountPaid: number;
   discount: number;
   promoCode: string | null;
@@ -286,6 +297,10 @@ function toLedgerRow(e: EventRow, owners: Map<string, { name: string; code: stri
   const owner = owners.get(e.cost_unit_id);
   const cost = Number(e.actual_cost ?? 0);
   const charge = Number(e.customer_charge ?? 0);
+  const creditPrice = Number(e.credit_price ?? 0) || 0.3;
+  const costCredits = Number(e.cost_credits ?? 0) || (creditPrice > 0 ? cost / creditPrice : 0);
+  const chargeCredits = Number(e.charge_credits ?? 0) || costCredits * (1 + Number(e.profit_rate ?? 0) / 100);
+  const paidCredits = Number(e.paid_credits ?? 0);
   return {
     id: e.id,
     occurredAt: e.occurred_at,
@@ -302,6 +317,14 @@ function toLedgerRow(e: EventRow, owners: Map<string, { name: string; code: stri
     charge,
     profitRate: Number(e.profit_rate ?? 0),
     profitAmount: charge - cost,
+    costCredits,
+    chargeCredits,
+    profitCredits: chargeCredits - costCredits,
+    paidCredits,
+    // Credits actually collected minus credits consumed: unpaid usage is a loss
+    // of what was consumed, never a claim on expected revenue.
+    resultCredits: paidCredits - costCredits,
+    creditPrice,
 
     amountPaid: Number(e.amount_paid ?? 0),
     discount: Number(e.discount_percentage ?? 0),
@@ -333,6 +356,13 @@ export type RevenueLedger = {
     result: number;
     unpaidExposure: number;
     freeSubsidy: number;
+    creditPrice: number;
+    costCredits: number;
+    chargeCredits: number;
+    paidCredits: number;
+    expectedProfitCredits: number;
+    resultCredits: number;
+    unpaidExposureCredits: number;
     byStatus: { status: string; events: number; charge: number; paid: number; result: number }[];
   };
 };
@@ -360,7 +390,22 @@ export async function revenueLedger(
   }
 
   const byStatus = new Map<string, { status: string; events: number; charge: number; paid: number; result: number }>();
-  const summary = { cost: 0, charge: 0, paid: 0, expectedProfit: 0, result: 0, unpaidExposure: 0, freeSubsidy: 0 };
+  const summary = {
+    cost: 0,
+    charge: 0,
+    paid: 0,
+    expectedProfit: 0,
+    result: 0,
+    unpaidExposure: 0,
+    freeSubsidy: 0,
+    creditPrice: 0.3,
+    costCredits: 0,
+    chargeCredits: 0,
+    paidCredits: 0,
+    expectedProfitCredits: 0,
+    resultCredits: 0,
+    unpaidExposureCredits: 0,
+  };
 
   for (const r of rows) {
     summary.cost += r.cost;
@@ -369,8 +414,17 @@ export async function revenueLedger(
     summary.expectedProfit += r.profitAmount;
 
     summary.result += r.result;
-    if (r.status === "unpaid") summary.unpaidExposure += r.charge;
+    summary.costCredits += r.costCredits;
+    summary.chargeCredits += r.chargeCredits;
+    summary.paidCredits += r.paidCredits;
+    summary.expectedProfitCredits += r.profitCredits;
+    summary.resultCredits += r.resultCredits;
+    if (r.status === "unpaid") {
+      summary.unpaidExposure += r.charge;
+      summary.unpaidExposureCredits += r.chargeCredits - r.paidCredits;
+    }
     if (r.status === "free") summary.freeSubsidy += r.cost;
+    if (r.creditPrice > 0) summary.creditPrice = r.creditPrice;
 
     const agg = byStatus.get(r.status) ?? { status: r.status, events: 0, charge: 0, paid: 0, result: 0 };
     agg.events += 1;
