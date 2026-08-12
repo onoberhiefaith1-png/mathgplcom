@@ -33,60 +33,67 @@ const chip =
 type Draft = { label: string; description: string; platform: string; credit: string; features: string };
 
 /**
- * Live check that the payment provider is charging exactly the amounts the
- * published plans and credit packs say. Publishing already pushes prices, so
- * this is the safety net an administrator can read and re-run at any time.
+ * Read-only view of what checkout is charging against what the published plans
+ * say. Nothing here is editable: "Published" is derived from the live plan
+ * version and "At checkout" is read from the payment provider. The only action
+ * is re-running the push publishing already performs.
  */
-function CatalogPipeline() {
+function CatalogEnvironment({ environment }: { environment: "sandbox" | "live" }) {
   const qc = useQueryClient();
   const status = useQuery({
-    queryKey: ["payment-catalog", "sandbox"],
-    queryFn: () => fetchPaymentCatalogStatus({ data: { environment: "sandbox" } }),
+    queryKey: ["payment-catalog", environment],
+    queryFn: () => fetchPaymentCatalogStatus({ data: { environment } }),
   });
   const sync = useMutation({
-    mutationFn: () => syncPaymentCatalogFn({ data: { environment: "sandbox" } }),
+    mutationFn: () => syncPaymentCatalogFn({ data: { environment } }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ["payment-catalog"] });
       toast.success(
-        r.updated.length ? `Updated ${r.updated.length} price(s) at the payment provider.` : "Everything already matches.",
+        r.updated.length ? `Updated ${r.updated.length} price(s) at checkout.` : "Everything already matches.",
       );
-      if (r.missing.length) toast.warning(`Not yet created at the provider: ${r.missing.join(", ")}`);
+      if (r.missing.length) toast.warning(`Not yet created at checkout: ${r.missing.join(", ")}`);
+      if (r.failed.length) toast.error(`Could not update: ${r.failed.map((f) => f.externalId).join(", ")}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const rows = status.data?.rows ?? [];
-  const outOfSync = rows.filter((r) => !r.inSync).length;
+  const outOfSync = rows.filter((r) => !r.inSync);
 
   return (
-    <section className={`${card} mt-4`}>
+    <div className="mt-4 first:mt-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className={heading}>Pricing pipeline</h2>
+        <div className="flex items-center gap-2">
+          <span className={chip}>{environment === "sandbox" ? "Test" : "Live"}</span>
+          <span className="text-xs text-dash-surface/60">
+            {status.isLoading
+              ? "Checking checkout…"
+              : outOfSync.length
+                ? `${outOfSync.length} price(s) differ from your published amounts.`
+                : "Checkout is charging exactly your published amounts."}
+          </span>
+        </div>
         <Button size="sm" variant="secondary" disabled={sync.isPending} onClick={() => sync.mutate()}>
           {sync.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
           Push prices to checkout
         </Button>
       </div>
-      <p className="mt-2 text-xs text-dash-surface/60">
-        {status.isLoading
-          ? "Checking the payment provider…"
-          : outOfSync
-            ? `${outOfSync} price(s) differ from your published amounts.`
-            : "Checkout is charging exactly your published amounts."}
-      </p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className={label}>
             <tr>
               <th className="py-2">Item</th>
-              <th className="py-2">Published</th>
-              <th className="py-2">At checkout</th>
+              <th className="py-2">Published (read-only)</th>
+              <th className="py-2">At checkout (read-only)</th>
               <th className="py-2">State</th>
             </tr>
           </thead>
           <tbody className="text-dash-surface/85">
             {rows.map((r) => (
-              <tr key={r.externalId} className="border-t border-dash-surface/10">
+              <tr
+                key={`${r.environment}-${r.externalId}`}
+                className={`border-t border-dash-surface/10 ${r.inSync ? "" : "bg-amber-500/10"}`}
+              >
                 <td className="py-2">
                   {r.label}
                   <span className="ml-2 text-[11px] text-dash-surface/45">{r.externalId}</span>
@@ -94,16 +101,40 @@ function CatalogPipeline() {
                 <td className="py-2">{money(r.expected, r.currency)}</td>
                 <td className="py-2">{r.provider === null ? "—" : money(r.provider, r.currency)}</td>
                 <td className="py-2">
-                  <span className={chip}>{r.missing ? "Not created" : r.inSync ? "In sync" : "Needs push"}</span>
+                  {r.inSync ? (
+                    <span className={chip}>In sync</span>
+                  ) : r.missing ? (
+                    <span className={`${chip} border-amber-400/40 text-amber-200`}>Not created at checkout</span>
+                  ) : (
+                    <span className={`${chip} border-amber-400/40 text-amber-200`}>
+                      Out of sync — checkout charges {money(r.provider ?? 0, r.currency)}, published{" "}
+                      {money(r.expected, r.currency)}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function CatalogPipeline() {
+  return (
+    <section className={`${card} mt-4`}>
+      <h2 className={heading}>Pricing pipeline</h2>
+      <p className="mt-2 text-xs text-dash-surface/60">
+        A read-only reflection of the published plans. Prices are edited in the plan cards below and pushed here
+        automatically when you publish a version.
+      </p>
+      <CatalogEnvironment environment="sandbox" />
+      <CatalogEnvironment environment="live" />
     </section>
   );
 }
+
 
 
 /**
@@ -159,12 +190,21 @@ export default function PlanDashboard() {
 
   const publish = useMutation({
     mutationFn: (planId: string) => publishPlanFn({ data: { planId } }),
-    onSuccess: () => {
+    onSuccess: (r) => {
       refresh();
+      qc.invalidateQueries({ queryKey: ["payment-catalog"] });
+      const failed = (r.sync ?? []).flatMap((s) => s.failed);
+      const missing = (r.sync ?? []).flatMap((s) => s.missing);
       toast.success("Published. New subscribers get this version; existing ones keep theirs.");
+      if (failed.length) {
+        toast.error("Published, but checkout still shows the old amount — press “Push prices to checkout”.");
+      } else if (missing.length) {
+        toast.warning(`Not yet created at checkout: ${[...new Set(missing)].join(", ")}`);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const discard = useMutation({
     mutationFn: (planId: string) => discardPlanDraftFn({ data: { planId } }),
@@ -249,9 +289,12 @@ export default function PlanDashboard() {
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
-            ["Credit cost price", money(base?.costPrice ?? 0, base?.currency ?? "GBP")],
-            ["Profit percentage", `${base?.profitPercentage ?? 0}%`],
-            ["Credit sell price", money(base?.sellPrice ?? 0, base?.currency ?? "GBP")],
+            ["Credit cost price · input", money(base?.costPrice ?? 0, base?.currency ?? "GBP")],
+            ["Profit percentage · input", `${base?.profitPercentage ?? 0}%`],
+            [
+              "Credit sell price · derived",
+              `${money(base?.sellPrice ?? 0, base?.currency ?? "GBP")}  (exact ${(base?.sellPrice ?? 0).toFixed(4)})`,
+            ],
             ["Active subscriptions", String(overview?.activeCount ?? 0)],
             ["Monthly plan revenue", money(overview?.monthlyRevenue ?? 0)],
           ].map(([k, v]) => (
@@ -262,9 +305,11 @@ export default function PlanDashboard() {
           ))}
         </div>
         <p className="mt-3 text-xs text-dash-surface/60">
-          Credits allocated to subscribers so far: {credits(overview?.allocatedCredits ?? 0)}. Collected payments:{" "}
-          {money(overview?.collected ?? 0)}.
+          Credit cost price and profit percentage are the only editable inputs (set them in the pricing engine). Credit
+          sell price = cost × (1 + profit ÷ 100). Credits allocated to subscribers so far:{" "}
+          {credits(overview?.allocatedCredits ?? 0)}. Collected payments: {money(overview?.collected ?? 0)}.
         </p>
+
       </section>
 
       <CatalogPipeline />
@@ -432,9 +477,10 @@ function PlanCard({
       {/* Derived preview */}
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {[
-          ["Customer price", money(derived.total, plan.currency)],
-          ["Credit sell price", money(derived.sell, plan.currency)],
-          ["Included credits", credits(derived.credits)],
+          ["Customer price · derived", money(derived.total, plan.currency)],
+          ["Credit sell price · derived", money(derived.sell, plan.currency)],
+          ["Included credits · derived", credits(derived.credits)],
+
         ].map(([k, v]) => (
           <div key={k} className="rounded-xl border border-dash-surface/15 bg-dash-surface/5 p-3">
             <div className={label}>{k}</div>

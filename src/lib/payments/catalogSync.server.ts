@@ -13,6 +13,7 @@ async function admin() {
 
 export type CatalogRow = {
   kind: "plan" | "credits";
+  environment: PaddleEnv;
   externalId: string;
   label: string;
   expected: number;
@@ -21,6 +22,7 @@ export type CatalogRow = {
   inSync: boolean;
   missing: boolean;
 };
+
 
 type ProviderPrice = { id: string; unit_price?: { amount?: string; currency_code?: string } };
 
@@ -31,7 +33,7 @@ async function providerPrice(env: PaddleEnv, externalId: string): Promise<Provid
 }
 
 /** Everything that should exist at the provider, with the amount it should hold. */
-async function expected(): Promise<CatalogRow[]> {
+async function expected(env: PaddleEnv): Promise<CatalogRow[]> {
   const db = await admin();
   const { resolvePricing } = await import("@/lib/costs/costAdmin.server");
   const [{ data: plans }, { data: versions }, { data: packs }, pricing] = await Promise.all([
@@ -50,6 +52,7 @@ async function expected(): Promise<CatalogRow[]> {
     if (!(price > 0)) continue; // free plans never reach the provider
     rows.push({
       kind: "plan",
+      environment: env,
       externalId: `${String(plan.key)}_monthly`,
       label: String(plan.label),
       expected: price,
@@ -63,6 +66,7 @@ async function expected(): Promise<CatalogRow[]> {
   for (const pack of packs ?? []) {
     rows.push({
       kind: "credits",
+      environment: env,
       externalId: String(pack.external_id),
       label: `${Number(pack.credits)} credits — ${String(pack.label)}`,
       expected: packagePrice(Number(pack.credits), pricing.costPrice, pricing.profitPercentage),
@@ -78,7 +82,7 @@ async function expected(): Promise<CatalogRow[]> {
 
 /** Read-only comparison used by the admin pricing pipeline panel. */
 export async function catalogStatus(env: PaddleEnv): Promise<CatalogRow[]> {
-  const rows = await expected();
+  const rows = await expected(env);
   return Promise.all(
     rows.map(async (row) => {
       const price = await providerPrice(env, row.externalId);
@@ -93,11 +97,39 @@ export async function catalogStatus(env: PaddleEnv): Promise<CatalogRow[]> {
   );
 }
 
+/**
+ * One item's published amount against the amount the provider would charge.
+ * Checkout calls this so a customer can never be billed an amount that
+ * disagrees with the published plan.
+ */
+export async function verifyExternalPrice(env: PaddleEnv, externalId: string) {
+  const row = (await expected(env)).find((r) => r.externalId === externalId);
+  if (!row) return { ok: false, reason: "unknown" as const, published: null, provider: null, currency: "GBP" };
+  const price = await providerPrice(env, externalId);
+  const provider = price?.unit_price?.amount ? Number(price.unit_price.amount) / 100 : null;
+  return {
+    ok: provider !== null && minorUnits(provider) === minorUnits(row.expected),
+    reason: provider === null ? ("missing" as const) : ("mismatch" as const),
+    published: row.expected,
+    provider,
+    currency: row.currency,
+  };
+}
+
+export type SyncReport = {
+  environment: PaddleEnv;
+  updated: string[];
+  missing: string[];
+  failed: { externalId: string; message: string }[];
+  rows: CatalogRow[];
+};
+
 /** Pushes every published amount to the provider and reports what moved. */
-export async function syncCatalog(env: PaddleEnv) {
+export async function syncCatalog(env: PaddleEnv): Promise<SyncReport> {
   const status = await catalogStatus(env);
   const updated: string[] = [];
   const missing: string[] = [];
+  const failed: { externalId: string; message: string }[] = [];
 
   for (const row of status) {
     if (row.missing) {
@@ -105,25 +137,44 @@ export async function syncCatalog(env: PaddleEnv) {
       continue;
     }
     if (row.inSync) continue;
-    const price = await providerPrice(env, row.externalId);
-    if (!price) continue;
-    await paddleFetch(env, `/prices/${price.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        unit_price: { amount: String(minorUnits(row.expected)), currency_code: row.currency.toUpperCase() },
-      }),
-    });
-    updated.push(row.externalId);
+    try {
+      const price = await providerPrice(env, row.externalId);
+      if (!price) {
+        missing.push(row.externalId);
+        continue;
+      }
+      await paddleFetch(env, `/prices/${price.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          unit_price: { amount: String(minorUnits(row.expected)), currency_code: row.currency.toUpperCase() },
+        }),
+      });
+      updated.push(row.externalId);
+    } catch (e) {
+      failed.push({ externalId: row.externalId, message: (e as Error).message });
+    }
   }
 
-  return { updated, missing, rows: await catalogStatus(env) };
+  return { environment: env, updated, missing, failed, rows: await catalogStatus(env) };
 }
 
-/** Called after a publish so a new plan price never lags behind the catalogue. */
-export async function syncCatalogQuietly(env: PaddleEnv) {
+/**
+ * Publish-time push. Never throws — a provider outage must not stop a plan
+ * from being published — but always reports, so the administrator is told
+ * when checkout is still charging the old amount.
+ */
+export async function syncCatalogReport(env: PaddleEnv): Promise<SyncReport> {
   try {
-    await syncCatalog(env);
+    return await syncCatalog(env);
   } catch (e) {
     console.error("Payment catalogue sync failed:", e);
+    return {
+      environment: env,
+      updated: [],
+      missing: [],
+      failed: [{ externalId: "*", message: (e as Error).message }],
+      rows: [],
+    };
   }
 }
+

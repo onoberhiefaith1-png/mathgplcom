@@ -179,16 +179,20 @@ export async function discardPlanDraft(planId: string) {
   return planCatalogue();
 }
 
-/** Publishing mints the next version number; older versions are kept. */
+/**
+ * Publishing mints the next version number; older versions are kept, and the
+ * new amount is pushed straight to checkout. The push result is returned so
+ * the administrator is told when checkout is still charging the old amount.
+ */
 export async function publishPlan(planId: string) {
   const db = await admin();
   const { error } = await db.rpc("publish_plan_version", { _plan_id: planId });
   if (error) throw new Error(error.message);
-  const { syncCatalogQuietly } = await import("@/lib/payments/catalogSync.server");
-  await syncCatalogQuietly("sandbox");
-  await syncCatalogQuietly("live");
-  return planCatalogue();
+  const { syncCatalogReport } = await import("@/lib/payments/catalogSync.server");
+  const sync = [await syncCatalogReport("sandbox"), await syncCatalogReport("live")];
+  return { plans: await planCatalogue(), sync };
 }
+
 
 
 export async function setPlanPresentation(input: {

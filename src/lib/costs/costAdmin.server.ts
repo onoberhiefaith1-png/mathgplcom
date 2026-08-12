@@ -436,9 +436,9 @@ export async function setProfitPercentage(value: number, userId?: string) {
     effective_from: new Date().toISOString(),
     created_by: userId ?? null,
   });
-  const { syncCatalogQuietly } = await import("@/lib/payments/catalogSync.server");
-  await syncCatalogQuietly("sandbox");
-  await syncCatalogQuietly("live");
+  const { syncCatalogReport } = await import("@/lib/payments/catalogSync.server");
+  await syncCatalogReport("sandbox");
+  await syncCatalogReport("live");
   return value;
 }
 
@@ -690,9 +690,9 @@ export async function setCurrencyPricing(input: {
       .from("platform_cost_settings")
       .update({ credit_rate: input.creditValue, updated_at: new Date().toISOString() })
       .eq("id", 1);
-    const { syncCatalogQuietly } = await import("@/lib/payments/catalogSync.server");
-    await syncCatalogQuietly("sandbox");
-    await syncCatalogQuietly("live");
+    const { syncCatalogReport } = await import("@/lib/payments/catalogSync.server");
+    await syncCatalogReport("sandbox");
+    await syncCatalogReport("live");
   }
   return currencyPricing();
 }
