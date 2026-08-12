@@ -1906,6 +1906,57 @@ export type Database = {
           },
         ]
       }
+      credit_grants: {
+        Row: {
+          cost_unit_id: string
+          credits: number
+          expires_at: string
+          granted_at: string
+          id: string
+          note: string | null
+          remaining: number
+          source: string
+          wallet_id: string
+        }
+        Insert: {
+          cost_unit_id: string
+          credits: number
+          expires_at?: string
+          granted_at?: string
+          id?: string
+          note?: string | null
+          remaining: number
+          source?: string
+          wallet_id: string
+        }
+        Update: {
+          cost_unit_id?: string
+          credits?: number
+          expires_at?: string
+          granted_at?: string
+          id?: string
+          note?: string | null
+          remaining?: number
+          source?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_grants_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_grants_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "credit_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_ledger: {
         Row: {
           amount: number
@@ -1956,6 +2007,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      credit_packages: {
+        Row: {
+          active: boolean
+          created_at: string
+          credits: number
+          external_id: string
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          credits: number
+          external_id: string
+          id?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          credits?: number
+          external_id?: string
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       credit_purchases: {
         Row: {
@@ -5148,6 +5229,7 @@ export type Database = {
       ensure_credit_wallet: { Args: { _cost_unit_id: string }; Returns: string }
       ensure_user_cost_unit: { Args: { _user_id: string }; Returns: string }
       ensure_workspace_cost_unit: { Args: { _org_id: string }; Returns: string }
+      expire_credit_grants: { Args: never; Returns: number }
       expire_lapsed_subscriptions: { Args: never; Returns: number }
       generate_mathgpl_id: { Args: never; Returns: string }
       generate_org_invite_code: { Args: never; Returns: string }
@@ -5294,6 +5376,14 @@ export type Database = {
         }[]
       }
       my_credit_balance: { Args: never; Returns: number }
+      my_credit_summary: {
+        Args: never
+        Returns: {
+          balance: number
+          expiring_credits: number
+          next_expiry: string
+        }[]
+      }
       my_pending_invitations: {
         Args: never
         Returns: {
