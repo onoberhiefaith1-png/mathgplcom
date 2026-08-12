@@ -109,7 +109,7 @@ export default function CostRevenueAnalysis() {
 
   return (
     <DashboardShell
-      title="Usage &amp; Revenue Analysis"
+      title="Usage & Revenue Analysis"
       subtitle="Every metered event with its stored platform cost, margin, customer charge and payment result. Snapshots are historical — changing the global margin never rewrites them."
       actions={
         <Link
