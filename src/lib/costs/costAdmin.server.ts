@@ -239,11 +239,18 @@ export type CostUnitDetail = {
   subscriptions: {
     id: string;
     plan: string;
+    planId: string | null;
     status: string;
+    /** Percentage Profit locked when this period started. */
     lockedRate: number;
     periodStart: string;
     periodEnd: string | null;
+    currency: string;
+    creditPrice: number;
+    discountPercentage: number;
+    finalPrice: number;
   }[];
+
 };
 
 export async function costUnitDetail(costUnitId: string, from: string, to: string): Promise<CostUnitDetail | null> {
