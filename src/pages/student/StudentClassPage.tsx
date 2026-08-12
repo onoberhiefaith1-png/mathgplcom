@@ -12,7 +12,7 @@ import GatewayGate from "@/components/gateway/GatewayGate";
 import { sectionCardStyle, type SectionThemeKey } from "@/lib/theme/sectionThemes";
 
 
-type ClassRow = { id: string; name: string };
+type ClassRow = { id: string; name: string; owner_id: string };
 type LessonNote = { notebook_id: string; notebooks: { title: string | null } | null };
 type AssignmentGroup = {
   notebookId: string;
@@ -287,7 +287,7 @@ const StudentClassPage = () => {
     );
   }
 
-  return (
+  const body = (
     <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-4 sm:px-6 sm:py-5">
         <Link
@@ -476,6 +476,8 @@ const StudentClassPage = () => {
       </main>
     </div>
   );
+
+  return <GatewayGate ownerId={cls?.owner_id ?? null}>{body}</GatewayGate>;
 };
 
 export default StudentClassPage;
