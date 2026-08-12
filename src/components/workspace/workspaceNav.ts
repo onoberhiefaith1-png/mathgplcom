@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  ClipboardList,
   BookOpen,
   Building2,
   Compass,
@@ -83,13 +84,15 @@ const SCHOOL: WorkspaceNavGroup[] = [
 
 const STUDENT: WorkspaceNavGroup[] = [
   {
-    title: "Learning Hub",
+    title: "Student Dashboard",
     items: [
       HOME,
       { to: "/student", label: "Dashboard", icon: LayoutDashboard },
       { to: "/student/classes", label: "My Classes", icon: Users },
-      { to: "/adventure", label: "Adventures", icon: Compass },
-      { to: "/join", label: "Join a class", icon: Inbox },
+      { to: "/student/assignments", label: "Assignments", icon: ClipboardList },
+      { to: "/student/adventures", label: "Adventure", icon: Compass },
+      { to: "/student/skill-builder", label: "Skill Builder", icon: GraduationCap },
+      { to: "/student/join", label: "Join Class", icon: Inbox },
     ],
   },
   {
