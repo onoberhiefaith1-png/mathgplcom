@@ -92,11 +92,12 @@ export default function UsageAnalytics() {
   }, [qc]);
 
   const currency = analytics.data?.currency ?? "GBP";
-  const chartData = (analytics.data?.series ?? []).map((p) => ({
-    bucket: analytics.data?.granularity === "hour" ? p.bucket.slice(11) : p.bucket.slice(5),
-    ...p.cost,
-  }));
+  const rangeLabel =
+    range.key === "custom"
+      ? `${range.customFrom} to ${range.customTo}`
+      : (RANGES.find((r) => r.key === range.key)?.label ?? "the period").replace(/^Last /, "the last ");
   const totals = analytics.data?.totals;
+
   const ai = analytics.data?.aiTotals;
   const selected = accounts.data?.rows.find((a) => a.costUnitId === costUnitId);
 
