@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import SharedSmartboardPage from "@/pages/school/shared/SharedSmartboardPage";
+import ViewingFrame from "@/components/school/ViewingFrame";
+import SmartBoardPage from "@/pages/SmartBoardPage";
 
 export const Route = createFileRoute("/school/teachers/$userId/smartboard/")({
   head: () => ({
     meta: [
       { title: "Shared workspace smartboard — MathGPL" },
-      { name: "description", content: "Choose a class to watch the board a connected teacher is teaching on." },
+      { name: "description", content: "The teacher's smartboard shelf, exactly as they see it — view only." },
       { property: "og:title", content: "Shared workspace smartboard — MathGPL" },
-      { property: "og:description", content: "Watch a teacher's class board live." },
+      { property: "og:description", content: "The teacher's smartboard shelf, exactly as they see it — view only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
@@ -15,6 +16,10 @@ export const Route = createFileRoute("/school/teachers/$userId/smartboard/")({
   }),
   component: () => {
     const { userId } = Route.useParams();
-    return <SharedSmartboardPage userId={userId} />;
+    return (
+      <ViewingFrame userId={userId}>
+        <SmartBoardPage />
+      </ViewingFrame>
+    );
   },
 });

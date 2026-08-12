@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import SharedLessonNotesPage from "@/pages/school/shared/SharedLessonNotesPage";
+import ViewingFrame from "@/components/school/ViewingFrame";
+import LessonNotesPage from "@/pages/LessonNotesPage";
 
 export const Route = createFileRoute("/school/teachers/$userId/lesson-notes/")({
   head: () => ({
     meta: [
       { title: "Shared workspace lesson notes — MathGPL" },
-      { name: "description", content: "Read the lesson notes a connected teacher created inside your school." },
+      { name: "description", content: "The teacher's lesson-note shelf, exactly as they see it — view only." },
       { property: "og:title", content: "Shared workspace lesson notes — MathGPL" },
-      { property: "og:description", content: "Lesson notes created inside your school." },
+      { property: "og:description", content: "The teacher's lesson-note shelf, exactly as they see it — view only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
@@ -15,6 +16,10 @@ export const Route = createFileRoute("/school/teachers/$userId/lesson-notes/")({
   }),
   component: () => {
     const { userId } = Route.useParams();
-    return <SharedLessonNotesPage userId={userId} />;
+    return (
+      <ViewingFrame userId={userId}>
+        <LessonNotesPage />
+      </ViewingFrame>
+    );
   },
 });
