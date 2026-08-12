@@ -187,6 +187,7 @@ import { Route as LiveWorkspaceClassIdLessonNotesIndexRouteImport } from './rout
 import { Route as LiveWorkspaceClassIdReportIndexRouteImport } from './routes/live/workspace/$classId/report/index'
 import { Route as LiveWorkspaceClassIdSmartboardIndexRouteImport } from './routes/live/workspace/$classId/smartboard/index'
 import { Route as LiveWorkspaceClassIdStudentsIndexRouteImport } from './routes/live/workspace/$classId/students/index'
+import { Route as SchoolTeachersUserIdLessonNotesIndexRouteImport } from './routes/school/teachers/$userId/lesson-notes/index'
 import { Route as StudentClassClassIdAdventuresIndexRouteImport } from './routes/student/class/$classId/adventures/index'
 import { Route as StudentClassClassIdCoursesIndexRouteImport } from './routes/student/class/$classId/courses/index'
 import { Route as StudentClassClassIdGalleryIndexRouteImport } from './routes/student/class/$classId/gallery/index'
@@ -1179,6 +1180,12 @@ const LiveWorkspaceClassIdStudentsIndexRoute =
     path: '/workspace/$classId/students/',
     getParentRoute: () => LiveRouteRoute,
   } as any)
+const SchoolTeachersUserIdLessonNotesIndexRoute =
+  SchoolTeachersUserIdLessonNotesIndexRouteImport.update({
+    id: '/teachers/$userId/lesson-notes/',
+    path: '/teachers/$userId/lesson-notes/',
+    getParentRoute: () => SchoolRouteRoute,
+  } as any)
 const StudentClassClassIdAdventuresIndexRoute =
   StudentClassClassIdAdventuresIndexRouteImport.update({
     id: '/class/$classId/adventures/',
@@ -1575,6 +1582,7 @@ export interface FileRoutesByFullPath {
   '/live/workspace/$classId/report/': typeof LiveWorkspaceClassIdReportIndexRoute
   '/live/workspace/$classId/smartboard/': typeof LiveWorkspaceClassIdSmartboardIndexRoute
   '/live/workspace/$classId/students/': typeof LiveWorkspaceClassIdStudentsIndexRoute
+  '/school/teachers/$userId/lesson-notes/': typeof SchoolTeachersUserIdLessonNotesIndexRoute
   '/student/class/$classId/adventures/': typeof StudentClassClassIdAdventuresIndexRoute
   '/student/class/$classId/courses/': typeof StudentClassClassIdCoursesIndexRoute
   '/student/class/$classId/gallery/': typeof StudentClassClassIdGalleryIndexRoute
@@ -1779,6 +1787,7 @@ export interface FileRoutesByTo {
   '/live/workspace/$classId/report': typeof LiveWorkspaceClassIdReportIndexRoute
   '/live/workspace/$classId/smartboard': typeof LiveWorkspaceClassIdSmartboardIndexRoute
   '/live/workspace/$classId/students': typeof LiveWorkspaceClassIdStudentsIndexRoute
+  '/school/teachers/$userId/lesson-notes': typeof SchoolTeachersUserIdLessonNotesIndexRoute
   '/student/class/$classId/adventures': typeof StudentClassClassIdAdventuresIndexRoute
   '/student/class/$classId/courses': typeof StudentClassClassIdCoursesIndexRoute
   '/student/class/$classId/gallery': typeof StudentClassClassIdGalleryIndexRoute
@@ -1995,6 +2004,7 @@ export interface FileRoutesById {
   '/live/workspace/$classId/report/': typeof LiveWorkspaceClassIdReportIndexRoute
   '/live/workspace/$classId/smartboard/': typeof LiveWorkspaceClassIdSmartboardIndexRoute
   '/live/workspace/$classId/students/': typeof LiveWorkspaceClassIdStudentsIndexRoute
+  '/school/teachers/$userId/lesson-notes/': typeof SchoolTeachersUserIdLessonNotesIndexRoute
   '/student/class/$classId/adventures/': typeof StudentClassClassIdAdventuresIndexRoute
   '/student/class/$classId/courses/': typeof StudentClassClassIdCoursesIndexRoute
   '/student/class/$classId/gallery/': typeof StudentClassClassIdGalleryIndexRoute
@@ -2212,6 +2222,7 @@ export interface FileRouteTypes {
     | '/live/workspace/$classId/report/'
     | '/live/workspace/$classId/smartboard/'
     | '/live/workspace/$classId/students/'
+    | '/school/teachers/$userId/lesson-notes/'
     | '/student/class/$classId/adventures/'
     | '/student/class/$classId/courses/'
     | '/student/class/$classId/gallery/'
@@ -2416,6 +2427,7 @@ export interface FileRouteTypes {
     | '/live/workspace/$classId/report'
     | '/live/workspace/$classId/smartboard'
     | '/live/workspace/$classId/students'
+    | '/school/teachers/$userId/lesson-notes'
     | '/student/class/$classId/adventures'
     | '/student/class/$classId/courses'
     | '/student/class/$classId/gallery'
@@ -2631,6 +2643,7 @@ export interface FileRouteTypes {
     | '/live/workspace/$classId/report/'
     | '/live/workspace/$classId/smartboard/'
     | '/live/workspace/$classId/students/'
+    | '/school/teachers/$userId/lesson-notes/'
     | '/student/class/$classId/adventures/'
     | '/student/class/$classId/courses/'
     | '/student/class/$classId/gallery/'
@@ -4029,6 +4042,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveWorkspaceClassIdStudentsIndexRouteImport
       parentRoute: typeof LiveRouteRoute
     }
+    '/school/teachers/$userId/lesson-notes/': {
+      id: '/school/teachers/$userId/lesson-notes/'
+      path: '/teachers/$userId/lesson-notes'
+      fullPath: '/school/teachers/$userId/lesson-notes/'
+      preLoaderRoute: typeof SchoolTeachersUserIdLessonNotesIndexRouteImport
+      parentRoute: typeof SchoolRouteRoute
+    }
     '/student/class/$classId/adventures/': {
       id: '/student/class/$classId/adventures/'
       path: '/class/$classId/adventures'
@@ -4490,6 +4510,7 @@ interface SchoolRouteRouteChildren {
   SchoolStudentsIndexRoute: typeof SchoolStudentsIndexRoute
   SchoolTeachersIndexRoute: typeof SchoolTeachersIndexRoute
   SchoolTeachersUserIdIndexRoute: typeof SchoolTeachersUserIdIndexRoute
+  SchoolTeachersUserIdLessonNotesIndexRoute: typeof SchoolTeachersUserIdLessonNotesIndexRoute
 }
 
 const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
@@ -4498,6 +4519,8 @@ const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolStudentsIndexRoute: SchoolStudentsIndexRoute,
   SchoolTeachersIndexRoute: SchoolTeachersIndexRoute,
   SchoolTeachersUserIdIndexRoute: SchoolTeachersUserIdIndexRoute,
+  SchoolTeachersUserIdLessonNotesIndexRoute:
+    SchoolTeachersUserIdLessonNotesIndexRoute,
 }
 
 const SchoolRouteRouteWithChildren = SchoolRouteRoute._addFileChildren(
