@@ -13,13 +13,21 @@
 export type ViewAsScope = {
   /** The person whose material is being viewed. */
   ownerId: string;
-  /** The school workspace the material belongs to. */
-  orgId: string;
+  /** The workspace the material belongs to; null is the personal workspace. */
+  orgId: string | null;
   /** Display name, used in the lock message. */
   personName: string | null;
   /** Route prefix every in-app navigation is folded back into. */
   basePath: string;
+  /** Who is looking — only changes the wording of the identity strip. */
+  viewer?: "school" | "teacher";
+  /**
+   * When set, only these classes are in the viewer's context. A teacher sees a
+   * student through the classes they teach, never the student's other schools.
+   */
+  classIds?: string[] | null;
 };
+
 
 let current: ViewAsScope | null = null;
 const listeners = new Set<() => void>();
@@ -52,7 +60,12 @@ export function mapViewAsPath(pathname: string, base: string): string {
   if (!pathname.startsWith("/")) return pathname;
   if (pathname === base || pathname.startsWith(`${base}/`)) return pathname;
   // Leaving the mirror on purpose stays allowed.
-  if (pathname.startsWith("/school") || pathname.startsWith("/auth") || pathname.startsWith("/login")) {
+  if (
+    pathname.startsWith("/school") ||
+    pathname.startsWith("/teaching-hub/students") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/login")
+  ) {
     return pathname;
   }
 
@@ -67,11 +80,17 @@ export function mapViewAsPath(pathname: string, base: string): string {
     return base;
   }
   if (first === "adventure") return `${base}/adventure`;
-  // A student's own pages: /student/classes and /student/class/:id.
+  // A student's own pages mirror one-for-one inside the viewing frame.
   if (first === "student") {
-    if (second === "class" && seg[2]) return `${base}/classes/${seg[2]}`;
+    if (!second) return base;
+    if (second === "class") return seg[2] ? `${base}/classes/${seg[2]}` : `${base}/classes`;
+    if (second === "classes") return seg[2] ? `${base}/classes/${seg[2]}` : `${base}/classes`;
+    if (second === "assignments" || second === "adventures" || second === "skill-builder" || second === "join") {
+      return `${base}/${second}`;
+    }
     return base;
   }
+
   if (first === "course-builder") return `${base}/skill-builder`;
 
   // Anything else has no read-only mirror — stay on the hub.

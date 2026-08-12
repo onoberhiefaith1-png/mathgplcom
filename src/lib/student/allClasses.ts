@@ -9,6 +9,8 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { activeSchoolOrgId, viewOwnerId } from "@/lib/accounts/workspaceScope";
+import { currentViewAs } from "@/lib/accounts/viewAsScope";
+
 import {
   getClassCourseSettings,
   listClassCourses,
@@ -25,17 +27,20 @@ async function ownerId(): Promise<string | null> {
   return data.user?.id ? viewOwnerId(data.user.id) : null;
 }
 
-/** Every class the student belongs to inside the active workspace. */
+/** Every class the student belongs to inside the viewer's context. */
 export async function myClasses(): Promise<EnrolledClass[]> {
   const uid = await ownerId();
   if (!uid) return [];
   const orgId = await activeSchoolOrgId();
+  // A teacher looking at a student sees only the classes they teach them in.
+  const allowed = currentViewAs()?.classIds ?? null;
 
   const { data: memberships } = await supabase
     .from("class_members")
     .select("class_id")
     .eq("user_id", uid);
-  const ids = ((memberships ?? []) as { class_id: string }[]).map((m) => m.class_id);
+  let ids = ((memberships ?? []) as { class_id: string }[]).map((m) => m.class_id);
+  if (allowed) ids = ids.filter((id) => allowed.includes(id));
   if (ids.length === 0) return [];
 
   const base = supabase.from("classes").select("id, name").in("id", ids);
@@ -45,6 +50,7 @@ export async function myClasses(): Promise<EnrolledClass[]> {
     name: c.name ?? "Class",
   }));
 }
+
 
 export type ClassProgress = EnrolledClass & { progress: number };
 
