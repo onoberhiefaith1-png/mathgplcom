@@ -64,3 +64,19 @@ export async function scopedByWorkspace<T extends { eq: (c: string, v: string) =
 ): Promise<T> {
   return withWorkspaceScope(query, await activeSchoolOrgId());
 }
+
+/**
+ * The person whose material a page should show.
+ *
+ * Normally this is the signed-in user. While viewing someone else's Shared
+ * Workspace it is that person, so the lists render exactly what they own.
+ */
+export function viewOwnerId(signedInUserId: string): string {
+  return currentViewAs()?.ownerId ?? signedInUserId;
+}
+
+/** Restrict a select to the owner a page should show (see `viewOwnerId`). */
+export function withOwnerView<T extends { eq: (c: string, v: string) => T }>(query: T): T {
+  const viewing = currentViewAs();
+  return viewing ? query.eq("owner_id", viewing.ownerId) : query;
+}
