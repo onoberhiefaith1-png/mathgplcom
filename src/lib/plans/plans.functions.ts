@@ -115,8 +115,9 @@ export const publishPlanFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await guard(context.supabase, context.userId);
     const { publishPlan } = await import("./plans.server");
-    return { plans: await publishPlan(data.planId) };
+    return publishPlan(data.planId);
   });
+
 
 export const discardPlanDraftFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
