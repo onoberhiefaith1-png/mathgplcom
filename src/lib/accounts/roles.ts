@@ -62,7 +62,7 @@ export const WORKSPACE_PATH: Record<AppRole, string> = {
   school: "/school",
   teacher: "/teaching-hub",
   parent: "/family",
-  student: "/student/classes",
+  student: "/student",
 };
 
 
@@ -127,7 +127,12 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/family?tab=settings", label: "Settings" },
   ],
   student: [
+    { to: "/student", label: "Dashboard" },
     { to: "/student/classes", label: "My Classes" },
+    { to: "/student/assignments", label: "Assignments" },
+    { to: "/student/adventures", label: "Adventure" },
+    { to: "/student/skill-builder", label: "Skill Builder" },
+    { to: "/student/join", label: "Join Class" },
     { to: "/requests?view=schools", label: "My Schools" },
     { to: "/requests?view=teachers", label: "My Teachers" },
     { to: "/requests", label: "Requests" },

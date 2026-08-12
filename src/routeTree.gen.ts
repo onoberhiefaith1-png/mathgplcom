@@ -107,7 +107,11 @@ import { Route as NotebookScanCodeIndexRouteImport } from './routes/notebook-sca
 import { Route as SchoolStudentsIndexRouteImport } from './routes/school/students/index'
 import { Route as SchoolTeachersIndexRouteImport } from './routes/school/teachers/index'
 import { Route as SmartboardNotebookIdIndexRouteImport } from './routes/smartboard/$notebookId/index'
+import { Route as StudentAdventuresIndexRouteImport } from './routes/student/adventures/index'
+import { Route as StudentAssignmentsIndexRouteImport } from './routes/student/assignments/index'
 import { Route as StudentClassesIndexRouteImport } from './routes/student/classes/index'
+import { Route as StudentJoinIndexRouteImport } from './routes/student/join/index'
+import { Route as StudentSkillBuilderIndexRouteImport } from './routes/student/skill-builder/index'
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
 import { Route as TeachingHubClassesIndexRouteImport } from './routes/teaching-hub/classes/index'
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
@@ -729,11 +733,32 @@ const SmartboardNotebookIdIndexRoute =
     path: '/$notebookId/',
     getParentRoute: () => SmartboardRouteRoute,
   } as any)
+const StudentAdventuresIndexRoute = StudentAdventuresIndexRouteImport.update({
+  id: '/adventures/',
+  path: '/adventures/',
+  getParentRoute: () => StudentRouteRoute,
+} as any)
+const StudentAssignmentsIndexRoute = StudentAssignmentsIndexRouteImport.update({
+  id: '/assignments/',
+  path: '/assignments/',
+  getParentRoute: () => StudentRouteRoute,
+} as any)
 const StudentClassesIndexRoute = StudentClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
   getParentRoute: () => StudentRouteRoute,
 } as any)
+const StudentJoinIndexRoute = StudentJoinIndexRouteImport.update({
+  id: '/join/',
+  path: '/join/',
+  getParentRoute: () => StudentRouteRoute,
+} as any)
+const StudentSkillBuilderIndexRoute =
+  StudentSkillBuilderIndexRouteImport.update({
+    id: '/skill-builder/',
+    path: '/skill-builder/',
+    getParentRoute: () => StudentRouteRoute,
+  } as any)
 const SubjectsSubjectIndexRoute = SubjectsSubjectIndexRouteImport.update({
   id: '/subjects/$subject/',
   path: '/subjects/$subject/',
@@ -1560,7 +1585,11 @@ export interface FileRoutesByFullPath {
   '/school/students/': typeof SchoolStudentsIndexRoute
   '/school/teachers/': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
+  '/student/adventures/': typeof StudentAdventuresIndexRoute
+  '/student/assignments/': typeof StudentAssignmentsIndexRoute
   '/student/classes/': typeof StudentClassesIndexRoute
+  '/student/join/': typeof StudentJoinIndexRoute
+  '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
@@ -1773,7 +1802,11 @@ export interface FileRoutesByTo {
   '/school/students': typeof SchoolStudentsIndexRoute
   '/school/teachers': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId': typeof SmartboardNotebookIdIndexRoute
+  '/student/adventures': typeof StudentAdventuresIndexRoute
+  '/student/assignments': typeof StudentAssignmentsIndexRoute
   '/student/classes': typeof StudentClassesIndexRoute
+  '/student/join': typeof StudentJoinIndexRoute
+  '/student/skill-builder': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
@@ -1998,7 +2031,11 @@ export interface FileRoutesById {
   '/school/students/': typeof SchoolStudentsIndexRoute
   '/school/teachers/': typeof SchoolTeachersIndexRoute
   '/smartboard/$notebookId/': typeof SmartboardNotebookIdIndexRoute
+  '/student/adventures/': typeof StudentAdventuresIndexRoute
+  '/student/assignments/': typeof StudentAssignmentsIndexRoute
   '/student/classes/': typeof StudentClassesIndexRoute
+  '/student/join/': typeof StudentJoinIndexRoute
+  '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
@@ -2224,7 +2261,11 @@ export interface FileRouteTypes {
     | '/school/students/'
     | '/school/teachers/'
     | '/smartboard/$notebookId/'
+    | '/student/adventures/'
+    | '/student/assignments/'
     | '/student/classes/'
+    | '/student/join/'
+    | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
@@ -2437,7 +2478,11 @@ export interface FileRouteTypes {
     | '/school/students'
     | '/school/teachers'
     | '/smartboard/$notebookId'
+    | '/student/adventures'
+    | '/student/assignments'
     | '/student/classes'
+    | '/student/join'
+    | '/student/skill-builder'
     | '/subjects/$subject'
     | '/teaching-hub/classes'
     | '/teaching-hub/settings'
@@ -2661,7 +2706,11 @@ export interface FileRouteTypes {
     | '/school/students/'
     | '/school/teachers/'
     | '/smartboard/$notebookId/'
+    | '/student/adventures/'
+    | '/student/assignments/'
     | '/student/classes/'
+    | '/student/join/'
+    | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
     | '/teaching-hub/settings/'
@@ -3587,11 +3636,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SmartboardNotebookIdIndexRouteImport
       parentRoute: typeof SmartboardRouteRoute
     }
+    '/student/adventures/': {
+      id: '/student/adventures/'
+      path: '/adventures'
+      fullPath: '/student/adventures/'
+      preLoaderRoute: typeof StudentAdventuresIndexRouteImport
+      parentRoute: typeof StudentRouteRoute
+    }
+    '/student/assignments/': {
+      id: '/student/assignments/'
+      path: '/assignments'
+      fullPath: '/student/assignments/'
+      preLoaderRoute: typeof StudentAssignmentsIndexRouteImport
+      parentRoute: typeof StudentRouteRoute
+    }
     '/student/classes/': {
       id: '/student/classes/'
       path: '/classes'
       fullPath: '/student/classes/'
       preLoaderRoute: typeof StudentClassesIndexRouteImport
+      parentRoute: typeof StudentRouteRoute
+    }
+    '/student/join/': {
+      id: '/student/join/'
+      path: '/join'
+      fullPath: '/student/join/'
+      preLoaderRoute: typeof StudentJoinIndexRouteImport
+      parentRoute: typeof StudentRouteRoute
+    }
+    '/student/skill-builder/': {
+      id: '/student/skill-builder/'
+      path: '/skill-builder'
+      fullPath: '/student/skill-builder/'
+      preLoaderRoute: typeof StudentSkillBuilderIndexRouteImport
       parentRoute: typeof StudentRouteRoute
     }
     '/subjects/$subject/': {
@@ -4727,7 +4804,11 @@ const SmartboardRouteRouteWithChildren = SmartboardRouteRoute._addFileChildren(
 
 interface StudentRouteRouteChildren {
   StudentIndexRoute: typeof StudentIndexRoute
+  StudentAdventuresIndexRoute: typeof StudentAdventuresIndexRoute
+  StudentAssignmentsIndexRoute: typeof StudentAssignmentsIndexRoute
   StudentClassesIndexRoute: typeof StudentClassesIndexRoute
+  StudentJoinIndexRoute: typeof StudentJoinIndexRoute
+  StudentSkillBuilderIndexRoute: typeof StudentSkillBuilderIndexRoute
   StudentClassClassIdIndexRoute: typeof StudentClassClassIdIndexRoute
   StudentClassClassIdAdventuresIndexRoute: typeof StudentClassClassIdAdventuresIndexRoute
   StudentClassClassIdCoursesIndexRoute: typeof StudentClassClassIdCoursesIndexRoute
@@ -4746,7 +4827,11 @@ interface StudentRouteRouteChildren {
 
 const StudentRouteRouteChildren: StudentRouteRouteChildren = {
   StudentIndexRoute: StudentIndexRoute,
+  StudentAdventuresIndexRoute: StudentAdventuresIndexRoute,
+  StudentAssignmentsIndexRoute: StudentAssignmentsIndexRoute,
   StudentClassesIndexRoute: StudentClassesIndexRoute,
+  StudentJoinIndexRoute: StudentJoinIndexRoute,
+  StudentSkillBuilderIndexRoute: StudentSkillBuilderIndexRoute,
   StudentClassClassIdIndexRoute: StudentClassClassIdIndexRoute,
   StudentClassClassIdAdventuresIndexRoute:
     StudentClassClassIdAdventuresIndexRoute,
