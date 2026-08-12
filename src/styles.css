@@ -1033,3 +1033,19 @@ textarea::placeholder {
   color: var(--color-placeholder);
   font-style: italic;
 }
+
+/*
+ * Native select popups are drawn by the OS on a white sheet, so light-on-dark
+ * option text disappears. Force readable dark ink inside the popup while the
+ * closed control keeps its themed styling.
+ */
+:root {
+  --native-option-ink: 224 60% 8%;
+  --native-option-surface: 0 0% 100%;
+}
+
+select option,
+select optgroup {
+  color: hsl(var(--native-option-ink));
+  background-color: hsl(var(--native-option-surface));
+}
