@@ -5402,6 +5402,7 @@ export type Database = {
           org_id: string
         }[]
       }
+      my_session_code: { Args: { _session_id: string }; Returns: string }
       my_share_code: { Args: never; Returns: string }
       my_workspaces: {
         Args: never
@@ -5422,6 +5423,7 @@ export type Database = {
       org_of: { Args: { _user_id: string }; Returns: string }
       owner_can_access_user: { Args: { _user_id: string }; Returns: boolean }
       owns_org: { Args: { _org_id: string }; Returns: boolean }
+      owns_smart_card_preview: { Args: { _name: string }; Returns: boolean }
       paddle_activate_paid_plan: {
         Args: {
           _amount?: number

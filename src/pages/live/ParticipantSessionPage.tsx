@@ -7,7 +7,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import {
   LiveSession, formatCountdownClock, formatCountdownLong, formatStartsAt, hydrateSession,
-  scheduleLabel, scheduleStateOf, scheduleTone,
+  scheduleLabel, scheduleStateOf, scheduleTone, SESSION_COLUMNS,
 } from "@/lib/live/sessions";
 import { useNowTick } from "@/lib/live/useCountdown";
 import BroadcastPanel from "@/components/live/BroadcastPanel";
@@ -41,7 +41,7 @@ const ParticipantSessionPage = () => {
       const user = userData.user ?? null;
       setSignedIn(Boolean(user));
 
-      const { data } = await supabase.from("sessions").select("*").eq("id", sessionId!).maybeSingle();
+      const { data } = await supabase.from("sessions").select(SESSION_COLUMNS).eq("id", sessionId!).maybeSingle();
       if (!data) {
         setNotFound(true);
         setLoading(false);

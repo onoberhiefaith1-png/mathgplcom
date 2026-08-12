@@ -14,6 +14,8 @@ import {
   scheduleStateOf,
   scheduleTone,
   hydrateSession,
+  SESSION_COLUMNS,
+  fetchSessionCodes,
 } from "@/lib/live/sessions";
 
 import { useNowTick } from "@/lib/live/useCountdown";
@@ -34,10 +36,12 @@ const SessionsPage = () => {
     }
     const { data } = await supabase
       .from("sessions")
-      .select("*")
+      .select(SESSION_COLUMNS)
       .eq("owner_id", userData.user.id)
       .order("starts_at", { ascending: true, nullsFirst: false });
-    setSessions(((data ?? []) as Record<string, unknown>[]).map(hydrateSession));
+    const rows = ((data ?? []) as Record<string, unknown>[]).map(hydrateSession);
+    const codes = await fetchSessionCodes(rows.map((r) => r.id));
+    setSessions(rows.map((r) => ({ ...r, session_code: codes[r.id] ?? "" })));
     setLoading(false);
   }, [navigate]);
 
