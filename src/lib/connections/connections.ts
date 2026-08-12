@@ -17,10 +17,8 @@ export type Relation =
   | "teacher_student"
   | "parent_child"
   | "parent_teacher"
-  | "parent_school"
-  | "teacher_teacher"
-  | "student_student"
-  | "school_school";
+  | "parent_school";
+
 
 export type ConnectionStatus = "pending" | "accepted" | "rejected" | "revoked";
 
