@@ -13,7 +13,7 @@ import {
 import { Loader2, RefreshCw, Save, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import DashboardShell from "@/components/accounts/DashboardShell";
+import EmbeddableShell from "@/components/admin/EmbeddableShell";
 import CreditEconomyPanel from "@/components/admin/CreditEconomyPanel";
 import GlobalCreditEconomics from "@/components/admin/GlobalCreditEconomics";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,7 @@ const Card = ({ label, value, hint }: { label: string; value: string; hint?: str
   </div>
 );
 
-export default function CostAnalytics() {
+export default function CostAnalytics({ embedded }: { embedded?: boolean } = {}) {
   const range = useRange();
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
@@ -119,7 +119,7 @@ export default function CostAnalytics() {
   const totals = overview.data?.totals;
 
   return (
-    <DashboardShell
+    <EmbeddableShell embedded={embedded}
       title="Cost Analytics"
       subtitle="Metered platform cost, customer charge and profit — administrator-only accounting. No customer dashboard shows any of this."
       actions={
@@ -419,6 +419,6 @@ export default function CostAnalytics() {
           )}
         </section>
       </div>
-    </DashboardShell>
+    </EmbeddableShell>
   );
 }
