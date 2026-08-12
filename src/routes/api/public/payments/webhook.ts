@@ -157,8 +157,35 @@ async function onSubscriptionCanceled(data: Record<string, any>) {
   });
 }
 
+/** A bought credit pack: its credits land in the wallet exactly once. */
+async function onCreditPurchase(data: Record<string, any>): Promise<boolean> {
+  const userId = data["custom_data"]?.userId as string | undefined;
+  const externalId = (data["items"] as Item[] | undefined)?.[0]?.price?.import_meta?.external_id ?? null;
+  if (!userId || !externalId || !externalId.startsWith("credits_")) return false;
+
+  const { creditsForPack } = await import("@/lib/credits/topups.server");
+  const packCredits = await creditsForPack(externalId);
+  if (!packCredits) {
+    console.warn("Credit purchase ignored: unknown pack", { externalId });
+    return true;
+  }
+
+  const total = data["details"]?.totals?.grand_total;
+  const { error } = await db().rpc("paddle_record_topup", {
+    _user_id: userId,
+    _provider_ref: String(data["id"]),
+    _credits: packCredits,
+    _amount: total ? Number(total) / 100 : 0,
+    _currency: data["currency_code"] ?? "GBP",
+  });
+  if (error) throw new Error(error.message);
+  return true;
+}
+
 /** A renewal payment: new period, fresh credits, any downgrade applied. */
 async function onTransactionCompleted(data: Record<string, any>) {
+  if (await onCreditPurchase(data)) return;
+
   const providerSubId = data["subscription_id"] as string | undefined;
   if (!providerSubId) return;
   if (data["origin"] === "subscription_charge" || data["origin"] === "web") return; // first charge handled on creation
@@ -193,13 +220,52 @@ async function onPaymentFailed(data: Record<string, any>) {
   await db().rpc("paddle_set_payment_state", { _provider_sub_id: providerSubId, _state: "past_due" });
 }
 
+/**
+ * The provider retries for days, so every event is claimed before it is acted
+ * on. A duplicate delivery finds its row already there and stops.
+ */
+async function claim(event: { event_id?: string; event_type: string }, env: PaddleEnv, payload: unknown) {
+  const eventId = event.event_id;
+  if (!eventId) return true;
+  const { error } = await db().from("payment_events").insert({
+    provider: "paddle",
+    event_id: eventId,
+    event_type: event.event_type,
+    environment: env,
+    status: "processing",
+    payload: payload as never,
+  });
+  if (error) {
+    console.log("Duplicate payment event ignored:", eventId);
+    return false;
+  }
+  return true;
+}
+
+async function settle(eventId: string | undefined, status: string, error?: string) {
+  if (!eventId) return;
+  await db()
+    .from("payment_events")
+    .update({ status, error: error ?? null, updated_at: new Date().toISOString() })
+    .eq("provider", "paddle")
+    .eq("event_id", eventId);
+}
+
 export const Route = createFileRoute("/api/public/payments/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         const env = ((new URL(request.url).searchParams.get("env") || "sandbox") as PaddleEnv);
+        let eventId: string | undefined;
         try {
-          const event = await verifyWebhook(request, env);
+          const event = (await verifyWebhook(request, env)) as {
+            event_type: string;
+            event_id?: string;
+            data: Record<string, unknown>;
+          };
+          eventId = event.event_id;
+          if (!(await claim(event, env, event))) return Response.json({ received: true, duplicate: true });
+
           switch (event.event_type) {
             case "subscription.created":
               await onSubscriptionCreated(event.data as Record<string, any>, env);
@@ -219,12 +285,15 @@ export const Route = createFileRoute("/api/public/payments/webhook")({
             default:
               console.log("Unhandled payment event:", event.event_type);
           }
+          await settle(eventId, "processed");
           return Response.json({ received: true });
         } catch (e) {
           console.error("Payment webhook error:", e);
+          await settle(eventId, "failed", (e as Error).message);
           return new Response("Webhook error", { status: 400 });
         }
       },
     },
   },
 });
+
