@@ -1957,6 +1957,39 @@ export type Database = {
           },
         ]
       }
+      credit_purchases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credits: number
+          currency: string
+          id: string
+          note: string | null
+          purchased_at: string
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credits: number
+          currency?: string
+          id?: string
+          note?: string | null
+          purchased_at?: string
+          unit_cost: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credits?: number
+          currency?: string
+          id?: string
+          note?: string | null
+          purchased_at?: string
+          unit_cost?: number
+        }
+        Relationships: []
+      }
       credit_wallets: {
         Row: {
           balance: number
@@ -2002,8 +2035,10 @@ export type Database = {
           credit_value: number
           currency: string
           effective_from: string
+          follows_base: boolean
           id: string
           note: string | null
+          profit_percentage: number | null
         }
         Insert: {
           created_at?: string
@@ -2011,8 +2046,10 @@ export type Database = {
           credit_value: number
           currency: string
           effective_from?: string
+          follows_base?: boolean
           id?: string
           note?: string | null
+          profit_percentage?: number | null
         }
         Update: {
           created_at?: string
@@ -2020,8 +2057,10 @@ export type Database = {
           credit_value?: number
           currency?: string
           effective_from?: string
+          follows_base?: boolean
           id?: string
           note?: string | null
+          profit_percentage?: number | null
         }
         Relationships: []
       }
@@ -3278,6 +3317,51 @@ export type Database = {
         }
         Relationships: []
       }
+      plans: {
+        Row: {
+          active: boolean
+          audience: string
+          created_at: string
+          credit_amount: number
+          currency: string
+          id: string
+          key: string
+          label: string
+          sort_order: number
+          status: string
+          subscription_amount: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          audience: string
+          created_at?: string
+          credit_amount?: number
+          currency?: string
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+          status?: string
+          subscription_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          audience?: string
+          created_at?: string
+          credit_amount?: number
+          currency?: string
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          status?: string
+          subscription_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       platform_building_default: {
         Row: {
           background: Json | null
@@ -4085,6 +4169,81 @@ export type Database = {
           },
         ]
       }
+      staff_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          entitlement: string
+          expires_at: string | null
+          id: string
+          label: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          entitlement?: string
+          expires_at?: string | null
+          id?: string
+          label?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          entitlement?: string
+          expires_at?: string | null
+          id?: string
+          label?: string | null
+        }
+        Relationships: []
+      }
+      staff_redemptions: {
+        Row: {
+          active: boolean
+          code_id: string
+          cost_unit_id: string
+          id: string
+          redeemed_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          code_id: string
+          cost_unit_id: string
+          id?: string
+          redeemed_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          code_id?: string
+          cost_unit_id?: string
+          id?: string
+          redeemed_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_redemptions_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "staff_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_redemptions_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_course_progress: {
         Row: {
           certificate_status: string
@@ -4150,18 +4309,22 @@ export type Database = {
           cost_unit_id: string
           created_at: string
           credit_price: number
+          credit_sell_price: number | null
           currency: string
           discount_percentage: number
           final_price: number
           id: string
+          included_credits: number | null
           locked_profit_rate: number
           org_id: string | null
           period_end: string | null
           period_start: string
           plan: string
           plan_id: string | null
+          pricing_version_id: string | null
           provider: string | null
           provider_subscription_id: string | null
+          region: string | null
           status: string
           updated_at: string
           user_id: string | null
@@ -4170,18 +4333,22 @@ export type Database = {
           cost_unit_id: string
           created_at?: string
           credit_price?: number
+          credit_sell_price?: number | null
           currency?: string
           discount_percentage?: number
           final_price?: number
           id?: string
+          included_credits?: number | null
           locked_profit_rate?: number
           org_id?: string | null
           period_end?: string | null
           period_start?: string
           plan?: string
           plan_id?: string | null
+          pricing_version_id?: string | null
           provider?: string | null
           provider_subscription_id?: string | null
+          region?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -4190,18 +4357,22 @@ export type Database = {
           cost_unit_id?: string
           created_at?: string
           credit_price?: number
+          credit_sell_price?: number | null
           currency?: string
           discount_percentage?: number
           final_price?: number
           id?: string
+          included_credits?: number | null
           locked_profit_rate?: number
           org_id?: string | null
           period_end?: string | null
           period_start?: string
           plan?: string
           plan_id?: string | null
+          pricing_version_id?: string | null
           provider?: string | null
           provider_subscription_id?: string | null
+          region?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -4935,6 +5106,7 @@ export type Database = {
             Returns: string
           }
       redeem_promo_code: { Args: { _code: string }; Returns: string }
+      redeem_staff_code: { Args: { _code: string }; Returns: string }
       regenerate_my_share_code: { Args: never; Returns: string }
       regenerate_school_code: { Args: { _org_id: string }; Returns: string }
       request_connection: {
@@ -4970,6 +5142,16 @@ export type Database = {
       resolve_cost_unit: {
         Args: { _org_id?: string; _user_id: string }
         Returns: string
+      }
+      resolve_credit_pricing: {
+        Args: { _at?: string; _currency?: string }
+        Returns: {
+          cost_price: number
+          currency: string
+          follows_base: boolean
+          profit_percentage: number
+          sell_price: number
+        }[]
       }
       resolve_share_code: {
         Args: { _code: string }

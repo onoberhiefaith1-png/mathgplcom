@@ -505,3 +505,311 @@ export async function setCurrencyRate(currency: string, creditValue: number, use
   }
   return currencyRates();
 }
+
+
+/* ─────────── Platform credit economy: inventory, pricing engine, plans ─────── */
+
+export type CreditPurchase = {
+  id: string;
+  credits: number;
+  unitCost: number;
+  currency: string;
+  purchasedAt: string;
+  note: string | null;
+};
+
+export type CreditInventory = {
+  purchases: CreditPurchase[];
+  purchased: number;
+  consumed: number;
+  remaining: number;
+  spend: number;
+  averageUnitCost: number;
+};
+
+/**
+ * Credits the platform owns. Purchases are entered by the administrator (they
+ * are real invoices); consumption is read from metered usage, never typed.
+ */
+export async function creditInventory(): Promise<CreditInventory> {
+  const db = await admin();
+  const [{ data: purchases }, { data: totals }] = await Promise.all([
+    db
+      .from("credit_purchases")
+      .select("id, credits, unit_cost, currency, purchased_at, note")
+      .order("purchased_at", { ascending: false })
+      .limit(200),
+    db.from("cost_unit_totals").select("cost_credits"),
+  ]);
+
+  const rows: CreditPurchase[] = (purchases ?? []).map((p) => ({
+    id: p.id as string,
+    credits: Number(p.credits ?? 0),
+    unitCost: Number(p.unit_cost ?? 0),
+    currency: (p.currency as string) ?? "GBP",
+    purchasedAt: p.purchased_at as string,
+    note: (p.note as string) ?? null,
+  }));
+
+  const purchased = rows.reduce((s, r) => s + r.credits, 0);
+  const spend = rows.reduce((s, r) => s + r.credits * r.unitCost, 0);
+  const consumed = (totals ?? []).reduce((s, t) => s + Number(t.cost_credits ?? 0), 0);
+
+  return {
+    purchases: rows,
+    purchased,
+    consumed,
+    remaining: purchased - consumed,
+    spend,
+    averageUnitCost: purchased > 0 ? spend / purchased : 0,
+  };
+}
+
+export async function addCreditPurchase(input: {
+  credits: number;
+  unitCost: number;
+  currency?: string;
+  note?: string;
+  userId?: string;
+}) {
+  const db = await admin();
+  await db.from("credit_purchases").insert({
+    credits: input.credits,
+    unit_cost: input.unitCost,
+    currency: (input.currency ?? "GBP").toUpperCase().slice(0, 6),
+    note: input.note ?? null,
+    created_by: input.userId ?? null,
+  });
+  return creditInventory();
+}
+
+export type PricingResolution = {
+  currency: string;
+  costPrice: number;
+  profitPercentage: number;
+  sellPrice: number;
+  followsBase: boolean;
+};
+
+/** What the engine resolves right now for a currency. */
+export async function resolvePricing(currency = "GBP"): Promise<PricingResolution> {
+  const db = await admin();
+  const { data, error } = await db.rpc("resolve_credit_pricing", {
+    _currency: currency.toUpperCase(),
+    _at: new Date().toISOString(),
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    currency: (row?.currency as string) ?? currency.toUpperCase(),
+    costPrice: Number(row?.cost_price ?? 0),
+    profitPercentage: Number(row?.profit_percentage ?? 0),
+    sellPrice: Number(row?.sell_price ?? 0),
+    followsBase: Boolean(row?.follows_base ?? true),
+  };
+}
+
+export type CurrencyPricing = {
+  currency: string;
+  creditValue: number;
+  profitPercentage: number;
+  followsBase: boolean;
+  sellPrice: number;
+  effectiveFrom: string;
+};
+
+/**
+ * Current pricing per currency. A currency either follows the GBP percentage
+ * automatically or holds its own; either way its rate history is insert-only.
+ */
+export async function currencyPricing(): Promise<CurrencyPricing[]> {
+  const db = await admin();
+  const { data } = await db
+    .from("currency_rates")
+    .select("currency, credit_value, profit_percentage, follows_base, effective_from")
+    .order("effective_from", { ascending: false })
+    .limit(400);
+
+  const base = await resolvePricing("GBP");
+  const seen = new Set<string>();
+  const rows: CurrencyPricing[] = [];
+  const now = Date.now();
+
+  for (const r of data ?? []) {
+    const currency = r.currency as string;
+    if (seen.has(currency)) continue;
+    if (new Date(r.effective_from as string).getTime() > now) continue;
+    seen.add(currency);
+    const followsBase = r.follows_base !== false;
+    const percentage = followsBase
+      ? base.profitPercentage
+      : Number(r.profit_percentage ?? base.profitPercentage);
+    const creditValue = Number(r.credit_value ?? 0);
+    rows.push({
+      currency,
+      creditValue,
+      profitPercentage: percentage,
+      followsBase,
+      sellPrice: creditValue * (1 + percentage / 100),
+      effectiveFrom: r.effective_from as string,
+    });
+  }
+
+  rows.sort((a, b) => (a.currency === "GBP" ? -1 : b.currency === "GBP" ? 1 : a.currency.localeCompare(b.currency)));
+  return rows;
+}
+
+/**
+ * Saving a currency records a new insert-only version. Turning "controlled by
+ * GBP" on makes it follow the base percentage from now on; turning it off
+ * freezes it at its own percentage, and later GBP changes never touch it.
+ */
+export async function setCurrencyPricing(input: {
+  currency: string;
+  creditValue: number;
+  profitPercentage: number | null;
+  followsBase: boolean;
+  userId?: string;
+}) {
+  const db = await admin();
+  const code = input.currency.trim().toUpperCase().slice(0, 6);
+  await db.from("currency_rates").insert({
+    currency: code,
+    credit_value: input.creditValue,
+    profit_percentage: input.followsBase ? null : input.profitPercentage,
+    follows_base: input.followsBase,
+    effective_from: new Date().toISOString(),
+    created_by: input.userId ?? null,
+  });
+  if (code === "GBP") {
+    await db
+      .from("platform_cost_settings")
+      .update({ credit_rate: input.creditValue, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+  }
+  return currencyPricing();
+}
+
+export type AdminPlan = {
+  id: string;
+  key: string;
+  audience: "teacher" | "school" | "parent";
+  label: string;
+  subscriptionAmount: number;
+  creditAmount: number;
+  currency: string;
+  status: "available" | "coming_soon";
+  sortOrder: number;
+  active: boolean;
+};
+
+export async function planCatalogue(): Promise<AdminPlan[]> {
+  const db = await admin();
+  const { data } = await db
+    .from("plans")
+    .select("id, key, audience, label, subscription_amount, credit_amount, currency, status, sort_order, active")
+    .order("audience")
+    .order("sort_order");
+
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    key: p.key as string,
+    audience: p.audience as AdminPlan["audience"],
+    label: p.label as string,
+    subscriptionAmount: Number(p.subscription_amount ?? 0),
+    creditAmount: Number(p.credit_amount ?? 0),
+    currency: (p.currency as string) ?? "GBP",
+    status: (p.status as AdminPlan["status"]) ?? "available",
+    sortOrder: Number(p.sort_order ?? 0),
+    active: p.active !== false,
+  }));
+}
+
+/** Only the money split is editable; included credits are always derived. */
+export async function savePlanAmounts(input: {
+  key: string;
+  subscriptionAmount: number;
+  creditAmount: number;
+}) {
+  const db = await admin();
+  const { error } = await db
+    .from("plans")
+    .update({
+      subscription_amount: input.subscriptionAmount,
+      credit_amount: input.creditAmount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("key", input.key);
+  if (error) throw error;
+  return planCatalogue();
+}
+
+export type StaffCode = {
+  id: string;
+  code: string;
+  label: string | null;
+  entitlement: string;
+  active: boolean;
+  expiresAt: string | null;
+  redemptions: number;
+};
+
+/**
+ * Staff access is not a promotion: it grants entitlement with no checkout at
+ * all, while the usage it generates is still metered as real platform cost.
+ */
+export async function staffCodes(): Promise<StaffCode[]> {
+  const db = await admin();
+  const [{ data: codes }, { data: redemptions }] = await Promise.all([
+    db
+      .from("staff_codes")
+      .select("id, code, label, entitlement, active, expires_at")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    db.from("staff_redemptions").select("code_id").eq("active", true),
+  ]);
+
+  const count = new Map<string, number>();
+  for (const r of redemptions ?? []) {
+    const id = r.code_id as string;
+    count.set(id, (count.get(id) ?? 0) + 1);
+  }
+
+  return (codes ?? []).map((c) => ({
+    id: c.id as string,
+    code: c.code as string,
+    label: (c.label as string) ?? null,
+    entitlement: (c.entitlement as string) ?? "pro",
+    active: c.active !== false,
+    expiresAt: (c.expires_at as string) ?? null,
+    redemptions: count.get(c.id as string) ?? 0,
+  }));
+}
+
+export async function saveStaffCode(input: {
+  code: string;
+  label?: string;
+  entitlement: string;
+  active: boolean;
+  userId?: string;
+}) {
+  const db = await admin();
+  const code = input.code.trim().toUpperCase();
+  const { data: existing } = await db.from("staff_codes").select("id").eq("code", code).maybeSingle();
+
+  if (existing) {
+    await db
+      .from("staff_codes")
+      .update({ label: input.label ?? null, entitlement: input.entitlement, active: input.active })
+      .eq("id", existing.id as string);
+  } else {
+    await db.from("staff_codes").insert({
+      code,
+      label: input.label ?? null,
+      entitlement: input.entitlement,
+      active: input.active,
+      created_by: input.userId ?? null,
+    });
+  }
+  return staffCodes();
+}

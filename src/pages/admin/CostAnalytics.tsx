@@ -14,6 +14,7 @@ import { Loader2, RefreshCw, Save, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import DashboardShell from "@/components/accounts/DashboardShell";
+import CreditEconomyPanel from "@/components/admin/CreditEconomyPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -263,6 +264,8 @@ export default function CostAnalytics() {
             ))}
           </div>
         </section>
+
+        <CreditEconomyPanel />
 
         {/* Profit rate + price book */}
         <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
