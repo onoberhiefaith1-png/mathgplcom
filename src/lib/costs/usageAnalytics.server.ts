@@ -211,7 +211,14 @@ const RESOURCE_LABEL: Record<string, string> = {
   "realtime.messages": "Realtime messages",
   "database.rows_written": "Database writes",
   "database.gb_month": "Database size",
+  "database.credits": "Platform database usage",
+  "network.credits": "Platform network usage",
+  "storage.credits": "Platform storage usage",
+  "compute.credits": "Platform compute usage",
+  "realtime.credits": "Platform realtime usage",
+  "ai.credits": "Platform AI usage",
 };
+
 
 function toLedgerRow(e: EventRow, owners: Map<string, { name: string; code: string }>): LedgerRow {
   const owner = owners.get(e.cost_unit_id);
