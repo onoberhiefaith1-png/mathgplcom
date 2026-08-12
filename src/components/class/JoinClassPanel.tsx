@@ -60,12 +60,13 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
     const uid = userData.user.id;
     setUserId(uid);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("mathgpl_student_id")
+    // The permanent MathGPL ID is the account identity a teacher looks up.
+    const { data: account } = await supabase
+      .from("account_ids")
+      .select("mathgpl_id")
       .eq("user_id", uid)
       .maybeSingle();
-    setMathgplId(profile?.mathgpl_student_id ?? "");
+    setMathgplId(account?.mathgpl_id ?? "");
 
     const { data: members } = await supabase
       .from("class_members")
@@ -171,11 +172,28 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
         toast({ title: "Class not found", description: "Check the code or link and try again.", variant: "destructive" });
         return;
       }
-      const { id: classId, allowed } = gate as { id: string; allowed: boolean };
+      const { id: classId, allowed, org_id: orgId } = gate as {
+        id: string;
+        allowed: boolean;
+        org_id: string | null;
+      };
       if (!allowed) {
+        // A school's class only ever admits that school's own students, so the
+        // refusal names the school the student would have to belong to.
+        let schoolName = "";
+        if (orgId) {
+          const { data: org } = await supabase
+            .from("organizations")
+            .select("name")
+            .eq("id", orgId)
+            .maybeSingle();
+          schoolName = org?.name ?? "";
+        }
         toast({
-          title: "Ask your teacher to add you",
-          description: "This class belongs to a private workspace, so the teacher or school has to invite you.",
+          title: "Ask your school to add you",
+          description: schoolName
+            ? `This class belongs to ${schoolName}, so only its students can join. Ask the school or your teacher to add you.`
+            : "This class belongs to a private workspace, so the teacher or school has to invite you.",
           variant: "destructive",
         });
         return;
