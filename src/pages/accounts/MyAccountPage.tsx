@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PlanSummaryCard from "@/components/accounts/PlanSummaryCard";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { Eye, EyeOff, KeyRound, Loader2, Mail, Save, ShieldCheck, Users } from "lucide-react";
 
@@ -135,6 +136,7 @@ const MyAccountPage = () => {
         <GoLiveToggle />
 
 
+        <PlanSummaryCard />
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">

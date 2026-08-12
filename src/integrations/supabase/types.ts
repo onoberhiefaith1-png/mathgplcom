@@ -2035,6 +2035,7 @@ export type Database = {
           credit_value: number
           currency: string
           effective_from: string
+          exchange_rate: number
           follows_base: boolean
           id: string
           note: string | null
@@ -2046,6 +2047,7 @@ export type Database = {
           credit_value: number
           currency: string
           effective_from?: string
+          exchange_rate?: number
           follows_base?: boolean
           id?: string
           note?: string | null
@@ -2057,6 +2059,7 @@ export type Database = {
           credit_value?: number
           currency?: string
           effective_from?: string
+          exchange_rate?: number
           follows_base?: boolean
           id?: string
           note?: string | null
@@ -3317,14 +3320,190 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          credits_allocated: number
+          currency: string
+          id: string
+          occurred_at: string
+          org_id: string | null
+          plan_id: string | null
+          plan_version_id: string | null
+          provider: string
+          provider_ref: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          credits_allocated?: number
+          currency?: string
+          id?: string
+          occurred_at?: string
+          org_id?: string | null
+          plan_id?: string | null
+          plan_version_id?: string | null
+          provider?: string
+          provider_ref?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credits_allocated?: number
+          currency?: string
+          id?: string
+          occurred_at?: string
+          org_id?: string | null
+          plan_id?: string | null
+          plan_version_id?: string | null
+          provider?: string
+          provider_ref?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_plan_version_id_fkey"
+            columns: ["plan_version_id"]
+            isOneToOne: false
+            referencedRelation: "plan_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_features: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          plan_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          plan_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          plan_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_versions: {
+        Row: {
+          created_at: string
+          credit_amount: number
+          credit_cost: number
+          credit_sell_price: number
+          currency: string
+          description: string | null
+          id: string
+          included_credits: number
+          label: string | null
+          plan_id: string
+          platform_amount: number
+          price: number
+          profit_percentage: number
+          published_at: string | null
+          published_by: string | null
+          status: string
+          updated_at: string
+          version_no: number
+        }
+        Insert: {
+          created_at?: string
+          credit_amount?: number
+          credit_cost?: number
+          credit_sell_price?: number
+          currency?: string
+          description?: string | null
+          id?: string
+          included_credits?: number
+          label?: string | null
+          plan_id: string
+          platform_amount?: number
+          price?: number
+          profit_percentage?: number
+          published_at?: string | null
+          published_by?: string | null
+          status?: string
+          updated_at?: string
+          version_no?: number
+        }
+        Update: {
+          created_at?: string
+          credit_amount?: number
+          credit_cost?: number
+          credit_sell_price?: number
+          currency?: string
+          description?: string | null
+          id?: string
+          included_credits?: number
+          label?: string | null
+          plan_id?: string
+          platform_amount?: number
+          price?: number
+          profit_percentage?: number
+          published_at?: string | null
+          published_by?: string | null
+          status?: string
+          updated_at?: string
+          version_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_versions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           active: boolean
           audience: string
+          audience_visible: boolean
           created_at: string
           credit_amount: number
           currency: string
+          current_version_id: string | null
+          description: string | null
           id: string
+          is_free: boolean
           key: string
           label: string
           sort_order: number
@@ -3335,10 +3514,14 @@ export type Database = {
         Insert: {
           active?: boolean
           audience: string
+          audience_visible?: boolean
           created_at?: string
           credit_amount?: number
           currency?: string
+          current_version_id?: string | null
+          description?: string | null
           id?: string
+          is_free?: boolean
           key: string
           label: string
           sort_order?: number
@@ -3349,10 +3532,14 @@ export type Database = {
         Update: {
           active?: boolean
           audience?: string
+          audience_visible?: boolean
           created_at?: string
           credit_amount?: number
           currency?: string
+          current_version_id?: string | null
+          description?: string | null
           id?: string
+          is_free?: boolean
           key?: string
           label?: string
           sort_order?: number
@@ -3360,7 +3547,15 @@ export type Database = {
           subscription_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "plans_current_version_fkey"
+            columns: ["current_version_id"]
+            isOneToOne: false
+            referencedRelation: "plan_versions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       platform_building_default: {
         Row: {
@@ -4244,6 +4439,30 @@ export type Database = {
           },
         ]
       }
+      stripe_customers: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       student_course_progress: {
         Row: {
           certificate_status: string
@@ -4306,6 +4525,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          cancel_at: string | null
           cost_unit_id: string
           created_at: string
           credit_price: number
@@ -4321,15 +4541,19 @@ export type Database = {
           period_start: string
           plan: string
           plan_id: string | null
+          plan_version_id: string | null
           pricing_version_id: string | null
           provider: string | null
           provider_subscription_id: string | null
           region: string | null
+          scheduled_plan_id: string | null
           status: string
+          stripe_subscription_id: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          cancel_at?: string | null
           cost_unit_id: string
           created_at?: string
           credit_price?: number
@@ -4345,15 +4569,19 @@ export type Database = {
           period_start?: string
           plan?: string
           plan_id?: string | null
+          plan_version_id?: string | null
           pricing_version_id?: string | null
           provider?: string | null
           provider_subscription_id?: string | null
           region?: string | null
+          scheduled_plan_id?: string | null
           status?: string
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          cancel_at?: string | null
           cost_unit_id?: string
           created_at?: string
           credit_price?: number
@@ -4369,11 +4597,14 @@ export type Database = {
           period_start?: string
           plan?: string
           plan_id?: string | null
+          plan_version_id?: string | null
           pricing_version_id?: string | null
           provider?: string | null
           provider_subscription_id?: string | null
           region?: string | null
+          scheduled_plan_id?: string | null
           status?: string
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -4390,6 +4621,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_version_id_fkey"
+            columns: ["plan_version_id"]
+            isOneToOne: false
+            referencedRelation: "plan_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -4746,6 +4984,18 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      activate_subscription: {
+        Args: {
+          _amount_paid?: number
+          _org_id?: string
+          _period_days?: number
+          _plan_key: string
+          _provider?: string
+          _provider_subscription_id?: string
+          _user_id: string
+        }
+        Returns: string
+      }
       adjust_credits: {
         Args: {
           _amount: number
@@ -5062,6 +5312,7 @@ export type Database = {
         }[]
       }
       profit_percentage_at: { Args: { _at?: string }; Returns: number }
+      publish_plan_version: { Args: { _plan_id: string }; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -5171,6 +5422,18 @@ export type Database = {
         Returns: string
       }
       revoke_connection: { Args: { _connection_id: string }; Returns: string }
+      save_plan_draft: {
+        Args: {
+          _credit_amount: number
+          _currency?: string
+          _description: string
+          _label: string
+          _plan_id: string
+          _platform_amount: number
+          _profit_percentage?: number
+        }
+        Returns: string
+      }
       school_acronym: { Args: { _name: string }; Returns: string }
       school_member_classes: {
         Args: { _org_id: string; _user_id: string }

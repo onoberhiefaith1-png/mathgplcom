@@ -46,6 +46,7 @@ import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/inde
 import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
+import { Route as PlansIndexRouteImport } from './routes/plans/index'
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
 import { Route as RequestsIndexRouteImport } from './routes/requests/index'
 import { Route as SchoolIndexRouteImport } from './routes/school/index'
@@ -59,6 +60,7 @@ import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/in
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
 import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
 import { Route as AdminEmailIndexRouteImport } from './routes/admin/email/index'
+import { Route as AdminPlansIndexRouteImport } from './routes/admin/plans/index'
 import { Route as AdminSecurityIndexRouteImport } from './routes/admin/security/index'
 import { Route as AdminUsageAnalyticsIndexRouteImport } from './routes/admin/usage-analytics/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
@@ -443,6 +445,11 @@ const MathboardIndexRoute = MathboardIndexRouteImport.update({
   path: '/mathboard/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlansIndexRoute = PlansIndexRouteImport.update({
+  id: '/plans/',
+  path: '/plans/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
   id: '/privacy/',
   path: '/privacy/',
@@ -506,6 +513,11 @@ const AdminCostRevenueIndexRoute = AdminCostRevenueIndexRouteImport.update({
 const AdminEmailIndexRoute = AdminEmailIndexRouteImport.update({
   id: '/email/',
   path: '/email/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminPlansIndexRoute = AdminPlansIndexRouteImport.update({
+  id: '/plans/',
+  path: '/plans/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminSecurityIndexRoute = AdminSecurityIndexRouteImport.update({
@@ -1674,6 +1686,7 @@ export interface FileRoutesByFullPath {
   '/live/': typeof LiveIndexRoute
   '/login/': typeof LoginIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
   '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
@@ -1687,6 +1700,7 @@ export interface FileRoutesByFullPath {
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/plans/': typeof AdminPlansIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
   '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
@@ -1913,6 +1927,7 @@ export interface FileRoutesByTo {
   '/live': typeof LiveIndexRoute
   '/login': typeof LoginIndexRoute
   '/mathboard': typeof MathboardIndexRoute
+  '/plans': typeof PlansIndexRoute
   '/privacy': typeof PrivacyIndexRoute
   '/requests': typeof RequestsIndexRoute
   '/school': typeof SchoolIndexRoute
@@ -1926,6 +1941,7 @@ export interface FileRoutesByTo {
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
   '/admin/email': typeof AdminEmailIndexRoute
+  '/admin/plans': typeof AdminPlansIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
   '/admin/usage-analytics': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games': typeof AdventureGamesIndexRoute
@@ -2164,6 +2180,7 @@ export interface FileRoutesById {
   '/live/': typeof LiveIndexRoute
   '/login/': typeof LoginIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
   '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
@@ -2177,6 +2194,7 @@ export interface FileRoutesById {
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/plans/': typeof AdminPlansIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
   '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
   '/adventure/games/': typeof AdventureGamesIndexRoute
@@ -2416,6 +2434,7 @@ export interface FileRouteTypes {
     | '/live/'
     | '/login/'
     | '/mathboard/'
+    | '/plans/'
     | '/privacy/'
     | '/requests/'
     | '/school/'
@@ -2429,6 +2448,7 @@ export interface FileRouteTypes {
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
     | '/admin/email/'
+    | '/admin/plans/'
     | '/admin/security/'
     | '/admin/usage-analytics/'
     | '/adventure/games/'
@@ -2655,6 +2675,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/login'
     | '/mathboard'
+    | '/plans'
     | '/privacy'
     | '/requests'
     | '/school'
@@ -2668,6 +2689,7 @@ export interface FileRouteTypes {
     | '/admin/cost-analytics'
     | '/admin/cost-revenue'
     | '/admin/email'
+    | '/admin/plans'
     | '/admin/security'
     | '/admin/usage-analytics'
     | '/adventure/games'
@@ -2905,6 +2927,7 @@ export interface FileRouteTypes {
     | '/live/'
     | '/login/'
     | '/mathboard/'
+    | '/plans/'
     | '/privacy/'
     | '/requests/'
     | '/school/'
@@ -2918,6 +2941,7 @@ export interface FileRouteTypes {
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
     | '/admin/email/'
+    | '/admin/plans/'
     | '/admin/security/'
     | '/admin/usage-analytics/'
     | '/adventure/games/'
@@ -3149,6 +3173,7 @@ export interface RootRouteChildren {
   JoinIndexRoute: typeof JoinIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
+  PlansIndexRoute: typeof PlansIndexRoute
   PrivacyIndexRoute: typeof PrivacyIndexRoute
   RequestsIndexRoute: typeof RequestsIndexRoute
   SignupIndexRoute: typeof SignupIndexRoute
@@ -3492,6 +3517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MathboardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/plans/': {
+      id: '/plans/'
+      path: '/plans'
+      fullPath: '/plans/'
+      preLoaderRoute: typeof PlansIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy/': {
       id: '/privacy/'
       path: '/privacy'
@@ -3581,6 +3613,13 @@ declare module '@tanstack/react-router' {
       path: '/email'
       fullPath: '/admin/email/'
       preLoaderRoute: typeof AdminEmailIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/plans/': {
+      id: '/admin/plans/'
+      path: '/plans'
+      fullPath: '/admin/plans/'
+      preLoaderRoute: typeof AdminPlansIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/security/': {
@@ -4978,6 +5017,7 @@ interface AdminRouteRouteChildren {
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
   AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
   AdminEmailIndexRoute: typeof AdminEmailIndexRoute
+  AdminPlansIndexRoute: typeof AdminPlansIndexRoute
   AdminSecurityIndexRoute: typeof AdminSecurityIndexRoute
   AdminUsageAnalyticsIndexRoute: typeof AdminUsageAnalyticsIndexRoute
 }
@@ -4988,6 +5028,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
   AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
   AdminEmailIndexRoute: AdminEmailIndexRoute,
+  AdminPlansIndexRoute: AdminPlansIndexRoute,
   AdminSecurityIndexRoute: AdminSecurityIndexRoute,
   AdminUsageAnalyticsIndexRoute: AdminUsageAnalyticsIndexRoute,
 }
@@ -5454,6 +5495,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinIndexRoute: JoinIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
+  PlansIndexRoute: PlansIndexRoute,
   PrivacyIndexRoute: PrivacyIndexRoute,
   RequestsIndexRoute: RequestsIndexRoute,
   SignupIndexRoute: SignupIndexRoute,
