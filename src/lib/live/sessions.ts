@@ -202,9 +202,12 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
         ask_participant_name: Boolean(input.askParticipantName),
 
       })
-      .select("*")
+      .select(SESSION_COLUMNS)
       .single();
-    if (!error && data) return hydrateSession(data as Record<string, unknown>);
+    if (!error && data) {
+      const row = hydrateSession(data as Record<string, unknown>);
+      return { ...row, session_code: await fetchSessionCode(row.id) };
+    }
 
     lastError = error;
     if (error && (error as { code?: string }).code !== "23505") break;
