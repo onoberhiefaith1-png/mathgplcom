@@ -59,6 +59,7 @@ export async function uploadAvatar(file: File): Promise<string> {
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
   if (error) throw error;
+  meterClientUsage("storage.gb_month", bytesToGb(file.size), "avatar", "GB");
 
   const { error: saveError } = await supabase.from("profiles").update({ avatar_url: path }).eq("user_id", user.id);
   if (saveError) throw saveError;
