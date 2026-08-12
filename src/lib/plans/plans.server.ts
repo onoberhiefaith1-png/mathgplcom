@@ -184,8 +184,12 @@ export async function publishPlan(planId: string) {
   const db = await admin();
   const { error } = await db.rpc("publish_plan_version", { _plan_id: planId });
   if (error) throw new Error(error.message);
+  const { syncCatalogQuietly } = await import("@/lib/payments/catalogSync.server");
+  await syncCatalogQuietly("sandbox");
+  await syncCatalogQuietly("live");
   return planCatalogue();
 }
+
 
 export async function setPlanPresentation(input: {
   planId: string;
