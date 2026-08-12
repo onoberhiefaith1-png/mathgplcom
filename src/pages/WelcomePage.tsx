@@ -1,5 +1,6 @@
 import { Link } from "@/lib/router-compat";
-import { GraduationCap, LogIn, UserPlus } from "lucide-react";
+import { GraduationCap, LogIn, Tag, UserPlus } from "lucide-react";
+import { MERCHANT_OF_RECORD_STATEMENT, SELLER_LEGAL_NAME } from "@/lib/legal/seller";
 
 /**
  * The signed-out front door.
