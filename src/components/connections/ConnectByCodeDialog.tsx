@@ -149,11 +149,9 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
                   </Button>
                 </>
               ) : (
-                <p className="mt-2 text-sm text-slate-600">
-                  A {role ? ROLE_LABEL[role].toLowerCase() : "this"} account and a{" "}
-                  {ROLE_LABEL[found.role].toLowerCase()} account cannot be connected directly.
-                </p>
+                <p className="mt-2 text-sm text-slate-600">{noRelationReason(role, found.role)}</p>
               )}
+
             </div>
           )}
         </div>
