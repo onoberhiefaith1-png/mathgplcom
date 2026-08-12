@@ -60,7 +60,12 @@ export function mapViewAsPath(pathname: string, base: string): string {
   if (!pathname.startsWith("/")) return pathname;
   if (pathname === base || pathname.startsWith(`${base}/`)) return pathname;
   // Leaving the mirror on purpose stays allowed.
-  if (pathname.startsWith("/school") || pathname.startsWith("/auth") || pathname.startsWith("/login")) {
+  if (
+    pathname.startsWith("/school") ||
+    pathname.startsWith("/teaching-hub/students") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/login")
+  ) {
     return pathname;
   }
 
@@ -75,11 +80,17 @@ export function mapViewAsPath(pathname: string, base: string): string {
     return base;
   }
   if (first === "adventure") return `${base}/adventure`;
-  // A student's own pages: /student/classes and /student/class/:id.
+  // A student's own pages mirror one-for-one inside the viewing frame.
   if (first === "student") {
-    if (second === "class" && seg[2]) return `${base}/classes/${seg[2]}`;
+    if (!second) return base;
+    if (second === "class") return seg[2] ? `${base}/classes/${seg[2]}` : `${base}/classes`;
+    if (second === "classes") return seg[2] ? `${base}/classes/${seg[2]}` : `${base}/classes`;
+    if (second === "assignments" || second === "adventures" || second === "skill-builder" || second === "join") {
+      return `${base}/${second}`;
+    }
     return base;
   }
+
   if (first === "course-builder") return `${base}/skill-builder`;
 
   // Anything else has no read-only mirror — stay on the hub.
