@@ -72,12 +72,18 @@ const Index = () => {
         MathGPL Community
       </Link>
       <Link
-        to={role === "school" ? "/school" : "/teaching-hub"}
-        aria-label={role === "school" ? "Open School Console" : "Open Teaching Hub"}
+        to={role === "school" ? "/school" : role === "parent" ? "/family" : "/teaching-hub"}
+        aria-label={
+          role === "school"
+            ? "Open School Console"
+            : role === "parent"
+              ? "Open Parent Console"
+              : "Open Teaching Hub"
+        }
         className="fixed bottom-20 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
       >
         <GraduationCap className="h-4 w-4" />
-        {role === "school" ? "School Console" : "Teaching Hub"}
+        {role === "school" ? "School Console" : role === "parent" ? "Parent Console" : "Teaching Hub"}
       </Link>
       {isPlatformOwner && (
         <Link

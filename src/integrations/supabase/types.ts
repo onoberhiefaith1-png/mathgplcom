@@ -4272,12 +4272,36 @@ export type Database = {
       parent_child_overview: {
         Args: never
         Returns: {
+          adventures: number
+          assignments: number
           child_user_id: string
           classes: number
           display_name: string
           progress: number
           schools: number
+          skill_builder: number
           teachers: number
+          username: string
+        }[]
+      }
+      parent_family_activity: {
+        Args: never
+        Returns: {
+          child_name: string
+          child_user_id: string
+          happened_at: string
+          kind: string
+          title: string
+        }[]
+      }
+      parent_family_connections: {
+        Args: never
+        Returns: {
+          children: number
+          connected_at: string
+          kind: string
+          name: string
+          target_user_id: string
           username: string
         }[]
       }

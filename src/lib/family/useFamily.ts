@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { requestConnectionForChild } from "@/lib/connections/connections";
-import { fetchChildBreakdown, fetchChildren } from "./family";
+import {
+  fetchChildBreakdown,
+  fetchChildren,
+  fetchFamilyActivity,
+  fetchFamilyConnections,
+} from "./family";
+
 
 /** The children linked to the signed-in parent. */
 export const useChildren = () => {
@@ -49,4 +55,24 @@ export const useConnectChild = () => {
   });
 
   return { connectChild: send.mutateAsync, connecting: send.isPending };
+};
+
+/** Schools and teachers connected to the parent's children. */
+export const useFamilyConnections = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["family-connections", user?.id ?? "anon"],
+    enabled: Boolean(user?.id),
+    queryFn: fetchFamilyConnections,
+  });
+};
+
+/** The latest completions across the parent's children. */
+export const useFamilyActivity = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["family-activity", user?.id ?? "anon"],
+    enabled: Boolean(user?.id),
+    queryFn: fetchFamilyActivity,
+  });
 };
