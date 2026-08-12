@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("smart-graph");
 // smart-graph — turn a teacher prompt + scale into a plotted data set.
 // Returns { points: [{x,y}], connect: "straight"|"smooth"|"broken"|"scatter", xLabel?, yLabel? }.
 // The teacher always remains in control: the response is just suggested

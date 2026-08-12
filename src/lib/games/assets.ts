@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { AssetKind, GAME_ASSETS_BUCKET, GameAssetRow } from "./types";
 import { isVideoFile, makeTransparent, mediaTypeOf } from "./removeBackground";
+import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
 
 const rand = () => Math.random().toString(36).slice(2, 10);
 
@@ -31,6 +32,7 @@ export const uploadGameAsset = async (
     .from(GAME_ASSETS_BUCKET)
     .upload(origPath, file, { contentType: file.type || undefined, upsert: false });
   if (up1.error) throw up1.error;
+  meterClientUsage("storage.gb_month", bytesToGb(file.size), `game-asset:${kind}`, "GB");
 
   let processedPath: string | null = null;
   let processedStatus: GameAssetRow["processed_status"] = "none";

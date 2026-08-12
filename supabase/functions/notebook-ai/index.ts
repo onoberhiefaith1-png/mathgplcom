@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("notebook-ai");
 // Notebook AI: generate section content OR extract math from an image.
 // Uses Lovable AI Gateway.
 import { createClient } from "npm:@supabase/supabase-js@2";

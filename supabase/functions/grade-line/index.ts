@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("grade-line");
 // grade-line — per-line mathematical equivalence grader.
 //
 // Compares the student's single line (as ASCII) against the teacher's stored

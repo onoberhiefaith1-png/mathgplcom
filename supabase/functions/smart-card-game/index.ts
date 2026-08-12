@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("smart-card-game");
 // smart-card-game — public Adventure play for a Smart Card published as a
 // Game Challenge.
 //

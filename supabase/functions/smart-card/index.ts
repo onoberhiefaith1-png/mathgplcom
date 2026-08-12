@@ -1,3 +1,5 @@
+import { meterFunction } from "../_shared/usageMeter.ts";
+meterFunction("smart-card");
 // smart-card — public endpoint for published Smart Cards.
 //
 // A Smart Card is a published Lesson Note question. Anyone on the internet can
