@@ -226,6 +226,20 @@ const AdminConsole = () => {
           >
             Cost Analytics
           </Link>
+          <Link
+            to="/admin/usage-analytics"
+            className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface backdrop-blur transition hover:bg-dash-surface/20"
+          >
+            Usage Analytics
+          </Link>
+          <Link
+            to="/admin/cost-revenue"
+            className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface backdrop-blur transition hover:bg-dash-surface/20"
+          >
+            Usage &amp; Revenue
+          </Link>
+
+
 
 
           <button
