@@ -18,7 +18,7 @@ export async function hasCreditsForGeneration(estimated = 0.05): Promise<boolean
 
   const { data, error } = await supabase.rpc("can_afford_usage", {
     _user_id: userId,
-    _org_id: profile?.active_org_id ?? null,
+    _org_id: (profile?.active_org_id ?? null) as unknown as string,
     _estimated: estimated,
   });
   if (error) return true; // Accounting must never break a lesson.
