@@ -15,6 +15,7 @@ const CourseBuilderLibrary = () => {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
+  const { allowEdit } = useViewAs();
 
   const refresh = async () => {
     try {
