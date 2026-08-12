@@ -4358,6 +4358,10 @@ export type Database = {
         Returns: string
       }
       shares_class_with: { Args: { _other: string }; Returns: boolean }
+      signup_role_of: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       username_is_valid: { Args: { _username: string }; Returns: boolean }
       workspace_students: {
         Args: { _org_id: string }
