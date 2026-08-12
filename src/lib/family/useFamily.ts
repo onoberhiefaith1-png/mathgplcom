@@ -56,3 +56,23 @@ export const useConnectChild = () => {
 
   return { connectChild: send.mutateAsync, connecting: send.isPending };
 };
+
+/** Schools and teachers connected to the parent's children. */
+export const useFamilyConnections = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["family-connections", user?.id ?? "anon"],
+    enabled: Boolean(user?.id),
+    queryFn: fetchFamilyConnections,
+  });
+};
+
+/** The latest completions across the parent's children. */
+export const useFamilyActivity = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["family-activity", user?.id ?? "anon"],
+    enabled: Boolean(user?.id),
+    queryFn: fetchFamilyActivity,
+  });
+};
