@@ -80,8 +80,10 @@ export default function PlansPage() {
   const rows = useMemo(() => plans.data?.plans ?? [], [plans.data?.plans]);
 
   return (
-    <main className="cinematic-sky min-h-screen p-6 text-foreground">
-      <div className="mx-auto max-w-6xl">
+    <main className="cinematic-sky min-h-screen text-foreground">
+      <PaymentTestModeBanner />
+      <div className="mx-auto max-w-6xl p-6">
+
         <p className="text-xs uppercase tracking-[0.4em] text-primary">MathGPL</p>
         <h1 className="mt-2 text-3xl font-semibold">Your plan</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
