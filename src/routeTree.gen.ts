@@ -107,7 +107,6 @@ import { Route as NotebookScanCodeIndexRouteImport } from './routes/notebook-sca
 import { Route as SchoolStudentsIndexRouteImport } from './routes/school/students/index'
 import { Route as SchoolStudentsUserIdRouteImport } from './routes/school/students/$userId'
 import { Route as SchoolTeachersIndexRouteImport } from './routes/school/teachers/index'
-import { Route as SchoolTeachersUserIdRouteImport } from './routes/school/teachers/$userId'
 import { Route as SmartboardNotebookIdIndexRouteImport } from './routes/smartboard/$notebookId/index'
 import { Route as StudentClassesIndexRouteImport } from './routes/student/classes/index'
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
@@ -717,11 +716,6 @@ const SchoolStudentsUserIdRoute = SchoolStudentsUserIdRouteImport.update({
 const SchoolTeachersIndexRoute = SchoolTeachersIndexRouteImport.update({
   id: '/teachers/',
   path: '/teachers/',
-  getParentRoute: () => SchoolRouteRoute,
-} as any)
-const SchoolTeachersUserIdRoute = SchoolTeachersUserIdRouteImport.update({
-  id: '/teachers/$userId',
-  path: '/teachers/$userId',
   getParentRoute: () => SchoolRouteRoute,
 } as any)
 const SmartboardNotebookIdIndexRoute =
@@ -1443,7 +1437,6 @@ export interface FileRoutesByFullPath {
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/school/students/$userId': typeof SchoolStudentsUserIdRoute
-  '/school/teachers/$userId': typeof SchoolTeachersUserIdRoute
   '/teaching-hub/students/$userId': typeof TeachingHubStudentsUserIdRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
@@ -1647,7 +1640,6 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/school/students/$userId': typeof SchoolStudentsUserIdRoute
-  '/school/teachers/$userId': typeof SchoolTeachersUserIdRoute
   '/teaching-hub/students/$userId': typeof TeachingHubStudentsUserIdRoute
   '/admin/email': typeof AdminEmailIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
@@ -1863,7 +1855,6 @@ export interface FileRoutesById {
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/school/students/$userId': typeof SchoolStudentsUserIdRoute
-  '/school/teachers/$userId': typeof SchoolTeachersUserIdRoute
   '/teaching-hub/students/$userId': typeof TeachingHubStudentsUserIdRoute
   '/admin/email/': typeof AdminEmailIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
@@ -2080,7 +2071,6 @@ export interface FileRouteTypes {
     | '/terms/'
     | '/.lovable/oauth/consent'
     | '/school/students/$userId'
-    | '/school/teachers/$userId'
     | '/teaching-hub/students/$userId'
     | '/admin/email/'
     | '/admin/security/'
@@ -2284,7 +2274,6 @@ export interface FileRouteTypes {
     | '/terms'
     | '/.lovable/oauth/consent'
     | '/school/students/$userId'
-    | '/school/teachers/$userId'
     | '/teaching-hub/students/$userId'
     | '/admin/email'
     | '/admin/security'
@@ -2499,7 +2488,6 @@ export interface FileRouteTypes {
     | '/terms/'
     | '/.lovable/oauth/consent'
     | '/school/students/$userId'
-    | '/school/teachers/$userId'
     | '/teaching-hub/students/$userId'
     | '/admin/email/'
     | '/admin/security/'
@@ -3466,13 +3454,6 @@ declare module '@tanstack/react-router' {
       path: '/teachers'
       fullPath: '/school/teachers/'
       preLoaderRoute: typeof SchoolTeachersIndexRouteImport
-      parentRoute: typeof SchoolRouteRoute
-    }
-    '/school/teachers/$userId': {
-      id: '/school/teachers/$userId'
-      path: '/teachers/$userId'
-      fullPath: '/school/teachers/$userId'
-      preLoaderRoute: typeof SchoolTeachersUserIdRouteImport
       parentRoute: typeof SchoolRouteRoute
     }
     '/smartboard/$notebookId/': {
@@ -4486,7 +4467,6 @@ const LiveRouteRouteWithChildren = LiveRouteRoute._addFileChildren(
 interface SchoolRouteRouteChildren {
   SchoolIndexRoute: typeof SchoolIndexRoute
   SchoolStudentsUserIdRoute: typeof SchoolStudentsUserIdRoute
-  SchoolTeachersUserIdRoute: typeof SchoolTeachersUserIdRoute
   SchoolStudentsIndexRoute: typeof SchoolStudentsIndexRoute
   SchoolTeachersIndexRoute: typeof SchoolTeachersIndexRoute
 }
@@ -4494,7 +4474,6 @@ interface SchoolRouteRouteChildren {
 const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolIndexRoute: SchoolIndexRoute,
   SchoolStudentsUserIdRoute: SchoolStudentsUserIdRoute,
-  SchoolTeachersUserIdRoute: SchoolTeachersUserIdRoute,
   SchoolStudentsIndexRoute: SchoolStudentsIndexRoute,
   SchoolTeachersIndexRoute: SchoolTeachersIndexRoute,
 }
