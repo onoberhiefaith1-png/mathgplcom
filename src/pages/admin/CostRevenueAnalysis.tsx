@@ -13,8 +13,10 @@ import {
   fetchPromoCodes,
   fetchRevenueLedger,
   grantAccountCredits,
+  recordUsagePayment,
   savePromoCodeFn,
 } from "@/lib/costs/usage.functions";
+
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -52,6 +54,8 @@ export default function CostRevenueAnalysis() {
   const [costUnitId, setCostUnitId] = useState<string | undefined>(undefined);
   const [open, setOpen] = useState<string | null>(null);
   const [creditAmount, setCreditAmount] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+
   const [promoDraft, setPromoDraft] = useState({ code: "", kind: "discount", discountPercentage: "20", label: "" });
 
   const { from, to } = useMemo(() => {
@@ -81,6 +85,20 @@ export default function CostRevenueAnalysis() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const payment = useMutation({
+    mutationFn: (input: { costUnitId: string; amount: number }) => recordUsagePayment({ data: input }),
+    onSuccess: (r) => {
+      toast.success(`Applied to ${r.applied} usage line${r.applied === 1 ? "" : "s"}.`);
+      setPaymentAmount("");
+      void qc.invalidateQueries({ queryKey: ["revenue-ledger"] });
+      void qc.invalidateQueries({ queryKey: ["revenue-accounts"] });
+      void qc.invalidateQueries({ queryKey: ["usage-analytics"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
 
   const savePromo = useMutation({
     mutationFn: () =>
@@ -335,12 +353,37 @@ export default function CostRevenueAnalysis() {
                 Add credits
               </Button>
             </div>
+            <div className="mt-4 border-t border-dash-surface/10 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface/70">Record a payment</p>
+              <p className="mt-1 text-xs text-dash-surface/60">
+                Money received is applied to this account's unpaid usage, oldest first — each settled line turns from a
+                loss into profit.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Input
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="Amount received"
+                  className="h-9 w-40"
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!costUnitId || !paymentAmount || payment.isPending}
+                  onClick={() => payment.mutate({ costUnitId: costUnitId!, amount: Number(paymentAmount) })}
+                >
+                  {payment.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                  Apply payment
+                </Button>
+              </div>
+            </div>
             {selectedAccount && (
               <p className="mt-2 text-xs text-dash-surface/70">
                 {selectedAccount.name} balance: {money(selectedAccount.balance, currency)}
               </p>
             )}
           </div>
+
 
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
             <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">Promo &amp; staff codes</h2>

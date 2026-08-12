@@ -97,6 +97,60 @@ export const savePromoCodeFn = createServerFn({ method: "POST" })
     return { rows: await savePromoCode(data) };
   });
 
+/**
+ * Import a day of real platform usage (Lovable credit meter) for one account.
+ * Re-importing the same day replaces it, so figures never double count.
+ */
+export const importPlatformUsage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        costUnitId: z.string().uuid(),
+        day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        creditRate: z.number().min(0).max(1000),
+        rows: z
+          .array(
+            z.object({
+              category: z.enum(COST_CATEGORIES),
+              credits: z.number().min(0).max(10_000_000),
+              model: z.string().max(120).optional(),
+              label: z.string().max(120).optional(),
+            }),
+          )
+          .min(1)
+          .max(60),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    await guard(context.supabase, context.userId);
+    const { data: count, error } = await context.supabase.rpc("import_platform_usage", {
+      _cost_unit_id: data.costUnitId,
+      _day: data.day,
+      _rows: data.rows,
+      _credit_rate: data.creditRate,
+    });
+    if (error) throw new Error(error.message);
+    return { imported: Number(count ?? 0) };
+  });
+
+/** Record money received against an account's unpaid usage, oldest first. */
+export const recordUsagePayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z.object({ costUnitId: z.string().uuid(), amount: z.number().min(0).max(1_000_000) }).parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    await guard(context.supabase, context.userId);
+    const { data: applied, error } = await context.supabase.rpc("apply_usage_payment", {
+      _cost_unit_id: data.costUnitId,
+      _amount: data.amount,
+    });
+    if (error) throw new Error(error.message);
+    return { applied: Number(applied ?? 0) };
+  });
+
 /** A signed-in account's own credit balance — no cost or margin is exposed. */
 export const fetchMyCredits = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -104,6 +158,7 @@ export const fetchMyCredits = createServerFn({ method: "GET" })
     const { data } = await context.supabase.rpc("my_credit_balance");
     return { balance: Number(data ?? 0) };
   });
+
 
 export const redeemCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
