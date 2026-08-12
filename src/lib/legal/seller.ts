@@ -8,7 +8,7 @@
  */
 
 /** Legal seller as configured in the payment account (sole proprietor). */
-export const SELLER_LEGAL_NAME = "Onoberhie Faith";
+export const SELLER_LEGAL_NAME = "Faith Gabriel Onoberhie";
 
 /** Public product / brand name. */
 export const BRAND = "MathGPL";
