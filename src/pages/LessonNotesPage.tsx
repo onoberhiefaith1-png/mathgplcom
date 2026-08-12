@@ -40,6 +40,10 @@ const PAGE_SIZE = 20;
 
 const LessonNotesPage = () => {
   const navigate = useNavigate();
+  // Someone else's shelf can be opened read-only (school → teacher): the page
+  // is identical, only the authoring actions are refused.
+  const { viewOnly, allowEdit } = useViewAs();
+
   // Keep the MathGPL Live context when opening a note so Live-only tools
   // (Smart Card publishing) stay available.
   const livePrefix = useLocation().pathname.startsWith("/live") ? "/live" : "";
