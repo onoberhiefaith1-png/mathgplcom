@@ -120,7 +120,7 @@ export async function fetchSharedClassDetail(classId: string): Promise<SharedCla
       .select("id, title, status, due_at")
       .eq("class_id", classId)
       .order("created_at", { ascending: false }),
-    supabase.from("adventure_games").select("id", { count: "exact", head: true }).eq("class_id", classId),
+    supabase.from("class_games").select("id", { count: "exact", head: true }).eq("class_id", classId),
     supabase.from("student_course_progress").select("progress").eq("class_id", classId),
   ]);
 
