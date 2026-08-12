@@ -244,6 +244,12 @@ async function claim(event: { event_id?: string; event_type: string }, env: Padd
 
 async function settle(eventId: string | undefined, status: string, error?: string) {
   if (!eventId) return;
+  if (status === "failed") {
+    // Release the claim so the provider's retry can be processed properly.
+    await db().from("payment_events").delete().eq("provider", "paddle").eq("event_id", eventId);
+    console.error("Payment event released for retry:", eventId, error);
+    return;
+  }
   await db()
     .from("payment_events")
     .update({ status, error: error ?? null, updated_at: new Date().toISOString() })
