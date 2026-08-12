@@ -141,3 +141,109 @@ export const reportUsage = createServerFn({ method: "POST" })
     });
     return { ok: true, categories: COST_CATEGORIES.length };
   });
+
+/* ─────────── Platform credit economy ─────────── */
+
+export const fetchCreditInventory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { inventory: await costs.creditInventory() };
+  });
+
+export const saveCreditPurchase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        credits: z.number().positive().max(100_000_000),
+        unitCost: z.number().min(0).max(1_000_000),
+        currency: z.string().min(3).max(6).optional(),
+        note: z.string().max(200).optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { inventory: await costs.addCreditPurchase({ ...data, userId: context.userId }) };
+  });
+
+/** Cost price, profit percentage and the resulting sell price per currency. */
+export const fetchPricingEngine = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    const [base, currencies, plans] = await Promise.all([
+      costs.resolvePricing("GBP"),
+      costs.currencyPricing(),
+      costs.planCatalogue(),
+    ]);
+    return { base, currencies, plans };
+  });
+
+export const saveCurrencyPricing = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        currency: z.string().min(3).max(6),
+        creditValue: z.number().min(0).max(1_000_000),
+        profitPercentage: z.number().min(0).max(10_000).nullable(),
+        followsBase: z.boolean(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await costs.setCurrencyPricing({ ...data, userId: context.userId }) };
+  });
+
+export const savePlanPricing = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        key: z.string().min(2).max(60),
+        subscriptionAmount: z.number().min(0).max(1_000_000),
+        creditAmount: z.number().min(0).max(1_000_000),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { plans: await costs.savePlanAmounts(data) };
+  });
+
+export const fetchStaffCodes = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await costs.staffCodes() };
+  });
+
+export const saveStaffCodeFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        code: z.string().min(2).max(40),
+        label: z.string().max(120).optional(),
+        entitlement: z.string().min(2).max(40),
+        active: z.boolean(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await costs.saveStaffCode({ ...data, userId: context.userId }) };
+  });
+
+/** Any signed-in member can redeem a staff code; entitlement, never money. */
+export const redeemStaffCode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ code: z.string().min(2).max(40) }).parse(data))
+  .handler(async ({ context, data }) => {
+    const { data: result, error } = await context.supabase.rpc("redeem_staff_code", { _code: data.code });
+    if (error) throw new Error(error.message);
+    return { result: String(result ?? "invalid") };
+  });
