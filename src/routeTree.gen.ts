@@ -128,6 +128,7 @@ import { Route as ChallengeSlugGameIndexRouteImport } from './routes/challenge/$
 import { Route as ChallengeSlugSolveIndexRouteImport } from './routes/challenge/$slug/solve/index'
 import { Route as CommunityAdventureIdIndexRouteImport } from './routes/community/adventure/$id/index'
 import { Route as CommunityNoteIdIndexRouteImport } from './routes/community/note/$id/index'
+import { Route as FamilyChildrenChildIdIndexRouteImport } from './routes/family/children/$childId/index'
 import { Route as GamesAbacusModeIndexRouteImport } from './routes/games/abacus/$mode/index'
 import { Route as GamesAbacusRepresentIndexRouteImport } from './routes/games/abacus/represent/index'
 import { Route as GamesAdditionDifficultyIndexRouteImport } from './routes/games/addition/$difficulty/index'
@@ -171,6 +172,12 @@ import { Route as TeachingHubClassesClassIdIndexRouteImport } from './routes/tea
 import { Route as TeachingHubClassesCreateIndexRouteImport } from './routes/teaching-hub/classes/create/index'
 import { Route as TeachingHubSettingsArchiveIndexRouteImport } from './routes/teaching-hub/settings/archive/index'
 import { Route as TeachingHubStudentsUserIdIndexRouteImport } from './routes/teaching-hub/students/$userId/index'
+import { Route as FamilyChildrenChildIdAdventuresIndexRouteImport } from './routes/family/children/$childId/adventures/index'
+import { Route as FamilyChildrenChildIdAssignmentsIndexRouteImport } from './routes/family/children/$childId/assignments/index'
+import { Route as FamilyChildrenChildIdClassesIndexRouteImport } from './routes/family/children/$childId/classes/index'
+import { Route as FamilyChildrenChildIdClassesClassIdRouteImport } from './routes/family/children/$childId/classes/$classId'
+import { Route as FamilyChildrenChildIdJoinIndexRouteImport } from './routes/family/children/$childId/join/index'
+import { Route as FamilyChildrenChildIdSkillBuilderIndexRouteImport } from './routes/family/children/$childId/skill-builder/index'
 import { Route as GamesAbacusRepresentDifficultyIndexRouteImport } from './routes/games/abacus/represent/$difficulty/index'
 import { Route as GamesDecimalsKindDifficultyIndexRouteImport } from './routes/games/decimals/$kind/$difficulty/index'
 import { Route as GamesFractionChallengeAdditionDifficultyIndexRouteImport } from './routes/games/fraction-challenge/addition/$difficulty/index'
@@ -856,6 +863,12 @@ const CommunityNoteIdIndexRoute = CommunityNoteIdIndexRouteImport.update({
   path: '/note/$id/',
   getParentRoute: () => CommunityRouteRoute,
 } as any)
+const FamilyChildrenChildIdIndexRoute =
+  FamilyChildrenChildIdIndexRouteImport.update({
+    id: '/children/$childId/',
+    path: '/children/$childId/',
+    getParentRoute: () => FamilyRouteRoute,
+  } as any)
 const GamesAbacusModeIndexRoute = GamesAbacusModeIndexRouteImport.update({
   id: '/games/abacus/$mode/',
   path: '/games/abacus/$mode/',
@@ -1104,6 +1117,42 @@ const TeachingHubStudentsUserIdIndexRoute =
     id: '/students/$userId/',
     path: '/students/$userId/',
     getParentRoute: () => TeachingHubRouteRoute,
+  } as any)
+const FamilyChildrenChildIdAdventuresIndexRoute =
+  FamilyChildrenChildIdAdventuresIndexRouteImport.update({
+    id: '/children/$childId/adventures/',
+    path: '/children/$childId/adventures/',
+    getParentRoute: () => FamilyRouteRoute,
+  } as any)
+const FamilyChildrenChildIdAssignmentsIndexRoute =
+  FamilyChildrenChildIdAssignmentsIndexRouteImport.update({
+    id: '/children/$childId/assignments/',
+    path: '/children/$childId/assignments/',
+    getParentRoute: () => FamilyRouteRoute,
+  } as any)
+const FamilyChildrenChildIdClassesIndexRoute =
+  FamilyChildrenChildIdClassesIndexRouteImport.update({
+    id: '/children/$childId/classes/',
+    path: '/children/$childId/classes/',
+    getParentRoute: () => FamilyRouteRoute,
+  } as any)
+const FamilyChildrenChildIdClassesClassIdRoute =
+  FamilyChildrenChildIdClassesClassIdRouteImport.update({
+    id: '/children/$childId/classes/$classId',
+    path: '/children/$childId/classes/$classId',
+    getParentRoute: () => FamilyRouteRoute,
+  } as any)
+const FamilyChildrenChildIdJoinIndexRoute =
+  FamilyChildrenChildIdJoinIndexRouteImport.update({
+    id: '/children/$childId/join/',
+    path: '/children/$childId/join/',
+    getParentRoute: () => FamilyRouteRoute,
+  } as any)
+const FamilyChildrenChildIdSkillBuilderIndexRoute =
+  FamilyChildrenChildIdSkillBuilderIndexRouteImport.update({
+    id: '/children/$childId/skill-builder/',
+    path: '/children/$childId/skill-builder/',
+    getParentRoute: () => FamilyRouteRoute,
   } as any)
 const GamesAbacusRepresentDifficultyIndexRoute =
   GamesAbacusRepresentDifficultyIndexRouteImport.update({
@@ -1687,6 +1736,7 @@ export interface FileRoutesByFullPath {
   '/challenge/$slug/solve/': typeof ChallengeSlugSolveIndexRoute
   '/community/adventure/$id/': typeof CommunityAdventureIdIndexRoute
   '/community/note/$id/': typeof CommunityNoteIdIndexRoute
+  '/family/children/$childId/': typeof FamilyChildrenChildIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent/': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty/': typeof GamesAdditionDifficultyIndexRoute
@@ -1725,11 +1775,17 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/classes/create/': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
   '/teaching-hub/students/$userId/': typeof TeachingHubStudentsUserIdIndexRoute
+  '/family/children/$childId/classes/$classId': typeof FamilyChildrenChildIdClassesClassIdRoute
   '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
+  '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
+  '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
+  '/family/children/$childId/join/': typeof FamilyChildrenChildIdJoinIndexRoute
+  '/family/children/$childId/skill-builder/': typeof FamilyChildrenChildIdSkillBuilderIndexRoute
   '/games/abacus/represent/$difficulty/': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty/': typeof GamesDecimalsKindDifficultyIndexRoute
   '/games/fraction-challenge/addition/$difficulty/': typeof GamesFractionChallengeAdditionDifficultyIndexRoute
@@ -1915,6 +1971,7 @@ export interface FileRoutesByTo {
   '/challenge/$slug/solve': typeof ChallengeSlugSolveIndexRoute
   '/community/adventure/$id': typeof CommunityAdventureIdIndexRoute
   '/community/note/$id': typeof CommunityNoteIdIndexRoute
+  '/family/children/$childId': typeof FamilyChildrenChildIdIndexRoute
   '/games/abacus/$mode': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty': typeof GamesAdditionDifficultyIndexRoute
@@ -1953,11 +2010,17 @@ export interface FileRoutesByTo {
   '/teaching-hub/classes/create': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive': typeof TeachingHubSettingsArchiveIndexRoute
   '/teaching-hub/students/$userId': typeof TeachingHubStudentsUserIdIndexRoute
+  '/family/children/$childId/classes/$classId': typeof FamilyChildrenChildIdClassesClassIdRoute
   '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/family/children/$childId/adventures': typeof FamilyChildrenChildIdAdventuresIndexRoute
+  '/family/children/$childId/assignments': typeof FamilyChildrenChildIdAssignmentsIndexRoute
+  '/family/children/$childId/classes': typeof FamilyChildrenChildIdClassesIndexRoute
+  '/family/children/$childId/join': typeof FamilyChildrenChildIdJoinIndexRoute
+  '/family/children/$childId/skill-builder': typeof FamilyChildrenChildIdSkillBuilderIndexRoute
   '/games/abacus/represent/$difficulty': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty': typeof GamesDecimalsKindDifficultyIndexRoute
   '/games/fraction-challenge/addition/$difficulty': typeof GamesFractionChallengeAdditionDifficultyIndexRoute
@@ -2155,6 +2218,7 @@ export interface FileRoutesById {
   '/challenge/$slug/solve/': typeof ChallengeSlugSolveIndexRoute
   '/community/adventure/$id/': typeof CommunityAdventureIdIndexRoute
   '/community/note/$id/': typeof CommunityNoteIdIndexRoute
+  '/family/children/$childId/': typeof FamilyChildrenChildIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent/': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty/': typeof GamesAdditionDifficultyIndexRoute
@@ -2193,11 +2257,17 @@ export interface FileRoutesById {
   '/teaching-hub/classes/create/': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
   '/teaching-hub/students/$userId/': typeof TeachingHubStudentsUserIdIndexRoute
+  '/family/children/$childId/classes/$classId': typeof FamilyChildrenChildIdClassesClassIdRoute
   '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
+  '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
+  '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
+  '/family/children/$childId/join/': typeof FamilyChildrenChildIdJoinIndexRoute
+  '/family/children/$childId/skill-builder/': typeof FamilyChildrenChildIdSkillBuilderIndexRoute
   '/games/abacus/represent/$difficulty/': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty/': typeof GamesDecimalsKindDifficultyIndexRoute
   '/games/fraction-challenge/addition/$difficulty/': typeof GamesFractionChallengeAdditionDifficultyIndexRoute
@@ -2396,6 +2466,7 @@ export interface FileRouteTypes {
     | '/challenge/$slug/solve/'
     | '/community/adventure/$id/'
     | '/community/note/$id/'
+    | '/family/children/$childId/'
     | '/games/abacus/$mode/'
     | '/games/abacus/represent/'
     | '/games/addition/$difficulty/'
@@ -2434,11 +2505,17 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/create/'
     | '/teaching-hub/settings/archive/'
     | '/teaching-hub/students/$userId/'
+    | '/family/children/$childId/classes/$classId'
     | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/family/children/$childId/adventures/'
+    | '/family/children/$childId/assignments/'
+    | '/family/children/$childId/classes/'
+    | '/family/children/$childId/join/'
+    | '/family/children/$childId/skill-builder/'
     | '/games/abacus/represent/$difficulty/'
     | '/games/decimals/$kind/$difficulty/'
     | '/games/fraction-challenge/addition/$difficulty/'
@@ -2624,6 +2701,7 @@ export interface FileRouteTypes {
     | '/challenge/$slug/solve'
     | '/community/adventure/$id'
     | '/community/note/$id'
+    | '/family/children/$childId'
     | '/games/abacus/$mode'
     | '/games/abacus/represent'
     | '/games/addition/$difficulty'
@@ -2662,11 +2740,17 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/create'
     | '/teaching-hub/settings/archive'
     | '/teaching-hub/students/$userId'
+    | '/family/children/$childId/classes/$classId'
     | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/family/children/$childId/adventures'
+    | '/family/children/$childId/assignments'
+    | '/family/children/$childId/classes'
+    | '/family/children/$childId/join'
+    | '/family/children/$childId/skill-builder'
     | '/games/abacus/represent/$difficulty'
     | '/games/decimals/$kind/$difficulty'
     | '/games/fraction-challenge/addition/$difficulty'
@@ -2863,6 +2947,7 @@ export interface FileRouteTypes {
     | '/challenge/$slug/solve/'
     | '/community/adventure/$id/'
     | '/community/note/$id/'
+    | '/family/children/$childId/'
     | '/games/abacus/$mode/'
     | '/games/abacus/represent/'
     | '/games/addition/$difficulty/'
@@ -2901,11 +2986,17 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/create/'
     | '/teaching-hub/settings/archive/'
     | '/teaching-hub/students/$userId/'
+    | '/family/children/$childId/classes/$classId'
     | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/family/children/$childId/adventures/'
+    | '/family/children/$childId/assignments/'
+    | '/family/children/$childId/classes/'
+    | '/family/children/$childId/join/'
+    | '/family/children/$childId/skill-builder/'
     | '/games/abacus/represent/$difficulty/'
     | '/games/decimals/$kind/$difficulty/'
     | '/games/fraction-challenge/addition/$difficulty/'
@@ -3926,6 +4017,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityNoteIdIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
+    '/family/children/$childId/': {
+      id: '/family/children/$childId/'
+      path: '/children/$childId'
+      fullPath: '/family/children/$childId/'
+      preLoaderRoute: typeof FamilyChildrenChildIdIndexRouteImport
+      parentRoute: typeof FamilyRouteRoute
+    }
     '/games/abacus/$mode/': {
       id: '/games/abacus/$mode/'
       path: '/games/abacus/$mode'
@@ -4226,6 +4324,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/teaching-hub/students/$userId/'
       preLoaderRoute: typeof TeachingHubStudentsUserIdIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
+    }
+    '/family/children/$childId/adventures/': {
+      id: '/family/children/$childId/adventures/'
+      path: '/children/$childId/adventures'
+      fullPath: '/family/children/$childId/adventures/'
+      preLoaderRoute: typeof FamilyChildrenChildIdAdventuresIndexRouteImport
+      parentRoute: typeof FamilyRouteRoute
+    }
+    '/family/children/$childId/assignments/': {
+      id: '/family/children/$childId/assignments/'
+      path: '/children/$childId/assignments'
+      fullPath: '/family/children/$childId/assignments/'
+      preLoaderRoute: typeof FamilyChildrenChildIdAssignmentsIndexRouteImport
+      parentRoute: typeof FamilyRouteRoute
+    }
+    '/family/children/$childId/classes/': {
+      id: '/family/children/$childId/classes/'
+      path: '/children/$childId/classes'
+      fullPath: '/family/children/$childId/classes/'
+      preLoaderRoute: typeof FamilyChildrenChildIdClassesIndexRouteImport
+      parentRoute: typeof FamilyRouteRoute
+    }
+    '/family/children/$childId/classes/$classId': {
+      id: '/family/children/$childId/classes/$classId'
+      path: '/children/$childId/classes/$classId'
+      fullPath: '/family/children/$childId/classes/$classId'
+      preLoaderRoute: typeof FamilyChildrenChildIdClassesClassIdRouteImport
+      parentRoute: typeof FamilyRouteRoute
+    }
+    '/family/children/$childId/join/': {
+      id: '/family/children/$childId/join/'
+      path: '/children/$childId/join'
+      fullPath: '/family/children/$childId/join/'
+      preLoaderRoute: typeof FamilyChildrenChildIdJoinIndexRouteImport
+      parentRoute: typeof FamilyRouteRoute
+    }
+    '/family/children/$childId/skill-builder/': {
+      id: '/family/children/$childId/skill-builder/'
+      path: '/children/$childId/skill-builder'
+      fullPath: '/family/children/$childId/skill-builder/'
+      preLoaderRoute: typeof FamilyChildrenChildIdSkillBuilderIndexRouteImport
+      parentRoute: typeof FamilyRouteRoute
     }
     '/games/abacus/represent/$difficulty/': {
       id: '/games/abacus/represent/$difficulty/'
@@ -4851,11 +4991,30 @@ const CourseBuilderRouteRouteWithChildren =
 interface FamilyRouteRouteChildren {
   FamilyIndexRoute: typeof FamilyIndexRoute
   FamilyTeachersIndexRoute: typeof FamilyTeachersIndexRoute
+  FamilyChildrenChildIdIndexRoute: typeof FamilyChildrenChildIdIndexRoute
+  FamilyChildrenChildIdClassesClassIdRoute: typeof FamilyChildrenChildIdClassesClassIdRoute
+  FamilyChildrenChildIdAdventuresIndexRoute: typeof FamilyChildrenChildIdAdventuresIndexRoute
+  FamilyChildrenChildIdAssignmentsIndexRoute: typeof FamilyChildrenChildIdAssignmentsIndexRoute
+  FamilyChildrenChildIdClassesIndexRoute: typeof FamilyChildrenChildIdClassesIndexRoute
+  FamilyChildrenChildIdJoinIndexRoute: typeof FamilyChildrenChildIdJoinIndexRoute
+  FamilyChildrenChildIdSkillBuilderIndexRoute: typeof FamilyChildrenChildIdSkillBuilderIndexRoute
 }
 
 const FamilyRouteRouteChildren: FamilyRouteRouteChildren = {
   FamilyIndexRoute: FamilyIndexRoute,
   FamilyTeachersIndexRoute: FamilyTeachersIndexRoute,
+  FamilyChildrenChildIdIndexRoute: FamilyChildrenChildIdIndexRoute,
+  FamilyChildrenChildIdClassesClassIdRoute:
+    FamilyChildrenChildIdClassesClassIdRoute,
+  FamilyChildrenChildIdAdventuresIndexRoute:
+    FamilyChildrenChildIdAdventuresIndexRoute,
+  FamilyChildrenChildIdAssignmentsIndexRoute:
+    FamilyChildrenChildIdAssignmentsIndexRoute,
+  FamilyChildrenChildIdClassesIndexRoute:
+    FamilyChildrenChildIdClassesIndexRoute,
+  FamilyChildrenChildIdJoinIndexRoute: FamilyChildrenChildIdJoinIndexRoute,
+  FamilyChildrenChildIdSkillBuilderIndexRoute:
+    FamilyChildrenChildIdSkillBuilderIndexRoute,
 }
 
 const FamilyRouteRouteWithChildren = FamilyRouteRoute._addFileChildren(
