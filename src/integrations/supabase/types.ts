@@ -1741,6 +1741,7 @@ export type Database = {
           id: string
           learning_days: number
           learning_mode: string
+          org_id: string | null
           owner_id: string
           pass_mark: number
           status: string
@@ -1761,6 +1762,7 @@ export type Database = {
           id?: string
           learning_days?: number
           learning_mode?: string
+          org_id?: string | null
           owner_id: string
           pass_mark?: number
           status?: string
@@ -1781,6 +1783,7 @@ export type Database = {
           id?: string
           learning_days?: number
           learning_mode?: string
+          org_id?: string | null
           owner_id?: string
           pass_mark?: number
           status?: string
@@ -1790,7 +1793,15 @@ export type Database = {
           topic?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "courses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       custom_assets: {
         Row: {
