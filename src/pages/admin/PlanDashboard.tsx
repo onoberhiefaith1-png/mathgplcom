@@ -13,12 +13,15 @@ import { AUDIENCE_LABEL, SUBSCRIBING_AUDIENCES } from "@/lib/costs/pricing";
 import { includedCredits, sellPrice } from "@/lib/costs/pricing";
 import {
   discardPlanDraftFn,
+  fetchPaymentCatalogStatus,
   fetchPlanDashboard,
   publishPlanFn,
   savePlanDraftFn,
   savePlanFeaturesFn,
   savePlanPresentationFn,
+  syncPaymentCatalogFn,
 } from "@/lib/plans/plans.functions";
+
 import type { PlanRecord } from "@/lib/plans/plans.server";
 
 const card = "rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5";
