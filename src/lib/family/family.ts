@@ -17,6 +17,12 @@ export type ChildOverview = {
   classes: number;
   /** Overall progress across every school the child belongs to. */
   progress: number;
+  /** Share of assigned lesson notes the child has finished. */
+  assignments: number;
+  /** Share of assigned adventures the child has finished. */
+  adventures: number;
+  /** Average Skill Builder pathway progress. */
+  skillBuilder: number;
 };
 
 export type ChildBreakdownRow = {
@@ -24,6 +30,24 @@ export type ChildBreakdownRow = {
   name: string;
   classes: number;
   progress: number;
+};
+
+export type FamilyConnection = {
+  kind: "school" | "teacher";
+  targetUserId: string;
+  name: string;
+  username: string | null;
+  /** How many of this parent's children this school or teacher covers. */
+  children: number;
+  connectedAt: string | null;
+};
+
+export type FamilyActivity = {
+  childUserId: string;
+  childName: string;
+  kind: "assignment" | "adventure" | "skill";
+  title: string;
+  happenedAt: string | null;
 };
 
 /** Every child linked to the signed-in parent, with family-wide figures. */
@@ -38,6 +62,9 @@ export async function fetchChildren(): Promise<ChildOverview[]> {
     teachers: number | null;
     classes: number | null;
     progress: number | null;
+    assignments: number | null;
+    adventures: number | null;
+    skill_builder: number | null;
   }[]).map((row) => ({
     childUserId: row.child_user_id,
     displayName: row.display_name ?? "Child",
@@ -46,6 +73,9 @@ export async function fetchChildren(): Promise<ChildOverview[]> {
     teachers: Number(row.teachers ?? 0),
     classes: Number(row.classes ?? 0),
     progress: Number(row.progress ?? 0),
+    assignments: Number(row.assignments ?? 0),
+    adventures: Number(row.adventures ?? 0),
+    skillBuilder: Number(row.skill_builder ?? 0),
   }));
 }
 
@@ -65,5 +95,45 @@ export async function fetchChildBreakdown(childUserId: string): Promise<ChildBre
     name: row.name ?? "Unnamed",
     classes: Number(row.classes ?? 0),
     progress: Number(row.progress ?? 0),
+  }));
+}
+
+/** Schools and teachers the parent's children are connected to. */
+export async function fetchFamilyConnections(): Promise<FamilyConnection[]> {
+  const { data, error } = await supabase.rpc("parent_family_connections");
+  if (error) throw error;
+  return ((data ?? []) as {
+    kind: string;
+    target_user_id: string;
+    name: string | null;
+    username: string | null;
+    children: number | null;
+    connected_at: string | null;
+  }[]).map((row) => ({
+    kind: row.kind === "teacher" ? "teacher" : "school",
+    targetUserId: row.target_user_id,
+    name: row.name ?? "Unnamed",
+    username: row.username,
+    children: Number(row.children ?? 0),
+    connectedAt: row.connected_at,
+  }));
+}
+
+/** The most recent things the parent's children actually finished. */
+export async function fetchFamilyActivity(): Promise<FamilyActivity[]> {
+  const { data, error } = await supabase.rpc("parent_family_activity");
+  if (error) throw error;
+  return ((data ?? []) as {
+    child_user_id: string;
+    child_name: string | null;
+    kind: string;
+    title: string | null;
+    happened_at: string | null;
+  }[]).map((row) => ({
+    childUserId: row.child_user_id,
+    childName: row.child_name ?? "Child",
+    kind: row.kind === "adventure" ? "adventure" : row.kind === "skill" ? "skill" : "assignment",
+    title: row.title ?? "Activity",
+    happenedAt: row.happened_at,
   }));
 }
