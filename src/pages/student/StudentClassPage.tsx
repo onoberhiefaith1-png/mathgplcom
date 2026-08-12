@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
+import { viewOwnerId } from "@/lib/accounts/workspaceScope";
 import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Gamepad2, Image as ImageIcon, BarChart3, GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
@@ -95,7 +96,8 @@ const StudentClassPage = () => {
   const loadAssignments = useCallback(async () => {
     if (!classId) return;
     const { data: userData } = await supabase.auth.getUser();
-    const uid = userData.user?.id;
+    // In a school's read-only view this is the student being viewed.
+    const uid = userData.user?.id ? viewOwnerId(userData.user.id) : undefined;
     const { data: rows } = await supabase
       .from("assessments")
       .select("id, title, kind, score_label, total_marks, notebook_id, assigned_at, due_at, unassigned_at")
@@ -175,7 +177,7 @@ const StudentClassPage = () => {
         navigate(`/auth?redirect=/student/class/${classId}`);
         return;
       }
-      const uid = userData.user.id;
+      const uid = viewOwnerId(userData.user.id);
 
       const { data: membership } = await supabase
         .from("class_members")
