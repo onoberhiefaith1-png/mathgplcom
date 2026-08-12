@@ -1,24 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@/lib/router-compat";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Loader2, Search, Users } from "lucide-react";
 
 import DashboardShell from "@/components/accounts/DashboardShell";
 import PlatformUsageImport from "@/components/admin/PlatformUsageImport";
+import UsageCreditsChart from "@/components/admin/UsageCreditsChart";
 
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CATEGORY_COLOR,
   CATEGORY_LABEL,
-  COST_CATEGORIES,
   RANGES,
   money,
   type CostCategory,
   type RangeKey,
 } from "@/lib/costs/categories";
 import { fetchAccountOptions, fetchCategoryEvents, fetchUsageAnalytics } from "@/lib/costs/usage.functions";
+
+const creditText = (n: number) =>
+  new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 }).format(n ?? 0);
+
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
