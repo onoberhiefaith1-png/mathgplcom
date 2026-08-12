@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 import DashboardShell from "@/components/accounts/DashboardShell";
 import CreditEconomyPanel from "@/components/admin/CreditEconomyPanel";
+import GlobalCreditEconomics from "@/components/admin/GlobalCreditEconomics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,16 +30,12 @@ import {
 import {
   fetchCostOverview,
   fetchCostUnitDetail,
-  fetchCurrencyRates,
   fetchPriceBook,
-  fetchPricingHistory,
   fetchProfitReport,
-
   reconcileCosts,
-  saveCurrencyRate,
-  saveProfitPercentage,
   saveResourcePrice,
 } from "@/lib/costs/costs.functions";
+
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
