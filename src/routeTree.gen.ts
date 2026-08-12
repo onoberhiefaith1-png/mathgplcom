@@ -189,6 +189,7 @@ import { Route as LiveWorkspaceClassIdLessonNotesIndexRouteImport } from './rout
 import { Route as LiveWorkspaceClassIdReportIndexRouteImport } from './routes/live/workspace/$classId/report/index'
 import { Route as LiveWorkspaceClassIdSmartboardIndexRouteImport } from './routes/live/workspace/$classId/smartboard/index'
 import { Route as LiveWorkspaceClassIdStudentsIndexRouteImport } from './routes/live/workspace/$classId/students/index'
+import { Route as SchoolStudentsUserIdClassesClassIdRouteImport } from './routes/school/students/$userId/classes/$classId'
 import { Route as SchoolTeachersUserIdClassesIndexRouteImport } from './routes/school/teachers/$userId/classes/index'
 import { Route as SchoolTeachersUserIdClassesClassIdRouteImport } from './routes/school/teachers/$userId/classes/$classId'
 import { Route as SchoolTeachersUserIdLessonNotesIndexRouteImport } from './routes/school/teachers/$userId/lesson-notes/index'
@@ -1200,6 +1201,12 @@ const LiveWorkspaceClassIdStudentsIndexRoute =
     path: '/workspace/$classId/students/',
     getParentRoute: () => LiveRouteRoute,
   } as any)
+const SchoolStudentsUserIdClassesClassIdRoute =
+  SchoolStudentsUserIdClassesClassIdRouteImport.update({
+    id: '/students/$userId/classes/$classId',
+    path: '/students/$userId/classes/$classId',
+    getParentRoute: () => SchoolRouteRoute,
+  } as any)
 const SchoolTeachersUserIdClassesIndexRoute =
   SchoolTeachersUserIdClassesIndexRouteImport.update({
     id: '/teachers/$userId/classes/',
@@ -1612,6 +1619,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/classes/$classId/': typeof TeachingHubClassesClassIdIndexRoute
   '/teaching-hub/classes/create/': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
+  '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
@@ -1824,6 +1832,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/classes/$classId': typeof TeachingHubClassesClassIdIndexRoute
   '/teaching-hub/classes/create': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive': typeof TeachingHubSettingsArchiveIndexRoute
+  '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
@@ -2048,6 +2057,7 @@ export interface FileRoutesById {
   '/teaching-hub/classes/$classId/': typeof TeachingHubClassesClassIdIndexRoute
   '/teaching-hub/classes/create/': typeof TeachingHubClassesCreateIndexRoute
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
+  '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
@@ -2273,6 +2283,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId/'
     | '/teaching-hub/classes/create/'
     | '/teaching-hub/settings/archive/'
+    | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
@@ -2485,6 +2496,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId'
     | '/teaching-hub/classes/create'
     | '/teaching-hub/settings/archive'
+    | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
@@ -2708,6 +2720,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId/'
     | '/teaching-hub/classes/create/'
     | '/teaching-hub/settings/archive/'
+    | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
@@ -4148,6 +4161,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveWorkspaceClassIdStudentsIndexRouteImport
       parentRoute: typeof LiveRouteRoute
     }
+    '/school/students/$userId/classes/$classId': {
+      id: '/school/students/$userId/classes/$classId'
+      path: '/students/$userId/classes/$classId'
+      fullPath: '/school/students/$userId/classes/$classId'
+      preLoaderRoute: typeof SchoolStudentsUserIdClassesClassIdRouteImport
+      parentRoute: typeof SchoolRouteRoute
+    }
     '/school/teachers/$userId/classes/': {
       id: '/school/teachers/$userId/classes/'
       path: '/teachers/$userId/classes'
@@ -4653,6 +4673,7 @@ interface SchoolRouteRouteChildren {
   SchoolTeachersUserIdSkillBuilderRoute: typeof SchoolTeachersUserIdSkillBuilderRoute
   SchoolStudentsUserIdIndexRoute: typeof SchoolStudentsUserIdIndexRoute
   SchoolTeachersUserIdIndexRoute: typeof SchoolTeachersUserIdIndexRoute
+  SchoolStudentsUserIdClassesClassIdRoute: typeof SchoolStudentsUserIdClassesClassIdRoute
   SchoolTeachersUserIdClassesClassIdRoute: typeof SchoolTeachersUserIdClassesClassIdRoute
   SchoolTeachersUserIdLessonNotesIdRoute: typeof SchoolTeachersUserIdLessonNotesIdRoute
   SchoolTeachersUserIdSmartboardNotebookIdRoute: typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
@@ -4669,6 +4690,8 @@ const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolTeachersUserIdSkillBuilderRoute: SchoolTeachersUserIdSkillBuilderRoute,
   SchoolStudentsUserIdIndexRoute: SchoolStudentsUserIdIndexRoute,
   SchoolTeachersUserIdIndexRoute: SchoolTeachersUserIdIndexRoute,
+  SchoolStudentsUserIdClassesClassIdRoute:
+    SchoolStudentsUserIdClassesClassIdRoute,
   SchoolTeachersUserIdClassesClassIdRoute:
     SchoolTeachersUserIdClassesClassIdRoute,
   SchoolTeachersUserIdLessonNotesIdRoute:
