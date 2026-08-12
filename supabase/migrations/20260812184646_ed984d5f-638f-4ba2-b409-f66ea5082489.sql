@@ -1,0 +1,2 @@
+select cron.schedule('expire-lapsed-subscriptions', '15 2 * * *', $$select public.expire_lapsed_subscriptions()$$);
+select cron.schedule('expire-credit-grants', '30 2 * * *', $$select public.expire_credit_grants()$$);
