@@ -148,3 +148,70 @@ export const savePlanFeaturesFn = createServerFn({ method: "POST" })
     const { savePlanFeatures } = await import("./plans.server");
     return { plans: await savePlanFeatures(data.planId, data.features) };
   });
+
+/* ─────────── credits, subscription management, catalogue ─────────── */
+
+const ENV = z.enum(["sandbox", "live"]);
+
+/** Pay-as-you-go packs, priced from the live credit sell price. */
+export const fetchCreditOptions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { creditPacks } = await import("@/lib/credits/topups.server");
+    const [packs, summary] = await Promise.all([
+      creditPacks(),
+      context.supabase.rpc("my_credit_summary"),
+    ]);
+    const row = Array.isArray(summary.data) ? summary.data[0] : summary.data;
+    return {
+      packs,
+      wallet: {
+        balance: Number((row as { balance?: number } | null)?.balance ?? 0),
+        nextExpiry: ((row as { next_expiry?: string } | null)?.next_expiry ?? null) as string | null,
+        expiringCredits: Number((row as { expiring_credits?: number } | null)?.expiring_credits ?? 0),
+      },
+    };
+  });
+
+export const changePaidPlanFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ planKey: z.string().min(2).max(60), environment: ENV }).parse(data))
+  .handler(async ({ context, data }) => {
+    const { changePlan } = await import("@/lib/payments/subscriptions.server");
+    return changePlan({ userId: context.userId, planKey: data.planKey, env: data.environment });
+  });
+
+export const cancelPaidPlanFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ environment: ENV }).parse(data))
+  .handler(async ({ context, data }) => {
+    const { cancelPlan } = await import("@/lib/payments/subscriptions.server");
+    return cancelPlan({ userId: context.userId, env: data.environment });
+  });
+
+export const openBillingPortalFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ environment: ENV }).parse(data))
+  .handler(async ({ context, data }) => {
+    const { billingPortalUrl } = await import("@/lib/payments/subscriptions.server");
+    return billingPortalUrl({ userId: context.userId, env: data.environment });
+  });
+
+/** Administrator view of provider amounts against published amounts. */
+export const fetchPaymentCatalogStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ environment: ENV.default("sandbox") }).parse(data ?? {}))
+  .handler(async ({ context, data }) => {
+    await guard(context.supabase, context.userId);
+    const { catalogStatus } = await import("@/lib/payments/catalogSync.server");
+    return { rows: await catalogStatus(data.environment) };
+  });
+
+export const syncPaymentCatalogFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ environment: ENV.default("sandbox") }).parse(data ?? {}))
+  .handler(async ({ context, data }) => {
+    await guard(context.supabase, context.userId);
+    const { syncCatalog } = await import("@/lib/payments/catalogSync.server");
+    return syncCatalog(data.environment);
+  });
