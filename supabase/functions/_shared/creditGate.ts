@@ -45,6 +45,16 @@ export async function openCreditGate(
       .maybeSingle();
     const orgId = (profile?.active_org_id as string | null) ?? null;
 
+    // The plan's entitlement is the authority: hiding a button is never the
+    // only thing stopping an account from generating.
+    const { data: aiEntitled } = await client.rpc("has_entitlement", {
+      _user_id: userId,
+      _feature: "ai_generation",
+    });
+    if (aiEntitled === false) {
+      return { allowed: false, reason: "no_ai_plan", message: MESSAGES.no_ai_plan, available: 0 };
+    }
+
     const { data: aiAllowed } = await client.rpc("plan_allows_ai", {
       _user_id: userId,
       _org_id: orgId,
@@ -52,6 +62,7 @@ export async function openCreditGate(
     if (aiAllowed === false) {
       return { allowed: false, reason: "no_ai_plan", message: MESSAGES.no_ai_plan, available: 0 };
     }
+
 
     const operationKey = `${feature}:${crypto.randomUUID()}`;
     const { data, error } = await client.rpc("reserve_credits", {
