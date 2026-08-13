@@ -7,6 +7,7 @@ import LevelNavPanel from "@/components/academy/LevelNavPanel";
 import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton";
 import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
+import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
