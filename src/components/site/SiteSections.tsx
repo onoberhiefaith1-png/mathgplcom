@@ -3,7 +3,7 @@ import { ArrowRight, LogIn } from "lucide-react";
 import Reveal from "./Reveal";
 import SiteMedia from "./SiteMedia";
 import { MERCHANT_OF_RECORD_STATEMENT, SELLER_LEGAL_NAME } from "@/lib/legal/seller";
-import type { SiteContent, SiteSectionResolved } from "@/lib/site/types";
+import type { SiteContent, SiteItemResolved, SiteSectionResolved } from "@/lib/site/types";
 
 /* ------------------------------------------------------------------ shared */
 
@@ -155,14 +155,14 @@ const Panels = ({ section }: { section: SiteSectionResolved }) => (
   </section>
 );
 
-const DEFAULT_PANELS = [
+const DEFAULT_PANELS: SiteItemResolved[] = [
   { id: "learn", label: "Learn", headline: "Lesson notes" },
   { id: "interact", label: "Interact", headline: "Smartboard" },
   { id: "play", label: "Play", headline: "Adventure" },
   { id: "measure", label: "Measure", headline: "Assessment" },
 ];
 
-const DEFAULT_SHOWCASE = [
+const DEFAULT_SHOWCASE: SiteItemResolved[] = [
   { id: "smartboard", label: "Smartboard", headline: "Mathematics you can interact with." },
   { id: "notes", label: "Lesson notes", headline: "Every step, in the right order." },
   { id: "assignments", label: "Assignments", headline: "Set the challenge. Let students solve." },
@@ -300,7 +300,7 @@ const Stats = ({
   );
 };
 
-const DEFAULT_AUDIENCE = [
+const DEFAULT_AUDIENCE: SiteItemResolved[] = [
   { id: "students", label: "Students", headline: "Learn. Solve. Explore." },
   { id: "teachers", label: "Teachers", headline: "Teach. Assign. Track." },
   { id: "schools", label: "Schools", headline: "Connect learning at scale." },
