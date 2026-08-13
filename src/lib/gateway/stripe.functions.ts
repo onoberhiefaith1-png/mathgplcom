@@ -12,6 +12,8 @@ export type StripeConnectStatus = {
   chargesEnabled: boolean;
   detailsSubmitted: boolean;
   paymentsActive: boolean;
+  /** What Stripe is still waiting for, in its own field names. */
+  requirements: string[];
 };
 
 /**
@@ -37,6 +39,7 @@ export const getStripeStatus = createServerFn({ method: "GET" })
         chargesEnabled: false,
         detailsSubmitted: false,
         paymentsActive: false,
+        requirements: [],
       };
     }
 
@@ -59,6 +62,10 @@ export const getStripeStatus = createServerFn({ method: "GET" })
       chargesEnabled: account.charges_enabled,
       detailsSubmitted: account.details_submitted,
       paymentsActive: Boolean(account.charges_enabled && row.payments_active),
+      requirements: [
+        ...(account.requirements?.past_due ?? []),
+        ...(account.requirements?.currently_due ?? []),
+      ].filter((entry, index, all) => all.indexOf(entry) === index),
     };
   });
 
@@ -68,7 +75,16 @@ export const startStripeOnboarding = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ ownerKind: OWNER_KIND, origin: ORIGIN }).parse(data))
   .handler(async ({ data, context }): Promise<{ url: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { createConnectedAccount, createAccountLink } = await import("./stripeConnect.server");
+    const { createConnectedAccount, createAccountLink, platformReadiness, PLATFORM_NOT_READY } = await import(
+      "./stripeConnect.server"
+    );
+
+    // The platform must be a live Connect platform before a teacher can onboard.
+    const readiness = await platformReadiness();
+    if (!readiness.ready) {
+      console.error(`Stripe Connect onboarding blocked: ${readiness.reason}`);
+      throw new Error(PLATFORM_NOT_READY);
+    }
 
     const { data: existing } = await supabaseAdmin
       .from("gateway_payout_accounts")
@@ -106,7 +122,11 @@ export const startStripeOnboarding = createServerFn({ method: "POST" })
     }
 
     const back = `${data.origin}/${data.ownerKind === "school" ? "school" : "teaching-hub"}/pricing`;
-    const link = await createAccountLink(accountId, back, `${back}?stripe=return`);
+    const link = await createAccountLink(
+      accountId,
+      `${back}?stripe=refresh`,
+      `${back}?stripe=return`,
+    );
     return { url: link.url };
   });
 

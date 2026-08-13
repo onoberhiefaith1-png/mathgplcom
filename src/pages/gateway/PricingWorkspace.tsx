@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Check, Copy, ExternalLink, Loader2, Lock, Minus, Plus } from "lucide-react";
 
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
@@ -11,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUsername } from "@/lib/accounts/useUsername";
 import { GATEWAY_ITEMS, itemLabel, money, type GatewayItem, type GatewayOwnerKind } from "@/lib/gateway/items";
 import type { GatewayPlan, PlanDraft } from "@/lib/gateway/gateway";
+import { getStripeStatus } from "@/lib/gateway/stripe.functions";
 import {
   useGatewayPayments,
   useGatewayStudents,
@@ -21,6 +24,13 @@ import {
 } from "@/lib/gateway/useGateway";
 
 type Drafts = Record<string, PlanDraft>;
+
+/** Stripe's requirement keys, said the way a person would say them. */
+const requirementLabel = (key: string): string =>
+  key
+    .replace(/^individual\.|^company\.|^business_profile\./, "")
+    .replace(/_/g, " ")
+    .replace(/\./g, " ");
 
 const draftOf = (plan: GatewayPlan): PlanDraft => ({
   name: plan.name,
@@ -46,9 +56,11 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
   const { data: students } = useGatewayStudents(ownerKind);
   const { data: payments } = useGatewayPayments(ownerKind);
   const { data: stripe, isLoading: stripeLoading } = useStripeStatus(ownerKind);
-  const { connect, manage, setActive } = useStripeConnectActions(ownerKind);
+  const { connect, manage, setActive, refresh: refreshStripe } = useStripeConnectActions(ownerKind);
   const save = useSaveGatewayPlan(ownerKind);
   const { username } = useUsername();
+  const queryClient = useQueryClient();
+  const fetchStripeStatus = useServerFn(getStripeStatus);
   const [drafts, setDrafts] = useState<Drafts>({});
   const [copied, setCopied] = useState(false);
 
@@ -60,6 +72,43 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
       return next;
     });
   }, [plans]);
+
+  // Coming back from Stripe's hosted onboarding: re-read the real status,
+  // tidy the URL, and say plainly where the account stands.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const flag = params.get("stripe");
+    if (flag !== "return" && flag !== "refresh") return;
+    params.delete("stripe");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
+    void refreshStripe();
+    if (flag === "refresh") {
+      toast({
+        title: "Stripe onboarding was not finished",
+        description: "Use Continue Stripe verification to pick up where you left off.",
+      });
+      return;
+    }
+    void (async () => {
+      const status = await queryClient.fetchQuery({
+        queryKey: ["gateway-stripe", ownerKind],
+        queryFn: () => fetchStripeStatus({ data: { ownerKind } }),
+      });
+      toast({
+        title: status?.chargesEnabled ? "Stripe connected" : "Stripe is still verifying your details",
+        description: status?.chargesEnabled
+          ? "Switch Payment active on to start selling your paid plans."
+          : "Stripe will let us know as soon as your account is cleared.",
+      });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerKind]);
 
   const gatewayPath = username ? `/g/${username}` : null;
   const gatewayUrl = useMemo(
@@ -198,6 +247,12 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
                   : "Finish Stripe's checks to start taking payments."}
               </span>
             </p>
+            {!stripe.chargesEnabled && stripe.requirements?.length ? (
+              <p className="rounded-lg border border-ws-border/70 bg-ws-panel/60 p-2 text-[11px] text-muted-foreground">
+                Stripe is still waiting for: {stripe.requirements.slice(0, 5).map(requirementLabel).join(", ")}
+                {stripe.requirements.length > 5 ? ", and more" : ""}.
+              </p>
+            ) : null}
             <label className="flex items-center justify-between gap-3 text-sm">
               <span className="min-w-0">
                 Payment active

@@ -54,8 +54,14 @@ export const useStripeConnectActions = (ownerKind: GatewayOwnerKind) => {
     }),
     setActive: useMutation({
       mutationFn: (active: boolean) => activate({ data: { ownerKind, active } }),
-      onSuccess: () => void invalidate(),
+      onSuccess: () => {
+        void invalidate();
+        // Paid plans appear on the public gateway the moment payment goes live.
+        void queryClient.invalidateQueries({ queryKey: ["gateway-handle"] });
+      },
     }),
+    /** Re-read straight from Stripe, e.g. on return from hosted onboarding. */
+    refresh: () => invalidate(),
   };
 };
 
@@ -100,6 +106,8 @@ export const useSaveGatewayPlan = (ownerKind: GatewayOwnerKind) => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["gateway-plans", ownerKind] });
       void queryClient.invalidateQueries({ queryKey: ["gateway-students", ownerKind] });
+      void queryClient.invalidateQueries({ queryKey: ["gateway-stripe", ownerKind] });
+      void queryClient.invalidateQueries({ queryKey: ["gateway-handle"] });
     },
   });
 };

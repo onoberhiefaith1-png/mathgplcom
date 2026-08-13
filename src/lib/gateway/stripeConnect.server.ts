@@ -77,7 +77,31 @@ export type StripeAccount = {
   id: string;
   charges_enabled: boolean;
   details_submitted: boolean;
+  requirements?: {
+    currently_due?: string[] | null;
+    past_due?: string[] | null;
+    disabled_reason?: string | null;
+  } | null;
 };
+
+/**
+ * Is MathGPL itself ready to act as a Connect platform? Asked before we try to
+ * create a teacher's account, so the owner meets one honest sentence instead of
+ * Stripe's platform plumbing.
+ */
+export const platformReadiness = async (): Promise<{ ready: boolean; reason: string | null }> => {
+  const account = await stripeRequest<StripeAccount & { capabilities?: Record<string, string> }>("/account");
+  if (!account.details_submitted) {
+    return { ready: false, reason: "platform account has not submitted its business details" };
+  }
+  if (!account.charges_enabled) {
+    return { ready: false, reason: "platform account cannot accept charges yet" };
+  }
+  return { ready: true, reason: null };
+};
+
+export const PLATFORM_NOT_READY =
+  "Payments are not finished setting up on the MathGPL platform yet. Please contact support.";
 
 export const createConnectedAccount = async (input: {
   email: string | null;
