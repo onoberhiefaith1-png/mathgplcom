@@ -223,14 +223,6 @@ export default function PlanDashboard() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const saveFeatures = useMutation({
-    mutationFn: (input: { planId: string; features: string[] }) => savePlanFeaturesFn({ data: input }),
-    onSuccess: () => {
-      refresh();
-      toast.success("Plan features saved.");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const grouped = useMemo(
     () =>
