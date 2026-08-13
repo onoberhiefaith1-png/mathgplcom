@@ -4807,6 +4807,135 @@ export type Database = {
           },
         ]
       }
+      site_sections: {
+        Row: {
+          created_at: string
+          cta_href: string | null
+          cta_label: string | null
+          draft: Json | null
+          eyebrow: string | null
+          headline: string | null
+          id: string
+          items: Json
+          key: string
+          kind: string
+          media: Json
+          position: number
+          published_at: string | null
+          subline: string | null
+          updated_at: string
+          visible: boolean
+        }
+        Insert: {
+          created_at?: string
+          cta_href?: string | null
+          cta_label?: string | null
+          draft?: Json | null
+          eyebrow?: string | null
+          headline?: string | null
+          id?: string
+          items?: Json
+          key: string
+          kind: string
+          media?: Json
+          position?: number
+          published_at?: string | null
+          subline?: string | null
+          updated_at?: string
+          visible?: boolean
+        }
+        Update: {
+          created_at?: string
+          cta_href?: string | null
+          cta_label?: string | null
+          draft?: Json | null
+          eyebrow?: string | null
+          headline?: string | null
+          id?: string
+          items?: Json
+          key?: string
+          kind?: string
+          media?: Json
+          position?: number
+          published_at?: string | null
+          subline?: string | null
+          updated_at?: string
+          visible?: boolean
+        }
+        Relationships: []
+      }
+      site_stats_settings: {
+        Row: {
+          created_at: string
+          id: string
+          show_adventures: boolean
+          show_learners: boolean
+          show_questions: boolean
+          show_schools: boolean
+          show_teachers: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          show_adventures?: boolean
+          show_learners?: boolean
+          show_questions?: boolean
+          show_schools?: boolean
+          show_teachers?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          show_adventures?: boolean
+          show_learners?: boolean
+          show_questions?: boolean
+          show_schools?: boolean
+          show_teachers?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_testimonials: {
+        Row: {
+          approved: boolean
+          author_name: string
+          author_role: string | null
+          avatar: Json | null
+          created_at: string
+          id: string
+          organisation: string | null
+          position: number
+          quote: string
+          updated_at: string
+        }
+        Insert: {
+          approved?: boolean
+          author_name: string
+          author_role?: string | null
+          avatar?: Json | null
+          created_at?: string
+          id?: string
+          organisation?: string | null
+          position?: number
+          quote: string
+          updated_at?: string
+        }
+        Update: {
+          approved?: boolean
+          author_name?: string
+          author_role?: string | null
+          avatar?: Json | null
+          created_at?: string
+          id?: string
+          organisation?: string | null
+          position?: number
+          quote?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       smart_card_attempts: {
         Row: {
           card_id: string
@@ -6019,6 +6148,7 @@ export type Database = {
         }[]
       }
       get_platform_free_building: { Args: never; Returns: Json }
+      get_site_stats: { Args: never; Returns: Json }
       get_workspace_homepage_config: {
         Args: { _org_id: string }
         Returns: Json

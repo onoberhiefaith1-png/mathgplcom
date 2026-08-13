@@ -3,13 +3,15 @@ import { Loader2 } from "lucide-react";
 import Index from "@/pages/Index";
 import WelcomePage from "@/pages/WelcomePage";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { getSiteContent } from "@/lib/site/siteContent.functions";
 
 /**
- * The front door. Signed-out visitors see only the welcome screen; the
+ * The front door. Signed-out visitors see the cinematic public homepage; the
  * rotating building — and everything behind it — appears once signed in.
  */
 const Landing = () => {
   const { user, ready } = useAuth();
+  const content = Route.useLoaderData();
 
   if (!ready) {
     return (
@@ -19,23 +21,24 @@ const Landing = () => {
     );
   }
 
-  return user ? <Index /> : <WelcomePage />;
+  return user ? <Index /> : <WelcomePage content={content} />;
 };
 
 export const Route = createFileRoute("/")({
+  loader: () => getSiteContent(),
   head: () => ({
     meta: [
-      { title: "MathGPL — Mathematics teaching and learning platform" },
+      { title: "MathGPL — Mathematics, Reimagined." },
       {
         name: "description",
         content:
-          "MathGPL brings lesson notes, SmartBoard teaching, live sessions and adventures together for schools, teachers, parents and students.",
+          "Learn, explore and solve. MathGPL turns mathematics into an experience with lesson notes, Smartboard teaching, adventures and live progress.",
       },
-      { property: "og:title", content: "MathGPL — Mathematics teaching and learning platform" },
+      { property: "og:title", content: "MathGPL — Mathematics, Reimagined." },
       {
         property: "og:description",
         content:
-          "MathGPL brings lesson notes, SmartBoard teaching, live sessions and adventures together for schools, teachers, parents and students.",
+          "Learn, explore and solve. MathGPL turns mathematics into an experience with lesson notes, Smartboard teaching, adventures and live progress.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
