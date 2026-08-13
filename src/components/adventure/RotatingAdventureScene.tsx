@@ -251,10 +251,12 @@ const Showcase = ({
 
   useFrame((state, delta) => {
     if (!worldRef.current) return;
-    // Ease rotation to a gentle near-stop while a hovered academy invites a click.
-    const targetSpeed = hoveredRef.current ? ringSpeed * 0.1 : ringSpeed;
+    // Ease rotation to a gentle near-stop while a hovered academy invites a
+    // click, and all the way to rest while a video advertisement plays.
+    const targetSpeed = pausedRef.current ? 0 : hoveredRef.current ? ringSpeed * 0.1 : ringSpeed;
     speedRef.current = THREE.MathUtils.damp(speedRef.current, targetSpeed, 3.2, delta);
     worldRef.current.rotation.y += speedRef.current * delta;
+
 
     // Determine which segment currently faces the camera (front = nearest +Z).
     // Cylinder vertex angle: pos = (R·sinθ, y, R·cosθ); front faces camera at θ = 0.
