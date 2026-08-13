@@ -11,6 +11,8 @@ import { useConnections, useConnectionCounts } from "@/lib/connections/useConnec
 import WorkspaceInvitations from "@/components/accounts/WorkspaceInvitations";
 import PlanSection from "@/components/plans/PlanSection";
 import CreditsSection from "@/components/plans/CreditsSection";
+import { useUpgradeGuard } from "@/lib/entitlements/useUpgradeGuard";
+import type { FeatureKey } from "@/lib/entitlements/features";
 
 const QUICK: { to: string; label: string; feature?: FeatureKey }[] = [
   { to: "/lesson-notes", label: "Lesson Notes", feature: "create_lesson_notes" },
