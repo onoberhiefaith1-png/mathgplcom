@@ -340,7 +340,7 @@ const SectionCard = ({
           onClick={() =>
             run(async () => {
               if (dirty) await onSave(patch);
-              await onPublish();
+              await onPublish(patch);
               setPatch({});
             }, "Section published")
           }
