@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import CommunityHome from "@/pages/community/CommunityHome";
+import { ADSENSE_SCRIPT_SRC } from "@/lib/ads/adsense";
+
 
 const DESCRIPTION =
   "Enter MathGPL Community: the same rotating building, filled with lesson notes, classes, adventures, backgrounds, buildings and assets shared by other educators. Copy anything into your own workspace.";
