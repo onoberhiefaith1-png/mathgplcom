@@ -162,6 +162,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
         if (mode === "platform-free") {
           const { error } = await supabase.rpc("set_platform_free_building", { _config: next as never });
           if (error) throw error;
+          await archiveBuilding("free", next);
           return;
         }
         const { data: userData } = await supabase.auth.getUser();
@@ -171,9 +172,11 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
           .update({ homepage_config: next as never })
           .eq("user_id", userData.user.id);
         if (error) throw error;
+        await archiveBuilding("pro", next);
       } finally {
         setSaving(false);
       }
+
     },
     [mode, apply],
   );
