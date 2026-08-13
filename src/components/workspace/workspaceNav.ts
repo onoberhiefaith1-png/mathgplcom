@@ -31,6 +31,7 @@ const COMMUNITY: WorkspaceNavGroup = {
     { to: "/requests", label: "Requests", icon: Inbox },
   ],
 };
+/** Teaching Hub settings belong to a teacher account, never to another role. */
 const ACCOUNT: WorkspaceNavGroup = {
   title: "Account",
   items: [
@@ -38,6 +39,27 @@ const ACCOUNT: WorkspaceNavGroup = {
     { to: "/teaching-hub/settings", label: "Settings", icon: Settings },
   ],
 };
+
+const ACCOUNT_ONLY: WorkspaceNavGroup = {
+  title: "Account",
+  items: [{ to: "/account", label: "Account & Go Live", icon: UserCircle }],
+};
+
+/** Platform administration never shows authoring tools. */
+const ADMIN: WorkspaceNavGroup[] = [
+  {
+    title: "Platform Console",
+    items: [
+      HOME,
+      { to: "/admin", label: "Overview", icon: LayoutDashboard },
+      { to: "/admin/plans", label: "Plans", icon: Tag },
+      { to: "/admin/credits", label: "Credits & Economics", icon: BarChart3 },
+      { to: "/admin/usage-revenue", label: "Usage & Revenue", icon: BarChart3 },
+    ],
+  },
+  COMMUNITY,
+  ACCOUNT_ONLY,
+];
 
 const TEACHER: WorkspaceNavGroup[] = [
   {
