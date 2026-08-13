@@ -50,6 +50,7 @@ async function expected(env: PaddleEnv): Promise<CatalogRow[]> {
     const live = (versions ?? []).find((v) => String(v.plan_id) === String(plan.id));
     const price = Number(live?.price ?? 0);
     if (!(price > 0)) continue; // free plans never reach the provider
+    const currency = (live?.currency as string) ?? (plan.currency as string) ?? "GBP";
     rows.push({
       kind: "plan",
       environment: env,
@@ -57,10 +58,24 @@ async function expected(env: PaddleEnv): Promise<CatalogRow[]> {
       label: String(plan.label),
       expected: price,
       provider: null,
-      currency: (live?.currency as string) ?? (plan.currency as string) ?? "GBP",
+      currency,
       inSync: false,
       missing: false,
     });
+    // The yearly amount is always derived: 12 months less the 20% discount.
+    if ((plan as { yearly_enabled?: boolean }).yearly_enabled !== false) {
+      rows.push({
+        kind: "plan",
+        environment: env,
+        externalId: `${String(plan.key)}_yearly`,
+        label: `${String(plan.label)} — yearly`,
+        expected: Math.round(price * 12 * 0.8 * 100) / 100,
+        provider: null,
+        currency,
+        inSync: false,
+        missing: false,
+      });
+    }
   }
 
   for (const pack of packs ?? []) {
