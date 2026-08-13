@@ -1,29 +1,32 @@
-import { supabase } from "@/integrations/supabase/client";
+import { fetchCreditHeadroom } from "./costs.functions";
 
 /**
- * Blocks chargeable generation when a paying account has run out of credits.
- * Free accounts, staff codes and accounts without a paid subscription are
- * never blocked — they simply accrue platform cost.
+ * A courtesy check so the interface can explain the situation before a user
+ * starts something they cannot finish. It is never the enforcement point:
+ * the server refuses the operation itself if credits are short.
  */
 export async function hasCreditsForGeneration(estimated = 0.05): Promise<boolean> {
-  const { data: session } = await supabase.auth.getUser();
-  const userId = session.user?.id;
-  if (!userId) return true;
+  try {
+    const head = await fetchCreditHeadroom();
+    if (!head.enforced) return true;
+    if (!head.aiAllowed) return false;
+    if (!head.canStart) return false;
+    return head.available >= estimated;
+  } catch {
+    return true; // Accounting must never break a lesson.
+  }
+}
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("active_org_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const { data, error } = await supabase.rpc("can_afford_usage", {
-    _user_id: userId,
-    _org_id: (profile?.active_org_id ?? null) as unknown as string,
-    _estimated: estimated,
-  });
-  if (error) return true; // Accounting must never break a lesson.
-  return data !== false;
+/** The credit position for display: balance, held, spendable. */
+export async function creditPosition() {
+  try {
+    return await fetchCreditHeadroom();
+  } catch {
+    return null;
+  }
 }
 
 export const INSUFFICIENT_CREDITS_MESSAGE =
   "You have run out of credits. Top up your balance to keep generating.";
+
+export const NO_AI_PLAN_MESSAGE = "AI generation is part of a paid plan. Upgrade your plan to generate.";

@@ -579,6 +579,8 @@ function formatLessonState(ctx: LessonCtx | null, kb: KBHydration): string {
         `[${l.lineNumber}] line_id=${l.lineId} equation="${l.equation}" fillers=[${fillersStr}] containers=[${containersStr}]`,
       );
     });
+  }
+
 
   lines.push("");
   lines.push("## FLOATING_KNOWLEDGE (live snapshot — cite by tag)");

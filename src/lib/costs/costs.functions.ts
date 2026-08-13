@@ -256,3 +256,27 @@ export const redeemStaffCode = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { result: String(result ?? "invalid") };
   });
+
+/**
+ * The caller's own credit position: balance, what is held for work in flight,
+ * what is still spendable, and whether AI generation is part of their plan.
+ * This is the only credit check the browser is allowed to rely on for display —
+ * the server enforces the same numbers again before any chargeable work runs.
+ */
+export const fetchCreditHeadroom = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const credits = await import("./creditContext.server");
+    const orgId = await credits.activeOrgFor(context.userId);
+    const [head, aiAllowed] = await Promise.all([
+      credits.creditHeadroom(context.userId, orgId),
+      credits.planAllowsAi(context.userId, orgId),
+    ]);
+    const canStart = !head.enforced || (!head.blockedReason && head.available > head.startFloor);
+    return {
+      ...head,
+      aiAllowed,
+      canStart,
+      reason: head.blockedReason ?? (canStart ? null : "floor"),
+    };
+  });
