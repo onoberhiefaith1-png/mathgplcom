@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import SignedMedia from "./SignedMedia";
+import BuildingsShelf from "./BuildingsShelf";
 import ShareMenu from "@/components/community/ShareMenu";
 import type { CommunityKind } from "@/lib/community/types";
 import {

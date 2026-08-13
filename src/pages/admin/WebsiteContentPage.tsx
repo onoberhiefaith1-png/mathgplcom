@@ -99,17 +99,38 @@ const MediaField = ({
           e.target.value = "";
         }}
       />
-      <div className="flex gap-2">
-        <Button size="sm" variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
-          {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-          {value?.path ? "Replace" : "Upload"}
-        </Button>
+      <div className="flex flex-wrap gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="secondary" disabled={busy}>
+              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              {value?.path ? "Replace" : "Upload"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onSelect={() => fileRef.current?.click()}>
+              <UploadCloud className="mr-2 h-4 w-4" /> File
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setPicking(true)}>
+              <ImageIcon className="mr-2 h-4 w-4" /> GPL Assets
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {value?.path && (
           <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
             <Trash2 className="mr-2 h-4 w-4" /> Remove
           </Button>
         )}
       </div>
+      <GameAssetPickerDialog
+        open={picking}
+        onOpenChange={setPicking}
+        onPick={(pick) => {
+          onChange({ path: pick.path, source: "storage", mediaType: pick.mediaType });
+          toast.success("Asset selected");
+        }}
+      />
+
     </div>
   );
 };
