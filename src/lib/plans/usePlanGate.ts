@@ -47,6 +47,14 @@ export function usePlanGate() {
   const loading = roleLoading || (Boolean(audience) && (mine.isLoading || plans.isLoading));
   const subscription = mine.data?.subscription ?? null;
 
+  // An expired plan sits in a renewal grace window: the workspace stays open
+  // and the work is safe, but credit spending is paused until it is renewed.
+  const expired = subscription?.status === "expired";
+  const graceDaysLeft =
+    expired && subscription?.graceUntil
+      ? Math.max(0, Math.ceil((new Date(subscription.graceUntil).getTime() - Date.now()) / 86_400_000))
+      : null;
+
   return {
     loading,
     audience,
@@ -57,5 +65,9 @@ export function usePlanGate() {
     /** Nothing published for this audience yet. */
     noPlansYet: Boolean(audience) && !loading && choices.length === 0,
     needsPlan: Boolean(audience) && !loading && !subscription && choices.length > 0,
+    /** The paid period ended without a renewal. */
+    expired,
+    /** Whole days left before the account falls back to the free plan. */
+    graceDaysLeft,
   };
 }
