@@ -5948,32 +5948,19 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       account_subscription_id: { Args: { _user_id: string }; Returns: string }
-      activate_subscription:
-        | {
-            Args: {
-              _amount_paid?: number
-              _org_id?: string
-              _period_days?: number
-              _plan_key: string
-              _provider?: string
-              _provider_subscription_id?: string
-              _user_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _amount_paid?: number
-              _billing_interval?: string
-              _org_id?: string
-              _period_days?: number
-              _plan_key: string
-              _provider?: string
-              _provider_subscription_id?: string
-              _user_id: string
-            }
-            Returns: string
-          }
+      activate_subscription: {
+        Args: {
+          _amount_paid?: number
+          _billing_interval?: string
+          _org_id?: string
+          _period_days?: number
+          _plan_key: string
+          _provider?: string
+          _provider_subscription_id?: string
+          _user_id: string
+        }
+        Returns: string
+      }
       adjust_credits: {
         Args: {
           _amount: number
