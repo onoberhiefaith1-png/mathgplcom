@@ -4856,6 +4856,7 @@ export type Database = {
           position: number
           published_at: string | null
           subline: string | null
+          title: string | null
           updated_at: string
           visible: boolean
         }
@@ -4874,6 +4875,7 @@ export type Database = {
           position?: number
           published_at?: string | null
           subline?: string | null
+          title?: string | null
           updated_at?: string
           visible?: boolean
         }
@@ -4892,6 +4894,7 @@ export type Database = {
           position?: number
           published_at?: string | null
           subline?: string | null
+          title?: string | null
           updated_at?: string
           visible?: boolean
         }

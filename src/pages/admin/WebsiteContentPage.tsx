@@ -21,6 +21,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import GameAssetPickerDialog from "@/components/gamebuilder/GameAssetPickerDialog";
+import AddSectionDialog from "@/components/admin/AddSectionDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +48,8 @@ import {
   type SectionPatch,
 } from "@/lib/site/useSiteAdmin";
 import {
-  SECTION_TITLES,
+  sectionTitleOf,
+  templateOf,
   type SiteContent,
   type SiteItem,
   type SiteMediaRef,
@@ -149,13 +162,17 @@ const SectionCard = ({
   onPublish,
   onMove,
   onVisible,
+  onDelete,
 }: {
   row: SiteSection;
   onSave: (patch: SectionPatch) => Promise<void>;
   onPublish: (patch: SectionPatch) => Promise<void>;
   onMove: (direction: -1 | 1) => void;
   onVisible: (visible: boolean) => void;
+  onDelete: () => void;
 }) => {
+  const template = templateOf(row.kind);
+  const fields = template?.fields ?? {};
   const merged = mergeDraft(row);
   const [patch, setPatch] = useState<SectionPatch>({});
   const [busy, setBusy] = useState(false);
@@ -186,10 +203,10 @@ const SectionCard = ({
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold">
-            {SECTION_TITLES[row.key] ?? row.key}
+            {sectionTitleOf(row)}
           </h2>
           <p className="text-xs text-muted-foreground">
-            {row.kind}
+            {template?.label ?? row.kind}
             {hasDraft ? " · unpublished draft" : ""}
           </p>
         </div>
@@ -204,31 +221,55 @@ const SectionCard = ({
             {row.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             <Switch checked={row.visible} onCheckedChange={onVisible} aria-label="Section visible" />
           </span>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="icon" variant="ghost" aria-label="Delete section">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete “{sectionTitleOf(row)}”?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This removes the section and its content from the homepage for good.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep it</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete}>Delete section</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
 
       {row.kind !== "footer" && (
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0 space-y-3">
-            {row.kind === "hero" && (
+            {fields.eyebrow && (
               <Input
                 placeholder="Eyebrow (small line above the headline)"
                 value={value.eyebrow ?? ""}
                 onChange={(e) => set("eyebrow", e.target.value)}
               />
             )}
+            {fields.headline !== false && (
             <Textarea
               placeholder="Headline — short and powerful"
               value={value.headline ?? ""}
               onChange={(e) => set("headline", e.target.value)}
               rows={2}
             />
+            )}
+            {fields.subline !== false && (
             <Textarea
               placeholder="Short supporting line (optional)"
               value={value.subline ?? ""}
               onChange={(e) => set("subline", e.target.value)}
               rows={2}
             />
+            )}
+            {fields.cta && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
                 placeholder="Button label"
@@ -241,8 +282,9 @@ const SectionCard = ({
                 onChange={(e) => set("cta_href", e.target.value)}
               />
             </div>
+            )}
 
-            {ITEM_KINDS.has(row.kind) && (
+            {(fields.items ?? ITEM_KINDS.has(row.kind)) && (
               <div className="space-y-3 rounded-xl border border-border/70 p-3">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Panels
@@ -307,6 +349,7 @@ const SectionCard = ({
             )}
           </div>
 
+          {fields.media !== false ? (
           <MediaField
             label="Section media (image or video)"
             value={(value.media ?? null) as SiteMediaRef | null}
@@ -322,7 +365,7 @@ const SectionCard = ({
               }, media ? "Media published" : "Media removed");
             }}
           />
-
+          ) : null}
         </div>
       )}
 
@@ -363,6 +406,7 @@ const SectionCard = ({
 const WebsiteContentPage = () => {
   const admin = useSiteAdmin();
   const [preview, setPreview] = useState<SiteContent | null>(null);
+  const [adding, setAdding] = useState(false);
   const [newQuote, setNewQuote] = useState({ author_name: "", author_role: "", organisation: "", quote: "" });
 
   const ordered = useMemo(
@@ -442,8 +486,19 @@ const WebsiteContentPage = () => {
             }
             onMove={(direction) => void admin.move(row, direction)}
             onVisible={(visible) => void admin.setVisible(row, visible)}
+            onDelete={() =>
+              void admin
+                .deleteSection(row)
+                .then(() => toast.success("Section deleted"))
+                .catch((err) => toast.error(err instanceof Error ? err.message : "Delete failed"))
+            }
           />
         ))}
+
+        <Button variant="secondary" className="w-full" onClick={() => setAdding(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Add section
+        </Button>
+        <AddSectionDialog open={adding} onOpenChange={setAdding} onCreate={admin.createSection} />
 
         {/* By the numbers — real counts only, each one opt-in. */}
         <section className="rounded-2xl border border-border bg-card/60 p-5">

@@ -9,11 +9,13 @@ import type {
   SiteMediaRef,
   SiteMediaResolved,
   SiteSection,
+  SiteSectionKind,
   SiteSectionResolved,
   SiteStats,
   SiteStatsSettings,
   SiteTestimonial,
 } from "./types";
+import { templateOf } from "./types";
 
 export type SectionPatch = Partial<
   Pick<
@@ -104,6 +106,53 @@ export function useSiteAdmin() {
     for (const row of list) await publish(row);
   }, [publish]);
 
+  /** Add a new section from the library: hidden, empty, at the end. */
+  const createSection = useCallback(
+    async ({ kind, title }: { kind: SiteSectionKind; title: string }) => {
+      const template = templateOf(kind);
+      const slugBase =
+        title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "") || kind;
+      const existing = new Set(rows.map((r) => r.key));
+      let key = slugBase;
+      let n = 2;
+      while (existing.has(key)) key = `${slugBase}-${n++}`;
+
+      const maxPosition = rows.reduce((max, r) => Math.max(max, r.position), 0);
+      const items = Array.from({ length: template?.defaultItems ?? 0 }, (_, i) => ({
+        id: `item-${Date.now()}-${i}`,
+        label: "",
+        headline: "",
+      }));
+
+      const { error } = await supabase.from("site_sections").insert({
+        key,
+        kind,
+        title: title.trim() || null,
+        position: maxPosition + 1,
+        visible: false,
+        items: items as never,
+        media: {} as never,
+      } as never);
+      if (error) throw error;
+      await reload();
+      return key;
+    },
+    [rows, reload],
+  );
+
+  /** Remove a section from the homepage for good. */
+  const deleteSection = useCallback(
+    async (row: SiteSection) => {
+      const { error } = await supabase.from("site_sections").delete().eq("id", row.id);
+      if (error) throw error;
+      await reload();
+    },
+    [reload],
+  );
+
   const move = useCallback(
     async (row: SiteSection, direction: -1 | 1) => {
       const ordered = [...rows].sort((a, b) => a.position - b.position);
@@ -177,6 +226,8 @@ export function useSiteAdmin() {
     reload,
     saveDraft,
     publish,
+    createSection,
+    deleteSection,
     publishAll,
     move,
     setVisible,
