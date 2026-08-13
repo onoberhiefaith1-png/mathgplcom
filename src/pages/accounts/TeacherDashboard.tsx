@@ -1,4 +1,4 @@
-import { Building2, CalendarClock, ClipboardList, GraduationCap, Users } from "lucide-react";
+import { Building2, CalendarClock, ClipboardList, GraduationCap, Lock, Users } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
@@ -11,16 +11,19 @@ import { useConnections, useConnectionCounts } from "@/lib/connections/useConnec
 import WorkspaceInvitations from "@/components/accounts/WorkspaceInvitations";
 import PlanSection from "@/components/plans/PlanSection";
 import CreditsSection from "@/components/plans/CreditsSection";
+import { useUpgradeGuard } from "@/lib/entitlements/useUpgradeGuard";
+import type { FeatureKey } from "@/lib/entitlements/features";
 
-const QUICK: { to: string; label: string }[] = [
-  { to: "/lesson-notes", label: "Lesson Notes" },
-  { to: "/smartboard", label: "SmartBoard" },
-  { to: "/teaching-hub/classes", label: "Classes" },
-  { to: "/adventure", label: "Adventure" },
-  { to: "/course-builder", label: "Skill Builder" },
-  { to: "/live", label: "MathGPL Live" },
+const QUICK: { to: string; label: string; feature?: FeatureKey }[] = [
+  { to: "/lesson-notes", label: "Lesson Notes", feature: "create_lesson_notes" },
+  { to: "/smartboard", label: "SmartBoard", feature: "smartboard" },
+  { to: "/teaching-hub/classes", label: "Classes", feature: "classes" },
+  { to: "/adventure", label: "Adventure", feature: "adventure" },
+  { to: "/course-builder", label: "Skill Builder", feature: "skill_builder" },
+  { to: "/live", label: "MathGPL Live", feature: "mathgpl_live" },
   { to: "/teaching-hub/pricing", label: "Pricing" },
 ];
+
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
@@ -38,6 +41,7 @@ const when = (iso: string) =>
  */
 const TeacherDashboard = () => {
   const { data, isLoading } = useTeacherStats();
+  const { guard, allowed, dialog: upgradeDialog } = useUpgradeGuard();
   const { workspaces, activeOrgId, switchTo } = useWorkspace();
   const schedule = useUpcomingSessions();
   const { counts } = useConnectionCounts();
@@ -166,16 +170,30 @@ const TeacherDashboard = () => {
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">Quick actions</h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          {QUICK.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="min-h-[44px] rounded-full border border-ws-border/70 bg-ws-canvas/40 px-4 py-2 text-sm transition hover:border-ws-gold/50"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {QUICK.map((item) =>
+            !item.feature || allowed(item.feature) ? (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="min-h-[44px] rounded-full border border-ws-border/70 bg-ws-canvas/40 px-4 py-2 text-sm transition hover:border-ws-gold/50"
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={item.to}
+                type="button"
+                onClick={() => guard(item.feature!, () => {})}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ws-border/40 bg-ws-canvas/20 px-4 py-2 text-sm text-muted-foreground transition hover:border-ws-gold/40"
+              >
+                <Lock className="h-3.5 w-3.5" />
+                {item.label}
+              </button>
+            ),
+          )}
         </div>
+        {upgradeDialog}
+
       </section>
 
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">

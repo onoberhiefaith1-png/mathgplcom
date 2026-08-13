@@ -2425,6 +2425,39 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_entitlements: {
+        Row: {
+          applies_to: string[]
+          category: string
+          created_at: string
+          id: string
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          applies_to?: string[]
+          category: string
+          created_at?: string
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          applies_to?: string[]
+          category?: string
+          created_at?: string
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       floating_assistant_messages: {
         Row: {
           content: Json
@@ -3871,6 +3904,45 @@ export type Database = {
           },
         ]
       }
+      plan_entitlements: {
+        Row: {
+          created_at: string
+          feature_key: string
+          id: string
+          plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          feature_key: string
+          id?: string
+          plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          feature_key?: string
+          id?: string
+          plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_entitlements_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "feature_entitlements"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "plan_entitlements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_features: {
         Row: {
           created_at: string
@@ -3899,6 +3971,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_limits: {
+        Row: {
+          created_at: string
+          id: string
+          limit_key: string
+          limit_value: number | null
+          plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          limit_key: string
+          limit_value?: number | null
+          plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          limit_key?: string
+          limit_value?: number | null
+          plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_limits_plan_id_fkey"
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "plans"
@@ -5507,6 +5614,8 @@ export type Database = {
         Returns: string
       }
       account_activity_score: { Args: { _user_id: string }; Returns: number }
+      account_audience: { Args: { _user_id: string }; Returns: string }
+      account_plan_id: { Args: { _user_id: string }; Returns: string }
       account_role_of: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -5629,6 +5738,18 @@ export type Database = {
         }[]
       }
       downgrade_to_free_plan: { Args: { _sub_id: string }; Returns: undefined }
+      effective_entitlements: {
+        Args: { _user_id: string }
+        Returns: {
+          feature_key: string
+          payer_user_id: string
+          source: string
+        }[]
+      }
+      effective_limit: {
+        Args: { _limit: string; _user_id: string }
+        Returns: number
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -5731,6 +5852,10 @@ export type Database = {
         Returns: Json
       }
       has_capability: { Args: { _capability: string }; Returns: boolean }
+      has_entitlement: {
+        Args: { _feature: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
