@@ -46,13 +46,23 @@ const PlanSection = ({ className = "" }: { className?: string }) => {
               <div className="font-semibold">{credits(subscription.includedCredits)}</div>
             </div>
             <div>
-              <div className="text-xs text-white/50">Renews</div>
+              <div className="text-xs text-white/50">{expired ? "Ended" : "Renews"}</div>
               <div className="font-semibold">
                 {subscription.periodEnd ? new Date(subscription.periodEnd).toLocaleDateString() : "—"}
               </div>
             </div>
           </div>
-          {subscription.paymentState === "past_due" ? (
+          {expired ? (
+            <p className="mt-3 flex items-start gap-2 rounded-xl border border-rose-400/40 bg-rose-500/10 p-3 text-xs text-rose-200">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Your plan has ended and credit spending is paused. Everything you have made is safe.{" "}
+                {graceDaysLeft !== null
+                  ? `Renew within ${graceDaysLeft} ${graceDaysLeft === 1 ? "day" : "days"} to carry on where you left off — after that this account moves to the free plan.`
+                  : "Renew to carry on where you left off."}
+              </span>
+            </p>
+          ) : subscription.paymentState === "past_due" ? (
             <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-200">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>Your last payment did not go through. Credit spending is paused until it succeeds.</span>
