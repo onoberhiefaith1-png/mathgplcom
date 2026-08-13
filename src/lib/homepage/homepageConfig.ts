@@ -33,6 +33,21 @@ export interface HomepageConfig {
 
 const STORAGE_KEY = "mathgpl.homepage.config";
 
+/**
+ * Every successful Save also files the resulting building into the GPL Assets
+ * Buildings shelf as a new snapshot. Loaded lazily so the assets module can
+ * import this one without a cycle, and never allowed to fail a Save.
+ */
+const archiveBuilding = async (version: "pro" | "free", config: HomepageConfig) => {
+  try {
+    const { snapshotBuilding } = await import("./buildingAssets");
+    await snapshotBuilding(version, config);
+  } catch (err) {
+    console.error("building snapshot failed", err);
+  }
+};
+
+
 const readLocal = (): HomepageConfig => {
   if (typeof window === "undefined") return {};
   try {
