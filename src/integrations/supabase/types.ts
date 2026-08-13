@@ -2091,6 +2091,63 @@ export type Database = {
           },
         ]
       }
+      credit_reservations: {
+        Row: {
+          consumed: number
+          cost_unit_id: string
+          created_at: string
+          credits: number
+          expires_at: string
+          feature: string | null
+          id: string
+          operation_key: string
+          settled_at: string | null
+          status: string
+          wallet_id: string
+        }
+        Insert: {
+          consumed?: number
+          cost_unit_id: string
+          created_at?: string
+          credits?: number
+          expires_at?: string
+          feature?: string | null
+          id?: string
+          operation_key: string
+          settled_at?: string | null
+          status?: string
+          wallet_id: string
+        }
+        Update: {
+          consumed?: number
+          cost_unit_id?: string
+          created_at?: string
+          credits?: number
+          expires_at?: string
+          feature?: string | null
+          id?: string
+          operation_key?: string
+          settled_at?: string | null
+          status?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_reservations_cost_unit_id_fkey"
+            columns: ["cost_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_reservations_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "credit_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_wallets: {
         Row: {
           balance: number
@@ -2099,6 +2156,7 @@ export type Database = {
           id: string
           lifetime_purchased: number
           lifetime_spent: number
+          reserved: number
           updated_at: string
         }
         Insert: {
@@ -2108,6 +2166,7 @@ export type Database = {
           id?: string
           lifetime_purchased?: number
           lifetime_spent?: number
+          reserved?: number
           updated_at?: string
         }
         Update: {
@@ -2117,6 +2176,7 @@ export type Database = {
           id?: string
           lifetime_purchased?: number
           lifetime_spent?: number
+          reserved?: number
           updated_at?: string
         }
         Relationships: [
@@ -3702,6 +3762,7 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          credit_amount: number
           credits_allocated: number
           currency: string
           id: string
@@ -3711,6 +3772,7 @@ export type Database = {
           plan_version_id: string | null
           provider: string
           provider_ref: string | null
+          service_amount: number
           status: string
           subscription_id: string | null
           user_id: string | null
@@ -3718,6 +3780,7 @@ export type Database = {
         Insert: {
           amount?: number
           created_at?: string
+          credit_amount?: number
           credits_allocated?: number
           currency?: string
           id?: string
@@ -3727,6 +3790,7 @@ export type Database = {
           plan_version_id?: string | null
           provider?: string
           provider_ref?: string | null
+          service_amount?: number
           status?: string
           subscription_id?: string | null
           user_id?: string | null
@@ -3734,6 +3798,7 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string
+          credit_amount?: number
           credits_allocated?: number
           currency?: string
           id?: string
@@ -3743,6 +3808,7 @@ export type Database = {
           plan_version_id?: string | null
           provider?: string
           provider_ref?: string | null
+          service_amount?: number
           status?: string
           subscription_id?: string | null
           user_id?: string | null
@@ -3962,6 +4028,8 @@ export type Database = {
       platform_cost_settings: {
         Row: {
           credit_rate: number
+          credit_start_floor: number
+          credit_stop_floor: number
           currency: string
           id: number
           profit_percentage: number
@@ -3969,6 +4037,8 @@ export type Database = {
         }
         Insert: {
           credit_rate?: number
+          credit_start_floor?: number
+          credit_stop_floor?: number
           currency?: string
           id?: number
           profit_percentage?: number
@@ -3976,6 +4046,8 @@ export type Database = {
         }
         Update: {
           credit_rate?: number
+          credit_start_floor?: number
+          credit_stop_floor?: number
           currency?: string
           id?: number
           profit_percentage?: number
@@ -5112,6 +5184,7 @@ export type Database = {
           metric: string
           model: string | null
           occurred_at: string
+          operation_key: string | null
           paid_credits: number
           payment_status: string
           profit: number
@@ -5142,6 +5215,7 @@ export type Database = {
           metric: string
           model?: string | null
           occurred_at?: string
+          operation_key?: string | null
           paid_credits?: number
           payment_status?: string
           profit?: number
@@ -5172,6 +5246,7 @@ export type Database = {
           metric?: string
           model?: string | null
           occurred_at?: string
+          operation_key?: string | null
           paid_credits?: number
           payment_status?: string
           profit?: number
@@ -5406,6 +5481,27 @@ export type Database = {
           id: string
           name: string
           org_id: string
+        }[]
+      }
+      consume_credits: {
+        Args: {
+          _cost_unit_id: string
+          _credits: number
+          _note?: string
+          _usage_event_id?: string
+        }
+        Returns: number
+      }
+      credit_headroom: {
+        Args: { _org_id?: string; _user_id: string }
+        Returns: {
+          available: number
+          balance: number
+          blocked_reason: string
+          enforced: boolean
+          reserved: number
+          start_floor: number
+          stop_floor: number
         }[]
       }
       credit_value_at: {
@@ -5793,6 +5889,10 @@ export type Database = {
           username: string
         }[]
       }
+      plan_allows_ai: {
+        Args: { _org_id?: string; _user_id: string }
+        Returns: boolean
+      }
       profit_percentage_at: { Args: { _at?: string }; Returns: number }
       publish_plan_version: { Args: { _plan_id: string }; Returns: string }
       read_email_batch: {
@@ -5808,40 +5908,27 @@ export type Database = {
         Returns: undefined
       }
       reconcile_usage_costs: { Args: { _since?: string }; Returns: number }
-      record_usage_event:
-        | {
-            Args: {
-              _category: Database["public"]["Enums"]["cost_category"]
-              _feature?: string
-              _metric: string
-              _model?: string
-              _occurred_at?: string
-              _org_id: string
-              _quantity: number
-              _unit?: string
-              _user_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _category: Database["public"]["Enums"]["cost_category"]
-              _feature?: string
-              _metric: string
-              _model?: string
-              _occurred_at?: string
-              _org_id: string
-              _quantity: number
-              _resource_label?: string
-              _unit?: string
-              _user_id: string
-            }
-            Returns: string
-          }
+      record_usage_event: {
+        Args: {
+          _category: Database["public"]["Enums"]["cost_category"]
+          _feature?: string
+          _metric: string
+          _model?: string
+          _occurred_at?: string
+          _operation_key?: string
+          _org_id: string
+          _quantity: number
+          _resource_label?: string
+          _unit?: string
+          _user_id: string
+        }
+        Returns: string
+      }
       redeem_promo_code: { Args: { _code: string }; Returns: string }
       redeem_staff_code: { Args: { _code: string }; Returns: string }
       regenerate_my_share_code: { Args: never; Returns: string }
       regenerate_school_code: { Args: { _org_id: string }; Returns: string }
+      release_expired_reservations: { Args: never; Returns: number }
       request_connection: {
         Args: {
           _message?: string
@@ -5858,6 +5945,21 @@ export type Database = {
           _target_user_id: string
         }
         Returns: string
+      }
+      reserve_credits: {
+        Args: {
+          _credits?: number
+          _feature?: string
+          _operation_key?: string
+          _org_id?: string
+          _user_id: string
+        }
+        Returns: {
+          available: number
+          ok: boolean
+          reason: string
+          required: number
+        }[]
       }
       resolve_account_code: {
         Args: { _code: string }
@@ -5977,6 +6079,10 @@ export type Database = {
       set_workspace_visibility: {
         Args: { _org_id: string; _visibility: string }
         Returns: string
+      }
+      settle_credit_reservation: {
+        Args: { _operation_key: string; _status?: string }
+        Returns: boolean
       }
       shares_class_with: { Args: { _other: string }; Returns: boolean }
       signup_role_of: {
