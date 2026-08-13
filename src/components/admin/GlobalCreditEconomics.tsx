@@ -190,20 +190,14 @@ export default function GlobalCreditEconomics({
           </div>
 
           <div className="space-y-1">
-            <p className={label}>Pricing version history</p>
-            {(pricing.data?.rows ?? []).length === 0 ? (
-              <p className="text-xs text-dash-surface/55">No percentage change recorded yet.</p>
-            ) : (
-              (pricing.data?.rows ?? []).slice(0, 6).map((v) => (
-                <p key={v.id} className="text-xs text-dash-surface/70">
-                  <span className={v.current ? "text-dash-gold" : ""}>{v.label ?? "PV"}</span> — cost £
-                  {v.costPerCredit.toFixed(4)} + {v.profitPercentage}% = £{v.sellPrice.toFixed(4)} from{" "}
-                  {day(v.effectiveFrom)}
-                  {v.current ? " — current" : ""}
-                </p>
-              ))
-            )}
+            <p className={label}>Pricing versions recorded</p>
+            <p className="text-xs text-dash-surface/70">
+              {(pricing.data?.rows ?? []).length} locked version
+              {(pricing.data?.rows ?? []).length === 1 ? "" : "s"} — see the history panel below.
+            </p>
           </div>
+
+
 
 
           <div className="space-y-1">
