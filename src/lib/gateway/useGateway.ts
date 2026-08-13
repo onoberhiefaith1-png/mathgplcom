@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 
 import type { GatewayItem, GatewayOwnerKind } from "./items";
 import {
@@ -6,12 +7,76 @@ import {
   grantPlanToExistingStudents,
   loadGatewayByHandle,
   loadMyEntitlement,
+  loadMyGatewayPayments,
   loadMyGatewayStudents,
   loadMyPlans,
   savePlan,
   type GatewayPlan,
   type PlanDraft,
 } from "./gateway";
+import {
+  createPlanCheckout,
+  getStripeStatus,
+  openStripeDashboard,
+  setPaymentsActive,
+  startStripeOnboarding,
+} from "./stripe.functions";
+
+/** Where this workspace stands with its own Stripe account. */
+export const useStripeStatus = (ownerKind: GatewayOwnerKind) => {
+  const fetchStatus = useServerFn(getStripeStatus);
+  return useQuery({
+    queryKey: ["gateway-stripe", ownerKind],
+    queryFn: () => fetchStatus({ data: { ownerKind } }),
+    staleTime: 15_000,
+  });
+};
+
+export const useStripeConnectActions = (ownerKind: GatewayOwnerKind) => {
+  const queryClient = useQueryClient();
+  const onboard = useServerFn(startStripeOnboarding);
+  const dashboard = useServerFn(openStripeDashboard);
+  const activate = useServerFn(setPaymentsActive);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["gateway-stripe", ownerKind] });
+
+  return {
+    connect: useMutation({
+      mutationFn: async () => {
+        const { url } = await onboard({ data: { ownerKind, origin: window.location.origin } });
+        window.location.href = url;
+      },
+    }),
+    manage: useMutation({
+      mutationFn: async () => {
+        const { url } = await dashboard({ data: { ownerKind } });
+        window.open(url, "_blank", "noreferrer");
+      },
+    }),
+    setActive: useMutation({
+      mutationFn: (active: boolean) => activate({ data: { ownerKind, active } }),
+      onSuccess: () => void invalidate(),
+    }),
+  };
+};
+
+/** Stripe Checkout on the owner's connected account — the platform takes nothing. */
+export const usePlanCheckout = () => {
+  const checkout = useServerFn(createPlanCheckout);
+  return useMutation({
+    mutationFn: async (planId: string) => {
+      const { url } = await checkout({ data: { planId, origin: window.location.origin } });
+      window.location.href = url;
+    },
+  });
+};
+
+export const useGatewayPayments = (ownerKind: GatewayOwnerKind) =>
+  useQuery({
+    queryKey: ["gateway-payments", ownerKind],
+    queryFn: () => loadMyGatewayPayments(ownerKind),
+    staleTime: 15_000,
+  });
+
 
 /** The owner's three plan slots, seeded on first read. */
 export const useMyGatewayPlans = (ownerKind: GatewayOwnerKind) =>
