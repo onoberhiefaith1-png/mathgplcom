@@ -240,6 +240,10 @@ export default function CostAnalytics({ embedded }: { embedded?: boolean } = {})
 
         <GlobalCreditEconomics locked={overview.data?.lockedSubscriptions ?? []} />
 
+        <PricingHistoryPanel />
+
+        <CreditLotsPanel />
+
         {/* Price book */}
         <section>
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
