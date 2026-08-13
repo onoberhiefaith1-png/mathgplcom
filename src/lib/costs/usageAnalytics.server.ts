@@ -207,13 +207,17 @@ export async function usageAnalytics(from: string, to: string, costUnitId?: stri
 }
 
 
+/** What kind of financial event a ledger row is. */
+export type LedgerKind = "usage" | "subscription" | "credit_purchase";
+
 export type LedgerRow = {
   id: string;
+  kind: LedgerKind;
   occurredAt: string;
   costUnitId: string;
   owner: string;
   ownerCode: string;
-  category: CostCategory;
+  category: CostCategory | "payment";
   metric: string;
   resource: string;
   quantity: number;
@@ -234,6 +238,13 @@ export type LedgerRow = {
   amountPaid: number;
   discount: number;
   promoCode: string | null;
+  /** Money collected on a payment row; prepaid value, never usage revenue. */
+  cashReceived: number;
+  /** Credits issued by a payment row — a liability until they are consumed. */
+  creditsIssued: number;
+  /** The subscription (service) component of a payment. */
+  serviceAmount: number;
+  reference: string | null;
 
   status: string;
   result: number;
