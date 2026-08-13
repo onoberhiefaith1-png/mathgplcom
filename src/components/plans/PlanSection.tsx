@@ -41,9 +41,7 @@ const PlanSection = ({ className = "" }: { className?: string }) => {
               <div className="text-xs text-white/50">Price</div>
               <div className="font-semibold">{money(subscription.price, subscription.currency)}</div>
             </div>
-              <div className="text-xs text-white/50">Price</div>
-              <div className="font-semibold">{money(subscription.price, subscription.currency)}</div>
-            </div>
+            <div>
             <div>
               <div className="text-xs text-white/50">Included credits</div>
               <div className="font-semibold">{credits(subscription.includedCredits)}</div>
