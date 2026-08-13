@@ -167,6 +167,7 @@ const Showcase = ({
   routeFor,
   interactive = true,
   onArtworkReady,
+  rotationPaused = false,
 }: {
   ringUrls: string[];
   coreUrls: string[];
@@ -176,6 +177,8 @@ const Showcase = ({
   interactive?: boolean;
   /** Fires once the building's artwork has decoded, so the page can fade in. */
   onArtworkReady?: () => void;
+  /** Holds the building still while a video advertisement plays out. */
+  rotationPaused?: boolean;
 }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
@@ -183,6 +186,9 @@ const Showcase = ({
   const frontIndexRef = useRef(0);
   const navigate = useNavigate();
   const { camera } = useThree();
+  const pausedRef = useRef(rotationPaused);
+  pausedRef.current = rotationPaused;
+
 
   // Artwork per slot; repeated urls (the MathGPL hubs, the dome copies) load once.
   const uniqueUrls = useMemo(
