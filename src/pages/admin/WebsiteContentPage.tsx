@@ -275,6 +275,12 @@ const SectionCard = ({
                           const next = [...items];
                           next[index] = { ...item, media };
                           setItems(next);
+                          void run(async () => {
+                            const nextPatch = { ...patch, items: next } as SectionPatch;
+                            await onSave(nextPatch);
+                            await onPublish(nextPatch);
+                            setPatch({});
+                          }, media ? "Media published" : "Media removed");
                         }}
                       />
                     </div>
