@@ -11,7 +11,7 @@ import { usePlanGate } from "@/lib/plans/usePlanGate";
  * in the Pricing workspace.
  */
 const PlanSection = ({ className = "" }: { className?: string }) => {
-  const { loading, subscribes, subscription, noPlansYet } = usePlanGate();
+  const { loading, subscribes, subscription, noPlansYet, expired, graceDaysLeft } = usePlanGate();
 
   // Students and the platform owner hold no plan of their own.
   if (!loading && !subscribes) return null;
@@ -28,9 +28,19 @@ const PlanSection = ({ className = "" }: { className?: string }) => {
         </p>
       ) : subscription ? (
         <>
-          <div className="mt-2 text-lg font-semibold">{subscription.planLabel}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-lg font-semibold">
+            {subscription.planLabel}
+            {expired ? (
+              <span className="rounded-full border border-rose-400/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-rose-200">
+                Expired — renewal required
+              </span>
+            ) : null}
+          </div>
           <div className="mt-2 grid gap-3 text-sm sm:grid-cols-3">
             <div>
+              <div className="text-xs text-white/50">Price</div>
+              <div className="font-semibold">{money(subscription.price, subscription.currency)}</div>
+            </div>
               <div className="text-xs text-white/50">Price</div>
               <div className="font-semibold">{money(subscription.price, subscription.currency)}</div>
             </div>
