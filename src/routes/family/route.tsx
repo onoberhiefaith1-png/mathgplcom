@@ -1,11 +1,11 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import RequireAuth from "@/components/auth/RequireAuth";
+import RequireRole from "@/components/auth/RequireRole";
 
-/** One platform sign-in covers every page under /family. */
+/** The Parent Console belongs to parent accounts only. */
 export const Route = createFileRoute("/family")({
   component: () => (
-    <RequireAuth>
+    <RequireRole roles={["parent"]}>
       <Outlet />
-    </RequireAuth>
+    </RequireRole>
   ),
 });

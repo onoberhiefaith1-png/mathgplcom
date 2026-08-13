@@ -157,8 +157,12 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       }
       if (!terms) throw new Error("Please accept the Terms of Service and Privacy Policy");
 
+      // The account type must be chosen explicitly. There is no default, so a
+      // registration can never silently create a teacher account.
+      if (!config.signupRole) throw new Error("Choose the kind of account you are creating.");
+
       const metadata: Record<string, string | boolean> = {
-        account_role: config.signupRole ?? "teacher",
+        account_role: config.signupRole,
         first_name: values.first_name.trim(),
         last_name: values.last_name.trim(),
         country: values.country.trim(),
@@ -205,7 +209,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       // immediately, and it is repeated in the confirmation email.
       if (created.user?.id) {
         try {
-          const { mathgplId } = await lookupId({ data: { userId: created.user.id, role: config.signupRole ?? "teacher" } });
+          const { mathgplId } = await lookupId({ data: { userId: created.user.id, role: config.signupRole } });
           setIssuedId(mathgplId);
         } catch { /* the email still carries the ID */ }
       }

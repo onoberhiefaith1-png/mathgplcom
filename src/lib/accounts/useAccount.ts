@@ -11,6 +11,8 @@ export type AccountState = {
   roles: AppRole[];
   /** True when the account owns the platform, whatever role it is viewing as. */
   isPlatformOwner: boolean;
+  /** Signed in, but the account has no stored account type. */
+  roleMissing: boolean;
 };
 
 const EMPTY: AccountState = {
@@ -20,12 +22,17 @@ const EMPTY: AccountState = {
   capabilities: [],
   roles: [],
   isPlatformOwner: false,
+  roleMissing: false,
 };
 
 /**
  * Resolves the signed-in account: its role, the organization that owns it and
- * the capabilities that role grants. `ensure_account` self-heals accounts that
- * predate the role system (they become teachers with their own workspace).
+ * the capabilities that role grants.
+ *
+ * The role is authoritative: it comes from the stored role record only. The
+ * client never proposes a role (no "teacher" fallback), so entering a page or
+ * a workspace can never change what kind of account this is. `ensure_account`
+ * only fills in a missing profile and workspace for the role already stored.
  */
 export async function loadAccount(requestedRole?: string): Promise<AccountState> {
   const { data: userData } = await supabase.auth.getUser();
@@ -33,7 +40,7 @@ export async function loadAccount(requestedRole?: string): Promise<AccountState>
   if (!user) return EMPTY;
 
   const { data: ensured } = await supabase.rpc("ensure_account", {
-    _requested_role: requestedRole ?? (user.user_metadata?.account_role as string) ?? "teacher",
+    _requested_role: requestedRole ?? undefined,
     _org_name: (user.user_metadata?.organization_name as string) ?? null,
   });
 
@@ -63,6 +70,7 @@ export async function loadAccount(requestedRole?: string): Promise<AccountState>
     capabilities,
     roles,
     isPlatformOwner: roles.includes("platform_owner"),
+    roleMissing: !role,
   };
 }
 

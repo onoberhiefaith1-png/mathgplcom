@@ -7,6 +7,7 @@ import LevelNavPanel from "@/components/academy/LevelNavPanel";
 import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton";
 import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
+import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,20 +96,21 @@ const Index = () => {
         <Globe2 className="h-4 w-4" />
         MathGPL Community
       </Link>
-      <Link
-        to={role === "school" ? "/school" : role === "parent" ? "/family" : "/teaching-hub"}
-        aria-label={
-          role === "school"
-            ? "Open School Console"
-            : role === "parent"
-              ? "Open Parent Console"
-              : "Open Teaching Hub"
-        }
-        className="fixed bottom-20 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
-      >
-        <GraduationCap className="h-4 w-4" />
-        {role === "school" ? "School Console" : role === "parent" ? "Parent Console" : "Teaching Hub"}
-      </Link>
+      {/*
+        One entry button, driven only by the stored account type. There is no
+        fallback destination: an administrator never lands in the Teaching Hub.
+        Administrator accounts use the Platform Console button below instead.
+      */}
+      {role && role !== "platform_owner" && role !== "co_admin" && (
+        <Link
+          to={WORKSPACE_PATH[role]}
+          aria-label={`Open ${WORKSPACE_LABEL[role]}`}
+          className="fixed bottom-20 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-amber-300/50 bg-background/70 px-4 py-2 text-sm font-medium text-amber-200 shadow-[0_0_24px_hsl(40_90%_60%/0.3)] backdrop-blur transition hover:bg-amber-500/20"
+        >
+          <GraduationCap className="h-4 w-4" />
+          {WORKSPACE_LABEL[role]}
+        </Link>
+      )}
       {isPlatformOwner && (
         <Link
           to="/admin"

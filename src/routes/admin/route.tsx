@@ -1,11 +1,11 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import RequireAuth from "@/components/auth/RequireAuth";
+import RequireRole from "@/components/auth/RequireRole";
 
-/** One platform sign-in covers every page under /admin. */
+/** Platform administration belongs to administrator accounts only. */
 export const Route = createFileRoute("/admin")({
   component: () => (
-    <RequireAuth>
+    <RequireRole roles={["platform_owner", "co_admin"]}>
       <Outlet />
-    </RequireAuth>
+    </RequireRole>
   ),
 });

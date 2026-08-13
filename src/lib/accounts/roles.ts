@@ -55,7 +55,13 @@ export const HOME_PATH: Record<AppRole, string> = {
   student: "/",
 };
 
-/** The dashboard each role opens from the homepage or the Account menu. */
+/**
+ * The dashboard each role opens from the homepage or the Account menu.
+ *
+ * This map is the ONLY place a role is turned into a destination. There is no
+ * fallback: an account without a role goes nowhere rather than being treated
+ * as a teacher.
+ */
 export const WORKSPACE_PATH: Record<AppRole, string> = {
   platform_owner: "/admin",
   co_admin: "/admin",
@@ -63,6 +69,25 @@ export const WORKSPACE_PATH: Record<AppRole, string> = {
   teacher: "/teaching-hub",
   parent: "/family",
   student: "/student",
+};
+
+/** The name of each role's own workspace, used on entry buttons. */
+export const WORKSPACE_LABEL: Record<AppRole, string> = {
+  platform_owner: "Platform Console",
+  co_admin: "Platform Console",
+  school: "School Console",
+  teacher: "Teaching Hub",
+  parent: "Parent Console",
+  student: "My Dashboard",
+};
+
+/** Which roles each workspace area belongs to. Used by the route guards. */
+export const AREA_ROLES: Record<string, AppRole[]> = {
+  "/admin": ["platform_owner", "co_admin"],
+  "/school": ["school"],
+  "/teaching-hub": ["teacher"],
+  "/family": ["parent"],
+  "/student": ["student"],
 };
 
 
@@ -158,7 +183,9 @@ export const ROLE_LABEL: Record<AppRole, string> = {
  * reports; platform administration never shows teacher authoring tools.
  */
 export const navFor = (role: AppRole | null, workspaceKind?: string): NavItem[] => {
-  const items = ROLE_NAV[role ?? "teacher"];
+  // No role, no menu — a roleless account is never shown a teacher's menu.
+  if (!role) return [];
+  const items = ROLE_NAV[role];
   if (!workspaceKind) return items;
 
   // Visiting a school workspace as a teacher: no school administration.

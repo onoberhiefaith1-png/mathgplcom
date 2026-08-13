@@ -1,11 +1,11 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import RequireAuth from "@/components/auth/RequireAuth";
+import RequireRole from "@/components/auth/RequireRole";
 
-/** One platform sign-in covers every page under /teaching-hub. */
+/** The Teaching Hub belongs to teacher accounts only. */
 export const Route = createFileRoute("/teaching-hub")({
   component: () => (
-    <RequireAuth>
+    <RequireRole roles={["teacher"]}>
       <Outlet />
-    </RequireAuth>
+    </RequireRole>
   ),
 });
