@@ -414,7 +414,35 @@ export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean }
             </table>
           </div>
 
-          {detail && (
+          {detail && detail.kind !== "usage" && (
+            <div className="mt-4 rounded-xl border border-dash-gold/30 bg-dash-gold/5 p-4 text-xs text-dash-surface/80">
+              <p className="text-sm font-semibold text-dash-surface">{detail.resource}</p>
+              <p className="mt-1 text-[11px] text-dash-surface/60">
+                Money received, split into what the platform has earned now and what is still owed as prepaid credits.
+              </p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                <p>Account: <span className="text-dash-surface">{detail.owner}</span> ({detail.ownerCode})</p>
+                <p>Total received: <span className="text-dash-surface">{money(detail.cashReceived, currency)}</span></p>
+                <p>
+                  Platform subscription fee:{" "}
+                  <span className="text-dash-surface">{money(detail.serviceAmount, currency)}</span> (earned now)
+                </p>
+                <p>
+                  Credit purchase (prepaid):{" "}
+                  <span className="text-dash-surface">{money(detail.creditAmount, currency)}</span> (liability until used)
+                </p>
+                <p>Credits issued: <span className="text-dash-surface">{credits(detail.creditsIssued)}</span></p>
+                <p>
+                  Locked credit price:{" "}
+                  <span className="text-dash-surface">{money(detail.creditPrice, currency)} / credit</span>
+                </p>
+                <p>Reference: <span className="text-dash-surface">{detail.reference ?? "—"}</span></p>
+                <p>Status: <span className="capitalize text-dash-surface">{detail.status}</span></p>
+              </div>
+            </div>
+          )}
+
+          {detail && detail.kind === "usage" && (
             <div className="mt-4 rounded-xl border border-dash-gold/30 bg-dash-gold/5 p-4 text-xs text-dash-surface/80">
               <p className="text-sm font-semibold text-dash-surface">{detail.resource}</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-4">

@@ -908,3 +908,91 @@ export async function saveStaffCode(input: {
   }
   return staffCodes();
 }
+
+/* ────────────────────────── Credit lots ──────────────────────────
+ * Every purchase creates a lot that keeps the economic terms it was bought
+ * under. Nothing here is ever recalculated from the current pricing inputs;
+ * lots are consumed oldest-first (FIFO).
+ */
+
+export type CreditLot = {
+  id: string;
+  grantedAt: string;
+  expiresAt: string;
+  source: string;
+  owner: string;
+  creditsPurchased: number;
+  creditsConsumed: number;
+  creditsRemaining: number;
+  /** Money paid for the lot, when a purchase record exists. */
+  amountPaid: number | null;
+  currency: string;
+  costPerCredit: number | null;
+  profitPercentage: number | null;
+  sellPrice: number | null;
+  /** True when the lot predates locked-rate recording. */
+  rateRecorded: boolean;
+  status: "active" | "exhausted" | "expired";
+};
+
+export async function creditLots(limit = 60): Promise<CreditLot[]> {
+  const db = await admin();
+  const { data } = await db
+    .from("credit_grants")
+    .select(
+      "id, granted_at, expires_at, source, credits, remaining, cost_unit_id, purchase_id, cost_per_credit_at_purchase, profit_percentage_at_purchase, sell_price_at_purchase",
+    )
+    .order("granted_at", { ascending: false })
+    .limit(limit);
+
+  const rows = data ?? [];
+  const purchaseIds = [...new Set(rows.map((r) => r.purchase_id as string | null).filter(Boolean))] as string[];
+  const unitIds = [...new Set(rows.map((r) => r.cost_unit_id as string).filter(Boolean))];
+
+  const [{ data: purchases }, { data: units }] = await Promise.all([
+    purchaseIds.length
+      ? db.from("credit_purchases").select("id, credits, unit_cost, currency").in("id", purchaseIds)
+      : Promise.resolve({ data: [] as { id: string; credits: number; unit_cost: number; currency: string }[] }),
+    unitIds.length
+      ? db.from("cost_units").select("id, code").in("id", unitIds)
+      : Promise.resolve({ data: [] as { id: string; code: string | null }[] }),
+  ]);
+
+  const paidOf = new Map<string, { amount: number; currency: string }>();
+  for (const p of purchases ?? [])
+    paidOf.set(p.id as string, {
+      amount: Number(p.credits ?? 0) * Number(p.unit_cost ?? 0),
+      currency: String(p.currency ?? "GBP"),
+    });
+  const labelOf = new Map<string, string>();
+  for (const u of units ?? []) labelOf.set(u.id as string, (u.code as string) ?? "—");
+
+  const now = Date.now();
+  return rows.map((r) => {
+    const purchased = Number(r.credits ?? 0);
+    const remaining = Number(r.remaining ?? 0);
+    const purchase = r.purchase_id ? paidOf.get(r.purchase_id as string) : undefined;
+    const cost = r.cost_per_credit_at_purchase === null ? null : Number(r.cost_per_credit_at_purchase);
+    const pct = r.profit_percentage_at_purchase === null ? null : Number(r.profit_percentage_at_purchase);
+    const sell = r.sell_price_at_purchase === null ? null : Number(r.sell_price_at_purchase);
+    const expired = new Date(r.expires_at as string).getTime() <= now;
+
+    return {
+      id: r.id as string,
+      grantedAt: r.granted_at as string,
+      expiresAt: r.expires_at as string,
+      source: String(r.source ?? "purchase"),
+      owner: labelOf.get(r.cost_unit_id as string) ?? "—",
+      creditsPurchased: purchased,
+      creditsConsumed: Math.max(purchased - remaining, 0),
+      creditsRemaining: remaining,
+      amountPaid: purchase ? purchase.amount : null,
+      currency: purchase?.currency ?? "GBP",
+      costPerCredit: cost,
+      profitPercentage: pct,
+      sellPrice: sell,
+      rateRecorded: cost !== null && sell !== null,
+      status: expired ? "expired" : remaining > 0 ? "active" : "exhausted",
+    } satisfies CreditLot;
+  });
+}

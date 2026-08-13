@@ -37,7 +37,25 @@ export type UsageAnalytics = {
     credits: number;
     events: number;
   }[];
-  totals: { cost: number; charge: number; paid: number; events: number; credits: number };
+  totals: {
+    /** GBP the platform paid providers. */
+    cost: number;
+    /** GBP equivalent of the customer charge — never the credit value itself. */
+    charge: number;
+    /** GBP actually collected from the customer. */
+    collected: number;
+    /** @deprecated GBP equivalent of prepaid credits deducted. Use paidCredits. */
+    paid: number;
+    events: number;
+    /** Run credits (platform metered usage, in credits). */
+    credits: number;
+    /** Metered platform cost expressed in credits. */
+    costCredits: number;
+    /** Customer charge expressed in credits. */
+    chargeCredits: number;
+    /** Prepaid credits actually deducted from customer lots. */
+    paidCredits: number;
+  };
   aiTotals: { inputTokens: number; outputTokens: number; images: number; audioMinutes: number; cost: number };
 };
 
@@ -121,11 +139,23 @@ async function creditRateOf() {
 
 export async function usageAnalytics(from: string, to: string, costUnitId?: string): Promise<UsageAnalytics> {
   const db = await admin();
-  const [{ data: settings }, events, creditRate] = await Promise.all([
+  const [{ data: settings }, events, creditRate, { data: cash }] = await Promise.all([
     db.from("platform_cost_settings").select("currency").eq("id", 1).maybeSingle(),
     readEvents(from, to, costUnitId),
     creditRateOf(),
+    // Money is only "collected" when a payment actually succeeded. Credit
+    // consumption is never counted as money here.
+    db
+      .from("payment_transactions")
+      .select("amount, status")
+      .gte("occurred_at", from)
+      .lte("occurred_at", to)
+      .limit(20_000),
   ]);
+
+  const collected = (cash ?? [])
+    .filter((p) => ["succeeded", "paid"].includes(String(p.status ?? "")))
+    .reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
 
   const spanHours = (new Date(to).getTime() - new Date(from).getTime()) / 3_600_000;
   const granularity: "hour" | "day" = spanHours <= 48 ? "hour" : "day";
@@ -149,6 +179,9 @@ export async function usageAnalytics(from: string, to: string, costUnitId?: stri
   let charge = 0;
   let paid = 0;
   let credits = 0;
+  let costCredits = 0;
+  let chargeCredits = 0;
+  let paidCredits = 0;
 
   for (const e of events) {
     const category = e.category as CostCategory;
@@ -177,6 +210,10 @@ export async function usageAnalytics(from: string, to: string, costUnitId?: stri
     charge += Number(e.customer_charge ?? 0);
     paid += Number(e.amount_paid ?? 0);
     credits += eventCredits;
+    const eventCostCredits = Number(e.cost_credits ?? 0) || eventCredits;
+    costCredits += eventCostCredits;
+    chargeCredits += Number(e.charge_credits ?? 0) || eventCostCredits * (1 + Number(e.profit_rate ?? 0) / 100);
+    paidCredits += Number(e.paid_credits ?? 0);
 
     if (category === "ai") {
       ai.cost += c;
@@ -201,7 +238,17 @@ export async function usageAnalytics(from: string, to: string, costUnitId?: stri
       credits: byCategory.get(category)?.credits ?? 0,
       events: byCategory.get(category)?.events ?? 0,
     })),
-    totals: { cost, charge, paid, events: events.length, credits },
+    totals: {
+      cost,
+      charge,
+      collected,
+      paid,
+      events: events.length,
+      credits,
+      costCredits,
+      chargeCredits,
+      paidCredits,
+    },
     aiTotals: ai,
   };
 }
@@ -242,8 +289,10 @@ export type LedgerRow = {
   cashReceived: number;
   /** Credits issued by a payment row — a liability until they are consumed. */
   creditsIssued: number;
-  /** The subscription (service) component of a payment. */
+  /** The subscription (service) component of a payment, in money. */
   serviceAmount: number;
+  /** The prepaid-credit component of a payment, in money. */
+  creditAmount: number;
   reference: string | null;
 
   status: string;
@@ -318,6 +367,7 @@ function toLedgerRow(e: EventRow, owners: Map<string, { name: string; code: stri
     cashReceived: 0,
     creditsIssued: 0,
     serviceAmount: 0,
+    creditAmount: 0,
     reference: null,
     occurredAt: e.occurred_at,
     costUnitId: e.cost_unit_id,
@@ -474,6 +524,7 @@ async function paymentLedgerRows(from: string, to: string, costUnitId?: string):
       cashReceived: refunded ? -Math.abs(Number(p.amount ?? 0)) : Number(p.amount ?? 0),
       creditsIssued: refunded ? 0 : credits,
       serviceAmount: Number(p.service_amount ?? 0),
+      creditAmount: Number(p.credit_amount ?? 0),
       reference: (p.provider_ref as string) ?? null,
       status: refunded ? "refunded" : "received",
       result: 0,

@@ -15,7 +15,9 @@ import { toast } from "sonner";
 
 import EmbeddableShell from "@/components/admin/EmbeddableShell";
 import CreditEconomyPanel from "@/components/admin/CreditEconomyPanel";
+import CreditLotsPanel from "@/components/admin/CreditLotsPanel";
 import GlobalCreditEconomics from "@/components/admin/GlobalCreditEconomics";
+import PricingHistoryPanel from "@/components/admin/PricingHistoryPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -239,6 +241,10 @@ export default function CostAnalytics({ embedded }: { embedded?: boolean } = {})
         <CreditEconomyPanel />
 
         <GlobalCreditEconomics locked={overview.data?.lockedSubscriptions ?? []} />
+
+        <PricingHistoryPanel />
+
+        <CreditLotsPanel />
 
         {/* Price book */}
         <section>

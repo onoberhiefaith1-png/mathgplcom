@@ -47,10 +47,16 @@ export default function GlobalCreditEconomics({
   const base = engine.data?.base;
   const inv = inventory.data?.inventory;
 
-  const cost = Number(costDraft || (base?.costPrice ?? 0));
-  const pct = Number(profitDraft || (base?.profitPercentage ?? 0));
-  const derived = sellPrice(Number.isFinite(cost) ? cost : 0, Number.isFinite(pct) ? pct : 0);
-  const previewing = Boolean(costDraft || profitDraft);
+  // An empty draft means "unchanged"; a typed 0 is a real 0 and must not fall
+  // back to the stored value.
+  const cost = costDraft.trim() === "" ? Number(base?.costPrice ?? 0) : Number(costDraft);
+  const pct = profitDraft.trim() === "" ? Number(base?.profitPercentage ?? 0) : Number(profitDraft);
+  const safeCost = Number.isFinite(cost) ? cost : 0;
+  const safePct = Number.isFinite(pct) ? pct : 0;
+  const derived = sellPrice(safeCost, safePct);
+  const previewing =
+    (costDraft.trim() !== "" && safeCost !== Number(base?.costPrice ?? 0)) ||
+    (profitDraft.trim() !== "" && safePct !== Number(base?.profitPercentage ?? 0));
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["pricing-engine"] });
@@ -110,14 +116,14 @@ export default function GlobalCreditEconomics({
                 inputMode="decimal"
                 className="h-9 w-24"
                 placeholder="0.30"
-                value={costDraft || String(base?.costPrice ?? "")}
+                value={costDraft === "" ? String(base?.costPrice ?? "") : costDraft}
                 onChange={(e) => setCostDraft(e.target.value)}
               />
               <Button
                 size="sm"
                 disabled={saveCost.isPending}
                 onClick={() => {
-                  const value = Number(costDraft || base?.costPrice);
+                  const value = costDraft.trim() === "" ? Number(base?.costPrice) : Number(costDraft);
                   if (!Number.isFinite(value) || value < 0) return toast.error("Enter the cost of one credit.");
                   saveCost.mutate(value);
                 }}
@@ -134,7 +140,7 @@ export default function GlobalCreditEconomics({
                 inputMode="decimal"
                 className="h-9 w-24"
                 placeholder="40"
-                value={profitDraft || String(base?.profitPercentage ?? "")}
+                value={profitDraft === "" ? String(base?.profitPercentage ?? "") : profitDraft}
                 onChange={(e) => setProfitDraft(e.target.value)}
               />
               <span className="text-sm text-dash-surface/70">%</span>
@@ -142,7 +148,7 @@ export default function GlobalCreditEconomics({
                 size="sm"
                 disabled={saveProfit.isPending}
                 onClick={() => {
-                  const value = Number(profitDraft || base?.profitPercentage);
+                  const value = profitDraft.trim() === "" ? Number(base?.profitPercentage) : Number(profitDraft);
                   if (!Number.isFinite(value) || value < 0) return toast.error("Enter a percentage.");
                   saveProfit.mutate(value);
                 }}
@@ -156,10 +162,13 @@ export default function GlobalCreditEconomics({
             <p className={label}>Credit sell price · {previewing ? "preview" : "derived"}</p>
             <p className="mt-2 text-2xl font-semibold text-dash-gold">{money(derived, "GBP")}</p>
             <p className="mt-1 text-xs text-dash-surface/60">
-              {money(Number.isFinite(cost) ? cost : 0, "GBP")} × (1 + {Number.isFinite(pct) ? pct : 0}% )
+              {money(safeCost, "GBP")} × (1 + {safePct}%) = {money(derived, "GBP")}
+            </p>
+            <p className="mt-1 text-[11px] text-dash-surface/55">
+              Applies to new transactions only. Past purchases and usage keep their own locked rate.
             </p>
             {previewing ? (
-              <p className="mt-1 text-[11px] text-dash-gold/80">Preview only — press Save to make this the live rate.</p>
+              <p className="mt-1 text-[11px] text-dash-gold/80">Preview — not yet live. Press Save to apply.</p>
             ) : null}
           </div>
         </div>
@@ -179,20 +188,14 @@ export default function GlobalCreditEconomics({
           </div>
 
           <div className="space-y-1">
-            <p className={label}>Pricing version history</p>
-            {(pricing.data?.rows ?? []).length === 0 ? (
-              <p className="text-xs text-dash-surface/55">No percentage change recorded yet.</p>
-            ) : (
-              (pricing.data?.rows ?? []).slice(0, 6).map((v) => (
-                <p key={v.id} className="text-xs text-dash-surface/70">
-                  <span className={v.current ? "text-dash-gold" : ""}>{v.label ?? "PV"}</span> — cost £
-                  {v.costPerCredit.toFixed(4)} + {v.profitPercentage}% = £{v.sellPrice.toFixed(4)} from{" "}
-                  {day(v.effectiveFrom)}
-                  {v.current ? " — current" : ""}
-                </p>
-              ))
-            )}
+            <p className={label}>Pricing versions recorded</p>
+            <p className="text-xs text-dash-surface/70">
+              {(pricing.data?.rows ?? []).length} locked version
+              {(pricing.data?.rows ?? []).length === 1 ? "" : "s"} — see the history panel below.
+            </p>
           </div>
+
+
 
 
           <div className="space-y-1">
