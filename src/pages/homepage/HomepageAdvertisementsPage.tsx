@@ -119,9 +119,15 @@ const HomepageAdvertisementsPage = () => {
           <ArrowLeft className="h-4 w-4" /> Platform console
         </Link>
         <h1 className="text-lg font-semibold tracking-wide">Advertisement Dashboard</h1>
-        <Button size="sm" variant="outline" onClick={() => setBuildingPreview(true)}>
-          <Monitor className="mr-1.5 h-3.5 w-3.5" /> Live building preview
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setBuildingPreview(true)}>
+            <Monitor className="mr-1.5 h-3.5 w-3.5" /> Live building preview
+          </Button>
+          <Button size="sm" disabled={savingAll} onClick={() => void saveAll()}>
+            <Check className="mr-1.5 h-3.5 w-3.5" /> {savingAll ? "Saving…" : "Save advertisements"}
+          </Button>
+        </div>
+
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 px-6 pb-16">
