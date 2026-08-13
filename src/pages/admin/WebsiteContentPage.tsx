@@ -20,6 +20,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
+import GameAssetPickerDialog from "@/components/gamebuilder/GameAssetPickerDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import WelcomePage from "@/pages/WelcomePage";
 import { uploadGameAsset, renderPathOf } from "@/lib/games/assets";
 import {
