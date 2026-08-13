@@ -344,12 +344,6 @@ export default function PlanDashboard() {
                 }}
                 onPublish={() => publish.mutate(plan.id)}
                 onDiscard={() => discard.mutate(plan.id)}
-                onSaveFeatures={() =>
-                  saveFeatures.mutate({
-                    planId: plan.id,
-                    features: (drafts[plan.id]?.features ?? "").split("\n").map((l) => l.trim()).filter(Boolean),
-                  })
-                }
                 onPresentation={(patch) =>
                   savePresentation.mutate({
                     planId: plan.id,
