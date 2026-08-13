@@ -9,7 +9,7 @@
  * open Checkout on their behalf.
  */
 
-const API = "https://api.stripe.com/v1";
+const API = "https://api.stripe.com";
 
 const secretKey = (): string => {
   const key = process.env["STRIPE_CONNECT_SECRET_KEY"];
@@ -90,7 +90,7 @@ export type StripeAccount = {
  * Stripe's platform plumbing.
  */
 export const platformReadiness = async (): Promise<{ ready: boolean; reason: string | null }> => {
-  const account = await stripeRequest<StripeAccount & { capabilities?: Record<string, string> }>("/account");
+  const account = await stripeRequest<StripeAccount & { capabilities?: Record<string, string> }>("/v1/account");
   if (!account.details_submitted) {
     return { ready: false, reason: "platform account has not submitted its business details" };
   }
@@ -226,7 +226,7 @@ export const createDirectCheckoutSession = (input: {
   customerEmail: string | null;
   metadata: Record<string, string>;
 }) =>
-  stripeRequest<{ id: string; url: string }>("/checkout/sessions", {
+  stripeRequest<{ id: string; url: string }>("/v1/checkout/sessions", {
     method: "POST",
     stripeAccount: input.stripeAccount,
     body: {
