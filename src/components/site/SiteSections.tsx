@@ -93,16 +93,33 @@ const Hero = ({ section }: { section: SiteSectionResolved }) => (
   </section>
 );
 
-const Statement = ({ section }: { section: SiteSectionResolved }) => (
-  <section className="mx-auto max-w-5xl px-6 py-28 text-center sm:py-36">
-    <Reveal>
-      <h2 className="text-[clamp(1.9rem,4.5vw,3.4rem)] font-semibold leading-tight tracking-tight text-white">
-        {section.headline}
-      </h2>
-      {section.subline && <p className="mt-5 text-lg text-white/60">{section.subline}</p>}
-    </Reveal>
-  </section>
-);
+const Statement = ({ section }: { section: SiteSectionResolved }) =>
+  section.media ? (
+    <section className="relative overflow-hidden">
+      <div className="absolute inset-0">
+        <SiteMedia media={section.media} alt="" className="h-full w-full" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/60 to-[hsl(224_70%_6%)]" />
+      </div>
+      <div className="relative mx-auto max-w-5xl px-6 py-28 text-center sm:py-40">
+        <Reveal>
+          <h2 className="text-[clamp(1.9rem,4.5vw,3.4rem)] font-semibold leading-tight tracking-tight text-white">
+            {section.headline}
+          </h2>
+          {section.subline && <p className="mt-5 text-lg text-white/70">{section.subline}</p>}
+        </Reveal>
+      </div>
+    </section>
+  ) : (
+    <section className="mx-auto max-w-5xl px-6 py-28 text-center sm:py-36">
+      <Reveal>
+        <h2 className="text-[clamp(1.9rem,4.5vw,3.4rem)] font-semibold leading-tight tracking-tight text-white">
+          {section.headline}
+        </h2>
+        {section.subline && <p className="mt-5 text-lg text-white/60">{section.subline}</p>}
+      </Reveal>
+    </section>
+  );
+
 
 const FullVideo = ({ section }: { section: SiteSectionResolved }) => (
   <section className="relative w-full">
