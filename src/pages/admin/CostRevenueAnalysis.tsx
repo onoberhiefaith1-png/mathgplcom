@@ -336,9 +336,17 @@ export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean }
                     <td className="px-3 py-2 text-dash-surface">{r.owner}</td>
                     <td className="px-3 py-2 text-dash-surface/80">{r.resource}</td>
                     <td className="px-3 py-2 text-dash-surface/60">{CATEGORY_LABEL[r.category as CostCategory] ?? "Payment"}</td>
-                    <td className="px-3 py-2 text-right text-dash-surface/80">{credits(r.costCredits, false)}</td>
-                    <td className="px-3 py-2 text-right text-dash-surface/80">{r.profitRate}%</td>
-                    <td className="px-3 py-2 text-right text-dash-surface">{credits(r.profitCredits, false)}</td>
+                    <td className="px-3 py-2 text-right text-dash-surface/80">
+                      {r.kind === "usage" ? credits(r.costCredits, false) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-dash-surface/80">
+                      {r.kind === "usage" ? `${r.profitRate}%` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-dash-surface">
+                      {r.kind === "usage"
+                        ? credits(r.profitCredits, false)
+                        : `+${credits(r.creditsIssued, false)} issued`}
+                    </td>
                     <td className="px-3 py-2">
                       <span
                         className={`rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${
@@ -350,11 +358,19 @@ export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean }
                     </td>
                     <td
                       className={`px-3 py-2 text-right font-medium ${
-                        r.resultCredits >= 0 ? "text-emerald-300" : "text-rose-300"
+                        (r.kind === "usage" ? r.resultCredits : r.cashReceived) >= 0
+                          ? "text-emerald-300"
+                          : "text-rose-300"
                       }`}
                     >
-                      {r.resultCredits >= 0 ? "+" : ""}
-                      {credits(r.resultCredits, false)}
+                      {r.kind === "usage" ? (
+                        <>
+                          {r.resultCredits >= 0 ? "+" : ""}
+                          {credits(r.resultCredits, false)}
+                        </>
+                      ) : (
+                        <span title="Prepaid value received — not profit">{money(r.cashReceived, currency)}</span>
+                      )}
                     </td>
                   </tr>
                 ))}
