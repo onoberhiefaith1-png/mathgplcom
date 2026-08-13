@@ -4,6 +4,7 @@ import Index from "@/pages/Index";
 import WelcomePage from "@/pages/WelcomePage";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getSiteContent } from "@/lib/site/siteContent.functions";
+import { EMPTY_SITE_CONTENT, type SiteContent } from "@/lib/site/types";
 
 /**
  * The front door. Signed-out visitors see the cinematic public homepage; the
@@ -25,7 +26,16 @@ const Landing = () => {
 };
 
 export const Route = createFileRoute("/")({
-  loader: () => getSiteContent(),
+  // A homepage must never go blank because one fetch failed: fall back to
+  // empty content and let the page render its built-in opening screen.
+  loader: async (): Promise<SiteContent> => {
+    try {
+      return await getSiteContent();
+    } catch (error) {
+      console.error(error);
+      return EMPTY_SITE_CONTENT;
+    }
+  },
   head: () => ({
     meta: [
       { title: "MathGPL — Mathematics, Reimagined." },
