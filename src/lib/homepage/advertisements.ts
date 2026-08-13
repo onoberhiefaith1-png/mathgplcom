@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { MediaSource, MediaType } from "@/lib/games/types";
+import { resolveMediaUrl } from "./homepageConfig";
 
 export const AD_SLOT_COUNT = 8;
 export const AD_SLOTS = Array.from({ length: AD_SLOT_COUNT }, (_, i) => i + 1);
