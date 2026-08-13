@@ -76,9 +76,10 @@ const HomepageAdvertisementsPage = () => {
 
       <main className="mx-auto max-w-5xl space-y-6 px-6 pb-16">
         <p className="text-sm text-muted-foreground">
-          Eight advertisement slots play in order on the Free building's billboard and in Community.
-          Images hold for their duration while the building keeps turning; a video advertisement
-          holds the building still until it finishes, then the building resumes.
+          Each slot owns one of the eight outer positions of the advertising building. As a
+          position turns toward the viewer its advertisement appears on the central billboard; an
+          image keeps the building turning, while a video holds the building still until it has
+          played to the end. Empty or disabled slots keep the building's own artwork.
         </p>
 
         <input
@@ -100,7 +101,10 @@ const HomepageAdvertisementsPage = () => {
             return (
               <div key={slot} className="rounded-2xl border border-border bg-card/50 p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold">Advertisement {slot}</p>
+                  <div>
+                    <p className="text-sm font-semibold">Advertisement slot {slot}</p>
+                    <p className="text-xs text-muted-foreground">Outer building position {slot}</p>
+                  </div>
                   {ad && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">Active</span>
