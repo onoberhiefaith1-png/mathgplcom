@@ -82,10 +82,11 @@ export async function creditActivity(userId: string, limit = 40) {
     if (!canManage) {
       const { data: org } = await db
         .from("organizations")
-        .select("owner_id")
+        .select("owner_user_id")
         .eq("id", costUnit.org_id as string)
         .maybeSingle();
-      canManage = (org?.owner_id as string | null) === userId;
+      canManage = (org?.owner_user_id as string | null) === userId;
+
     }
   }
 
