@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Coins, Loader2, ShieldOff } from "lucide-react";
+import { Coins, Loader2, Plus, ShieldOff } from "lucide-react";
+import { Link } from "@/lib/router-compat";
 
 import { credits as fmtCredits } from "@/lib/costs/categories";
 import { fetchCreditActivity, saveCreditUsageEnabled } from "@/lib/costs/costs.functions";
@@ -24,10 +25,11 @@ const CreditsSection = ({ className = "" }: { className?: string }) => {
 
   useEffect(() => {
     load();
-    // A deduction lands on the wallet; refresh as soon as it does.
+    // A deduction or a purchase lands on the wallet and the ledger; refresh on both.
     const channel = supabase
       .channel("credit-wallet-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "credit_wallets" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "credit_ledger" }, load)
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
@@ -69,7 +71,16 @@ const CreditsSection = ({ className = "" }: { className?: string }) => {
         </p>
       ) : (
         <>
-          <div className="mt-2 text-3xl font-semibold tabular-nums">{fmtCredits(state.balance)}</div>
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+            <div className="text-3xl font-semibold tabular-nums">{fmtCredits(state.balance)}</div>
+            <Link
+              to="/plans"
+              hash="buy-credits"
+              className="inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-amber-400 px-4 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"
+            >
+              <Plus className="h-4 w-4" /> Add credits
+            </Link>
+          </div>
 
           {!state.usageEnabled ? (
             <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-200">
@@ -87,13 +98,27 @@ const CreditsSection = ({ className = "" }: { className?: string }) => {
                 <li key={row.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                   <span className="min-w-0">
                     <span className="block truncate">{row.label}</span>
-                    <span className="text-xs text-white/45">{new Date(row.at).toLocaleDateString()}</span>
+                    <span className="text-xs text-white/45">
+                      {new Date(row.at).toLocaleString(undefined, {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
                   </span>
-                  <span
-                    className={`shrink-0 font-semibold tabular-nums ${row.credits < 0 ? "text-white/80" : "text-emerald-300"}`}
-                  >
-                    {row.credits < 0 ? "" : "+"}
-                    {row.credits.toFixed(2)}
+                  <span className="shrink-0 text-right">
+                    <span
+                      className={`block font-semibold tabular-nums ${
+                        row.credits < 0 ? "text-white/80" : "text-emerald-300"
+                      }`}
+                    >
+                      {row.credits < 0 ? "" : "+"}
+                      {row.credits.toFixed(2)}
+                    </span>
+                    <span className="block text-xs text-white/45 tabular-nums">
+                      balance {row.balanceAfter.toFixed(2)}
+                    </span>
                   </span>
                 </li>
               ))}
