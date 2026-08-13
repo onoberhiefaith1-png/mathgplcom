@@ -12,6 +12,7 @@ import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePlanGate } from "@/lib/plans/usePlanGate";
+import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -33,6 +34,8 @@ const Index = () => {
   // Teacher, school and parent accounts pick a platform plan before the
   // building opens. With nothing published for their type, the gate stays open.
   const { needsPlan } = usePlanGate();
+  // Central pipeline decides WHICH building and whether ads play on it.
+  const building = useBuildingContext();
   useEffect(() => {
     if (needsPlan) navigate("/plans/gateway", { replace: true });
   }, [needsPlan, navigate]);
@@ -84,8 +87,8 @@ const Index = () => {
   return (
     <>
       <AcademyTopBar />
-      <RotatingAdventureScene configMode={visiting ? "school-readonly" : "self"} />
-      {!visiting && <HomepageSettingsButton />}
+      <RotatingAdventureScene configMode={building.configMode} showAds={building.adsEnabled} />
+      {building.canCustomize && <HomepageSettingsButton />}
       <LevelNavPanel />
       <Link
         to="/backgrounds"
