@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
-import { CORE_SLOTS, RING_SLOTS } from "@/lib/homepage/buildingSlots";
+import { CORE_SLOTS, RING_SLOTS, defaultUrlFor } from "@/lib/homepage/buildingSlots";
 import {
   useHomepageConfig,
   useResolvedSlotUrls,
@@ -416,6 +416,7 @@ export const RotatingAdventureScene = ({
   const [artworkReady, setArtworkReady] = useState(false);
   const { config, ready } = useHomepageConfig({ mode: configMode });
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
+  const buildingVersion = configMode === "platform-free" ? "free" : "pro";
   // Advertisements come from the building pipeline, never from the page.
   const ads = usePlayableAds(showAds);
   const { current: currentAd, rotationPaused, onVideoEnded, onFacingChange } = useFacingAdRotation(ads);
@@ -430,9 +431,10 @@ export const RotatingAdventureScene = ({
         // An empty or disabled slot simply keeps the building's own artwork.
         const ad = showAds ? adForOuterPosition(ads, i) : null;
         if (ad && ad.media_type === "image" && adImageUrls[i]) return adImageUrls[i];
-        return slotUrls[slot.id] ?? slot.defaultUrl;
+        // The Free building ships its own outer artwork (the billboard palace).
+        return slotUrls[slot.id] ?? defaultUrlFor(slot, buildingVersion);
       }),
-    [slotUrls, showAds, ads, adImageUrls],
+    [slotUrls, showAds, ads, adImageUrls, buildingVersion],
   );
   const coreUrls = useMemo(
     () => CORE_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
