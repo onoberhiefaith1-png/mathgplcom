@@ -103,7 +103,7 @@ const SCHOOL: WorkspaceNavGroup[] = [
     ],
   },
   COMMUNITY,
-  ACCOUNT,
+  ACCOUNT_ONLY,
 ];
 
 
