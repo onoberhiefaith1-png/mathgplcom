@@ -1,17 +1,17 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import RequireAuth from "@/components/auth/RequireAuth";
+import RequireRole from "@/components/auth/RequireRole";
 import StudentShell from "@/components/student/StudentShell";
 
 /**
- * One platform sign-in covers every page under /student, and one responsive
+ * The Student Workspace belongs to student accounts only, and one responsive
  * shell gives every page the right navigation for the device in use.
  */
 export const Route = createFileRoute("/student")({
   component: () => (
-    <RequireAuth>
+    <RequireRole roles={["student"]}>
       <StudentShell>
         <Outlet />
       </StudentShell>
-    </RequireAuth>
+    </RequireRole>
   ),
 });
