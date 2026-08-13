@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
-import { Search } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 import { searchCurriculum } from "@/data/curriculum";
 import AccountMenu from "@/components/academy/AccountMenu";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+
 
 
 
