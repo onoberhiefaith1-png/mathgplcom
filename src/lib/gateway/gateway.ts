@@ -17,6 +17,8 @@ import {
   type GatewaySlot,
 } from "./items";
 
+export type GatewayBillingMode = "free" | "one_off" | "subscription";
+
 export type GatewayPlan = {
   id: string;
   ownerId: string;
@@ -29,6 +31,7 @@ export type GatewayPlan = {
   items: GatewayItem[];
   isPublished: boolean;
   autoGrantExisting: boolean;
+  billingMode: GatewayBillingMode;
 };
 
 export type GatewayEntitlement = {
@@ -54,6 +57,7 @@ type PlanRow = {
   items: string[];
   is_published: boolean;
   auto_grant_existing: boolean;
+  billing_mode?: string | null;
 };
 
 const toPlan = (row: PlanRow): GatewayPlan => ({
@@ -68,7 +72,9 @@ const toPlan = (row: PlanRow): GatewayPlan => ({
   items: (row.items ?? []) as GatewayItem[],
   isPublished: row.is_published,
   autoGrantExisting: row.auto_grant_existing,
+  billingMode: (row.billing_mode ?? "free") as GatewayBillingMode,
 });
+
 
 const toEntitlement = (row: {
   id: string;
@@ -145,9 +151,12 @@ export type PlanDraft = {
   items: GatewayItem[];
   isPublished: boolean;
   autoGrantExisting: boolean;
+  billingMode: GatewayBillingMode;
 };
 
 export const savePlan = async (planId: string, draft: PlanDraft): Promise<GatewayPlan> => {
+  const price = draft.price;
+  const billingMode: GatewayBillingMode = !price || price <= 0 ? "free" : draft.billingMode === "subscription" ? "subscription" : "one_off";
   const { data, error } = await supabase
     .from("gateway_plans")
     .update({
@@ -157,7 +166,9 @@ export const savePlan = async (planId: string, draft: PlanDraft): Promise<Gatewa
       items: draft.items,
       is_published: draft.isPublished,
       auto_grant_existing: draft.autoGrantExisting,
+      billing_mode: billingMode,
     })
+
     .eq("id", planId)
     .select("*")
     .maybeSingle();
@@ -203,7 +214,12 @@ export type GatewayOwnerView = {
   ownerKind: GatewayOwnerKind;
   ownerName: string;
   username: string;
-  plans: Pick<GatewayPlan, "id" | "slot" | "name" | "description" | "price" | "currency" | "items">[];
+  /** Payment is only real once Stripe has verified the owner and they switched it on. */
+  paymentsActive: boolean;
+  plans: Pick<
+    GatewayPlan,
+    "id" | "slot" | "name" | "description" | "price" | "currency" | "items" | "billingMode"
+  >[];
 };
 
 /** The public gateway for an @handle — what a visiting student sees first. */
@@ -222,6 +238,8 @@ export const loadGatewayByHandle = async (handle: string): Promise<GatewayOwnerV
     price_amount: number | string | null;
     currency: string;
     items: string[];
+    billing_mode: string | null;
+    payments_active: boolean | null;
   }[];
   if (rows.length === 0) return null;
 
@@ -230,6 +248,7 @@ export const loadGatewayByHandle = async (handle: string): Promise<GatewayOwnerV
     ownerKind: rows[0].owner_kind as GatewayOwnerKind,
     ownerName: rows[0].owner_name ?? rows[0].username,
     username: rows[0].username,
+    paymentsActive: Boolean(rows[0].payments_active),
     plans: rows.map((row) => ({
       id: row.plan_id,
       slot: row.slot as GatewaySlot,
@@ -238,9 +257,11 @@ export const loadGatewayByHandle = async (handle: string): Promise<GatewayOwnerV
       price: row.price_amount === null ? null : Number(row.price_amount),
       currency: row.currency ?? "GBP",
       items: (row.items ?? []) as GatewayItem[],
+      billingMode: (row.billing_mode ?? "free") as GatewayBillingMode,
     })),
   };
 };
+
 
 /** The student's own choice. Paid plans wait for payment, which comes later. */
 export const choosePlan = async (planId: string): Promise<GatewayEntitlement> => {
@@ -285,4 +306,46 @@ export const loadMyPayoutAccount = async (ownerKind: GatewayOwnerKind) => {
     .maybeSingle();
   if (error) throw error;
   return data ?? null;
+};
+
+export type GatewayPaymentRecord = {
+  id: string;
+  planName: string;
+  studentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  billingMode: string;
+  reference: string | null;
+  createdAt: string;
+};
+
+/** The owner's own record of what students paid them. Stripe holds the full books. */
+export const loadMyGatewayPayments = async (
+  ownerKind: GatewayOwnerKind,
+): Promise<GatewayPaymentRecord[]> => {
+  const ownerId = await currentUserId();
+  const { data, error } = await supabase
+    .from("gateway_payments")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .eq("owner_kind", ownerKind)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+    id: String(row["id"]),
+    planName: (row["plan_name"] as string | null) ?? "Plan",
+    studentId: String(row["student_id"] ?? ""),
+    amount: Number(row["amount"] ?? 0),
+    currency: (row["currency"] as string | null) ?? "GBP",
+    status: (row["status"] as string | null) ?? "pending",
+    billingMode: (row["billing_mode"] as string | null) ?? "one_off",
+    reference:
+      (row["stripe_payment_intent_id"] as string | null) ??
+      (row["stripe_subscription_id"] as string | null) ??
+      (row["stripe_checkout_session_id"] as string | null) ??
+      null,
+    createdAt: String(row["created_at"] ?? ""),
+  }));
 };
