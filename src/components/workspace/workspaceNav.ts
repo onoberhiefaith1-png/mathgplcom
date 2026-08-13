@@ -193,11 +193,13 @@ export const navGroupsFor = (
   workspaceKind?: string,
   options?: { shared?: boolean },
 ): WorkspaceNavGroup[] => {
+  if (role === "platform_owner" || role === "co_admin") return ADMIN;
   if (role === "student") return STUDENT;
   if (role === "parent") return PARENT;
   if (role === "school" && workspaceKind === "school") return SCHOOL;
-  if (role === "school") return [{ title: "School Console", items: [HOME] }, COMMUNITY, ACCOUNT];
+  if (role === "school") return [{ title: "School Console", items: [HOME] }, COMMUNITY, ACCOUNT_ONLY];
   if (options?.shared) return SHARED_TEACHER;
-  return TEACHER;
-
+  if (role === "teacher") return TEACHER;
+  // No role: the Building only, never another account type's menu.
+  return [{ title: "Workspace", items: [HOME] }, ACCOUNT_ONLY];
 };
