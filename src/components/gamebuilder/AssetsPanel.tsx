@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import SignedMedia from "./SignedMedia";
+import BuildingsShelf from "./BuildingsShelf";
 import ShareMenu from "@/components/community/ShareMenu";
 import type { CommunityKind } from "@/lib/community/types";
 import {
@@ -214,12 +215,15 @@ const AssetsPanel = ({ onPick, onPickPreset, value, onValueChange }: AssetsPanel
     defaultValue={value ? undefined : "background"}
     className="flex h-full flex-col"
   >
-    <TabsList className="grid w-full grid-cols-4">
+    <TabsList className="grid w-full grid-cols-5">
       {TABS.map((t) => (
         <TabsTrigger key={t.kind} value={t.kind} className="text-[11px]">
           {t.label}
         </TabsTrigger>
       ))}
+      <TabsTrigger value="buildings" className="text-[11px]">
+        Buildings
+      </TabsTrigger>
     </TabsList>
     <div className="mt-3 flex-1 overflow-y-auto pr-1">
       {TABS.map((t) => (
@@ -227,8 +231,12 @@ const AssetsPanel = ({ onPick, onPickPreset, value, onValueChange }: AssetsPanel
           <KindGrid kind={t.kind} onPick={onPick} onPickPreset={onPickPreset} />
         </TabsContent>
       ))}
+      <TabsContent value="buildings" className="mt-0">
+        <BuildingsShelf />
+      </TabsContent>
     </div>
   </Tabs>
 );
+
 
 export default AssetsPanel;

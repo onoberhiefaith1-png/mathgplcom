@@ -33,6 +33,21 @@ export interface HomepageConfig {
 
 const STORAGE_KEY = "mathgpl.homepage.config";
 
+/**
+ * Every successful Save also files the resulting building into the GPL Assets
+ * Buildings shelf as a new snapshot. Loaded lazily so the assets module can
+ * import this one without a cycle, and never allowed to fail a Save.
+ */
+const archiveBuilding = async (version: "pro" | "free", config: HomepageConfig) => {
+  try {
+    const { snapshotBuilding } = await import("./buildingAssets");
+    await snapshotBuilding(version, config);
+  } catch (err) {
+    console.error("building snapshot failed", err);
+  }
+};
+
+
 const readLocal = (): HomepageConfig => {
   if (typeof window === "undefined") return {};
   try {
@@ -162,6 +177,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
         if (mode === "platform-free") {
           const { error } = await supabase.rpc("set_platform_free_building", { _config: next as never });
           if (error) throw error;
+          await archiveBuilding("free", next);
           return;
         }
         const { data: userData } = await supabase.auth.getUser();
@@ -171,9 +187,11 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
           .update({ homepage_config: next as never })
           .eq("user_id", userData.user.id);
         if (error) throw error;
+        await archiveBuilding("pro", next);
       } finally {
         setSaving(false);
       }
+
     },
     [mode, apply],
   );
