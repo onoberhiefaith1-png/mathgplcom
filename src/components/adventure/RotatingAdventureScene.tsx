@@ -381,12 +381,19 @@ export const RotatingAdventureScene = ({
   routeFor,
   interactive = true,
   configMode = "self",
+  showAds = false,
 }: {
   routeFor?: (route: string) => string;
   /** Students view the academy; segments are not clickable for them. */
   interactive?: boolean;
-  /** "school-readonly" mirrors the academy chosen by the school owner. */
-  configMode?: "self" | "school-readonly";
+  /**
+   * Which building configuration to render.
+   * "self" = this account's Pro building, "school-readonly" = the owner's
+   * building, "platform-free" = the platform-owned Free building.
+   */
+  configMode?: HomepageConfigMode;
+  /** Plays the platform advertisement billboard on this building. */
+  showAds?: boolean;
 } = {}) => {
   // ONE WebGL context for the life of the page. The canvas is never keyed on
   // artwork URLs — swapping textures happens INSIDE the live scene, so the
@@ -397,6 +404,10 @@ export const RotatingAdventureScene = ({
   const [artworkReady, setArtworkReady] = useState(false);
   const { config, ready } = useHomepageConfig({ mode: configMode });
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
+  // Advertisements come from the building pipeline, never from the page.
+  const ads = usePlayableAds(showAds);
+  const { current: currentAd, rotationPaused, onVideoEnded } = useAdRotation(ads);
+
 
   const ringUrls = useMemo(
     () => RING_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
