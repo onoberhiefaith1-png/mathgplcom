@@ -289,6 +289,7 @@ export async function mySubscription(supabase: Client, userId: string): Promise<
     scheduledPlanId: (data.scheduled_plan_id as string) ?? null,
     cancelAt: (data.cancel_at as string) ?? null,
     paymentState: (data.payment_state as "ok" | "past_due") ?? "ok",
+    graceUntil: ((data as { grace_until?: string | null }).grace_until as string) ?? null,
   };
 }
 
